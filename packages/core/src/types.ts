@@ -1,4 +1,5 @@
 import type { AgentConfig } from "./agent/types.js";
+import type { AnomalyConfig } from "./anomaly/detector.js";
 import type { AuthAdapter } from "./auth/types.js";
 import type { McpConfig } from "./mcp/types.js";
 import type { SessionConfig } from "./session/session.js";
@@ -35,6 +36,9 @@ export interface KavachConfig {
 		adapter?: AuthAdapter;
 		session?: SessionConfig;
 	};
+
+	/** Anomaly detection configuration */
+	anomaly?: AnomalyConfig;
 
 	/** Base URL for the auth server */
 	baseUrl?: string;
@@ -81,9 +85,23 @@ export interface AgentModule {
 	rotate: (agentId: string) => Promise<AgentIdentity>;
 }
 
+export interface CostSummary {
+	totalCost: number;
+	byAgent: Array<{ agentId: string; totalCost: number; callCount: number }>;
+	byDay: Array<{ date: string; totalCost: number; callCount: number }>;
+}
+
+export interface CostFilter {
+	agentId?: string;
+	userId?: string;
+	since?: Date;
+	until?: Date;
+}
+
 export interface AuditModule {
 	query: (filter: AuditFilter) => Promise<AuditEntry[]>;
 	export: (options: AuditExportOptions) => Promise<string>;
+	getCostSummary: (filter?: CostFilter) => Promise<CostSummary>;
 }
 
 export interface McpModule {
@@ -148,7 +166,20 @@ export interface AuthorizeResult {
 	auditId: string;
 }
 
-export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promise<AuthorizeResult>;
+export interface AuthorizeContext {
+	/** Client IP address, used for ipAllowlist enforcement and audit logging */
+	ip?: string;
+	/** User-Agent string from the originating HTTP request */
+	userAgent?: string;
+	/** Token cost to record in the audit log (e.g. LLM prompt + completion tokens) */
+	tokensCost?: number;
+}
+
+export type AuthorizeFn = (
+	agentId: string,
+	request: AuthorizeRequest,
+	context?: AuthorizeContext,
+) => Promise<AuthorizeResult>;
 
 export interface RequestContext {
 	/** Client IP address, used for ipAllowlist enforcement and audit logging */

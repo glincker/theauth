@@ -1,7 +1,13 @@
 import { and, desc, eq, gte, lt, lte } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
-import type { AuditEntry, AuditExportOptions, AuditFilter } from "../types.js";
+import type {
+	AuditEntry,
+	AuditExportOptions,
+	AuditFilter,
+	CostFilter,
+	CostSummary,
+} from "../types.js";
 
 interface AuditModuleConfig {
 	db: Database;
@@ -117,7 +123,67 @@ export function createAuditModule(config: AuditModuleConfig) {
 		return { deleted: toDelete.length };
 	}
 
-	return { query, export: exportLogs, cleanup };
+	/**
+	 * Aggregate token costs from the audit log.
+	 *
+	 * Returns the total cost across all matching entries, broken down by agent
+	 * and by calendar day (UTC). Only entries where `tokensCost` is not null
+	 * are included in cost totals; all matching entries count toward `callCount`.
+	 */
+	async function getCostSummary(filter?: CostFilter): Promise<CostSummary> {
+		const conditions = [];
+
+		if (filter?.agentId) conditions.push(eq(auditLogs.agentId, filter.agentId));
+		if (filter?.userId) conditions.push(eq(auditLogs.userId, filter.userId));
+		if (filter?.since) conditions.push(gte(auditLogs.timestamp, filter.since));
+		if (filter?.until) conditions.push(lte(auditLogs.timestamp, filter.until));
+
+		let q = db.select().from(auditLogs).$dynamic();
+
+		if (conditions.length > 0) {
+			q = q.where(and(...conditions));
+		}
+
+		const rows = await q;
+
+		// Total across all matching rows (only where tokensCost is set)
+		let totalCost = 0;
+
+		// Aggregate by agentId
+		const agentMap = new Map<string, { totalCost: number; callCount: number }>();
+		// Aggregate by UTC date string "YYYY-MM-DD"
+		const dayMap = new Map<string, { totalCost: number; callCount: number }>();
+
+		for (const row of rows) {
+			const cost = row.tokensCost ?? 0;
+			totalCost += cost;
+
+			// Per-agent
+			const agentEntry = agentMap.get(row.agentId) ?? { totalCost: 0, callCount: 0 };
+			agentEntry.totalCost += cost;
+			agentEntry.callCount += 1;
+			agentMap.set(row.agentId, agentEntry);
+
+			// Per-day (UTC)
+			const date = row.timestamp.toISOString().slice(0, 10);
+			const dayEntry = dayMap.get(date) ?? { totalCost: 0, callCount: 0 };
+			dayEntry.totalCost += cost;
+			dayEntry.callCount += 1;
+			dayMap.set(date, dayEntry);
+		}
+
+		const byAgent = Array.from(agentMap.entries())
+			.map(([agentId, v]) => ({ agentId, ...v }))
+			.sort((a, b) => b.totalCost - a.totalCost);
+
+		const byDay = Array.from(dayMap.entries())
+			.map(([date, v]) => ({ date, ...v }))
+			.sort((a, b) => a.date.localeCompare(b.date));
+
+		return { totalCost, byAgent, byDay };
+	}
+
+	return { query, export: exportLogs, cleanup, getCostSummary };
 }
 
 function toAuditEntry(row: typeof auditLogs.$inferSelect): AuditEntry {

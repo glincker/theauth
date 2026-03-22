@@ -7,7 +7,9 @@
 
 // Re-export submodules
 export * from "./agent/index.js";
+export * from "./anomaly/index.js";
 export * from "./audit/index.js";
+export * from "./compliance/index.js";
 export * from "./auth/index.js";
 export * from "./db/index.js";
 export * from "./delegation/index.js";

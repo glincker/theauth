@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { createAgentModule } from "./agent/agent.js";
+import { createAnomalyDetector } from "./anomaly/detector.js";
 import { createAuditModule } from "./audit/audit.js";
+import { generateComplianceReport } from "./compliance/report.js";
+import type { ComplianceReportOptions } from "./compliance/report.js";
 import type { ResolvedUser } from "./auth/types.js";
 import { createDatabase } from "./db/database.js";
 import { createTables } from "./db/migrations.js";
@@ -13,8 +16,10 @@ import { createSessionManager } from "./session/session.js";
 import type {
 	AuditExportOptions,
 	AuditFilter,
+	AuthorizeContext,
 	AuthorizeRequest,
 	AuthorizeResult,
+	CostFilter,
 	DelegateInput,
 	DelegationChain,
 	KavachConfig,
@@ -91,11 +96,13 @@ export async function createKavach(config: KavachConfig) {
 		? createSessionManager(config.auth.session, db)
 		: null;
 
+	const anomalyDetector = createAnomalyDetector(config.anomaly ?? {}, db);
+
 	// Authorize: look up agent, check own permissions then delegated permissions
 	async function authorize(
 		agentId: string,
 		request: AuthorizeRequest,
-		context?: RequestContext,
+		context?: AuthorizeContext,
 	): Promise<AuthorizeResult> {
 		const agent = await agentModule.get(agentId);
 		if (!agent) {
@@ -113,10 +120,18 @@ export async function createKavach(config: KavachConfig) {
 			};
 		}
 
-		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
+		// Build RequestContext (ip + userAgent) from the broader AuthorizeContext
+		const requestContext: RequestContext | undefined =
+			context && (context.ip !== undefined || context.userAgent !== undefined)
+				? { ip: context.ip, userAgent: context.userAgent }
+				: undefined;
+
+		const enrichedRequest: AuthorizeRequest = requestContext
+			? { ...request, context: requestContext }
+			: request;
 
 		// First check the agent's own permissions
-		const ownResult = await permissionEngine.authorize(agent, enrichedRequest);
+		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, context?.tokensCost);
 		if (ownResult.allowed) return ownResult;
 
 		// If own permissions deny, check effective permissions from delegation chains
@@ -125,7 +140,11 @@ export async function createKavach(config: KavachConfig) {
 
 		// Build a synthetic agent view with delegated permissions merged in
 		const agentWithDelegated = { ...agent, permissions: delegatedPerms };
-		const delegatedResult = await permissionEngine.authorize(agentWithDelegated, enrichedRequest);
+		const delegatedResult = await permissionEngine.authorize(
+			agentWithDelegated,
+			enrichedRequest,
+			context?.tokensCost,
+		);
 		if (delegatedResult.allowed) return delegatedResult;
 
 		// Both denied — return the original denial so the message references the agent by name
@@ -136,7 +155,7 @@ export async function createKavach(config: KavachConfig) {
 	async function authorizeByToken(
 		token: string,
 		request: AuthorizeRequest,
-		context?: RequestContext,
+		context?: AuthorizeContext,
 	): Promise<AuthorizeResult> {
 		const agent = await agentModule.validateToken(token);
 		if (!agent) {
@@ -146,8 +165,18 @@ export async function createKavach(config: KavachConfig) {
 				auditId: "",
 			};
 		}
-		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
-		return permissionEngine.authorize(agent, enrichedRequest);
+
+		// Build RequestContext (ip + userAgent) from the broader AuthorizeContext
+		const requestContext: RequestContext | undefined =
+			context && (context.ip !== undefined || context.userAgent !== undefined)
+				? { ip: context.ip, userAgent: context.userAgent }
+				: undefined;
+
+		const enrichedRequest: AuthorizeRequest = requestContext
+			? { ...request, context: requestContext }
+			: request;
+
+		return permissionEngine.authorize(agent, enrichedRequest, context?.tokensCost);
 	}
 
 	// Delegate: verify parent permissions then create chain
@@ -250,6 +279,7 @@ export async function createKavach(config: KavachConfig) {
 			query: (filter: AuditFilter) => auditModule.query(filter),
 			export: (options: AuditExportOptions) => auditModule.export(options),
 			cleanup: (options: { retentionDays: number }) => auditModule.cleanup(options),
+			getCostSummary: (filter?: CostFilter) => auditModule.getCostSummary(filter),
 		},
 		/**
 		 * MCP server registration.
@@ -258,6 +288,27 @@ export async function createKavach(config: KavachConfig) {
 		 * database table — no separate in-memory store needed.
 		 */
 		mcp: mcpRegistry,
+		/**
+		 * Compliance report generation.
+		 *
+		 * Generate framework-specific compliance reports (EU AI Act, NIST AI RMF,
+		 * SOC 2, ISO 42001) backed by live agent and audit data.
+		 */
+		compliance: {
+			generateReport: (options: ComplianceReportOptions) =>
+				generateComplianceReport(db, options),
+		},
+		/**
+		 * Behavioural anomaly detection.
+		 *
+		 * Scan recent audit logs for unusual patterns — high call frequency,
+		 * elevated denial rates, off-hours access, new resource patterns, and
+		 * privilege escalation attempts.
+		 */
+		anomaly: {
+			scan: anomalyDetector.scan,
+			getSummary: anomalyDetector.getSummary,
+		},
 		/**
 		 * Human auth integration.
 		 *

@@ -172,10 +172,13 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 	/**
 	 * Check if an agent is authorized to perform an action.
 	 * This is the core authorization function.
+	 *
+	 * @param tokensCost - Optional token cost to record in the audit log.
 	 */
 	async function authorize(
 		agent: AgentIdentity,
 		request: AuthorizeRequest,
+		tokensCost?: number,
 	): Promise<AuthorizeResult> {
 		const startTime = performance.now();
 		const auditId = randomUUID();
@@ -192,7 +195,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				auditId,
 			};
 			if (auditAll) {
-				await writeAuditLog(db, agent, request, result, startTime, auditId);
+				await writeAuditLog(db, agent, request, result, startTime, auditId, tokensCost);
 			}
 			return result;
 		}
@@ -212,7 +215,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 					auditId,
 				};
 				if (auditAll) {
-					await writeAuditLog(db, agent, request, result, startTime, auditId);
+					await writeAuditLog(db, agent, request, result, startTime, auditId, tokensCost);
 				}
 				return result;
 			}
@@ -220,7 +223,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 
 		const result: AuthorizeResult = { allowed: true, auditId };
 		if (auditAll) {
-			await writeAuditLog(db, agent, request, result, startTime, auditId);
+			await writeAuditLog(db, agent, request, result, startTime, auditId, tokensCost);
 		}
 		return result;
 	}
@@ -304,6 +307,7 @@ async function writeAuditLog(
 	result: AuthorizeResult,
 	startTime: number,
 	auditId: string,
+	tokensCost?: number,
 ): Promise<void> {
 	const durationMs = Math.round(performance.now() - startTime);
 
@@ -317,6 +321,7 @@ async function writeAuditLog(
 		result: result.allowed ? "allowed" : "denied",
 		reason: result.reason ?? null,
 		durationMs,
+		tokensCost: tokensCost ?? null,
 		timestamp: new Date(),
 		ip: request.context?.ip ?? null,
 		userAgent: request.context?.userAgent ?? null,
