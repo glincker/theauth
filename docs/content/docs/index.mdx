@@ -1,95 +1,122 @@
 ---
 title: Introduction
-description: KavachOS is an auth OS for AI agents. It handles identity, permissions, delegation, and audit for agentic systems.
+description: KavachOS is a TypeScript SDK that gives AI agents their own identity, enforces permissions at call time, and logs every decision to an immutable audit trail.
 icon: BookOpen
 ---
 
+## What KavachOS is
 
-## What is KavachOS
-
-KavachOS gives every AI agent a cryptographic identity, enforces least-privilege access control, and maintains an immutable record of everything it does. It ships as a TypeScript SDK (`kavachos`) with zero framework dependencies in the core, plus drop-in adapters for seven frameworks.
-
-The central primitive is `AgentIdentity`, not a user session. Agents are first-class entities with their own tokens, permission sets, and audit trails. Human users own agents, but the auth model is built around agents from the ground up.
+KavachOS is a TypeScript auth SDK that treats AI agents as first-class identities. You create agents, assign them scoped permissions, and call `authorize()` before every sensitive operation. Each agent gets an opaque bearer token (`kv_...`), each authorization decision is logged with a unique audit ID, and agents can delegate subsets of their permissions to other agents with depth limits and expiry. The core package has zero framework dependencies. It works with any runtime that supports Web API `Request`/`Response`.
 
 <Callout type="info">
-KavachOS does not replace your human auth provider. It runs alongside Clerk, Auth.js, better-auth, or whatever you already use. You bring the user ID from your existing auth system, and KavachOS handles everything that happens from there.
+KavachOS does not replace your human auth provider. It runs alongside Clerk, Auth.js, better-auth, or whatever you already use. You bring user IDs from your existing system. KavachOS handles everything after that: agent creation, permission enforcement, delegation, and audit.
 </Callout>
 
-## Why agent auth matters
+## The problem
 
-Most MCP servers running today have no authentication at all. A tool that can write files, run shell commands, or push to GitHub is often wide open to any caller that knows the endpoint URL. As agentic systems become more capable, this is no longer acceptable.
+81% of enterprises are deploying AI agents in production, but only 14% have security approval for those deployments. 45% of teams use shared API keys to authenticate agents, with no per-agent identity, no scoped permissions, and no audit trail.
 
-KavachOS addresses three concrete problems:
+Three things break without agent-specific auth:
 
-**Identity.** An agent has no cryptographic identity it can present to a downstream service. There is no way to say "this action was taken by agent X, owned by user Y, acting under delegation Z."
+- **No identity.** When an agent calls an MCP server or external API, there is no way to say "this request came from agent X, owned by user Y, operating under delegation Z." Shared API keys make every agent indistinguishable.
+- **No least privilege.** Granting an agent broad access to complete a task, then hoping it stays in bounds, is not a security model. Permissions need to be declared before the agent runs and enforced on every call.
+- **No accountability.** If an agent causes an incident (pushes to the wrong branch, deletes a production record, overspends a token budget), you need a tamper-evident log of what it did and why it was allowed to do it.
 
-**Least privilege.** Granting an agent broad access to get a task done, then hoping it stays in bounds, is not a security model. Permissions need to be declared, scoped, and enforced at call time.
+## What it includes
 
-**Accountability.** If an agent causes an incident, you need a tamper-evident record of what it did and why it was allowed to do it. Console logs are not enough.
+- **Agent identity lifecycle.** Create, scope, rotate, expire, and revoke agent tokens.
+- **Permission engine.** Resource-based access control with colon-separated hierarchies (`mcp:github:repos`), wildcard matching (`mcp:github:*`), and constraints (rate limits, time windows, IP allowlists, human-in-the-loop gates).
+- **Agent-to-agent delegation.** An orchestrator delegates a strict subset of its permissions to a sub-agent, with depth limits and expiry. The full chain is auditable.
+- **Immutable audit log.** Every `authorize()` call writes a log entry with the decision, the resource, the agent, and a unique `auditId`. Export as JSON or CSV.
+- **Token-based auth.** `authorizeByToken()` validates an incoming bearer token and checks permissions in one call. No JWTs, no network round-trips.
+- **MCP OAuth 2.1 server.** Spec-compliant authorization server with PKCE (S256), Protected Resource Metadata (RFC 9728), Resource Indicators (RFC 8707), and Dynamic Client Registration (RFC 7591).
+- **Framework adapters.** Drop-in middleware for Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, and Astro.
+- **Multi-database.** SQLite for development, Postgres or MySQL in production. All through Drizzle ORM with automatic table creation on startup.
+- **Compliance reports.** Generate framework-specific reports for EU AI Act, NIST AI RMF, SOC 2, and ISO 42001.
+- **Anomaly detection.** Scan audit logs for unusual patterns: high call frequency, elevated denial rates, off-hours access, and privilege escalation attempts.
 
-## Core features
+## How it fits
 
-**Agent identity.** Every agent gets a bearer token (`kv_...`) backed by a SHA-256 hash in the database. Rotation is atomic and instant — the old token is invalid the moment you rotate.
+```
+┌─────────────────────────────────────────────────┐
+│  Your application                               │
+│                                                 │
+│  ┌──────────────┐      ┌──────────────────────┐ │
+│  │ Human auth   │      │ KavachOS             │ │
+│  │ (Clerk,      │─────>│                      │ │
+│  │  Auth.js,    │ user │  agent.create()      │ │
+│  │  better-auth)│  ID  │  authorize()         │ │
+│  └──────────────┘      │  authorizeByToken()  │ │
+│                        │  delegate()          │ │
+│                        │  audit.query()       │ │
+│                        └──────────┬───────────┘ │
+│                                   │             │
+│                          allowed / denied       │
+│                                   │             │
+│                        ┌──────────▼───────────┐ │
+│                        │ MCP servers, APIs,   │ │
+│                        │ tools, databases     │ │
+│                        └──────────────────────┘ │
+└─────────────────────────────────────────────────┘
+```
 
-**Permission engine.** Resource-based access control with colon-separated hierarchies and wildcard matching. Permissions carry optional constraints: rate limits, time windows, IP allowlists, and human-in-the-loop approval gates.
-
-**Delegation chains.** An orchestrator agent can delegate a strict subset of its permissions to a sub-agent, with configurable depth limits and expiry. The full chain is audited and revocable at any point.
-
-**Audit trail.** Every authorization decision is written to an immutable log with a unique `auditId`. Export as JSON or CSV for compliance tooling.
-
-**MCP OAuth 2.1.** A spec-compliant authorization server for the Model Context Protocol. Implements PKCE (S256), Protected Resource Metadata (RFC 9728), Resource Indicators (RFC 8707), and Dynamic Client Registration (RFC 7591).
-
-**Framework adapters.** Drop-in middleware for Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, and Astro.
-
-**Database support.** SQLite for local development, Postgres or MySQL in production. All via Drizzle ORM with auto-migration.
+Your human auth provider authenticates the user. KavachOS takes the user ID and manages everything about their agents. When an agent wants to do something, your app calls `authorize()` or `authorizeByToken()`, and KavachOS returns `{ allowed, reason, auditId }`.
 
 ## Package structure
 
 <Files>
   <Folder name="kavachos" defaultOpen>
     <Folder name="packages" defaultOpen>
-      <Folder name="core">
-        <File name="index.ts" />
-        <File name="agent.ts" />
-        <File name="authorize.ts" />
-        <File name="delegation.ts" />
-        <File name="audit.ts" />
+      <Folder name="core" defaultOpen>
+        <File name="kavach.ts" />
+        <File name="agent/" />
+        <File name="permission/" />
+        <File name="delegation/" />
+        <File name="audit/" />
+        <File name="auth/" />
+        <File name="mcp/" />
+        <File name="db/" />
       </Folder>
-      <Folder name="adapter-hono">
-        <File name="index.ts" />
+      <Folder name="dashboard">
+        <File name="Admin UI (React + shadcn)" />
       </Folder>
-      <Folder name="adapter-express">
-        <File name="index.ts" />
+      <Folder name="cli">
+        <File name="Setup wizard and dev tools" />
       </Folder>
-      <Folder name="adapter-nextjs">
-        <File name="index.ts" />
+      <Folder name="adapters" defaultOpen>
+        <File name="hono/" />
+        <File name="express/" />
+        <File name="nextjs/" />
+        <File name="fastify/" />
+        <File name="nuxt/" />
+        <File name="sveltekit/" />
+        <File name="astro/" />
       </Folder>
-      <Folder name="mcp">
-        <File name="oauth-server.ts" />
-      </Folder>
+    </Folder>
+    <Folder name="examples">
+      <File name="basic-agent/" />
     </Folder>
   </Folder>
 </Files>
 
-The `core` package has zero framework dependencies. It uses Web API `Request`/`Response` primitives. Adapters wrap it for their respective frameworks without touching the core logic.
+The `core` package has zero framework dependencies. It uses Web API `Request`/`Response` objects. Framework-specific code lives in `adapters/`, which wrap the core without modifying it.
 
-## Comparison with alternatives
+## Comparison
 
-|  | KavachOS | better-auth (agents plugin) | Casdoor | Auth0 Agents | Roll your own |
-|---|---|---|---|---|---|
-| Agent-first data model | yes | no (humans first) | no | partial (beta) | depends |
-| Wildcard permission matching | yes | no | yes | limited | depends |
-| Delegation chains with depth limits | yes | no | no | no | rarely |
-| MCP OAuth 2.1 compliant | yes | no | no | no | no |
-| Immutable compliance-ready audit log | yes | partial | partial | yes | rarely |
-| Token rotation | yes | no | yes | yes | rarely |
-| TypeScript-native SDK | yes | yes | no (Go) | no (REST only) | yes |
-| Framework-agnostic core | yes | yes | no | no | yes |
-
-<Callout type="warn">
-Casdoor is written in Go and requires a separate service. Auth0 Agents is in beta and tightly coupled to the Auth0 platform. Rolling your own means rebuilding delegation chains, wildcard permission matching, and audit integrity from scratch.
-</Callout>
+|  | KavachOS | better-auth (agents plugin) | Roll your own |
+|---|---|---|---|
+| Agent-first data model | Yes. `AgentIdentity` is the primary entity. | No. Agents are a plugin on top of human auth. | Depends on your design. |
+| Wildcard permission matching | Yes. `mcp:github:*` matches `mcp:github:repos`. | No. | You build it. |
+| Delegation chains | Yes. Depth limits, expiry, subset enforcement. | No. | Rarely implemented. |
+| Constraint types | Rate limits, time windows, IP allowlists, human-in-the-loop. | None. | You build each one. |
+| MCP OAuth 2.1 | Yes. PKCE, RFC 9728, RFC 8707, RFC 7591. | No. | Months of spec work. |
+| Immutable audit log | Yes. Every decision, exportable as CSV/JSON. | Partial. | You build it. |
+| Token rotation | Yes. Atomic, instant invalidation of old token. | No. | You build it. |
+| Database support | SQLite, Postgres, MySQL via Drizzle. | SQLite, Postgres, MySQL via Drizzle. | Whatever you wire up. |
+| Framework adapters | 7 frameworks. | Many frameworks. | You build each one. |
 
 ## What KavachOS is not
 
-KavachOS does not handle login flows, session cookies, OAuth social providers, or email verification. Those belong in your human auth layer. If you need all of that in one package, look at better-auth or Auth.js. KavachOS starts where those leave off: at the point where an authenticated human spins up an agent and hands it a set of capabilities.
+KavachOS does not handle login flows, session cookies, OAuth social providers, email verification, or password resets. Those belong in your human auth layer (Clerk, Auth.js, better-auth, or similar). If you need human auth and agent auth in one package, KavachOS is not that. It starts where human auth ends: at the point where an authenticated user creates an agent and hands it a set of capabilities.
+
+KavachOS is also not a gateway or proxy. It does not sit between your agent and external services in the network path. It is a library your application calls to make authorization decisions. Your application is responsible for enforcing those decisions.

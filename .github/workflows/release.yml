@@ -46,7 +46,13 @@ jobs:
           fi
 
       - name: Publish to npm
-        run: pnpm -r publish --access public --tag ${{ steps.npm-tag.outputs.tag }} --no-git-checks
+        run: |
+          for pkg in packages/core packages/dashboard packages/cli packages/client packages/adapters/*; do
+            if [ -f "$pkg/package.json" ] && [ -d "$pkg/dist" ]; then
+              echo "Publishing $pkg..."
+              (cd "$pkg" && npm publish --access public --tag ${{ steps.npm-tag.outputs.tag }} --no-git-checks --provenance) || echo "Skipped $pkg (already published or error)"
+            fi
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true

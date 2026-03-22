@@ -78,6 +78,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 		await db.insert(agents).values({
 			id,
 			ownerId: input.ownerId,
+			tenantId: input.tenantId ?? null,
 			name: input.name,
 			type: input.type,
 			status: "active",
@@ -106,6 +107,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 		return {
 			id,
 			ownerId: input.ownerId,
+			tenantId: input.tenantId,
 			name: input.name,
 			type: input.type,
 			token,
@@ -127,6 +129,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 		return {
 			id: agent.id,
 			ownerId: agent.ownerId,
+			tenantId: agent.tenantId ?? undefined,
 			name: agent.name,
 			type: agent.type as AgentIdentity["type"],
 			token: "", // never return token after creation
@@ -143,6 +146,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 
 		const conditions = [];
 		if (filter?.userId) conditions.push(eq(agents.ownerId, filter.userId));
+		if (filter?.tenantId) conditions.push(eq(agents.tenantId, filter.tenantId));
 		if (filter?.status) conditions.push(eq(agents.status, filter.status));
 		if (filter?.type) conditions.push(eq(agents.type, filter.type));
 
@@ -163,6 +167,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 		return rows.map((agent) => ({
 			id: agent.id,
 			ownerId: agent.ownerId,
+			tenantId: agent.tenantId ?? undefined,
 			name: agent.name,
 			type: agent.type as AgentIdentity["type"],
 			token: "",
@@ -269,6 +274,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 		return {
 			id: agent.id,
 			ownerId: agent.ownerId,
+			tenantId: agent.tenantId ?? undefined,
 			name: agent.name,
 			type: agent.type as AgentIdentity["type"],
 			token: "",

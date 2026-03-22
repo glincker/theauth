@@ -1,94 +1,169 @@
 ---
 title: MCP OAuth 2.1
-description: Setting up the KavachOS authorization server for the Model Context Protocol.
+description: OAuth 2.1 authorization server for the Model Context Protocol.
 icon: Globe
 ---
 
-
 ## What MCP auth is
 
-The Model Context Protocol defines how AI clients connect to tool servers. The 2025-03 revision added an auth layer: MCP servers can now require OAuth 2.1 tokens before accepting tool calls.
+The Model Context Protocol (MCP) defines how AI clients connect to tool servers. Starting with the 2025-03 revision, MCP servers can require OAuth 2.1 tokens before accepting tool calls. KavachOS implements a complete MCP-compliant authorization server that issues, validates, and manages these tokens. It handles discovery, client registration, authorization codes, PKCE verification, token issuance, refresh rotation, and scope enforcement.
 
-KavachOS implements the full MCP auth stack:
+## What KavachOS implements
 
-- OAuth 2.1 with PKCE (S256 code challenge method only)
-- Protected Resource Metadata (RFC 9728)
-- Authorization Server Metadata (RFC 8414)
-- Resource Indicators (RFC 8707)
-- Dynamic Client Registration (RFC 7591)
+The MCP module covers these specifications:
+
+| Specification | What it does |
+|---|---|
+| OAuth 2.1 (draft-ietf-oauth-v2-1-13) | Authorization code grant with mandatory PKCE |
+| PKCE S256 only | Plain PKCE is rejected at the authorization endpoint |
+| RFC 8414 | Authorization Server Metadata discovery |
+| RFC 9728 | Protected Resource Metadata discovery |
+| RFC 8707 | Resource Indicators for audience-bound tokens |
+| RFC 7591 | Dynamic Client Registration |
 
 ## Setup
 
-### Setting up
+### Creating the MCP module
+
+The `createMcpModule` function wires up all MCP OAuth endpoints into a single module. You provide storage callbacks (how to persist clients, codes, and tokens) and a user resolution function (how to identify the authenticated user from a request).
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createMcpModule } from 'kavachos/mcp';
 
-const kavach = createKavach({
-  database: { provider: 'sqlite', url: 'kavach.db' },
-  baseUrl: 'https://auth.yourapp.com',
-  mcp: {
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
     issuer: 'https://auth.yourapp.com',
-    audience: 'https://mcp.yourapp.com',
-    accessTokenTtl: 3600,    // seconds
-    refreshTokenTtl: 86400,
+    baseUrl: 'https://auth.yourapp.com/api/kavach',
+    signingSecret: process.env.MCP_SIGNING_SECRET, // >= 32 chars
+    scopes: ['mcp:read', 'mcp:write', 'mcp:execute'],
+    accessTokenTtl: 3600,      // 1 hour (default)
+    refreshTokenTtl: 604800,   // 7 days (default)
+    codeTtl: 600,              // 10 minutes (default)
+    allowedResources: ['https://mcp.yourapp.com'],
+    loginPage: '/login',
+    consentPage: '/consent',
+    preRegisteredClients: [
+      {
+        clientId: 'my-cli',
+        redirectUris: ['http://localhost:3000/callback'],
+        clientName: 'My CLI Tool',
+      },
+    ],
+  },
+  storeClient: async (client) => { /* persist to your database */ },
+  findClient: async (clientId) => { /* look up by ID */ },
+  storeAuthorizationCode: async (code) => { /* persist auth code */ },
+  consumeAuthorizationCode: async (code) => {
+    // Find and delete in one operation (one-time use)
+    const found = await db.query.mcpCodes.findFirst({
+      where: eq(mcpCodes.code, code),
+    });
+    if (found) await db.delete(mcpCodes).where(eq(mcpCodes.code, code));
+    return found ?? null;
+  },
+  storeToken: async (token) => { /* persist token record */ },
+  findTokenByRefreshToken: async (rt) => { /* look up by refresh token */ },
+  revokeToken: async (at) => { /* delete by access token value */ },
+  resolveUserId: async (request) => {
+    // Return the authenticated user's ID from session/cookie
+    const session = await getSession(request);
+    return session?.userId ?? null;
   },
 });
 ```
 
-Then mount the MCP module via a framework adapter. See [Framework adapters](/docs/adapters) for how to pass `createMcpModule` to your adapter.
+Then pass the module to your framework adapter:
 
-### MCP config options
+```typescript
+import { kavachHono } from '@kavachos/hono';
+
+const app = kavachHono(kavach, { mcp });
+```
+
+### McpConfig options
 
 <TypeTable
   type={{
+    enabled: {
+      type: 'boolean',
+      description: 'Enable the MCP authorization server.',
+    },
     issuer: {
       type: 'string',
-      description: 'The authorization server URL. Appears in token claims and metadata documents.',
+      description: 'The authorization server URL. Required. Appears in token iss claim and metadata documents.',
     },
-    audience: {
+    baseUrl: {
       type: 'string',
-      description: 'The protected resource URL. Tokens are bound to this audience and rejected by any other server.',
+      description: 'Base URL where MCP endpoints are mounted. Required. Used to build endpoint URLs in metadata.',
+    },
+    signingSecret: {
+      type: 'string',
+      description: 'Secret key for signing JWTs with HS256. Required. Must be at least 32 characters.',
+    },
+    scopes: {
+      type: 'string[]',
+      description: 'Custom scopes supported by this server. The defaults (openid, profile, email, offline_access) are always included.',
     },
     accessTokenTtl: {
       type: 'number',
-      description: 'Access token lifetime in seconds. Defaults to 3600.',
+      description: 'Access token lifetime in seconds. Defaults to 3600 (1 hour).',
     },
     refreshTokenTtl: {
       type: 'number',
-      description: 'Refresh token lifetime in seconds. Defaults to 86400. Rotation is applied on each use for public clients.',
+      description: 'Refresh token lifetime in seconds. Defaults to 604800 (7 days).',
+    },
+    codeTtl: {
+      type: 'number',
+      description: 'Authorization code lifetime in seconds. Defaults to 600 (10 minutes).',
+    },
+    allowedResources: {
+      type: 'string[]',
+      description: 'Allowed resource URIs for RFC 8707. When set, the authorization endpoint rejects resource values not in this list.',
+    },
+    loginPage: {
+      type: 'string',
+      description: 'URL to redirect unauthenticated users. When resolveUserId returns null, the authorize endpoint redirects here with a returnTo parameter.',
+    },
+    consentPage: {
+      type: 'string',
+      description: 'URL for user consent approval. When set, the authorize endpoint redirects here instead of issuing a code directly. The consent page calls approveConsent() after the user approves.',
+    },
+    preRegisteredClients: {
+      type: 'Array<{ clientId, clientSecret?, redirectUris, clientName?, scope? }>',
+      description: 'Clients registered at startup. Stored via storeClient when the module is created. Useful for first-party apps and CLIs.',
+    },
+    getAdditionalClaims: {
+      type: '(userId, scopes) => Promise<Record<string, unknown>>',
+      description: 'Optional function to add custom claims to access tokens.',
     },
   }}
 />
 
-### Endpoints
+## Endpoints
 
-Once mounted, KavachOS serves these endpoints (relative to your `basePath`, default `/api/kavach`):
+Once mounted via a framework adapter, KavachOS serves these endpoints (paths are relative to your adapter base path):
 
-| Endpoint | RFC | Purpose |
-|---|---|---|
-| `GET /.well-known/oauth-authorization-server` | RFC 8414 | Authorization server metadata |
-| `GET /.well-known/oauth-protected-resource` | RFC 9728 | Protected resource metadata |
-| `POST /oauth/register` | RFC 7591 | Dynamic client registration |
-| `GET /oauth/authorize` | OAuth 2.1 | Authorization endpoint |
-| `POST /oauth/token` | OAuth 2.1 | Token endpoint |
-| `POST /oauth/revoke` | RFC 7009 | Token revocation |
-
-<Callout type="info">
-  The well-known endpoints are served at the root of your domain, not under `basePath`. KavachOS registers them separately so MCP clients can discover your auth server from any path.
-</Callout>
+| Endpoint | Method | RFC | Purpose |
+|---|---|---|---|
+| `/.well-known/oauth-authorization-server` | GET | RFC 8414 | Authorization server metadata |
+| `/.well-known/oauth-protected-resource` | GET | RFC 9728 | Protected resource metadata |
+| `/mcp/register` | POST | RFC 7591 | Dynamic client registration |
+| `/mcp/authorize` | GET | OAuth 2.1 | Authorization endpoint |
+| `/mcp/token` | POST | OAuth 2.1 | Token endpoint (code exchange and refresh) |
+| `/mcp/revoke` | POST | RFC 7009 | Token revocation |
 
 ## OAuth flow
 
-### PKCE flow
+### PKCE authorization code flow
 
-KavachOS only accepts `S256`. Plain PKCE is rejected at the authorization endpoint.
+KavachOS enforces PKCE with S256 on every authorization request. Plain PKCE (`code_challenge_method=plain`) is rejected.
 
 <Steps>
   <Step>
     ### Generate a code verifier
 
-    The client generates a cryptographically random string between 43 and 128 characters.
+    The client generates a cryptographically random string (43 to 128 characters, URL-safe).
 
     ```typescript
     const array = new Uint8Array(32);
@@ -99,7 +174,7 @@ KavachOS only accepts `S256`. Plain PKCE is rejected at the authorization endpoi
   </Step>
 
   <Step>
-    ### Compute the code challenge
+    ### Compute the S256 code challenge
 
     ```typescript
     const encoder = new TextEncoder();
@@ -114,133 +189,235 @@ KavachOS only accepts `S256`. Plain PKCE is rejected at the authorization endpoi
     ### Redirect to the authorization endpoint
 
     ```typescript
-    const authUrl = new URL('https://auth.yourapp.com/oauth/authorize');
+    const authUrl = new URL('https://auth.yourapp.com/api/kavach/mcp/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('redirect_uri', 'https://myapp.com/callback');
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
-    authUrl.searchParams.set('scope', 'mcp:read mcp:execute');
+    authUrl.searchParams.set('scope', 'openid mcp:read mcp:execute');
+    authUrl.searchParams.set('state', generateRandomState());
+    // Optional: bind token to a specific resource (RFC 8707)
+    authUrl.searchParams.set('resource', 'https://mcp.yourapp.com');
     ```
+
+    If the user is not authenticated, KavachOS redirects to `loginPage` with a `returnTo` parameter. If `consentPage` is configured, the user is redirected there to approve scopes before a code is issued.
   </Step>
 
   <Step>
-    ### Exchange the code for tokens
+    ### Exchange the authorization code for tokens
 
-    After the user approves, the server issues an authorization code. The client sends it to `/oauth/token` along with the original `code_verifier`.
+    After the user approves, KavachOS redirects back to `redirect_uri` with a `code` parameter. Exchange it at the token endpoint:
 
-    The server computes `base64url(sha256(code_verifier))` and compares it to the stored challenge. A mismatch returns a 400.
+    ```typescript
+    const response = await fetch('https://auth.yourapp.com/api/kavach/mcp/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: authorizationCode,
+        redirect_uri: 'https://myapp.com/callback',
+        client_id: clientId,
+        code_verifier: codeVerifier,
+      }),
+    });
+
+    const tokens = await response.json();
+    // tokens.access_token  - JWT (Bearer)
+    // tokens.refresh_token - present when offline_access scope was granted
+    // tokens.expires_in    - seconds until expiry
+    // tokens.scope         - granted scopes (space-separated)
+    ```
+
+    The server computes `base64url(sha256(code_verifier))` and compares it to the stored challenge. A mismatch returns HTTP 400 with `invalid_grant`.
+  </Step>
+
+  <Step>
+    ### Refresh an expired token
+
+    When the access token expires, use the refresh token to get a new pair. Refresh tokens rotate on every use (the old one is revoked).
+
+    ```typescript
+    const response = await fetch('https://auth.yourapp.com/api/kavach/mcp/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: currentRefreshToken,
+        client_id: clientId,
+      }),
+    });
+    ```
   </Step>
 </Steps>
 
-### Token format
+## Token format
 
-Access tokens are JWTs signed with HS256 (`typ: at+jwt`). They carry:
+Access tokens are JWTs signed with HS256 and typed as `at+jwt`. The payload contains:
 
-- `sub`: the agent ID
-- `aud`: the audience URL from your config
-- `scope`: space-separated granted scopes
-- `exp`: expiry timestamp
-- `iat`: issued-at timestamp
+| Claim | Description |
+|---|---|
+| `sub` | The authenticated user ID |
+| `iss` | The issuer URL from your config |
+| `aud` | The resource URI (from the `resource` parameter, or the issuer if omitted) |
+| `exp` | Expiry timestamp (Unix seconds) |
+| `iat` | Issued-at timestamp |
+| `jti` | Unique token identifier (UUID) |
+| `scope` | Space-separated granted scopes |
+| `client_id` | The OAuth client that requested the token |
 
-Refresh tokens rotate on each use for public clients. Reusing an old refresh token invalidates the entire grant.
+Refresh tokens are opaque 48-byte URL-safe base64 strings. They are not JWTs.
 
 ## Token validation
 
-### Validating tokens
+### Using `validateToken`
 
-Call `kavach.mcp.validate(token)` to check a token before processing a tool call:
+The MCP module exposes `validateToken` for checking tokens programmatically:
 
 ```typescript
-const result = await kavach.mcp.validate(token);
+const result = await mcp.validateToken(token, ['mcp:read']);
 
-if (!result.valid) {
+if (!result.success) {
+  // result.error.code — INVALID_TOKEN, TOKEN_EXPIRED, INSUFFICIENT_SCOPE, etc.
+  // result.error.message — human-readable description
   return new Response('Unauthorized', { status: 401 });
 }
 
-// result.agentId  — the agent making the call
-// result.userId   — the human owner
-// result.scopes   — granted scopes as a string array
-// result.expiresAt — Date object
+const session = result.data;
+// session.userId    — the authenticated user
+// session.clientId  — the OAuth client
+// session.scopes    — granted scopes as string[]
+// session.resource  — the audience the token is bound to
+// session.expiresAt — Date object
+// session.tokenId   — the jti claim
 ```
 
-Validation checks the JWT signature, audience binding, scope presence, and expiry. A token issued for a different audience fails even if the signature is valid.
+Validation checks: JWT signature (HS256), issuer match, audience binding, expiry, and required scopes.
 
-### `withMcpAuth` middleware
+### Using `middleware`
 
-The `withMcpAuth` middleware extracts the bearer token from the `Authorization` header, validates it, and attaches the agent context to the request. It returns 401 if no token is present or invalid, and 403 if the token is valid but lacks the required scope.
+The `middleware` function extracts the Bearer token from the `Authorization` header, validates it, and returns a `Result<McpSession>`:
 
 ```typescript
-// Hono example — see adapters doc for other frameworks
-import { kavachHono } from '@kavachos/hono';
-import { createMcpModule } from 'kavachos';
+const result = await mcp.middleware(request);
 
-const mcp = createMcpModule(kavach);
-const { withMcpAuth } = kavachHono(kavach, { mcp });
+if (!result.success) {
+  if (result.error.code === 'UNAUTHORIZED') {
+    // No token provided — result.error.details has www-authenticate header
+  }
+  return new Response(JSON.stringify(result.error), { status: 401 });
+}
 
-app.use('/mcp/*', withMcpAuth());
-
-app.get('/mcp/tools/list', (c) => {
-  const agent = c.get('agent');   // AgentIdentity set by middleware
-  return c.json({ tools: [] });
-});
+const session = result.data;
 ```
 
-### `buildUnauthorizedResponse`
+### Using `requireScopes`
 
-When writing custom handlers, use `buildUnauthorizedResponse` to produce a well-formed 401 with a `WWW-Authenticate` header pointing to your auth server:
+For endpoints that need specific scopes, `requireScopes` handles the three-branch decision:
+
+1. No token or invalid token: returns a 401 response
+2. Valid token but missing scopes: returns a 403 with a step-up challenge
+3. Valid token with all scopes: returns the session
 
 ```typescript
-import { buildUnauthorizedResponse } from 'kavachos';
+const check = await mcp.requireScopes(request, ['mcp:write']);
 
-return buildUnauthorizedResponse({
-  issuer: 'https://auth.yourapp.com',
-  resource: 'https://mcp.yourapp.com',
-  error: 'invalid_token',
-});
-// Returns a Response with status 401 and the correct WWW-Authenticate header
+if (!check.authorized) {
+  // check.response is a ready-to-send 401 or 403 Response
+  return check.response;
+}
+
+// check.session is the validated McpSession
+const { userId, scopes } = check.session;
 ```
 
-## Registering MCP servers
+The 403 response includes a `WWW-Authenticate` header with `error="insufficient_scope"` and an `upgrade_url` the client can use to re-authorize with the needed scopes.
+
+## Dynamic client registration
+
+Clients can register themselves at the `/mcp/register` endpoint per RFC 7591:
 
 ```typescript
-const server = await kavach.mcp.register({
-  name: 'github-mcp',
-  endpoint: 'https://mcp.yourapp.com/github',
-  tools: ['list_repos', 'get_issue', 'create_comment'],
-  authRequired: true,
-  rateLimit: { rpm: 60 },
+const response = await fetch('https://auth.yourapp.com/api/kavach/mcp/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    redirect_uris: ['https://myapp.com/callback'],
+    client_name: 'My MCP Client',
+    token_endpoint_auth_method: 'none', // public client
+    grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'],
+  }),
 });
 
-// server.id → "mcp_..."
+const client = await response.json();
+// client.client_id     — generated UUID
+// client.client_secret — present for confidential clients
+// client.redirect_uris — echoed back
 ```
 
-Registered servers appear in the protected resource metadata document. Their tool names can be referenced directly in permission resources, for example `mcp:github-mcp:list_repos`.
+<Callout type="info">
+  Public clients (token_endpoint_auth_method: "none") do not receive a client_secret. Confidential clients receive one and must present it at the token endpoint via HTTP Basic auth or body parameters.
+</Callout>
+
+You can also pre-register clients in your `McpConfig.preRegisteredClients` array so they exist at startup without a registration call.
+
+## Consent flow
+
+When `consentPage` is set in your config, the authorization endpoint does not issue codes directly. Instead it redirects to your consent page with query parameters containing the authorization details. After the user approves, call `approveConsent`:
+
+```typescript
+const result = await mcp.approveConsent({
+  userId: authenticatedUserId,
+  clientId: params.client_id,
+  scope: params.scope,
+  state: params.state,
+  redirectUri: params.redirect_uri,
+  codeChallenge: params.code_challenge,
+  codeChallengeMethod: 'S256',
+  resource: params.resource,
+});
+
+if (result.success) {
+  // Redirect the user to result.data.redirectUri
+  // (the client's redirect_uri with the authorization code)
+}
+```
+
+## Metadata documents
 
 <Accordions>
-  <Accordion title="Protected resource metadata document">
-    KavachOS generates this document automatically from your `mcp` config and registered servers:
+  <Accordion title="Authorization server metadata (RFC 8414)">
+    Served at `GET /.well-known/oauth-authorization-server`:
 
     ```json
     {
-      "resource": "https://mcp.yourapp.com",
-      "authorization_servers": ["https://auth.yourapp.com"],
-      "bearer_methods_supported": ["header"],
-      "scopes_supported": ["mcp:read", "mcp:execute"]
+      "issuer": "https://auth.yourapp.com",
+      "authorization_endpoint": "https://auth.yourapp.com/api/kavach/mcp/authorize",
+      "token_endpoint": "https://auth.yourapp.com/api/kavach/mcp/token",
+      "registration_endpoint": "https://auth.yourapp.com/api/kavach/mcp/register",
+      "jwks_uri": "https://auth.yourapp.com/api/kavach/mcp/jwks",
+      "scopes_supported": ["openid", "profile", "email", "offline_access", "mcp:read", "mcp:write"],
+      "response_types_supported": ["code"],
+      "grant_types_supported": ["authorization_code", "refresh_token"],
+      "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
+      "code_challenge_methods_supported": ["S256"],
+      "revocation_endpoint": "https://auth.yourapp.com/api/kavach/mcp/revoke"
     }
     ```
   </Accordion>
 
-  <Accordion title="Authorization server metadata document">
+  <Accordion title="Protected resource metadata (RFC 9728)">
+    Served at `GET /.well-known/oauth-protected-resource`:
+
     ```json
     {
-      "issuer": "https://auth.yourapp.com",
-      "authorization_endpoint": "https://auth.yourapp.com/oauth/authorize",
-      "token_endpoint": "https://auth.yourapp.com/oauth/token",
-      "registration_endpoint": "https://auth.yourapp.com/oauth/register",
-      "code_challenge_methods_supported": ["S256"],
-      "grant_types_supported": ["authorization_code", "refresh_token"],
-      "response_types_supported": ["code"]
+      "resource": "https://auth.yourapp.com",
+      "authorization_servers": ["https://auth.yourapp.com"],
+      "jwks_uri": "https://auth.yourapp.com/api/kavach/mcp/jwks",
+      "scopes_supported": ["openid", "profile", "email", "offline_access", "mcp:read", "mcp:write"],
+      "bearer_methods_supported": ["header"],
+      "resource_signing_alg_values_supported": ["HS256"]
     }
     ```
   </Accordion>

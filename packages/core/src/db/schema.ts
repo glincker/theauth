@@ -15,6 +15,28 @@ export const users = sqliteTable("kavach_users", {
 });
 
 // ============================================================
+// Tenants (multi-tenant isolation)
+// ============================================================
+export const tenants = sqliteTable("kavach_tenants", {
+	id: text("id").primaryKey(),
+	name: text("name").notNull(),
+	slug: text("slug").notNull().unique(),
+	settings: text("settings", { mode: "json" }).$type<TenantSettingsRow>(),
+	status: text("status", { enum: ["active", "suspended"] })
+		.notNull()
+		.default("active"),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+interface TenantSettingsRow {
+	maxAgents?: number;
+	maxDelegationDepth?: number;
+	auditRetentionDays?: number;
+	allowedAgentTypes?: string[];
+}
+
+// ============================================================
 // Agents (the core differentiator - AI agent identities)
 // ============================================================
 export const agents = sqliteTable("kavach_agents", {
@@ -22,6 +44,7 @@ export const agents = sqliteTable("kavach_agents", {
 	ownerId: text("owner_id")
 		.notNull()
 		.references(() => users.id),
+	tenantId: text("tenant_id").references(() => tenants.id), // nullable, for multi-tenant scoping
 	name: text("name").notNull(),
 	type: text("type", { enum: ["autonomous", "delegated", "service"] }).notNull(),
 	status: text("status", { enum: ["active", "revoked", "expired"] })
@@ -201,6 +224,87 @@ export const oauthAccessTokens = sqliteTable("kavach_oauth_access_tokens", {
 });
 
 // ============================================================
+// Agent Capability Cards (A2A discovery)
+// ============================================================
+export const agentCards = sqliteTable("kavach_agent_cards", {
+	id: text("id").primaryKey(),
+	agentId: text("agent_id")
+		.notNull()
+		.references(() => agents.id, { onDelete: "cascade" }),
+	name: text("name").notNull(),
+	description: text("description"),
+	version: text("version").notNull(),
+	protocols: text("protocols", { mode: "json" }).notNull().$type<string[]>(),
+	capabilities: text("capabilities", { mode: "json" }).notNull().$type<AgentCapabilityRow[]>(),
+	authRequirements: text("auth_requirements", { mode: "json" })
+		.notNull()
+		.$type<AgentAuthRequirementsRow>(),
+	endpoint: text("endpoint"),
+	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+interface AgentCapabilityRow {
+	name: string;
+	description: string;
+	inputSchema?: Record<string, unknown>;
+	outputSchema?: Record<string, unknown>;
+}
+
+interface AgentAuthRequirementsRow {
+	type: "bearer" | "oauth2" | "api-key" | "none";
+	scopes?: string[];
+}
+
+// ============================================================
+// Approval Requests (CIBA async approval flows)
+// ============================================================
+export const approvalRequests = sqliteTable("kavach_approval_requests", {
+	id: text("id").primaryKey(),
+	agentId: text("agent_id")
+		.notNull()
+		.references(() => agents.id, { onDelete: "cascade" }),
+	userId: text("user_id")
+		.notNull()
+		.references(() => users.id),
+	action: text("action").notNull(),
+	resource: text("resource").notNull(),
+	arguments: text("arguments", { mode: "json" }).$type<Record<string, unknown>>(),
+	status: text("status", { enum: ["pending", "approved", "denied", "expired"] })
+		.notNull()
+		.default("pending"),
+	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+	respondedAt: integer("responded_at", { mode: "timestamp" }),
+	respondedBy: text("responded_by"),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+// ============================================================
+// Trust Scores (graduated autonomy)
+// ============================================================
+export const trustScores = sqliteTable("kavach_trust_scores", {
+	agentId: text("agent_id")
+		.primaryKey()
+		.references(() => agents.id, { onDelete: "cascade" }),
+	score: integer("score").notNull(),
+	level: text("level", {
+		enum: ["untrusted", "limited", "standard", "trusted", "elevated"],
+	}).notNull(),
+	factors: text("factors", { mode: "json" }).notNull().$type<TrustFactorsRow>(),
+	computedAt: integer("computed_at", { mode: "timestamp" }).notNull(),
+});
+
+interface TrustFactorsRow {
+	successRate: number;
+	denialRate: number;
+	ageInDays: number;
+	totalCalls: number;
+	anomalyCount: number;
+	lastViolation?: string;
+}
+
+// ============================================================
 // OAuth Authorization Codes (temporary codes for code exchange)
 // ============================================================
 export const oauthAuthorizationCodes = sqliteTable("kavach_oauth_authorization_codes", {
@@ -220,3 +324,37 @@ export const oauthAuthorizationCodes = sqliteTable("kavach_oauth_authorization_c
 	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
+
+// ============================================================
+// Budget Policies (agent execution budget caps)
+// ============================================================
+export const budgetPolicies = sqliteTable("kavach_budget_policies", {
+	id: text("id").primaryKey(),
+	agentId: text("agent_id").references(() => agents.id, { onDelete: "cascade" }), // nullable
+	userId: text("user_id").references(() => users.id), // nullable
+	tenantId: text("tenant_id").references(() => tenants.id), // nullable
+	limits: text("limits", { mode: "json" }).notNull().$type<BudgetLimitsRow>(),
+	currentUsage: text("current_usage", { mode: "json" }).notNull().$type<BudgetUsageRow>(),
+	action: text("action", { enum: ["warn", "throttle", "block", "revoke"] })
+		.notNull()
+		.default("warn"),
+	status: text("status", { enum: ["active", "triggered", "disabled"] })
+		.notNull()
+		.default("active"),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+interface BudgetLimitsRow {
+	maxTokensCostPerDay?: number;
+	maxTokensCostPerMonth?: number;
+	maxCallsPerDay?: number;
+	maxCallsPerMonth?: number;
+}
+
+interface BudgetUsageRow {
+	tokensCostToday: number;
+	tokensCostThisMonth: number;
+	callsToday: number;
+	callsThisMonth: number;
+	lastUpdated: string;
+}

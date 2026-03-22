@@ -4,20 +4,24 @@ description: Resource pattern matching, actions, constraints, and permission tem
 icon: ShieldCheck
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
 
 ## How permissions work
 
-A permission grants an agent the right to perform one or more actions on a resource. KavachOS evaluates permissions at call time by checking whether any of the agent's permissions match the requested resource and include the requested action, then verifying all constraints pass.
+A permission grants an agent the right to perform one or more actions on a resource. KavachOS evaluates permissions at call time: it finds the first permission whose resource pattern matches the requested resource and whose `actions` array includes the requested action, then checks that all constraints pass.
 
 <TypeTable
   type={{
     resource: {
       type: 'string',
-      description: 'Colon-separated resource path. Wildcards (*) match exactly one segment.',
+      description: 'Colon-separated resource path. Supports wildcard (*) segments.',
     },
     actions: {
       type: 'string[]',
-      description: 'The actions this permission grants. No fixed set — define what fits your tools.',
+      description: 'Actions this permission grants. There is no fixed set. Define what fits your tools.',
     },
     constraints: {
       type: 'PermissionConstraints',
@@ -31,35 +35,35 @@ A permission grants an agent the right to perform one or more actions on a resou
 
 ### Resource pattern matching
 
-Resources follow a colon-separated hierarchy. The `resource` field in a permission is matched against the resource in the authorization request using exact matches or wildcards.
+Resources follow a colon-separated hierarchy. The `resource` field in a permission is matched against the resource in the authorization request using exact comparison or wildcards.
 
 ```
-mcp:github:repos        // exact match
-mcp:github:*            // matches any direct child of mcp:github
-mcp:*                   // matches anything directly under mcp
-*                       // matches all resources
+mcp:github:repos        exact match
+mcp:github:*            matches any segment directly under mcp:github
+mcp:*                   matches anything directly under mcp
+*                       matches all resources
 ```
 
-A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos` and `mcp:github:issues`, but not `mcp:github:repos:comments` — that is two segments deeper.
+A wildcard terminates matching at its position. `mcp:github:*` matches `mcp:github:repos` and `mcp:github:issues`, but not `mcp:github:repos:comments` (that is two segments past the wildcard).
 
 ```typescript
 // This permission...
 { resource: 'mcp:github:*', actions: ['read'] }
 
-// ...matches these:
-// mcp:github:repos          ✓
-// mcp:github:issues         ✓
-// mcp:github:pull_requests  ✓
+// ...matches these requests:
+// mcp:github:repos          yes
+// mcp:github:issues         yes
+// mcp:github:pull_requests  yes
 
 // ...but NOT these:
-// mcp:github                ✗  (no wildcard segment)
-// mcp:slack:channels        ✗  (different namespace)
-// mcp:github:repos:comments ✗  (two levels deeper)
+// mcp:github                no (fewer segments than the pattern)
+// mcp:slack:channels        no (different namespace)
+// mcp:github:repos:comments no (deeper than one segment past the wildcard)
 ```
 
-### Actions
+### Action matching
 
-Actions describe what the agent can do to a resource. KavachOS does not enforce a fixed set — you define what makes sense for your tools.
+Actions describe what the agent can do with a resource. KavachOS does not enforce a fixed set. You define what makes sense for your tools.
 
 Common actions in MCP contexts:
 
@@ -68,133 +72,185 @@ Common actions in MCP contexts:
 | `read` | Fetching data, listing resources |
 | `write` | Creating or modifying resources |
 | `execute` | Running tools, shell commands, deployments |
-| `delete` | Permanent removal of resources |
+| `delete` | Permanent removal |
+| `*` | Matches any action |
 
-An authorization check passes when an agent has a permission with: a matching resource pattern, the requested action in that permission's `actions` array, and all constraints satisfied.
+An authorization check passes when the agent has a permission with a matching resource pattern, the requested action in that permission's `actions` array (or `*`), and all constraints satisfied.
+
+```typescript
+const result = await kavach.authorize(agent.id, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+});
+
+if (!result.allowed) {
+  console.log(result.reason);
+}
+```
 
 ## Constraints
 
-Constraints add conditions to a permission. All conditions must be met for the permission to apply.
+Constraints add conditions to a permission. When multiple constraints are set on the same permission, all of them must pass. If any constraint fails, the authorization is denied.
 
 <TypeTable
   type={{
     maxCallsPerHour: {
       type: 'number',
-      description: 'Sliding 5-minute window rate limit. Calls beyond this return RATE_LIMIT_EXCEEDED.',
+      description: 'Rate limit using a sliding 5-minute window. Calls beyond this threshold are denied.',
       default: 'undefined (no limit)',
-    },
-    allowedArgPatterns: {
-      type: 'string[]',
-      description: 'Glob-style patterns. The arguments field in the authorization request must match at least one.',
-      default: 'undefined (any arguments allowed)',
-    },
-    requireApproval: {
-      type: 'boolean',
-      description: 'When true, the call is denied with APPROVAL_REQUIRED. Your app must handle the approval flow.',
-      default: 'false',
     },
     timeWindow: {
       type: '{ start: string; end: string }',
-      description: 'HH:MM format, UTC. Calls outside this range are denied.',
+      description: 'HH:MM format. Calls outside this window are denied.',
       default: 'undefined (any time)',
     },
     ipAllowlist: {
       type: 'string[]',
-      description: 'CIDR ranges. Requests from IPs outside this list are denied.',
+      description: 'Exact IPs or CIDR ranges. Requests from IPs not in the list are denied.',
       default: 'undefined (any IP)',
+    },
+    allowedArgPatterns: {
+      type: 'string[]',
+      description: 'Regex patterns matched against string arguments in the request. All string args must match at least one pattern.',
+      default: 'undefined (any arguments)',
+    },
+    requireApproval: {
+      type: 'boolean',
+      description: 'When true, authorization is denied with a reason indicating human approval is needed.',
+      default: 'false',
     },
   }}
 />
 
-<Accordions>
-  <Accordion title="Rate limiting">
-    Limits how many times an agent can call a resource per hour. Uses a 5-minute sliding window.
+### Rate limiting
 
-    ```typescript
-    {
-      resource: 'mcp:deploy:staging',
-      actions: ['execute'],
-      constraints: {
-        maxCallsPerHour: 20,
-      },
-    }
-    ```
+Limits how many times an agent can call a resource per rolling hour. Internally, KavachOS tracks calls in 5-minute buckets and sums the last 12 buckets.
 
-    Calls beyond the limit return `result: 'rate_limited'` in the audit log and `allowed: false` with reason `RATE_LIMIT_EXCEEDED`.
-  </Accordion>
+```typescript
+{
+  resource: 'mcp:deploy:staging',
+  actions: ['execute'],
+  constraints: {
+    maxCallsPerHour: 20,
+  },
+}
+```
 
-  <Accordion title="Argument pattern matching">
-    Restricts what arguments an agent can pass to a tool. Patterns are glob-style strings matched against the `arguments` field of the authorization request.
+When the limit is exceeded, `authorize()` returns `allowed: false` with a reason string that includes the current count and the cap.
 
-    ```typescript
-    {
-      resource: 'tool:file_write',
-      actions: ['execute'],
-      constraints: {
-        allowedArgPatterns: ['/home/agent/**', '/tmp/**'],
-      },
-    }
-    ```
+### Time windows
 
-    If no pattern matches, the call is denied.
-  </Accordion>
+Restricts when an action is allowed. Times are in 24-hour `HH:MM` format.
 
-  <Accordion title="Human-in-the-loop approval">
-    Prevents automatic authorization. The call is logged and denied until a human approves it through your application's approval flow.
+```typescript
+{
+  resource: 'mcp:github:*',
+  actions: ['read', 'write'],
+  constraints: {
+    timeWindow: { start: '09:00', end: '17:00' },
+  },
+}
+```
 
-    ```typescript
-    {
-      resource: 'mcp:deploy:production',
-      actions: ['execute'],
-      constraints: {
-        requireApproval: true,
-      },
-    }
-    ```
+Calls outside the window are denied. This is useful for business-hours-only policies or maintenance windows.
 
-    The authorization result has `allowed: false` and reason `APPROVAL_REQUIRED`. Your application is responsible for presenting the approval UI and re-authorizing after approval.
+### IP allowlist
 
-    <Callout type="info">
-      KavachOS does not ship an approval UI. It provides the enforcement point. How you build the human review step is up to you.
-    </Callout>
-  </Accordion>
+Restricts which source IPs can use the permission. Accepts exact IPs and CIDR notation (IPv4).
 
-  <Accordion title="Time windows">
-    Restricts when an action is allowed. Times are in 24-hour format, UTC.
+```typescript
+{
+  resource: 'mcp:internal:*',
+  actions: ['read', 'write', 'execute'],
+  constraints: {
+    ipAllowlist: ['10.0.0.0/8', '172.16.0.0/12'],
+  },
+}
+```
 
-    ```typescript
-    {
-      resource: 'mcp:github:*',
-      actions: ['read', 'write'],
-      constraints: {
-        timeWindow: { start: '09:00', end: '17:00' },
-      },
-    }
-    ```
+For the constraint to take effect, pass the caller's IP in the authorization request:
 
-    Calls outside the window return `allowed: false`. Useful for business-hours-only policies or maintenance windows.
-  </Accordion>
+```typescript
+const result = await kavach.authorize(agent.id, {
+  action: 'read',
+  resource: 'mcp:internal:db',
+  ip: request.headers.get('x-forwarded-for') ?? '0.0.0.0',
+});
+```
 
-  <Accordion title="IP allowlist">
-    Restricts which source IPs can use the permission. Accepts CIDR notation.
+If an `ipAllowlist` is set but no IP is provided in the request, authorization is denied.
 
-    ```typescript
-    {
-      resource: 'mcp:internal:*',
-      actions: ['read', 'write', 'execute'],
-      constraints: {
-        ipAllowlist: ['10.0.0.0/8', '172.16.0.0/12'],
-      },
-    }
-    ```
+### Argument patterns
 
-    Pass the caller's IP in the authorization request for this to take effect. Requests from IPs outside the list are denied.
-  </Accordion>
-</Accordions>
+Restricts what arguments an agent can pass to a tool. Patterns are regular expressions matched against every string-valued argument in the request.
+
+```typescript
+{
+  resource: 'tool:file_write',
+  actions: ['execute'],
+  constraints: {
+    allowedArgPatterns: ['^/home/agent/.*', '^/tmp/.*'],
+  },
+}
+```
+
+```typescript
+// This passes (path matches ^/tmp/.*)
+await kavach.authorize(agent.id, {
+  action: 'execute',
+  resource: 'tool:file_write',
+  arguments: { path: '/tmp/output.txt' },
+});
+
+// This is denied (path does not match any pattern)
+await kavach.authorize(agent.id, {
+  action: 'execute',
+  resource: 'tool:file_write',
+  arguments: { path: '/etc/passwd' },
+});
+```
+
+### Human-in-the-loop approval
+
+Prevents automatic authorization. The call is denied until a human approves it through your application.
+
+```typescript
+{
+  resource: 'mcp:deploy:production',
+  actions: ['execute'],
+  constraints: {
+    requireApproval: true,
+  },
+}
+```
+
+The authorization result returns `allowed: false` with reason `"This action requires human approval before execution"`. Your application is responsible for building the approval UI and re-authorizing after the human confirms.
+
+<Callout type="info">
+  KavachOS provides the enforcement point. It does not ship an approval UI. How you build the human review step is up to you.
+</Callout>
+
+### Combining constraints
+
+Set multiple constraints on a single permission and all of them are enforced:
+
+```typescript
+{
+  resource: 'mcp:deploy:staging',
+  actions: ['execute'],
+  constraints: {
+    maxCallsPerHour: 5,
+    timeWindow: { start: '09:00', end: '17:00' },
+    ipAllowlist: ['10.0.0.0/8'],
+  },
+}
+```
+
+This permission allows execution only during business hours, from an internal IP, and no more than 5 times per hour.
 
 ## Permission templates
 
-KavachOS ships named templates for common patterns. Import them from `kavachos`:
+KavachOS ships pre-built templates for common access patterns. Import them from `kavachos`:
 
 ```typescript
 import { permissionTemplates, getPermissionTemplate } from 'kavachos';
@@ -207,35 +263,40 @@ const agent = await kavach.agent.create({
 });
 ```
 
-Available templates:
+### Available templates
 
-| Template | Actions | Resource | Notes |
+| Template | Actions | Resource | Constraints |
 |---|---|---|---|
-| `readonly` | `read` | `*` | |
-| `readwrite` | `read`, `write` | `*` | |
-| `admin` | `*` | `*` | All actions on all resources |
-| `mcpBasic` | `read`, `execute` | `mcp:*` | |
-| `mcpFull` | `read`, `write`, `execute` | `mcp:*` | |
+| `readonly` | `read` | `*` | none |
+| `readwrite` | `read`, `write` | `*` | none |
+| `admin` | `*` | `*` | none |
+| `mcpBasic` | `read`, `execute` | `mcp:*` | none |
+| `mcpFull` | `read`, `write`, `execute` | `mcp:*` | none |
 | `rateLimitedRead` | `read` | `*` | 100 calls/hour |
-| `approvalRequired` | `*` | `*` | Every call requires human approval |
-| `businessHours` | `read`, `write`, `execute` | `*` | 09:00–17:00 UTC |
+| `approvalRequired` | `*` | `*` | requires human approval |
+| `businessHours` | `read`, `write`, `execute` | `*` | 09:00 to 17:00 |
 
-Templates are plain `Permission[]` arrays. Spread and extend them directly:
+### Extending templates
 
-```typescript
-permissions: [
-  ...permissionTemplates.mcpBasic,
-  { resource: 'tool:custom_tool', actions: ['execute'] },
-]
-```
-
-Use `getPermissionTemplate(name)` when you need a deep copy rather than a reference to the shared array:
+Templates are plain `Permission[]` arrays. Spread and extend them:
 
 ```typescript
-const perms = getPermissionTemplate('mcpBasic');
-perms[0].actions.push('write'); // safe — does not mutate the original
+const agent = await kavach.agent.create({
+  ownerId: 'user-123',
+  name: 'mcp-plus-custom',
+  type: 'autonomous',
+  permissions: [
+    ...permissionTemplates.mcpBasic,
+    { resource: 'tool:custom_tool', actions: ['execute'] },
+  ],
+});
 ```
 
 <Callout type="warn">
-  Spreading directly from `permissionTemplates` gives you a reference to the original array entries. If you mutate the objects after spreading, you will modify the template. Use `getPermissionTemplate` when you need to modify entries.
+  Spreading from `permissionTemplates` gives you references to the original objects. If you mutate entries after spreading, you modify the shared template. Use `getPermissionTemplate()` when you need a safe copy to modify.
 </Callout>
+
+```typescript
+const perms = getPermissionTemplate('mcpBasic');
+perms[0].actions.push('write'); // safe, does not mutate the original template
+```

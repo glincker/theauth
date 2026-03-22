@@ -1,5 +1,6 @@
 import { argv, exit, stdout } from "node:process";
 import { startDashboardServer } from "./dashboard-server.js";
+import { startDemoServer } from "./demo-server.js";
 import { runInit } from "./init.js";
 
 const VERSION = "0.0.1";
@@ -72,15 +73,23 @@ async function handleDashboard(): Promise<void> {
 		return;
 	}
 
-	// --api or --api=http://localhost:3000
-	const apiFlag = args.find((a) => a === "--api" || a.startsWith("--api="));
-	const apiUrl = apiFlag
-		? apiFlag.includes("=")
-			? (apiFlag.split("=")[1] ?? "http://localhost:3000")
-			: (args[args.indexOf(apiFlag) + 1] ?? "http://localhost:3000")
-		: "http://localhost:3000";
+	// --static: use the old static-only server (requires a separate API)
+	const useStatic = args.includes("--static");
 
-	await startDashboardServer({ port, apiUrl });
+	if (useStatic) {
+		const apiFlag = args.find((a) => a === "--api" || a.startsWith("--api="));
+		const apiUrl = apiFlag
+			? apiFlag.includes("=")
+				? (apiFlag.split("=")[1] ?? "http://localhost:3000")
+				: (args[args.indexOf(apiFlag) + 1] ?? "http://localhost:3000")
+			: "http://localhost:3000";
+
+		await startDashboardServer({ port, apiUrl });
+		return;
+	}
+
+	// Default: full demo server with in-memory backend and seed data
+	await startDemoServer({ port });
 }
 
 async function main(): Promise<void> {

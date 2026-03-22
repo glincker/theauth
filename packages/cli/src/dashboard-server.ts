@@ -54,11 +54,14 @@ function resolveDashboardDistDir(): string {
 	}
 
 	// Fallback: look relative to this file (monorepo layout)
+	const thisDir = new URL(".", import.meta.url).pathname;
 	const candidates = [
 		// Running from source: packages/cli/src -> packages/dashboard/dist/app
-		join(new URL(".", import.meta.url).pathname, "..", "..", "..", "dashboard", "dist", "app"),
+		join(thisDir, "..", "..", "dashboard", "dist", "app"),
 		// Running from dist:  packages/cli/dist -> packages/dashboard/dist/app
-		join(new URL(".", import.meta.url).pathname, "..", "..", "..", "dashboard", "dist", "app"),
+		join(thisDir, "..", "dashboard", "dist", "app"),
+		// Running from monorepo root (bundled CLI)
+		resolve("packages", "dashboard", "dist", "app"),
 	];
 
 	for (const candidate of candidates) {

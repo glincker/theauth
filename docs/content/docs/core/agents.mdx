@@ -4,52 +4,64 @@ description: Creating, managing, and rotating agent identities in KavachOS.
 icon: Bot
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
 
 ## What is an agent identity
 
 `AgentIdentity` is the primary entity in KavachOS. It represents a single AI agent, a process acting on behalf of a human user.
 
-Agents are not users. No passwords, sessions, or OAuth flows. Just tokens and permissions.
+Agents are not users. There are no passwords, sessions, or OAuth flows. An agent has a bearer token and a set of permissions, both managed through the SDK.
 
 <TypeTable
   type={{
     id: {
       type: 'string',
-      description: 'Stable identifier with an agt_ prefix. Never changes.',
-    },
-    token: {
-      type: 'string',
-      description: 'Bearer token with a kv_ prefix. Shown once at creation, then hashed. Rotate to replace.',
-    },
-    permissions: {
-      type: 'Permission[]',
-      description: 'What this agent is allowed to do. Evaluated at every authorize() call.',
-    },
-    status: {
-      type: "'active' | 'revoked' | 'expired'",
-      description: 'Current state. Revocation is permanent.',
+      description: 'UUID identifier. Stable for the lifetime of the agent.',
     },
     ownerId: {
       type: 'string',
-      description: 'The user ID from your auth provider who owns this agent.',
+      description: 'The user ID (from your auth provider) who owns this agent.',
     },
     name: {
       type: 'string',
-      description: 'Human-readable label for the agent.',
+      description: 'Human-readable label.',
     },
     type: {
       type: "'autonomous' | 'delegated' | 'service'",
       description: 'Determines how the agent acquires and uses permissions.',
     },
+    token: {
+      type: 'string',
+      description: 'Bearer token prefixed kv_. Returned once at creation, then stored as a SHA-256 hash.',
+    },
+    permissions: {
+      type: 'Permission[]',
+      description: 'What this agent is allowed to do. Evaluated on every authorize() call.',
+    },
+    status: {
+      type: "'active' | 'revoked' | 'expired'",
+      description: 'Current state. Revocation is permanent.',
+    },
     expiresAt: {
-      type: 'Date',
-      description: 'Optional expiry. After this time the agent status becomes expired.',
-      default: 'undefined (never expires)',
+      type: 'Date | null',
+      description: 'When set, the agent status transitions to expired after this time.',
+      default: 'null',
     },
     metadata: {
       type: 'Record<string, unknown>',
-      description: 'Arbitrary key/value pairs for your own use.',
+      description: 'Arbitrary key-value pairs for your own use.',
       default: '{}',
+    },
+    createdAt: {
+      type: 'Date',
+      description: 'When the agent was created.',
+    },
+    updatedAt: {
+      type: 'Date',
+      description: 'When the agent was last modified.',
     },
   }}
 />
@@ -58,13 +70,13 @@ Agents are not users. No passwords, sessions, or OAuth flows. Just tokens and pe
 
 <Accordions>
   <Accordion title="autonomous">
-    Acts independently without requiring human approval on each call, unless a permission constraint mandates it. The standard type for background agents, cron jobs, and AI assistants that run unattended.
+    Acts independently without requiring human approval on each call (unless a permission constraint mandates it). The standard type for background agents, cron jobs, and AI assistants that run unattended.
   </Accordion>
   <Accordion title="delegated">
-    Receives permissions from another agent via a delegation chain rather than having them declared at creation. Use this for ephemeral sub-agents spun up to complete a specific task, then discarded.
+    Receives permissions from another agent through a delegation chain rather than having them assigned at creation. Use this for ephemeral sub-agents spun up to complete a specific task, then discarded.
   </Accordion>
   <Accordion title="service">
-    Long-lived identity for infrastructure, such as an MCP server or an internal microservice that calls other services on behalf of users. Treat it like a service account.
+    Long-lived identity for infrastructure: an MCP server, an internal microservice, or any process that calls other services on behalf of users. Treat it like a service account.
   </Accordion>
 </Accordions>
 
@@ -74,29 +86,29 @@ Agents are not users. No passwords, sessions, or OAuth flows. Just tokens and pe
 
 ```typescript
 const agent = await kavach.agent.create({
-  ownerId: 'user-123',   // ID from your auth provider
+  ownerId: 'user-123',
   name: 'github-reader',
   type: 'autonomous',
   permissions: [
     { resource: 'mcp:github:*', actions: ['read'] },
   ],
-  expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000), // optional
+  expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000), // 7 days
   metadata: { purpose: 'nightly PR review' },
 });
 
-console.log(agent.token); // kv_a3f8c2e1...  — only shown here
+console.log(agent.token); // kv_a3f8c2e1...
 ```
 
 <Callout type="warn">
-  The token is returned once at creation. KavachOS stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or rotate to get a new one.
+  The token is returned **once** at creation. KavachOS stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or call `rotate()` to get a new one.
 </Callout>
 
 ### Tokens
 
-Tokens use the `kv_` prefix followed by 32 cryptographically random bytes encoded as 64 hex characters:
+Tokens use the `kv_` prefix followed by 32 cryptographically random bytes encoded as base64url:
 
 ```
-kv_a3f8c2e1d4b5...   (64 hex chars after the prefix)
+kv_a3f8c2e1d4b5...
 ```
 
 Authenticate by passing the token as a Bearer credential:
@@ -105,9 +117,7 @@ Authenticate by passing the token as a Bearer credential:
 Authorization: Bearer kv_a3f8c2e1d4b5...
 ```
 
-<Callout type="info">
-  The hash-only storage model means a full database dump cannot reveal active tokens. There are no secrets to rotate after a DB breach, only the tokens themselves.
-</Callout>
+KavachOS stores only the SHA-256 hash of each token. A full database dump does not reveal active tokens. The only thing an attacker could find is the `tokenPrefix` (the first 8 characters after `kv_`), which is stored for identification in logs and the admin dashboard.
 
 ### Token rotation
 
@@ -116,10 +126,10 @@ Rotation issues a new token and immediately invalidates the old one. The operati
 ```typescript
 const rotated = await kavach.agent.rotate(agentId);
 // rotated.token is the new plaintext token
-// The old token is rejected on all subsequent calls
+// The previous token is rejected on all subsequent calls
 ```
 
-Rotate tokens on a schedule, or any time you suspect a token has been exposed.
+Rotate tokens on a schedule, or whenever you suspect a token has been exposed.
 
 ### Token-based authorization
 
@@ -155,6 +165,14 @@ const active = await kavach.agent.list({
 });
 ```
 
+The `AgentFilter` accepts three optional fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `userId` | `string` | Filter by owner |
+| `status` | `'active' \| 'revoked' \| 'expired'` | Filter by current status |
+| `type` | `'autonomous' \| 'delegated' \| 'service'` | Filter by agent type |
+
 ### Updating an agent
 
 ```typescript
@@ -163,10 +181,11 @@ const updated = await kavach.agent.update(agentId, {
   permissions: [
     { resource: 'mcp:github:*', actions: ['read', 'comment'] },
   ],
+  metadata: { version: 2 },
 });
 ```
 
-Permission updates take effect immediately. In-flight requests that have already passed authorization are not affected.
+All fields in the update input are optional. When `permissions` is provided, the entire permission set is replaced (not merged). Permission changes take effect on the next `authorize()` call.
 
 ### Revoking an agent
 
@@ -180,17 +199,20 @@ await kavach.agent.revoke(agentId);
   Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
 </Callout>
 
-### Agent limits
+## Agent limits
 
-The default limit is 10 active agents per user. Raise it at initialization:
+The default limit is **10** active agents per user. You can change it at initialization:
 
 ```typescript
-const kavach = createKavach({
+const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
   agents: {
     maxPerUser: 50,
+    tokenExpiry: '7d', // default token lifetime
   },
 });
 ```
 
-Attempts to create agents beyond the limit return an error with code `AGENT_LIMIT_EXCEEDED`.
+`tokenExpiry` accepts duration strings like `"24h"`, `"7d"`, `"30m"`, or `"3600s"`. This sets the default `expiresAt` for agents created without an explicit expiry.
+
+When a user already has the maximum number of active agents, `kavach.agent.create()` throws an error. Revoked and expired agents do not count toward the limit.

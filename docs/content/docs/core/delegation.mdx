@@ -4,20 +4,21 @@ description: Grant a subset of permissions from one agent to another, with depth
 icon: Link2
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
 
-## What is a delegation chain
+## What delegation is
 
-A delegation chain lets one agent grant a subset of its permissions to another. The delegating agent keeps its own permissions unchanged. The receiving agent gains access only to what was explicitly delegated.
+A delegation chain lets one agent grant a subset of its own permissions to another agent. The delegating agent keeps its permissions unchanged. The receiving agent gains access only to what was explicitly delegated, and only until the chain expires.
 
-This pattern is most useful when an orchestrator spins up sub-agents for specific tasks. Each sub-agent gets only the access it needs, for only as long as it needs it.
+This is the standard pattern for orchestrator/sub-agent architectures. The orchestrator holds broad permissions, plans a task, then issues narrow, short-lived delegations to sub-agents that do the actual work.
 
 <Callout type="info">
-The delegating agent must currently hold every permission it is trying to delegate. Attempting to delegate a permission not in the agent's own set fails with `INSUFFICIENT_PERMISSIONS`.
+  The delegating agent must hold every permission it tries to delegate. Attempting to delegate a permission the agent does not have fails with an error.
 </Callout>
 
-## Working with delegations
-
-### Creating a delegation
+## Creating a delegation
 
 ```typescript
 const chain = await kavach.delegate({
@@ -30,10 +31,12 @@ const chain = await kavach.delegate({
   maxDepth: 2,
 });
 
-console.log(chain.id);        // dlg_...
+console.log(chain.id);        // UUID
 console.log(chain.depth);     // 1
 console.log(chain.expiresAt); // Date
 ```
+
+### DelegateInput type
 
 <TypeTable
   type={{
@@ -47,22 +50,23 @@ console.log(chain.expiresAt); // Date
     },
     permissions: {
       type: 'Permission[]',
-      description: 'Subset of permissions to delegate. Must not exceed the fromAgent\'s own permissions.',
+      description: "Subset of permissions to delegate. Cannot exceed the fromAgent's own permissions.",
     },
     expiresAt: {
       type: 'Date',
-      description: 'When the delegation expires. After this point, the chain is no longer valid.',
+      description: 'When the delegation expires. After this time the chain is ignored during authorization.',
     },
     maxDepth: {
       type: 'number',
-      description: 'How many additional hops the chain can be re-delegated. Default is 3.',
+      description: 'Maximum number of re-delegation hops allowed from this chain.',
+      default: '3',
     },
   }}
 />
 
-### Permission subset enforcement
+## Permission subset enforcement
 
-The permissions you delegate must be a subset of what the `fromAgent` holds. Narrower resources and fewer actions are allowed. Wider resources or new actions are rejected.
+The permissions you delegate must be a subset of what the `fromAgent` holds. Narrower resources and fewer actions are fine. Wider resources or new actions are rejected.
 
 Given an orchestrator with:
 
@@ -75,22 +79,24 @@ Valid delegations:
 ```typescript
 { resource: 'mcp:github:issues', actions: ['read'] }           // narrower resource, fewer actions
 { resource: 'mcp:github:*', actions: ['read'] }                // same resource, fewer actions
-{ resource: 'mcp:github:repos', actions: ['read', 'comment'] } // narrower resource, same actions
+{ resource: 'mcp:github:repos', actions: ['read', 'comment'] } // narrower resource, subset of actions
 ```
 
 Invalid delegations:
 
 ```typescript
 { resource: 'mcp:github:*', actions: ['delete'] }  // action not held by parent
-{ resource: 'mcp:slack:*', actions: ['read'] }     // resource not held by parent
+{ resource: 'mcp:slack:*', actions: ['read'] }      // resource not held by parent
 ```
 
-### Depth limiting
+The subset check follows the same colon-separated hierarchy as resource pattern matching. `mcp:github:issues` is considered a subset of `mcp:github:*` because the wildcard covers that segment.
 
-`maxDepth` controls how many additional re-delegation hops are allowed. With `maxDepth: 2`, the receiving agent can delegate to another agent, but that next agent cannot delegate further.
+## Depth limiting
+
+`maxDepth` controls how many re-delegation hops are allowed downstream. When the current depth reaches `maxDepth`, further delegation attempts are rejected.
 
 ```typescript
-// Orchestrator → Sub (depth 1, maxDepth 2)
+// Orchestrator -> Sub (depth 1, maxDepth 2)
 await kavach.delegate({
   fromAgent: orchestrator.id,
   toAgent: sub.id,
@@ -99,7 +105,7 @@ await kavach.delegate({
   maxDepth: 2,
 });
 
-// Sub → SubSub (depth 2, maxDepth 2): allowed
+// Sub -> SubSub (depth 2, maxDepth 2): allowed
 await kavach.delegate({
   fromAgent: sub.id,
   toAgent: subSub.id,
@@ -108,45 +114,45 @@ await kavach.delegate({
   maxDepth: 1,
 });
 
-// SubSub → anything: blocked, depth limit reached
+// SubSub -> anything: blocked, depth limit reached
 ```
 
-The default `maxDepth` when not specified is `3`.
+The default `maxDepth` when not specified is `3`. For leaf sub-agents that should never re-delegate, set `maxDepth: 1`.
 
-### Cascading revocation
+## Cascading revocation
 
-Revoking a chain removes it and all chains created downstream of it in the same tree.
+Revoking a chain removes it and all downstream chains in the same tree.
 
 ```typescript
 await kavach.delegation.revoke(chain.id);
 ```
 
-If the chain is `orchestrator → sub → subSub`, revoking `orchestrator → sub` also revokes `sub → subSub` immediately. Any agent that relied on the revoked permissions will get `allowed: false` on its next authorization check.
+If the chain tree is `orchestrator -> sub -> subSub`, revoking `orchestrator -> sub` also revokes `sub -> subSub`. Any agent that relied on the revoked chain gets `allowed: false` on its next authorization check.
 
 <Callout type="warn">
-Revocation takes effect on the next `authorize()` call. It does not terminate any in-progress operations.
+  Revocation takes effect on the next `authorize()` call. It does not terminate in-progress operations that have already passed authorization.
 </Callout>
 
-### Effective permissions
+## Effective permissions
 
-To see the full set of permissions an agent has at a given moment, including those received through active chains:
+To see every permission an agent currently holds (its own permissions plus all active delegations):
 
 ```typescript
 const effective = await kavach.delegation.getEffectivePermissions(subAgent.id);
-// Returns Permission[] combining own permissions and all active delegations
+// Returns Permission[] from all active, non-expired delegation chains
 ```
 
-The authorization engine calls this internally on every `authorize()` request. You can call it directly to inspect what an agent can currently do before attempting an action.
+The authorization engine calls this internally on every `authorize()` request. You can call it directly to inspect what an agent can do before attempting an action.
 
-### Listing chains
+## Listing chains
+
+List all delegation chains originating from a specific agent:
 
 ```typescript
-// All chains where subAgent is the receiver
-const incoming = await kavach.delegation.listChains({ toAgent: subAgent.id });
-
-// All chains originating from the orchestrator
-const outbound = await kavach.delegation.listChains({ fromAgent: orchestrator.id });
+const outbound = await kavach.delegation.listChains(orchestrator.id);
 ```
+
+Each entry in the returned array is a `DelegationChain`:
 
 ### DelegationChain type
 
@@ -154,7 +160,7 @@ const outbound = await kavach.delegation.listChains({ fromAgent: orchestrator.id
   type={{
     id: {
       type: 'string',
-      description: 'Unique chain identifier, prefixed dlg_.',
+      description: 'Unique chain identifier.',
     },
     fromAgent: {
       type: 'string',
@@ -170,11 +176,11 @@ const outbound = await kavach.delegation.listChains({ fromAgent: orchestrator.id
     },
     expiresAt: {
       type: 'Date',
-      description: 'Expiry time for the chain.',
+      description: 'When this chain stops being valid.',
     },
     depth: {
       type: 'number',
-      description: 'Current depth of this chain in the delegation tree.',
+      description: 'Current depth of this chain in the delegation tree. Starts at 1.',
     },
     createdAt: {
       type: 'Date',
@@ -183,13 +189,13 @@ const outbound = await kavach.delegation.listChains({ fromAgent: orchestrator.id
   }}
 />
 
-## Typical pattern
+## Typical orchestrator pattern
 
 An orchestrator holds broad permissions, plans a task, and issues short-lived narrow delegations to sub-agents.
 
 <Steps>
   <Step>
-    Create the orchestrator with the full permission set it needs.
+    ### Create the orchestrator with the full permission set it needs
 
     ```typescript
     const orchestrator = await kavach.agent.create({
@@ -204,7 +210,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
     ```
   </Step>
   <Step>
-    Create the sub-agent with no direct permissions.
+    ### Create the sub-agent with no direct permissions
 
     ```typescript
     const codeReviewer = await kavach.agent.create({
@@ -216,7 +222,9 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
     ```
   </Step>
   <Step>
-    Delegate only what the sub-agent needs, with a short expiry and `maxDepth: 1` to prevent further delegation.
+    ### Delegate only what the sub-agent needs
+
+    Set a short expiry and `maxDepth: 1` to prevent the sub-agent from re-delegating.
 
     ```typescript
     await kavach.delegate({
@@ -228,6 +236,19 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
       expiresAt: new Date(Date.now() + 30 * 60_000), // 30 minutes
       maxDepth: 1,
     });
+    ```
+  </Step>
+  <Step>
+    ### Authorize the sub-agent normally
+
+    The authorization engine merges the sub-agent's own permissions (empty) with its delegated permissions automatically.
+
+    ```typescript
+    const result = await kavach.authorize(codeReviewer.id, {
+      action: 'read',
+      resource: 'mcp:github:pulls',
+    });
+    // result.allowed === true
     ```
   </Step>
 </Steps>

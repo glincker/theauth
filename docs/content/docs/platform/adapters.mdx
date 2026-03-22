@@ -4,323 +4,416 @@ description: Drop-in middleware for Hono, Express, Next.js, Fastify, Nuxt, Svelt
 icon: Code
 ---
 
-
 ## How adapters work
 
-The `kavachos` package has zero framework dependencies. It works with the Web platform `Request`/`Response` API. Adapter packages wrap the core and expose framework-idiomatic handlers for authentication, authorization, and MCP OAuth routes.
+The `kavachos` core package has zero framework dependencies. All its functions accept standard Web API `Request` objects and return `Response` objects. Framework adapters wrap the core to provide idiomatic integration with each framework's routing, middleware, and request/response conventions.
 
-Each adapter accepts a `kavach` instance and an optional config object:
+Each adapter exports a factory function that accepts a `Kavach` instance and returns a framework-specific handler (a Hono app, Express router, Fastify plugin, or route handler exports). The adapter registers all REST routes for agents, permissions, delegation, audit, dashboard stats, and (optionally) MCP OAuth endpoints.
 
 ```typescript
-kavachHono(kavach, {
-  mcp?: McpModule,     // pass to enable MCP OAuth endpoints
-  basePath?: string,   // defaults to '/api/kavach'
-})
+// Every adapter follows this pattern
+const handler = kavachFramework(kavach, {
+  mcp?: McpAuthModule,  // pass to enable MCP OAuth 2.1 endpoints
+});
 ```
 
-The adapter registers all REST routes for agents, permissions, audit, and delegation under `basePath`. Pass a `createMcpModule(kavach)` instance to also mount the MCP OAuth endpoints.
+## Installation
 
-## Framework setup
+Install only the adapter for your framework, along with the core package:
 
-### Installation
-
-Install only the adapter you need:
-
-```bash
-npm install @kavachos/hono        # Hono
-npm install @kavachos/express     # Express
-npm install @kavachos/nextjs      # Next.js App Router
-npm install @kavachos/fastify     # Fastify
-npm install @kavachos/nuxt        # Nuxt
-npm install @kavachos/sveltekit   # SvelteKit
-npm install @kavachos/astro       # Astro
-```
-
-### Usage
-
-<Tabs items={['Hono', 'Express', 'Next.js', 'Fastify', 'Nuxt', 'SvelteKit', 'Astro']}>
-  <Tab value="Hono">
-    `kavachHono` returns a Hono router. Mount it with `app.route`.
-
-    ```typescript
-    import { Hono } from 'hono';
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachHono } from '@kavachos/hono';
-
-    const kavach = createKavach({
-      database: { provider: 'sqlite', url: 'kavach.db' },
-      baseUrl: 'https://auth.yourapp.com',
-      mcp: {
-        issuer: 'https://auth.yourapp.com',
-        audience: 'https://mcp.yourapp.com',
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-
-    const app = new Hono();
-
-    // Mount all KavachOS routes (agents, permissions, audit, MCP OAuth)
-    app.route('/api/kavach', kavachHono(kavach, { mcp }));
-
-    // Protect MCP tool routes
-    const { withMcpAuth } = kavachHono(kavach, { mcp });
-    app.use('/mcp/*', withMcpAuth());
-
-    app.get('/mcp/tools/list', (c) => {
-      const agent = c.get('agent');   // AgentIdentity set by middleware
-      return c.json({ tools: [] });
-    });
-
-    export default app;
+<Tabs items={['pnpm', 'npm', 'yarn']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add kavachos @kavachos/hono        # Hono
+    pnpm add kavachos @kavachos/express     # Express
+    pnpm add kavachos @kavachos/nextjs      # Next.js App Router
+    pnpm add kavachos @kavachos/fastify     # Fastify
+    pnpm add kavachos @kavachos/nuxt        # Nuxt
+    pnpm add kavachos @kavachos/sveltekit   # SvelteKit
+    pnpm add kavachos @kavachos/astro       # Astro
     ```
   </Tab>
-
-  <Tab value="Express">
-    `kavachExpress` returns an Express Router. Mount it with `app.use`.
-
-    ```typescript
-    import express from 'express';
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachExpress } from '@kavachos/express';
-    import type { AgentIdentity } from 'kavachos';
-
-    const kavach = createKavach({
-      database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      baseUrl: process.env.AUTH_BASE_URL!,
-      mcp: {
-        issuer: process.env.AUTH_BASE_URL!,
-        audience: process.env.MCP_BASE_URL!,
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-
-    const app = express();
-    app.use(express.json());
-
-    // Mount all KavachOS routes
-    app.use('/api/kavach', kavachExpress(kavach, { mcp }));
-
-    // Protect MCP tool routes
-    const { withMcpAuth } = kavachExpress(kavach, { mcp });
-    app.use('/mcp', withMcpAuth());
-
-    app.get('/mcp/tools/list', (req, res) => {
-      const agent = (req as typeof req & { agent: AgentIdentity }).agent;
-      res.json({ tools: [] });
-    });
-
-    app.listen(3000);
+  <Tab value="npm">
+    ```bash
+    npm install kavachos @kavachos/hono        # Hono
+    npm install kavachos @kavachos/express     # Express
+    npm install kavachos @kavachos/nextjs      # Next.js App Router
+    npm install kavachos @kavachos/fastify     # Fastify
+    npm install kavachos @kavachos/nuxt        # Nuxt
+    npm install kavachos @kavachos/sveltekit   # SvelteKit
+    npm install kavachos @kavachos/astro       # Astro
     ```
   </Tab>
-
-  <Tab value="Next.js">
-    `kavachNextjs` returns route handlers for the App Router. Use a catch-all route to handle all KavachOS paths.
-
-    ```typescript
-    // app/api/kavach/[...path]/route.ts
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachNextjs } from '@kavachos/nextjs';
-
-    const kavach = createKavach({
-      database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      baseUrl: process.env.AUTH_BASE_URL!,
-      mcp: {
-        issuer: process.env.AUTH_BASE_URL!,
-        audience: process.env.MCP_BASE_URL!,
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-    const handler = kavachNextjs(kavach, { mcp });
-
-    export const GET = handler;
-    export const POST = handler;
-    export const DELETE = handler;
-    ```
-
-    To protect individual MCP routes, wrap the route handler:
-
-    ```typescript
-    // app/mcp/tools/route.ts
-    import { kavachNextjs } from '@kavachos/nextjs';
-    import type { NextRequest } from 'next/server';
-
-    const { withMcpAuth } = kavachNextjs(kavach, { mcp });
-
-    export const GET = withMcpAuth(async (req: NextRequest, { agent }) => {
-      return Response.json({ tools: [] });
-    });
-    ```
-
-    For middleware-level protection across all MCP routes:
-
-    ```typescript
-    // middleware.ts
-    import { kavachNextjs } from '@kavachos/nextjs';
-    import type { NextRequest } from 'next/server';
-
-    const { mcpAuthMiddleware } = kavachNextjs(kavach, { mcp });
-
-    export function middleware(req: NextRequest) {
-      if (req.nextUrl.pathname.startsWith('/mcp')) {
-        return mcpAuthMiddleware(req);
-      }
-    }
-    ```
-  </Tab>
-
-  <Tab value="Fastify">
-    `kavachFastify` returns a Fastify plugin. Register it with `fastify.register`.
-
-    ```typescript
-    import Fastify from 'fastify';
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachFastify } from '@kavachos/fastify';
-
-    const kavach = createKavach({
-      database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      baseUrl: process.env.AUTH_BASE_URL!,
-      mcp: {
-        issuer: process.env.AUTH_BASE_URL!,
-        audience: process.env.MCP_BASE_URL!,
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-    const fastify = Fastify();
-
-    // Register the KavachOS plugin — mounts all routes under basePath
-    await fastify.register(kavachFastify(kavach, { mcp }));
-
-    // Protect MCP routes with a preHandler hook
-    fastify.addHook('preHandler', kavachFastify(kavach, { mcp }).withMcpAuth());
-
-    fastify.get('/mcp/tools/list', async (request) => {
-      const agent = request.agent;   // AgentIdentity set by hook
-      return { tools: [] };
-    });
-
-    await fastify.listen({ port: 3000 });
-    ```
-  </Tab>
-
-  <Tab value="Nuxt">
-    `kavachNuxt` returns a Nuxt server plugin. Add it to your server plugins directory.
-
-    ```typescript
-    // server/plugins/kavach.ts
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachNuxt } from '@kavachos/nuxt';
-
-    const kavach = createKavach({
-      database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      baseUrl: process.env.AUTH_BASE_URL!,
-      mcp: {
-        issuer: process.env.AUTH_BASE_URL!,
-        audience: process.env.MCP_BASE_URL!,
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-
-    export default kavachNuxt(kavach, { mcp });
-    ```
-
-    KavachOS routes are then available at `/api/kavach/...` within your Nuxt server.
-  </Tab>
-
-  <Tab value="SvelteKit">
-    `kavachSvelteKit` returns a SvelteKit handle function. Compose it in `hooks.server.ts`.
-
-    ```typescript
-    // src/hooks.server.ts
-    import { sequence } from '@sveltejs/kit/hooks';
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachSvelteKit } from '@kavachos/sveltekit';
-
-    const kavach = createKavach({
-      database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      baseUrl: process.env.AUTH_BASE_URL!,
-      mcp: {
-        issuer: process.env.AUTH_BASE_URL!,
-        audience: process.env.MCP_BASE_URL!,
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-
-    export const handle = sequence(kavachSvelteKit(kavach, { mcp }));
-    ```
-
-    Requests to `/api/kavach/...` are intercepted and handled by KavachOS before reaching your SvelteKit routes.
-  </Tab>
-
-  <Tab value="Astro">
-    `kavachAstro` returns an Astro middleware function. Add it to your middleware chain.
-
-    ```typescript
-    // src/middleware.ts
-    import { sequence } from 'astro:middleware';
-    import { createKavach, createMcpModule } from 'kavachos';
-    import { kavachAstro } from '@kavachos/astro';
-
-    const kavach = createKavach({
-      database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      baseUrl: process.env.AUTH_BASE_URL!,
-      mcp: {
-        issuer: process.env.AUTH_BASE_URL!,
-        audience: process.env.MCP_BASE_URL!,
-      },
-    });
-
-    const mcp = createMcpModule(kavach);
-
-    export const onRequest = sequence(kavachAstro(kavach, { mcp }));
+  <Tab value="yarn">
+    ```bash
+    yarn add kavachos @kavachos/hono        # Hono
+    yarn add kavachos @kavachos/express     # Express
+    yarn add kavachos @kavachos/nextjs      # Next.js App Router
+    yarn add kavachos @kavachos/fastify     # Fastify
+    yarn add kavachos @kavachos/nuxt        # Nuxt
+    yarn add kavachos @kavachos/sveltekit   # SvelteKit
+    yarn add kavachos @kavachos/astro       # Astro
     ```
   </Tab>
 </Tabs>
 
+## Usage
+
+<Tabs items={['Hono', 'Express', 'Next.js', 'Fastify', 'Nuxt', 'SvelteKit', 'Astro']}>
+  <Tab value="Hono">
+    `kavachHono` returns a `Hono` app instance. Mount it with `app.route()`.
+
+    ```typescript
+    import { Hono } from 'hono';
+    import { serve } from '@hono/node-server';
+    import { createKavach } from 'kavachos';
+    import { kavachHono } from '@kavachos/hono';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    const app = new Hono();
+    app.route('/api/kavach', kavachHono(kavach));
+
+    serve({ fetch: app.fetch, port: 3000 });
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    app.route('/api/kavach', kavachHono(kavach, { mcp }));
+    ```
+  </Tab>
+
+  <Tab value="Express">
+    `kavachExpress` returns an Express `Router`. Mount it with `app.use()`.
+
+    ```typescript
+    import express from 'express';
+    import { createKavach } from 'kavachos';
+    import { kavachExpress } from '@kavachos/express';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+    app.use('/api/kavach', kavachExpress(kavach));
+
+    app.listen(3000);
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    app.use('/api/kavach', kavachExpress(kavach, { mcp }));
+    ```
+
+    <Callout type="info">
+      Express requires `express.json()` and `express.urlencoded()` middleware before the KavachOS router. The adapter converts Express requests to Web API Request objects internally for MCP endpoints.
+    </Callout>
+  </Tab>
+
+  <Tab value="Next.js">
+    `kavachNextjs` returns route handler exports for the App Router. Mount it in a catch-all route.
+
+    ```typescript
+    // app/api/kavach/[...kavach]/route.ts
+    import { createKavach } from 'kavachos';
+    import { kavachNextjs } from '@kavachos/nextjs';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    const handlers = kavachNextjs(kavach);
+
+    export const GET = handlers.GET;
+    export const POST = handlers.POST;
+    export const PATCH = handlers.PATCH;
+    export const DELETE = handlers.DELETE;
+    export const OPTIONS = handlers.OPTIONS;
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    const handlers = kavachNextjs(kavach, { mcp });
+
+    export const GET = handlers.GET;
+    export const POST = handlers.POST;
+    export const PATCH = handlers.PATCH;
+    export const DELETE = handlers.DELETE;
+    export const OPTIONS = handlers.OPTIONS;
+    ```
+
+    The default `basePath` is `/api/kavach`. To change it:
+
+    ```typescript
+    const handlers = kavachNextjs(kavach, { basePath: '/api/auth/kavach' });
+    ```
+  </Tab>
+
+  <Tab value="Fastify">
+    `kavachFastify` returns a Fastify plugin function. Register it with `fastify.register()`.
+
+    ```typescript
+    import Fastify from 'fastify';
+    import { createKavach } from 'kavachos';
+    import { kavachFastify } from '@kavachos/fastify';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    const app = Fastify();
+    await app.register(kavachFastify(kavach), { prefix: '/api/kavach' });
+
+    await app.listen({ port: 3000 });
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
+    ```
+
+    <Callout type="info">
+      Use Fastify's built-in `prefix` option when calling `app.register()` to set the mount path. The adapter builds Web API Request objects from Fastify requests internally for MCP endpoints.
+    </Callout>
+  </Tab>
+
+  <Tab value="Nuxt">
+    `kavachNuxt` returns an H3 event handler. Export it as a catch-all server route.
+
+    ```typescript
+    // server/api/kavach/[...].ts
+    import { createKavach } from 'kavachos';
+    import { kavachNuxt } from '@kavachos/nuxt';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    export default kavachNuxt(kavach);
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    export default kavachNuxt(kavach, { mcp });
+    ```
+
+    The default `basePath` is `/api/kavach`. To change it:
+
+    ```typescript
+    export default kavachNuxt(kavach, { basePath: '/api/auth' });
+    ```
+  </Tab>
+
+  <Tab value="SvelteKit">
+    `kavachSvelteKit` returns SvelteKit `RequestHandler` exports. Mount in a catch-all `+server.ts` file.
+
+    ```typescript
+    // src/routes/api/kavach/[...path]/+server.ts
+    import { createKavach } from 'kavachos';
+    import { kavachSvelteKit } from '@kavachos/sveltekit';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    const handlers = kavachSvelteKit(kavach);
+
+    export const GET = handlers.GET;
+    export const POST = handlers.POST;
+    export const PATCH = handlers.PATCH;
+    export const DELETE = handlers.DELETE;
+    export const OPTIONS = handlers.OPTIONS;
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    const handlers = kavachSvelteKit(kavach, { mcp });
+
+    export const GET = handlers.GET;
+    export const POST = handlers.POST;
+    export const PATCH = handlers.PATCH;
+    export const DELETE = handlers.DELETE;
+    export const OPTIONS = handlers.OPTIONS;
+    ```
+
+    SvelteKit passes standard Web API `Request` objects natively, so no conversion is needed.
+  </Tab>
+
+  <Tab value="Astro">
+    `kavachAstro` returns Astro `APIRoute` exports. Mount in a catch-all page.
+
+    ```typescript
+    // src/pages/api/kavach/[...path].ts
+    import { createKavach } from 'kavachos';
+    import { kavachAstro } from '@kavachos/astro';
+
+    const kavach = createKavach({
+      database: { provider: 'sqlite', url: 'kavach.db' },
+    });
+
+    const handlers = kavachAstro(kavach);
+
+    export const GET = handlers.GET;
+    export const POST = handlers.POST;
+    export const PATCH = handlers.PATCH;
+    export const DELETE = handlers.DELETE;
+    export const OPTIONS = handlers.OPTIONS;
+    ```
+
+    Or use the catch-all handler for all methods:
+
+    ```typescript
+    export const ALL = handlers.ALL;
+    ```
+
+    With MCP OAuth:
+
+    ```typescript
+    import { createMcpModule } from 'kavachos/mcp';
+
+    const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
+    const handlers = kavachAstro(kavach, { mcp });
+    ```
+
+    Astro passes standard Web API `Request` objects natively, so no conversion is needed.
+  </Tab>
+</Tabs>
+
+## MCP endpoints with adapter
+
+When you pass an `McpAuthModule` to any adapter, the following endpoints are mounted in addition to the standard KavachOS routes:
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/.well-known/oauth-authorization-server` | GET | Authorization server metadata (RFC 8414) |
+| `/.well-known/oauth-protected-resource` | GET | Protected resource metadata (RFC 9728) |
+| `/mcp/register` | POST | Dynamic client registration (RFC 7591) |
+| `/mcp/authorize` | GET | OAuth 2.1 authorization endpoint |
+| `/mcp/token` | POST | Token exchange (code grant and refresh) |
+
+All MCP endpoints include CORS headers (`Access-Control-Allow-Origin: *`) and handle OPTIONS preflight requests automatically.
+
+If you do not pass `mcp` to the adapter, these endpoints return 404.
+
 ## Using without an adapter
 
-If your framework is not listed, use the core `McpModule` directly. It works with any server that handles standard `Request` objects.
+If your framework is not listed, or you want full control, use the `createMcpModule` directly. The MCP module accepts standard `Request` objects and returns `Result` types that you convert to responses yourself.
 
 ```typescript
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach } from 'kavachos';
+import { createMcpModule } from 'kavachos/mcp';
 
 const kavach = createKavach({ /* ... */ });
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule({ config: { /* ... */ }, /* storage callbacks */ });
 
 async function handler(request: Request): Promise<Response> {
-  // Let KavachOS handle its own routes
-  const kavachResponse = await mcp.handleRequest(request);
-  if (kavachResponse) return kavachResponse;
+  const url = new URL(request.url);
 
-  // Validate auth for protected routes
-  const authResult = await mcp.validateRequest(request);
-  if (!authResult.valid) {
-    return mcp.buildUnauthorizedResponse(request);
+  // Metadata discovery
+  if (url.pathname === '/.well-known/oauth-authorization-server') {
+    return Response.json(mcp.getMetadata());
   }
 
-  return new Response(JSON.stringify({ tools: [] }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  if (url.pathname === '/.well-known/oauth-protected-resource') {
+    return Response.json(mcp.getProtectedResourceMetadata());
+  }
+
+  // Client registration
+  if (url.pathname === '/mcp/register' && request.method === 'POST') {
+    const body = await request.json();
+    const result = await mcp.registerClient(body);
+    if (!result.success) {
+      return Response.json(
+        { error: 'invalid_client_metadata', error_description: result.error.message },
+        { status: 400 },
+      );
+    }
+    return Response.json(result.data, { status: 201 });
+  }
+
+  // Authorization
+  if (url.pathname === '/mcp/authorize' && request.method === 'GET') {
+    const result = await mcp.authorize(request);
+    if (!result.success) {
+      return Response.json(
+        { error: result.error.code, error_description: result.error.message },
+        { status: 400 },
+      );
+    }
+    return Response.redirect(result.data.redirectUri, 302);
+  }
+
+  // Token exchange
+  if (url.pathname === '/mcp/token' && request.method === 'POST') {
+    const result = await mcp.token(request);
+    if (!result.success) {
+      return Response.json(
+        { error: result.error.code, error_description: result.error.message },
+        { status: result.error.code === 'INVALID_CLIENT' ? 401 : 400 },
+      );
+    }
+    return Response.json(result.data);
+  }
+
+  // Protect your own endpoints
+  const authResult = await mcp.middleware(request);
+  if (!authResult.success) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const session = authResult.data;
+  return Response.json({ userId: session.userId, scopes: session.scopes });
 }
 ```
 
-<Callout type="info">
-  `handleRequest` returns `null` when the request URL does not match any KavachOS route, so your own handlers run normally for all other paths.
-</Callout>
+## REST API endpoint reference
 
-## Adapter reference
+All adapters mount the same set of REST routes. These are the KavachOS core endpoints (not MCP):
 
-| Package | Framework |
-|---|---|
-| `@kavachos/hono` | Hono |
-| `@kavachos/express` | Express |
-| `@kavachos/nextjs` | Next.js App Router |
-| `@kavachos/fastify` | Fastify |
-| `@kavachos/nuxt` | Nuxt |
-| `@kavachos/sveltekit` | SvelteKit |
-| `@kavachos/astro` | Astro |
+| Endpoint | Method | Description |
+|---|---|---|
+| `/agents` | GET | List agents (filterable by userId, status, type) |
+| `/agents` | POST | Create an agent |
+| `/agents/:id` | GET | Get agent by ID |
+| `/agents/:id` | PATCH | Update agent (name, permissions, expiry, metadata) |
+| `/agents/:id` | DELETE | Revoke an agent |
+| `/agents/:id/rotate` | POST | Rotate agent token |
+| `/authorize` | POST | Authorize an action by agent ID |
+| `/authorize/token` | POST | Authorize an action by bearer token |
+| `/delegations` | POST | Create a delegation chain |
+| `/delegations/:id` | DELETE | Revoke a delegation |
+| `/delegations/:agentId` | GET | List delegation chains for an agent |
+| `/audit` | GET | Query audit logs (filterable) |
+| `/audit/export` | GET | Export audit logs as JSON or CSV |
+| `/dashboard/stats` | GET | Dashboard overview statistics |
+| `/dashboard/agents` | GET | Dashboard agent listing |
+| `/dashboard/audit` | GET | Dashboard audit log view |

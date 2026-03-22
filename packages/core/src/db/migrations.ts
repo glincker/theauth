@@ -49,11 +49,25 @@ function buildStatements(provider: DatabaseConfig["provider"]): string[] {
 )`,
 
 		// ------------------------------------------------------------------
+		// kavach_tenants  (must come before kavach_agents – agents FK to tenants)
+		// ------------------------------------------------------------------
+		`CREATE TABLE ${ifne} kavach_tenants (
+  id         TEXT NOT NULL PRIMARY KEY,
+  name       TEXT NOT NULL,
+  slug       TEXT NOT NULL UNIQUE,
+  settings   ${json},
+  status     TEXT NOT NULL DEFAULT 'active',
+  created_at ${ts} NOT NULL,
+  updated_at ${ts} NOT NULL
+)`,
+
+		// ------------------------------------------------------------------
 		// kavach_agents
 		// ------------------------------------------------------------------
 		`CREATE TABLE ${ifne} kavach_agents (
   id              TEXT  NOT NULL PRIMARY KEY,
   owner_id        TEXT  NOT NULL REFERENCES kavach_users(id),
+  tenant_id       TEXT  REFERENCES kavach_tenants(id),
   name            TEXT  NOT NULL,
   type            TEXT  NOT NULL,
   status          TEXT  NOT NULL DEFAULT 'active',
@@ -186,6 +200,52 @@ function buildStatements(provider: DatabaseConfig["provider"]): string[] {
 )`,
 
 		// ------------------------------------------------------------------
+		// kavach_agent_cards
+		// ------------------------------------------------------------------
+		`CREATE TABLE ${ifne} kavach_agent_cards (
+  id               TEXT    NOT NULL PRIMARY KEY,
+  agent_id         TEXT    NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  name             TEXT    NOT NULL,
+  description      TEXT,
+  version          TEXT    NOT NULL,
+  protocols        ${json} NOT NULL,
+  capabilities     ${json} NOT NULL,
+  auth_requirements ${json} NOT NULL,
+  endpoint         TEXT,
+  metadata         ${json},
+  created_at       ${ts}   NOT NULL,
+  updated_at       ${ts}   NOT NULL
+)`,
+
+		// ------------------------------------------------------------------
+		// kavach_approval_requests
+		// ------------------------------------------------------------------
+		`CREATE TABLE ${ifne} kavach_approval_requests (
+  id            TEXT NOT NULL PRIMARY KEY,
+  agent_id      TEXT NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  user_id       TEXT NOT NULL REFERENCES kavach_users(id),
+  action        TEXT NOT NULL,
+  resource      TEXT NOT NULL,
+  arguments     ${json},
+  status        TEXT NOT NULL DEFAULT 'pending',
+  expires_at    ${ts} NOT NULL,
+  responded_at  ${tsNull},
+  responded_by  TEXT,
+  created_at    ${ts} NOT NULL
+)`,
+
+		// ------------------------------------------------------------------
+		// kavach_trust_scores
+		// ------------------------------------------------------------------
+		`CREATE TABLE ${ifne} kavach_trust_scores (
+  agent_id     TEXT    NOT NULL PRIMARY KEY REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  score        INTEGER NOT NULL,
+  level        TEXT    NOT NULL,
+  factors      ${json} NOT NULL,
+  computed_at  ${ts}   NOT NULL
+)`,
+
+		// ------------------------------------------------------------------
 		// kavach_oauth_authorization_codes
 		// ------------------------------------------------------------------
 		`CREATE TABLE ${ifne} kavach_oauth_authorization_codes (
@@ -200,6 +260,21 @@ function buildStatements(provider: DatabaseConfig["provider"]): string[] {
   resource               TEXT,
   expires_at             ${ts} NOT NULL,
   created_at             ${ts} NOT NULL
+)`,
+
+		// ------------------------------------------------------------------
+		// kavach_budget_policies
+		// ------------------------------------------------------------------
+		`CREATE TABLE ${ifne} kavach_budget_policies (
+  id            TEXT    NOT NULL PRIMARY KEY,
+  agent_id      TEXT    REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  user_id       TEXT    REFERENCES kavach_users(id),
+  tenant_id     TEXT    REFERENCES kavach_tenants(id),
+  limits        ${json} NOT NULL,
+  current_usage ${json} NOT NULL,
+  action        TEXT    NOT NULL DEFAULT 'warn',
+  status        TEXT    NOT NULL DEFAULT 'active',
+  created_at    ${ts}   NOT NULL
 )`,
 	];
 }

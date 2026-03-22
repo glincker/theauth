@@ -324,7 +324,7 @@ describe("clerkAdapter", () => {
 
 		expect(adapter.getUser).toBeDefined();
 
-		const user = await adapter.getUser!("clerk-user-1");
+		const user = await adapter.getUser?.("clerk-user-1");
 		expect(user).toEqual({
 			id: "clerk-user-1",
 			email: "eve@example.com",
@@ -339,12 +339,12 @@ describe("clerkAdapter", () => {
 			getUser: vi.fn().mockRejectedValue(new Error("not found")),
 		};
 		const adapter = clerkAdapter(options);
-		expect(await adapter.getUser!("clerk-user-1")).toBeNull();
+		expect(await adapter.getUser?.("clerk-user-1")).toBeNull();
 	});
 
 	it("getUser returns null when getUser returns null", async () => {
 		const options = makeOptions("clerk-user-1", null);
 		const adapter = clerkAdapter(options);
-		expect(await adapter.getUser!("clerk-user-1")).toBeNull();
+		expect(await adapter.getUser?.("clerk-user-1")).toBeNull();
 	});
 });

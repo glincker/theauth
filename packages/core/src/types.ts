@@ -1,7 +1,12 @@
 import type { AgentConfig } from "./agent/types.js";
+import type { AnomalyConfig } from "./anomaly/detector.js";
+import type { ApprovalConfig } from "./approval/approval.js";
 import type { AuthAdapter } from "./auth/types.js";
+import type { KavachHooks } from "./hooks/lifecycle.js";
 import type { McpConfig } from "./mcp/types.js";
 import type { SessionConfig } from "./session/session.js";
+import type { TelemetryConfig } from "./telemetry/exporter.js";
+import type { TrustConfig } from "./trust/scoring.js";
 
 /**
  * Main configuration for KavachOS
@@ -35,6 +40,21 @@ export interface KavachConfig {
 		adapter?: AuthAdapter;
 		session?: SessionConfig;
 	};
+
+	/** Anomaly detection configuration */
+	anomaly?: AnomalyConfig;
+
+	/** CIBA async approval flow configuration */
+	approval?: ApprovalConfig;
+
+	/** Graduated autonomy trust scoring configuration */
+	trust?: TrustConfig;
+
+	/** OpenTelemetry integration — hook-based, no OTel dependency required */
+	telemetry?: TelemetryConfig;
+
+	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
+	hooks?: KavachHooks;
 
 	/** Base URL for the auth server */
 	baseUrl?: string;
@@ -81,9 +101,23 @@ export interface AgentModule {
 	rotate: (agentId: string) => Promise<AgentIdentity>;
 }
 
+export interface CostSummary {
+	totalCost: number;
+	byAgent: Array<{ agentId: string; totalCost: number; callCount: number }>;
+	byDay: Array<{ date: string; totalCost: number; callCount: number }>;
+}
+
+export interface CostFilter {
+	agentId?: string;
+	userId?: string;
+	since?: Date;
+	until?: Date;
+}
+
 export interface AuditModule {
 	query: (filter: AuditFilter) => Promise<AuditEntry[]>;
 	export: (options: AuditExportOptions) => Promise<string>;
+	getCostSummary: (filter?: CostFilter) => Promise<CostSummary>;
 }
 
 export interface McpModule {
@@ -96,6 +130,7 @@ export interface McpModule {
 export interface AgentIdentity {
 	id: string;
 	ownerId: string;
+	tenantId?: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
 	token: string;
@@ -122,6 +157,7 @@ export interface PermissionConstraints {
 
 export interface CreateAgentInput {
 	ownerId: string;
+	tenantId?: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
 	permissions: Permission[];
@@ -138,6 +174,7 @@ export interface UpdateAgentInput {
 
 export interface AgentFilter {
 	userId?: string;
+	tenantId?: string;
 	status?: "active" | "revoked" | "expired";
 	type?: "autonomous" | "delegated" | "service";
 }
@@ -148,7 +185,20 @@ export interface AuthorizeResult {
 	auditId: string;
 }
 
-export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promise<AuthorizeResult>;
+export interface AuthorizeContext {
+	/** Client IP address, used for ipAllowlist enforcement and audit logging */
+	ip?: string;
+	/** User-Agent string from the originating HTTP request */
+	userAgent?: string;
+	/** Token cost to record in the audit log (e.g. LLM prompt + completion tokens) */
+	tokensCost?: number;
+}
+
+export type AuthorizeFn = (
+	agentId: string,
+	request: AuthorizeRequest,
+	context?: AuthorizeContext,
+) => Promise<AuthorizeResult>;
 
 export interface RequestContext {
 	/** Client IP address, used for ipAllowlist enforcement and audit logging */

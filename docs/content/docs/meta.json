@@ -1,5 +1,5 @@
 {
 	"title": "Documentation",
 	"root": true,
-	"pages": ["index", "quickstart", "core", "platform"]
+	"pages": ["index", "quickstart", "guides", "core", "platform", "reference"]
 }
