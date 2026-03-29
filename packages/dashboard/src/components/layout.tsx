@@ -14,8 +14,7 @@ import {
 	Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import type { Page } from "../types.js";
+import type { Page, Theme } from "../types.js";
 import { DemoBanner } from "./demo-banner.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +37,8 @@ interface LayoutProps {
 	children: ReactNode;
 	headerActions?: ReactNode;
 	demo?: boolean;
+	theme: Theme;
+	onThemeToggle: () => void;
 }
 
 // ─── Nav Config ───────────────────────────────────────────────────────────────
@@ -170,30 +171,13 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
 
 // ─── Theme Toggle ─────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "kavachos-theme";
-
-export function ThemeToggle() {
-	const [isDark, setIsDark] = useState<boolean>(() => {
-		if (typeof window === "undefined") return true;
-		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored !== null) return stored === "dark";
-		return window.matchMedia("(prefers-color-scheme: dark)").matches;
-	});
-
-	useEffect(() => {
-		const root = document.documentElement;
-		if (isDark) {
-			root.classList.add("dark");
-		} else {
-			root.classList.remove("dark");
-		}
-		localStorage.setItem(STORAGE_KEY, isDark ? "dark" : "light");
-	}, [isDark]);
+export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+	const isDark = theme === "dark";
 
 	return (
 		<button
 			type="button"
-			onClick={() => setIsDark((v) => !v)}
+			onClick={onToggle}
 			className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
 			aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
 		>
@@ -228,7 +212,15 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
 
 // ─── Main Layout ──────────────────────────────────────────────────────────────
 
-export function Layout({ currentPage, onNavigate, children, headerActions, demo }: LayoutProps) {
+export function Layout({
+	currentPage,
+	onNavigate,
+	children,
+	headerActions,
+	demo,
+	theme,
+	onThemeToggle,
+}: LayoutProps) {
 	return (
 		<div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white">
 			<Sidebar currentPage={currentPage} onNavigate={onNavigate} />
@@ -236,7 +228,7 @@ export function Layout({ currentPage, onNavigate, children, headerActions, demo 
 				{demo && <DemoBanner />}
 				<header className="flex items-center justify-end px-6 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
 					<div className="flex items-center gap-2">
-						<ThemeToggle />
+						<ThemeToggle theme={theme} onToggle={onThemeToggle} />
 						{headerActions}
 					</div>
 				</header>

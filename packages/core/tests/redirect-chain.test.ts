@@ -154,7 +154,9 @@ describe("push() and pop()", () => {
 		//    back to get a cookie reflecting only [step-two, origin].
 		//    Alternatively, build a new chain from scratch with just step-two + origin.
 		const chain2 = createRedirectChain({ cookie: { secure: false } });
-		const c2_0 = extractCookieValue(chain2.capture(makeRequest("http://localhost/final-destination")));
+		const c2_0 = extractCookieValue(
+			chain2.capture(makeRequest("http://localhost/final-destination")),
+		);
 		chain2.parse(makeRequest("http://localhost/", c2_0));
 		const c2_1 = extractCookieValue(chain2.push("/step-two"));
 
@@ -165,7 +167,9 @@ describe("push() and pop()", () => {
 
 		// 6. Final pop — origin
 		const chain3 = createRedirectChain({ cookie: { secure: false } });
-		const c3_0 = extractCookieValue(chain3.capture(makeRequest("http://localhost/final-destination")));
+		const c3_0 = extractCookieValue(
+			chain3.capture(makeRequest("http://localhost/final-destination")),
+		);
 
 		const r3 = chain3.pop(makeRequest("http://localhost/", c3_0));
 		expect(r3.url).toBe("/final-destination");

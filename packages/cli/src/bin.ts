@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { argv, exit, stdout } from "node:process";
+import { fileURLToPath } from "node:url";
 import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
 import { runInit } from "./init.js";
 
-const VERSION = "0.0.1";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8")) as {
+	version: string;
+};
+const VERSION = pkg.version;
 
 const HELP = `
 kavachos - The Auth OS for AI Agents

@@ -43,3 +43,5 @@ docs-local/
 
 # Claude instructions (project-specific, not shipped)
 CLAUDE.md
+.env.local
+playwright-report

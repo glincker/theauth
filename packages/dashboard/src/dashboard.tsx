@@ -33,9 +33,11 @@ interface InnerDashboardProps {
 	apiUrl: string;
 	onLogout: () => void;
 	demo?: boolean;
+	theme: "light" | "dark";
+	onThemeToggle: () => void;
 }
 
-function InnerDashboard({ apiUrl, onLogout, demo }: InnerDashboardProps) {
+function InnerDashboard({ apiUrl, onLogout, demo, theme, onThemeToggle }: InnerDashboardProps) {
 	const [currentPage, setCurrentPage] = useState<Page>("overview");
 	const client = useMemo(() => createApiClient(apiUrl), [apiUrl]);
 
@@ -68,6 +70,8 @@ function InnerDashboard({ apiUrl, onLogout, demo }: InnerDashboardProps) {
 			onNavigate={setCurrentPage}
 			headerActions={<LogoutButton onLogout={onLogout} />}
 			demo={demo}
+			theme={theme}
+			onThemeToggle={onThemeToggle}
 		>
 			{renderPage()}
 		</Layout>
@@ -78,20 +82,32 @@ function InnerDashboard({ apiUrl, onLogout, demo }: InnerDashboardProps) {
 
 const STORAGE_KEY = "kavachos-theme";
 
+function resolveInitialTheme(defaultTheme: "light" | "dark"): "light" | "dark" {
+	if (typeof window === "undefined") return defaultTheme;
+	const stored = localStorage.getItem(STORAGE_KEY);
+	return stored === "light" || stored === "dark" ? stored : defaultTheme;
+}
+
 export function KavachDashboard({ apiUrl, theme = "dark", demo }: DashboardProps) {
+	const [currentTheme, setCurrentTheme] = useState<"light" | "dark">(() =>
+		resolveInitialTheme(theme),
+	);
+
 	useEffect(() => {
 		const stored = localStorage.getItem(STORAGE_KEY);
-		const prefersDark =
-			stored !== null
-				? stored === "dark"
-				: theme === "dark" || window.matchMedia("(prefers-color-scheme: dark)").matches;
+		if (stored === null) {
+			setCurrentTheme(theme);
+		}
+	}, [theme]);
 
-		if (prefersDark) {
+	useEffect(() => {
+		if (currentTheme === "dark") {
 			document.documentElement.classList.add("dark");
 		} else {
 			document.documentElement.classList.remove("dark");
 		}
-	}, [theme]);
+		localStorage.setItem(STORAGE_KEY, currentTheme);
+	}, [currentTheme]);
 
 	return (
 		<div data-kavachos-dashboard>
@@ -99,7 +115,15 @@ export function KavachDashboard({ apiUrl, theme = "dark", demo }: DashboardProps
 				{(onLogout) => (
 					<QueryClientProvider client={defaultQueryClient}>
 						<ToastProvider>
-							<InnerDashboard apiUrl={apiUrl} onLogout={onLogout} demo={demo} />
+							<InnerDashboard
+								apiUrl={apiUrl}
+								onLogout={onLogout}
+								demo={demo}
+								theme={currentTheme}
+								onThemeToggle={() =>
+									setCurrentTheme((current) => (current === "dark" ? "light" : "dark"))
+								}
+							/>
 						</ToastProvider>
 					</QueryClientProvider>
 				)}

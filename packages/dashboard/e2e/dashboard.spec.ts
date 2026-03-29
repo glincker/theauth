@@ -1,4 +1,127 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+
+const SESSION_KEY = "kavachos_dashboard_secret";
+const THEME_KEY = "kavachos-theme";
+
+const STATS_FIXTURE = {
+	totalAgents: 3,
+	activeAgents: 2,
+	totalAuditEvents: 42,
+	recentAuditEvents: 5,
+	authAllowedRate: 80,
+	activeDelegations: 1,
+};
+
+const AGENTS_FIXTURE = [
+	{
+		id: "agent-1",
+		name: "Test Agent",
+		type: "llm",
+		status: "active",
+		permissionsCount: 2,
+		lastActiveAt: "2026-03-29T12:00:00.000Z",
+		createdAt: "2026-03-20T12:00:00.000Z",
+		expiresAt: null,
+		metadata: {},
+	},
+];
+
+const AUDIT_FIXTURE = {
+	entries: [
+		{
+			id: "audit-1",
+			timestamp: "2026-03-29T12:05:00.000Z",
+			agentId: "agent-1",
+			agentName: "Test Agent",
+			action: "read",
+			resource: "users:123",
+			result: "allowed",
+			durationMs: 12,
+			metadata: {},
+		},
+	],
+	total: 1,
+	limit: 10,
+	offset: 0,
+};
+
+const SETTINGS_FIXTURE = {
+	database: {
+		adapter: "sqlite",
+		url: ":memory:",
+		version: "3.45.0",
+	},
+	tokenExpirySeconds: 3600,
+	rateLimitRequestsPerMinute: 60,
+	rateLimitWindowSeconds: 60,
+	auditRetentionDays: 30,
+	maxAgentsPerTenant: 100,
+};
+
+async function mockAuthenticatedDashboard(page: Page) {
+	await page.route("**/api/**", (route) => {
+		const { pathname } = new URL(route.request().url());
+
+		switch (pathname) {
+			case "/api/dashboard/auth":
+				return route.fulfill({ status: 200 });
+			case "/api/dashboard/stats":
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(STATS_FIXTURE),
+				});
+			case "/api/audit":
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(AUDIT_FIXTURE),
+				});
+			case "/api/agents":
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(AGENTS_FIXTURE),
+				});
+			case "/api/users":
+			case "/api/permissions/templates":
+			case "/api/delegations":
+			case "/api/mcp/servers":
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify([]),
+				});
+			case "/api/settings":
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(SETTINGS_FIXTURE),
+				});
+			default:
+				return route.fulfill({
+					status: 404,
+					contentType: "application/json",
+					body: JSON.stringify({ code: "UNMOCKED_ROUTE", message: pathname }),
+				});
+		}
+	});
+}
+
+async function gotoAuthenticatedDashboard(page: Page) {
+	await page.goto("/");
+	await page.evaluate(
+		([sessionKey, themeKey]) => {
+			sessionStorage.setItem(sessionKey, "test-secret");
+			localStorage.removeItem(themeKey);
+		},
+		[SESSION_KEY, THEME_KEY],
+	);
+	await page.reload();
+	await expect(page.locator("aside nav")).toBeVisible();
+	await expect(page.locator("main h1", { hasText: "Overview" })).toBeVisible();
+}
 
 // ─── Login page (unauthenticated) ─────────────────────────────────────────────
 
@@ -7,7 +130,7 @@ test.describe("login screen", () => {
 		// Clear any stored session so we always land on login
 		await page.context().clearCookies();
 		await page.goto("/");
-		await page.evaluate(() => sessionStorage.removeItem("kavachos_dashboard_secret"));
+		await page.evaluate((sessionKey) => sessionStorage.removeItem(sessionKey), SESSION_KEY);
 		await page.reload();
 	});
 
@@ -57,15 +180,8 @@ test.describe("login screen", () => {
 
 test.describe("authenticated dashboard", () => {
 	test.beforeEach(async ({ page }) => {
-		// Inject a session token and mock the auth endpoint so the gate passes
-		await page.route("**/api/dashboard/auth", (route) => route.fulfill({ status: 200 }));
-		await page.route("**/api/dashboard/**", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
-		);
-
-		await page.goto("/");
-		await page.evaluate(() => sessionStorage.setItem("kavachos_dashboard_secret", "test-secret"));
-		await page.reload();
+		await mockAuthenticatedDashboard(page);
+		await gotoAuthenticatedDashboard(page);
 	});
 
 	test("shows sidebar with KavachOS logo", async ({ page }) => {
@@ -101,25 +217,28 @@ test.describe("authenticated dashboard", () => {
 	});
 
 	test("navigates to agents page", async ({ page }) => {
-		await page.click('aside nav button:has-text("Agents")');
 		const agentsBtn = page.locator("aside nav button", { hasText: "Agents" });
+		await agentsBtn.click();
 		await expect(agentsBtn).toHaveClass(/bg-zinc/);
+		await expect(page.locator("main h1", { hasText: "Agents" })).toBeVisible();
 	});
 
 	test("navigates to audit log page", async ({ page }) => {
-		await page.click('aside nav button:has-text("Audit Log")');
 		const auditBtn = page.locator("aside nav button", { hasText: "Audit Log" });
+		await auditBtn.click();
 		await expect(auditBtn).toHaveClass(/bg-zinc/);
+		await expect(page.locator("main h1", { hasText: "Audit Log" })).toBeVisible();
 	});
 
 	test("navigates to settings page", async ({ page }) => {
-		await page.click('aside nav button:has-text("Settings")');
 		const settingsBtn = page.locator("aside nav button", { hasText: "Settings" });
+		await settingsBtn.click();
 		await expect(settingsBtn).toHaveClass(/bg-zinc/);
+		await expect(page.locator("main h1", { hasText: "Settings" })).toBeVisible();
 	});
 
 	test("sign out returns to login screen", async ({ page }) => {
-		await page.click('button:has-text("Sign out")');
+		await page.locator("button", { hasText: "Sign out" }).click();
 		await expect(page.locator("#kavachos-secret")).toBeVisible();
 	});
 

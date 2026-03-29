@@ -3,8 +3,14 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.6.5",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kavachos/kavachos.git"
+  },
+  "homepage": "https://kavachos.com",
+  "bugs": "https://github.com/kavachos/kavachos/issues",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "build": "turbo build --filter='./packages/**'",

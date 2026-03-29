@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, like } from "drizzle-orm";
 import type { Database } from "kavachos";
-import { agentCards } from "kavachos";
+import { agentCards, and, eq, like } from "kavachos";
 
 export interface AgentCapability {
 	name: string;

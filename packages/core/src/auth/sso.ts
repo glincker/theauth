@@ -33,14 +33,9 @@
 import { deflateRaw } from "node:zlib";
 import { and, eq } from "drizzle-orm";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { generateId, randomBytesHex, sha256Raw, toHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { ssoConnections } from "../db/schema.js";
-import {
-	generateId,
-	randomBytesHex,
-	sha256Raw,
-	toHex,
-} from "../crypto/web-crypto.js";
 
 // ---------------------------------------------------------------------------
 // Error codes
@@ -630,9 +625,7 @@ async function buildSamlAuthnRequest(
 /** Convert a PEM-encoded certificate or public key to an ArrayBuffer (DER). */
 function pemToArrayBuffer(pem: string): ArrayBuffer {
 	// Strip headers and whitespace
-	const base64 = pem
-		.replace(/-----[^-]+-----/g, "")
-		.replace(/\s+/g, "");
+	const base64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
 	const binary = atob(base64);
 	const bytes = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i++) {
