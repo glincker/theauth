@@ -1,0 +1,147 @@
+# GitHub Labels Configuration
+# Sync to repo using: gh label create -R kavachos/kavachos --name <name> --description <desc> --color <color>
+# Or use GitHub CLI bulk update script
+
+# =============================================================================
+# TYPE LABELS (Blue tones) - What kind of work?
+# =============================================================================
+
+- name: type:bug
+  color: 4289F4
+  description: Defect or regression
+
+- name: type:feature
+  color: 1F6FEB
+  description: New capability
+
+- name: type:docs
+  color: 0366D6
+  description: Documentation-only work
+
+- name: type:refactor
+  color: 0052CC
+  description: Internal code structure changes
+
+- name: type:security
+  color: 00264D
+  description: Security-related work
+
+- name: type:test
+  color: 6F42C1
+  description: Test-only changes
+
+- name: type:chore
+  color: 8B7BB8
+  description: Maintenance and tooling
+
+# =============================================================================
+# PRIORITY LABELS (Red/Urgent tones) - How urgent and impactful?
+# =============================================================================
+
+- name: priority:P0
+  color: B60205
+  description: "🚨 Critical outage, auth bypass, data-loss risk — fix immediately"
+
+- name: priority:P1
+  color: D73A49
+  description: High-impact user-facing issue — schedule soon
+
+- name: priority:P2
+  color: F97583
+  description: Standard defect or enhancement — normal queue
+
+- name: priority:P3
+  color: FDBCB4
+  description: Low urgency or backlog item — no timeline
+
+# =============================================================================
+# AREA LABELS (Green tones) - Which part of the system?
+# =============================================================================
+
+- name: area:core
+  color: 1D76DB
+  description: Core monorepo infrastructure
+
+- name: area:adapters
+  color: 0E8A16
+  description: Adapter packages (connectors, drivers)
+
+- name: area:client
+  color: 0E8A16
+  description: Client-facing SDKs and utilities
+
+- name: area:dashboard
+  color: 0E8A16
+  description: Web dashboard UI
+
+- name: area:cli
+  color: 0E8A16
+  description: Command-line interface
+
+- name: area:docs
+  color: 0E8A16
+  description: Documentation and guides
+
+- name: area:plugins
+  color: 0E8A16
+  description: Plugin system and ecosystem
+
+- name: area:release
+  color: 0E8A16
+  description: Release engineering and versioning
+
+# =============================================================================
+# STATE LABELS (Yellow/Orange/Amber tones) - What's the current status?
+# =============================================================================
+
+- name: state:needs-repro
+  color: FFA500
+  description: Missing reproducible steps or context
+
+- name: state:needs-design
+  color: FFB81C
+  description: Requires design decision or architecture review
+
+- name: state:blocked
+  color: FF8C00
+  description: Waiting on external dependency or blocker
+
+- name: state:ready
+  color: FFCC00
+  description: Ready for implementation — scoped and approved
+
+- name: state:in-progress
+  color: FDD835
+  description: Actively being worked on
+
+- name: state:needs-review
+  color: FFD700
+  description: Waiting on maintainer review
+
+# =============================================================================
+# GOOD FIRST CONTRIBUTION (Purple/Pink) - Contributor guidance
+# =============================================================================
+
+- name: good-first-issue
+  color: 7057FF
+  description: Beginner-friendly task with clear scope and mentorship
+
+- name: help-wanted
+  color: 9D76FF
+  description: Community contribution actively requested
+
+# =============================================================================
+# META LABELS (Gray tones) - Cross-cutting concerns (optional add-ons)
+# =============================================================================
+
+- name: meta:duplicate
+  color: CCCCCC
+  description: Duplicate of existing issue
+
+- name: meta:wontfix
+  color: E0E0E0
+  description: Intentionally not addressing this issue
+
+- name: meta:invalid
+  color: F5F5F5
+  description: Invalid report or off-topic

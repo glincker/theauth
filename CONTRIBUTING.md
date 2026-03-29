@@ -1,12 +1,12 @@
 # Contributing to KavachOS
 
-## Workflow
+Thanks for contributing. This guide helps you ship changes quickly and safely.
 
-1. Fork the repo and create a branch: `git checkout -b feat/your-feature`
-2. Make your changes with tests
-3. Open a pull request against `main`
+## Code of conduct
 
-## Setup
+By participating, you agree to [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## Development setup
 
 ```bash
 pnpm install
@@ -14,47 +14,80 @@ pnpm build
 pnpm test
 ```
 
-## Code style
+## Development workflow
 
-Biome handles formatting and linting automatically.
+1. Fork and create a branch from `main`.
+2. Make a focused change (feature, fix, docs, or test).
+3. Add or update tests for behavior changes.
+4. Run lint, typecheck, and relevant package tests.
+5. Open a PR with context and verification steps.
 
-```bash
-pnpm lint:fix   # fix lint issues
-pnpm format     # format all files
-```
-
-The pre-commit hook runs `pnpm lint && pnpm typecheck` before every commit.
-Commits that fail are blocked automatically — fix the issue and try again.
-
-## Tests
-
-All new features and bug fixes require tests. Run the full suite with:
+## Monorepo commands
 
 ```bash
-pnpm test           # run once
-pnpm test:watch     # watch mode
-pnpm coverage       # with coverage report
+pnpm build
+pnpm test
+pnpm typecheck
+pnpm lint
 ```
 
-To run tests for a single package:
+Run commands for one package:
 
 ```bash
-vitest packages/core/tests/kavach.test.ts
+pnpm --filter kavachos test
+pnpm --filter @kavachos/cli test
 ```
 
-## Commit format
+## Style and quality
 
+Biome handles formatting and linting:
+
+```bash
+pnpm lint:fix
+pnpm format
 ```
+
+Pre-commit hooks run checks and block bad commits.
+
+## Changesets and versioning
+
+If your PR changes user-visible behavior, add a changeset:
+
+```bash
+pnpm changeset
+```
+
+Choose bump type carefully:
+
+- `patch`: bugfixes with no API change
+- `minor`: backward-compatible features
+- `major`: breaking changes
+
+For coordinated release waves, follow the runbook in:
+`docs-local/release-versioning-runbook-2026-03-29.md`
+
+## Pull request checklist
+
+- `pnpm typecheck` passes
+- `pnpm lint` passes
+- Relevant tests pass
+- New features include tests
+- Breaking changes are documented
+- Secrets and `.env` files are not committed
+
+## Commit message format
+
+Use conventional commit style:
+
+```text
 <type>: <description>
-
-Co-Authored-By: Glinr <bot@glincker.com>
 ```
 
 Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`
 
-## Before submitting a PR
+## Reporting issues and support
 
-- `pnpm typecheck` passes with zero errors
-- `pnpm lint` passes with zero warnings on new code
-- All new exports are documented with a JSDoc comment
-- No `.env` files, credentials, or API keys committed
+- Bug reports and feature requests: GitHub issue templates
+- Questions: GitHub Discussions or Discord
+- Security issues: follow [SECURITY.md](SECURITY.md)
+- Support channels: [SUPPORT.md](SUPPORT.md)
