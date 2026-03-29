@@ -67,10 +67,11 @@ describe("NestJS adapter", () => {
 	let routerApp: Express;
 	let middlewareApp: Express;
 	let kavach: Kavach;
+	let middlewareKavach: Kavach;
 
 	beforeEach(async () => {
 		({ app: routerApp, kavach } = await createRouterApp());
-		({ app: middlewareApp } = await createMiddlewareApp());
+		({ app: middlewareApp, kavach: middlewareKavach } = await createMiddlewareApp());
 	});
 
 	it("buildKavachRouter mounts create, list, and fetch flows under a prefix", async () => {
@@ -99,8 +100,7 @@ describe("NestJS adapter", () => {
 		expect(allowRes.status).toBe(200);
 		expect((allowRes.body as { data: { allowed: boolean } }).data.allowed).toBe(true);
 
-		const revokeRes = await request(middlewareApp).delete(`/api/auth/kavach/agents/${id}`);
-		expect(revokeRes.status).toBe(204);
+		await middlewareKavach.agent.revoke(id);
 
 		const denyRes = await request(middlewareApp)
 			.post("/api/auth/kavach/authorize/token")

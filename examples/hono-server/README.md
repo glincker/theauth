@@ -1,6 +1,6 @@
 # Hono server example
 
-Full auth server using KavachOS with the Hono adapter. Includes sign-up, sign-in, session management, and agent CRUD.
+Agent auth server using KavachOS with the Hono adapter. Includes agent CRUD, authorization checks, delegations, audit queries, and dashboard endpoints.
 
 ## Run
 
@@ -12,7 +12,9 @@ pnpm dev
 
 ## Endpoints
 
-- `POST /api/kavach/sign-up` - Create account
-- `POST /api/kavach/sign-in` - Sign in
-- `GET /api/kavach/session` - Get current session
-- `POST /api/kavach/sign-out` - Sign out
+- `POST /api/agents` - Create an agent
+- `GET /api/agents` - List agents
+- `POST /api/authorize` - Check permissions by agent id
+- `POST /api/authorize/token` - Check permissions by bearer token
+- `GET /api/audit` - Query the audit trail
+- `GET /api/dashboard/stats` - Get summary stats

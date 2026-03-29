@@ -15,7 +15,8 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createKavach, users } from "kavachos";
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT ?? 3000);
+const DATABASE_PATH = process.env.KAVACH_DB_PATH ?? "kavach.db";
 
 // ─── Database setup ───────────────────────────────────────────────────────────
 
@@ -114,6 +115,7 @@ function seedUser(kavach: Awaited<ReturnType<typeof createKavach>>): void {
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		})
+		.onConflictDoNothing()
 		.run();
 }
 
@@ -307,7 +309,7 @@ curl http://localhost:${PORT}/api/audit</code>
 
 async function main(): Promise<void> {
 	const kavach = await createKavach({
-		database: { provider: "sqlite", url: "kavach.db" },
+		database: { provider: "sqlite", url: DATABASE_PATH },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,
@@ -352,7 +354,7 @@ Endpoints (all prefixed /api):
   GET    /api/dashboard/audit
 
 Seed user: user-1  (demo@kavachos.dev)
-Database:  kavach.db
+Database:  ${DATABASE_PATH}
 
 `);
 	});

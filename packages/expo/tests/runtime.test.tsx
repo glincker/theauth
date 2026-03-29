@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Root } from "react-dom/client";
-import type { ActionResult, KavachAgent, KavachSession } from "../src/types.js";
+import type { ActionResult, KavachAgent, } from "../src/types.js";
 import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -161,7 +161,11 @@ beforeEach(async () => {
 			const agentId = parsed.pathname.split("/")[4];
 			agentsState = agentsState.map((agent) =>
 				agent.id === agentId
-					? { ...agent, token: `${agent.token}-rotated`, updatedAt: "2026-03-29T12:05:00.000Z" }
+					? {
+							...agent,
+							token: `${agent.token}-rotated`,
+							updatedAt: "2026-03-29T12:05:00.000Z",
+						}
 					: agent,
 			);
 			const agent = agentsState.find((item) => item.id === agentId);

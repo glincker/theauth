@@ -27,8 +27,9 @@ import { createKavach, users } from "kavachos";
 import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "kavachos/mcp";
 import { createMcpModule } from "kavachos/mcp";
 
-const PORT = 3001;
+const PORT = Number(process.env.PORT ?? 3001);
 const BASE_URL = `http://localhost:${PORT}`;
+const DATABASE_PATH = process.env.KAVACH_DB_PATH ?? "mcp-server.db";
 const SIGNING_SECRET = "kavachos-example-secret-key-at-least-32-chars-long";
 
 // ─── In-memory MCP stores ─────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ function seedUser(kavach: Kavach): void {
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		})
+		.onConflictDoNothing()
 		.run();
 }
 
@@ -180,7 +182,7 @@ curl ${BASE_URL}/api/audit</code>
 
 async function main(): Promise<void> {
 	const kavach = await createKavach({
-		database: { provider: "sqlite", url: "mcp-server.db" },
+		database: { provider: "sqlite", url: DATABASE_PATH },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,
@@ -359,7 +361,7 @@ Agent management:
   GET  /api/audit           (audit trail)
 
 Seed user: user-1  (demo@kavachos.dev)
-Database:  mcp-server.db
+Database:  ${DATABASE_PATH}
 
 `);
 	});

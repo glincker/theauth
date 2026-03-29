@@ -6,7 +6,7 @@ Minimal example showing agent creation, permission scoping, and authorization wi
 
 ```bash
 pnpm install
-pnpm dev
+pnpm start
 ```
 
 ## What it does

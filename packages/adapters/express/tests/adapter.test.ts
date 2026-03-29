@@ -62,6 +62,7 @@ async function createTestAgent(
 			type: overrides.type ?? "autonomous",
 			permissions: overrides.permissions ?? BASE_PERMISSIONS,
 		});
+	expect(res.status).toBe(201);
 	const body = res.body as { data: { id: string; token: string } };
 	return { id: body.data.id, token: body.data.token };
 }
@@ -472,21 +473,31 @@ describe("Express adapter", () => {
 
 	describe("GET /delegations/:agentId", () => {
 		it("lists delegation chains for an agent", async () => {
-			const { id: fromId } = await createTestAgent(app, { name: "delegator" });
-			const { id: toId } = await createTestAgent(app, { name: "delegatee" });
+			const delegator = await kavach.agent.create({
+				ownerId: "user-1",
+				name: "delegator",
+				type: "autonomous",
+				permissions: BASE_PERMISSIONS,
+			});
+			const delegatee = await kavach.agent.create({
+				ownerId: "user-1",
+				name: "delegatee",
+				type: "autonomous",
+				permissions: BASE_PERMISSIONS,
+			});
 
 			const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 			await request(app)
 				.post("/delegations")
 				.set("Content-Type", "application/json")
 				.send({
-					fromAgent: fromId,
-					toAgent: toId,
+					fromAgent: delegator.id,
+					toAgent: delegatee.id,
 					permissions: [{ resource: "mcp:github", actions: ["read"] }],
 					expiresAt,
 				});
 
-			const res = await request(app).get(`/delegations/${fromId}`);
+			const res = await request(app).get(`/delegations/${delegator.id}`);
 
 			expect(res.status).toBe(200);
 			const body = res.body as { data: unknown[] };
