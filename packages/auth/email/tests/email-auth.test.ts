@@ -1,5 +1,6 @@
-import { createDatabase, createTables } from "kavachos";
 import { describe, expect, it, vi } from "vitest";
+import { createDatabase } from "../../../core/src/db/database.js";
+import { createTables } from "../../../core/src/db/migrations.js";
 import { createEmailAuth } from "../src/email-auth.js";
 import { ErrorCodes } from "../src/errors.js";
 import type { EmailAuthModule } from "../src/types.js";

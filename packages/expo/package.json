@@ -16,7 +16,9 @@
   ],
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "license": "MIT",
   "author": "KavachOS <hello@kavachos.com>",
@@ -30,8 +32,12 @@
     "react-native": ">=0.72.0"
   },
   "devDependencies": {
+    "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
     "@types/react": "^19.0.0",
+    "vitest": "^3.0.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.0"
   }

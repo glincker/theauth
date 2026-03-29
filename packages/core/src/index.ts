@@ -5,6 +5,8 @@
  * Identity, permissions, delegation, and audit for the agentic era.
  */
 
+export { and, eq, like } from "drizzle-orm";
+
 // Re-export submodules
 export * from "./agent/index.js";
 export * from "./analyzer/index.js";

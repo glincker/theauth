@@ -37,6 +37,23 @@ describe("createKavach", () => {
 		kavach = await createTestKavach();
 	});
 
+	it("initializes the expected core API shape with SQLite", async () => {
+		const initialized = await createKavach({
+			database: { provider: "sqlite", url: ":memory:" },
+			auth: {
+				session: { secret: "shape-test-secret-at-least-32-chars!!" },
+			},
+		});
+
+		expect(initialized.agent).toBeDefined();
+		expect(initialized.delegation).toBeDefined();
+		expect(initialized.audit).toBeDefined();
+		expect(initialized.auth).toBeDefined();
+		expect(initialized.auth.session).toBeDefined();
+		expect(typeof initialized.authorize).toBe("function");
+		expect(typeof initialized.delegate).toBe("function");
+	});
+
 	describe("agent lifecycle", () => {
 		it("creates an agent with permissions", async () => {
 			const agent = await kavach.agent.create({

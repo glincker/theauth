@@ -2,6 +2,7 @@
 
 import { Copy, Sparkles, ChevronDown, Check, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import posthog from "posthog-js";
 
 interface TocActionsProps {
 	slug: string;
@@ -46,6 +47,7 @@ export function TocActions({ slug }: TocActionsProps) {
 		try {
 			const text = await fetchMarkdown(slug);
 			await navigator.clipboard.writeText(text);
+			posthog.capture("doc_page_markdown_copied", { slug });
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch {
@@ -65,11 +67,13 @@ export function TocActions({ slug }: TocActionsProps) {
 			`Read this documentation and help me: ${url}`,
 		)}`;
 		window.open(target, "_blank", "noopener,noreferrer");
+		posthog.capture("doc_page_opened_in_chatgpt", { slug });
 		setAiOpen(false);
 	}
 
 	function handleOpenClaude() {
 		window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
+		posthog.capture("doc_page_opened_in_claude", { slug });
 		setAiOpen(false);
 	}
 
@@ -79,6 +83,7 @@ export function TocActions({ slug }: TocActionsProps) {
 		try {
 			const text = await fetchMarkdown(slug);
 			await navigator.clipboard.writeText(AI_SYSTEM_PREFIX + text);
+			posthog.capture("doc_page_copied_for_ai", { slug });
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch {

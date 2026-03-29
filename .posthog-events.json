@@ -1,0 +1,47 @@
+[
+  {
+    "event": "get_started_clicked",
+    "description": "User clicked the 'Get started' CTA button in the nav bar",
+    "file": "docs/components/nav.tsx"
+  },
+  {
+    "event": "github_link_clicked",
+    "description": "User clicked the GitHub icon link in the nav bar",
+    "file": "docs/components/nav.tsx"
+  },
+  {
+    "event": "npm_link_clicked",
+    "description": "User clicked the npm icon link in the nav bar",
+    "file": "docs/components/nav.tsx"
+  },
+  {
+    "event": "products_menu_opened",
+    "description": "User opened the Products dropdown menu in the nav bar",
+    "file": "docs/components/nav.tsx"
+  },
+  {
+    "event": "product_page_clicked",
+    "description": "User clicked a product page link from the Products dropdown",
+    "file": "docs/components/nav.tsx"
+  },
+  {
+    "event": "doc_page_markdown_copied",
+    "description": "User copied the current doc page as Markdown",
+    "file": "docs/components/toc-actions.tsx"
+  },
+  {
+    "event": "doc_page_opened_in_chatgpt",
+    "description": "User opened the current doc page in ChatGPT",
+    "file": "docs/components/toc-actions.tsx"
+  },
+  {
+    "event": "doc_page_opened_in_claude",
+    "description": "User opened the current doc page in Claude",
+    "file": "docs/components/toc-actions.tsx"
+  },
+  {
+    "event": "doc_page_copied_for_ai",
+    "description": "User copied the current doc page content with AI system prompt prefix",
+    "file": "docs/components/toc-actions.tsx"
+  }
+]

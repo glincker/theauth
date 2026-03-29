@@ -425,18 +425,18 @@ describe("SAML namespace variations", () => {
 // ---------------------------------------------------------------------------
 
 describe("SAML signature verification", () => {
-	it("verifies a valid RSA-SHA256 signature", () => {
+	it("verifies a valid RSA-SHA256 signature", async () => {
 		const xml = buildTestSamlResponse({
 			email: "user@example.com",
 			includeSignature: true,
 			privateKey: TEST_KEYS.privateKey,
 		});
 		const doc = parseXml(xml);
-		const result = verifySamlSignature(doc, TEST_KEYS.cert);
+		const result = await verifySamlSignature(doc, TEST_KEYS.cert);
 		expect(result).toBe(true);
 	});
 
-	it("rejects a tampered assertion", () => {
+	it("rejects a tampered assertion", async () => {
 		const xml = buildTestSamlResponse({
 			email: "user@example.com",
 			includeSignature: true,
@@ -445,19 +445,19 @@ describe("SAML signature verification", () => {
 		// Tamper with the email
 		const tampered = xml.replace("user@example.com", "attacker@evil.com");
 		const doc = parseXml(tampered);
-		const result = verifySamlSignature(doc, TEST_KEYS.cert);
+		const result = await verifySamlSignature(doc, TEST_KEYS.cert);
 		// Either digest or signature should fail
 		expect(result).toBe(false);
 	});
 
-	it("returns false when no signature element exists", () => {
+	it("returns false when no signature element exists", async () => {
 		const xml = buildTestSamlResponse({ email: "user@example.com" });
 		const doc = parseXml(xml);
-		const result = verifySamlSignature(doc, TEST_KEYS.cert);
+		const result = await verifySamlSignature(doc, TEST_KEYS.cert);
 		expect(result).toBe(false);
 	});
 
-	it("returns false with wrong certificate", () => {
+	it("returns false with wrong certificate", async () => {
 		const otherKeys = generateTestKeyPair();
 		const xml = buildTestSamlResponse({
 			email: "user@example.com",
@@ -465,7 +465,7 @@ describe("SAML signature verification", () => {
 			privateKey: TEST_KEYS.privateKey,
 		});
 		const doc = parseXml(xml);
-		const result = verifySamlSignature(doc, otherKeys.cert);
+		const result = await verifySamlSignature(doc, otherKeys.cert);
 		expect(result).toBe(false);
 	});
 });
@@ -774,50 +774,50 @@ describe("Malformed XML handling", () => {
 // ---------------------------------------------------------------------------
 
 describe("State parameter", () => {
-	it("generateState produces a valid state token", () => {
-		const state = encodeState(300);
+	it("generateState produces a valid state token", async () => {
+		const state = await encodeState(300);
 		expect(typeof state).toBe("string");
 		expect(state.split(".")).toHaveLength(3);
 	});
 
-	it("validateState accepts a fresh state token", () => {
-		const state = encodeState(300);
-		expect(validateStateToken(state)).toBe(true);
+	it("validateState accepts a fresh state token", async () => {
+		const state = await encodeState(300);
+		await expect(validateStateToken(state)).resolves.toBe(true);
 	});
 
-	it("validateState rejects an expired state token", () => {
+	it("validateState rejects an expired state token", async () => {
 		// Create a state that expired 1 second ago
-		const state = encodeState(-1);
-		expect(validateStateToken(state)).toBe(false);
+		const state = await encodeState(-1);
+		await expect(validateStateToken(state)).resolves.toBe(false);
 	});
 
-	it("validateState rejects a tampered state token", () => {
-		const state = encodeState(300);
+	it("validateState rejects a tampered state token", async () => {
+		const state = await encodeState(300);
 		const parts = state.split(".");
 		// Tamper with the random component
 		const tampered = `tampered.${parts[1]}.${parts[2]}`;
-		expect(validateStateToken(tampered)).toBe(false);
+		await expect(validateStateToken(tampered)).resolves.toBe(false);
 	});
 
-	it("validateState rejects malformed tokens", () => {
-		expect(validateStateToken("")).toBe(false);
-		expect(validateStateToken("single")).toBe(false);
-		expect(validateStateToken("a.b")).toBe(false);
+	it("validateState rejects malformed tokens", async () => {
+		await expect(validateStateToken("")).resolves.toBe(false);
+		await expect(validateStateToken("single")).resolves.toBe(false);
+		await expect(validateStateToken("a.b")).resolves.toBe(false);
 	});
 
 	it("SsoModule exposes generateState and validateState", async () => {
 		const db = await createTestDb();
 		const mod = createSsoModule({ saml: [SAML_PROVIDER] }, db);
-		const state = mod.generateState();
-		expect(mod.validateState(state)).toBe(true);
+		const state = await mod.generateState();
+		await expect(mod.validateState(state)).resolves.toBe(true);
 	});
 
 	it("SsoModule respects custom stateTtlSeconds", async () => {
 		const db = await createTestDb();
 		// TTL of -1 means already expired
 		const mod = createSsoModule({ saml: [SAML_PROVIDER], stateTtlSeconds: -1 }, db);
-		const state = mod.generateState();
-		expect(mod.validateState(state)).toBe(false);
+		const state = await mod.generateState();
+		await expect(mod.validateState(state)).resolves.toBe(false);
 	});
 });
 

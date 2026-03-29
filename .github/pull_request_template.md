@@ -14,6 +14,18 @@
 
 1.
 
+## Release impact
+
+- [ ] No user-visible impact
+- [ ] Patch-level change
+- [ ] Minor feature change
+- [ ] Breaking change (major)
+
+## Changeset
+
+- [ ] Not needed (docs/chore/internal only)
+- [ ] Added changeset file for user-visible changes
+
 ## Checklist
 
 - [ ] Tests pass (`pnpm test`)
@@ -21,3 +33,4 @@
 - [ ] Lint clean (`pnpm lint`)
 - [ ] No new `any` types
 - [ ] New features have tests
+- [ ] Docs updated if behavior changed

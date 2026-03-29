@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X, Moon, Sun, ArrowRight, ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
+import posthog from "posthog-js";
 import { Logo } from "./logo";
 
 const PRODUCT_LINKS = [
@@ -70,7 +71,11 @@ export function Nav() {
 						<div ref={productsRef} className="relative">
 							<button
 								type="button"
-								onClick={() => setProductsOpen((v) => !v)}
+								onClick={() => {
+									const next = !productsOpen;
+									setProductsOpen(next);
+									if (next) posthog.capture("products_menu_opened");
+								}}
 								className={`flex h-[var(--nav-height)] items-center gap-1 border-b-2 px-4 text-[13px] font-medium transition-all ${
 									isProductsPage || productsOpen
 										? "border-fd-foreground text-fd-foreground"
@@ -86,6 +91,7 @@ export function Nav() {
 										<Link
 											key={link.href}
 											href={link.href}
+											onClick={() => posthog.capture("product_page_clicked", { product: link.label, href: link.href })}
 											className="flex flex-col gap-0.5 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--kavach-surface-bright)]"
 										>
 											<span className="text-sm font-medium text-[var(--kavach-text)]">{link.label}</span>
@@ -112,6 +118,7 @@ export function Nav() {
 							href="https://github.com/kavachos/kavachos"
 							target="_blank"
 							rel="noopener noreferrer"
+							onClick={() => posthog.capture("github_link_clicked")}
 							className="rounded-lg p-2.5 text-fd-muted-foreground/60 transition-all hover:bg-fd-accent/40 hover:text-fd-foreground"
 							aria-label="GitHub"
 						>
@@ -121,6 +128,7 @@ export function Nav() {
 							href="https://www.npmjs.com/package/kavachos"
 							target="_blank"
 							rel="noopener noreferrer"
+							onClick={() => posthog.capture("npm_link_clicked")}
 							className="rounded-lg p-2.5 text-fd-muted-foreground/60 transition-all hover:bg-fd-accent/40 hover:text-fd-foreground"
 							aria-label="npm"
 						>
@@ -143,6 +151,7 @@ export function Nav() {
 						{/* CTA with shine effect */}
 						<Link
 							href="/docs/quickstart"
+							onClick={() => posthog.capture("get_started_clicked", { location: "nav_desktop" })}
 							className="btn-gold-gradient nav-cta-shine group relative hidden items-center gap-1.5 overflow-hidden rounded-full px-5 py-2 text-[13px] font-semibold text-[#3D2E00] transition-all hover:shadow-lg hover:shadow-[var(--kavach-glow)] sm:inline-flex"
 						>
 							Get started
@@ -174,7 +183,7 @@ export function Nav() {
 						))}
 						<MobileNavLink href="https://github.com/kavachos/kavachos" external>GitHub</MobileNavLink>
 						<div className="mt-6 border-t border-fd-border pt-6">
-							<Link href="/docs/quickstart" className="kavach-btn-gold relative flex items-center justify-center gap-2 overflow-hidden rounded-full px-4 py-3 text-sm font-semibold text-[#1a1000]">
+							<Link href="/docs/quickstart" onClick={() => posthog.capture("get_started_clicked", { location: "nav_mobile" })} className="kavach-btn-gold relative flex items-center justify-center gap-2 overflow-hidden rounded-full px-4 py-3 text-sm font-semibold text-[#1a1000]">
 								Get started <ArrowRight className="h-4 w-4" />
 							</Link>
 						</div>

@@ -3,14 +3,14 @@ import * as schema from "../src/db/schema.js";
 import type { Kavach } from "../src/kavach.js";
 import { createKavach } from "../src/kavach.js";
 
-async function createTestKavach() {
+async function createTestKavach(options?: { auditAll?: boolean }) {
 	const kavach = await createKavach({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
 			maxPerUser: 10,
 			defaultPermissions: [],
-			auditAll: false,
+			auditAll: options?.auditAll ?? false,
 			tokenExpiry: "24h",
 		},
 	});
@@ -66,6 +66,47 @@ describe("delegation chains", () => {
 		expect(chain.depth).toBe(1);
 		expect(chain.fromAgent).toBe(parent.id);
 		expect(chain.toAgent).toBe(child.id);
+	});
+
+	it("enforces maximum delegation depth", async () => {
+		const parent = await kavach.agent.create({
+			ownerId: "user-1",
+			name: "depth-parent",
+			type: "autonomous",
+			permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
+		});
+
+		const child = await kavach.agent.create({
+			ownerId: "user-1",
+			name: "depth-child",
+			type: "delegated",
+			permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
+		});
+
+		const grandchild = await kavach.agent.create({
+			ownerId: "user-1",
+			name: "depth-grandchild",
+			type: "delegated",
+			permissions: [],
+		});
+
+		await kavach.delegate({
+			fromAgent: parent.id,
+			toAgent: child.id,
+			permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
+			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+			maxDepth: 1,
+		});
+
+		await expect(
+			kavach.delegate({
+				fromAgent: child.id,
+				toAgent: grandchild.id,
+				permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
+				expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+				maxDepth: 1,
+			}),
+		).rejects.toThrow("exceeds maximum allowed depth");
 	});
 
 	it("rejects delegation that exceeds parent permissions", async () => {
@@ -201,6 +242,43 @@ describe("delegation chains", () => {
 			resource: "mcp:github:repos",
 		});
 		expect(denied.allowed).toBe(false);
+	});
+
+	it("audits delegated permission usage when authorization succeeds", async () => {
+		const auditedKavach = await createTestKavach({ auditAll: true });
+
+		const parent = await auditedKavach.agent.create({
+			ownerId: "user-1",
+			name: "audited-parent",
+			type: "autonomous",
+			permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
+		});
+
+		const child = await auditedKavach.agent.create({
+			ownerId: "user-1",
+			name: "audited-child",
+			type: "delegated",
+			permissions: [],
+		});
+
+		await auditedKavach.delegate({
+			fromAgent: parent.id,
+			toAgent: child.id,
+			permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
+			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+		});
+
+		const result = await auditedKavach.authorize(child.id, {
+			action: "read",
+			resource: "mcp:github:repos",
+		});
+
+		expect(result.allowed).toBe(true);
+
+		const entries = await auditedKavach.audit.query({ agentId: child.id });
+		expect(entries.length).toBeGreaterThanOrEqual(1);
+		expect(entries.some((entry) => entry.resource === "mcp:github:repos")).toBe(true);
+		expect(entries.some((entry) => entry.result === "allowed")).toBe(true);
 	});
 
 	it("denies authorization after delegation is revoked", async () => {

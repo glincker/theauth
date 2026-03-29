@@ -16,6 +16,8 @@
   ],
   "scripts": {
     "build": "tsup",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "license": "MIT",
@@ -31,6 +33,7 @@
   "devDependencies": {
     "svelte": "^5.0.0",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
   }
 }

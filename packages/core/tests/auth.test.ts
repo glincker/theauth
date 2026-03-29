@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { bearerAuth } from "../src/auth/adapters/bearer.js";
 import { customAuth } from "../src/auth/adapters/custom.js";
 import { headerAuth } from "../src/auth/adapters/header.js";
+import { usernameAccounts, users } from "../src/db/schema.js";
 import { createKavach } from "../src/kavach.js";
 
 // ---------------------------------------------------------------------------
@@ -280,5 +281,81 @@ describe("createKavach.resolveUser", () => {
 		});
 		const user = await kavach.resolveUser(makeRequest({}));
 		expect(user).toEqual({ id: "user-custom", name: "Custom User" });
+	});
+});
+
+describe("password auth smoke flow", () => {
+	it("signs up a user and stores a hashed password", async () => {
+		const kavach = await createKavach({
+			database: { provider: "sqlite", url: ":memory:" },
+			auth: { session: { secret: TEST_SECRET } },
+			username: {},
+		});
+
+		const result = await kavach.username?.signUp({
+			username: "alice",
+			password: "Password1!",
+			name: "Alice",
+		});
+
+		expect(result?.user.username).toBe("alice");
+		expect(result?.session.token).toBeTruthy();
+
+		const userRows = await kavach.db.select().from(users);
+		expect(userRows[0]?.email).toBe("alice@username.local");
+
+		const accountRows = await kavach.db.select().from(usernameAccounts);
+		expect(accountRows[0]?.passwordHash).toMatch(/^pbkdf2:/);
+		expect(accountRows[0]?.passwordHash).not.toBe("Password1!");
+	});
+
+	it("signs in with correct credentials and rejects a wrong password", async () => {
+		const kavach = await createKavach({
+			database: { provider: "sqlite", url: ":memory:" },
+			auth: { session: { secret: TEST_SECRET } },
+			username: {},
+		});
+
+		await kavach.username?.signUp({ username: "alice", password: "Password1!" });
+
+		const signedIn = await kavach.username?.signIn({
+			username: "alice",
+			password: "Password1!",
+		});
+		expect(signedIn?.session.token).toBeTruthy();
+
+		await expect(
+			kavach.username?.signIn({ username: "alice", password: "WrongPassword1!" }),
+		).rejects.toThrow("Invalid username or password");
+	});
+
+	it("resets the password and allows login with the new credentials", async () => {
+		const sendResetEmail = vi.fn().mockResolvedValue(undefined);
+		const kavach = await createKavach({
+			database: { provider: "sqlite", url: ":memory:" },
+			auth: { session: { secret: TEST_SECRET } },
+			username: {},
+			passwordReset: {
+				sendResetEmail,
+				resetUrl: "https://app.example.com/reset-password",
+			},
+		});
+
+		await kavach.username?.signUp({ username: "alice", password: "Password1!" });
+
+		const requestResult = await kavach.passwordReset?.requestReset("alice@username.local");
+		expect(requestResult?.success).toBe(true);
+
+		const token = sendResetEmail.mock.calls[0]?.[1] as string | undefined;
+		expect(token).toBeTruthy();
+
+		const resetResult = await kavach.passwordReset?.resetPassword(token ?? "", "Password2!");
+		expect(resetResult?.success).toBe(true);
+
+		const signedIn = await kavach.username?.signIn({
+			username: "alice",
+			password: "Password2!",
+		});
+		expect(signedIn?.session.token).toBeTruthy();
 	});
 });

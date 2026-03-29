@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+    "posthog-js": "^1.0.0",
     "framer-motion": "^12.38.0",
     "fumadocs-core": "^16.0.0",
     "fumadocs-mdx": "^14.0.0",
