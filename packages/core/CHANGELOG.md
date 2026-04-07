@@ -1,5 +1,15 @@
 # kavachos
 
+## 0.3.0
+
+### Minor Changes
+
+- feat: add cookieAuth adapter and external auth mode
+
+  - `cookieAuth()` adapter: validates JWT from httpOnly cookies (for Go/Python/etc backends)
+  - `KavachProvider` external mode: delegate auth to any external API
+  - Feature-gated table creation: only creates tables for features you enable
+
 ## 0.1.0
 
 ### Minor Changes
