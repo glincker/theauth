@@ -122,7 +122,7 @@ export async function createKavach(config: KavachConfig) {
 	// Automatically create tables unless the caller has opted out.
 	// Uses CREATE TABLE IF NOT EXISTS so it is safe to run every startup.
 	if (!config.database.skipMigrations) {
-		await createTables(db, config.database.provider);
+		await createTables(db, config.database.provider, config);
 	}
 
 	const agentConfig = {
