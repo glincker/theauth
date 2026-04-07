@@ -17,6 +17,7 @@ export {
 export type {
 	ActionResult,
 	CreateAgentInput,
+	ExternalAuthConfig,
 	KavachAgent,
 	KavachContextValue,
 	KavachPermission,
