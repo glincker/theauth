@@ -26,6 +26,8 @@
 import { and, eq, like, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { organizations, orgMembers, users } from "../db/schema.js";
+import type { FilterAst } from "./scim-filter.js";
+import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -214,39 +216,68 @@ function orgRowToScim(
 
 // ---------------------------------------------------------------------------
 // Filter parsing (RFC 7644 §3.4.2.2)
-// Only supports simple attribute eq/co/sw/pr comparisons joined by "and"
+// Full grammar lives in scim-filter.ts. We keep a legacy clause-array shape
+// here so the SQL translator below stays simple for the common Okta filters
+// (pure "and" of eq/co/sw/pr). For expressions that do not flatten to that
+// shape (or / not / value-paths / ne / ew / gt / ge / lt / le) the caller
+// falls back to in-memory evaluation against the serialized resource.
 // ---------------------------------------------------------------------------
 
-type FilterOp = "eq" | "co" | "sw" | "pr";
+type LegacyFilterOp = "eq" | "co" | "sw" | "pr";
 
 interface FilterClause {
 	attribute: string;
-	op: FilterOp;
+	op: LegacyFilterOp;
 	value?: string;
 }
 
-function parseScimFilter(filter: string): FilterClause[] {
+/**
+ * Try to express the AST as a flat `and` of clauses the SQL translator
+ * understands. Returns `null` when the filter is richer than that.
+ */
+function flattenToLegacyClauses(ast: FilterAst): FilterClause[] | null {
 	const clauses: FilterClause[] = [];
-	// Split by " and " (case-insensitive)
-	const parts = filter.split(/\s+and\s+/i);
-	for (const part of parts) {
-		const trimmed = part.trim();
-		// Match: attribute op "value" or attribute pr
-		const matchWithValue = trimmed.match(/^(\S+)\s+(eq|co|sw)\s+"([^"]*)"$/i);
-		if (matchWithValue) {
+	const stack: FilterAst[] = [ast];
+	while (stack.length > 0) {
+		const node = stack.pop() as FilterAst;
+		if (node.kind === "and") {
+			stack.push(node.right, node.left);
+			continue;
+		}
+		if (node.kind === "pr") {
+			clauses.push({ attribute: attrKey(node.attr.path), op: "pr" });
+			continue;
+		}
+		if (node.kind === "cmp") {
+			if (node.op !== "eq" && node.op !== "co" && node.op !== "sw") return null;
+			if (typeof node.value !== "string" && typeof node.value !== "boolean") return null;
 			clauses.push({
-				attribute: (matchWithValue[1] as string).toLowerCase(),
-				op: (matchWithValue[2] as string).toLowerCase() as FilterOp,
-				value: matchWithValue[3] as string,
+				attribute: attrKey(node.attr.path),
+				op: node.op,
+				value: typeof node.value === "boolean" ? String(node.value) : node.value,
 			});
 			continue;
 		}
-		const matchPr = trimmed.match(/^(\S+)\s+pr$/i);
-		if (matchPr) {
-			clauses.push({ attribute: (matchPr[1] as string).toLowerCase(), op: "pr" });
-		}
+		return null;
 	}
 	return clauses;
+}
+
+function attrKey(path: string[]): string {
+	return path.join(".").toLowerCase();
+}
+
+/**
+ * Parse a SCIM filter string via the RFC 7644 AST and attempt to flatten it
+ * to a legacy clause list. Returns `{ clauses: null }` when the filter is
+ * structurally fine but too rich for the SQL path.
+ *
+ * @throws ScimFilterError when the filter is malformed.
+ */
+function parseScimFilter(filter: string): { ast: FilterAst; clauses: FilterClause[] | null } {
+	const ast = parseFilter(filter);
+	const clauses = flattenToLegacyClauses(ast);
+	return { ast, clauses };
 }
 
 // ---------------------------------------------------------------------------
@@ -308,72 +339,113 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
 		const baseUrl = getBaseUrl(request);
 
-		// Build filter conditions
-		const conditions = [];
+		// Parse filter AST once. Simple and-of-clauses filters take a fast SQL
+		// path. Complex filters (or / not / value-paths / advanced ops) fall
+		// back to broad fetch + in-memory evaluation.
+		let ast: FilterAst | null = null;
+		let clauses: FilterClause[] | null = null;
 		if (filterParam) {
-			const clauses = parseScimFilter(filterParam);
-			for (const clause of clauses) {
-				if (clause.attribute === "username" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(
-							sql`(${users.username} = ${clause.value} OR ${users.email} = ${clause.value})`,
-						);
-					} else if (clause.op === "co") {
-						conditions.push(
-							sql`(${users.username} LIKE ${`%${clause.value}%`} OR ${users.email} LIKE ${`%${clause.value}%`})`,
-						);
-					} else if (clause.op === "sw") {
-						conditions.push(
-							sql`(${users.username} LIKE ${`${clause.value}%`} OR ${users.email} LIKE ${`${clause.value}%`})`,
-						);
-					}
-				} else if (clause.attribute === "emails.value" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(eq(users.email, clause.value));
-					} else if (clause.op === "co") {
-						conditions.push(like(users.email, `%${clause.value}%`));
-					} else if (clause.op === "sw") {
-						conditions.push(like(users.email, `${clause.value}%`));
-					}
-				} else if (clause.attribute === "externalid" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(eq(users.externalId, clause.value));
-					}
-				} else if (clause.attribute === "active") {
-					if (clause.op === "eq" && clause.value === "false") {
-						conditions.push(eq(users.banned, 1));
-					} else if (clause.op === "eq" && clause.value === "true") {
-						conditions.push(eq(users.banned, 0));
-					}
+			try {
+				const parsed = parseScimFilter(filterParam);
+				ast = parsed.ast;
+				clauses = parsed.clauses;
+			} catch (err) {
+				if (err instanceof ScimFilterError) {
+					return scimError(err.message, 400, "invalidFilter");
 				}
+				throw err;
 			}
 		}
 
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		const conditions = clauses ? buildUserSqlConditions(clauses) : null;
+		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		// Count query
-		const countRows = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(users)
-			.where(whereClause);
-		const totalResults = Number(countRows[0]?.count ?? 0);
+		if (conditions !== null) {
+			// Fast path — SQL filter covers the entire expression.
+			const countRows = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(users)
+				.where(whereClause);
+			const totalResults = Number(countRows[0]?.count ?? 0);
 
-		// Data query with pagination (startIndex is 1-based)
-		const offset = startIndex - 1;
-		const rows = (await db
-			.select()
-			.from(users)
-			.where(whereClause)
-			.limit(count)
-			.offset(offset)) as UserRow[];
+			const offset = startIndex - 1;
+			const rows = (await db
+				.select()
+				.from(users)
+				.where(whereClause)
+				.limit(count)
+				.offset(offset)) as UserRow[];
+
+			return scimResponse({
+				schemas: [SCHEMA_LIST],
+				totalResults,
+				startIndex,
+				itemsPerPage: rows.length,
+				Resources: rows.map((r) => userRowToScim(r, baseUrl)),
+			});
+		}
+
+		// Fallback — evaluate AST against the SCIM-shaped resource in memory.
+		const allRows = (await db.select().from(users)) as UserRow[];
+		const mapped = allRows.map((r) => ({ row: r, scim: userRowToScim(r, baseUrl) }));
+		const matched = ast
+			? mapped.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
+			: mapped;
+		const totalResults = matched.length;
+		const page = matched.slice(startIndex - 1, startIndex - 1 + count);
 
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
 			totalResults,
 			startIndex,
-			itemsPerPage: rows.length,
-			Resources: rows.map((r) => userRowToScim(r, baseUrl)),
+			itemsPerPage: page.length,
+			Resources: page.map((p) => p.scim),
 		});
+	}
+
+	function buildUserSqlConditions(list: FilterClause[]): ReturnType<typeof eq>[] | null {
+		const conds: ReturnType<typeof eq>[] = [];
+		for (const clause of list) {
+			if (clause.attribute === "username" && clause.value !== undefined) {
+				if (clause.op === "eq") {
+					conds.push(
+						sql`(${users.username} = ${clause.value} OR ${users.email} = ${clause.value})`,
+					);
+				} else if (clause.op === "co") {
+					conds.push(
+						sql`(${users.username} LIKE ${`%${clause.value}%`} OR ${users.email} LIKE ${`%${clause.value}%`})`,
+					);
+				} else if (clause.op === "sw") {
+					conds.push(
+						sql`(${users.username} LIKE ${`${clause.value}%`} OR ${users.email} LIKE ${`${clause.value}%`})`,
+					);
+				} else {
+					return null;
+				}
+				continue;
+			}
+			if (clause.attribute === "emails.value" && clause.value !== undefined) {
+				if (clause.op === "eq") conds.push(eq(users.email, clause.value));
+				else if (clause.op === "co") conds.push(like(users.email, `%${clause.value}%`));
+				else if (clause.op === "sw") conds.push(like(users.email, `${clause.value}%`));
+				else return null;
+				continue;
+			}
+			if (clause.attribute === "externalid" && clause.value !== undefined) {
+				if (clause.op === "eq") conds.push(eq(users.externalId, clause.value));
+				else return null;
+				continue;
+			}
+			if (clause.attribute === "active") {
+				if (clause.op === "eq" && clause.value === "false") conds.push(eq(users.banned, 1));
+				else if (clause.op === "eq" && clause.value === "true") conds.push(eq(users.banned, 0));
+				else return null;
+				continue;
+			}
+			// Unknown attribute — cannot SQL-translate, request in-memory fallback.
+			return null;
+		}
+		return conds;
 	}
 
 	async function handleGetUser(request: Request, userId: string): Promise<Response> {
@@ -696,54 +768,90 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
 		const baseUrl = getBaseUrl(request);
 
-		const conditions = [];
+		let ast: FilterAst | null = null;
+		let clauses: FilterClause[] | null = null;
 		if (filterParam) {
-			const clauses = parseScimFilter(filterParam);
-			for (const clause of clauses) {
-				if (clause.attribute === "displayname" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(eq(organizations.name, clause.value));
-					} else if (clause.op === "co") {
-						conditions.push(like(organizations.name, `%${clause.value}%`));
-					} else if (clause.op === "sw") {
-						conditions.push(like(organizations.name, `${clause.value}%`));
-					}
+			try {
+				const parsed = parseScimFilter(filterParam);
+				ast = parsed.ast;
+				clauses = parsed.clauses;
+			} catch (err) {
+				if (err instanceof ScimFilterError) {
+					return scimError(err.message, 400, "invalidFilter");
 				}
+				throw err;
 			}
 		}
 
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		const conditions = clauses ? buildGroupSqlConditions(clauses) : null;
+		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		const countRows = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(organizations)
-			.where(whereClause);
-		const totalResults = Number(countRows[0]?.count ?? 0);
+		if (conditions !== null) {
+			const countRows = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(organizations)
+				.where(whereClause);
+			const totalResults = Number(countRows[0]?.count ?? 0);
 
-		const offset = startIndex - 1;
-		const orgRows = (await db
-			.select()
-			.from(organizations)
-			.where(whereClause)
-			.limit(count)
-			.offset(offset)) as OrgRow[];
+			const offset = startIndex - 1;
+			const orgRows = (await db
+				.select()
+				.from(organizations)
+				.where(whereClause)
+				.limit(count)
+				.offset(offset)) as OrgRow[];
 
-		// Fetch members for each org
+			const resources = await Promise.all(
+				orgRows.map(async (org) => {
+					const members = await getMembersForOrg(org.id);
+					const memberEmails = await getMemberEmails(members);
+					return orgRowToScim(org, members, memberEmails, baseUrl);
+				}),
+			);
+
+			return scimResponse({
+				schemas: [SCHEMA_LIST],
+				totalResults,
+				startIndex,
+				itemsPerPage: orgRows.length,
+				Resources: resources,
+			});
+		}
+
+		// In-memory fallback for complex filters.
+		const allOrgs = (await db.select().from(organizations)) as OrgRow[];
 		const resources = await Promise.all(
-			orgRows.map(async (org) => {
+			allOrgs.map(async (org) => {
 				const members = await getMembersForOrg(org.id);
 				const memberEmails = await getMemberEmails(members);
-				return orgRowToScim(org, members, memberEmails, baseUrl);
+				return { org, scim: orgRowToScim(org, members, memberEmails, baseUrl) };
 			}),
 		);
+		const matched = ast
+			? resources.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
+			: resources;
+		const totalResults = matched.length;
+		const page = matched.slice(startIndex - 1, startIndex - 1 + count);
 
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
 			totalResults,
 			startIndex,
-			itemsPerPage: orgRows.length,
-			Resources: resources,
+			itemsPerPage: page.length,
+			Resources: page.map((p) => p.scim),
 		});
+	}
+
+	function buildGroupSqlConditions(list: FilterClause[]): ReturnType<typeof eq>[] | null {
+		const conds: ReturnType<typeof eq>[] = [];
+		for (const clause of list) {
+			if (clause.attribute !== "displayname" || clause.value === undefined) return null;
+			if (clause.op === "eq") conds.push(eq(organizations.name, clause.value));
+			else if (clause.op === "co") conds.push(like(organizations.name, `%${clause.value}%`));
+			else if (clause.op === "sw") conds.push(like(organizations.name, `${clause.value}%`));
+			else return null;
+		}
+		return conds;
 	}
 
 	async function handleGetGroup(request: Request, groupId: string): Promise<Response> {
