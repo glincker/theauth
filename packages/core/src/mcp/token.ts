@@ -1,5 +1,6 @@
 import { SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
+import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 import type {
 	McpAccessToken,
 	McpAuthContext,
@@ -49,11 +50,27 @@ async function issueAccessTokenJwt(
 	// Audience: either the specific resource (RFC 8707) or the issuer
 	const audience = resource ?? ctx.config.issuer;
 
+	// Agentic JWT claims (draft-goswami-agentic-jwt-00)
+	const agenticClaims: Record<string, unknown> = {};
+	if (ctx.config.emitAgenticJwtClaims === true && ctx.config.getAgenticContext !== undefined) {
+		const ac = await ctx.config.getAgenticContext(userId);
+		if (ac.agentId !== undefined) {
+			agenticClaims[AGENTIC_JWT_CLAIMS.AGENT_ID] = ac.agentId;
+		}
+		if (ac.agentType !== undefined) {
+			agenticClaims[AGENTIC_JWT_CLAIMS.AGENT_TYPE] = ac.agentType;
+		}
+		if (ac.trustTier !== undefined) {
+			agenticClaims[AGENTIC_JWT_CLAIMS.TRUST_TIER] = ac.trustTier;
+		}
+	}
+
 	const jwt = await new SignJWT({
 		sub: userId,
 		client_id: clientId,
 		scope: scopes.join(" "),
 		jti,
+		...agenticClaims,
 	})
 		.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 		.setIssuer(ctx.config.issuer)

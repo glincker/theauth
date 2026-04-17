@@ -54,6 +54,30 @@ export interface McpConfig {
 	}>;
 	/** Custom token claims generator */
 	getAdditionalClaims?: (userId: string, scopes: string[]) => Promise<Record<string, unknown>>;
+	/**
+	 * Emit IETF agentic JWT claims on issued access tokens.
+	 *
+	 * When true, any claims returned by `getAgenticContext` are embedded in
+	 * the token payload using the registered draft-goswami-agentic-jwt-00 claim
+	 * names. Claims with no available context value are omitted. Off by default.
+	 *
+	 * @default false
+	 */
+	emitAgenticJwtClaims?: boolean;
+	/**
+	 * Resolve agentic context for a given user at token issuance time.
+	 *
+	 * Called only when `emitAgenticJwtClaims` is true. Return only the claims
+	 * you can populate; absent fields are skipped rather than fabricated.
+	 *
+	 * TODO(v3): wire this through kavach.ts so the trust module can provide
+	 * trust_tier automatically without requiring the caller to implement it.
+	 */
+	getAgenticContext?: (userId: string) => Promise<{
+		agentId?: string;
+		agentType?: "autonomous" | "delegated" | "supervised";
+		trustTier?: "unverified" | "low" | "standard" | "elevated" | "high";
+	}>;
 }
 
 // ─── OAuth 2.0 Authorization Server Metadata (RFC 8414) ─────────────────────
