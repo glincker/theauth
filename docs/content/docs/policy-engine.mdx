@@ -8,7 +8,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card';
 
 The policy engine is the single decision point for all authorization in KavachOS. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
 
-Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. The existing `authorize()` function still works and now delegates to `evaluate()` internally, so you only need to call the policy engine directly if you want access to richer decision metadata, cache statistics, or fine-grained invalidation control.
+Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. The existing `authorize()` function still works unchanged in v1; it shares ABAC primitives with the policy engine but evaluates only the agent's direct permissions. Migrate calls to `evaluate()` when you want role expansion, ReBAC checks, or richer decision metadata.
 
 ## Quick start
 
