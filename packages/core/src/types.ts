@@ -20,6 +20,7 @@ import type { DidWebConfig } from "./did/types.js";
 import type { KavachHooks } from "./hooks/lifecycle.js";
 import type { McpConfig } from "./mcp/types.js";
 import type { KavachPlugin } from "./plugin/types.js";
+import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
 import type { SessionFreshnessConfig } from "./session/freshness.js";
 import type { SessionConfig } from "./session/session.js";
@@ -201,6 +202,16 @@ export interface KavachConfig {
 	 * to. Deliveries are fire-and-forget with exponential backoff retries.
 	 */
 	webhooks?: WebhookConfig[];
+
+	/**
+	 * Unified policy engine configuration.
+	 *
+	 * Controls the LRU cache (max entries, TTL), combining strategy
+	 * (deny-overrides vs permit-overrides), audit emission, and audit
+	 * sample rate. When omitted, the engine runs with safe defaults:
+	 * cache enabled (10,000 entries, 60s TTL), deny-overrides, full audit.
+	 */
+	policy?: PolicyEngineConfig;
 
 	/**
 	 * Redirect chain configuration.

@@ -67,6 +67,7 @@
     "test": "vitest run",
     "test:watch": "vitest watch",
     "coverage": "vitest run --coverage",
+    "bench": "vitest bench --run",
     "clean": "rm -rf dist .turbo"
   },
   "keywords": [

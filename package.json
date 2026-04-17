@@ -24,6 +24,7 @@
     "test": "turbo test",
     "test:watch": "turbo test:watch",
     "coverage": "turbo coverage",
+    "bench": "pnpm --filter kavachos bench",
     "lint:deps": "knip --strict",
     "prepare": "simple-git-hooks",
     "changeset": "changeset",
