@@ -52,7 +52,7 @@ const kavach = await createKavach({
 
 ## Database config
 
-<ParamField path="provider" type=""sqlite" | "postgres" | "mysql" | "d1"" required>Database driver to use.</ParamField>
+<ParamField path="provider" type={`"sqlite" | "postgres" | "mysql" | "d1"`} required>Database driver to use.</ParamField>
 <ParamField path="url" type="string">File path for SQLite, connection string for Postgres/MySQL. Not used with D1.</ParamField>
 <ParamField path="binding" type="D1Database">D1Database binding from the Worker environment. Required when provider is "d1".</ParamField>
 <ParamField path="skipMigrations" type="boolean">Skip automatic CREATE TABLE IF NOT EXISTS on init. Use when you manage migrations externally (Flyway, drizzle-kit push, etc.). Defaults to false.</ParamField>

@@ -6,7 +6,6 @@ export default defineConfig({
 	},
 	format: ["esm"],
 	dts: true,
-	clean: true,
 	sourcemap: true,
 	splitting: false,
 	treeshake: true,

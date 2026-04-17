@@ -115,7 +115,7 @@ The raw token is only returned once, at creation time. KavachOS does not store i
 
 <ParamField path="owner_id" type="string" required>ID of the user who owns this agent.</ParamField>
 <ParamField path="name" type="string" required>Human-readable name.</ParamField>
-<ParamField path="type" type=""autonomous" | "delegated" | "service"" required>Agent type: autonomous, delegated, or service.</ParamField>
+<ParamField path="type" type={`"autonomous" | "delegated" | "service"`} required>Agent type: autonomous, delegated, or service.</ParamField>
 <ParamField path="permission" type="block[]">One or more permission grant blocks.</ParamField>
 <ParamField path="expires_at" type="string">RFC 3339 expiry timestamp.</ParamField>
 

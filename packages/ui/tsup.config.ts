@@ -4,7 +4,6 @@ export default defineConfig({
 	entry: ["src/index.ts"],
 	format: ["esm"],
 	dts: true,
-	clean: true,
 	external: ["react", "@kavachos/react"],
 	jsx: "automatic",
 });
