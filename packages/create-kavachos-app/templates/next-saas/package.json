@@ -1,0 +1,29 @@
+{
+  "name": "__APP_NAME__",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@kavachos/nextjs": "^2.0.0",
+    "@kavachos/react": "^0.2.0",
+    "__DB_DRIVER__": "__DB_DRIVER_VERSION__",
+    "drizzle-orm": "^0.40.0",
+    "kavachos": "^0.3.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.9.0"
+  }
+}

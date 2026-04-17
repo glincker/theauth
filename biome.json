@@ -109,8 +109,9 @@
       "!**/build",
       "!**/.turbo",
       "!**/.cache",
-      "!**/docs-local/repo-ref",
+      "!**/docs-local",
       "!docs",
+      "!packages/create-kavachos-app/templates",
       "!**/.next",
       "!sdks/python",
       "!examples/nextjs-demo"
