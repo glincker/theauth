@@ -31,7 +31,9 @@ import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } f
 const AUTHORIZATION_URL = "https://slack.com/oauth/v2/authorize";
 const TOKEN_URL = "https://slack.com/api/oauth.v2.access";
 const USER_INFO_URL = "https://slack.com/api/openid.connect.userInfo";
-const DEFAULT_SCOPES = ["openid", "profile", "email"];
+
+export const DEFAULT_SLACK_SCOPES = ["openid", "profile", "email"];
+const DEFAULT_SCOPES = DEFAULT_SLACK_SCOPES;
 
 // ---------------------------------------------------------------------------
 // Raw response shapes
@@ -197,6 +199,35 @@ export function createSlackProvider(config: OAuthProviderConfig): OAuthProvider 
 		getAuthorizationUrl,
 		exchangeCode,
 		getUserInfo,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Profile normalisation
+// ---------------------------------------------------------------------------
+
+export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
+	const data = raw as unknown as SlackUserInfoResponse;
+
+	if (!data.ok) {
+		throw new Error(`Slack userInfo error: ${data.error ?? "unknown"}`);
+	}
+
+	const id = data.sub ?? data["https://slack.com/user_id"];
+	if (!id) {
+		throw new Error("Slack userInfo response missing required field: sub");
+	}
+
+	if (!data.email) {
+		throw new Error("Slack userInfo response has no email. Ensure the `email` scope is granted.");
+	}
+
+	return {
+		id,
+		email: data.email,
+		name: data.name,
+		avatar: data.picture,
+		raw,
 	};
 }
 

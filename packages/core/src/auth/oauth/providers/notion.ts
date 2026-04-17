@@ -35,6 +35,10 @@ const AUTHORIZATION_URL = "https://api.notion.com/v1/oauth/authorize";
 const TOKEN_URL = "https://api.notion.com/v1/oauth/token";
 const NOTION_VERSION = "2022-06-28";
 
+// Notion does not use scopes in the traditional OAuth sense; permissions are
+// managed at the integration level in the Notion workspace settings.
+export const DEFAULT_NOTION_SCOPES: string[] = [];
+
 // ---------------------------------------------------------------------------
 // Raw response shapes
 // ---------------------------------------------------------------------------
@@ -62,6 +66,30 @@ interface NotionUser {
 	type?: "person" | "bot";
 	person?: {
 		email?: string;
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Profile normalisation
+// ---------------------------------------------------------------------------
+
+export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
+	const tokenData = raw as unknown as NotionTokenResponse;
+	const user = tokenData?.owner?.user;
+
+	if (!user?.id) {
+		throw new Error(
+			"Notion token response missing owner.user.id. " +
+				"Ensure the integration is authorized by a person, not a workspace bot.",
+		);
+	}
+
+	return {
+		id: user.id,
+		email: user.person?.email,
+		name: user.name,
+		avatar: user.avatar_url ?? undefined,
+		raw,
 	};
 }
 
