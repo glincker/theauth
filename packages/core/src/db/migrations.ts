@@ -224,6 +224,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   resource    TEXT  NOT NULL,
   actions     ${json} NOT NULL,
   constraints ${json},
+  relation    TEXT,
   created_at  ${ts} NOT NULL
 )`,
 		},
@@ -264,6 +265,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   tokens_cost  INTEGER,
   ip           TEXT,
   user_agent   TEXT,
+  cache_hit    ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   timestamp    ${ts}   NOT NULL
 )`,
 		},

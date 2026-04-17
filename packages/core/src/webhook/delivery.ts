@@ -28,13 +28,12 @@ import type {
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_TIMEOUT_MS = 10_000;
-// Delays between attempts (1s, 4s, 16s — 4× exponential)
-const BACKOFF_BASE_MS = 1_000;
+const DEFAULT_BACKOFF_BASE_MS = 1_000;
 const BACKOFF_EXPONENT = 4;
 
-function backoffDelay(attempt: number): number {
-	// attempt is 0-based: 0 → wait 1s, 1 → wait 4s, 2 → wait 16s, …
-	return BACKOFF_BASE_MS * BACKOFF_EXPONENT ** attempt;
+function backoffDelay(attempt: number, baseMs: number): number {
+	// attempt is 0-based: 0 → baseMs, 1 → baseMs * 4, 2 → baseMs * 16
+	return baseMs * BACKOFF_EXPONENT ** attempt;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +52,7 @@ function backoffDelay(attempt: number): number {
 export function createDeliveryEngine(retryConfig: RetryConfig = {}): DeliveryEngine {
 	const maxAttempts = retryConfig.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 	const timeoutMs = retryConfig.timeout ?? DEFAULT_TIMEOUT_MS;
+	const backoffBaseMs = retryConfig.backoffBaseMs ?? DEFAULT_BACKOFF_BASE_MS;
 
 	async function deliver(
 		endpoint: WebhookEndpointConfig,
@@ -74,10 +74,22 @@ export function createDeliveryEngine(retryConfig: RetryConfig = {}): DeliveryEng
 			updatedAt: createdAt,
 		};
 
+		// Sign once. Headers are deterministic per delivery (same secret, body,
+		// event, id, timestamp), so re-signing on every retry is wasted work.
+		// Hoisting the await also keeps it outside any test-side fake-timer scope.
+		const headers = await buildWebhookHeaders(
+			endpoint.secret,
+			rawBody,
+			event,
+			deliveryId,
+			timestamp,
+		);
+
 		for (let i = 0; i < maxAttempts; i++) {
-			// Exponential backoff — wait before every attempt except the first
-			if (i > 0) {
-				await new Promise<void>((resolve) => setTimeout(resolve, backoffDelay(i - 1)));
+			if (i > 0 && backoffBaseMs > 0) {
+				await new Promise<void>((resolve) =>
+					setTimeout(resolve, backoffDelay(i - 1, backoffBaseMs)),
+				);
 			}
 
 			const attemptedAt = Date.now();
@@ -88,14 +100,6 @@ export function createDeliveryEngine(retryConfig: RetryConfig = {}): DeliveryEng
 			};
 
 			try {
-				const headers = await buildWebhookHeaders(
-					endpoint.secret,
-					rawBody,
-					event,
-					deliveryId,
-					timestamp,
-				);
-
 				const response = await fetch(endpoint.url, {
 					method: "POST",
 					headers: {

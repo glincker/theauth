@@ -95,6 +95,8 @@ export const permissions = sqliteTable("kavach_permissions", {
 	resource: text("resource").notNull(), // e.g. "mcp:github:*", "tool:file_read"
 	actions: text("actions", { mode: "json" }).notNull().$type<string[]>(), // ["read", "write", "execute"]
 	constraints: text("constraints", { mode: "json" }).$type<PermissionConstraintsRow>(),
+	// When set, the policy engine consults the ReBAC graph for this permission.
+	relation: text("relation"),
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
@@ -152,6 +154,8 @@ export const auditLogs = sqliteTable("kavach_audit_logs", {
 	tokensCost: integer("tokens_cost"),
 	ip: text("ip"),
 	userAgent: text("user_agent"),
+	// True when this audit row corresponds to a policy-engine cache-hit evaluation.
+	cacheHit: integer("cache_hit", { mode: "boolean" }).notNull().default(false),
 	timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
 });
 

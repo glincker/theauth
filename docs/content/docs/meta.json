@@ -16,6 +16,7 @@
 		"agents",
 		"ephemeral-sessions",
 		"permissions",
+		"policy-engine",
 		"rebac",
 		"delegation",
 		"audit",

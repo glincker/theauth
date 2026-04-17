@@ -11,7 +11,7 @@
  * - Delivery records track status correctly
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDeliveryEngine } from "../src/webhook/delivery.js";
 import { webhooks } from "../src/webhook/index.js";
 import {
@@ -223,13 +223,8 @@ describe("createDeliveryEngine: signature headers", () => {
 // ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: retry on 5xx", () => {
-	beforeEach(() => {
-		vi.useFakeTimers();
-	});
-	afterEach(() => {
-		vi.useRealTimers();
-	});
-
+	// Real timers throughout. backoffBaseMs: 0 makes retries instant so the
+	// suite stays fast and avoids fake-timer + crypto.subtle deadlocks.
 	it("retries on 500 and eventually succeeds", async () => {
 		const fetchMock = vi
 			.fn()
@@ -237,10 +232,8 @@ describe("createDeliveryEngine: retry on 5xx", () => {
 			.mockResolvedValueOnce(new Response(null, { status: 200 }));
 		vi.stubGlobal("fetch", fetchMock);
 
-		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		const record = await promise;
+		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000, backoffBaseMs: 0 });
+		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(record.status).toBe("success");
@@ -250,10 +243,8 @@ describe("createDeliveryEngine: retry on 5xx", () => {
 	it("exhausts all attempts on repeated 500s", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
 
-		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		const record = await promise;
+		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000, backoffBaseMs: 0 });
+		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		expect(record.status).toBe("exhausted");
 		expect(record.attempts).toHaveLength(3);
@@ -263,10 +254,8 @@ describe("createDeliveryEngine: retry on 5xx", () => {
 	it("records the HTTP status code on each failed 5xx attempt", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 502 })));
 
-		const engine = createDeliveryEngine({ maxAttempts: 2, timeout: 5_000 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		const record = await promise;
+		const engine = createDeliveryEngine({ maxAttempts: 2, timeout: 5_000, backoffBaseMs: 0 });
+		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		for (const attempt of record.attempts) {
 			expect(attempt.statusCode).toBe(502);
@@ -318,26 +307,21 @@ describe("createDeliveryEngine: no retry on 4xx", () => {
 // ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: exponential backoff timing", () => {
-	it("waits 1s before the 2nd attempt and 4s before the 3rd", async () => {
-		vi.useFakeTimers();
-
+	it("waits with exponential backoff between attempts (base * 4^n)", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
 
 		const timerSpy = vi.spyOn(globalThis, "setTimeout");
-		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		await promise;
+		// backoffBaseMs: 5 keeps the suite fast (5ms + 20ms wait); the spy still
+		// proves the formula. Production default is 1000.
+		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000, backoffBaseMs: 5 });
+		await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
-		// Filter to the known backoff delay values
 		const backoffMs = timerSpy.mock.calls
 			.map(([, ms]) => ms as number)
-			.filter((ms): ms is number => ms === 1_000 || ms === 4_000);
+			.filter((ms): ms is number => ms === 5 || ms === 20);
 
-		expect(backoffMs).toContain(1_000);
-		expect(backoffMs).toContain(4_000);
-
-		vi.useRealTimers();
+		expect(backoffMs).toContain(5);
+		expect(backoffMs).toContain(20); // 5 * 4
 	});
 });
 
@@ -347,18 +331,13 @@ describe("createDeliveryEngine: exponential backoff timing", () => {
 
 describe("createDeliveryEngine: network errors", () => {
 	it("retries on network failure and records the error message", async () => {
-		vi.useFakeTimers();
 		stubFetchFail("ECONNREFUSED");
 
-		const engine = createDeliveryEngine({ maxAttempts: 2, timeout: 5_000 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		const record = await promise;
+		const engine = createDeliveryEngine({ maxAttempts: 2, timeout: 5_000, backoffBaseMs: 0 });
+		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		expect(record.status).toBe("exhausted");
 		expect(record.attempts[0]?.error).toBe("ECONNREFUSED");
-
-		vi.useRealTimers();
 	});
 });
 
@@ -368,9 +347,7 @@ describe("createDeliveryEngine: network errors", () => {
 
 describe("createDeliveryEngine: timeout", () => {
 	it("records an error when the request is aborted by the timeout signal", async () => {
-		vi.useFakeTimers();
-
-		// Simulate a hung request — never resolves unless the abort signal fires
+		// Simulate a hung request that only resolves when the abort signal fires.
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation(
@@ -386,15 +363,12 @@ describe("createDeliveryEngine: timeout", () => {
 			),
 		);
 
-		const engine = createDeliveryEngine({ maxAttempts: 1, timeout: 100 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		const record = await promise;
+		// timeout: 50ms keeps the test fast under real timers.
+		const engine = createDeliveryEngine({ maxAttempts: 1, timeout: 50, backoffBaseMs: 0 });
+		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		expect(record.status).toBe("exhausted");
 		expect(record.attempts[0]?.error).toBeTruthy();
-
-		vi.useRealTimers();
 	});
 });
 
@@ -418,18 +392,14 @@ describe("createDeliveryEngine: delivery ID uniqueness", () => {
 	});
 
 	it("delivery ID is stable across retries of the same delivery", async () => {
-		vi.useFakeTimers();
-
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(new Response(null, { status: 500 }))
 			.mockResolvedValueOnce(new Response(null, { status: 200 }));
 		vi.stubGlobal("fetch", fetchMock);
 
-		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000 });
-		const promise = engine.deliver(TEST_ENDPOINT, "user.signIn", {});
-		await vi.runAllTimersAsync();
-		const record = await promise;
+		const engine = createDeliveryEngine({ maxAttempts: 3, timeout: 5_000, backoffBaseMs: 0 });
+		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		const calls = fetchMock.mock.calls as [string, RequestInit][];
 		const id1 = (calls[0]?.[1].headers as Record<string, string>)["X-Kavach-Delivery-Id"];

@@ -89,6 +89,8 @@ export interface RetryConfig {
 	backoff?: "exponential";
 	/** Per-attempt timeout in ms (default: 10_000) */
 	timeout?: number;
+	/** Base backoff in ms (default: 1000). Tests can pass 0 to skip waits. */
+	backoffBaseMs?: number;
 }
 
 export interface WebhooksPluginConfig {

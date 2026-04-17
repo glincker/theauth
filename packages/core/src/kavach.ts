@@ -46,6 +46,8 @@ import { createPluginRouter } from "./plugin/router.js";
 import { initializePlugins } from "./plugin/runner.js";
 import type { EndpointContext } from "./plugin/types.js";
 import { createPolicyModule } from "./policies/budget.js";
+import { createPolicyEngine } from "./policy/engine.js";
+import type { PolicyEngine } from "./policy/types.js";
 import type { RedirectChainManager } from "./redirect/chain.js";
 import { createRedirectChain } from "./redirect/chain.js";
 import type { SessionFreshnessModule } from "./session/freshness.js";
@@ -124,6 +126,11 @@ export async function createKavach(config: KavachConfig) {
 	if (!config.database.skipMigrations) {
 		await createTables(db, config.database.provider, config);
 	}
+
+	// Unified policy engine. Always instantiated so kavach.policy is
+	// available. Callers can tune it via config.policy (cache size, TTL,
+	// combine strategy, audit sampling). Zero-config uses safe defaults.
+	const policyEngine: PolicyEngine = createPolicyEngine({ db, config: config.policy });
 
 	const agentConfig = {
 		db,
@@ -923,6 +930,34 @@ export async function createKavach(config: KavachConfig) {
 		 * ```
 		 */
 		redirects: redirectChain,
+		/**
+		 * Unified policy engine.
+		 *
+		 * Single decision point that combines RBAC role expansion, ABAC constraint
+		 * evaluation, and ReBAC graph queries. Backed by a process-local LRU cache
+		 * with deterministic invalidation.
+		 *
+		 * @example
+		 * ```typescript
+		 * const decision = await kavach.policy.evaluate({
+		 *   subject: { agentId: 'agent-abc' },
+		 *   action: 'read',
+		 *   resource: 'tool:github:list_issues',
+		 * });
+		 * if (!decision.allowed) throw new Error(decision.reason);
+		 *
+		 * // Flush cached decisions after a permission change
+		 * kavach.policy.invalidate({ agentId: 'agent-abc' });
+		 *
+		 * // Inspect cache health
+		 * const { hits, misses, size, evictions } = kavach.policy.stats();
+		 * ```
+		 */
+		policy: {
+			evaluate: policyEngine.evaluate,
+			invalidate: policyEngine.invalidate,
+			stats: policyEngine.stats,
+		},
 		/**
 		 * Plugin system.
 		 *
