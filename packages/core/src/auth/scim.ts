@@ -45,6 +45,13 @@ export interface ScimConfig {
 	onProvision?: (user: ScimUser) => Promise<void>;
 	/** Callback when user is deprovisioned */
 	onDeprovision?: (userId: string) => Promise<void>;
+	/**
+	 * Resolves the user id the current request speaks for. Required to enable
+	 * `GET /scim/v2/Me`. If omitted, `/Me` returns 501 with a clear detail.
+	 * The resolver should derive the id from the bearer token or associated
+	 * session and return `null` when the caller is not tied to a user.
+	 */
+	resolveSelf?: (request: Request) => Promise<string | null>;
 }
 
 export interface ScimUser {
@@ -307,6 +314,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		autoDeactivateUsers = true,
 		onProvision,
 		onDeprovision,
+		resolveSelf,
 	} = config;
 
 	// -------------------------------------------------------------------------
@@ -1261,6 +1269,39 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	// -------------------------------------------------------------------------
+	// /Me endpoint (RFC 7644 §3.11)
+	// -------------------------------------------------------------------------
+
+	async function handleMe(request: Request): Promise<Response> {
+		if (!resolveSelf) {
+			return scimError(
+				"Me endpoint requires a resolveSelf configuration callback",
+				501,
+				"invalidValue",
+			);
+		}
+
+		let userId: string | null;
+		try {
+			userId = await resolveSelf(request);
+		} catch {
+			return scimError("resolveSelf threw while resolving the current user", 500);
+		}
+
+		if (!userId) {
+			return scimError("No user is associated with this bearer token", 404, "noTarget");
+		}
+
+		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
+		const row = rows[0];
+		if (!row) {
+			return scimError("Resolved user does not exist", 404, "noTarget");
+		}
+
+		return scimResponse(userRowToScim(row, getBaseUrl(request)));
+	}
+
+	// -------------------------------------------------------------------------
 	// Request router
 	// -------------------------------------------------------------------------
 
@@ -1287,6 +1328,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 		if (method === "GET" && pathname.endsWith("/scim/v2/ResourceTypes")) {
 			return handleResourceTypes(request);
+		}
+		if (method === "GET" && pathname.endsWith("/scim/v2/Me")) {
+			return handleMe(request);
 		}
 
 		// Users collection

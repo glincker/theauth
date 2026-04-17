@@ -66,6 +66,8 @@
 		"stripe",
 		"polar-payment",
 		"scim",
+		"scim-filter-reference",
+		"scim-patch-reference",
 		"oidc-provider"
 	]
 }

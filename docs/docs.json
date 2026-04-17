@@ -293,6 +293,8 @@
               "auth/stripe",
               "auth/polar-payment",
               "auth/scim",
+              "auth/scim-filter-reference",
+              "auth/scim-patch-reference",
               "auth/oidc-provider"
             ]
           }

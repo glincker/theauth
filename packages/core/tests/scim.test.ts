@@ -728,3 +728,87 @@ describe("SCIM handleRequest routing", () => {
 		expect(res).toBeNull();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// /Me endpoint (RFC 7644 3.11)
+// ---------------------------------------------------------------------------
+
+describe("SCIM /Me endpoint", () => {
+	let db: Database;
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		await seedUser(db, "u-self-1", "self@example.com", "selfuser");
+	});
+
+	it("returns 501 when resolveSelf is not configured", async () => {
+		const mod = createScimModule({ bearerToken: BEARER }, db);
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Me"));
+		expect(res?.status).toBe(501);
+		const body = await json(res as Response);
+		expect(body.scimType).toBe("invalidValue");
+	});
+
+	it("returns 404 when resolveSelf returns null", async () => {
+		const mod = createScimModule(
+			{
+				bearerToken: BEARER,
+				resolveSelf: async () => null,
+			},
+			db,
+		);
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Me"));
+		expect(res?.status).toBe(404);
+		const body = await json(res as Response);
+		expect(body.scimType).toBe("noTarget");
+	});
+
+	it("returns 404 when the resolved id does not exist", async () => {
+		const mod = createScimModule(
+			{
+				bearerToken: BEARER,
+				resolveSelf: async () => "u-missing",
+			},
+			db,
+		);
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Me"));
+		expect(res?.status).toBe(404);
+	});
+
+	it("returns the mapped user when resolveSelf resolves", async () => {
+		const mod = createScimModule(
+			{
+				bearerToken: BEARER,
+				resolveSelf: async () => "u-self-1",
+			},
+			db,
+		);
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Me"));
+		expect(res?.status).toBe(200);
+		const body = await json(res as Response);
+		expect(body.id).toBe("u-self-1");
+		expect(body.userName).toBe("selfuser");
+	});
+
+	it("rejects unauthenticated callers before invoking resolveSelf", async () => {
+		const resolveSelf = vi.fn();
+		const mod = createScimModule({ bearerToken: BEARER, resolveSelf }, db);
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Me", undefined, ""));
+		expect(res?.status).toBe(401);
+		expect(resolveSelf).not.toHaveBeenCalled();
+	});
+
+	it("returns 500 when resolveSelf throws", async () => {
+		const mod = createScimModule(
+			{
+				bearerToken: BEARER,
+				resolveSelf: async () => {
+					throw new Error("boom");
+				},
+			},
+			db,
+		);
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Me"));
+		expect(res?.status).toBe(500);
+	});
+});

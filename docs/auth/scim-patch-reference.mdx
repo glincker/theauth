@@ -1,0 +1,492 @@
+---
+title: SCIM PATCH reference
+description: Operation types, path expressions with value filters, mutability rules, and DoS limits for the theAuth SCIM 2.0 PATCH endpoint.
+icon: Pencil
+---
+
+## Overview
+
+PATCH lets an identity provider update a SCIM resource without sending the full representation. Instead of replacing the entire user object, you send a list of targeted operations. theAuth implements the RFC 7644 §3.5.2 PATCH protocol at `PATCH /scim/v2/Users/{id}`. The endpoint deserializes the current database row into a SCIM view, applies your operations against that view using the path engine in `scim-patch.ts`, and then maps the mutated fields back to database columns.
+
+---
+
+## Operation types
+
+Every PATCH request body must include the patch schema and an `Operations` array with at least one entry.
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [...]
+}
+```
+
+### add
+
+Adds a value. On a multi-valued attribute (like `emails`), it appends rather than replaces. On a scalar, it sets the value. When `path` is omitted, the `value` object is merged into the resource root.
+
+```json
+{
+  "op": "add",
+  "path": "emails",
+  "value": [{ "value": "extra@example.com", "type": "other" }]
+}
+```
+
+### replace
+
+Overwrites the targeted attribute. On a multi-valued attribute targeted by a value filter, it updates only the matching elements. Without a path, it merges the `value` object into the root (same merge behavior as `add`).
+
+```json
+{
+  "op": "replace",
+  "path": "active",
+  "value": false
+}
+```
+
+### remove
+
+Removes the targeted attribute or, with a value filter, drops matching array elements. `remove` without a `path` is always rejected with `noTarget`.
+
+```json
+{
+  "op": "remove",
+  "path": "emails[type eq \"home\"]"
+}
+```
+
+---
+
+## Path expressions
+
+Paths follow the RFC 7644 §3.5.2 grammar:
+
+```
+PATH = attrPath [ "[" valFilter "]" ] [ "." attrPath ]
+```
+
+In plain English: a base attribute name, optionally filtered by a bracketed expression that selects elements of a multi-valued attribute, optionally followed by a dot-separated sub-attribute.
+
+### Simple attribute
+
+Targets a top-level attribute directly.
+
+| Path | Targets |
+|------|---------|
+| `displayName` | The `displayName` field |
+| `active` | The `active` boolean |
+
+```json
+{ "op": "replace", "path": "displayName", "value": "Barbara Jensen" }
+```
+
+### Nested attribute
+
+A dot separates the base attribute from a sub-attribute. The engine creates intermediate objects if they do not exist.
+
+| Path | Targets |
+|------|---------|
+| `name.givenName` | `name.givenName` |
+| `name.familyName` | `name.familyName` |
+
+```json
+{ "op": "replace", "path": "name.givenName", "value": "Barbara-Ann" }
+```
+
+### Multi-valued attribute
+
+Targeting the base attribute without a filter operates on the whole array.
+
+```json
+{ "op": "add", "path": "emails", "value": [{ "value": "ops@example.com", "type": "other" }] }
+```
+
+### Value-filter selector
+
+Brackets contain a filter expression that selects elements of the array. The filter uses SCIM attribute operators: `eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `lt`, `ge`, `le`, and logical operators `and`/`or`/`not`.
+
+| Path | Selects |
+|------|---------|
+| `emails[type eq "work"]` | All email entries where `type` is `"work"` |
+| `emails[primary eq true]` | The primary email entry |
+| `phoneNumbers[type eq "mobile"]` | Mobile phone numbers |
+
+```json
+{
+  "op": "replace",
+  "path": "emails[type eq \"work\"]",
+  "value": { "primary": false }
+}
+```
+
+The filter expression is parsed into an AST. No regex matching runs against user input.
+
+### Value-filter with sub-attribute
+
+Append `.attrName` after the closing bracket to target a specific field on each matching element.
+
+| Path | Effect |
+|------|--------|
+| `emails[type eq "work"].value` | The `value` field of the work email |
+| `emails[primary eq true].display` | The `display` field of the primary email |
+
+```json
+{
+  "op": "replace",
+  "path": "emails[type eq \"work\"].value",
+  "value": "new-work@example.com"
+}
+```
+
+The value filter must attach to a top-level attribute. A path like `name.sub[filter]` is rejected with `invalidPath`.
+
+### URN-prefixed attribute
+
+Extension schema attributes use the full URN as a namespace prefix. The engine splits on the last `:` to extract the schema URN and the attribute name, then writes the value under the URN key in the resource object.
+
+```
+urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department
+```
+
+Parsed as:
+- `schemaUrn`: `urn:ietf:params:scim:schemas:extension:enterprise:2.0:User`
+- `base`: `department`
+
+```json
+{
+  "op": "replace",
+  "path": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department",
+  "value": "Engineering"
+}
+```
+
+---
+
+## Add semantics
+
+When `op` is `add` and the target is a multi-valued attribute (an existing array), the engine appends rather than replaces. This is intentional per RFC 7644 §3.5.2.2.
+
+```json
+{ "op": "add", "path": "emails", "value": [{ "value": "extra@example.com", "type": "other" }] }
+```
+
+After this operation, the original work and home emails are still present. The new entry is appended.
+
+Contrast with `replace`, which overwrites the array:
+
+```json
+{ "op": "replace", "path": "emails", "value": [{ "value": "only@example.com", "type": "work", "primary": true }] }
+```
+
+This leaves only the one entry.
+
+No-path `add` has the same append behavior for arrays nested inside the value object:
+
+```json
+{
+  "op": "add",
+  "value": {
+    "emails": [{ "value": "extra@example.com", "type": "other" }]
+  }
+}
+```
+
+---
+
+## Remove semantics
+
+`remove` with a plain path sets the attribute to `undefined`:
+
+```json
+{ "op": "remove", "path": "active" }
+```
+
+`remove` with a value filter drops all matching array elements and keeps the rest:
+
+```json
+{ "op": "remove", "path": "emails[type eq \"home\"]" }
+```
+
+If the filter matches no elements, the operation is a no-op. The array is not modified.
+
+`remove` without any `path` is rejected:
+
+```json
+{ "op": "remove" }
+```
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+  "scimType": "noTarget",
+  "detail": "PATCH remove requires a path",
+  "status": "400"
+}
+```
+
+---
+
+## No-path operations
+
+`add` and `replace` accept operations without a `path`. The `value` must be an object. Each key in the object is merged into the resource root.
+
+```json
+{
+  "op": "replace",
+  "value": {
+    "displayName": "Barb J",
+    "active": false
+  }
+}
+```
+
+This is equivalent to two separate `replace` operations with explicit paths. Immutable checks still apply: if the value object contains `id`, `schemas`, or `meta`, the entire operation is rejected before any write happens.
+
+`remove` without a path is always rejected regardless of what `value` contains.
+
+---
+
+## Immutable attributes
+
+The following paths cannot be modified by any PATCH operation. They are server-controlled per RFC 7643 §7.
+
+| Path | Why it is immutable |
+|------|---------------------|
+| `id` | Server-generated primary key |
+| `schemas` | Controlled by resource type, not client |
+| `meta` | Entire meta object is server-managed |
+| `meta.created` | Set once at creation time |
+| `meta.lastModified` | Updated by the server on each write |
+| `meta.location` | Derived from server URL and resource ID |
+| `meta.resourceType` | Fixed for the resource type |
+
+Attempting to PATCH any of these returns:
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+  "scimType": "mutability",
+  "detail": "Attribute \"id\" is immutable",
+  "status": "400"
+}
+```
+
+The check runs before any write. If the first operation in a batch is valid and the second targets `id`, the first write does not persist.
+
+---
+
+## Caller-defined readonly paths
+
+The `handlePatchUser` handler passes an extra `readonlyPaths` option to the engine:
+
+```typescript
+applyPatchOps(scimView, body.Operations, {
+  readonlyPaths: ["id", "externalid"],
+});
+```
+
+This means `externalId` cannot be changed via PATCH after the resource is created, even though it is not in the base immutable list. Paths in `readonlyPaths` are lowercased before comparison, so `externalId`, `externalid`, and `ExternalID` all match.
+
+If you build a custom SCIM handler, you can pass any additional paths you want to lock:
+
+```typescript
+applyPatchOps(resource, ops, {
+  readonlyPaths: ["username", "externalid", "entitlements"],
+});
+```
+
+---
+
+## DoS guardrails
+
+The engine caps the number of operations per request. The default is 1000. If the `Operations` array exceeds the cap, the engine throws before processing any operation.
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+  "scimType": "tooMany",
+  "detail": "PATCH has 1001 operations, limit is 1000",
+  "status": "413"
+}
+```
+
+This matters for public-facing deployments. A client that generates one PATCH operation per attribute per user can construct a single request containing thousands of operations. Without a cap, that becomes an amplification vector: one HTTP request triggers unbounded in-memory work.
+
+You can lower the cap per-handler by passing `maxOperations`:
+
+```typescript
+applyPatchOps(resource, ops, { maxOperations: 50 });
+```
+
+---
+
+## Error reference
+
+| `scimType` | HTTP status | Cause | Fix |
+|------------|-------------|-------|-----|
+| `invalidPath` | 400 | Path string is malformed, has unbalanced brackets, has a filter on a nested attribute, or the value filter expression is invalid | Check the path grammar. Value filters must attach to a top-level attribute: `emails[type eq "work"]` not `name.sub[filter]` |
+| `invalidValue` | 400 | Operation type is not `add`, `replace`, or `remove`; or the value is the wrong shape for the operation | Verify `op` is one of the three allowed strings. No-path operations require an object value, not a scalar |
+| `noTarget` | 400 | `remove` was sent without a `path` | Add a `path` to the `remove` operation |
+| `mutability` | 400 | The path targets an immutable attribute (`id`, `schemas`, `meta.*`) or a caller-defined readonly path | Remove that operation from the batch. These attributes are set by the server |
+| `tooMany` | 413 | The `Operations` array exceeds the engine cap (default 1000) | Send fewer operations per request, or batch them across multiple PATCH calls |
+
+---
+
+## Worked examples
+
+### 1. Deactivate a user (Okta-style)
+
+Okta sends a single `replace` on `active` to suspend a user.
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    { "op": "Replace", "path": "active", "value": false }
+  ]
+}
+```
+
+Note: `op` values are case-insensitive. `Replace` and `replace` are equivalent.
+
+### 2. Update display name and email in one request (Okta-style)
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    { "op": "replace", "path": "displayName", "value": "Barbara Jensen" },
+    {
+      "op": "replace",
+      "path": "emails[type eq \"work\"].value",
+      "value": "bjensen-new@example.com"
+    }
+  ]
+}
+```
+
+### 3. No-path merge (Azure AD-style)
+
+Azure AD often sends `replace` without a path, merging a partial object.
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    {
+      "op": "replace",
+      "value": {
+        "displayName": "Barb J",
+        "active": true,
+        "name": {
+          "givenName": "Barb",
+          "familyName": "Jensen"
+        }
+      }
+    }
+  ]
+}
+```
+
+### 4. Add a phone number (Azure AD-style)
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    {
+      "op": "add",
+      "path": "phoneNumbers",
+      "value": [{ "value": "+1-555-0100", "type": "work" }]
+    }
+  ]
+}
+```
+
+If `phoneNumbers` already exists, this appends the new entry.
+
+### 5. Set enterprise extension attribute (Google Workspace-style)
+
+Google Workspace sends URN-prefixed paths for extension attributes.
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    {
+      "op": "replace",
+      "path": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department",
+      "value": "Engineering"
+    },
+    {
+      "op": "replace",
+      "path": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:organization",
+      "value": "Acme Corp"
+    }
+  ]
+}
+```
+
+### 6. Remove the home email
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    { "op": "remove", "path": "emails[type eq \"home\"]" }
+  ]
+}
+```
+
+### 7. Replace nested name fields
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    { "op": "replace", "path": "name.givenName", "value": "Barbara-Ann" },
+    { "op": "replace", "path": "name.familyName", "value": "Jensen-Smith" }
+  ]
+}
+```
+
+### 8. Add multiple emails at once
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [
+    {
+      "op": "add",
+      "path": "emails",
+      "value": [
+        { "value": "work2@example.com", "type": "work" },
+        { "value": "personal@example.com", "type": "home" }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## Current limitations
+
+**Groups PATCH is partial.** `PATCH /scim/v2/Groups/{id}` routes through a separate handler (`handlePatchGroup`) that does not use the `scim-patch.ts` engine. Value-filter operations on group members are not supported. A full rewrite to use the shared engine is planned for a follow-up release.
+
+**Value-filter member operations.** Filtering on `members[value eq "user-id"]` in a group context is not yet evaluated against the engine's AST walker. Sending such a path against the groups endpoint will not produce a predictable error -- it will silently fail or return unexpected results.
+
+**Filter operators.** The current AST walker in `scim-filter.ts` supports the comparison operators (`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `lt`, `ge`, `le`) and logical operators (`and`, `or`, `not`). Complex nested logical expressions with more than two clauses may not parse correctly.
+
+---
+
+## Security posture
+
+The path parser and value-filter evaluator are pure AST walkers. No user-provided string is ever passed to `eval`, `new Function`, or a dynamic property accessor outside a whitelisted attribute list.
+
+Immutable checks happen before any write begins. If an operation batch is partially valid and the first invalid operation is the third in the list, no writes from operations one or two persist.
+
+The operation count cap prevents request-amplification attacks. Without it, a single PATCH request could encode thousands of operations, each triggering DB reads and writes.
+
+Audit logs record the final resource state after the patch is applied, not the raw operation strings. This prevents log injection through maliciously crafted path expressions or filter values.

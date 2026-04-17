@@ -1,0 +1,309 @@
+---
+title: SCIM filter grammar reference
+description: Full list of SCIM 2.0 filter operators, combinators, value-path selectors, and grammar edge cases supported by the theAuth SCIM server.
+icon: Filter
+---
+
+## Overview
+
+SCIM filter strings tell list endpoints which resources to return. The theAuth parser implements the complete grammar from RFC 7644 §3.4.2.2. Any filter string that does not conform to that grammar returns `400 invalidFilter` before the database is touched.
+
+## Grammar
+
+The grammar below is taken directly from RFC 7644 §3.4.2.2.
+
+```abnf
+FILTER    = attrExp / logExp / valuePath / "not" "(" FILTER ")"
+valuePath = attrPath "[" valFilter "]"
+attrExp   = attrPath SP "pr"
+          / attrPath SP compareOp SP compValue
+logExp    = FILTER SP ("and" / "or") SP FILTER
+compareOp = "eq" / "ne" / "co" / "sw" / "ew" / "gt" / "lt" / "ge" / "le"
+compValue = false / null / true / number / string
+attrPath  = [URI ":"] ATTRNAME *1subAttr
+ATTRNAME  = ALPHA *(nameChar)
+nameChar  = "-" / "_" / DIGIT / ALPHA
+subAttr   = "." ATTRNAME
+```
+
+### Productions in plain English
+
+- **attrExp** is the basic building block: an attribute, an operator, and a value. Example: `userName eq "bjensen"`.
+- **valuePath** wraps a multi-valued attribute with square brackets. Example: `emails[type eq "work"]`.
+- **logExp** chains two filters with `and` or `or`. Precedence is handled by the parser, not you.
+- **not(...)** negates whatever is inside the parentheses.
+- **attrPath** can be a simple name (`userName`), a dotted path (`name.givenName`), or URN-prefixed (`urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department`).
+
+## Comparison operators
+
+All string comparisons are case-insensitive per RFC 7644 §3.4.2.2. `"BJensen"` and `"bjensen"` are the same value.
+
+### eq
+
+Returns true when the attribute value equals the comparison value exactly (after case-folding for strings).
+
+```http
+GET /scim/v2/Users?filter=userName%20eq%20%22bjensen%22
+```
+
+Matches:
+
+```json
+{ "userName": "bjensen" }
+{ "userName": "BJensen" }
+```
+
+### ne
+
+The inverse of `eq`. Returns true when the attribute value does not equal the comparison value.
+
+```http
+GET /scim/v2/Users?filter=userType%20ne%20%22Admin%22
+```
+
+Matches any user whose `userType` is not `Admin`.
+
+### co
+
+Returns true when the attribute value contains the comparison value as a substring.
+
+```http
+GET /scim/v2/Users?filter=name.familyName%20co%20%22jens%22
+```
+
+Matches `Jensen`, `Jensens`, `jenson`. Does not match `jen`.
+
+### sw
+
+Returns true when the attribute value starts with the comparison value.
+
+```http
+GET /scim/v2/Users?filter=userName%20sw%20%22bj%22
+```
+
+Matches `bjensen`, `bjoern`. Does not match `barbara`.
+
+### ew
+
+Returns true when the attribute value ends with the comparison value.
+
+```http
+GET /scim/v2/Users?filter=emails.value%20ew%20%22%40example.com%22
+```
+
+Matches `bjensen@example.com`. Does not match `bjensen@example.org`.
+
+### gt
+
+Returns true when the attribute value is greater than the comparison value. For strings, comparison is lexicographic. ISO 8601 timestamps (`2024-06-01T00:00:00Z`) are lexicographically ordered, so `gt` and `lt` work correctly on `meta.lastModified` without any special date parsing.
+
+```http
+GET /scim/v2/Users?filter=meta.lastModified%20gt%20%222025-01-01T00:00:00Z%22
+```
+
+Matches users modified after 2025-01-01.
+
+### ge
+
+Returns true when the attribute value is greater than or equal to the comparison value. Same rules as `gt`.
+
+```http
+GET /scim/v2/Users?filter=meta.lastModified%20ge%20%222024-06-01T00:00:00Z%22
+```
+
+### lt
+
+Returns true when the attribute value is less than the comparison value.
+
+```http
+GET /scim/v2/Users?filter=meta.lastModified%20lt%20%222025-01-01T00:00:00Z%22
+```
+
+### le
+
+Returns true when the attribute value is less than or equal to the comparison value.
+
+```http
+GET /scim/v2/Users?filter=meta.lastModified%20le%20%222024-06-01T00:00:00Z%22
+```
+
+## Presence operator
+
+`pr` tests whether an attribute is present and non-empty. It takes no comparison value.
+
+```http
+GET /scim/v2/Users?filter=emails%20pr
+```
+
+Returns users that have at least one email address. An empty array, `null`, or a missing key all fail `pr`.
+
+```http
+GET /scim/v2/Users?filter=nickName%20pr
+```
+
+Returns only users with a non-empty `nickName`. Users without the attribute are excluded.
+
+## Logical combinators
+
+### and
+
+Both clauses must match.
+
+```http
+filter=userName eq "bjensen" and active eq true
+```
+
+### or
+
+At least one clause must match.
+
+```http
+filter=userName eq "bjensen" or userName eq "jsmith"
+```
+
+### not
+
+Negates the enclosed filter. The parentheses are required.
+
+```http
+filter=not (userType eq "Admin")
+```
+
+### Precedence
+
+The parser follows standard logic precedence: `not` binds tightest, then `and`, then `or`. This means:
+
+```
+a eq "1" or b eq "2" and c eq "3"
+```
+
+is parsed as:
+
+```
+a eq "1" or (b eq "2" and c eq "3")
+```
+
+If that is not what you want, use parentheses:
+
+```
+(a eq "1" or b eq "2") and c eq "3"
+```
+
+The second form requires `c eq "3"` to be true for any result to be returned.
+
+## Value-path selectors
+
+A value-path selector applies a filter to the elements of a multi-valued attribute. The expression is true when at least one element satisfies the inner filter.
+
+```http
+filter=emails[type eq "work"]
+```
+
+This matches a user who has at least one email object where `type` is `"work"`. It does not require the work email to be the primary address or the only address.
+
+Combinators work inside the brackets:
+
+```http
+filter=emails[type eq "work" and value ew "@example.com"]
+```
+
+This matches a user whose work email also ends with `@example.com`. Both conditions must hold on the same array element, not across different elements.
+
+Nested value paths are not supported. `emails[addresses[...]]` returns `400 invalidFilter`.
+
+## Attribute paths
+
+### Dot notation
+
+Use a dot to navigate into a sub-attribute:
+
+```
+name.givenName
+name.familyName
+meta.lastModified
+```
+
+### URN-qualified paths
+
+Schema extensions use a URN prefix followed by the attribute name, separated by a colon:
+
+```
+urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department
+urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber
+```
+
+The parser splits on the last `:` when the path starts with `urn:`, then reads the attribute from the extension object keyed by the URN in the resource.
+
+```http
+filter=urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department%20eq%20%22Engineering%22
+```
+
+Dot notation inside a URN path is also valid:
+
+```
+urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager.value
+```
+
+## Data types in comparisons
+
+| Type | Syntax | Example |
+|------|--------|---------|
+| String | Double-quoted | `userName eq "bjensen"` |
+| Number | Bare numeric literal | `employeeNumber eq 42` |
+| Boolean | Bare `true` or `false` | `active eq true` |
+| Null | Bare `null` | `manager eq null` |
+
+Strings support JSON-style escape sequences inside quotes: `\"`, `\\`, `\/`, `\t`, `\n`, `\r`.
+
+Ordering operators (`gt`, `ge`, `lt`, `le`) on booleans and null always return false. Ordering on a number against a string also returns false.
+
+## Error responses
+
+When the filter string is malformed, the server returns:
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+  "status": "400",
+  "scimType": "invalidFilter",
+  "detail": "Unterminated string literal at position 14"
+}
+```
+
+The `detail` field contains the position in the original filter string where the parser stopped.
+
+Common causes:
+
+| Cause | Example |
+|-------|---------|
+| Unterminated string | `userName eq "bje` |
+| Unknown operator | `userName foo "x"` |
+| Missing operator | `userName "bjensen"` |
+| Unbalanced brackets | `emails[type eq "work"` |
+| Unbalanced parentheses | `not (active eq true` |
+| Trailing garbage | `userName eq "x" nonsense` |
+| Empty filter | _(empty string)_ |
+| Bad URN prefix | `urn:bad` (no final `:attrName` segment) |
+
+## Security notes
+
+The parser builds a finite AST and walks it. No eval, no regex matching against untrusted input. Filter complexity grows linearly with input length. The recursive descent parser does not recurse in a way that is proportional to nesting depth beyond what the input length permits, so deeply nested parentheses do not cause a stack overflow. Very long input strings are rejected at the HTTP transport layer before the parser runs.
+
+## Practical examples
+
+| Filter | What it matches | Endpoint |
+|--------|----------------|----------|
+| `userName eq "bjensen"` | Exact username lookup | `GET /scim/v2/Users` |
+| `emails[type eq "work"]` | Users with a work email (Okta probe) | `GET /scim/v2/Users` |
+| `emails[type eq "work" and value ew "@example.com"]` | Work email from a specific domain | `GET /scim/v2/Users` |
+| `active eq false` | Deactivated users | `GET /scim/v2/Users` |
+| `active eq true and userType eq "Employee"` | Active employees only | `GET /scim/v2/Users` |
+| `meta.lastModified gt "2026-01-01T00:00:00Z"` | Recently provisioned users (Azure AD sync probe) | `GET /scim/v2/Users` |
+| `meta.lastModified gt "2026-01-01T00:00:00Z" and active eq true` | Active users provisioned this year | `GET /scim/v2/Users` |
+| `not (userType eq "Admin")` | Non-admin users | `GET /scim/v2/Users` |
+| `name.familyName sw "J"` | Users whose surname starts with J | `GET /scim/v2/Users` |
+| `emails.value co "@example.com"` | Any email containing that domain | `GET /scim/v2/Users` |
+| `userName sw "svc-"` | Service accounts (by naming convention) | `GET /scim/v2/Users` |
+| `urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department eq "Engineering"` | Users in Engineering | `GET /scim/v2/Users` |
+| `displayName pr` | Groups with a non-empty display name | `GET /scim/v2/Groups` |
+| `(userName eq "bjensen" or userName eq "jsmith") and active eq true` | Specific users, active only | `GET /scim/v2/Users` |

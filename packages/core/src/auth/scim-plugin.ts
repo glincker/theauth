@@ -74,6 +74,16 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
+			// /Me — resolves the bearer to the calling user (RFC 7644 3.11)
+			ctx.addEndpoint({
+				method: "GET",
+				path: "/scim/v2/Me",
+				metadata: { description: "SCIM /Me: current user for the bearer token" },
+				async handler(request) {
+					return (await module.handleRequest(request)) as Response;
+				},
+			});
+
 			// Users collection
 			ctx.addEndpoint({
 				method: "GET",
