@@ -49,7 +49,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
 <ParamField path="userId" type="string">The user who owns the agent and should receive the notification.</ParamField>
 <ParamField path="action" type="string">The action the agent wants to perform.</ParamField>
 <ParamField path="resource" type="string">The resource the action targets.</ParamField>
-<ParamField path="arguments" type="Record<string, unknown> | undefined">The arguments the agent passed at the time of the call.</ParamField>
+<ParamField path="arguments" type={`Record<string, unknown> | undefined`}>The arguments the agent passed at the time of the call.</ParamField>
 <ParamField path="status" type="'pending' | 'approved' | 'denied' | 'expired'">Current state. Transitions are one-way.</ParamField>
 <ParamField path="expiresAt" type="Date">When the request expires if no response is received. Default TTL is 5 minutes.</ParamField>
 <ParamField path="respondedAt" type="Date | undefined">When the human responded.</ParamField>

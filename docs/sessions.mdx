@@ -425,7 +425,7 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 <ParamField path="refreshTokenTtl" type="number" default="604800 (7 days)">Refresh token lifetime in seconds. Refresh tokens are stored hashed and can be revoked immediately.</ParamField>
 <ParamField path="issuer" type="string" default="undefined">Value for the JWT 'iss' claim. Validated on every verify call.</ParamField>
 <ParamField path="audience" type="string" default="undefined">Value for the JWT 'aud' claim. Validated on every verify call.</ParamField>
-<ParamField path="customClaims" type="(user: { id: string; email?: string; name?: string }) => Record<string, unknown>" default="undefined">Function called at token creation to attach extra claims to the access token payload.</ParamField>
+<ParamField path="customClaims" type={`(user: { id: string; email?: string; name?: string }) => Record<string, unknown>`} default="undefined">Function called at token creation to attach extra claims to the access token payload.</ParamField>
 
 ### SessionFreshnessConfig
 

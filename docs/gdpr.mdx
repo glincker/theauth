@@ -97,5 +97,5 @@ The audit events remain in place with timestamps and action types intact. Person
 ## Configuration reference
 
 <ParamField path="requireDeletionConfirmation" type="boolean" default="true">Require the user's password before processing a deletion request.</ParamField>
-<ParamField path="onBeforeDelete" type="(userId: string) => Promise<void>">Async callback invoked before the user record is deleted. Use this to clean up app-level data.</ParamField>
+<ParamField path="onBeforeDelete" type={`(userId: string) => Promise<void>`}>Async callback invoked before the user record is deleted. Use this to clean up app-level data.</ParamField>
 <ParamField path="exportFormat" type="'json' | 'url'" default="'json'">Format for the data export response. 'json' returns inline data, 'url' returns a signed download URL.</ParamField>

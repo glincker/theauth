@@ -41,7 +41,7 @@ const kavach = await createKavach({
 <ParamField path="database" type="DatabaseConfig" required>Database connection config. Required.</ParamField>
 <ParamField path="agents" type="AgentConfig">Agent identity settings.</ParamField>
 <ParamField path="mcp" type="McpConfig">MCP OAuth 2.1 authorization server.</ParamField>
-<ParamField path="auth" type="{ adapter?: AuthAdapter; session?: SessionConfig }">Human auth adapter and session config.</ParamField>
+<ParamField path="auth" type={`{ adapter?: AuthAdapter; session?: SessionConfig }`}>Human auth adapter and session config.</ParamField>
 <ParamField path="anomaly" type="AnomalyConfig">Anomaly detection thresholds.</ParamField>
 <ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config.</ParamField>
 <ParamField path="trust" type="TrustConfig">Graduated autonomy trust scoring.</ParamField>
@@ -119,8 +119,8 @@ Enables the OAuth 2.1 authorization server for MCP-compliant tool access.
 <ParamField path="allowedResources" type="string[]">Allowed resource URIs for RFC 8707 resource indicators.</ParamField>
 <ParamField path="loginPage" type="string">URL of your login page. Users are redirected here when unauthenticated.</ParamField>
 <ParamField path="consentPage" type="string">URL of your consent page. Users are redirected here to approve scopes.</ParamField>
-<ParamField path="preRegisteredClients" type="Array<{ clientId, clientSecret?, redirectUris, clientName?, scope? }>">OAuth clients registered at startup (first-party apps, CLIs, test fixtures).</ParamField>
-<ParamField path="getAdditionalClaims" type="(userId: string, scopes: string[]) => Promise<Record<string, unknown>>">Async function to add custom claims to issued tokens.</ParamField>
+<ParamField path="preRegisteredClients" type={`Array<{ clientId, clientSecret?, redirectUris, clientName?, scope? }>`}>OAuth clients registered at startup (first-party apps, CLIs, test fixtures).</ParamField>
+<ParamField path="getAdditionalClaims" type={`(userId: string, scopes: string[]) => Promise<Record<string, unknown>>`}>Async function to add custom claims to issued tokens.</ParamField>
 
 ```typescript
 mcp: {
@@ -163,7 +163,7 @@ See [Auth adapters](/guides/auth-adapters) for all adapter options.
 
 Requires `auth.session` to be configured. The caller provides an email-sending callback.
 
-<ParamField path="sendResetEmail" type="(email: string, token: string, url: string) => Promise<void>" required>Callback to deliver the reset email. Receives email, raw token, and constructed URL.</ParamField>
+<ParamField path="sendResetEmail" type={`(email: string, token: string, url: string) => Promise<void>`} required>Callback to deliver the reset email. Receives email, raw token, and constructed URL.</ParamField>
 <ParamField path="resetUrl" type="string" required>Base URL for the reset page. Token is appended as ?token=...</ParamField>
 <ParamField path="tokenTtlSeconds" type="number" default="3600 (1h)">Reset token lifetime in seconds.</ParamField>
 <ParamField path="revokeSessionsOnReset" type="boolean" default="true">Revoke all sessions when the password is successfully reset.</ParamField>

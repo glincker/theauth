@@ -31,8 +31,8 @@ const client = createKavachClient({
 ```
 
 <ParamField path="baseUrl" type="string">Base URL for the KavachOS API, without a trailing slash.</ParamField>
-<ParamField path="token" type="string" default="undefined">Bearer token sent as Authorization: Bearer <token> on every request.</ParamField>
-<ParamField path="headers" type="Record<string, string>" default="{}">Extra headers merged into every request. Useful for API gateways that require custom headers.</ParamField>
+<ParamField path="token" type="string" default="undefined">Bearer token sent as `Authorization: Bearer <token>` on every request.</ParamField>
+<ParamField path="headers" type={`Record<string, string>`} default="{}">Extra headers merged into every request. Useful for API gateways that require custom headers.</ParamField>
 
 ## Agents
 
