@@ -1,0 +1,105 @@
+---
+title: Introduction
+description: KavachOS is an auth OS for AI agents. It handles identity, permissions, delegation, and audit for agentic systems.
+icon: BookOpen
+---
+
+
+KavachOS is a TypeScript SDK that gives AI agents their own identity, enforces permissions at call time, and logs every decision. It plugs into your existing auth provider (Clerk, Auth.js, better-auth) and handles everything after the human is authenticated.
+
+```ts {4-6,8-13}
+import { createKavach } from 'kavachos';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+});
+
+const agent = await kavach.agent.create({
+  ownerId: user.id,
+  name: 'code-reviewer',
+  type: 'autonomous',
+  permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
+});
+
+const result = await kavach.authorize(agent.id, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+});
+// { allowed: true, auditId: '550e8400-...' }
+```
+
+## What it does
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" description="Create agents with bearer tokens (kv_...), rotate credentials instantly, set expiry dates. Tokens are SHA-256 hashed in the database." href="/docs/agents" />
+  <Card title="Permission engine" description="Resource wildcards (mcp:github:*), rate limits, time windows, IP allowlists, and human-in-the-loop approval gates." href="/docs/permissions" />
+  <Card title="Delegation chains" description="An orchestrator delegates a subset of its permissions to a sub-agent, with depth limits and expiry. Revocation cascades." href="/docs/delegation" />
+  <Card title="Audit trail" description="Every authorize() call is logged: agent, user, resource, action, result, duration. Export as JSON or CSV." href="/docs/audit" />
+  <Card title="MCP OAuth 2.1" description="Spec-compliant auth server with PKCE (S256), Protected Resource Metadata (RFC 9728), and Dynamic Client Registration." href="/docs/mcp" />
+  <Card title="7 framework adapters" description="Drop-in middleware for Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, and Astro." href="/docs/adapters" />
+</CardGroup>
+
+## How it fits
+
+```
+┌────────────────────────────────────────────────────┐
+│  Your application                                  │
+│                                                    │
+│  ┌──────────────┐       ┌───────────────────────┐  │
+│  │ Human auth   │       │ KavachOS              │  │
+│  │              │──────>│                       │  │
+│  │ Clerk,       │ user  │  kavach.agent.create() │  │
+│  │ Auth.js,     │  ID   │  kavach.authorize()    │  │
+│  │ better-auth  │       │  kavach.delegate()     │  │
+│  └──────────────┘       │  kavach.audit.query()  │  │
+│                         └───────────┬───────────┘  │
+│                                     │              │
+│                            allowed / denied        │
+│                                     │              │
+│                         ┌───────────▼───────────┐  │
+│                         │ MCP servers, APIs,    │  │
+│                         │ tools, databases      │  │
+│                         └───────────────────────┘  │
+└────────────────────────────────────────────────────┘
+```
+
+Your auth provider handles human login. KavachOS takes the user ID and manages their agents. When an agent wants to act, your code calls `authorize()`. KavachOS returns `{ allowed, reason, auditId }`.
+
+<Info>
+KavachOS does not replace your human auth. It does not handle login, sessions, or OAuth social providers. It starts where human auth ends.
+</Info>
+
+## The problem
+
+<CardGroup cols={2}>
+  <Card title="81% deploying agents" description="But only 14% have security approval for those deployments." />
+  <Card title="45% use shared API keys" description="No per-agent identity, no scoped permissions, no audit trail." />
+  <Card title="88% had incidents" description="Security incidents from uncontrolled agent access in 2025-2026." />
+</CardGroup>
+
+Three things break without agent-specific auth:
+
+- **No identity.** Shared API keys make every agent indistinguishable. You cannot trace an action back to a specific agent.
+- **No least privilege.** Broad access with no enforcement is not a security model.
+- **No accountability.** Console logs are not an audit trail. Compliance requires structured, immutable records.
+
+## Quick comparison
+
+|  | KavachOS | better-auth | DIY |
+|---|---|---|---|
+| Agent-first data model | Yes | No (plugin) | You build it |
+| Wildcard permissions | Yes | No | You build it |
+| Delegation chains | Yes | No | Rarely done |
+| MCP OAuth 2.1 | Yes | No | Months of spec work |
+| Audit log with export | Yes | Partial | You build it |
+| Token rotation | Yes | No | You build it |
+| Framework adapters | 7 | Many | You build each |
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" description="Create your first agent in 5 minutes." href="/docs/quickstart" />
+  <Card title="Configuration" description="All createKavach() options explained." href="/docs/configuration" />
+  <Card title="Auth adapters" description="Plug into better-auth, Auth.js, Clerk." href="/docs/auth-adapters" />
+  <Card title="REST API reference" description="All HTTP endpoints." href="/docs/api" />
+</CardGroup>

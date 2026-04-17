@@ -1,0 +1,101 @@
+---
+title: Phone number
+description: Verify users by sending a one-time code to their phone number via SMS.
+icon: Key
+---
+
+The `phoneAuth` plugin registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function — KavachOS handles code generation, expiry, and rate limiting.
+
+## Setup
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { phoneAuth } from 'kavachos/auth'; // [!code highlight]
+import { Twilio } from 'twilio';
+
+const twilio = new Twilio(process.env.TWILIO_SID!, process.env.TWILIO_TOKEN!);
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    phoneAuth({ // [!code highlight]
+      onSendCode: async (phone, code) => { // [!code highlight]
+        await twilio.messages.create({ // [!code highlight]
+          body: `Your verification code: ${code}`, // [!code highlight]
+          from: process.env.TWILIO_FROM!, // [!code highlight]
+          to: phone, // [!code highlight]
+        }); // [!code highlight]
+      }, // [!code highlight]
+      codeLength: 6, // [!code highlight]
+      codeExpiry: 300, // seconds // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+Mount the handler the same way as any other plugin — see [adapters](/docs/adapters).
+
+## Send code
+
+`POST /auth/phone/send-code`
+
+Sends a one-time code to the given phone number. Creates the user account on first send.
+
+```typescript title="Send code (client)"
+const res = await fetch('/auth/phone/send-code', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    phone: '+14155550123', // E.164 format // [!code highlight]
+  }),
+});
+
+// Always returns { success: true } to prevent phone enumeration
+```
+
+Phone numbers must be in [E.164 format](https://www.twilio.com/docs/glossary/what-e164) (`+` prefix, country code, number).
+
+**Error codes**
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `PHONE_INVALID` | 422 | Not a valid E.164 phone number |
+| `RATE_LIMITED` | 429 | Too many codes sent to this number |
+
+## Verify code
+
+`POST /auth/phone/verify-code`
+
+Submits the code the user received. Returns a session on success.
+
+```typescript title="Verify code (client)"
+const res = await fetch('/auth/phone/verify-code', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    phone: '+14155550123', // [!code highlight]
+    code: '482910', // [!code highlight]
+  }),
+});
+
+if (res.ok) {
+  const { user, session } = await res.json();
+}
+```
+
+**Error codes**
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `INVALID_CODE` | 401 | Code is wrong or expired |
+| `CODE_EXPIRED` | 401 | Code was valid but has passed its expiry window |
+
+## Configuration reference
+
+<ParamField path="onSendCode" type="(phone: string, code: string) => Promise<void>" required>Callback invoked to deliver the code. Receives the phone number (E.164) and the numeric code as a string.</ParamField>
+<ParamField path="codeLength" type="number" default={6}>Number of digits in the generated code.</ParamField>
+<ParamField path="codeExpiry" type="number" default="300 (5 min)">Code validity window in seconds.</ParamField>
+<ParamField path="maxAttempts" type="number" default={5}>Failed attempts allowed before the code is invalidated.</ParamField>

@@ -1,0 +1,103 @@
+---
+title: Multi-session
+description: Let users hold multiple active sessions and manage them from an account settings page.
+icon: Key
+---
+
+By default, KavachOS allows unlimited concurrent sessions per user. The multi-session module adds a cap, a configurable overflow strategy, and endpoints for listing and revoking sessions — useful for building an "active devices" settings page.
+
+## Setup
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { multiSession } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    multiSession({ // [!code highlight]
+      maxSessions: 5, // [!code highlight]
+      overflow: 'evict-oldest', // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+## Overflow strategies
+
+| Strategy | Behavior |
+|----------|----------|
+| `evict-oldest` | Deletes the least-recently-used session when the cap is reached |
+| `reject` | Returns `429` with code `SESSION_LIMIT_REACHED` — new sign-in fails |
+
+## List sessions
+
+`GET /auth/sessions`
+
+Returns all active sessions for the authenticated user. Useful for building an "active devices" UI.
+
+```typescript title="List sessions (client)"
+const res = await fetch('/auth/sessions', {
+  credentials: 'include',
+});
+
+const { sessions } = await res.json();
+```
+
+**Response shape**
+
+```json
+{
+  "sessions": [
+    {
+      "id": "ses_abc123",
+      "current": true,
+      "createdAt": "2025-06-01T10:00:00.000Z",
+      "expiresAt": "2025-06-08T10:00:00.000Z",
+      "device": {
+        "browser": "Chrome",
+        "os": "macOS",
+        "type": "desktop"
+      },
+      "ipAddress": "203.0.113.1"
+    }
+  ]
+}
+```
+
+Device information is parsed from the `User-Agent` header at sign-in time. IP addresses are stored as-is — apply your own masking if required.
+
+## Revoke a session
+
+`DELETE /auth/sessions/:id`
+
+Revokes a specific session. Users can revoke any of their own sessions, including the current one.
+
+```typescript title="Revoke session (client)"
+await fetch(`/auth/sessions/${sessionId}`, {
+  method: 'DELETE',
+  credentials: 'include',
+});
+```
+
+## Revoke all other sessions
+
+`DELETE /auth/sessions`
+
+Revokes all sessions for the user except the current one. Useful for "sign out everywhere else" buttons.
+
+```typescript title="Sign out all other devices (client)"
+await fetch('/auth/sessions', {
+  method: 'DELETE',
+  credentials: 'include',
+});
+```
+
+## Configuration reference
+
+<ParamField path="maxSessions" type="number" default="0 (unlimited)">Maximum concurrent sessions per user. Set to 0 for unlimited.</ParamField>
+<ParamField path="overflow" type="'evict-oldest' | 'reject'" default="'evict-oldest'">What to do when a new sign-in would exceed maxSessions.</ParamField>
+<ParamField path="trackDevice" type="boolean" default="true">Parse and store browser/OS information from the User-Agent header.</ParamField>
+<ParamField path="trackIp" type="boolean" default="true">Store the IP address of the sign-in request.</ParamField>

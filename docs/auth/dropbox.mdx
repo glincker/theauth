@@ -1,0 +1,65 @@
+---
+title: Dropbox
+description: Sign in with Dropbox using OAuth 2.0.
+icon: Dropbox
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to the [Dropbox App Console](https://www.dropbox.com/developers/apps) and create an app. Under **OAuth 2**, add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/dropbox
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+import { dropboxProvider } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        dropboxProvider(
+          process.env.DROPBOX_CLIENT_ID!,
+          process.env.DROPBOX_CLIENT_SECRET!,
+        ),
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+DROPBOX_CLIENT_ID=...
+DROPBOX_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `account_info.read`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `account_info.read` | Read the user's account info |
+| `files.metadata.read` | List file metadata |
+| `files.content.read` | Read file contents |
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/dropbox` | Redirect to Dropbox |
+| GET | `/auth/oauth/callback/dropbox` | Handle callback |

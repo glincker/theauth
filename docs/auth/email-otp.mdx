@@ -1,0 +1,109 @@
+---
+title: Email OTP
+description: Six-digit one-time codes sent via email for passwordless sign-in.
+icon: Key
+---
+
+Email OTP sends a short numeric code to the user's inbox. It works well for mobile flows where clicking a link is awkward and for verification steps inside an existing session.
+
+## Setup
+
+<Steps>
+
+<Step>
+
+### Install
+
+```bash
+pnpm add kavachos
+```
+
+</Step>
+
+<Step>
+
+### Add the plugin
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { emailOtp } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    emailOtp({ // [!code highlight]
+      onSendOtp: async (email, code) => { // [!code highlight]
+        await resend.emails.send({
+          from: 'auth@example.com',
+          to: email,
+          subject: `Your code: ${code}`,
+          html: `<p>Your sign-in code is <strong>${code}</strong>. It expires in 10 minutes.</p>`,
+        });
+      }, // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+</Step>
+
+</Steps>
+
+## How it works
+
+1. User submits their email to `POST /auth/email-otp/send`.
+2. KavachOS generates a cryptographically random code and calls your `onSendOtp` function with the email and code.
+3. User enters the code in your UI and submits to `POST /auth/email-otp/verify`.
+4. On success, a session cookie is set.
+
+If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created automatically.
+
+## Send a code
+
+`POST /auth/email-otp/send`
+
+```typescript
+await fetch('/auth/email-otp/send', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'user@example.com' }),
+});
+```
+
+The response is always `200` to prevent email enumeration. Codes are rate-limited to one per minute per email address — requests within the window return `429`. Build a countdown timer into your UI.
+
+## Verify a code
+
+`POST /auth/email-otp/verify`
+
+```typescript
+const res = await fetch('/auth/email-otp/verify', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    code: '482910', // [!code highlight]
+  }),
+});
+
+const { userId, sessionId } = await res.json(); // [!code highlight]
+```
+
+After `maxAttempts` failed verifications, the code is invalidated and a new one must be requested.
+
+<Warning>
+  Codes are single-use. A successful verification invalidates the code immediately. Do not retry the same code after a success response.
+</Warning>
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `onSendOtp` | `(email: string, code: string) => Promise<void>` | required | Called with the recipient email and the numeric code |
+| `codeLength` | `number` | `6` | Number of digits in the OTP |
+| `codeTtl` | `number` | `600` | Code lifetime in seconds (default: 10 minutes) |
+| `maxAttempts` | `number` | `5` | Failed attempts before the code is invalidated |
+| `createUserIfNotFound` | `boolean` | `true` | Auto-create accounts for new emails |

@@ -1,0 +1,140 @@
+---
+title: NestJS
+description: KavachOS adapter for NestJS.
+icon: Nestjs
+---
+
+`KavachModule.forRoot(options)` is a NestJS dynamic module that mounts all KavachOS routes as Express middleware. Import it once in your root `AppModule`.
+
+## Install
+
+```bash
+pnpm add kavachos @kavachos/nestjs
+```
+
+## Setup
+
+<Steps>
+<Step title="Create the kavach instance">
+
+```typescript
+// lib/kavach.ts
+import { createKavach, createMcpModule } from 'kavachos';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  baseUrl: process.env.AUTH_BASE_URL!,
+  mcp: {
+    issuer: process.env.AUTH_BASE_URL!,
+    audience: process.env.MCP_BASE_URL!,
+  },
+});
+
+export const mcp = createMcpModule(kavach);
+```
+
+</Step>
+<Step title="Import KavachModule">
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { KavachModule } from '@kavachos/nestjs';
+import { kavach, mcp } from './lib/kavach.js';
+
+@Module({
+  imports: [
+    KavachModule.forRoot({
+      kavach,
+      mcp,
+      basePath: '/api/kavach', // default
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+</Step>
+<Step title="Bootstrap">
+
+```typescript
+// main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+}
+
+bootstrap();
+```
+
+</Step>
+</Steps>
+
+<Info>
+  NestJS uses Express under the hood by default. The adapter mounts an Express Router directly, so no extra configuration is needed.
+</Info>
+
+## Route prefix
+
+The default mount path is `/api/kavach`. Change it with the `basePath` option:
+
+```typescript
+KavachModule.forRoot({ kavach, basePath: '/auth' })
+```
+
+All KavachOS routes will then be available under `/auth/*`.
+
+## Without a module
+
+If you prefer to mount routes imperatively in `main.ts` rather than importing a module, use `kavachMiddleware` directly:
+
+```typescript
+// main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
+import { kavachMiddleware } from '@kavachos/nestjs';
+import { kavach, mcp } from './lib/kavach.js';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.use('/api/kavach', kavachMiddleware({ kavach, mcp }));
+  await app.listen(3000);
+}
+
+bootstrap();
+```
+
+## MCP endpoints
+
+Pass `mcp` to enable the MCP OAuth 2.1 authorization server:
+
+```typescript
+KavachModule.forRoot({ kavach, mcp, basePath: '/api/kavach' })
+// registers:
+// GET  /api/kavach/.well-known/oauth-authorization-server
+// GET  /api/kavach/.well-known/oauth-protected-resource
+// POST /api/kavach/mcp/register
+// GET  /api/kavach/mcp/authorize
+// POST /api/kavach/mcp/token
+```
+
+## Endpoint reference
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/agents` | Create an agent |
+| `GET` | `/agents` | List agents |
+| `GET` | `/agents/:id` | Get an agent |
+| `PATCH` | `/agents/:id` | Update an agent |
+| `DELETE` | `/agents/:id` | Revoke an agent |
+| `POST` | `/agents/:id/rotate` | Rotate token |
+| `POST` | `/authorize` | Authorize by agent ID |
+| `POST` | `/authorize/token` | Authorize by bearer token |
+| `POST` | `/delegations` | Create delegation |
+| `GET` | `/delegations/:agentId` | List delegation chains |
+| `DELETE` | `/delegations/:id` | Revoke delegation |
+| `GET` | `/audit` | Query audit logs |
+| `GET` | `/audit/export` | Export audit logs |

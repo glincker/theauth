@@ -1,0 +1,70 @@
+---
+title: Linear
+description: Sign in with Linear using OAuth 2.0.
+icon: Linear
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [linear.app/settings/api](https://linear.app/settings/api) and click **Create new OAuth application**. Add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/linear
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'linear',
+          clientId: process.env.LINEAR_CLIENT_ID!,
+          clientSecret: process.env.LINEAR_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+LINEAR_CLIENT_ID=...
+LINEAR_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `read`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `read` | Read access to the user's data |
+| `write` | Write access to issues, comments, etc. |
+| `issues:create` | Create issues |
+| `app:assignIssues` | Assign issues to the app |
+
+<Info>
+  Linear uses UUIDs as user identifiers. The user's email is always returned and is verified.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/linear` | Redirect to Linear |
+| GET | `/auth/oauth/callback/linear` | Handle callback |

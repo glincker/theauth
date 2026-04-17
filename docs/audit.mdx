@@ -1,0 +1,151 @@
+---
+title: Audit trail
+description: Immutable logging of every authorization decision, with filtering, export, and compliance references.
+icon: ScrollText
+---
+
+
+## How audit logging works
+
+Every call to `kavach.authorize()` or `kavach.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed, denied, and rate-limited calls are all recorded. The log is append-only: entries are never updated or deleted.
+
+`authorize()` returns an `auditId` linking the decision to its log entry:
+
+```typescript
+const result = await kavach.authorize(agent.id, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+});
+
+console.log(result.auditId); // "aud_3f8a..."
+```
+
+## Querying logs
+
+### AuditEntry type
+
+<ParamField path="id" type="string">Unique entry identifier, prefixed aud_.</ParamField>
+<ParamField path="agentId" type="string">The agent that triggered the authorization check.</ParamField>
+<ParamField path="userId" type="string">The user who owns the agent.</ParamField>
+<ParamField path="action" type="string">The action the agent attempted (e.g. read, write, delete).</ParamField>
+<ParamField path="resource" type="string">The resource the action was attempted on.</ParamField>
+<ParamField path="parameters" type="Record<string, unknown>">Arguments passed to the tool at the time of the call.</ParamField>
+<ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">The outcome of the authorization check.</ParamField>
+<ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
+<ParamField path="tokensCost" type="number">Optional token usage from the agent\'s LLM call, if provided.</ParamField>
+<ParamField path="timestamp" type="Date">When the authorization check occurred.</ParamField>
+
+### Filtering
+
+All filter fields are optional and combinable. Without filters, the query returns all entries up to the `limit`.
+
+```typescript
+const logs = await kavach.audit.query({
+  agentId: 'agt_...',
+  userId: 'user-123',
+  result: 'denied',
+  since: new Date('2025-01-01'),
+  until: new Date('2025-02-01'),
+  actions: ['write', 'delete'],
+  limit: 100,
+  offset: 0,
+});
+```
+
+<ParamField path="agentId" type="string">Filter to a specific agent.</ParamField>
+<ParamField path="userId" type="string">Filter to all agents owned by a user.</ParamField>
+<ParamField path="since" type="Date">Include entries on or after this timestamp.</ParamField>
+<ParamField path="until" type="Date">Include entries before this timestamp.</ParamField>
+<ParamField path="actions" type="string[]">Filter to specific action names.</ParamField>
+<ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">Filter by outcome.</ParamField>
+<ParamField path="limit" type="number">Maximum entries to return. Default is 1000.</ParamField>
+<ParamField path="offset" type="number">Pagination offset.</ParamField>
+
+### Exporting logs
+
+```typescript
+// JSON export
+const json = await kavach.audit.export({ format: 'json' });
+
+// CSV export, suitable for spreadsheets and compliance tools
+const csv = await kavach.audit.export({ format: 'csv' });
+
+// Export a specific time range
+const q4 = await kavach.audit.export({
+  format: 'csv',
+  since: new Date('2024-10-01'),
+  until: new Date('2025-01-01'),
+});
+```
+
+The CSV export includes a header row with field names matching the `AuditEntry` interface. Each row is one authorization decision.
+
+<Info>
+Both `since` and `until` are optional on exports. Omitting both exports the entire log.
+</Info>
+
+## Compliance references
+
+<AccordionGroup>
+  <Accordion title="EU AI Act, Article 12 — Record keeping">
+    Article 12 requires high-risk AI systems to log events automatically throughout the system lifecycle, including the period of activity and data used. KavachOS records every authorization decision with agent identity, resource, action, parameters, outcome, and timestamp.
+  </Accordion>
+  <Accordion title="NIST AI RMF — GOVERN 1.7 / MANAGE 4.2">
+    The NIST AI Risk Management Framework calls for documented accountability mechanisms and the ability to trace AI actions to specific identities. The append-only audit trail links every decision to a named agent and user.
+  </Accordion>
+  <Accordion title="SOC 2 — CC6.1 through CC7.2">
+    SOC 2 trust services criteria for logical access controls and system monitoring require evidence that access is granted only to authorized identities and that access events are logged. The `allowed`/`denied`/`rate_limited` result field satisfies CC6.1–CC6.3. The tamper-evident, append-only structure satisfies CC7.2.
+  </Accordion>
+  <Accordion title="ISO 42001, Annex A.8 — Documentation of AI system behaviour">
+    ISO 42001 recommends documenting the behavior of AI systems in production. Exporting the audit log as JSON or CSV gives auditors a machine-readable record of every decision the system made.
+  </Accordion>
+</AccordionGroup>
+
+## Usage patterns
+
+**Monthly access report for a user**
+
+```typescript
+const entries = await kavach.audit.query({
+  userId: 'user-123',
+  since: new Date('2025-03-01'),
+  until: new Date('2025-04-01'),
+});
+```
+
+**Agents with repeated denials today**
+
+```typescript
+const denied = await kavach.audit.query({
+  result: 'denied',
+  since: new Date(new Date().setHours(0, 0, 0, 0)),
+});
+
+const countsByAgent = denied.reduce<Record<string, number>>((acc, entry) => {
+  acc[entry.agentId] = (acc[entry.agentId] ?? 0) + 1;
+  return acc;
+}, {});
+```
+
+**High-frequency agent detection**
+
+```typescript
+const highActivity = await kavach.audit.query({
+  agentId: 'agt_...',
+  since: new Date(Date.now() - 3_600_000), // last hour
+});
+
+console.log(`${highActivity.length} calls in the last hour`);
+```
+
+<Warning>
+A sudden spike in call volume from a single agent often indicates a runaway loop. Use `kavach.agent.revoke()` to suspend the agent while you investigate.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Compliance" description="Map audit data to EU AI Act, NIST, SOC 2, and ISO 42001." href="/docs/compliance" />
+  <Card title="REST API" description="Query audit logs via HTTP endpoints." href="/docs/api" />
+  <Card title="Admin dashboard" description="Visual audit log viewer with filters and export." href="/docs/dashboard" />
+</CardGroup>

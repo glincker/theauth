@@ -1,0 +1,77 @@
+---
+title: Google One-tap
+description: Passwordless sign-in with Google One-tap.
+icon: Google
+---
+
+Google One-tap lets users sign in with a single tap using their Google account. The frontend shows Google's prompt, the backend verifies the ID token via Google's JWKS. No Google SDK needed server-side.
+
+## Setup
+
+<Steps>
+<Step>
+### Get a client ID
+
+Go to the [Google Cloud Console](https://console.cloud.google.com/), create an OAuth 2.0 credential, copy the **Client ID**.
+</Step>
+
+<Step>
+### Configure the plugin
+
+```ts
+import { createKavach } from 'kavachos';
+import { oneTap } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oneTap({ clientId: process.env.GOOGLE_CLIENT_ID }),
+  ],
+});
+```
+</Step>
+
+<Step>
+### Add Google's script to your frontend
+
+```html
+<script src="https://accounts.google.com/gsi/client" async></script>
+<div id="g_id_onload"
+  data-client_id="YOUR_CLIENT_ID"
+  data-login_uri="/api/kavach/auth/one-tap/callback"
+  data-auto_prompt="true">
+</div>
+```
+</Step>
+</Steps>
+
+## How it works
+
+1. Google's JS shows a sign-in prompt on your page
+2. User taps their Google account
+3. Google sends a `credential` (JWT ID token) to your callback
+4. KavachOS verifies the JWT against Google's JWKS (`https://www.googleapis.com/oauth2/v3/certs`)
+5. Validates audience, issuer, expiry, and CSRF token
+6. Creates or links the user, returns a session
+
+## CSRF protection
+
+Google sends a `g_csrf_token` cookie with the request. KavachOS validates that the cookie value matches the `g_csrf_token` field in the POST body.
+
+## Config
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `clientId` | string | required | Google OAuth client ID |
+| `autoCreateUser` | boolean | `true` | Create user if not found |
+| `csrfCookieName` | string | `"g_csrf_token"` | CSRF cookie name |
+
+## Endpoint
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/one-tap/callback` | Verify ID token, create session |
+
+<Info>
+Google One-tap requires HTTPS in production. It works on localhost for development.
+</Info>

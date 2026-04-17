@@ -1,0 +1,309 @@
+---
+title: Agent identity federation
+description: Let agents authenticate across KavachOS instances without re-registration
+---
+
+
+## What federation does
+
+When two services both run KavachOS, an agent created at Service A can authenticate at Service B without creating a new account. The agent's identity, trust score, permissions, and delegation scope travel with it in a short-lived, signed JWT called a federation token.
+
+This is useful when:
+
+- A user has agents in multiple SaaS apps that need to talk to each other
+- An agent orchestrator delegates sub-tasks to agents registered at different services
+- You run a multi-service architecture and want unified agent identity
+
+Federation tokens are not long-lived sessions. They are single-use, short-lived credentials (5 minutes by default) that prove "this agent exists at Service A, with these permissions."
+
+## How it works
+
+1. Service A issues a federation token for one of its agents
+2. The agent presents that token to Service B
+3. Service B fetches Service A's public key from `/.well-known/kavach-federation.json`
+4. Service B verifies the token signature, checks expiry, and applies trust level rules
+5. Service B now has a `FederatedAgent` object with the agent's identity and (possibly downgraded) permissions
+
+The source instance signs tokens with an EdDSA keypair. The target instance only needs the public key to verify.
+
+## Setup
+
+<Steps>
+
+### Generate a keypair for each instance
+
+Each KavachOS instance needs its own signing key.
+
+```typescript
+import { generateKeyPair } from "jose";
+
+const { publicKey, privateKey } = await generateKeyPair("EdDSA");
+```
+
+### Create the federation module
+
+```typescript
+import { createFederationModule } from "kavachos/auth";
+
+const federation = createFederationModule({
+  instanceId: "service-a",
+  instanceUrl: "https://a.example.com",
+  signingKey: privateKey,
+  tokenTtlSeconds: 300, // 5 minutes (default)
+});
+```
+
+### Expose the well-known endpoint
+
+Serve the instance identity at `/.well-known/kavach-federation.json` so other instances can discover your public key.
+
+```typescript
+// In your HTTP server
+app.get("/.well-known/kavach-federation.json", async (req, res) => {
+  const identity = await federation.getInstanceIdentity();
+  res.json(identity);
+});
+```
+
+### Configure trust between instances
+
+```typescript
+// Service B trusts Service A
+federation.addTrustedInstance({
+  instanceId: "service-a",
+  instanceUrl: "https://a.example.com",
+  publicKey: serviceAPublicJwk, // from discovery or manual config
+  trustLevel: "full",
+});
+```
+
+Or use discovery to fetch the public key automatically:
+
+```typescript
+const discovered = await federation.discoverInstance("https://a.example.com");
+if (discovered.success) {
+  // Discovered instances default to "verify-only" trust
+  // Upgrade if you want to accept their permissions
+  federation.addTrustedInstance({
+    ...discovered.data,
+    trustLevel: "full",
+  });
+}
+```
+
+</Steps>
+
+## Trust levels
+
+When you add a trusted instance, you choose how much to trust its claims.
+
+| Level | Permissions | Trust score | Use case |
+|-------|------------|-------------|----------|
+| `full` | Accepted as-is | Accepted as-is | Internal services you control |
+| `limited` | Write and admin stripped | Capped at 0.5 | Partners, third-party services |
+| `verify-only` | All stripped | Set to 0 | Identity verification only |
+
+With `limited` trust, any permission containing "write" or "admin" is removed from the federated agent's permissions. The trust score is capped at 0.5 regardless of what the source instance claims.
+
+With `verify-only` trust, you only confirm the agent exists at the source instance. No permissions or trust are transferred. Useful when you want to check identity before assigning local permissions.
+
+## Issuing federation tokens
+
+Service A issues a token for one of its agents:
+
+```typescript
+const result = await federation.issueFederationToken({
+  agentId: "agent-123",
+  permissions: ["read:data", "write:reports"],
+  trustScore: 0.85,
+  delegationScope: ["tool:github"],
+  targetInstance: "service-b", // optional audience restriction
+});
+
+if (result.success) {
+  // Give result.data.token to the agent
+  console.log(result.data.token);
+  console.log(result.data.expiresAt);
+}
+```
+
+The token is a JWT containing:
+
+- `sub`: agent ID
+- `iss`: source instance ID
+- `aud`: target instance ID (if specified)
+- `exp`: expiration time
+- `permissions`: agent permissions array
+- `trust_score`: source instance's trust assessment (0-1)
+- `delegation_scope`: what the agent is allowed to delegate
+- `credential`: optional embedded Verifiable Credential JWT
+
+## Verifying federation tokens
+
+Service B verifies the token:
+
+```typescript
+const result = await federation.verifyFederationToken(token);
+
+if (result.success) {
+  const agent = result.data;
+  console.log(agent.agentId);          // "agent-123"
+  console.log(agent.sourceInstance);    // "service-a"
+  console.log(agent.permissions);      // ["read:data", "write:reports"]
+  console.log(agent.trustScore);       // 0.85
+  console.log(agent.delegationScope);  // ["tool:github"]
+}
+```
+
+Verification checks:
+
+1. Token signature matches the source instance's public key
+2. Token has not expired
+3. Source instance is in the trusted list (or `autoTrust` is on)
+4. Audience matches this instance (if audience is set in the token)
+5. Trust level rules are applied to downgrade permissions if needed
+
+## Embedding Verifiable Credentials
+
+You can attach a W3C Verifiable Credential to the federation token for offline verification. This is useful when the target instance needs cryptographic proof of the agent's capabilities that does not depend on the source instance's availability.
+
+```typescript
+import { createVCIssuer } from "kavachos/vc";
+
+// Issue a VC for the agent
+const vcResult = await vcIssuer.issueAgentCredential({
+  agentId: "agent-123",
+  permissions: ["read:data"],
+  trustLevel: 0.85,
+});
+
+// Embed it in the federation token
+const fedResult = await federation.issueFederationToken({
+  agentId: "agent-123",
+  permissions: ["read:data"],
+  trustScore: 0.85,
+  credential: vcResult.data.jwt,
+});
+```
+
+On the receiving side, `result.data.credential` will contain the VC JWT, which you can verify independently using `createVCVerifier`.
+
+## Discovery protocol
+
+Each KavachOS instance can publish its identity at:
+
+```
+GET /.well-known/kavach-federation.json
+```
+
+Response:
+
+```json
+{
+  "instanceId": "service-a",
+  "instanceUrl": "https://a.example.com",
+  "publicKeyJwk": { "kty": "OKP", "crv": "Ed25519", "x": "..." },
+  "protocolVersion": "1.0",
+  "features": ["federation-tokens", "vc-embedding", "auto-discovery"]
+}
+```
+
+Use `discoverInstance` to fetch and parse this:
+
+```typescript
+const result = await federation.discoverInstance("https://a.example.com");
+```
+
+Discovered instances default to `verify-only` trust. You must explicitly upgrade the trust level after discovery.
+
+## Security considerations
+
+<Warning>
+Federation tokens carry permissions across trust boundaries. Think carefully about trust levels.
+</Warning>
+
+- **Short TTLs**: Default is 5 minutes. Keep tokens short-lived to limit blast radius.
+- **Audience restriction**: Use `targetInstance` to prevent token replay at unintended services.
+- **Key rotation**: Rotate signing keys periodically. When you rotate, update the well-known endpoint and notify trusted instances.
+- **Discovery vs. pre-configuration**: Discovery is convenient for dev, but pre-configure public keys in production for stronger security guarantees.
+- **Auto-trust is for development only**: In production, always explicitly configure trusted instances.
+- **Trust levels are enforced by the verifier**: The source instance cannot override the target's trust level setting. A `limited` trust target will always strip write permissions regardless of what the source claims.
+
+## Full example
+
+Two services federating agents:
+
+<Tabs items={["Service A (source)", "Service B (target)"]}>
+<Tab value="Service A (source)">
+```typescript
+import { createFederationModule } from "kavachos/auth";
+import { generateKeyPair, exportJWK } from "jose";
+
+const { publicKey, privateKey } = await generateKeyPair("EdDSA");
+
+const federation = createFederationModule({
+  instanceId: "service-a",
+  instanceUrl: "https://a.example.com",
+  signingKey: privateKey,
+});
+
+// Expose well-known endpoint
+app.get("/.well-known/kavach-federation.json", async (req, res) => {
+  const identity = await federation.getInstanceIdentity();
+  res.json(identity);
+});
+
+// When an agent needs to talk to Service B
+app.post("/agents/:id/federate", async (req, res) => {
+  const result = await federation.issueFederationToken({
+    agentId: req.params.id,
+    permissions: agent.permissions,
+    trustScore: agent.trustScore,
+    targetInstance: "service-b",
+  });
+
+  if (!result.success) {
+    return res.status(500).json(result.error);
+  }
+
+  res.json({ federationToken: result.data.token });
+});
+```
+</Tab>
+<Tab value="Service B (target)">
+```typescript
+import { createFederationModule } from "kavachos/auth";
+import { generateKeyPair } from "jose";
+
+const { privateKey } = await generateKeyPair("EdDSA");
+
+const federation = createFederationModule({
+  instanceId: "service-b",
+  instanceUrl: "https://b.example.com",
+  signingKey: privateKey,
+  trustedInstances: [
+    {
+      instanceId: "service-a",
+      instanceUrl: "https://a.example.com",
+      publicKey: serviceAPublicJwk,
+      trustLevel: "full",
+    },
+  ],
+});
+
+// Verify federation tokens on incoming requests
+app.use("/agents/federated/*", async (req, res, next) => {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) return res.status(401).json({ error: "Missing token" });
+
+  const result = await federation.verifyFederationToken(token);
+  if (!result.success) {
+    return res.status(403).json(result.error);
+  }
+
+  req.federatedAgent = result.data;
+  next();
+});
+```
+</Tab>
+</Tabs>

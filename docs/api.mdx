@@ -1,0 +1,420 @@
+---
+title: REST API
+description: Complete HTTP endpoint reference.
+icon: Code
+---
+
+
+All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). The base path defaults to `/` unless you configure `baseUrl`.
+
+<Note>
+  All endpoints require a valid Bearer token unless noted as public. Obtain a token through the MCP OAuth 2.1 flow or by creating an agent with `kavach.agent.create()`.
+</Note>
+
+## Agent endpoints
+
+### Create agent
+
+```
+POST /agents
+```
+
+Creates a new agent identity.
+
+**Request body**
+
+```json
+{
+  "ownerId": "user_01abc",
+  "name": "GitHub Automation",
+  "type": "autonomous",
+  "permissions": [
+    {
+      "resource": "mcp:github:*",
+      "actions": ["read", "write"],
+      "constraints": {
+        "maxCallsPerHour": 100
+      }
+    }
+  ],
+  "expiresAt": "2026-12-31T23:59:59Z",
+  "metadata": {}
+}
+```
+
+**Response** `201 Created`
+
+```json
+{
+  "id": "agt_01abc",
+  "ownerId": "user_01abc",
+  "name": "GitHub Automation",
+  "type": "autonomous",
+  "token": "kvch_live_...",
+  "status": "active",
+  "permissions": [...],
+  "expiresAt": "2026-12-31T23:59:59.000Z",
+  "createdAt": "2026-03-21T10:00:00.000Z",
+  "updatedAt": "2026-03-21T10:00:00.000Z"
+}
+```
+
+### List agents
+
+```
+GET /agents
+```
+
+Returns all agents for the authenticated user. Supports query parameters for filtering.
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | `active \| revoked \| expired` | Filter by status |
+| `type` | `autonomous \| delegated \| service` | Filter by agent type |
+| `tenantId` | `string` | Filter by tenant |
+
+**Response** `200 OK` - Array of agent objects.
+
+### Get agent
+
+```
+GET /agents/:id
+```
+
+Returns a single agent by ID.
+
+**Response** `200 OK` - Agent object. `404` when not found.
+
+### Update agent
+
+```
+PATCH /agents/:id
+```
+
+Updates name, permissions, expiry, or metadata.
+
+**Request body**
+
+```json
+{
+  "name": "Updated Name",
+  "permissions": [...],
+  "expiresAt": "2027-01-01T00:00:00Z",
+  "metadata": { "env": "production" }
+}
+```
+
+All fields are optional. **Response** `200 OK` - Updated agent object.
+
+### Revoke agent
+
+```
+DELETE /agents/:id
+```
+
+Permanently revokes an agent. Revoked agents cannot be reactivated.
+
+**Response** `204 No Content`
+
+### Rotate agent token
+
+```
+POST /agents/:id/rotate
+```
+
+Issues a new token and invalidates the previous one. Use this for credential rotation.
+
+**Response** `200 OK` - Agent object with a new `token` value.
+
+---
+
+## Authorization endpoints
+
+### Authorize a request
+
+```
+POST /authorize
+```
+
+Checks whether an agent has permission to perform an action on a resource.
+
+**Request body**
+
+```json
+{
+  "agentId": "agt_01abc",
+  "action": "write",
+  "resource": "mcp:github:create_issue",
+  "arguments": {
+    "repo": "org/repo",
+    "title": "Bug fix"
+  },
+  "context": {
+    "ip": "203.0.113.42",
+    "userAgent": "MyAgent/1.0"
+  }
+}
+```
+
+**Response** `200 OK`
+
+```json
+{
+  "allowed": true,
+  "auditId": "aud_01xyz"
+}
+```
+
+On denial:
+
+```json
+{
+  "allowed": false,
+  "reason": "RATE_LIMITED",
+  "auditId": "aud_01xyz"
+}
+```
+
+---
+
+## Delegation endpoints
+
+### Create delegation
+
+```
+POST /delegations
+```
+
+Delegates a subset of permissions from one agent to another.
+
+**Request body**
+
+```json
+{
+  "fromAgent": "agt_01abc",
+  "toAgent": "agt_02def",
+  "permissions": [
+    { "resource": "mcp:github:*", "actions": ["read"] }
+  ],
+  "expiresAt": "2026-06-01T00:00:00Z",
+  "maxDepth": 2
+}
+```
+
+**Response** `201 Created`
+
+```json
+{
+  "id": "del_01abc",
+  "fromAgent": "agt_01abc",
+  "toAgent": "agt_02def",
+  "permissions": [...],
+  "depth": 1,
+  "expiresAt": "2026-06-01T00:00:00.000Z",
+  "createdAt": "2026-03-21T10:00:00.000Z"
+}
+```
+
+### List delegations
+
+```
+GET /delegations
+```
+
+Returns all active delegation chains for the authenticated user.
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fromAgent` | `string` | Filter by source agent |
+| `toAgent` | `string` | Filter by target agent |
+
+**Response** `200 OK` - Array of delegation objects.
+
+### Revoke delegation
+
+```
+DELETE /delegations/:id
+```
+
+Revokes a delegation chain immediately.
+
+**Response** `204 No Content`
+
+---
+
+## Audit endpoints
+
+### Query audit log
+
+```
+GET /audit
+```
+
+Returns audit log entries matching the specified filters.
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agentId` | `string` | Filter by agent |
+| `userId` | `string` | Filter by user |
+| `since` | `ISO 8601` | Start of time range |
+| `until` | `ISO 8601` | End of time range |
+| `actions` | `string` (comma-separated) | Filter by action names |
+| `result` | `allowed \| denied \| rate_limited` | Filter by outcome |
+| `limit` | `number` | Max results (default 100) |
+| `offset` | `number` | Pagination offset |
+
+**Response** `200 OK`
+
+```json
+[
+  {
+    "id": "aud_01xyz",
+    "agentId": "agt_01abc",
+    "userId": "user_01abc",
+    "action": "write",
+    "resource": "mcp:github:create_issue",
+    "parameters": { "repo": "org/repo" },
+    "result": "allowed",
+    "durationMs": 3,
+    "tokensCost": 1200,
+    "timestamp": "2026-03-21T10:00:00.000Z"
+  }
+]
+```
+
+### Export audit log
+
+```
+GET /audit/export?format=json&since=2026-01-01
+```
+
+Exports the audit log as JSON or CSV for compliance reporting.
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `format` | `json \| csv` | Output format. Required. |
+| `since` | `ISO 8601` | Start of time range |
+| `until` | `ISO 8601` | End of time range |
+
+**Response** `200 OK` - File download with `Content-Disposition: attachment`.
+
+---
+
+## MCP endpoints
+
+These endpoints implement the MCP OAuth 2.1 specification.
+
+### Authorization Server Metadata
+
+```
+GET /.well-known/oauth-authorization-server
+```
+
+Returns OAuth 2.0 Authorization Server Metadata (RFC 8414). Public endpoint, no auth required.
+
+### Protected Resource Metadata
+
+```
+GET /.well-known/oauth-protected-resource
+```
+
+Returns Protected Resource Metadata (RFC 9728). Public endpoint, no auth required.
+
+### Dynamic Client Registration
+
+```
+POST /mcp/register
+```
+
+Registers a new OAuth client (RFC 7591). No auth required (open registration) unless restricted by configuration.
+
+**Request body** - See RFC 7591 for the full schema. Minimum:
+
+```json
+{
+  "redirect_uris": ["https://my-mcp-client.example.com/callback"],
+  "client_name": "My MCP Client"
+}
+```
+
+**Response** `201 Created` - Client credentials including `client_id` and `client_secret`.
+
+### Authorization request
+
+```
+GET /mcp/authorize?response_type=code&client_id=...&redirect_uri=...&code_challenge=...&code_challenge_method=S256
+```
+
+Starts the OAuth authorization code flow. Requires PKCE (`code_challenge` + `code_challenge_method=S256`). Redirects to `loginPage` if the user is not authenticated, or to `consentPage` for scope approval.
+
+### Token exchange
+
+```
+POST /mcp/token
+```
+
+Exchanges an authorization code or refresh token for an access token.
+
+**Request body** (`application/x-www-form-urlencoded`)
+
+For `authorization_code` grant:
+
+```
+grant_type=authorization_code
+&code=<code>
+&redirect_uri=<redirect_uri>
+&client_id=<client_id>
+&code_verifier=<pkce_verifier>
+```
+
+For `refresh_token` grant:
+
+```
+grant_type=refresh_token
+&refresh_token=<token>
+&client_id=<client_id>
+```
+
+**Response** `200 OK`
+
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "...",
+  "scope": "agents:read agents:write"
+}
+```
+
+---
+
+## Dashboard endpoints
+
+### Stats overview
+
+```
+GET /dashboard/stats
+```
+
+Returns aggregate statistics for the admin dashboard.
+
+**Response** `200 OK`
+
+```json
+{
+  "totalAgents": 42,
+  "activeAgents": 38,
+  "totalAuditEntries": 18420,
+  "denialRateLast24h": 2.3,
+  "topAgentsByCallCount": [...]
+}
+```

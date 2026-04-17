@@ -1,0 +1,69 @@
+---
+title: Roblox
+description: Sign in with Roblox using OAuth 2.0.
+icon: Roblox
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [create.roblox.com](https://create.roblox.com) and navigate to **Dashboard > Credentials**. Create an OAuth 2.0 app and set your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/roblox
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'roblox',
+          clientId: process.env.ROBLOX_CLIENT_ID!,
+          clientSecret: process.env.ROBLOX_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+ROBLOX_CLIENT_ID=...
+ROBLOX_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `openid`, `profile`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `openid` | OIDC identity token |
+| `profile` | Display name and profile URL |
+| `email` | Email address (if verified) |
+
+<Info>
+  Roblox OAuth 2.0 is currently in open beta. User IDs are stable numeric values that persist across username changes.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/roblox` | Redirect to Roblox |
+| GET | `/auth/oauth/callback/roblox` | Handle callback |

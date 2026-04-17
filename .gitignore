@@ -46,3 +46,4 @@ docs/superpowers/
 CLAUDE.md
 .env.local
 playwright-report
+.claude/

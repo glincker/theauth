@@ -1,0 +1,118 @@
+---
+title: Nuxt
+description: KavachOS adapter for Nuxt (H3).
+icon: Nuxt
+---
+
+`kavachNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all KavachOS paths are handled.
+
+## Install
+
+```bash
+pnpm add kavachos @kavachos/nuxt
+```
+
+## Setup
+
+<Steps>
+<Step title="Create the kavach instance">
+
+Create this outside the event handler so it is initialized once at server startup:
+
+```typescript
+// server/utils/kavach.ts
+import { createKavach, createMcpModule } from 'kavachos';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  baseUrl: process.env.AUTH_BASE_URL!,
+  mcp: {
+    issuer: process.env.AUTH_BASE_URL!,
+    audience: process.env.MCP_BASE_URL!,
+  },
+});
+
+export const mcp = createMcpModule(kavach);
+```
+
+</Step>
+<Step title="Create the catch-all route">
+
+In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-paths. Create `server/api/kavach/[...].ts`:
+
+```typescript
+// server/api/kavach/[...].ts
+import { kavachNuxt } from '@kavachos/nuxt';
+import { kavach, mcp } from '../utils/kavach';
+
+export default kavachNuxt(kavach, { mcp });
+```
+
+</Step>
+</Steps>
+
+<Info>
+  The `basePath` option defaults to `/api/kavach`. If your Nuxt app uses a different route prefix, pass `basePath` to match.
+</Info>
+
+## Options
+
+```typescript
+interface KavachNuxtOptions {
+  mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
+  basePath?: string;       // defaults to '/api/kavach'
+}
+```
+
+## MCP endpoints
+
+When `mcp` is passed, the MCP OAuth 2.1 authorization server is available at:
+
+```
+GET  /api/kavach/.well-known/oauth-authorization-server
+GET  /api/kavach/.well-known/oauth-protected-resource
+POST /api/kavach/mcp/register
+GET  /api/kavach/mcp/authorize
+POST /api/kavach/mcp/token
+```
+
+## Endpoint reference
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/agents` | Create an agent |
+| `GET` | `/agents` | List agents |
+| `GET` | `/agents/:id` | Get an agent |
+| `PATCH` | `/agents/:id` | Update an agent |
+| `DELETE` | `/agents/:id` | Revoke an agent |
+| `POST` | `/agents/:id/rotate` | Rotate token |
+| `POST` | `/authorize` | Authorize by agent ID |
+| `POST` | `/authorize/token` | Authorize by bearer token |
+| `POST` | `/delegations` | Create delegation |
+| `GET` | `/delegations/:agentId` | List delegation chains |
+| `DELETE` | `/delegations/:id` | Revoke delegation |
+| `GET` | `/audit` | Query audit logs |
+| `GET` | `/audit/export` | Export audit logs |
+
+## Full example
+
+```typescript
+// server/api/kavach/[...].ts
+import { createKavach, createMcpModule } from 'kavachos';
+import { kavachNuxt } from '@kavachos/nuxt';
+
+const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  baseUrl: process.env.AUTH_BASE_URL!,
+  mcp: {
+    issuer: process.env.AUTH_BASE_URL!,
+    audience: process.env.MCP_BASE_URL!,
+  },
+});
+
+const mcp = createMcpModule(kavach);
+
+export default kavachNuxt(kavach, { mcp });
+```
+
+All KavachOS routes are then available at `/api/kavach/...` within your Nuxt server.

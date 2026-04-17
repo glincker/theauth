@@ -1,0 +1,250 @@
+---
+title: Sign In With Ethereum
+description: Wallet-based authentication using EIP-4361 message signing.
+icon: Wallet
+---
+
+Sign In With Ethereum (SIWE) lets users authenticate by signing a structured message with their Ethereum wallet. No password. No email. The server verifies the signature came from the claimed address, then creates a session. The standard is [EIP-4361](https://eips.ethereum.org/EIPS/eip-4361).
+
+It works with any wallet that supports personal_sign: MetaMask, WalletConnect, Coinbase Wallet, Rainbow, and others.
+
+## Setup
+
+<Steps>
+
+<Step>
+
+### Add the plugin
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { siwe } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    siwe({ // [!code highlight]
+      domain: 'example.com',             // shown in the wallet prompt // [!code highlight]
+      uri: 'https://example.com',        // must match your app's origin // [!code highlight]
+      statement: 'Sign in to Example App', // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+</Step>
+
+<Step>
+
+### Add a signature verifier (production)
+
+Out of the box, the plugin validates message structure and nonce integrity but does not do on-chain secp256k1 recovery. For production, pass a `verifySignature` function using [viem](https://viem.sh) or [ethers](https://docs.ethers.org):
+
+<Tabs items={['viem', 'ethers']}>
+  <Tab value="viem">
+```typescript title="lib/kavach.ts"
+import { verifyMessage } from 'viem';
+import { siwe } from 'kavachos/auth';
+
+siwe({
+  domain: 'example.com',
+  uri: 'https://example.com',
+  verifySignature: async (message, signature) => { // [!code highlight]
+    const address = await verifyMessage({ message, signature: signature as `0x${string}` }); // [!code highlight]
+    return address; // [!code highlight]
+  }, // [!code highlight]
+})
+```
+  </Tab>
+  <Tab value="ethers">
+```typescript title="lib/kavach.ts"
+import { ethers } from 'ethers';
+import { siwe } from 'kavachos/auth';
+
+siwe({
+  domain: 'example.com',
+  uri: 'https://example.com',
+  verifySignature: async (message, signature) => { // [!code highlight]
+    return ethers.verifyMessage(message, signature); // [!code highlight]
+  }, // [!code highlight]
+})
+```
+  </Tab>
+</Tabs>
+
+<Warning>
+  Without `verifySignature`, the plugin trusts the address in the message body. Anyone can forge a sign-in by submitting a valid-looking message without a real signature. Always add signature recovery before going to production.
+</Warning>
+
+</Step>
+
+</Steps>
+
+## Sign-in flow
+
+SIWE requires three steps: get a nonce, sign a message in the wallet, then submit both to the server.
+
+<Steps>
+
+<Step>
+
+### Get a nonce
+
+`GET /auth/siwe/nonce`
+
+Request a server-generated nonce before building the sign-in message. Nonces are single-use and expire after 5 minutes (configurable).
+
+```typescript
+const res = await fetch('/auth/siwe/nonce');
+const { nonce } = await res.json(); // [!code highlight]
+```
+
+</Step>
+
+<Step>
+
+### Build and sign the message
+
+Construct the EIP-4361 message string from the user's address, the nonce, and your app metadata. Pass it to the wallet for signing.
+
+```typescript
+import { createSiweModule } from 'kavachos/auth';
+
+// Build the message client-side using the same config as the server
+const siweModule = createSiweModule({
+  domain: 'example.com',
+  uri: 'https://example.com',
+  statement: 'Sign in to Example App',
+});
+
+const message = siweModule.buildMessage( // [!code highlight]
+  address,     // e.g. '0xAbC...' from the connected wallet // [!code highlight]
+  nonce,       // from the previous step // [!code highlight]
+  1,           // chain ID (1 = Ethereum mainnet) // [!code highlight]
+); // [!code highlight]
+
+// Request wallet signature (works with any EIP-1193 provider)
+const signature = await window.ethereum.request({ // [!code highlight]
+  method: 'personal_sign', // [!code highlight]
+  params: [message, address], // [!code highlight]
+}); // [!code highlight]
+```
+
+The message the user sees in their wallet looks like:
+
+```
+example.com wants you to sign in with your Ethereum account:
+0xAbC123...
+
+Sign in to Example App
+
+URI: https://example.com
+Version: 1
+Chain ID: 1
+Nonce: a3f9c2e1d8b04f7a
+Issued At: 2025-01-01T00:00:00.000Z
+```
+
+</Step>
+
+<Step>
+
+### Verify and start a session
+
+`POST /auth/siwe/verify`
+
+Submit the original message and the wallet signature. On success, the server returns the verified Ethereum address and chain ID. Create a session with your session management layer from here.
+
+```typescript
+const res = await fetch('/auth/siwe/verify', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ message, signature }), // [!code highlight]
+});
+
+if (!res.ok) {
+  const { error } = await res.json();
+  console.error(error); // e.g. "Nonce expired" or "Signature does not match address"
+} else {
+  const { address, chainId } = await res.json(); // [!code highlight]
+  // address is the verified Ethereum address — use it to look up or create the user
+}
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "address": "0xAbC123...",
+  "chainId": 1
+}
+```
+
+</Step>
+
+</Steps>
+
+## Nonce lifecycle
+
+Every sign-in attempt must use a fresh nonce from the server. Nonces:
+
+- Are 32 random hex bytes (256 bits of entropy)
+- Expire after `nonceTtlSeconds` (default: 300 seconds)
+- Are deleted immediately after a successful or failed verification — they cannot be reused
+
+The nonce is embedded in the signed message, so it cannot be stripped or replaced after signing. This prevents replay attacks: a captured `(message, signature)` pair from one session cannot be submitted again.
+
+If the nonce expires before the user signs, the verify endpoint returns `400` with `"Nonce expired"`. Request a new nonce and rebuild the message.
+
+## Linking wallets to users
+
+SIWE verifies an address — it does not create or look up a user by itself. After a successful `/auth/siwe/verify`, use the returned `address` to find an existing user record or create a new one:
+
+```typescript
+const { address, chainId } = await res.json();
+
+// Look up user by wallet address
+let user = await db.query.users.findFirst({
+  where: eq(users.walletAddress, address.toLowerCase()),
+});
+
+if (!user) {
+  // First time — create account
+  user = await db.insert(users).values({
+    walletAddress: address.toLowerCase(),
+    createdAt: new Date(),
+  }).returning().get();
+}
+
+// Create a KavachOS session for this user
+const session = await kavach.sessions.create({ userId: user.id });
+```
+
+## Endpoints
+
+| Endpoint | Method | Auth required | Description |
+|----------|--------|--------------|-------------|
+| `/auth/siwe/nonce` | `GET` | No | Generate a single-use nonce |
+| `/auth/siwe/verify` | `POST` | No | Verify message and signature, return address |
+
+## Configuration reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `domain` | `string` | required | Your app's domain, shown in the wallet prompt (e.g. `example.com`) |
+| `uri` | `string` | required | Full origin URI (e.g. `https://example.com`). Must match what the wallet signed |
+| `statement` | `string` | — | Human-readable statement shown in the wallet (e.g. `Sign in to Example App`) |
+| `nonceTtlSeconds` | `number` | `300` | How long a nonce is valid before it expires |
+| `verifySignature` | `(message, signature) => Promise<string>` | — | Custom secp256k1 recovery function. Returns the recovered address. Required in production |
+
+## Security considerations
+
+**Always add `verifySignature` in production.** Without it, the plugin validates message structure and nonce state, but anyone can submit a well-formed SIWE message for any address without a real signature.
+
+**Domain and URI binding.** The plugin rejects messages where `domain` or `uri` do not match the server's config. This prevents phishing attacks where a malicious site captures a signature meant for a different origin.
+
+**Nonce reuse prevention.** Nonces are deleted on first use regardless of whether verification succeeds. A second attempt with the same nonce always fails.
+
+**Chain ID.** The chain ID in the message is returned to your application but is not enforced by the plugin. If your app is chain-specific (e.g. only Ethereum mainnet), check that `chainId === 1` (or your expected value) after verification.

@@ -1,0 +1,197 @@
+---
+title: Delegation chains
+description: Grant a subset of permissions from one agent to another, with depth limits and cascading revocation.
+icon: Link2
+---
+
+
+## What is a delegation chain
+
+A delegation chain lets one agent grant a subset of its permissions to another. The delegating agent keeps its own permissions unchanged. The receiving agent gains access only to what was explicitly delegated.
+
+This pattern is most useful when an orchestrator spins up sub-agents for specific tasks. Each sub-agent gets only the access it needs, for only as long as it needs it.
+
+<Info>
+The delegating agent must currently hold every permission it is trying to delegate. Attempting to delegate a permission not in the agent's own set fails with `INSUFFICIENT_PERMISSIONS`.
+</Info>
+
+## Working with delegations
+
+### Creating a delegation
+
+```typescript
+const chain = await kavach.delegate({
+  fromAgent: orchestrator.id,
+  toAgent: subAgent.id,
+  permissions: [
+    { resource: 'mcp:github:issues', actions: ['read'] },
+  ],
+  expiresAt: new Date(Date.now() + 3_600_000), // 1 hour
+  maxDepth: 2,
+});
+
+console.log(chain.id);        // dlg_...
+console.log(chain.depth);     // 1
+console.log(chain.expiresAt); // Date
+```
+
+<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated.</ParamField>
+<ParamField path="toAgent" type="string">Agent ID receiving the permissions.</ParamField>
+<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent\'s own permissions.</ParamField>
+<ParamField path="expiresAt" type="Date">When the delegation expires. After this point, the chain is no longer valid.</ParamField>
+<ParamField path="maxDepth" type="number">How many additional hops the chain can be re-delegated. Default is 3.</ParamField>
+
+### Permission subset enforcement
+
+The permissions you delegate must be a subset of what the `fromAgent` holds. Narrower resources and fewer actions are allowed. Wider resources or new actions are rejected.
+
+Given an orchestrator with:
+
+```typescript
+{ resource: 'mcp:github:*', actions: ['read', 'write', 'comment'] }
+```
+
+Valid delegations:
+
+```typescript
+{ resource: 'mcp:github:issues', actions: ['read'] }           // narrower resource, fewer actions
+{ resource: 'mcp:github:*', actions: ['read'] }                // same resource, fewer actions
+{ resource: 'mcp:github:repos', actions: ['read', 'comment'] } // narrower resource, same actions
+```
+
+Invalid delegations:
+
+```typescript
+{ resource: 'mcp:github:*', actions: ['delete'] }  // action not held by parent
+{ resource: 'mcp:slack:*', actions: ['read'] }     // resource not held by parent
+```
+
+### Depth limiting
+
+`maxDepth` controls how many additional re-delegation hops are allowed. With `maxDepth: 2`, the receiving agent can delegate to another agent, but that next agent cannot delegate further.
+
+```typescript
+// Orchestrator → Sub (depth 1, maxDepth 2)
+await kavach.delegate({
+  fromAgent: orchestrator.id,
+  toAgent: sub.id,
+  permissions: [{ resource: 'mcp:github:issues', actions: ['read'] }],
+  expiresAt: new Date(Date.now() + 3_600_000),
+  maxDepth: 2,
+});
+
+// Sub → SubSub (depth 2, maxDepth 2): allowed
+await kavach.delegate({
+  fromAgent: sub.id,
+  toAgent: subSub.id,
+  permissions: [{ resource: 'mcp:github:issues', actions: ['read'] }],
+  expiresAt: new Date(Date.now() + 1_800_000),
+  maxDepth: 1,
+});
+
+// SubSub → anything: blocked, depth limit reached
+```
+
+The default `maxDepth` when not specified is `3`.
+
+### Cascading revocation
+
+Revoking a chain removes it and all chains created downstream of it in the same tree.
+
+```typescript
+await kavach.delegation.revoke(chain.id);
+```
+
+If the chain is `orchestrator → sub → subSub`, revoking `orchestrator → sub` also revokes `sub → subSub` immediately. Any agent that relied on the revoked permissions will get `allowed: false` on its next authorization check.
+
+<Warning>
+Revocation takes effect on the next `authorize()` call. It does not terminate any in-progress operations.
+</Warning>
+
+### Effective permissions
+
+To see the full set of permissions an agent has at a given moment, including those received through active chains:
+
+```typescript
+const effective = await kavach.delegation.getEffectivePermissions(subAgent.id);
+// Returns Permission[] combining own permissions and all active delegations
+```
+
+The authorization engine calls this internally on every `authorize()` request. You can call it directly to inspect what an agent can currently do before attempting an action.
+
+### Listing chains
+
+```typescript
+// All chains where subAgent is the receiver
+const incoming = await kavach.delegation.listChains({ toAgent: subAgent.id });
+
+// All chains originating from the orchestrator
+const outbound = await kavach.delegation.listChains({ fromAgent: orchestrator.id });
+```
+
+### DelegationChain type
+
+<ParamField path="id" type="string">Unique chain identifier, prefixed dlg_.</ParamField>
+<ParamField path="fromAgent" type="string">Agent ID that created the delegation.</ParamField>
+<ParamField path="toAgent" type="string">Agent ID that received the delegation.</ParamField>
+<ParamField path="permissions" type="Permission[]">The permissions granted by this chain.</ParamField>
+<ParamField path="expiresAt" type="Date">Expiry time for the chain.</ParamField>
+<ParamField path="depth" type="number">Current depth of this chain in the delegation tree.</ParamField>
+<ParamField path="createdAt" type="Date">When the chain was created.</ParamField>
+
+## Typical pattern
+
+An orchestrator holds broad permissions, plans a task, and issues short-lived narrow delegations to sub-agents.
+
+<Steps>
+  <Step>
+    Create the orchestrator with the full permission set it needs.
+
+    ```typescript
+    const orchestrator = await kavach.agent.create({
+      ownerId: 'user-123',
+      name: 'planner',
+      type: 'autonomous',
+      permissions: [
+        { resource: 'mcp:github:*', actions: ['read', 'write', 'comment'] },
+        { resource: 'mcp:linear:*', actions: ['read', 'write'] },
+      ],
+    });
+    ```
+  </Step>
+  <Step>
+    Create the sub-agent with no direct permissions.
+
+    ```typescript
+    const codeReviewer = await kavach.agent.create({
+      ownerId: 'user-123',
+      name: 'code-reviewer',
+      type: 'delegated',
+      permissions: [],
+    });
+    ```
+  </Step>
+  <Step>
+    Delegate only what the sub-agent needs, with a short expiry and `maxDepth: 1` to prevent further delegation.
+
+    ```typescript
+    await kavach.delegate({
+      fromAgent: orchestrator.id,
+      toAgent: codeReviewer.id,
+      permissions: [
+        { resource: 'mcp:github:pulls', actions: ['read', 'comment'] },
+      ],
+      expiresAt: new Date(Date.now() + 30 * 60_000), // 30 minutes
+      maxDepth: 1,
+    });
+    ```
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Audit trail" description="Every delegation is logged with agent and depth info." href="/docs/audit" />
+  <Card title="Agent identity" description="Create the agents that participate in delegation chains." href="/docs/agents" />
+  <Card title="MCP OAuth 2.1" description="Use delegation with MCP-authenticated agents." href="/docs/mcp" />
+</CardGroup>

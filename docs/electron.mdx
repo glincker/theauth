@@ -1,0 +1,55 @@
+---
+title: Electron
+description: Desktop app auth client for Electron.
+icon: Code
+---
+
+
+`@kavachos/electron` provides secure auth for Electron desktop apps with encrypted token storage, OAuth popup windows, and IPC bridge for renderer-to-main communication.
+
+## Install
+
+```bash
+pnpm add @kavachos/electron
+```
+
+## Setup (main process)
+
+```ts
+import { createKavachElectron } from '@kavachos/electron';
+
+const kavach = createKavachElectron({
+  baseUrl: 'https://api.myapp.com/api/kavach',
+  appName: 'MyApp',
+});
+
+// Register IPC handlers
+kavach.registerIpcHandlers(ipcMain);
+```
+
+## Usage (renderer)
+
+```ts
+import { useKavachElectron } from '@kavachos/electron/renderer';
+
+const { signIn, signOut, getSession, getUser } = useKavachElectron();
+
+const session = await getSession();
+if (!session) {
+  await signIn('google'); // Opens OAuth popup window
+}
+```
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Secure storage | Tokens encrypted via Electron's safeStorage API |
+| OAuth popup | Opens provider auth in a new BrowserWindow |
+| IPC bridge | Secure main/renderer communication |
+| Auto-refresh | Background token refresh |
+| Deep links | Handle `myapp://` callback URLs |
+
+<Info>
+Token storage uses Electron's `safeStorage.encryptString()` which uses the OS keychain (Keychain on macOS, DPAPI on Windows, Secret Service on Linux).
+</Info>

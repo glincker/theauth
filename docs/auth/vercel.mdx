@@ -1,0 +1,69 @@
+---
+title: Vercel
+description: Sign in with Vercel using OAuth 2.0.
+icon: Vercel
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [vercel.com/integrations](https://vercel.com/integrations) and click **Add New Integration**. Under **OAuth 2.0**, add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/vercel
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'vercel',
+          clientId: process.env.VERCEL_CLIENT_ID!,
+          clientSecret: process.env.VERCEL_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+VERCEL_CLIENT_ID=...
+VERCEL_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `user`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `user` | Read user profile and email |
+| `deployments` | Read deployment info |
+| `projects` | Read project info |
+
+<Info>
+  Vercel OAuth apps are created as marketplace integrations. The access token grants access to the user's personal account and any teams they belong to.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/vercel` | Redirect to Vercel |
+| GET | `/auth/oauth/callback/vercel` | Handle callback |

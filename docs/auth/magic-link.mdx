@@ -1,0 +1,119 @@
+---
+title: Magic link
+description: Passwordless sign-in via a one-time email link.
+icon: Link2
+---
+
+Magic links let users sign in by clicking a link sent to their email. No password needed. The link is a signed, single-use token that expires after a configurable window.
+
+## Setup
+
+<Steps>
+
+<Step>
+
+### Install
+
+```bash
+pnpm add kavachos
+```
+
+</Step>
+
+<Step>
+
+### Add the plugin
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { magicLink } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    magicLink({ // [!code highlight]
+      onSendLink: async (email, url) => { // [!code highlight]
+        await resend.emails.send({
+          from: 'auth@example.com',
+          to: email,
+          subject: 'Your sign-in link',
+          html: `<a href="${url}">Sign in to Example</a>. Link expires in 15 minutes.`,
+        });
+      }, // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+</Step>
+
+<Step>
+
+### Handle the callback route
+
+Magic links redirect to `baseUrl + /auth/magic-link/verify?token=...`. KavachOS handles this automatically. Set `redirectTo` to control where users land after sign-in:
+
+```typescript
+magicLink({
+  redirectTo: '/dashboard', // [!code highlight]
+  onSendLink: async (email, url) => { /* ... */ },
+}),
+```
+
+</Step>
+
+</Steps>
+
+## How it works
+
+1. User submits their email to `POST /auth/magic-link/send`.
+2. KavachOS generates a signed token and calls your `onSendLink` function with the email address and the full URL.
+3. User clicks the link in their inbox.
+4. KavachOS validates the token, creates or retrieves the user, sets a session cookie, and redirects.
+
+If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created automatically.
+
+## Endpoints
+
+### Send link
+
+`POST /auth/magic-link/send`
+
+```typescript
+await fetch('/auth/magic-link/send', { // [!code highlight]
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'user@example.com' }),
+});
+```
+
+The response is always `200` to prevent email enumeration. Attach a `redirectTo` in the body to override the default redirect for this request:
+
+```typescript
+body: JSON.stringify({ email: 'user@example.com', redirectTo: '/onboarding' }),
+```
+
+### Verify token
+
+`GET /auth/magic-link/verify?token=<token>`
+
+KavachOS handles this automatically when the user clicks the link. On success, the user is redirected. On failure (expired or already-used token), a `400` is returned.
+
+## Rate limiting
+
+Requests to `/auth/magic-link/send` are limited to **5 per minute per IP address**. Requests that exceed this return `429 Too Many Requests`. Build a cooldown timer into your UI so users know when they can retry.
+
+<Warning>
+  Magic links are single-use. Clicking an expired or already-used link returns a 400. Show the user a "resend" option in your UI.
+</Warning>
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `onSendLink` | `(email: string, url: string) => Promise<void>` | required | Called with the recipient email and the full magic link URL |
+| `tokenTtl` | `number` | `900` | Token lifetime in seconds (default: 15 minutes) |
+| `redirectTo` | `string` | `/` | Where to redirect after successful sign-in |
+| `createUserIfNotFound` | `boolean` | `true` | Auto-create accounts for new emails |

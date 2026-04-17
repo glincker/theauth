@@ -1,0 +1,98 @@
+---
+title: Anonymous auth
+description: Let users start immediately as guests and convert to real accounts later.
+icon: Key
+---
+
+The `anonymousAuth` plugin creates a lightweight guest identity on demand. The guest gets a real session and can use your app fully. When they decide to register, their data migrates to the new account without any loss.
+
+## Setup
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { anonymousAuth } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    anonymousAuth({ // [!code highlight]
+      guestExpiry: 7 * 24 * 60 * 60, // 7 days in seconds // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+## Create guest
+
+`POST /auth/anonymous`
+
+Creates a new anonymous user and returns a session. No request body needed.
+
+```typescript title="Create guest (client)"
+const res = await fetch('/auth/anonymous', {
+  method: 'POST',
+  credentials: 'include',
+});
+
+const { user, session } = await res.json();
+// user.isAnonymous === true
+// user.id is a real user ID — safe to reference in your DB
+```
+
+The response shape is the same as any other sign-in. `user.isAnonymous` is `true` and the `email` and `name` fields are `null`.
+
+## Upgrade to real account
+
+`POST /auth/anonymous/upgrade`
+
+Requires an active anonymous session. Converts the guest to a permanent user. The session stays active — the user ID does not change.
+
+```typescript title="Upgrade guest (client)"
+const res = await fetch('/auth/anonymous/upgrade', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com', // [!code highlight]
+    password: 'correct horse battery', // [!code highlight]
+    name: 'Ada Lovelace',
+  }),
+});
+
+const { user } = await res.json();
+// user.isAnonymous === false
+```
+
+After upgrade, `user.isAnonymous` becomes `false` and the account is treated the same as one registered normally. If `emailPassword` is also active, the email-verification flow applies.
+
+**Error codes**
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `EMAIL_TAKEN` | 409 | Email already registered to another account |
+| `NOT_ANONYMOUS` | 400 | The session belongs to a non-guest user |
+
+## Guest cleanup
+
+Expired anonymous accounts can accumulate. Schedule regular cleanup with the built-in helper:
+
+```typescript title="Scheduled cleanup"
+import { cleanupAnonymousUsers } from 'kavachos/auth';
+
+// Run daily via cron, queue worker, etc.
+await cleanupAnonymousUsers(kavach, {
+  olderThan: 7 * 24 * 60 * 60, // delete guests inactive for 7+ days
+  dryRun: false,
+});
+```
+
+<Warning>
+  Deleting anonymous users is permanent. Any app data tied to their user ID will become orphaned unless you cascade deletes in your schema or handle cleanup in the `onBeforeDelete` hook.
+</Warning>
+
+## Configuration reference
+
+<ParamField path="guestExpiry" type="number" default="604800 (7 days)">How long an anonymous session lasts before expiring, in seconds.</ParamField>
+<ParamField path="allowUpgrade" type="boolean" default="true">Whether guests can convert to real accounts via the upgrade endpoint.</ParamField>

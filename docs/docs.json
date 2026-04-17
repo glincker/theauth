@@ -1,0 +1,233 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "KavachOS",
+  "description": "Auth OS for AI agents. TypeScript SDK for agent identity, permissions, delegation, audit, and MCP OAuth 2.1.",
+  "colors": {
+    "primary": "#C9A84C",
+    "light": "#D4B870",
+    "dark": "#8B6914"
+  },
+  "favicon": "/favicon.png",
+  "logo": {
+    "light": "/logo.svg",
+    "dark": "/logo.svg",
+    "href": "https://kavachos.com"
+  },
+  "fonts": {
+    "heading": { "family": "Inter" },
+    "body": { "family": "Inter" }
+  },
+  "appearance": {
+    "default": "dark",
+    "strict": false
+  },
+  "navbar": {
+    "links": [
+      { "label": "GitHub", "href": "https://github.com/kavachos/kavachos" }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get started",
+      "href": "/quickstart"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/kavachos/kavachos",
+      "x": "https://x.com/thedsks"
+    }
+  },
+  "seo": {
+    "metatags": {
+      "og:site_name": "KavachOS",
+      "og:type": "website"
+    },
+    "indexing": "navigable"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              "index",
+              "quickstart",
+              "configuration",
+              "database",
+              "sessions",
+              "jwt-sessions",
+              "one-time-tokens"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "auth/index",
+              {
+                "group": "Methods",
+                "pages": [
+                  "auth/email-password",
+                  "auth/username",
+                  "auth/magic-link",
+                  "auth/email-otp",
+                  "auth/phone",
+                  "auth/passkey",
+                  "auth/siwe",
+                  "auth/device",
+                  "auth/two-factor",
+                  "auth/anonymous",
+                  "auth/one-tap",
+                  "auth/captcha",
+                  "auth/oauth-proxy"
+                ]
+              },
+              {
+                "group": "Providers",
+                "pages": [
+                  "auth/oauth",
+                  "auth/google",
+                  "auth/github",
+                  "auth/apple",
+                  "auth/microsoft",
+                  "auth/discord",
+                  "auth/slack",
+                  "auth/gitlab",
+                  "auth/linkedin",
+                  "auth/facebook",
+                  "auth/spotify",
+                  "auth/twitch",
+                  "auth/reddit",
+                  "auth/notion",
+                  "auth/twitter",
+                  "auth/figma",
+                  "auth/dropbox",
+                  "auth/zoom",
+                  "auth/atlassian",
+                  "auth/tiktok",
+                  "auth/paypal",
+                  "auth/salesforce",
+                  "auth/vk",
+                  "auth/kakao",
+                  "auth/naver",
+                  "auth/huggingface",
+                  "auth/roblox",
+                  "auth/vercel",
+                  "auth/linear",
+                  "auth/railway",
+                  "auth/kick",
+                  "auth/wechat",
+                  "auth/polar",
+                  "auth/line",
+                  "auth/auth0",
+                  "auth/okta",
+                  "auth/yahoo",
+                  "auth/bitbucket",
+                  "auth/coinbase"
+                ]
+              },
+              {
+                "group": "Enterprise",
+                "pages": [
+                  "auth/organizations",
+                  "auth/sso",
+                  "auth/admin",
+                  "auth/api-keys",
+                  "auth/stripe",
+                  "auth/polar-payment",
+                  "auth/scim",
+                  "auth/oidc-provider"
+                ]
+              },
+              "last-login"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "agents",
+              "ephemeral-sessions",
+              "permissions",
+              "policy-engine",
+              "rebac",
+              "delegation",
+              "audit",
+              "analyzer"
+            ]
+          },
+          {
+            "group": "Security",
+            "pages": [
+              "trust",
+              "anomaly",
+              "approval",
+              "rate-limiting",
+              "compliance",
+              "hibp",
+              "trusted-device",
+              "multi-session",
+              "gdpr"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "mcp",
+              "gateway",
+              "terraform",
+              "prisma",
+              {
+                "group": "Framework adapters",
+                "pages": [
+                  "adapters/index",
+                  "adapters/hono",
+                  "adapters/express",
+                  "adapters/nextjs",
+                  "adapters/nestjs",
+                  "adapters/fastify",
+                  "adapters/nuxt",
+                  "adapters/sveltekit",
+                  "adapters/solidstart",
+                  "adapters/tanstack",
+                  "adapters/astro"
+                ]
+              },
+              "dashboard",
+              "client-sdk",
+              "react",
+              "vue",
+              "svelte",
+              "expo",
+              "electron",
+              "ui-components"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "hooks",
+              "webhooks",
+              "event-streaming",
+              "custom-session",
+              "additional-fields",
+              "email-templates",
+              "i18n",
+              "did",
+              "verifiable-credentials",
+              "federation",
+              "multi-tenant",
+              "budget-policies",
+              "cost-attribution"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": ["api", "errors", "test-utils", "a2a"]
+          }
+        ]
+      }
+    ]
+  }
+}

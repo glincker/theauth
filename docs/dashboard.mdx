@@ -1,0 +1,234 @@
+---
+title: Admin dashboard
+description: An embeddable React dashboard for managing agents, permissions, and audit logs.
+icon: LayoutDashboard
+---
+
+
+## Overview
+
+The KavachOS dashboard is a visual interface for everything the SDK manages through code: creating and revoking agents, reviewing audit logs, inspecting delegation chains, and monitoring permissions.
+
+It is optional. You can use the SDK entirely through code without the dashboard.
+
+It ships in two forms:
+
+1. A React component (`@kavachos/dashboard`) you embed in an existing app
+2. A standalone CLI server you run without any frontend code
+
+## Quick start (demo mode)
+
+The fastest way to see the dashboard in action:
+
+```bash
+npx kavachos dashboard
+```
+
+This starts a full KavachOS instance with in-memory SQLite, seeds sample data (3 agents, permissions, audit entries, a delegation chain), and serves the dashboard on `http://localhost:3100`.
+
+To add a login screen:
+
+```bash
+KAVACHOS_DASHBOARD_SECRET=your-secret npx kavachos dashboard
+```
+
+When `KAVACHOS_DASHBOARD_SECRET` is set, the dashboard shows a password prompt before granting access. Without it, the dashboard is open (suitable for local development only).
+
+<Warning>
+  Demo mode uses an in-memory database. All data is lost when the server stops. For persistent data, embed the dashboard in your app and point it at a real database.
+</Warning>
+
+## Installation
+
+<Tabs items={['Embedded React', 'Standalone CLI']}>
+  <Tab value="Embedded React">
+    Install the package:
+
+    ```bash
+    pnpm add @kavachos/dashboard
+    ```
+
+    Render `KavachDashboard` inside a protected route in your app:
+
+    ```tsx
+    import { KavachDashboard } from '@kavachos/dashboard';
+
+    export default function AdminPage() {
+      return (
+        <KavachDashboard
+          apiUrl="/api/kavach"
+          theme="system"
+          demo={false}
+        />
+      );
+    }
+    ```
+
+    ### Component props
+
+    <ParamField path="apiUrl" type="string">Base URL for API requests. The dashboard appends paths like /agents, /audit, etc.</ParamField>
+<ParamField path="theme" type="'light' | 'dark' | 'system'">Color scheme. Defaults to 'system' (follows OS preference).</ParamField>
+<ParamField path="demo" type="boolean">When true, shows a banner indicating sample data. Defaults to false.</ParamField>
+
+    ### Backend proxy
+
+    The dashboard talks to your backend, which forwards requests to KavachOS. This keeps database credentials server-side.
+
+    <Tabs items={['Next.js', 'Hono', 'Express']}>
+      <Tab value="Next.js">
+        ```typescript
+        // app/api/kavach/[...path]/route.ts
+        import { createKavach } from 'kavachos';
+        import { kavachNextjs } from '@kavachos/nextjs';
+
+        const kavach = await createKavach({
+          database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+        });
+
+        const handler = kavachNextjs(kavach);
+        export const GET = handler;
+        export const POST = handler;
+        export const DELETE = handler;
+        export const PATCH = handler;
+        ```
+      </Tab>
+      <Tab value="Hono">
+        ```typescript
+        import { Hono } from 'hono';
+        import { createKavach } from 'kavachos';
+        import { kavachHono } from '@kavachos/hono';
+
+        const kavach = await createKavach({
+          database: { provider: 'sqlite', url: 'kavach.db' },
+        });
+
+        const app = new Hono();
+        app.route('/api/kavach', kavachHono(kavach));
+        ```
+      </Tab>
+      <Tab value="Express">
+        ```typescript
+        import express from 'express';
+        import { createKavach } from 'kavachos';
+        import { kavachExpress } from '@kavachos/express';
+
+        const kavach = await createKavach({
+          database: { provider: 'sqlite', url: 'kavach.db' },
+        });
+
+        const app = express();
+        app.use('/api/kavach', kavachExpress(kavach));
+        ```
+      </Tab>
+    </Tabs>
+
+    ### Auth guard
+
+    The dashboard component does not enforce authentication. Wrap the page with your own auth check:
+
+    ```tsx
+    // app/admin/page.tsx
+    import { redirect } from 'next/navigation';
+    import { getSession } from '@/lib/auth';
+    import { KavachDashboard } from '@kavachos/dashboard';
+
+    export default async function AdminPage() {
+      const session = await getSession();
+      if (!session?.user.isAdmin) redirect('/');
+
+      return <KavachDashboard apiUrl="/api/kavach" theme="system" />;
+    }
+    ```
+
+    <Warning>
+      Do not render `KavachDashboard` on a public route. It gives full read/write access to all agents, permissions, and audit data.
+    </Warning>
+  </Tab>
+
+  <Tab value="Standalone CLI">
+    Run the dashboard without writing any frontend code:
+
+    ```bash
+    npx kavachos dashboard --port 3100
+    ```
+
+    This starts a demo server with in-memory SQLite and sample data. For a production setup, embed the React component in your app instead.
+
+    ### CLI options
+
+    | Option | Description |
+    |---|---|
+    | `--port` | Port to listen on. Defaults to `3100`. |
+    | `--static` | Static-only mode. Serves the dashboard UI without a backend. Use `--api` to point at your own API server. |
+    | `--api` | API URL when using `--static` mode. Defaults to `http://localhost:3000`. |
+
+    ### Environment variables
+
+    | Variable | Description |
+    |---|---|
+    | `KAVACHOS_DASHBOARD_SECRET` | When set, the dashboard requires this password to log in. Without it, access is open. |
+
+    ### Example with auth
+
+    ```bash
+    KAVACHOS_DASHBOARD_SECRET=my-admin-password npx kavachos dashboard --port 3100
+    ```
+
+    Open `http://localhost:3100` and enter the password to access the dashboard.
+  </Tab>
+</Tabs>
+
+## Dashboard pages
+
+The dashboard has nine pages accessible from the sidebar.
+
+**Overview**: Active agent count, authorization rate (allowed vs denied), recent audit entries with live refresh, and quick action buttons.
+
+**Agents**: List all agents with status badges. Create new agents with initial permissions, rotate tokens, and revoke agents. Click an agent to see its permissions, recent audit entries, and delegation chains.
+
+**Users**: List human users who own agents, with agent counts.
+
+**Permissions**: Create and manage permission templates. Templates let you define a permission set once and apply it to multiple agents. Supports visual and raw JSON editing modes.
+
+**Delegations**: View all active delegation chains. Shows the from/to agents, delegated permissions, depth, and expiry countdown.
+
+**MCP Servers**: Register MCP servers with their endpoints, tools, and auth requirements. Monitor status and token validation activity.
+
+**Audit Log**: Full queryable log of every authorization decision. Filter by agent, action, resource, result, and date range. Export as JSON or CSV for compliance.
+
+**Security**: Security-focused view showing rate-limited agents, recent denials, revoked agents, and expired tokens.
+
+**Settings**: Database connection info, token expiry policy, rate limit defaults, and audit retention settings.
+
+## Light and dark mode
+
+The dashboard supports both light and dark themes. A toggle button in the top-right header switches between them. The preference is saved to localStorage and persists across sessions.
+
+When embedded as a React component, pass `theme="light"`, `theme="dark"`, or `theme="system"` to set the initial mode.
+
+## API endpoints
+
+The dashboard calls these REST endpoints on your backend. If you are building a custom dashboard or integrating with other tools, here is the full list:
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/dashboard/stats` | Agent counts, audit stats, delegation counts |
+| GET | `/agents` | List all agents |
+| POST | `/agents` | Create an agent |
+| DELETE | `/agents/:id` | Revoke an agent |
+| POST | `/agents/:id/rotate` | Rotate an agent's token |
+| GET | `/agents/:id/permissions` | Get an agent's permissions |
+| GET | `/audit` | Query audit logs (supports filters) |
+| GET | `/audit/export` | Export logs as JSON or CSV |
+| GET | `/delegations` | List delegation chains |
+| POST | `/delegations` | Create a delegation |
+| DELETE | `/delegations/:id` | Revoke a delegation |
+| GET | `/permissions/templates` | List permission templates |
+| POST | `/permissions/templates` | Create a template |
+| PATCH | `/permissions/templates/:id` | Update a template |
+| DELETE | `/permissions/templates/:id` | Delete a template |
+| GET | `/settings` | Get system settings |
+| PATCH | `/settings` | Update settings |
+| GET | `/users` | List users |
+| GET | `/mcp/servers` | List MCP servers |
+| POST | `/mcp/servers` | Register an MCP server |

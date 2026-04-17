@@ -1,0 +1,121 @@
+---
+title: Fastify
+description: KavachOS adapter for Fastify.
+icon: Fastify
+---
+
+`kavachFastify(kavach, options?)` returns an async Fastify plugin. Register it with `fastify.register` and use Fastify's built-in `prefix` option to control the mount path.
+
+## Install
+
+```bash
+pnpm add kavachos @kavachos/fastify fastify
+```
+
+## Setup
+
+<Steps>
+<Step title="Create the kavach instance">
+
+```typescript
+// lib/kavach.ts
+import { createKavach, createMcpModule } from 'kavachos';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  baseUrl: process.env.AUTH_BASE_URL!,
+  mcp: {
+    issuer: process.env.AUTH_BASE_URL!,
+    audience: process.env.MCP_BASE_URL!,
+  },
+});
+
+export const mcp = createMcpModule(kavach);
+```
+
+</Step>
+<Step title="Register the plugin">
+
+```typescript
+// src/index.ts
+import Fastify from 'fastify';
+import { kavachFastify } from '@kavachos/fastify';
+import { kavach, mcp } from './lib/kavach.js';
+
+const app = Fastify();
+
+// Use Fastify's prefix option to set the mount path
+await app.register(kavachFastify(kavach, { mcp }), {
+  prefix: '/api/kavach',
+});
+
+await app.listen({ port: 3000 });
+```
+
+</Step>
+</Steps>
+
+<Info>
+  The prefix is controlled by Fastify's `register` options, not by a `basePath` option on the adapter. This is consistent with how Fastify plugins work.
+</Info>
+
+## MCP endpoints
+
+When `mcp` is passed, the MCP OAuth 2.1 endpoints are registered on the same plugin. Because Fastify's prefix scopes routes, the well-known paths are served relative to the plugin root:
+
+```
+GET  /api/kavach/.well-known/oauth-authorization-server
+GET  /api/kavach/.well-known/oauth-protected-resource
+POST /api/kavach/mcp/register
+GET  /api/kavach/mcp/authorize
+POST /api/kavach/mcp/token
+```
+
+All MCP routes include CORS headers and respond to OPTIONS preflight requests.
+
+## Endpoint reference
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/agents` | Create an agent |
+| `GET` | `/agents` | List agents |
+| `GET` | `/agents/:id` | Get an agent |
+| `PATCH` | `/agents/:id` | Update an agent |
+| `DELETE` | `/agents/:id` | Revoke an agent |
+| `POST` | `/agents/:id/rotate` | Rotate token |
+| `POST` | `/authorize` | Authorize by agent ID |
+| `POST` | `/authorize/token` | Authorize by bearer token |
+| `POST` | `/delegations` | Create delegation |
+| `GET` | `/delegations/:agentId` | List delegation chains |
+| `DELETE` | `/delegations/:id` | Revoke delegation |
+| `GET` | `/audit` | Query audit logs |
+| `GET` | `/audit/export` | Export audit logs |
+
+## Full example
+
+```typescript
+import Fastify from 'fastify';
+import { createKavach, createMcpModule } from 'kavachos';
+import { kavachFastify } from '@kavachos/fastify';
+
+const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  baseUrl: process.env.AUTH_BASE_URL!,
+  mcp: {
+    issuer: process.env.AUTH_BASE_URL!,
+    audience: process.env.MCP_BASE_URL!,
+  },
+});
+
+const mcp = createMcpModule(kavach);
+
+const app = Fastify({ logger: true });
+
+await app.register(kavachFastify(kavach, { mcp }), {
+  prefix: '/api/kavach',
+});
+
+app.get('/health', async () => ({ ok: true }));
+
+await app.listen({ port: 3000, host: '0.0.0.0' });
+```

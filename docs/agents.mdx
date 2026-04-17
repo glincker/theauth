@@ -1,0 +1,171 @@
+---
+title: Agent identity
+description: Creating, managing, and rotating agent identities in KavachOS.
+icon: Bot
+---
+
+
+## What is an agent identity
+
+`AgentIdentity` is the primary entity in KavachOS. It represents a single AI agent, a process acting on behalf of a human user.
+
+Agents are not users. No passwords, sessions, or OAuth flows. Just tokens and permissions.
+
+<ParamField path="id" type="string">Stable identifier with an agt_ prefix. Never changes.</ParamField>
+<ParamField path="token" type="string">Bearer token with a kv_ prefix. Shown once at creation, then hashed. Rotate to replace.</ParamField>
+<ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every authorize() call.</ParamField>
+<ParamField path="status" type="'active' | 'revoked' | 'expired'">Current state. Revocation is permanent.</ParamField>
+<ParamField path="ownerId" type="string">The user ID from your auth provider who owns this agent.</ParamField>
+<ParamField path="name" type="string">Human-readable label for the agent.</ParamField>
+<ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
+<ParamField path="expiresAt" type="Date" default="undefined (never expires)">Optional expiry. After this time the agent status becomes expired.</ParamField>
+<ParamField path="metadata" type="Record<string, unknown>" default="{}">Arbitrary key/value pairs for your own use.</ParamField>
+
+## Agent types
+
+<AccordionGroup>
+  <Accordion title="autonomous">
+    Acts independently without requiring human approval on each call, unless a permission constraint mandates it. The standard type for background agents, cron jobs, and AI assistants that run unattended.
+  </Accordion>
+  <Accordion title="delegated">
+    Receives permissions from another agent via a delegation chain rather than having them declared at creation. Use this for ephemeral sub-agents spun up to complete a specific task, then discarded.
+  </Accordion>
+  <Accordion title="service">
+    Long-lived identity for infrastructure, such as an MCP server or an internal microservice that calls other services on behalf of users. Treat it like a service account.
+  </Accordion>
+</AccordionGroup>
+
+## Lifecycle
+
+### Creating an agent
+
+```typescript
+const agent = await kavach.agent.create({
+  ownerId: 'user-123',   // ID from your auth provider
+  name: 'github-reader',
+  type: 'autonomous',
+  permissions: [
+    { resource: 'mcp:github:*', actions: ['read'] },
+  ],
+  expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000), // optional
+  metadata: { purpose: 'nightly PR review' },
+});
+
+console.log(agent.token); // kv_a3f8c2e1...  — only shown here
+```
+
+<Warning>
+  The token is returned once at creation. KavachOS stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or rotate to get a new one.
+</Warning>
+
+### Tokens
+
+Tokens use the `kv_` prefix followed by 32 cryptographically random bytes encoded as 64 hex characters:
+
+```
+kv_a3f8c2e1d4b5...   (64 hex chars after the prefix)
+```
+
+Authenticate by passing the token as a Bearer credential:
+
+```http
+Authorization: Bearer kv_a3f8c2e1d4b5...
+```
+
+<Info>
+  The hash-only storage model means a full database dump cannot reveal active tokens. There are no secrets to rotate after a DB breach, only the tokens themselves.
+</Info>
+
+### Token rotation
+
+Rotation issues a new token and immediately invalidates the old one. The operation is atomic: there is no window where both tokens are valid.
+
+```typescript
+const rotated = await kavach.agent.rotate(agentId);
+// rotated.token is the new plaintext token
+// The old token is rejected on all subsequent calls
+```
+
+Rotate tokens on a schedule, or any time you suspect a token has been exposed.
+
+### Token-based authorization
+
+When a caller only has a raw bearer token (for example, in HTTP middleware), use `authorizeByToken` instead of `authorize`:
+
+```typescript
+const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+if (!token) return new Response('Unauthorized', { status: 401 });
+
+const result = await kavach.authorizeByToken(token, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+});
+
+if (!result.allowed) {
+  return new Response(result.reason ?? 'Forbidden', { status: 403 });
+}
+```
+
+This performs a single database lookup (hash comparison), then evaluates permissions in memory. No JWTs, no network calls.
+
+### Listing and filtering agents
+
+```typescript
+// All agents owned by a user
+const agents = await kavach.agent.list({ userId: 'user-123' });
+
+// Only active autonomous agents
+const active = await kavach.agent.list({
+  userId: 'user-123',
+  status: 'active',
+  type: 'autonomous',
+});
+```
+
+### Updating an agent
+
+```typescript
+const updated = await kavach.agent.update(agentId, {
+  name: 'github-reader-v2',
+  permissions: [
+    { resource: 'mcp:github:*', actions: ['read', 'comment'] },
+  ],
+});
+```
+
+Permission updates take effect immediately. In-flight requests that have already passed authorization are not affected.
+
+### Revoking an agent
+
+```typescript
+await kavach.agent.revoke(agentId);
+// All future authorize() or authorizeByToken() calls return allowed: false
+// The agent's token is also invalidated immediately
+```
+
+<Warning>
+  Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
+</Warning>
+
+### Agent limits
+
+The default limit is 10 active agents per user. Raise it at initialization:
+
+```typescript
+const kavach = createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  agents: {
+    maxPerUser: 50,
+  },
+});
+```
+
+Attempts to create agents beyond the limit return an error with code `AGENT_LIMIT_EXCEEDED`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Permission engine" description="Define what your agents can and cannot do." href="/docs/permissions" />
+  <Card title="Delegation chains" description="Let agents delegate access to sub-agents." href="/docs/delegation" />
+  <Card title="Token-based auth with adapters" description="Use agents in HTTP middleware." href="/docs/adapters" />
+</CardGroup>

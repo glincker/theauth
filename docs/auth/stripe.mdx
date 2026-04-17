@@ -1,0 +1,109 @@
+---
+title: Stripe
+description: Payments and subscriptions with Stripe.
+icon: Stripe
+---
+
+The Stripe plugin handles checkout sessions, billing portals, and subscription webhooks. It calls Stripe's REST API directly (no `stripe` npm package needed).
+
+## Setup
+
+<Steps>
+<Step>
+### Get your keys
+
+From [Stripe Dashboard](https://dashboard.stripe.com/apikeys), copy your **Secret Key**. Under Webhooks, create an endpoint pointing to `/api/kavach/auth/stripe/webhook` and copy the **Signing Secret**.
+</Step>
+
+<Step>
+### Configure the plugin
+
+```ts
+import { createKavach } from 'kavachos';
+import { stripe } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL },
+  plugins: [
+    stripe({
+      secretKey: process.env.STRIPE_SECRET_KEY,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      onSubscriptionChange: async (userId, sub) => {
+        console.log(`User ${userId} subscription: ${sub.status}`);
+      },
+    }),
+  ],
+});
+```
+</Step>
+</Steps>
+
+## Usage
+
+### Create a checkout session
+
+```ts
+// From an authenticated endpoint
+const result = await kavach.stripe.createCheckoutSession(userId, 'price_xxx', {
+  successUrl: 'https://myapp.com/billing?success=true',
+  cancelUrl: 'https://myapp.com/billing',
+  trialDays: 14,
+});
+// Redirect user to result.url
+```
+
+### Open the billing portal
+
+```ts
+const result = await kavach.stripe.createPortalSession(userId, 'https://myapp.com/settings');
+// Redirect to result.url
+```
+
+### Check subscription status
+
+```ts
+const sub = await kavach.stripe.getSubscription(userId);
+if (sub?.status === 'active') {
+  // User has an active subscription
+}
+```
+
+## Webhook events
+
+The plugin handles these Stripe events automatically:
+
+| Event | Action |
+|-------|--------|
+| `checkout.session.completed` | Links Stripe customer to user |
+| `customer.subscription.created` | Stores subscription status |
+| `customer.subscription.updated` | Updates status, price, period |
+| `customer.subscription.deleted` | Marks subscription canceled |
+| `invoice.payment_failed` | Sets status to `past_due` |
+
+Webhook signatures are verified using HMAC-SHA256 with constant-time comparison. Stale timestamps (over 5 minutes) are rejected.
+
+## Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/stripe/checkout` | Yes | Create checkout session |
+| POST | `/auth/stripe/portal` | Yes | Create billing portal |
+| GET | `/auth/stripe/subscription` | Yes | Get subscription info |
+| POST | `/auth/stripe/webhook` | No | Stripe webhook (signature verified) |
+
+## Database columns
+
+The plugin adds these columns to the users table:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `stripe_customer_id` | text | Stripe customer ID |
+| `stripe_subscription_id` | text | Active subscription ID |
+| `stripe_subscription_status` | text | active, canceled, past_due, etc. |
+| `stripe_price_id` | text | Current price/plan ID |
+| `stripe_current_period_end` | timestamp | When the current period ends |
+| `stripe_cancel_at_period_end` | boolean | Whether cancellation is scheduled |
+
+<Warning>
+Set `STRIPE_WEBHOOK_SECRET` in production. Without it, webhook events cannot be verified and will be rejected.
+</Warning>

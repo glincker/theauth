@@ -1,0 +1,93 @@
+---
+title: "SCIM"
+description: "Directory sync for enterprise identity providers."
+icon: Database
+---
+
+SCIM 2.0 lets Okta, Azure AD, and Google Workspace automatically provision and deprovision users in your app. When an employee is onboarded in the directory, they get access. When they leave, access is removed.
+
+## Setup
+
+<Steps>
+<Step>
+### Add the plugin
+
+```ts
+import { createKavach } from 'kavachos';
+import { scim } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL },
+  plugins: [
+    scim({
+      bearerToken: process.env.SCIM_TOKEN,
+    }),
+  ],
+});
+```
+</Step>
+
+<Step>
+### Configure your identity provider
+
+Point your IdP's SCIM provisioning settings at:
+
+```
+Base URL:  https://your-app.com/api/kavach/scim/v2
+Auth:      Bearer token
+Token:     <your SCIM_TOKEN>
+```
+
+The token must match `SCIM_TOKEN` exactly. Use a long random secret (32+ bytes).
+</Step>
+</Steps>
+
+## User endpoints
+
+The plugin exposes standard SCIM 2.0 user CRUD endpoints. Your IdP calls these automatically.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/scim/v2/Users` | List users (with optional filter) |
+| GET | `/scim/v2/Users/:id` | Get a single user |
+| POST | `/scim/v2/Users` | Provision a new user |
+| PUT | `/scim/v2/Users/:id` | Replace a user's attributes |
+| PATCH | `/scim/v2/Users/:id` | Update specific attributes |
+| DELETE | `/scim/v2/Users/:id` | Deprovision a user |
+
+## Group endpoints
+
+Groups are mapped to KavachOS organizations.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/scim/v2/Groups` | List groups |
+| GET | `/scim/v2/Groups/:id` | Get a single group |
+| POST | `/scim/v2/Groups` | Create a group / org |
+| PUT | `/scim/v2/Groups/:id` | Replace group attributes |
+| PATCH | `/scim/v2/Groups/:id` | Update group membership |
+| DELETE | `/scim/v2/Groups/:id` | Remove a group |
+
+## Filtering
+
+All list endpoints support SCIM filter expressions. The most common one is `userName`:
+
+```
+GET /scim/v2/Users?filter=userName eq "john@example.com"
+```
+
+Supported filter operators: `eq`, `ne`, `co` (contains), `sw` (starts with).
+
+## Discovery endpoints
+
+SCIM clients use these to learn what your server supports:
+
+| Path | Description |
+|------|-------------|
+| `/scim/v2/ServiceProviderConfig` | Supported features and auth schemes |
+| `/scim/v2/Schemas` | User and Group schema definitions |
+| `/scim/v2/ResourceTypes` | Registered resource type metadata |
+
+<Warning>
+Rotate `SCIM_TOKEN` immediately if it is exposed. All SCIM endpoints reject requests without a valid `Authorization: Bearer <token>` header.
+</Warning>

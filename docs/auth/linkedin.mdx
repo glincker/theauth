@@ -1,0 +1,103 @@
+---
+title: LinkedIn
+description: Sign in with LinkedIn professional accounts using OAuth 2.0.
+icon: LinkedIn
+---
+
+## Get credentials
+
+<Steps>
+
+<Step>
+
+### Create an application
+
+Go to [linkedin.com/developers/apps/new](https://www.linkedin.com/developers/apps/new). You will need a LinkedIn Page associated with the app (create a company page if you do not have one).
+
+</Step>
+
+<Step>
+
+### Enable Sign In with LinkedIn
+
+In your app dashboard, go to the **Products** tab and request access to **Sign In with LinkedIn using OpenID Connect**. This is usually granted immediately.
+
+</Step>
+
+<Step>
+
+### Add a redirect URL
+
+Go to **Auth > OAuth 2.0 settings**. Under **Authorized redirect URLs for your app**, add:
+
+```
+https://auth.example.com/auth/oauth/linkedin/callback
+```
+
+</Step>
+
+<Step>
+
+### Copy credentials
+
+From the **Auth** tab, copy the **Client ID** and **Client Secret**.
+
+</Step>
+
+</Steps>
+
+<Warning>
+  LinkedIn's legacy `r_liteprofile` and `r_emailaddress` scopes are deprecated. KavachOS uses the OpenID Connect flow with `openid`, `profile`, and `email` scopes, which requires the "Sign In with LinkedIn using OpenID Connect" product to be enabled on your app.
+</Warning>
+
+## Configuration
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'linkedin', // [!code highlight]
+          clientId: process.env.LINKEDIN_CLIENT_ID!, // [!code highlight]
+          clientSecret: process.env.LINKEDIN_CLIENT_SECRET!, // [!code highlight]
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+```
+
+## Scopes
+
+Default scopes: `openid profile email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `openid` | OpenID Connect identity |
+| `profile` | Name and profile picture |
+| `email` | Primary email address |
+
+## User data returned
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `id` | `sub` claim | Stable LinkedIn member ID |
+| `email` | `email` claim | Primary email (verified) |
+| `name` | `name` claim | Full name |
+| `image` | `picture` claim | Profile photo URL |
+
+<Info>
+  LinkedIn profile photos are hosted on their CDN and may require authentication headers to load in `<img>` tags depending on the user's privacy settings. Store the URL in your database but be prepared for it to become inaccessible.
+</Info>

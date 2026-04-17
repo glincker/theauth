@@ -1,0 +1,142 @@
+---
+title: Anomaly detection
+description: Identifying unusual agent behavior by scanning audit logs for denial patterns and privilege escalation attempts.
+icon: AlertTriangle
+---
+
+
+## What anomaly detection does
+
+KavachOS scans the audit log for behavioral patterns that suggest an agent is operating outside its intended scope. The most common signal is a cluster of denied calls that match privilege escalation patterns — an agent repeatedly attempting to access resources it was never granted.
+
+Anomaly detection is not a background process. You call `scan()` and get back a list of findings at that point in time. This keeps the system predictable: there are no background threads, no persistent state, and no surprise side effects.
+
+## Anomaly types
+
+| Type | Severity | Description |
+|---|---|---|
+| `privilege_escalation` | critical | Denied calls with reasons matching `INSUFFICIENT_PERMISSIONS`, `privilege`, or `escalation`. |
+| `high_denial_rate` | warning | More than 20% of the agent's recent calls were denied. |
+| `rapid_fire` | warning | Call volume in the last hour exceeds a configurable threshold. |
+| `unusual_resource_access` | info | The agent accessed a resource it has no explicit permission for, even if the call succeeded. |
+| `off_hours_activity` | info | Calls outside the agent's declared `timeWindow` constraint, if one is set. |
+
+<Info>
+  `scan()` queries audit logs directly — it is not a background process and does not push alerts. Call it from a scheduled job, a webhook handler, or a dashboard endpoint.
+</Info>
+
+## Anomaly fields
+
+<ParamField path="agentId" type="string">The agent where the anomaly was detected.</ParamField>
+<ParamField path="type" type="'privilege_escalation' | 'high_denial_rate' | 'rapid_fire' | 'unusual_resource_access' | 'off_hours_activity'">Classification of the detected pattern.</ParamField>
+<ParamField path="severity" type="'critical' | 'warning' | 'info'">How urgent the finding is.</ParamField>
+<ParamField path="description" type="string">Human-readable explanation of what was observed.</ParamField>
+<ParamField path="count" type="number">Number of matching events in the scanned window.</ParamField>
+<ParamField path="detectedAt" type="string">ISO timestamp of when the scan ran.</ParamField>
+<ParamField path="evidence" type="AuditEntry[]">The specific audit log entries that triggered this finding.</ParamField>
+
+## AnomalyConfig options
+
+<ParamField path="since" type="Date">Start of the window to scan. Defaults to 24 hours ago.</ParamField>
+<ParamField path="until" type="Date">End of the window to scan. Defaults to now.</ParamField>
+<ParamField path="minDenialRate" type="number">Denial rate percentage above which high_denial_rate fires. Default is 20.</ParamField>
+<ParamField path="rapidFireThreshold" type="number">Calls per hour above which rapid_fire fires. Default is 100.</ParamField>
+<ParamField path="agentId" type="string">Scope the scan to a single agent. Omit to scan all agents.</ParamField>
+
+## Code examples
+
+### Scan a single agent for anomalies
+
+```typescript
+const anomalies = await kavach.audit.query({
+  agentId: 'agt_abc123',
+  result: 'denied',
+  since: new Date(Date.now() - 24 * 3_600_000),
+});
+
+// Check for privilege escalation pattern
+const escalations = anomalies.filter((entry) => {
+  const reason = entry.reason ?? '';
+  return (
+    reason.includes('INSUFFICIENT_PERMISSIONS') ||
+    reason.toLowerCase().includes('privilege') ||
+    reason.toLowerCase().includes('escalation')
+  );
+});
+
+if (escalations.length > 0) {
+  console.warn(`${escalations.length} escalation attempt(s) detected for agt_abc123`);
+}
+```
+
+### Get a denial-rate summary for all agents
+
+```typescript
+const since = new Date(Date.now() - 24 * 3_600_000);
+
+const logs = await kavach.audit.query({ since, limit: 5000 });
+
+const byAgent: Record<string, { total: number; denied: number }> = {};
+
+for (const entry of logs) {
+  const bucket = (byAgent[entry.agentId] ??= { total: 0, denied: 0 });
+  bucket.total++;
+  if (entry.result === 'denied') bucket.denied++;
+}
+
+const highDenialAgents = Object.entries(byAgent)
+  .filter(([, { total, denied }]) => total > 0 && denied / total > 0.2)
+  .map(([agentId, { total, denied }]) => ({
+    agentId,
+    denialRate: (denied / total) * 100,
+  }));
+
+console.log('Agents with >20% denial rate:', highDenialAgents);
+```
+
+### Act on critical findings
+
+The most effective response to a privilege escalation detection is to pause the agent while you investigate:
+
+```typescript
+const denied = await kavach.audit.query({
+  agentId: 'agt_abc123',
+  result: 'denied',
+  since: new Date(Date.now() - 3_600_000),
+});
+
+const escalations = denied.filter((e) =>
+  (e.reason ?? '').includes('INSUFFICIENT_PERMISSIONS'),
+);
+
+if (escalations.length >= 3) {
+  await kavach.agent.revoke('agt_abc123');
+  console.log('Agent revoked after repeated escalation attempts.');
+}
+```
+
+<Warning>
+  `agent.revoke()` is permanent. If you want to temporarily suspend an agent and restore it later, create a new agent with the same configuration instead of revoking.
+</Warning>
+
+### Use trust scores as the anomaly aggregate
+
+The `anomalyCount` field on a trust score is a pre-computed count of privilege escalation attempts, updated each time `computeScore` runs. It is a cheaper signal than a full scan when you only need the count:
+
+```typescript
+const score = await kavach.trust.computeScore('agt_abc123');
+
+if (score.factors.anomalyCount > 0) {
+  console.warn(
+    `${score.factors.anomalyCount} anomalies detected. Last denial: ${score.factors.lastViolation}`,
+  );
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Trust scoring" description="Translate anomaly counts into a graduated trust level." href="/docs/trust" />
+  <Card title="Approval flows" description="Route flagged agents through human review before they act." href="/docs/approval" />
+  <Card title="Audit trail" description="Query the raw log data that anomaly detection reads." href="/docs/audit" />
+</CardGroup>

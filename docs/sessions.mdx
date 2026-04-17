@@ -1,0 +1,452 @@
+---
+title: Sessions
+description: Cookie sessions, JWT tokens, ephemeral agent sessions, CSRF protection, session freshness, and lifecycle management.
+icon: Key
+---
+
+
+KavachOS has three session types:
+
+- **Cookie sessions** for human users in browsers. A signed JWT sits in an `httpOnly` cookie. The session record lives in your database so you can revoke it instantly.
+- **JWT sessions** for SPAs, mobile apps, and server-to-server flows. Stateless access tokens paired with rotating refresh tokens.
+- **Ephemeral agent sessions** for AI agents (Claude, GPT-with-browsing, operator loops). Short-lived, budget-bounded credentials that expire by time or action count, whichever comes first.
+
+This page covers cookie sessions and JWT sessions. For ephemeral agent sessions see the [agents guide](/docs/agents).
+
+---
+
+## Cookie sessions
+
+<Steps>
+
+<Step>
+
+### Configure the session manager
+
+Pass `createCookieSessionManager` a config object and your `kavach.db` instance. The manager handles creation, validation, refresh, and revocation.
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { createCookieSessionManager } from 'kavachos/auth'; // [!code highlight]
+
+export const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+});
+
+export const sessions = createCookieSessionManager({ // [!code highlight]
+  sessionName: 'kavach_session', // [!code highlight]
+  maxAge: 7 * 24 * 60 * 60, // 7 days in seconds // [!code highlight]
+  autoRefresh: true, // [!code highlight]
+  cookie: {
+    httpOnly: true, // [!code highlight]
+    secure: true, // [!code highlight]
+    sameSite: 'lax', // [!code highlight]
+    path: '/',
+  },
+}, kavach.db);
+```
+
+</Step>
+
+<Step>
+
+### Create a session after sign-in
+
+Call `createSession` with a user ID after your authentication logic succeeds. The response includes the cookie header to send back to the browser.
+
+```typescript title="routes/sign-in.ts"
+import { sessions } from '@/lib/kavach';
+
+export async function POST(req: Request): Promise<Response> {
+  // ... validate credentials, look up user
+
+  const result = await sessions.createSession(user.id, { // [!code highlight]
+    metadata: {
+      ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown',
+      userAgent: req.headers.get('user-agent') ?? 'unknown',
+    },
+  });
+
+  if (!result.success) {
+    return Response.json({ error: result.error }, { status: 500 });
+  }
+
+  return Response.json(
+    { user: { id: user.id, email: user.email } },
+    {
+      status: 200,
+      headers: { 'Set-Cookie': result.data.setCookieHeader }, // [!code highlight]
+    },
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Validate on each request
+
+Read the cookie from the incoming request and validate it. If valid, the session data is returned. If expired or revoked, `success` is `false`.
+
+```typescript title="middleware.ts"
+import { sessions } from '@/lib/kavach';
+
+export async function middleware(req: Request): Promise<Response | null> {
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const result = await sessions.validateSession(cookieHeader); // [!code highlight]
+
+  if (!result.success) {
+    return Response.json({ error: result.error }, { status: 401 });
+  }
+
+  const { session } = result.data; // [!code highlight]
+  // session.userId, session.createdAt, session.expiresAt, session.metadata
+  return null; // continue
+}
+```
+
+When `autoRefresh: true`, validating a session that is more than halfway through its lifetime automatically extends it. The response from `validateSession` includes a `refreshedCookieHeader` field when a refresh occurred. Forward it in your response.
+
+```typescript title="middleware.ts"
+const result = await sessions.validateSession(cookieHeader);
+
+if (result.success && result.data.refreshedCookieHeader) {
+  response.headers.set('Set-Cookie', result.data.refreshedCookieHeader); // [!code highlight]
+}
+```
+
+</Step>
+
+<Step>
+
+### Revoke on sign-out
+
+Revoking a session removes it from the database immediately. Any subsequent validation attempt returns `SESSION_REVOKED`.
+
+```typescript title="routes/sign-out.ts"
+import { sessions } from '@/lib/kavach';
+
+export async function POST(req: Request): Promise<Response> {
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const result = await sessions.validateSession(cookieHeader);
+
+  if (result.success) {
+    await sessions.revokeSession(result.data.session.id); // [!code highlight]
+  }
+
+  return new Response(null, {
+    status: 204,
+    headers: { 'Set-Cookie': sessions.clearCookieHeader() }, // [!code highlight]
+  });
+}
+```
+
+</Step>
+
+</Steps>
+
+---
+
+## JWT sessions
+
+Use JWT sessions when cookies don't work: SPAs calling a separate API origin, mobile apps, server-to-server flows. Access tokens are short-lived and stateless. Refresh tokens are opaque random strings stored as SHA-256 hashes, and they rotate on every use.
+
+```typescript title="lib/kavach.ts"
+import { createJwtSessionModule } from 'kavachos/auth'; // [!code highlight]
+
+export const jwtSessions = createJwtSessionModule({
+  secret: process.env.SESSION_SECRET!, // HS256 by default // [!code highlight]
+  issuer: 'https://auth.example.com', // [!code highlight]
+  audience: 'https://app.example.com',
+  accessTokenTtl: 900, // 15 minutes // [!code highlight]
+  refreshTokenTtl: 604_800, // 7 days // [!code highlight]
+  customClaims: (user) => ({ role: user.role, orgId: user.orgId }), // [!code highlight]
+}, kavach.db);
+```
+
+### Create a session
+
+```typescript title="routes/sign-in.ts"
+const result = await jwtSessions.createSession({
+  id: user.id,
+  email: user.email,
+  name: user.name,
+});
+
+if (!result.success) {
+  return Response.json({ error: result.error }, { status: 500 });
+}
+
+const { accessToken, refreshToken, expiresIn } = result.data; // [!code highlight]
+// Store refreshToken in an httpOnly cookie or secure storage
+// Send accessToken to the client for use in Authorization headers
+```
+
+### Verify on each request
+
+Access token verification is stateless. No database round-trip.
+
+```typescript title="middleware.ts"
+const authHeader = req.headers.get('authorization') ?? '';
+const token = authHeader.replace('Bearer ', '');
+
+const result = await jwtSessions.verifySession(token); // [!code highlight]
+
+if (!result.success) {
+  return Response.json({ error: result.error }, { status: 401 });
+}
+
+const { userId, email, claims } = result.data; // [!code highlight]
+```
+
+### Refresh
+
+Calling `refreshSession` marks the old refresh token as used and issues a new access + refresh pair. Each refresh rotates the token, so a stolen token is invalidated the moment the legitimate client refreshes.
+
+```typescript title="routes/refresh.ts"
+const result = await jwtSessions.refreshSession(refreshToken); // [!code highlight]
+
+if (!result.success) {
+  // REFRESH_TOKEN_EXPIRED, REFRESH_TOKEN_USED, REFRESH_TOKEN_NOT_FOUND
+  return Response.json({ error: result.error }, { status: 401 });
+}
+
+const { accessToken, refreshToken: newRefreshToken, expiresIn } = result.data;
+// Return newRefreshToken to the client to replace the old one
+```
+
+<Warning>
+  If `refreshSession` returns `REFRESH_TOKEN_USED`, a previously-used token was replayed. This is a strong signal that the refresh token was stolen. Revoke all sessions for the affected user and force re-authentication.
+</Warning>
+
+---
+
+## Session freshness
+
+Some operations should require that the user authenticated recently, not just that they hold any valid session. Changing a password, registering a passkey, or modifying billing details are examples where a session from 6 days ago is not good enough even though it is technically valid.
+
+`createSessionFreshnessModule` wraps this check. When a session is older than `freshAge` seconds, it returns a `403` response with code `SESSION_STALE`. Your handler returns it directly.
+
+```typescript title="lib/freshness.ts"
+import { createSessionFreshnessModule } from 'kavachos'; // [!code highlight]
+
+export const freshness = createSessionFreshnessModule({
+  freshAge: 300, // 5 minutes // [!code highlight]
+});
+```
+
+Use it in any endpoint that needs re-authentication assurance:
+
+```typescript title="routes/change-password.ts"
+import { sessions } from '@/lib/kavach';
+import { freshness } from '@/lib/freshness';
+
+export async function POST(req: Request): Promise<Response> {
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const result = await sessions.validateSession(cookieHeader);
+
+  if (!result.success) {
+    return Response.json({ error: result.error }, { status: 401 });
+  }
+
+  const staleResponse = freshness.guard(result.data.session); // [!code highlight]
+  if (staleResponse) return staleResponse; // 403 SESSION_STALE if too old // [!code highlight]
+
+  // Session is fresh, safe to proceed with the sensitive operation
+  // ...
+}
+```
+
+When the client receives `SESSION_STALE`, redirect them to a lightweight re-authentication page (password confirmation, passkey prompt, or similar) rather than a full sign-out. After re-auth succeeds, refresh the session's `createdAt` timestamp by issuing a new session, then retry the original operation.
+
+<Info>
+  The `freshAge` threshold is separate from `maxAge`. A session can be well within its 7-day lifetime but still be considered stale for sensitive operations. Keep `freshAge` short. 5 to 15 minutes is typical.
+</Info>
+
+---
+
+## CSRF protection
+
+Cookie-based sessions are vulnerable to cross-site request forgery unless you add a second layer. KavachOS uses the double-submit cookie pattern: a random token is set in a separate readable cookie and must also appear in the request body or header. An attacker's page can trigger the cookie but cannot read it to reproduce the header value.
+
+```typescript title="lib/csrf.ts"
+import { generateCsrfToken, validateCsrfToken, validateOrigin } from 'kavachos'; // [!code highlight]
+
+// On page load or sign-in response, set a CSRF cookie
+const csrfToken = generateCsrfToken(); // [!code highlight]
+// Return it in a Set-Cookie header: SameSite=Strict, NOT httpOnly
+// Also send it in the response body so the client can store it
+
+// On each mutating request (POST, PUT, DELETE, PATCH)
+const headerToken = req.headers.get('x-csrf-token') ?? '';
+const cookieToken = parseCookies(req.headers.get('cookie') ?? '')['kavach_csrf'] ?? '';
+
+const valid = validateCsrfToken(headerToken, cookieToken); // [!code highlight]
+if (!valid) {
+  return Response.json(
+    { error: { code: 'CSRF_INVALID', message: 'CSRF token mismatch' } },
+    { status: 403 },
+  );
+}
+
+// Also validate the Origin header to defend against subdomain takeover
+const originOk = validateOrigin(req, ['https://app.example.com']); // [!code highlight]
+if (!originOk) {
+  return Response.json(
+    { error: { code: 'ORIGIN_MISMATCH', message: 'Request origin not allowed' } },
+    { status: 403 },
+  );
+}
+```
+
+<Warning>
+  The CSRF cookie must **not** be `httpOnly`. It needs to be readable by JavaScript so the client can include its value in the `x-csrf-token` request header. Set it as `SameSite=Strict` instead.
+</Warning>
+
+---
+
+## Revocation patterns
+
+<Tabs items={['Single session', 'All sessions', 'All except current']}>
+  <Tab value="Single session">
+```typescript title="Revoke one session"
+// Revoke by session ID. Use this for "sign out this device"
+await sessions.revokeSession(sessionId); // [!code highlight]
+```
+  </Tab>
+  <Tab value="All sessions">
+```typescript title="Revoke all sessions for a user"
+// Full sign-out. Use this after a password reset or account compromise
+await sessions.revokeAllSessions(userId); // [!code highlight]
+```
+
+Password reset automatically calls `revokeAllSessions` for you when using the `emailPassword` plugin. You only need to call this directly when handling a security event (suspicious login, compromised credential detected, etc.).
+  </Tab>
+  <Tab value="All except current">
+```typescript title="Revoke all other sessions"
+// Keep the current session, revoke everything else
+// The session ID of the current request comes from validateSession
+const { session } = result.data;
+await sessions.revokeAllSessionsExcept(userId, session.id); // [!code highlight]
+```
+
+This is the "sign out everywhere else" pattern, common in account security settings.
+  </Tab>
+</Tabs>
+
+---
+
+## Session metadata
+
+Store arbitrary data on a session at creation time or update it later. Useful for tracking the device, IP address, or a custom attribute your app needs.
+
+```typescript title="Creating a session with metadata"
+const result = await sessions.createSession(userId, {
+  metadata: { // [!code highlight]
+    ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown', // [!code highlight]
+    userAgent: req.headers.get('user-agent') ?? 'unknown', // [!code highlight]
+    deviceType: parseDeviceType(req.headers.get('user-agent')), // [!code highlight]
+    appVersion: req.headers.get('x-app-version'), // [!code highlight]
+  },
+});
+```
+
+Read it back when you validate:
+
+```typescript title="Reading session metadata"
+const result = await sessions.validateSession(cookieHeader);
+
+if (result.success) {
+  const { session } = result.data;
+  console.log(session.metadata.deviceType, session.metadata.ipAddress);
+}
+```
+
+<Info>
+  Metadata is stored as a JSON column. It is not indexed, so avoid querying sessions by metadata fields. If you need to look up sessions by device or IP, store those in a separate indexed column via a custom schema extension.
+</Info>
+
+---
+
+## Human sessions vs agent tokens
+
+|  | Human sessions | Agent tokens |
+|---|---|---|
+| Format | Signed JWT in `httpOnly` cookie | `kv_...` bearer token |
+| Lifetime | 7 days (configurable) | 24 hours (configurable) |
+| Storage | Database row | SHA-256 hash in database |
+| Revocation | Per-session or per-user bulk | Per-agent |
+| CSRF | Required (cookie-based) | Not needed (header-based) |
+| Freshness guard | Yes, for sensitive operations | N/A |
+| Action budget | No | Yes (ephemeral sessions) |
+
+Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw token is shown once at creation and cannot be recovered. If a token is lost, issue a new one.
+
+---
+
+## Error codes
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `SESSION_NOT_FOUND` | 401 | No session record matches the provided token |
+| `SESSION_EXPIRED` | 401 | Session exceeded its `maxAge` |
+| `SESSION_REVOKED` | 401 | Session was explicitly revoked |
+| `SESSION_STALE` | 403 | Session is valid but older than `freshAge` |
+| `CSRF_INVALID` | 403 | CSRF token in header does not match cookie value |
+| `ORIGIN_MISMATCH` | 403 | Request `Origin` header not in the allowed list |
+| `REFRESH_TOKEN_NOT_FOUND` | 401 | Refresh token does not exist in the database |
+| `REFRESH_TOKEN_USED` | 401 | Refresh token was already exchanged (possible replay) |
+| `REFRESH_TOKEN_EXPIRED` | 401 | Refresh token lifetime has elapsed |
+| `CREATE_SESSION_FAILED` | 500 | Database error during session creation |
+
+---
+
+## Configuration reference
+
+### CookieSessionConfig
+
+<ParamField path="sessionName" type="string" default="'kavach_session'">Name of the session cookie.</ParamField>
+<ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds. After this period the session is considered expired even if it has been used recently.</ParamField>
+<ParamField path="autoRefresh" type="boolean" default="true">Automatically extend the session when validation is called and more than half the lifetime has elapsed.</ParamField>
+<ParamField path="cookie.httpOnly" type="boolean" default="true">Prevents client-side JavaScript from accessing the cookie. Always set this to true for session cookies.</ParamField>
+<ParamField path="cookie.secure" type="boolean" default="true">Only send the cookie over HTTPS. Must be true in production.</ParamField>
+<ParamField path="cookie.sameSite" type="'lax' | 'strict' | 'none'" default="'lax'">Controls cross-site cookie behavior. 'lax' works for most apps. 'strict' adds more protection. 'none' is only for cross-origin cookie transport (requires secure: true).</ParamField>
+<ParamField path="cookie.path" type="string" default="'/'">Restricts the cookie to a URL path prefix.</ParamField>
+<ParamField path="cookie.domain" type="string" default="undefined">Set a cookie domain to share sessions across subdomains. Omit for single-domain apps.</ParamField>
+
+### JwtSessionConfig
+
+<ParamField path="secret" type="string | CryptoKey | JsonWebKey" required>Signing secret. A string uses HMAC-SHA256 and must be at least 32 characters. Pass a CryptoKey or JsonWebKey for asymmetric algorithms (RS256, ES256).</ParamField>
+<ParamField path="algorithm" type="string" default="'HS256'">JWT signing algorithm. Inferred from the secret type when not set: 'HS256' for strings, 'RS256' for RSA keys, 'ES256' for EC keys.</ParamField>
+<ParamField path="accessTokenTtl" type="number" default="900 (15 min)">Access token lifetime in seconds. Keep this short. Access tokens are stateless and cannot be revoked before expiry.</ParamField>
+<ParamField path="refreshTokenTtl" type="number" default="604800 (7 days)">Refresh token lifetime in seconds. Refresh tokens are stored hashed and can be revoked immediately.</ParamField>
+<ParamField path="issuer" type="string" default="undefined">Value for the JWT 'iss' claim. Validated on every verify call.</ParamField>
+<ParamField path="audience" type="string" default="undefined">Value for the JWT 'aud' claim. Validated on every verify call.</ParamField>
+<ParamField path="customClaims" type="(user: { id: string; email?: string; name?: string }) => Record<string, unknown>" default="undefined">Function called at token creation to attach extra claims to the access token payload.</ParamField>
+
+### SessionFreshnessConfig
+
+<ParamField path="freshAge" type="number" default="300 (5 min)">Maximum session age in seconds before a sensitive operation requires re-authentication. The freshness guard returns 403 SESSION_STALE when the session is older than this.</ParamField>
+
+---
+
+## Security best practices
+
+<Warning>
+  Always set `cookie.httpOnly: true` and `cookie.secure: true` in production. Without `httpOnly`, a single XSS vulnerability lets an attacker read the session cookie directly. Without `secure`, the cookie travels over plain HTTP and can be intercepted on any network path.
+</Warning>
+
+<Warning>
+  Rotate `KAVACH_SECRET` periodically. All existing sessions signed with the old secret become invalid when you rotate. Plan for a brief period where some users need to sign in again, or run with two active secrets during the transition window.
+</Warning>
+
+<Info>
+  Set `cookie.sameSite: 'lax'` for most apps. `'lax'` allows the cookie to be sent on top-level navigations (clicking a link) but blocks it on cross-origin subresource requests, which stops most CSRF attacks without breaking OAuth redirect flows. Only use `'strict'` if you have no external links that expect to land in an authenticated state.
+</Info>
+
+<Info>
+  Short access token TTLs (`accessTokenTtl`) reduce the window of exposure for a stolen token, but they increase refresh traffic. 15 minutes is a reasonable default. If you need to revoke access instantly (account ban, credential compromise), route your API through the session validation middleware instead of relying solely on stateless JWT verification.
+</Info>

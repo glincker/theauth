@@ -1,0 +1,199 @@
+---
+title: OAuth proxy
+description: Server-side OAuth for mobile apps. Exchange authorization codes without exposing client secrets to the device.
+icon: Shield
+---
+
+Mobile apps cannot safely store OAuth client secrets. Embedding a secret in an iOS or Android binary is not safe — it can be extracted. The standard workaround (PKCE without a secret) works for some providers but not all.
+
+The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through KavachOS, which holds the client secret and performs the code exchange on the device's behalf. The app gets back tokens via its custom URL scheme, never touching the secret directly.
+
+<Info>
+  The proxy works with any provider configured in KavachOS. The mobile app only needs to know the provider name and its own redirect URI.
+</Info>
+
+## How it works
+
+```
+Mobile app                KavachOS                    Google
+    │                         │                           │
+    │ GET /auth/oauth-proxy    │                           │
+    │   /start?provider=google │                           │
+    │   &redirect_uri=myapp:// │                           │
+    │──────────────────────────▶                           │
+    │                         │                           │
+    │ { authUrl, proxyState } │                           │
+    ◀──────────────────────────│                           │
+    │                         │                           │
+    │ Open authUrl in browser  │                           │
+    │─────────────────────────────────────────────────────▶
+    │                         │                           │
+    │                         │ Redirect to               │
+    │                         │ /auth/oauth-proxy/callback│
+    │                         ◀─────────────────────────── │
+    │                         │                           │
+    │                         │ Exchange code (secret     │
+    │                         │ never leaves server)      │
+    │                         │──────────────────────────▶│
+    │                         │ access_token, id_token    │
+    │                         ◀───────────────────────────│
+    │                         │                           │
+    │ 302 → myapp://callback  │                           │
+    │   ?access_token=...      │                           │
+    ◀──────────────────────────│                           │
+```
+
+## Setup
+
+<Steps>
+
+<Step>
+
+### Configure the plugin
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauthProxy } from 'kavachos/auth'; // [!code highlight]
+import { createGoogleProvider } from 'kavachos/auth/oauth/providers/google';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com', // must be set for proxy callback URL
+  plugins: [
+    oauthProxy({ // [!code highlight]
+      providers: { // [!code highlight]
+        google: createGoogleProvider({ // [!code highlight]
+          clientId: process.env.GOOGLE_CLIENT_ID!, // [!code highlight]
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // [!code highlight]
+        }), // [!code highlight]
+      }, // [!code highlight]
+      allowedRedirectUris: [ // [!code highlight]
+        'com.example.myapp://oauth/callback', // [!code highlight]
+      ], // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+</Step>
+
+<Step>
+
+### Register the server callback URI with your provider
+
+When registering the OAuth application with your provider (Google, GitHub, etc.), add the KavachOS callback URL as an allowed redirect URI:
+
+```
+https://auth.example.com/auth/oauth-proxy/callback
+```
+
+The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider — only KavachOS's server URL is.
+
+</Step>
+
+<Step>
+
+### Implement the flow in your mobile app
+
+```typescript title="Mobile app (React Native / Expo)"
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+
+const BASE_URL = 'https://auth.example.com';
+
+async function signInWithGoogle() {
+  // 1. Start the proxy flow
+  const redirectUri = Linking.createURL('oauth/callback'); // e.g. com.example.myapp://oauth/callback
+  const startRes = await fetch(
+    `${BASE_URL}/auth/oauth-proxy/start?provider=google&redirect_uri=${encodeURIComponent(redirectUri)}`
+  );
+  const { authUrl } = await startRes.json();
+
+  // 2. Open the provider auth page in a browser
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+
+  if (result.type !== 'success') return;
+
+  // 3. Parse tokens from the redirect URL
+  const url = new URL(result.url);
+  const accessToken = url.searchParams.get('access_token');
+  const refreshToken = url.searchParams.get('refresh_token');
+  const idToken = url.searchParams.get('id_token');
+
+  // Use the tokens to authenticate with your backend
+}
+```
+
+</Step>
+
+</Steps>
+
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/oauth-proxy/start` | `GET` | Start a proxy flow — returns the provider auth URL |
+| `/auth/oauth-proxy/callback` | `GET` | Provider callback — exchanges the code and redirects to the mobile app |
+
+### `/auth/oauth-proxy/start` query parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `provider` | Yes | Provider ID as configured in `providers` (e.g. `google`, `github`) |
+| `redirect_uri` | Yes | Mobile app callback URI. Must be in `allowedRedirectUris` |
+| `state` | No | Opaque value forwarded to the mobile app after the flow completes |
+
+### `/auth/oauth-proxy/start` response
+
+```json
+{
+  "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?...",
+  "proxyState": "3f8a2c1d-..."
+}
+```
+
+Redirect the user to `authUrl`. `proxyState` is managed internally and round-trips through the provider.
+
+### Callback redirect to mobile app
+
+After a successful exchange, the server issues a `302` redirect to the mobile app URI with tokens as query parameters:
+
+```
+com.example.myapp://oauth/callback
+  ?access_token=ya29.a0ARrdaM...
+  &refresh_token=1//0eXz...
+  &id_token=eyJhbGci...
+  &expires_in=3600
+  &state=<your-state>   ← only if state was provided
+```
+
+If the user denies the request or the provider returns an error, the redirect includes `?error=access_denied` instead.
+
+## PKCE support
+
+The proxy generates a PKCE code verifier and challenge for every flow. The verifier is stored server-side alongside the proxy state and is used when exchanging the authorization code. The mobile app never needs to supply its own verifier — the server handles this entirely, preventing authorization code interception attacks even for providers that do not require PKCE.
+
+<Warning>
+  Tokens are passed as URL query parameters so that custom-scheme handlers on iOS and Android can read them. Treat them as you would any OAuth token — store them in the device's secure keychain, not in plain storage.
+</Warning>
+
+## Security
+
+**Redirect URI validation** — only URIs in `allowedRedirectUris` are accepted. Exact matches and scheme-prefix matches (entries ending with `://`) are supported. Everything else returns `400`.
+
+**State TTL** — proxy state entries expire after 10 minutes by default. An expired or unknown state returns `400` and cannot be replayed.
+
+**One-time state** — the state entry is deleted before the token exchange network call, preventing replay attacks even if the callback is called twice.
+
+**No open redirects** — the final redirect destination always comes from the stored state entry, never from user-supplied query parameters at callback time.
+
+## Configuration reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `providers` | `Record<string, OAuthProvider>` | required | Provider instances keyed by ID |
+| `allowedRedirectUris` | `string[]` | required | Allowlist of mobile app redirect URIs |
+| `rateLimit.max` | `number` | `20` | Max requests per window per IP |
+| `rateLimit.windowSeconds` | `number` | `60` | Rate limit window in seconds |
+| `stateTtlSeconds` | `number` | `600` | Proxy state lifetime in seconds |

@@ -1,0 +1,76 @@
+---
+title: Coinbase
+description: Sign in with Coinbase using OAuth 2.0.
+icon: Coinbase
+---
+
+## Get credentials
+
+<Steps>
+<Step>
+### Create an OAuth application
+
+Go to [Coinbase Developer Platform](https://www.coinbase.com/settings/api) and create a new OAuth2 application.
+
+Set the **Redirect URI** to:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/coinbase
+```
+</Step>
+
+<Step>
+### Copy your credentials
+
+After creating the app, copy the **Client ID** and **Client Secret** from the application settings.
+</Step>
+</Steps>
+
+## Configuration
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth, coinbaseProvider } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://your-app.com',
+  plugins: [
+    oauth({
+      providers: [
+        coinbaseProvider(
+          process.env.COINBASE_CLIENT_ID!,
+          process.env.COINBASE_CLIENT_SECRET!,
+        ),
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+COINBASE_CLIENT_ID=...
+COINBASE_CLIENT_SECRET=...
+```
+
+## Scopes
+
+Default scope: `wallet:user:read`, `wallet:user:email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `wallet:user:read` | Read user profile and account info |
+| `wallet:user:email` | Read user's email address |
+| `wallet:accounts:read` | Read wallet account balances |
+
+<Warning>
+  Coinbase scopes use a namespaced format (`wallet:resource:action`). Request only the scopes your app needs. Users see the full permission list during authorization.
+</Warning>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/coinbase` | Redirect to Coinbase |
+| GET | `/auth/oauth/callback/coinbase` | Handle callback |

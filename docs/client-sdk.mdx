@@ -1,0 +1,198 @@
+---
+title: TypeScript client
+description: The @kavachos/client package for calling KavachOS from any TypeScript runtime.
+icon: Code
+---
+
+
+## Overview
+
+`@kavachos/client` is a typed HTTP client for the KavachOS REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
+
+<Info>
+  Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun — anywhere the Fetch API is available.
+</Info>
+
+## Installation
+
+```bash
+npm install @kavachos/client
+```
+
+## Creating a client
+
+```typescript
+import { createKavachClient } from '@kavachos/client';
+
+const client = createKavachClient({
+  baseUrl: 'https://yourapp.com/api/kavach',
+  token: process.env.KAVACH_API_TOKEN,
+});
+```
+
+<ParamField path="baseUrl" type="string">Base URL for the KavachOS API, without a trailing slash.</ParamField>
+<ParamField path="token" type="string" default="undefined">Bearer token sent as Authorization: Bearer <token> on every request.</ParamField>
+<ParamField path="headers" type="Record<string, string>" default="{}">Extra headers merged into every request. Useful for API gateways that require custom headers.</ParamField>
+
+## Agents
+
+```typescript
+// Create
+const agent = await client.agents.create({
+  ownerId: 'user-123',
+  name: 'data-pipeline-bot',
+  type: 'autonomous',
+  permissions: [
+    { resource: 'db:reports:*', actions: ['read'] },
+  ],
+});
+
+console.log(agent.token); // kv_a3f8c2e1... — save this now
+
+// List with optional filters
+const active = await client.agents.list({
+  userId: 'user-123',
+  status: 'active',
+  type: 'autonomous',
+});
+
+// Get by ID (returns null for 404)
+const found = await client.agents.get('agt_abc123');
+
+// Update name and permissions
+const updated = await client.agents.update('agt_abc123', {
+  name: 'data-pipeline-bot-v2',
+  permissions: [
+    { resource: 'db:reports:*', actions: ['read', 'export'] },
+  ],
+});
+
+// Rotate the token
+const rotated = await client.agents.rotate('agt_abc123');
+console.log(rotated.token); // new token — old one is now invalid
+
+// Revoke
+await client.agents.revoke('agt_abc123');
+```
+
+## Authorization
+
+Two paths: by agent ID (when you manage the agent directly) or by raw bearer token (when the token comes in from an HTTP request).
+
+```typescript
+// By agent ID — useful in admin or backend code
+const result = await client.authorize('agt_abc123', {
+  action: 'read',
+  resource: 'db:reports:monthly',
+  arguments: { reportId: 'r-456' },
+});
+
+if (!result.allowed) {
+  console.error(result.reason); // why it was denied
+}
+
+// By bearer token — useful in middleware
+const bearerToken = request.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
+const result = await client.authorizeByToken(bearerToken, {
+  action: 'read',
+  resource: 'db:reports:monthly',
+});
+```
+
+## Delegations
+
+```typescript
+// Delegate from one agent to another with a subset of permissions
+const chain = await client.delegations.create({
+  fromAgent: 'agt_parent',
+  toAgent: 'agt_child',
+  permissions: [
+    { resource: 'db:reports:*', actions: ['read'] },
+  ],
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+});
+
+// List delegations for an agent
+const delegations = await client.delegations.list('agt_parent');
+
+// Effective permissions — union of own + delegated
+const effective = await client.delegations.getEffectivePermissions('agt_child');
+
+// Revoke a delegation
+await client.delegations.revoke(chain.id);
+```
+
+## Audit log
+
+```typescript
+// Query with filters
+const entries = await client.audit.query({
+  agentId: 'agt_abc123',
+  since: new Date('2024-01-01'),
+  until: new Date('2024-02-01'),
+  result: 'denied',
+  limit: 100,
+  offset: 0,
+});
+
+// Export as CSV for billing or compliance
+const csv = await client.audit.export({
+  format: 'csv',
+  since: new Date('2024-01-01'),
+  until: new Date('2024-02-01'),
+});
+
+// Export as JSON
+const json = await client.audit.export({ format: 'json' });
+```
+
+## Error handling
+
+All methods throw `KavachApiError` when the server returns a non-2xx response or the network call fails.
+
+```typescript
+import { KavachApiError } from '@kavachos/client';
+
+try {
+  const agent = await client.agents.get('agt_nonexistent');
+} catch (err) {
+  if (err instanceof KavachApiError) {
+    console.error(err.code);    // e.g. 'AGENT_NOT_FOUND'
+    console.error(err.message); // human-readable message
+    console.error(err.status);  // HTTP status code
+  }
+}
+```
+
+`KavachApiError` also covers network errors: if `fetch` itself throws, you get `code: 'NETWORK_ERROR'` and `status: 0`.
+
+<Warning>
+  `client.agents.get` and `client.mcp.get` return `null` for 404 rather than throwing. All other methods throw `KavachApiError` on any error response.
+</Warning>
+
+## MCP servers
+
+```typescript
+// Register an MCP server
+const server = await client.mcp.register({
+  name: 'github-mcp',
+  endpoint: 'https://mcp.yourapp.com/github',
+  tools: ['list_repos', 'get_issue', 'create_comment'],
+  authRequired: true,
+  rateLimit: { rpm: 60 },
+});
+
+// List all registered servers
+const servers = await client.mcp.list();
+
+// Get one by ID (returns null for 404)
+const found = await client.mcp.get(server.id);
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" description="Understand the agent model before building integrations." href="/docs/agents" />
+  <Card title="Audit log" description="Querying and exporting the audit trail." href="/docs/audit" />
+  <Card title="Delegation chains" description="How delegated permissions work." href="/docs/delegation" />
+</CardGroup>

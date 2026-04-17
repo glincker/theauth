@@ -1,0 +1,108 @@
+---
+title: "OIDC provider"
+description: "Act as an OpenID Connect identity provider."
+icon: Key
+---
+
+KavachOS can act as a full OpenID Connect identity provider. External apps register as clients and authenticate their users through KavachOS using the standard authorization code flow with PKCE, ID tokens, refresh tokens, discovery, and JWKS.
+
+This is distinct from using OAuth providers *with* KavachOS. Here, KavachOS *is* the provider.
+
+## Setup
+
+<Steps>
+<Step>
+### Generate a signing key
+
+```typescript
+import { generateKeyPair, exportJWK } from 'jose';
+
+const { privateKey } = await generateKeyPair('RS256');
+```
+
+Store the private key securely. The corresponding public key is exposed at the JWKS endpoint so clients can verify tokens.
+</Step>
+
+<Step>
+### Create the module
+
+```typescript title="lib/kavach.ts"
+import { generateKeyPair } from 'jose';
+import { createOidcProviderModule } from 'kavachos/auth';
+
+const { privateKey } = await generateKeyPair('RS256');
+
+const oidc = createOidcProviderModule(
+  {
+    issuer: 'https://auth.example.com',
+    signingKey: privateKey,
+  },
+  db,
+  async (userId, scopes) => {
+    const user = await getUser(userId);
+    return {
+      sub: user.id,
+      email: scopes.includes('email') ? user.email : undefined,
+      name: scopes.includes('profile') ? user.name : undefined,
+      emailVerified: user.emailVerified,
+    };
+  },
+);
+```
+
+The third argument is a `GetUserClaimsFn` callback. KavachOS calls it to build ID tokens and userinfo responses. You control what data is returned per scope.
+</Step>
+
+<Step>
+### Register a client
+
+```typescript
+const result = await oidc.registerClient({
+  clientName: 'My App',
+  redirectUris: ['https://app.example.com/callback'],
+});
+
+if (result.success) {
+  console.log(result.data.clientId);
+  console.log(result.data.clientSecret); // shown once, store it now
+}
+```
+
+The `clientSecret` is only returned on registration. It is stored hashed. If you lose it, delete and re-register the client.
+</Step>
+</Steps>
+
+## Configuration options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `issuer` | `string` | required | Issuer URL, e.g. `https://auth.example.com` |
+| `signingKey` | `CryptoKey \| JWK` | required | RSA or EC private key for signing tokens |
+| `signingAlgorithm` | `string` | `RS256` | JWT algorithm (`RS256`, `ES256`, etc.) |
+| `accessTokenTtl` | `number` | `3600` | Access token lifetime in seconds |
+| `refreshTokenTtl` | `number` | `2592000` | Refresh token lifetime in seconds (30 days) |
+| `authCodeTtl` | `number` | `600` | Authorization code lifetime in seconds |
+| `idTokenTtl` | `number` | `3600` | ID token lifetime in seconds |
+| `supportedScopes` | `string[]` | `['openid', 'profile', 'email']` | Scopes this provider accepts |
+
+## Authorization code flow
+
+1. Client redirects user to `{issuer}/authorize` with `response_type=code`, `client_id`, `redirect_uri`, `scope`, and optionally `code_challenge` + `code_challenge_method=S256`.
+2. Your app authenticates the user, then calls `oidc.authorize({ ...params, userId })` to issue a code.
+3. Client exchanges the code at `{issuer}/token` for `access_token`, `id_token`, and `refresh_token`.
+4. Client can refresh tokens using `grant_type=refresh_token`. Refresh tokens rotate on each use.
+
+<Info>
+  PKCE with `S256` is supported. If the authorization request includes a `code_challenge`, the token request must include the matching `code_verifier`. Authorization codes are single-use and expire after 10 minutes by default.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/.well-known/openid-configuration` | Discovery document |
+| GET | `/.well-known/jwks.json` | Public signing keys |
+| GET | `/authorize` | Authorization endpoint |
+| POST | `/token` | Token endpoint |
+| GET/POST | `/userinfo` | UserInfo endpoint |
+| POST | `/register` | Dynamic client registration |

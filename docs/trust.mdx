@@ -1,0 +1,148 @@
+---
+title: Trust scoring
+description: Graduated autonomy through behavioral trust scores derived from each agent's audit history.
+icon: ShieldCheck
+---
+
+
+## What trust scores are
+
+A trust score is a 0–100 number that reflects how much an agent has earned autonomous operation. New agents start with a baseline of 50. Over time, successful calls raise the score; denied requests, permission violations, and anomalous patterns lower it.
+
+The score maps to one of five named levels that your application can use to gate behavior — requiring human approval for low-trust agents, unlocking faster paths for high-trust ones.
+
+Scores are computed from the audit log, not guessed. An agent cannot self-report a high score.
+
+## TrustScore fields
+
+<ParamField path="agentId" type="string">The agent this score belongs to.</ParamField>
+<ParamField path="score" type="number">Numeric value from 0 to 100.</ParamField>
+<ParamField path="level" type="'untrusted' | 'limited' | 'standard' | 'trusted' | 'elevated'">Named trust level derived from the score.</ParamField>
+<ParamField path="factors.successRate" type="number">Percentage of all calls that were allowed.</ParamField>
+<ParamField path="factors.denialRate" type="number">Percentage of all calls that were denied.</ParamField>
+<ParamField path="factors.ageInDays" type="number">Days since the agent was created.</ParamField>
+<ParamField path="factors.totalCalls" type="number">Total authorization calls in the audit log.</ParamField>
+<ParamField path="factors.anomalyCount" type="number">Denied calls matching privilege escalation patterns.</ParamField>
+<ParamField path="factors.lastViolation" type="string | undefined">ISO timestamp of the most recent denied call.</ParamField>
+<ParamField path="computedAt" type="string">ISO timestamp of when this score was last computed.</ParamField>
+
+## How scores are computed
+
+The formula starts at 50 and applies adjustments:
+
+```
+score = 50
+score += min(25, floor(allowedCalls / 100))   // +1 per 100 successful calls, capped at +25
+score -= deniedCalls × 5                       // -5 per denial
+score -= anomalyCount × 10                     // -10 per privilege escalation attempt
+score += 10 if ageInDays > 30                  // bonus for established agents
+score += 5  if ageInDays > 7                   // smaller bonus for recent agents
+score = clamp(score, 0, 100)
+```
+
+An agent with 200 successful calls, no denials, and 40 days of history scores: `50 + 2 + 10 = 62` — landing in the `standard` band.
+
+## Trust levels
+
+| Level | Default threshold | Meaning |
+|---|---|---|
+| `untrusted` | score < 20 | New or misbehaving. Approve all sensitive actions manually. |
+| `limited` | 20 – 39 | Early history. Apply stricter rate limits. |
+| `standard` | 40 – 59 | Baseline autonomous operation. |
+| `trusted` | 60 – 79 | Established track record. Fewer restrictions warranted. |
+| `elevated` | ≥ 95 | Long-running, clean history. Maximum autonomy. |
+
+The default thresholds can be overridden at init:
+
+```typescript
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  // Override specific thresholds while keeping others at their defaults
+});
+
+// kavach.trust uses the module directly — no threshold config exposed yet
+// Use the computed level in your application logic instead
+```
+
+## Code examples
+
+### Compute a score on demand
+
+```typescript
+const score = await kavach.trust.computeScore('agt_abc123');
+
+console.log(score.score);           // 72
+console.log(score.level);           // 'trusted'
+console.log(score.factors.denialRate); // 1.4
+```
+
+`computeScore` always reads live audit data and writes the result to the `trust_scores` table. Call it whenever you need a fresh value.
+
+### Read the last computed score
+
+```typescript
+const score = await kavach.trust.getScore('agt_abc123');
+
+if (!score) {
+  // Score has never been computed for this agent
+  console.log('No score yet — call computeScore first');
+}
+```
+
+`getScore` returns the cached row from the database without recomputing. It returns `null` for agents that have never been scored.
+
+### Recompute scores for all active agents
+
+```typescript
+const scores = await kavach.trust.computeAll();
+
+for (const score of scores) {
+  console.log(`${score.agentId}: ${score.level} (${score.score})`);
+}
+```
+
+Useful for a scheduled job that refreshes scores nightly or after a batch of activity.
+
+### Filter agents by trust level
+
+```typescript
+// All agents currently in the 'untrusted' band
+const untrusted = await kavach.trust.getScores({ level: 'untrusted' });
+
+// Agents with a score of at least 80
+const highTrust = await kavach.trust.getScores({ minScore: 80 });
+```
+
+`getScores` reads from the `trust_scores` table. Agents that have not been scored yet do not appear in results.
+
+### Gate sensitive operations by trust level
+
+```typescript
+const score = await kavach.trust.computeScore(agentId);
+
+if (score.level === 'untrusted' || score.level === 'limited') {
+  // Require manual approval before proceeding
+  await kavach.approval.request({
+    agentId,
+    userId: agent.ownerId,
+    action: 'delete',
+    resource: 'file:prod-data/*',
+  });
+  return { queued: true };
+}
+
+// Proceed autonomously for trusted agents
+await deleteFiles(agentId);
+```
+
+<Info>
+  Scores are recomputed on demand. KavachOS does not maintain a background scorer. Call `computeScore` or `computeAll` on a schedule that fits your use case — every request, every few minutes, or nightly.
+</Info>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Anomaly detection" description="Surface unusual patterns in agent behavior." href="/docs/anomaly" />
+  <Card title="Approval flows" description="Route high-risk actions through human review." href="/docs/approval" />
+  <Card title="Audit trail" description="The raw data that feeds trust scoring." href="/docs/audit" />
+</CardGroup>
