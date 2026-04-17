@@ -402,6 +402,13 @@ describe("KavachOS Gateway", () => {
 			const agent1 = await createTestAgent(kavach);
 			const agent2 = await createKavach({
 				database: { provider: "sqlite", url: ":memory:" },
+				agents: {
+					enabled: true,
+					maxPerUser: 10,
+					defaultPermissions: [],
+					auditAll: true,
+					tokenExpiry: "24h",
+				},
 			}).then(async (k) => {
 				k.db
 					.insert(schema.users)

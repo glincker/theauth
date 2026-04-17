@@ -59,18 +59,54 @@ function execRaw(db: Database, sql: string): void {
 function queryRaw(db: Database, sql: string, params: unknown[] = []): unknown[] {
 	// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle session for raw queries
 	const session = (db as any).session;
-	if (session?.client?.prepare) {
-		const stmt = session.client.prepare(sql);
+	const client = session?.client;
+	if (!client?.prepare) return [];
+
+	const stmt = client.prepare(sql);
+
+	// sql.js statements expose getAsObject; better-sqlite3 statements do not.
+	if (typeof stmt.getAsObject === "function") {
+		try {
+			if (params.length > 0) stmt.bind(params);
+			const rows: unknown[] = [];
+			while (stmt.step()) {
+				rows.push(stmt.getAsObject());
+			}
+			return rows;
+		} finally {
+			if (typeof stmt.free === "function") stmt.free();
+		}
+	}
+
+	// better-sqlite3: stmt.all(...spread)
+	if (typeof stmt.all === "function") {
 		return stmt.all(...params) as unknown[];
 	}
+
 	return [];
 }
 
 function runRaw(db: Database, sql: string, params: unknown[] = []): void {
 	// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle session for raw mutations
 	const session = (db as any).session;
-	if (session?.client?.prepare) {
-		const stmt = session.client.prepare(sql);
+	const client = session?.client;
+	if (!client?.prepare) return;
+
+	const stmt = client.prepare(sql);
+
+	// sql.js path detected via getAsObject; expects an array of params.
+	if (typeof stmt.getAsObject === "function") {
+		try {
+			if (params.length > 0) stmt.bind(params);
+			stmt.step();
+		} finally {
+			if (typeof stmt.free === "function") stmt.free();
+		}
+		return;
+	}
+
+	// better-sqlite3: stmt.run(...spread)
+	if (typeof stmt.run === "function") {
 		stmt.run(...params);
 	}
 }
