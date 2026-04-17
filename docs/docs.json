@@ -16,8 +16,7 @@
   },
   "fonts": {
     "heading": { "family": "Inter" },
-    "body": { "family": "Inter" },
-    "code": { "family": "JetBrains Mono" }
+    "body": { "family": "Inter" }
   },
   "appearance": {
     "default": "dark",
