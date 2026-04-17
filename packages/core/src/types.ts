@@ -275,6 +275,8 @@ export interface Permission {
 	resource: string;
 	actions: string[];
 	constraints?: PermissionConstraints;
+	/** Optional ReBAC relation. When set, the policy engine queries the relationship graph. */
+	relation?: string;
 }
 
 export interface PermissionConstraints {
