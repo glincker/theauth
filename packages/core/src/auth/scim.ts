@@ -25,7 +25,7 @@
 
 import { and, eq, like, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
-import { organizations, orgMembers, users } from "../db/schema.js";
+import { auditLogs, organizations, orgMembers, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
@@ -52,6 +52,19 @@ export interface ScimConfig {
 	 * session and return `null` when the caller is not tied to a user.
 	 */
 	resolveSelf?: (request: Request) => Promise<string | null>;
+	/**
+	 * Audit every SCIM provisioning write. When configured, each
+	 * POST/PUT/PATCH/DELETE on /Users or /Groups writes an `auditLogs` row
+	 * attributed to `agentId`. The caller is responsible for pre-creating a
+	 * system agent and passing its id. Set `enabled: false` to turn off
+	 * writes without deleting the agent (useful in tests).
+	 */
+	audit?: {
+		/** FK to kavach_agents.id — typically a dedicated "scim-provisioner" system agent. */
+		agentId: string;
+		/** Defaults to true when `audit` is set. */
+		enabled?: boolean;
+	};
 }
 
 export interface ScimUser {
@@ -315,7 +328,46 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		onProvision,
 		onDeprovision,
 		resolveSelf,
+		audit,
 	} = config;
+
+	// ---------------------------------------------------------------------------
+	// Audit helper
+	// ---------------------------------------------------------------------------
+	// Writes one `auditLogs` row per successful provisioning write. Intentionally
+	// tolerant: a failed audit write must never corrupt the response path, so
+	// errors are swallowed after logging. Every call site records its own
+	// start-timestamp so durationMs reflects the actual DB work, not the audit.
+
+	async function writeScimAudit(
+		action: string,
+		resource: string,
+		subjectUserId: string,
+		durationMs: number,
+		result: "allowed" | "denied" = "allowed",
+		reason?: string,
+	): Promise<void> {
+		if (!audit || audit.enabled === false) return;
+		try {
+			await db.insert(auditLogs).values({
+				id: generateId(),
+				agentId: audit.agentId,
+				userId: subjectUserId,
+				action,
+				resource,
+				parameters: {},
+				result,
+				reason: reason ?? null,
+				durationMs,
+				timestamp: new Date(),
+				ip: null,
+				userAgent: null,
+			});
+		} catch {
+			// Audit is best-effort. A missing system agent FK or a transient DB
+			// error must not fail the SCIM request itself.
+		}
+	}
 
 	// -------------------------------------------------------------------------
 	// Auth guard
@@ -466,6 +518,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	async function handleCreateUser(request: Request): Promise<Response> {
+		const auditStart = performance.now();
 		if (!autoCreateUsers) {
 			return scimError("User provisioning is disabled", 403);
 		}
@@ -554,10 +607,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.user.create",
+			`scim:users:${id}`,
+			id,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(userRowToScim(created, baseUrl), 201);
 	}
 
 	async function handleReplaceUser(request: Request, userId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
 		const existing = rows[0];
 		if (!existing) return scimError("User not found", 404, "noTarget");
@@ -613,10 +673,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.where(eq(users.id, userId))
 			.limit(1)) as UserRow[];
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.user.replace",
+			`scim:users:${userId}`,
+			userId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrl));
 	}
 
 	async function handlePatchUser(request: Request, userId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
 		const current = rows[0];
 		if (!current) return scimError("User not found", 404, "noTarget");
@@ -716,10 +783,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.from(users)
 			.where(eq(users.id, userId))
 			.limit(1)) as UserRow[];
+		await writeScimAudit(
+			"scim.user.update",
+			`scim:users:${userId}`,
+			userId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrlForPatch));
 	}
 
 	async function handleDeleteUser(_request: Request, userId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
 		const row = rows[0];
 		if (!row) return scimError("User not found", 404, "noTarget");
@@ -740,6 +814,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			await onDeprovision(userId);
 		}
 
+		await writeScimAudit(
+			"scim.user.delete",
+			`scim:users:${userId}`,
+			userId,
+			Math.round(performance.now() - auditStart),
+		);
 		return new Response(null, { status: 204 });
 	}
 
@@ -873,6 +953,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	async function handleCreateGroup(request: Request): Promise<Response> {
+		const auditStart = performance.now();
 		let body: Record<string, unknown>;
 		try {
 			body = (await request.json()) as Record<string, unknown>;
@@ -965,6 +1046,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const createdMembers = await getMembersForOrg(id);
 		const memberEmails = await getMemberEmails(createdMembers);
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.group.create",
+			`scim:groups:${id}`,
+			ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(
 			orgRowToScim(orgRows[0] as OrgRow, createdMembers, memberEmails, baseUrl),
 			201,
@@ -972,6 +1059,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	async function handleReplaceGroup(request: Request, groupId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const orgRows = (await db
 			.select()
 			.from(organizations)
@@ -1025,10 +1113,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const members = await getMembersForOrg(groupId);
 		const memberEmails = await getMemberEmails(members);
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.group.replace",
+			`scim:groups:${groupId}`,
+			(updatedOrg[0] as OrgRow).ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(orgRowToScim(updatedOrg[0] as OrgRow, members, memberEmails, baseUrl));
 	}
 
 	async function handlePatchGroup(request: Request, groupId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const orgRows = (await db
 			.select()
 			.from(organizations)
@@ -1130,20 +1225,34 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const members = await getMembersForOrg(groupId);
 		const memberEmails = await getMemberEmails(members);
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.group.update",
+			`scim:groups:${groupId}`,
+			(updatedOrg[0] as OrgRow).ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(orgRowToScim(updatedOrg[0] as OrgRow, members, memberEmails, baseUrl));
 	}
 
 	async function handleDeleteGroup(_request: Request, groupId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const orgRows = (await db
 			.select()
 			.from(organizations)
 			.where(eq(organizations.id, groupId))
 			.limit(1)) as OrgRow[];
-		if (orgRows.length === 0) return scimError("Group not found", 404, "noTarget");
+		const existing = orgRows[0];
+		if (!existing) return scimError("Group not found", 404, "noTarget");
 
 		await db.delete(orgMembers).where(eq(orgMembers.orgId, groupId));
 		await db.delete(organizations).where(eq(organizations.id, groupId));
 
+		await writeScimAudit(
+			"scim.group.delete",
+			`scim:groups:${groupId}`,
+			existing.ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return new Response(null, { status: 204 });
 	}
 
