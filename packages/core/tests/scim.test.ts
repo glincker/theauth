@@ -730,6 +730,58 @@ describe("SCIM handleRequest routing", () => {
 });
 
 // ---------------------------------------------------------------------------
+// /Bulk endpoint (RFC 7644 3.7)
+// ---------------------------------------------------------------------------
+
+describe("SCIM /Bulk endpoint", () => {
+	let db: Database;
+	let mod: ScimModule;
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		mod = createScimModule({ bearerToken: BEARER }, db);
+	});
+
+	it("returns 501 with a SCIM error body", async () => {
+		const res = await mod.handleRequest(
+			req("POST", "/scim/v2/Bulk", {
+				schemas: ["urn:ietf:params:scim:api:messages:2.0:BulkRequest"],
+				Operations: [],
+			}),
+		);
+		expect(res?.status).toBe(501);
+		const body = await json(res as Response);
+		expect(body.schemas).toEqual(["urn:ietf:params:scim:api:messages:2.0:Error"]);
+		expect(body.status).toBe("501");
+		expect(body.detail).toMatch(/Bulk operations are not supported/);
+	});
+
+	it("returns 415 when Content-Type is not scim+json", async () => {
+		const request = new Request(`${BASE}/scim/v2/Bulk`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${BEARER}`,
+				"Content-Type": "application/json",
+			},
+			body: "{}",
+		});
+		const res = await mod.handleRequest(request);
+		expect(res?.status).toBe(415);
+	});
+
+	it("rejects unauthenticated callers", async () => {
+		const res = await mod.handleRequest(req("POST", "/scim/v2/Bulk", {}, ""));
+		expect(res?.status).toBe(401);
+	});
+
+	it("advertises bulk as unsupported in /ServiceProviderConfig", async () => {
+		const res = await mod.handleRequest(req("GET", "/scim/v2/ServiceProviderConfig"));
+		const body = (await json(res as Response)) as { bulk: { supported: boolean } };
+		expect(body.bulk.supported).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // /Me endpoint (RFC 7644 3.11)
 // ---------------------------------------------------------------------------
 

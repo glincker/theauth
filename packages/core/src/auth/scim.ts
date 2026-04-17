@@ -1269,6 +1269,34 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	// -------------------------------------------------------------------------
+	// /Bulk endpoint (RFC 7644 §3.7)
+	// -------------------------------------------------------------------------
+	// Bulk is advertised as unsupported in /ServiceProviderConfig. We still
+	// handle the route so clients that probe `/Bulk` get a spec-correct 501
+	// rather than a generic 404 or an HTML error page.
+
+	const SCHEMA_BULK_REQUEST = "urn:ietf:params:scim:api:messages:2.0:BulkRequest";
+
+	function handleBulk(request: Request): Response {
+		const contentType = request.headers.get("Content-Type") ?? "";
+		if (!contentType.toLowerCase().startsWith(SCIM_CONTENT_TYPE)) {
+			return scimError(`Bulk requires Content-Type "${SCIM_CONTENT_TYPE}"`, 415, "invalidValue");
+		}
+
+		// We intentionally do not parse the body — bulk is unsupported and we
+		// return the same error regardless of content. Rejecting here keeps
+		// an attacker from using this endpoint as an echo/oracle surface.
+		return scimResponse(
+			{
+				schemas: [SCHEMA_ERROR],
+				status: "501",
+				detail: `Bulk operations are not supported by this server. See /scim/v2/ServiceProviderConfig for supported features. Requested schema: ${SCHEMA_BULK_REQUEST}`,
+			},
+			501,
+		);
+	}
+
+	// -------------------------------------------------------------------------
 	// /Me endpoint (RFC 7644 §3.11)
 	// -------------------------------------------------------------------------
 
@@ -1331,6 +1359,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 		if (method === "GET" && pathname.endsWith("/scim/v2/Me")) {
 			return handleMe(request);
+		}
+		if (method === "POST" && pathname.endsWith("/scim/v2/Bulk")) {
+			return handleBulk(request);
 		}
 
 		// Users collection

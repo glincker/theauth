@@ -84,6 +84,16 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
+			// /Bulk — unsupported, returns spec-compliant 501 (RFC 7644 3.7)
+			ctx.addEndpoint({
+				method: "POST",
+				path: "/scim/v2/Bulk",
+				metadata: { description: "SCIM /Bulk: returns 501 (bulk ops not supported)" },
+				async handler(request) {
+					return (await module.handleRequest(request)) as Response;
+				},
+			});
+
 			// Users collection
 			ctx.addEndpoint({
 				method: "GET",
