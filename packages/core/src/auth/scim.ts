@@ -136,6 +136,7 @@ const SCHEMA_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
 
 const SCHEMA_SP_CONFIG = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig";
 const SCHEMA_RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType";
+const SCHEMA_ENTERPRISE = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -186,8 +187,14 @@ function userRowToScim(row: UserRow, baseUrl: string): Record<string, unknown> {
 	const meta = row.metadata ?? {};
 	const active = meta["scim:active"] !== false && row.banned === 0;
 
-	return {
-		schemas: [SCHEMA_USER],
+	const enterprise = meta["scim:enterprise"];
+	const schemas = [SCHEMA_USER];
+	if (enterprise && typeof enterprise === "object" && Object.keys(enterprise).length > 0) {
+		schemas.push("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+	}
+
+	const body: Record<string, unknown> = {
+		schemas,
 		id: row.id,
 		externalId: row.externalId ?? undefined,
 		userName: row.username ?? row.email,
@@ -206,6 +213,12 @@ function userRowToScim(row: UserRow, baseUrl: string): Record<string, unknown> {
 			location: `${baseUrl}/scim/v2/Users/${row.id}`,
 		},
 	};
+
+	if (enterprise && typeof enterprise === "object") {
+		body["urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"] = enterprise;
+	}
+
+	return body;
 }
 
 function orgRowToScim(
@@ -390,6 +403,71 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	// -------------------------------------------------------------------------
+	// Sort helper
+	// -------------------------------------------------------------------------
+	// RFC 7644 §3.4.2.3. sortBy is a dotted attribute path into the serialized
+	// SCIM resource. sortOrder is "ascending" (default) or "descending". Ties
+	// break on `id` for determinism across pages.
+
+	interface SortSpec {
+		by: string[];
+		order: "ascending" | "descending";
+	}
+
+	function parseSortSpec(url: URL): SortSpec | null {
+		const by = url.searchParams.get("sortBy");
+		if (!by) return null;
+		const order = url.searchParams.get("sortOrder")?.toLowerCase();
+		return {
+			by: by.split(".").filter((p) => p.length > 0),
+			order: order === "descending" ? "descending" : "ascending",
+		};
+	}
+
+	function sortResources<T extends { scim: Record<string, unknown> }>(
+		items: T[],
+		spec: SortSpec,
+	): T[] {
+		const direction = spec.order === "descending" ? -1 : 1;
+		return [...items].sort((a, b) => {
+			const av = readAttr(a.scim, spec.by);
+			const bv = readAttr(b.scim, spec.by);
+			const primary = compareSortValues(av, bv);
+			if (primary !== 0) return primary * direction;
+			// Stable tie-break on id keeps pages consistent.
+			const ida = (a.scim.id as string | undefined) ?? "";
+			const idb = (b.scim.id as string | undefined) ?? "";
+			return ida < idb ? -1 : ida > idb ? 1 : 0;
+		});
+	}
+
+	function readAttr(resource: Record<string, unknown>, path: string[]): unknown {
+		let current: unknown = resource;
+		for (const segment of path) {
+			if (current === undefined || current === null) return undefined;
+			if (typeof current !== "object") return undefined;
+			current = (current as Record<string, unknown>)[segment];
+		}
+		return current;
+	}
+
+	function compareSortValues(a: unknown, b: unknown): number {
+		if (a === undefined && b === undefined) return 0;
+		if (a === undefined) return 1; // sort undefined to the end
+		if (b === undefined) return -1;
+		if (typeof a === "string" && typeof b === "string") {
+			return a.toLowerCase().localeCompare(b.toLowerCase());
+		}
+		if (typeof a === "number" && typeof b === "number") {
+			return a - b;
+		}
+		if (typeof a === "boolean" && typeof b === "boolean") {
+			return a === b ? 0 : a ? 1 : -1;
+		}
+		return String(a).localeCompare(String(b));
+	}
+
+	// -------------------------------------------------------------------------
 	// User handlers
 	// -------------------------------------------------------------------------
 
@@ -399,6 +477,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const startIndex = Math.max(1, parseInt(url.searchParams.get("startIndex") ?? "1", 10));
 		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
 		const baseUrl = getBaseUrl(request);
+		const sortSpec = parseSortSpec(url);
 
 		// Parse filter AST once. Simple and-of-clauses filters take a fast SQL
 		// path. Complex filters (or / not / value-paths / advanced ops) fall
@@ -421,7 +500,10 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const conditions = clauses ? buildUserSqlConditions(clauses) : null;
 		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		if (conditions !== null) {
+		// When sort is requested we must order the full filtered set before
+		// paginating. SQL ORDER BY cannot reach into JSON-embedded metadata
+		// attributes, so force the in-memory path whenever sortBy is set.
+		if (conditions !== null && !sortSpec) {
 			// Fast path — SQL filter covers the entire expression.
 			const countRows = await db
 				.select({ count: sql<number>`count(*)` })
@@ -452,8 +534,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const matched = ast
 			? mapped.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
 			: mapped;
-		const totalResults = matched.length;
-		const page = matched.slice(startIndex - 1, startIndex - 1 + count);
+		const sorted = sortSpec ? sortResources(matched, sortSpec) : matched;
+		const totalResults = sorted.length;
+		const page = sorted.slice(startIndex - 1, startIndex - 1 + count);
 
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
@@ -573,6 +656,11 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		if (givenName) metadata["scim:givenName"] = givenName;
 		if (familyName) metadata["scim:familyName"] = familyName;
 
+		const enterpriseExt = body[SCHEMA_ENTERPRISE];
+		if (enterpriseExt && typeof enterpriseExt === "object") {
+			metadata["scim:enterprise"] = enterpriseExt;
+		}
+
 		await db.insert(users).values({
 			id,
 			email: primaryEmail,
@@ -652,6 +740,11 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		};
 		if (givenName !== undefined) metadata["scim:givenName"] = givenName;
 		if (familyName !== undefined) metadata["scim:familyName"] = familyName;
+
+		const enterpriseExt = body[SCHEMA_ENTERPRISE];
+		if (enterpriseExt && typeof enterpriseExt === "object") {
+			metadata["scim:enterprise"] = enterpriseExt;
+		}
 
 		const now = new Date();
 		await db
@@ -850,6 +943,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const startIndex = Math.max(1, parseInt(url.searchParams.get("startIndex") ?? "1", 10));
 		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
 		const baseUrl = getBaseUrl(request);
+		const sortSpec = parseSortSpec(url);
 
 		let ast: FilterAst | null = null;
 		let clauses: FilterClause[] | null = null;
@@ -869,7 +963,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const conditions = clauses ? buildGroupSqlConditions(clauses) : null;
 		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		if (conditions !== null) {
+		if (conditions !== null && !sortSpec) {
 			const countRows = await db
 				.select({ count: sql<number>`count(*)` })
 				.from(organizations)
@@ -913,8 +1007,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const matched = ast
 			? resources.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
 			: resources;
-		const totalResults = matched.length;
-		const page = matched.slice(startIndex - 1, startIndex - 1 + count);
+		const sorted = sortSpec ? sortResources(matched, sortSpec) : matched;
+		const totalResults = sorted.length;
+		const page = sorted.slice(startIndex - 1, startIndex - 1 + count);
 
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
@@ -1269,7 +1364,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
 			filter: { supported: true, maxResults: 200 },
 			changePassword: { supported: false },
-			sort: { supported: false },
+			sort: { supported: true },
 			etag: { supported: false },
 			authenticationSchemes: [
 				{
@@ -1291,9 +1386,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const baseUrl = getBaseUrl(request);
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
-			totalResults: 2,
+			totalResults: 3,
 			startIndex: 1,
-			itemsPerPage: 2,
+			itemsPerPage: 3,
 			Resources: [
 				{
 					schemas: ["urn:ietf:params:scim:schemas:core:2.0:Schema"],
@@ -1335,6 +1430,40 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 					meta: {
 						resourceType: "Schema",
 						location: `${baseUrl}/scim/v2/Schemas/${SCHEMA_GROUP}`,
+					},
+				},
+				{
+					schemas: ["urn:ietf:params:scim:schemas:core:2.0:Schema"],
+					id: SCHEMA_ENTERPRISE,
+					name: "EnterpriseUser",
+					description:
+						"Enterprise User extension (RFC 7643 §4.3). Carries employeeNumber, department, and manager.",
+					attributes: [
+						{
+							name: "employeeNumber",
+							type: "string",
+							required: false,
+							mutability: "readWrite",
+						},
+						{ name: "department", type: "string", required: false, mutability: "readWrite" },
+						{ name: "costCenter", type: "string", required: false, mutability: "readWrite" },
+						{ name: "organization", type: "string", required: false, mutability: "readWrite" },
+						{ name: "division", type: "string", required: false, mutability: "readWrite" },
+						{
+							name: "manager",
+							type: "complex",
+							required: false,
+							mutability: "readWrite",
+							subAttributes: [
+								{ name: "value", type: "string" },
+								{ name: "$ref", type: "reference" },
+								{ name: "displayName", type: "string" },
+							],
+						},
+					],
+					meta: {
+						resourceType: "Schema",
+						location: `${baseUrl}/scim/v2/Schemas/${SCHEMA_ENTERPRISE}`,
 					},
 				},
 			],

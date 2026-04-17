@@ -673,15 +673,16 @@ describe("SCIM Schemas", () => {
 		mod = createScimModule({ bearerToken: BEARER }, db);
 	});
 
-	it("returns schema list with User and Group", async () => {
+	it("returns schema list with User, Group, and Enterprise User", async () => {
 		const res = await mod.handleRequest(req("GET", "/scim/v2/Schemas"));
 		expect(res?.status).toBe(200);
 		const body = await json(res!);
-		expect(body.totalResults).toBe(2);
+		expect(body.totalResults).toBe(3);
 		const resources = body.Resources as Array<{ id: string }>;
 		const ids = resources.map((r) => r.id);
 		expect(ids).toContain("urn:ietf:params:scim:schemas:core:2.0:User");
 		expect(ids).toContain("urn:ietf:params:scim:schemas:core:2.0:Group");
+		expect(ids).toContain("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
 	});
 });
 
@@ -726,6 +727,99 @@ describe("SCIM handleRequest routing", () => {
 	it("returns null for paths that only partially match", async () => {
 		const res = await mod.handleRequest(req("GET", "/api/users"));
 		expect(res).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Sort (RFC 7644 3.4.2.3)
+// ---------------------------------------------------------------------------
+
+describe("SCIM sort on /Users", () => {
+	let db: Database;
+	let mod: ScimModule;
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		mod = createScimModule({ bearerToken: BEARER }, db);
+		await seedUser(db, "u-b", "carol@example.com", "carol");
+		await seedUser(db, "u-a", "alice@example.com", "alice");
+		await seedUser(db, "u-c", "bob@example.com", "bob");
+	});
+
+	it("sorts by userName ascending (default)", async () => {
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Users?sortBy=userName"));
+		const body = await json(res!);
+		const ids = (body.Resources as Array<{ userName: string }>).map((r) => r.userName);
+		expect(ids).toEqual(["alice", "bob", "carol"]);
+	});
+
+	it("sorts by userName descending", async () => {
+		const res = await mod.handleRequest(
+			req("GET", "/scim/v2/Users?sortBy=userName&sortOrder=descending"),
+		);
+		const body = await json(res!);
+		const ids = (body.Resources as Array<{ userName: string }>).map((r) => r.userName);
+		expect(ids).toEqual(["carol", "bob", "alice"]);
+	});
+
+	it("advertises sort as supported in ServiceProviderConfig", async () => {
+		const res = await mod.handleRequest(req("GET", "/scim/v2/ServiceProviderConfig"));
+		const body = (await json(res!)) as { sort: { supported: boolean } };
+		expect(body.sort.supported).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Enterprise User extension (RFC 7643 4.3)
+// ---------------------------------------------------------------------------
+
+describe("SCIM Enterprise User extension", () => {
+	let db: Database;
+	let mod: ScimModule;
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		mod = createScimModule({ bearerToken: BEARER }, db);
+	});
+
+	it("accepts Enterprise attributes on POST and round-trips them on GET", async () => {
+		const created = await mod.handleRequest(
+			req("POST", "/scim/v2/Users", {
+				schemas: [
+					"urn:ietf:params:scim:schemas:core:2.0:User",
+					"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+				],
+				userName: "ent@example.com",
+				emails: [{ value: "ent@example.com", primary: true }],
+				"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+					employeeNumber: "E-42",
+					department: "Platform",
+				},
+			}),
+		);
+		expect(created?.status).toBe(201);
+		const body = (await json(created!)) as { id: string; schemas: string[] } & Record<
+			string,
+			unknown
+		>;
+		expect(body.schemas).toContain("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+		const ext = body["urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"] as {
+			employeeNumber: string;
+			department: string;
+		};
+		expect(ext.employeeNumber).toBe("E-42");
+		expect(ext.department).toBe("Platform");
+
+		const got = await mod.handleRequest(req("GET", `/scim/v2/Users/${body.id}`));
+		const gotBody = (await json(got!)) as Record<string, unknown>;
+		expect(gotBody.schemas).toContain("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+	});
+
+	it("advertises the Enterprise User schema in /Schemas", async () => {
+		const res = await mod.handleRequest(req("GET", "/scim/v2/Schemas"));
+		const body = (await json(res!)) as { Resources: Array<{ id: string }> };
+		const ids = body.Resources.map((r) => r.id);
+		expect(ids).toContain("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
 	});
 });
 
