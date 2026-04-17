@@ -1,11 +1,6 @@
-/**
- * Process-local LRU cache for policy decisions.
- *
- * Pure Map-based LRU using insertion-order semantics: re-inserting a key on
- * read moves it to the most-recently-used position. TTL is evaluated lazily
- * on get and on set (when bumping against maxEntries). No external deps.
- * Runtime-agnostic — safe on Cloudflare Workers, Bun, and Deno.
- */
+// Process-local LRU cache. Map insertion order is the LRU order; re-inserting
+// a key on read promotes it. TTL is checked lazily on get. Zero deps so this
+// stays compatible with Workers, Bun, and Deno.
 
 import type { PolicyCacheConfig, PolicyCacheStats, PolicyDecision } from "./types.js";
 

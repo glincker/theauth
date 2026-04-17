@@ -1,10 +1,4 @@
-/**
- * Public types for the unified policy engine.
- *
- * Combines RBAC role expansion, ABAC constraint evaluation, and ReBAC
- * graph queries behind a single evaluate() call. See spec at
- * docs/superpowers/specs/2026-04-16-unified-policy-engine-design.md
- */
+// Public types for the unified policy engine.
 
 export type PolicyEffect = "permit" | "deny" | "indeterminate";
 

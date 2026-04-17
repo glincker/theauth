@@ -18,7 +18,7 @@ Requires no extra dependencies. `vitest bench` uses `tinybench` internally, whic
 
 | Name | What it exercises |
 |---|---|
-| warm cache hit | LRU hit — no DB touch, pure in-memory path |
+| warm cache hit | LRU hit, no DB touch, pure in-memory path |
 | cold path - direct permission | Cache miss, one DB query to fetch agent permissions, no role or graph lookup |
 | cold path - rbac role expansion | Cache miss, org membership + role join to derive permissions |
 | cold path - rebac graph lookup | Cache miss, ReBAC relationship tuple check against the graph |

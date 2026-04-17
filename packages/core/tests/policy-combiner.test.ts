@@ -14,7 +14,7 @@ import { POLICY_ERROR_CODES } from "../src/policy/types.js";
 // deny-overrides (default strategy)
 // ---------------------------------------------------------------------------
 
-describe("combine — deny-overrides", () => {
+describe("combine, deny-overrides", () => {
 	it("empty array returns indeterminate with allowed=false", () => {
 		const result = combine([]);
 		expect(result.allowed).toBe(false);
@@ -97,7 +97,7 @@ describe("combine — deny-overrides", () => {
 // permit-overrides
 // ---------------------------------------------------------------------------
 
-describe("combine — permit-overrides", () => {
+describe("combine, permit-overrides", () => {
 	it("mixed [permit, deny] returns permit", () => {
 		const partials: PartialDecision[] = [
 			{ effect: "deny", reason: "deny first", matchedPermissionId: "perm-1" },
@@ -133,7 +133,7 @@ describe("combine — permit-overrides", () => {
 // Field passthrough
 // ---------------------------------------------------------------------------
 
-describe("combine — field passthrough", () => {
+describe("combine, field passthrough", () => {
 	it("matchedPermissionId from winning partial appears on result", () => {
 		const partial: PartialDecision = {
 			effect: "permit",

@@ -1,5 +1,5 @@
 /**
- * Tests for policy/rbac.ts — org member → orgRole → Permission[] resolution.
+ * Tests for policy/rbac.ts: org member to orgRole to Permission[] resolution.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -108,7 +108,7 @@ describe("createRbacResolver", () => {
 		expect(perms[0]?.actions?.sort()).toEqual(["create", "manage"]);
 	});
 
-	// ── user in two orgs, orgId omitted — union ────────────────────────────
+	// user in two orgs, orgId omitted, results unioned
 
 	it("merges permissions from two different orgs when orgId is omitted", async () => {
 		seedRole(db, "role-a-admin", "org-a", "admin", ["org:manage", "members:invite"]);
@@ -126,7 +126,7 @@ describe("createRbacResolver", () => {
 		expect(perms.length).toBeGreaterThanOrEqual(3);
 	});
 
-	// ── user in two orgs, orgId provided — scope to one ───────────────────
+	// user in two orgs, orgId provided, scoped to one
 
 	it("returns only the requested org permissions when orgId is provided", async () => {
 		seedRole(db, "role-a-admin", "org-a", "admin", ["org:manage"]);

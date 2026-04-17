@@ -127,7 +127,7 @@ export async function createKavach(config: KavachConfig) {
 		await createTables(db, config.database.provider, config);
 	}
 
-	// Unified policy engine — always instantiated so kavach.policy is always
+	// Unified policy engine. Always instantiated so kavach.policy is
 	// available. Callers can tune it via config.policy (cache size, TTL,
 	// combine strategy, audit sampling). Zero-config uses safe defaults.
 	const policyEngine: PolicyEngine = createPolicyEngine({ db, config: config.policy });

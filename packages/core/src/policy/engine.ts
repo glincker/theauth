@@ -1,9 +1,5 @@
-/**
- * Unified policy engine: combines direct permissions, delegated permissions,
- * RBAC role expansion, ABAC constraint evaluation, and ReBAC graph queries
- * behind one evaluate() call. See spec at
- * docs/superpowers/specs/2026-04-16-unified-policy-engine-design.md
- */
+// Unified policy engine: direct + delegated + role-derived permissions,
+// ABAC constraints, and ReBAC graph checks behind one evaluate() call.
 
 import { and, eq, gt } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";

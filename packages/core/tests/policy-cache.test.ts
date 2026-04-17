@@ -104,7 +104,7 @@ describe("createPolicyCache", () => {
 			cache.set("a", decision(true));
 			cache.set("b", decision(false));
 
-			// Touch "a" — it should now be most-recently-used.
+			// Touch "a" so it becomes most-recently-used.
 			cache.get("a");
 
 			// Inserting "c" must now evict "b" (the least-recently-used).

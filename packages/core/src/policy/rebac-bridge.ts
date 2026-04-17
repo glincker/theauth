@@ -1,16 +1,7 @@
-/**
- * ReBAC bridge for the unified policy engine.
- *
- * Adapts the policy engine's flat subject/resource model to the ReBAC graph's
- * typed tuple shape (subjectType, subjectId, relation, objectType, objectId),
- * then delegates to the existing `createReBACModule` check function.
- *
- * Wildcard resources ("doc:*" or any resource string containing "*", or one
- * with no ":" separator followed by a concrete id) cannot be resolved against
- * a specific tuple in the graph. The bridge returns matched=false in those
- * cases — no implicit grant is made. The calling engine treats the permission
- * as non-matching and continues evaluating other permissions.
- */
+// Adapts the engine's flat subject/resource model to the ReBAC graph's typed
+// tuple shape, then delegates to createReBACModule.check(). Wildcard resources
+// can't resolve to a specific tuple, so they return matched=false rather than
+// silently granting access.
 
 import { createReBACModule } from "../auth/rebac.js";
 import type { Database } from "../db/database.js";
@@ -23,7 +14,7 @@ import type { PolicyDecisionSubject } from "./types.js";
 export interface RebacBridgeInput {
 	subject: PolicyDecisionSubject;
 	relation: string;
-	/** Expected format: "type:id" — e.g. "doc:123". Wildcard ids ("*") are not supported. */
+	/** Expected format: "type:id", e.g. "doc:123". Wildcard ids ("*") are not supported. */
 	resource: string;
 }
 

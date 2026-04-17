@@ -1,7 +1,4 @@
-/**
- * Unified policy engine: RBAC + ABAC + ReBAC behind one evaluate() call.
- * See docs/superpowers/specs/2026-04-16-unified-policy-engine-design.md
- */
+// Unified policy engine: RBAC + ABAC + ReBAC behind one evaluate() call.
 
 export type {
 	EvaluateInput,
