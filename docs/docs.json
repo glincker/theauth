@@ -281,6 +281,23 @@
             "pages": ["api", "errors", "test-utils", "a2a"]
           }
         ]
+      },
+      {
+        "tab": "Compare",
+        "icon": "scale-balanced",
+        "groups": [
+          {
+            "group": "Comparisons",
+            "icon": "code-compare",
+            "pages": [
+              "compare/index",
+              "compare/vs-ba",
+              "compare/vs-hanko",
+              "compare/vs-casdoor",
+              "compare/vs-paid"
+            ]
+          }
+        ]
       }
     ]
   }

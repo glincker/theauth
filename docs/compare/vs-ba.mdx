@@ -1,0 +1,45 @@
+---
+title: KavachOS vs better-auth
+description: A feature-by-feature comparison of KavachOS and better-auth for TypeScript applications.
+icon: code-compare
+---
+
+better-auth is a solid, well-maintained TypeScript auth library. It has more OAuth providers today, a mature Prisma integration, and a large ecosystem of community plugins. If you're building a standard web app where human auth is the entire story, it gets you there fast.
+
+KavachOS starts from a different premise: agents are first-class entities, not OAuth clients. The comparison below reflects that split honestly. Where better-auth ships something, we say so. Where it doesn't, we say that too.
+
+A migration guide from better-auth is coming soon.
+
+## Feature matrix
+
+| Capability | KavachOS | better-auth |
+|---|---|---|
+| Language | TypeScript, MIT | TypeScript, MIT |
+| Named OAuth providers | 24 | 37 |
+| MCP OAuth 2.1 server | Built in with agent identity, delegation, and ephemeral sessions | Thin OIDC wrapper plugin |
+| Agent identity | First-class `AgentIdentity` entity next to `User` | Treated as an OAuth client |
+| A2A protocol | Server + client + Agent Cards with JWS signing | Not shipped |
+| Ephemeral agent sessions | Built in with auto-expiry, action limits, and audit grouping | Not shipped |
+| Cost attribution per agent/tool/chain | Built in with alerts and budget integration | Not shipped |
+| Trust scoring | 5-level built in | Not shipped |
+| Compliance reports (EU AI Act, NIST AI RMF, SOC 2, ISO 42001) | Exports built in | Not shipped |
+| Unified RBAC + ABAC + ReBAC policy engine | One engine | RBAC only |
+| Approval flows (CIBA) | Built in | Not shipped |
+| Verifiable Credentials audit export | On roadmap | Not shipped |
+| Edge runtime (Workers, Deno, Bun) | Zero `node:crypto` imports, Web Crypto throughout | Partial |
+| DB adapters | Drizzle today, Prisma on roadmap | Prisma, Drizzle, Kysely, Mongo, Redis |
+| Client libraries | React, Vue, Svelte, Electron, Expo, plain fetch | React, Vue, Svelte, Solid, Electron, Expo |
+
+## Pick KavachOS if
+
+- Your app runs AI agents with their own identity, permissions, or audit requirements.
+- You need MCP OAuth 2.1 with proper agent delegation, not just an OIDC wrapper.
+- You're targeting Cloudflare Workers, Deno, or Bun and need full edge compatibility from day one.
+
+## Pick better-auth if
+
+- You're building a human-facing web app with no agent workloads.
+- You need one of the 13 additional OAuth providers it ships that KavachOS doesn't yet cover.
+- You want a Mongo or Redis adapter and Prisma first-class support right now.
+
+Both are MIT, both are TypeScript. The question is whether agents are part of your architecture.
