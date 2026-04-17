@@ -35,7 +35,7 @@ const costs = createCostAttributionModule(kavach.db, {
 
 <ParamField path="currency" type="string" default="'USD'">ISO 4217 currency code for cost records.</ParamField>
 <ParamField path="alertThresholds" type="{ warn: number; critical: number }" default="undefined (no threshold alerts)">Dollar amounts for 24-hour rolling spend that trigger alerts.</ParamField>
-<ParamField path="onAlert" type="(alert: CostAlert) => void | Promise<void>" default="undefined">Called when a threshold is crossed or a budget policy is exceeded.</ParamField>
+<ParamField path="onAlert" type={`(alert: CostAlert) => void | Promise<void>`} default="undefined">Called when a threshold is crossed or a budget policy is exceeded.</ParamField>
 <ParamField path="retentionDays" type="number" default="90">How many days of cost events to keep. Older rows are deleted on cleanup().</ParamField>
 
 ## Recording costs
@@ -62,7 +62,7 @@ await costs.recordCost({
 <ParamField path="inputTokens" type="number" default="undefined">Prompt tokens consumed.</ParamField>
 <ParamField path="outputTokens" type="number" default="undefined">Completion tokens generated.</ParamField>
 <ParamField path="costUsd" type="number">Exact cost in the configured currency.</ParamField>
-<ParamField path="metadata" type="Record<string, unknown>" default="undefined">Any additional data to store alongside this event (request IDs, model version, etc.).</ParamField>
+<ParamField path="metadata" type={`Record<string, unknown>`} default="undefined">Any additional data to store alongside this event (request IDs, model version, etc.).</ParamField>
 <ParamField path="delegationChainId" type="string" default="undefined">When set, this event is also attributed to the given delegation chain.</ParamField>
 
 <Info>
@@ -153,8 +153,8 @@ const result = await costs.getAgentCost(agent.id, {
 <ParamField path="agentId" type="string">Agent (or owner/chain) this report covers.</ParamField>
 <ParamField path="period" type="{ start: Date; end: Date }">The time window the report covers.</ParamField>
 <ParamField path="totalCostUsd" type="number">Total cost across all events in the period.</ParamField>
-<ParamField path="byTool" type="Array<{ tool: string; costUsd: number; callCount: number }>">Cost breakdown per tool, sorted by cost descending.</ParamField>
-<ParamField path="byDay" type="Array<{ date: string; costUsd: number }>">Daily spend as YYYY-MM-DD strings, sorted ascending.</ParamField>
+<ParamField path="byTool" type={`Array<{ tool: string; costUsd: number; callCount: number }>`}>Cost breakdown per tool, sorted by cost descending.</ParamField>
+<ParamField path="byDay" type={`Array<{ date: string; costUsd: number }>`}>Daily spend as YYYY-MM-DD strings, sorted ascending.</ParamField>
 
 ### Owner report
 

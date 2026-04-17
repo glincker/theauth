@@ -84,7 +84,7 @@ function SessionDebug() {
 
 <ParamField path="session" type="Session | null">The current session. Null when unauthenticated or still loading.</ParamField>
 <ParamField path="isLoading" type="boolean">True during the initial session fetch.</ParamField>
-<ParamField path="refetch" type="() => Promise<void>">Force a re-fetch of the session. Call this after making out-of-band auth changes.</ParamField>
+<ParamField path="refetch" type={`() => Promise<void>`}>Force a re-fetch of the session. Call this after making out-of-band auth changes.</ParamField>
 
 ## useUser
 
@@ -240,9 +240,9 @@ function Dashboard() {
 ```
 
 <ParamField path="agents" type="Agent[]">Current list of agents for the authenticated user.</ParamField>
-<ParamField path="create" type="(input: CreateAgentInput) => Promise<Agent>">Create a new agent. The list refreshes automatically on success.</ParamField>
-<ParamField path="revoke" type="(agentId: string) => Promise<void>">Revoke an agent by ID. Removes it from the local list on success.</ParamField>
-<ParamField path="refetch" type="() => Promise<void>">Re-fetch the agent list manually.</ParamField>
+<ParamField path="create" type={`(input: CreateAgentInput) => Promise<Agent>`}>Create a new agent. The list refreshes automatically on success.</ParamField>
+<ParamField path="revoke" type={`(agentId: string) => Promise<void>`}>Revoke an agent by ID. Removes it from the local list on success.</ParamField>
+<ParamField path="refetch" type={`() => Promise<void>`}>Re-fetch the agent list manually.</ParamField>
 <ParamField path="isLoading" type="boolean">True during the initial agents fetch.</ParamField>
 
 ## Next steps

@@ -29,7 +29,7 @@ console.log(result.auditId); // "aud_3f8a..."
 <ParamField path="userId" type="string">The user who owns the agent.</ParamField>
 <ParamField path="action" type="string">The action the agent attempted (e.g. read, write, delete).</ParamField>
 <ParamField path="resource" type="string">The resource the action was attempted on.</ParamField>
-<ParamField path="parameters" type="Record<string, unknown>">Arguments passed to the tool at the time of the call.</ParamField>
+<ParamField path="parameters" type={`Record<string, unknown>`}>Arguments passed to the tool at the time of the call.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">The outcome of the authorization check.</ParamField>
 <ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
 <ParamField path="tokensCost" type="number">Optional token usage from the agent\'s LLM call, if provided.</ParamField>

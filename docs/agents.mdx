@@ -19,7 +19,7 @@ Agents are not users. No passwords, sessions, or OAuth flows. Just tokens and pe
 <ParamField path="name" type="string">Human-readable label for the agent.</ParamField>
 <ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
 <ParamField path="expiresAt" type="Date" default="undefined (never expires)">Optional expiry. After this time the agent status becomes expired.</ParamField>
-<ParamField path="metadata" type="Record<string, unknown>" default="{}">Arbitrary key/value pairs for your own use.</ParamField>
+<ParamField path="metadata" type={`Record<string, unknown>`} default="{}">Arbitrary key/value pairs for your own use.</ParamField>
 
 ## Agent types
 

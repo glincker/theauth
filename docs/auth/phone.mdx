@@ -95,7 +95,7 @@ if (res.ok) {
 
 ## Configuration reference
 
-<ParamField path="onSendCode" type="(phone: string, code: string) => Promise<void>" required>Callback invoked to deliver the code. Receives the phone number (E.164) and the numeric code as a string.</ParamField>
+<ParamField path="onSendCode" type={`(phone: string, code: string) => Promise<void>`} required>Callback invoked to deliver the code. Receives the phone number (E.164) and the numeric code as a string.</ParamField>
 <ParamField path="codeLength" type="number" default={6}>Number of digits in the generated code.</ParamField>
 <ParamField path="codeExpiry" type="number" default="300 (5 min)">Code validity window in seconds.</ParamField>
 <ParamField path="maxAttempts" type="number" default={5}>Failed attempts allowed before the code is invalidated.</ParamField>

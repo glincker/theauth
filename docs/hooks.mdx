@@ -15,12 +15,12 @@ Hooks are async callbacks you register at startup. KavachOS calls them at specif
 
 ## Available hooks
 
-<ParamField path="beforeAuthorize" type="(context: { agentId, action, resource, arguments? }) => Promise<{ allow: boolean; reason?: string } | void>">Fires before every authorize() call. Return { allow: false, reason } to block. Return void or { allow: true } to proceed.</ParamField>
-<ParamField path="afterAuthorize" type="(context: { agentId, action, resource, result }) => Promise<void>">Fires after authorize() completes with the final result. Useful for logging and alerting.</ParamField>
-<ParamField path="beforeAgentCreate" type="(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>">Fires before an agent is created. Return { allow: false } to reject the creation.</ParamField>
-<ParamField path="afterAgentCreate" type="(agent: AgentIdentity) => Promise<void>">Fires after an agent is successfully created.</ParamField>
-<ParamField path="onAgentRevoke" type="(agentId: string) => Promise<void>">Fires when an agent is revoked.</ParamField>
-<ParamField path="onViolation" type="(violation: { type, agentId, action, resource, reason }) => Promise<void>">Fires when a permission denial, rate limit, or policy violation is detected.</ParamField>
+<ParamField path="beforeAuthorize" type={`(context: { agentId, action, resource, arguments? }) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before every authorize() call. Return { allow: false, reason } to block. Return void or { allow: true } to proceed.</ParamField>
+<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, result }) => Promise<void>`}>Fires after authorize() completes with the final result. Useful for logging and alerting.</ParamField>
+<ParamField path="beforeAgentCreate" type={`(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before an agent is created. Return { allow: false } to reject the creation.</ParamField>
+<ParamField path="afterAgentCreate" type={`(agent: AgentIdentity) => Promise<void>`}>Fires after an agent is successfully created.</ParamField>
+<ParamField path="onAgentRevoke" type={`(agentId: string) => Promise<void>`}>Fires when an agent is revoked.</ParamField>
+<ParamField path="onViolation" type={`(violation: { type, agentId, action, resource, reason }) => Promise<void>`}>Fires when a permission denial, rate limit, or policy violation is detected.</ParamField>
 
 ### Violation types
 
