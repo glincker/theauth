@@ -28,6 +28,7 @@ import type { Database } from "../db/database.js";
 import { organizations, orgMembers, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
+import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -627,78 +628,73 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return scimError("Invalid PATCH body: missing Operations", 400, "invalidValue");
 		}
 
+		// Serialize the current row to SCIM form, apply the PATCH ops against
+		// that representation, then map the mutated fields back to DB columns.
+		// This routes through the RFC 7644 §3.5.2 path engine in scim-patch.ts
+		// which handles value-filter selectors (emails[type eq "work"].value)
+		// and enforces immutable-attribute protections.
+		const baseUrlForPatch = getBaseUrl(request);
+		const scimView = userRowToScim(current, baseUrlForPatch) as Record<string, unknown>;
+
+		try {
+			applyPatchOps(scimView, body.Operations as Parameters<typeof applyPatchOps>[1], {
+				readonlyPaths: ["id", "externalid"],
+			});
+		} catch (err) {
+			if (err instanceof ScimPatchError) {
+				return scimError(err.message, err.status, err.scimType);
+			}
+			throw err;
+		}
+
 		const updatedMeta: Record<string, unknown> = { ...(current.metadata ?? {}) };
 		let email = current.email;
 		let name = current.name;
 		let username = current.username;
 		let banned = current.banned;
-		let externalId = current.externalId;
+		const externalId = current.externalId;
 
-		for (const op of body.Operations) {
-			const opLower = op.op?.toLowerCase() as "add" | "replace" | "remove" | undefined;
-			if (!opLower || !["add", "replace", "remove"].includes(opLower)) continue;
+		// Extract mutated fields back from the SCIM view.
+		const scimUserName = scimView.userName;
+		if (typeof scimUserName === "string") username = scimUserName;
 
-			const path = op.path?.toLowerCase();
+		const scimDisplay = scimView.displayName;
+		if (typeof scimDisplay === "string") name = scimDisplay;
 
-			if (opLower === "remove") {
-				if (path === "active") {
-					updatedMeta["scim:active"] = false;
-					banned = autoDeactivateUsers ? 1 : 0;
-				}
-				continue;
+		const scimName = scimView.name as { givenName?: unknown; familyName?: unknown } | undefined;
+		if (scimName) {
+			if (scimName.givenName !== undefined) updatedMeta["scim:givenName"] = scimName.givenName;
+			if (scimName.familyName !== undefined) updatedMeta["scim:familyName"] = scimName.familyName;
+		}
+
+		const scimActive = scimView.active;
+		if (typeof scimActive === "boolean") {
+			updatedMeta["scim:active"] = scimActive;
+			banned = scimActive ? 0 : autoDeactivateUsers ? 1 : 0;
+		} else if (scimActive === undefined && scimView.active === undefined) {
+			updatedMeta["scim:active"] = false;
+			banned = autoDeactivateUsers ? 1 : 0;
+		}
+
+		const scimEmails = scimView.emails;
+		if (Array.isArray(scimEmails)) {
+			const primary =
+				(scimEmails.find(
+					(entry): entry is { value?: unknown; primary?: unknown } =>
+						typeof entry === "object" &&
+						entry !== null &&
+						(entry as { primary?: unknown }).primary === true,
+				)?.value as string | undefined) ??
+				(scimEmails[0] as { value?: unknown } | undefined)?.value;
+			if (typeof primary === "string" && primary.length > 0) {
+				email = primary;
 			}
+		}
 
-			// add / replace
-			if (path === "active" || path === "urn:ietf:params:scim:schemas:core:2.0:user:active") {
-				const active = op.value === true || op.value === "true";
-				updatedMeta["scim:active"] = active;
-				banned = active ? 0 : autoDeactivateUsers ? 1 : 0;
-			} else if (
-				path === "username" ||
-				path === "urn:ietf:params:scim:schemas:core:2.0:user:username"
-			) {
-				username = typeof op.value === "string" ? op.value : username;
-			} else if (path === "displayname") {
-				name = typeof op.value === "string" ? op.value : name;
-			} else if (path === "name.givenname") {
-				updatedMeta["scim:givenName"] = op.value;
-			} else if (path === "name.familyname") {
-				updatedMeta["scim:familyName"] = op.value;
-			} else if (path === "externalid") {
-				externalId = typeof op.value === "string" ? op.value : externalId;
-			} else if (path === "emails" || path?.startsWith("emails[")) {
-				// Handle emails array replacement
-				const emailsVal = op.value as Array<{ value: string; primary?: boolean }> | undefined;
-				if (Array.isArray(emailsVal)) {
-					const primary = emailsVal.find((e) => e.primary)?.value ?? emailsVal[0]?.value;
-					if (primary) email = primary;
-				}
-			} else if (!path) {
-				// No path: value is an object with attributes to set
-				const val = op.value as Record<string, unknown> | undefined;
-				if (val && typeof val === "object") {
-					if ("active" in val) {
-						const active = val.active === true || val.active === "true";
-						updatedMeta["scim:active"] = active;
-						banned = active ? 0 : autoDeactivateUsers ? 1 : 0;
-					}
-					if ("displayName" in val && typeof val.displayName === "string") {
-						name = val.displayName;
-					}
-					if ("userName" in val && typeof val.userName === "string") {
-						username = val.userName;
-					}
-					if ("externalId" in val && typeof val.externalId === "string") {
-						externalId = val.externalId;
-					}
-					const nameVal = val.name as { givenName?: string; familyName?: string } | undefined;
-					if (nameVal) {
-						if (nameVal.givenName !== undefined) updatedMeta["scim:givenName"] = nameVal.givenName;
-						if (nameVal.familyName !== undefined)
-							updatedMeta["scim:familyName"] = nameVal.familyName;
-					}
-				}
-			}
+		const extKey = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+		const enterpriseExt = scimView[extKey];
+		if (enterpriseExt && typeof enterpriseExt === "object") {
+			updatedMeta["scim:enterprise"] = enterpriseExt;
 		}
 
 		const now = new Date();
@@ -712,8 +708,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.from(users)
 			.where(eq(users.id, userId))
 			.limit(1)) as UserRow[];
-		const baseUrl = getBaseUrl(request);
-		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrl));
+		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrlForPatch));
 	}
 
 	async function handleDeleteUser(_request: Request, userId: string): Promise<Response> {
