@@ -1,7 +1,7 @@
 ---
 title: Password breach checking
 description: Reject or warn on passwords found in known data breaches using the HaveIBeenPwned API.
-icon: Shield
+icon: shield-halved
 ---
 
 KavachOS integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model — only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.

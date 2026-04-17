@@ -22,12 +22,32 @@ html.dark body {
 }
 
 /* Tighten sidebar group label tracking so dense nav reads cleaner. */
-nav [data-group-title],
-nav h5 {
-  letter-spacing: 0.02em;
+#sidebar-content h5,
+aside h5 {
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 11px;
-  opacity: 0.7;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.55;
+}
+
+/* Vendored brand SVGs come in at intrinsic size; clamp them to Mintlify's
+   icon slot so the page-level and sidebar icons line up with FA glyphs. */
+#sidebar-content img[src^="/brand-icons/"],
+aside img[src^="/brand-icons/"],
+main img[src^="/brand-icons/"] {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  object-fit: contain;
+}
+
+/* Dark sidebar: the mono variants ship as black fills, so invert when the
+   theme is dark. Default variants carry their own brand color and stay. */
+html.dark #sidebar-content img[src^="/brand-icons/"],
+html.dark aside img[src^="/brand-icons/"] {
+  filter: invert(1) brightness(0.9);
 }
 
 /* Card lift on hover for the home page CardGroup grids. */
