@@ -9,7 +9,7 @@ icon: server
 
 Auth config drifts in ways application code doesn't. An agent spun up by hand in a dashboard has no peer review, no version history, and no automated rollback. When the production incident happens and you need to know why an agent had write access to the deploy tool, "someone added it last Tuesday" is not an audit trail.
 
-Treating agents and permissions as Terraform resources fixes this. Every grant goes through a pull request. Every change is versioned in git. Destroying a staging environment tears down the access alongside the infrastructure — no orphaned tokens floating around.
+Treating agents and permissions as Terraform resources fixes this. Every grant goes through a pull request. Every change is versioned in git. Destroying a staging environment tears down the access alongside the infrastructure, no orphaned tokens floating around.
 
 ## Installation
 
@@ -76,7 +76,7 @@ export KAVACHOS_TOKEN=kv_live_...
 
 ### kavachos_agent
 
-Manages an agent identity — the primary entity in KavachOS.
+Manages an agent identity, the primary entity in KavachOS.
 
 ```hcl
 resource "kavachos_agent" "github_reader" {
@@ -251,7 +251,7 @@ terraform import kavachos_organization.eng org-xyz789
 After importing, run `terraform plan`. Terraform will show a diff for any attributes that differ from your configuration. Update the HCL to match, or let Terraform converge.
 
 <Warning>
-Importing an API key restores the ID and metadata but not the raw key value — that was only available at creation time.
+Importing an API key restores the ID and metadata but not the raw key value, that was only available at creation time.
 </Warning>
 
 ---
@@ -312,4 +312,4 @@ jobs:
 
 Every permission change ships as a pull request diff. The plan output shows exactly what will change before it's applied. The apply only runs on merge to main.
 
-This means the same controls you use for code changes — required reviewers, branch protection, signed commits — apply to auth config changes too.
+This means the same controls you use for code changes, required reviewers, branch protection, signed commits, apply to auth config changes too.

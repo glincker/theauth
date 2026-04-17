@@ -234,8 +234,8 @@ Federation tokens carry permissions across trust boundaries. Think carefully abo
 
 Two services federating agents:
 
-<Tabs items={["Service A (source)", "Service B (target)"]}>
-<Tab value="Service A (source)">
+<Tabs>
+<Tab title="Service A (source)">
 ```typescript
 import { createFederationModule } from "kavachos/auth";
 import { generateKeyPair, exportJWK } from "jose";
@@ -271,7 +271,7 @@ app.post("/agents/:id/federate", async (req, res) => {
 });
 ```
 </Tab>
-<Tab value="Service B (target)">
+<Tab title="Service B (target)">
 ```typescript
 import { createFederationModule } from "kavachos/auth";
 import { generateKeyPair } from "jose";

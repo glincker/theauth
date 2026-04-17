@@ -4,7 +4,7 @@ description: OAuth 2.0 device flow for CLIs, smart TVs, and input-constrained de
 icon: tv
 ---
 
-The device authorization grant ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)) lets a device that cannot show a browser — a CLI tool, smart TV, game console, or IoT sensor — authenticate by delegating the sign-in step to a secondary device the user already trusts.
+The device authorization grant ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)) lets a device that cannot show a browser, a CLI tool, smart TV, game console, or IoT sensor, authenticate by delegating the sign-in step to a secondary device the user already trusts.
 
 The device displays a short code like `BDFK-RSTV`. The user opens a URL on their phone or laptop, signs in, types the code, and the waiting device gets a session. No credentials ever travel through the constrained device.
 
@@ -113,7 +113,7 @@ const data = await res.json();
 console.log(`Open ${data.verification_uri} and enter: ${data.user_code}`);
 ```
 
-Display `user_code` prominently — this is what the user types. `verification_uri_complete` includes the code as a query parameter, so you can also show a QR code for it.
+Display `user_code` prominently, this is what the user types. `verification_uri_complete` includes the code as a query parameter, so you can also show a QR code for it.
 
 </Step>
 
@@ -179,14 +179,14 @@ The user opens `verification_uri` on their phone or laptop, signs in, and enters
 
 ## User code format
 
-User codes use the format `XXXX-XXXX` — two four-character segments separated by a hyphen. The character set is consonants only (`BCDFGHJKLMNPQRSTVWXZ`), which avoids:
+User codes use the format `XXXX-XXXX`, two four-character segments separated by a hyphen. The character set is consonants only (`BCDFGHJKLMNPQRSTVWXZ`), which avoids:
 
 - Visually ambiguous characters (no `0`/`O`, `1`/`I`, `5`/`S`)
 - Characters that read awkwardly when pronounced aloud
 
 The alphabet and segment length are fixed. The `codeLength` option controls the length of each segment (default: 4).
 
-Input on the approval page is case-insensitive and whitespace-tolerant — `bdfk rstv`, `BDFK-RSTV`, and `BDFKRSTV` all resolve to the same grant.
+Input on the approval page is case-insensitive and whitespace-tolerant, `bdfk rstv`, `BDFK-RSTV`, and `BDFKRSTV` all resolve to the same grant.
 
 ## Polling interval and slow-down
 
@@ -200,7 +200,7 @@ The initial interval is returned by the `/auth/device/code` endpoint (default: 5
 
 | Endpoint | Method | Auth required | Description |
 |----------|--------|--------------|-------------|
-| `/auth/device/code` | `POST` | No | Start a new device flow — returns device code and user code |
+| `/auth/device/code` | `POST` | No | Start a new device flow, returns device code and user code |
 | `/auth/device/token` | `POST` | No | Poll for authorization status |
 | `/auth/device/authorize` | `POST` | Yes | User approves or denies a device code |
 
@@ -211,7 +211,7 @@ The initial interval is returned by the `/auth/device/code` endpoint (default: 5
 | `device_code` | `string` | Opaque code used for polling. Keep this secret on the device |
 | `user_code` | `string` | Short human-readable code shown to the user (e.g. `BDFK-RSTV`) |
 | `verification_uri` | `string` | URL the user visits to approve |
-| `verification_uri_complete` | `string` | Same URL with `user_code` as a query param — useful for QR codes |
+| `verification_uri_complete` | `string` | Same URL with `user_code` as a query param, useful for QR codes |
 | `expires_in` | `number` | Seconds until the codes expire (default: 900) |
 | `interval` | `number` | Minimum seconds between poll requests (default: 5) |
 
@@ -219,10 +219,10 @@ The initial interval is returned by the `/auth/device/code` endpoint (default: 5
 
 | `error` | Meaning |
 |---------|---------|
-| `authorization_pending` | User has not acted yet — keep polling |
-| `slow_down` | Polling too fast — use the new `interval` in the response |
-| `access_denied` | User denied the request — stop polling |
-| `expired_token` | Code has expired — start over with a new code |
+| `authorization_pending` | User has not acted yet, keep polling |
+| `slow_down` | Polling too fast, use the new `interval` in the response |
+| `access_denied` | User denied the request, stop polling |
+| `expired_token` | Code has expired, start over with a new code |
 
 ## Configuration reference
 

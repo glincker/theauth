@@ -12,7 +12,7 @@ icon: "/brand-icons/notion.svg"
 
 ### Create an integration
 
-Go to [Notion Integrations](https://www.notion.so/profile/integrations) and click **New integration**. Set the type to **Public** — this is required for OAuth with external users.
+Go to [Notion Integrations](https://www.notion.so/profile/integrations) and click **New integration**. Set the type to **Public**, this is required for OAuth with external users.
 
 </Step>
 
@@ -91,7 +91,7 @@ Notion does not use granular OAuth scopes. Permissions are configured at the int
 | `avatar` | `owner.user.avatar_url` | May be null if the user has no profile photo |
 
 <Info>
-  Notion returns user identity as part of the token exchange response — there is no separate `/me` endpoint. KavachOS caches the token payload internally so no extra network call is made.
+  Notion returns user identity as part of the token exchange response, there is no separate `/me` endpoint. KavachOS caches the token payload internally so no extra network call is made.
 </Info>
 
 <Warning>

@@ -29,13 +29,13 @@ Pass `mcp` to the adapter to enable all MCP OAuth 2.1 endpoints under the same m
 
 | Package | Framework | Mount pattern |
 |---|---|---|
-| [`@kavachos/hono`](/docs/platform/adapters/hono) | Hono | `app.route('/api/kavach', kavachHono(kavach))` |
-| [`@kavachos/express`](/docs/platform/adapters/express) | Express | `app.use('/api/kavach', kavachExpress(kavach))` |
-| [`@kavachos/nextjs`](/docs/platform/adapters/nextjs) | Next.js App Router | catch-all route `app/api/kavach/[...kavach]/route.ts` |
-| [`@kavachos/fastify`](/docs/platform/adapters/fastify) | Fastify | `app.register(kavachFastify(kavach), { prefix: '/api/kavach' })` |
-| [`@kavachos/nuxt`](/docs/platform/adapters/nuxt) | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` |
-| [`@kavachos/sveltekit`](/docs/platform/adapters/sveltekit) | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` |
-| [`@kavachos/astro`](/docs/platform/adapters/astro) | Astro | catch-all page `src/pages/api/kavach/[...path].ts` |
+| [`@kavachos/hono`](/platform/adapters/hono) | Hono | `app.route('/api/kavach', kavachHono(kavach))` |
+| [`@kavachos/express`](/platform/adapters/express) | Express | `app.use('/api/kavach', kavachExpress(kavach))` |
+| [`@kavachos/nextjs`](/platform/adapters/nextjs) | Next.js App Router | catch-all route `app/api/kavach/[...kavach]/route.ts` |
+| [`@kavachos/fastify`](/platform/adapters/fastify) | Fastify | `app.register(kavachFastify(kavach), { prefix: '/api/kavach' })` |
+| [`@kavachos/nuxt`](/platform/adapters/nuxt) | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` |
+| [`@kavachos/sveltekit`](/platform/adapters/sveltekit) | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` |
+| [`@kavachos/astro`](/platform/adapters/astro) | Astro | catch-all page `src/pages/api/kavach/[...path].ts` |
 
 ## Endpoints registered
 
@@ -97,11 +97,25 @@ async function handler(request: Request): Promise<Response> {
 ## Choose your framework
 
 <CardGroup cols={2}>
-  <Card title="Hono" description="Lightweight, fast, runs everywhere." href="/docs/adapters/hono" />
-  <Card title="Express" description="The most widely used Node.js framework." href="/docs/adapters/express" />
-  <Card title="Next.js" description="App Router with catch-all route handler." href="/docs/adapters/nextjs" />
-  <Card title="Fastify" description="High-performance with plugin architecture." href="/docs/adapters/fastify" />
-  <Card title="Nuxt" description="Vue-based with H3 server routes." href="/docs/adapters/nuxt" />
-  <Card title="SvelteKit" description="Svelte with +server.ts handlers." href="/docs/adapters/sveltekit" />
-  <Card title="Astro" description="Content-focused with API routes." href="/docs/adapters/astro" />
+  <Card title="Hono" href="/adapters/hono">
+  Lightweight, fast, runs everywhere.
+</Card>
+  <Card title="Express" href="/adapters/express">
+  The most widely used Node.js framework.
+</Card>
+  <Card title="Next.js" href="/adapters/nextjs">
+  App Router with catch-all route handler.
+</Card>
+  <Card title="Fastify" href="/adapters/fastify">
+  High-performance with plugin architecture.
+</Card>
+  <Card title="Nuxt" href="/adapters/nuxt">
+  Vue-based with H3 server routes.
+</Card>
+  <Card title="SvelteKit" href="/adapters/sveltekit">
+  Svelte with +server.ts handlers.
+</Card>
+  <Card title="Astro" href="/adapters/astro">
+  Content-focused with API routes.
+</Card>
 </CardGroup>

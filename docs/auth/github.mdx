@@ -25,7 +25,7 @@ Go to [github.com/settings/applications/new](https://github.com/settings/applica
 
 ### Copy credentials
 
-After creating the app, copy the **Client ID**. Click **Generate a new client secret** and copy the secret immediately — GitHub only shows it once.
+After creating the app, copy the **Client ID**. Click **Generate a new client secret** and copy the secret immediately. GitHub only shows it once.
 
 </Step>
 
@@ -37,8 +37,8 @@ After creating the app, copy the **Client ID**. Click **Generate a new client se
 
 ## Configuration
 
-<Tabs items={['Basic', 'With extra scopes']}>
-  <Tab value="Basic">
+<Tabs>
+  <Tab title="Basic">
     ```typescript title="lib/kavach.ts"
     import { createKavach } from 'kavachos';
     import { oauth } from 'kavachos/auth';
@@ -61,7 +61,7 @@ After creating the app, copy the **Client ID**. Click **Generate a new client se
     });
     ```
   </Tab>
-  <Tab value="With extra scopes">
+  <Tab title="With extra scopes">
     ```typescript title="lib/kavach.ts"
     oauth({
       providers: [

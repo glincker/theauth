@@ -5,7 +5,7 @@ icon: key
 ---
 
 
-One-time tokens are short-lived, single-use strings for flows like email verification, password resets, and invitations. The raw token is handed to the caller once and never stored — only a SHA-256 hash lives in the database. On first use (or expiry), the token is gone.
+One-time tokens are short-lived, single-use strings for flows like email verification, password resets, and invitations. The raw token is handed to the caller once and never stored, only a SHA-256 hash lives in the database. On first use (or expiry), the token is gone.
 
 ## Setup
 
@@ -37,10 +37,10 @@ Each token has a `purpose` that scopes its validity. Validation fails if the pur
 
 ## Creating a token
 
-`createToken` returns the raw token exactly once. Put it in a link or hand it to your mailer — there is no way to recover it from the database later.
+`createToken` returns the raw token exactly once. Put it in a link or hand it to your mailer, there is no way to recover it from the database later.
 
-<Tabs items={['password reset', 'email verify', 'invitation']}>
-  <Tab value="password reset">
+<Tabs>
+  <Tab title="password reset">
 ```typescript
 const result = await tokens.createToken({
   purpose: 'password-reset',
@@ -58,7 +58,7 @@ if (result.success) {
 }
 ```
   </Tab>
-  <Tab value="email verify">
+  <Tab title="email verify">
 ```typescript
 const result = await tokens.createToken({
   purpose: 'email-verify',
@@ -71,7 +71,7 @@ if (result.success) {
 }
 ```
   </Tab>
-  <Tab value="invitation">
+  <Tab title="invitation">
 ```typescript
 const result = await tokens.createToken({
   purpose: 'invitation',
@@ -87,7 +87,7 @@ The default TTL is **3600 seconds** (1 hour). Override it per call with `ttlSeco
 
 ## Validating a token
 
-Call `validateToken` when the user lands on your reset or verification page. On success, the token is consumed immediately — a second call with the same token always fails.
+Call `validateToken` when the user lands on your reset or verification page. On success, the token is consumed immediately, a second call with the same token always fails.
 
 ```typescript
 const result = await tokens.validateToken(
@@ -112,7 +112,7 @@ const { identifier, metadata } = result.data;
 
 ## Revoking tokens
 
-Revoke all active tokens for an identifier when a user takes an action that makes them obsolete — for example, invalidating outstanding reset links when a user changes their password through a different flow.
+Revoke all active tokens for an identifier when a user takes an action that makes them obsolete, for example, invalidating outstanding reset links when a user changes their password through a different flow.
 
 ```typescript
 // Revoke all active password-reset tokens for this user
@@ -126,7 +126,7 @@ if (result.success) {
 await tokens.revokeTokens(user.id);
 ```
 
-Revocation is a soft operation — tokens are marked as used, not deleted. Expired tokens are excluded from the count.
+Revocation is a soft operation, tokens are marked as used, not deleted. Expired tokens are excluded from the count.
 
 ## Attaching metadata
 

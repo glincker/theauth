@@ -5,10 +5,10 @@ icon: table-columns
 ---
 
 
-`@kavachos/ui` provides drop-in React components for auth flows. Each component renders inside `KavachProvider` from `@kavachos/react` and wires up to your KavachOS API route automatically — no manual fetch calls required.
+`@kavachos/ui` provides drop-in React components for auth flows. Each component renders inside `KavachProvider` from `@kavachos/react` and wires up to your KavachOS API route automatically, no manual fetch calls required.
 
 <Info>
-  Components require `@kavachos/react` to be installed and a `KavachProvider` wrapping your app. See the [React hooks](/docs/react) page for provider setup.
+  Components require `@kavachos/react` to be installed and a `KavachProvider` wrapping your app. See the [React hooks](/react) page for provider setup.
 </Info>
 
 ## Installation
@@ -224,7 +224,13 @@ export function SignInPage() {
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="React hooks" description="useSession, useUser, useSignIn, and more." href="/docs/react" />
-  <Card title="Adapters" description="Mount the KavachOS handler in Next.js, Express, Hono, and others." href="/docs/adapters" />
-  <Card title="Auth" description="Configure email/password, magic links, OAuth, and 2FA." href="/docs/auth" />
+  <Card title="React hooks" href="/react">
+  useSession, useUser, useSignIn, and more.
+</Card>
+  <Card title="Adapters" href="/adapters">
+  Mount the KavachOS handler in Next.js, Express, Hono, and others.
+</Card>
+  <Card title="Auth" href="/auth">
+  Configure email/password, magic links, OAuth, and 2FA.
+</Card>
 </CardGroup>

@@ -40,8 +40,8 @@ When `KAVACHOS_DASHBOARD_SECRET` is set, the dashboard shows a password prompt b
 
 ## Installation
 
-<Tabs items={['Embedded React', 'Standalone CLI']}>
-  <Tab value="Embedded React">
+<Tabs>
+  <Tab title="Embedded React">
     Install the package:
 
     ```bash
@@ -74,8 +74,8 @@ When `KAVACHOS_DASHBOARD_SECRET` is set, the dashboard shows a password prompt b
 
     The dashboard talks to your backend, which forwards requests to KavachOS. This keeps database credentials server-side.
 
-    <Tabs items={['Next.js', 'Hono', 'Express']}>
-      <Tab value="Next.js">
+    <Tabs>
+      <Tab title="Next.js">
         ```typescript
         // app/api/kavach/[...path]/route.ts
         import { createKavach } from 'kavachos';
@@ -92,7 +92,7 @@ When `KAVACHOS_DASHBOARD_SECRET` is set, the dashboard shows a password prompt b
         export const PATCH = handler;
         ```
       </Tab>
-      <Tab value="Hono">
+      <Tab title="Hono">
         ```typescript
         import { Hono } from 'hono';
         import { createKavach } from 'kavachos';
@@ -106,7 +106,7 @@ When `KAVACHOS_DASHBOARD_SECRET` is set, the dashboard shows a password prompt b
         app.route('/api/kavach', kavachHono(kavach));
         ```
       </Tab>
-      <Tab value="Express">
+      <Tab title="Express">
         ```typescript
         import express from 'express';
         import { createKavach } from 'kavachos';
@@ -145,7 +145,7 @@ When `KAVACHOS_DASHBOARD_SECRET` is set, the dashboard shows a password prompt b
     </Warning>
   </Tab>
 
-  <Tab value="Standalone CLI">
+  <Tab title="Standalone CLI">
     Run the dashboard without writing any frontend code:
 
     ```bash

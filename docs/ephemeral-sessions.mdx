@@ -6,7 +6,7 @@ icon: stopwatch
 
 ## What ephemeral sessions are
 
-An ephemeral session is a temporary agent identity that expires on its own. You create one, hand the token to an AI agent, and the token stops working when the TTL runs out or the agent exhausts its action budget — whichever comes first.
+An ephemeral session is a temporary agent identity that expires on its own. You create one, hand the token to an AI agent, and the token stops working when the TTL runs out or the agent exhausts its action budget, whichever comes first.
 
 The pattern is designed for computer-use agents (Claude computer use, GPT browsing, operator loops) that need just enough access to complete one task without holding persistent credentials across invocations.
 
@@ -22,7 +22,7 @@ Key differences from a regular agent:
 
 ## Setup
 
-No extra configuration is needed — ephemeral sessions are part of the `kavachos` core package and share the same database as the rest of KavachOS.
+No extra configuration is needed, ephemeral sessions are part of the `kavachos` core package and share the same database as the rest of KavachOS.
 
 ```typescript
 import { createKavach } from 'kavachos';
@@ -102,7 +102,7 @@ When `actionsRemaining` hits zero, the session transitions to `exhausted` and th
 
 ## Action limits
 
-`maxActions` is a hard cap on how many times `consumeAction` can succeed. It is independent of the TTL — a session can expire by time with actions remaining, or exhaust its action budget before the TTL lapses.
+`maxActions` is a hard cap on how many times `consumeAction` can succeed. It is independent of the TTL, a session can expire by time with actions remaining, or exhaust its action budget before the TTL lapses.
 
 Set a tight budget for tasks with a well-known scope and leave it as `null` for tasks where the step count is unpredictable.
 
@@ -124,7 +124,7 @@ If the agent completes the task before the TTL expires, revoke the session manua
 await ephemeral.revokeSession(sessionId);
 ```
 
-Revocation is idempotent — calling it on an already-revoked session returns success.
+Revocation is idempotent, calling it on an already-revoked session returns success.
 
 ## Listing active sessions
 
@@ -140,7 +140,7 @@ if (result.success) {
 }
 ```
 
-The returned objects have `token` set to `""` — the token is never readable after the initial `createSession` response.
+The returned objects have `token` set to `""`, the token is never readable after the initial `createSession` response.
 
 ## Cleanup strategies
 
@@ -148,7 +148,7 @@ Two approaches to cleaning up expired sessions:
 
 ### Scheduled background job
 
-Run `cleanupExpired()` on a cron schedule — every minute for busy systems, every 5 minutes for lighter loads.
+Run `cleanupExpired()` on a cron schedule, every minute for busy systems, every 5 minutes for lighter loads.
 
 ```typescript
 // With node:timers/promises or any scheduler
@@ -162,7 +162,7 @@ setInterval(async () => {
 
 ### On-demand at validate time
 
-`validateSession` already detects and transitions expired sessions. For low-traffic systems, this is enough — no background job needed.
+`validateSession` already detects and transitions expired sessions. For low-traffic systems, this is enough, no background job needed.
 
 ## Audit grouping
 

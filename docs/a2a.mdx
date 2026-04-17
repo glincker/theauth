@@ -119,7 +119,7 @@ const server = createA2AServer({
 
 <ParamField path="agentCard" type="A2AAgentCard">The Agent Card that describes this agent. Served at /.well-known/agent.json.</ParamField>
 <ParamField path="handler" type="A2ATaskHandler">Callbacks for handling incoming messages, cancellations, and streaming.</ParamField>
-<ParamField path="authenticate" type="(request: Request) => Promise<string | null>">Validates the caller. Return an agent/user ID or null to reject. Optional — omit to allow unauthenticated calls.</ParamField>
+<ParamField path="authenticate" type="(request: Request) => Promise<string | null>">Validates the caller. Return an agent/user ID or null to reject. Optional, omit to allow unauthenticated calls.</ParamField>
 <ParamField path="onAudit" type="(event: A2AAuditEvent) => Promise<void>">Called after each A2A interaction for audit logging.</ParamField>
 <ParamField path="taskStore" type="A2ATaskStore">Custom task persistence. Defaults to an in-memory Map.</ParamField>
 
@@ -236,8 +236,8 @@ const canceled = await client.cancelTask({ id: 'task-123' });
 
 KavachOS supports all A2A security schemes. You declare them in the Agent Card and enforce them in the server's `authenticate` callback.
 
-<Tabs items={['Bearer token', 'API key', 'OAuth 2.0']}>
-  <Tab value="Bearer token">
+<Tabs>
+  <Tab title="Bearer token">
     ```typescript
     const card = createAgentCard({
       // ...
@@ -260,7 +260,7 @@ KavachOS supports all A2A security schemes. You declare them in the Agent Card a
     ```
   </Tab>
 
-  <Tab value="API key">
+  <Tab title="API key">
     ```typescript
     const card = createAgentCard({
       // ...
@@ -282,7 +282,7 @@ KavachOS supports all A2A security schemes. You declare them in the Agent Card a
     ```
   </Tab>
 
-  <Tab value="OAuth 2.0">
+  <Tab title="OAuth 2.0">
     ```typescript
     const card = createAgentCard({
       // ...

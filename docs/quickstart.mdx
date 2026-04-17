@@ -13,18 +13,18 @@ icon: rocket
 
 ### Install
 
-<Tabs items={['pnpm', 'npm', 'yarn']}>
-  <Tab value="pnpm">
+<Tabs>
+  <Tab title="pnpm">
     ```bash title="terminal"
     pnpm add kavachos
     ```
   </Tab>
-  <Tab value="npm">
+  <Tab title="npm">
     ```bash title="terminal"
     npm install kavachos
     ```
   </Tab>
-  <Tab value="yarn">
+  <Tab title="yarn">
     ```bash title="terminal"
     yarn add kavachos
     ```
@@ -95,7 +95,7 @@ console.log(agent.token);
 ```
 
 <Warning>
-The token is shown exactly once, at creation time. Store it immediately in your secrets manager or pass it directly to the agent. It cannot be recovered after this point — only rotated.
+The token is shown exactly once, at creation time. Store it immediately in your secrets manager or pass it directly to the agent. It cannot be recovered after this point, only rotated.
 </Warning>
 
 There are three agent types:
@@ -336,10 +336,22 @@ The React hooks store sessions in `localStorage`. Make sure your app is wrapped 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Permission engine" description="Wildcards, rate limits, time windows, IP allowlists, and approval gates." href="/docs/permissions" />
-  <Card title="Delegation chains" description="Sub-agent delegation with depth limits and cascading revocation." href="/docs/delegation" />
-  <Card title="MCP OAuth 2.1" description="Set up the authorization server for MCP tool servers." href="/docs/mcp" />
-  <Card title="Framework adapters" description="Drop-in middleware for Hono, Express, Next.js, and 4 more." href="/docs/adapters" />
-  <Card title="Auth adapters" description="Plug into better-auth, Auth.js, Clerk, or bring your own." href="/docs/auth-adapters" />
-  <Card title="Configuration" description="All createKavach() options and environment patterns." href="/docs/configuration" />
+  <Card title="Permission engine" href="/permissions">
+  Wildcards, rate limits, time windows, IP allowlists, and approval gates.
+</Card>
+  <Card title="Delegation chains" href="/delegation">
+  Sub-agent delegation with depth limits and cascading revocation.
+</Card>
+  <Card title="MCP OAuth 2.1" href="/mcp">
+  Set up the authorization server for MCP tool servers.
+</Card>
+  <Card title="Framework adapters" href="/adapters">
+  Drop-in middleware for Hono, Express, Next.js, and 4 more.
+</Card>
+  <Card title="Auth adapters" href="/auth-adapters">
+  Plug into better-auth, Auth.js, Clerk, or bring your own.
+</Card>
+  <Card title="Configuration" href="/configuration">
+  All createKavach() options and environment patterns.
+</Card>
 </CardGroup>

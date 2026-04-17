@@ -47,7 +47,7 @@ The response shape is the same as any other sign-in. `user.isAnonymous` is `true
 
 `POST /auth/anonymous/upgrade`
 
-Requires an active anonymous session. Converts the guest to a permanent user. The session stays active — the user ID does not change.
+Requires an active anonymous session. Converts the guest to a permanent user. The session stays active, the user ID does not change.
 
 ```typescript title="Upgrade guest (client)"
 const res = await fetch('/auth/anonymous/upgrade', {

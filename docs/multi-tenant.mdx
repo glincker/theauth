@@ -120,7 +120,7 @@ await kavach.tenant.activate(tenant.id);
 
 ## Budget policies per tenant
 
-Attach a budget policy to a tenant to apply spending limits across all agents in it. See [Budget policies](/docs/guides/budget-policies) for the full policy reference.
+Attach a budget policy to a tenant to apply spending limits across all agents in it. See [Budget policies](/guides/budget-policies) for the full policy reference.
 
 ```typescript
 await kavach.policy.create({
@@ -136,7 +136,13 @@ await kavach.policy.create({
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Budget policies" description="Apply cost limits at the tenant, agent, or user level." href="/docs/budget-policies" />
-  <Card title="Agent identity" description="Create agents scoped to a tenant." href="/docs/agents" />
-  <Card title="Audit log" description="Filter the audit trail by tenant." href="/docs/audit" />
+  <Card title="Budget policies" href="/budget-policies">
+  Apply cost limits at the tenant, agent, or user level.
+</Card>
+  <Card title="Agent identity" href="/agents">
+  Create agents scoped to a tenant.
+</Card>
+  <Card title="Audit log" href="/audit">
+  Filter the audit trail by tenant.
+</Card>
 </CardGroup>

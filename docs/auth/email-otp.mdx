@@ -72,7 +72,7 @@ await fetch('/auth/email-otp/send', {
 });
 ```
 
-The response is always `200` to prevent email enumeration. Codes are rate-limited to one per minute per email address — requests within the window return `429`. Build a countdown timer into your UI.
+The response is always `200` to prevent email enumeration. Codes are rate-limited to one per minute per email address, requests within the window return `429`. Build a countdown timer into your UI.
 
 ## Verify a code
 

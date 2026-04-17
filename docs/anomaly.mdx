@@ -7,7 +7,7 @@ icon: triangle-exclamation
 
 ## What anomaly detection does
 
-KavachOS scans the audit log for behavioral patterns that suggest an agent is operating outside its intended scope. The most common signal is a cluster of denied calls that match privilege escalation patterns — an agent repeatedly attempting to access resources it was never granted.
+KavachOS scans the audit log for behavioral patterns that suggest an agent is operating outside its intended scope. The most common signal is a cluster of denied calls that match privilege escalation patterns, an agent repeatedly attempting to access resources it was never granted.
 
 Anomaly detection is not a background process. You call `scan()` and get back a list of findings at that point in time. This keeps the system predictable: there are no background threads, no persistent state, and no surprise side effects.
 
@@ -22,7 +22,7 @@ Anomaly detection is not a background process. You call `scan()` and get back a 
 | `off_hours_activity` | info | Calls outside the agent's declared `timeWindow` constraint, if one is set. |
 
 <Info>
-  `scan()` queries audit logs directly — it is not a background process and does not push alerts. Call it from a scheduled job, a webhook handler, or a dashboard endpoint.
+  `scan()` queries audit logs directly, it is not a background process and does not push alerts. Call it from a scheduled job, a webhook handler, or a dashboard endpoint.
 </Info>
 
 ## Anomaly fields
@@ -136,7 +136,13 @@ if (score.factors.anomalyCount > 0) {
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Trust scoring" description="Translate anomaly counts into a graduated trust level." href="/docs/trust" />
-  <Card title="Approval flows" description="Route flagged agents through human review before they act." href="/docs/approval" />
-  <Card title="Audit trail" description="Query the raw log data that anomaly detection reads." href="/docs/audit" />
+  <Card title="Trust scoring" href="/trust">
+  Translate anomaly counts into a graduated trust level.
+</Card>
+  <Card title="Approval flows" href="/approval">
+  Route flagged agents through human review before they act.
+</Card>
+  <Card title="Audit trail" href="/audit">
+  Query the raw log data that anomaly detection reads.
+</Card>
 </CardGroup>

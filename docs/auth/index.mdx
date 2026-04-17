@@ -4,33 +4,59 @@ description: Human sign-in methods and OAuth providers for KavachOS.
 icon: key
 ---
 
-KavachOS supports multiple authentication methods for the humans who own and manage agents. Each method is a plugin you opt into — use only what your app needs.
+KavachOS supports multiple authentication methods for the humans who own and manage agents. Each method is a plugin you opt into, use only what your app needs.
 
 <Info>
-  If you already have Clerk, Auth.js, or better-auth managing sign-in, skip plugins entirely and use an [auth adapter](/docs/guides/auth-adapters) instead.
+  If you already have Clerk, Auth.js, or better-auth managing sign-in, skip plugins entirely and use an [auth adapter](/guides/auth-adapters) instead.
 </Info>
 
 ## Auth methods
 
 <CardGroup cols={2}>
-  <Card title="Email and password" description="Register, sign in, password reset, and email verification with argon2id hashing." href="/docs/auth/methods/email-password" />
-  <Card title="Magic link" description="Passwordless sign-in: send a one-time link to the user's email." href="/docs/auth/methods/magic-link" />
-  <Card title="Email OTP" description="Six-digit one-time codes delivered via email." href="/docs/auth/methods/email-otp" />
-  <Card title="Passkey" description="WebAuthn/FIDO2 biometric and hardware key sign-in." href="/docs/auth/methods/passkey" />
-  <Card title="Two-factor auth" description="TOTP authenticator app support with backup codes." href="/docs/auth/methods/two-factor" />
+  <Card title="Email and password" href="/auth/methods/email-password">
+  Register, sign in, password reset, and email verification with argon2id hashing.
+</Card>
+  <Card title="Magic link" href="/auth/methods/magic-link">
+  Passwordless sign-in: send a one-time link to the user's email.
+</Card>
+  <Card title="Email OTP" href="/auth/methods/email-otp">
+  Six-digit one-time codes delivered via email.
+</Card>
+  <Card title="Passkey" href="/auth/methods/passkey">
+  WebAuthn/FIDO2 biometric and hardware key sign-in.
+</Card>
+  <Card title="Two-factor auth" href="/auth/methods/two-factor">
+  TOTP authenticator app support with backup codes.
+</Card>
 </CardGroup>
 
 ## OAuth providers
 
 <CardGroup cols={2}>
-  <Card title="Google" description="Sign in with Google accounts via OAuth 2.0." href="/docs/auth/providers/google" />
-  <Card title="GitHub" description="Sign in with GitHub using user:email scope." href="/docs/auth/providers/github" />
-  <Card title="Apple" description="Sign in with Apple ID." href="/docs/auth/providers/apple" />
-  <Card title="Discord" description="Sign in with Discord accounts." href="/docs/auth/providers/discord" />
-  <Card title="Slack" description="Sign in with Slack workspace accounts." href="/docs/auth/providers/slack" />
-  <Card title="Microsoft" description="Sign in with Microsoft / Azure AD accounts." href="/docs/auth/providers/microsoft" />
-  <Card title="GitLab" description="Sign in with GitLab accounts (cloud or self-hosted)." href="/docs/auth/providers/gitlab" />
-  <Card title="LinkedIn" description="Sign in with LinkedIn professional accounts." href="/docs/auth/providers/linkedin" />
+  <Card title="Google" href="/auth/providers/google">
+  Sign in with Google accounts via OAuth 2.0.
+</Card>
+  <Card title="GitHub" href="/auth/providers/github">
+  Sign in with GitHub using user:email scope.
+</Card>
+  <Card title="Apple" href="/auth/providers/apple">
+  Sign in with Apple ID.
+</Card>
+  <Card title="Discord" href="/auth/providers/discord">
+  Sign in with Discord accounts.
+</Card>
+  <Card title="Slack" href="/auth/providers/slack">
+  Sign in with Slack workspace accounts.
+</Card>
+  <Card title="Microsoft" href="/auth/providers/microsoft">
+  Sign in with Microsoft / Azure AD accounts.
+</Card>
+  <Card title="GitLab" href="/auth/providers/gitlab">
+  Sign in with GitLab accounts (cloud or self-hosted).
+</Card>
+  <Card title="LinkedIn" href="/auth/providers/linkedin">
+  Sign in with LinkedIn professional accounts.
+</Card>
 </CardGroup>
 
 ## How plugins work

@@ -7,7 +7,7 @@ icon: tower-broadcast
 
 ## What event streaming is
 
-Event streaming gives you a persistent, real-time connection to KavachOS events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). The moment an agent is revoked, a budget is exceeded, or an anomaly is detected, connected clients receive the event — no polling required.
+Event streaming gives you a persistent, real-time connection to KavachOS events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). The moment an agent is revoked, a budget is exceeded, or an anomaly is detected, connected clients receive the event, no polling required.
 
 Events are also persisted to the database so you can replay anything you missed.
 
@@ -23,7 +23,7 @@ Both webhooks and SSE carry the same events, but they serve different use cases.
 | Missed events | Retried up to 3 times, then dropped | Replay via `since` cursor |
 | Best for | Backend integrations, data pipelines | Dashboards, SOC tooling, live monitoring |
 
-Use webhooks when you need durable delivery to an external service. Use event streaming when you need a live view — a security dashboard, an admin feed, or a CI script watching for `anomaly.detected`.
+Use webhooks when you need durable delivery to an external service. Use event streaming when you need a live view, a security dashboard, an admin feed, or a CI script watching for `anomaly.detected`.
 
 ## Setup
 
@@ -237,7 +237,7 @@ The stream rejects connections beyond `maxConnections` with a `503 Too many conn
 
 ## Heartbeat
 
-The server sends `: heartbeat` comments on the configured interval (default 30 seconds) to keep load balancers and proxies from closing idle connections. No action is required on the client side — `EventSource` ignores comment lines.
+The server sends `: heartbeat` comments on the configured interval (default 30 seconds) to keep load balancers and proxies from closing idle connections. No action is required on the client side, `EventSource` ignores comment lines.
 
 ## Emitting events from plugins
 
@@ -257,7 +257,7 @@ stream.emit({
 });
 ```
 
-Integrate with the [webhooks](/docs/webhooks) module to fire both a webhook and a stream event from the same action.
+Integrate with the [webhooks](/webhooks) module to fire both a webhook and a stream event from the same action.
 
 ## Module API
 

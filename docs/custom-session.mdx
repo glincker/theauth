@@ -8,7 +8,7 @@ The `customSession` plugin lets you store application-specific data inside every
 
 ## Install
 
-The plugin ships inside `kavachos/auth` — no extra packages needed.
+The plugin ships inside `kavachos/auth`, no extra packages needed.
 
 ## Setup
 
@@ -56,7 +56,7 @@ await mod.updateSessionFields(session.id, { beta: true, lastPage: '/dashboard' }
 
 ## Hook behaviour
 
-`onSessionCreate` fires inside the plugin runner's `onSessionCreate` hook — the same lifecycle point used by other plugins. The returned fields are merged into `session.metadata.custom`. If both `defaultFields` and the callback define the same key, the callback wins.
+`onSessionCreate` fires inside the plugin runner's `onSessionCreate` hook, the same lifecycle point used by other plugins. The returned fields are merged into `session.metadata.custom`. If both `defaultFields` and the callback define the same key, the callback wins.
 
 ## REST endpoints
 

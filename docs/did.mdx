@@ -26,8 +26,8 @@ KavachOS supports two W3C DID methods:
 
 ## Generate a DID for an agent
 
-<Tabs items={['did:key', 'did:web']}>
-<Tab value="did:key">
+<Tabs>
+<Tab title="did:key">
 
 ```typescript
 const { agentDid, privateKeyJwk } = await kavach.did.generateKey(agent.id);
@@ -39,7 +39,7 @@ console.log(agentDid.did);
 ```
 
 </Tab>
-<Tab value="did:web">
+<Tab title="did:web">
 
 Configure your domain first:
 

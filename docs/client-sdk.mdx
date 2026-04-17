@@ -10,7 +10,7 @@ icon: code
 `@kavachos/client` is a typed HTTP client for the KavachOS REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
 
 <Info>
-  Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun — anywhere the Fetch API is available.
+  Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun, anywhere the Fetch API is available.
 </Info>
 
 ## Installation
@@ -192,7 +192,13 @@ const found = await client.mcp.get(server.id);
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Agent identity" description="Understand the agent model before building integrations." href="/docs/agents" />
-  <Card title="Audit log" description="Querying and exporting the audit trail." href="/docs/audit" />
-  <Card title="Delegation chains" description="How delegated permissions work." href="/docs/delegation" />
+  <Card title="Agent identity" href="/agents">
+  Understand the agent model before building integrations.
+</Card>
+  <Card title="Audit log" href="/audit">
+  Querying and exporting the audit trail.
+</Card>
+  <Card title="Delegation chains" href="/delegation">
+  How delegated permissions work.
+</Card>
 </CardGroup>

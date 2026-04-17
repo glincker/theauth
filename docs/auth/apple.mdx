@@ -34,7 +34,7 @@ The Services ID is your OAuth `client_id` for web and non-iOS flows.
 3. Enable **Sign In with Apple**.
 4. Click **Configure** next to Sign In with Apple:
    - Set your **Primary App ID** to the one you just created.
-   - Add your **domain** (e.g. `auth.example.com` — no trailing slash, no protocol).
+   - Add your **domain** (e.g. `auth.example.com`, no trailing slash, no protocol).
    - Add your **Return URL** (e.g. `https://auth.example.com/auth/oauth/apple/callback`).
 5. Save and register.
 
@@ -47,7 +47,7 @@ The Services ID is your OAuth `client_id` for web and non-iOS flows.
 1. Under **Keys**, click **+**.
 2. Name the key and enable **Sign In with Apple**.
 3. Click **Configure** and select your Primary App ID.
-4. Download the `.p8` key file — **you can only download it once**.
+4. Download the `.p8` key file, **you can only download it once**.
 5. Note your **Key ID** and **Team ID** (visible at the top right of the developer portal).
 
 </Step>
@@ -129,7 +129,7 @@ Only `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET` are needed at runtime. The Team
 ## iOS native apps
 
 <Info>
-  On iOS, use the **App ID** (bundle identifier, e.g. `com.example.app`) as `clientId` — not the Services ID. The Services ID is for web only. Pass `appBundleIdentifier` in the provider config alongside `clientId` if your backend handles both flows.
+  On iOS, use the **App ID** (bundle identifier, e.g. `com.example.app`) as `clientId`, not the Services ID. The Services ID is for web only. Pass `appBundleIdentifier` in the provider config alongside `clientId` if your backend handles both flows.
 </Info>
 
 The native Sign In with Apple flow does not go through a browser redirect. Apple's SDK returns an authorization code and a `user` object directly in the app. Forward both to your server and exchange the code for a session using the same `/auth/oauth/apple` endpoint.
@@ -138,9 +138,9 @@ The native Sign In with Apple flow does not go through a browser redirect. Apple
 
 Apple requires HTTPS for redirect URIs. `localhost` will not work. Options:
 
-- **[ngrok](https://ngrok.com/)** — `ngrok http 3000` gives you a public HTTPS URL instantly.
-- **[cloudflared tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/)** — persistent tunnel with a stable subdomain.
-- **mkcert + local proxy** — run a local HTTPS reverse proxy with a self-signed cert trusted by your browser.
+- **[ngrok](https://ngrok.com/)**, `ngrok http 3000` gives you a public HTTPS URL instantly.
+- **[cloudflared tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/)**, persistent tunnel with a stable subdomain.
+- **mkcert + local proxy**, run a local HTTPS reverse proxy with a self-signed cert trusted by your browser.
 
 Update both your Apple Services ID redirect URI and your `baseUrl` config to match the tunnel URL while developing.
 
@@ -150,9 +150,9 @@ Apple embeds user claims in the `id_token` JWT returned from the token endpoint.
 
 | Field | Notes |
 |-------|-------|
-| `id` | Stable Apple user identifier — a 24-character opaque string |
+| `id` | Stable Apple user identifier, a 24-character opaque string |
 | `email` | May be a private relay address (`random@privaterelay.appleid.com`) if the user chose to hide their email |
-| `name` | Only available on the first authorization — store it on your side immediately |
+| `name` | Only available on the first authorization, store it on your side immediately |
 
 <Warning>
   Apple returns `name` only once, on the very first sign-in, via a `user` form-post field alongside the authorization code. On every subsequent sign-in the field is absent. KavachOS stores it after first auth, but make sure your `onUserCreated` hook persists it before returning.

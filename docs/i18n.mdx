@@ -100,17 +100,17 @@ Custom locales merge with the built-in keys. Any key you do not supply falls bac
 
 | Key | Variables | Description |
 |-----|-----------|-------------|
-| `auth.invalidCredentials` | — | Wrong email or password |
+| `auth.invalidCredentials` |, | Wrong email or password |
 | `auth.rateLimited` | `retryAfter` | Too many login attempts |
-| `auth.sessionExpired` | — | Session has expired |
-| `auth.unauthorized` | — | Request is not authenticated |
-| `auth.forbidden` | — | Authenticated but lacks permission |
-| `auth.emailNotVerified` | — | Email address not yet verified |
-| `auth.otpInvalid` | — | OTP code is incorrect or expired |
+| `auth.sessionExpired` |, | Session has expired |
+| `auth.unauthorized` |, | Request is not authenticated |
+| `auth.forbidden` |, | Authenticated but lacks permission |
+| `auth.emailNotVerified` |, | Email address not yet verified |
+| `auth.otpInvalid` |, | OTP code is incorrect or expired |
 | `agent.notFound` | `agentId` | Agent ID does not exist |
 | `agent.revoked` | `agentId` | Agent has been revoked |
-| `delegation.expired` | — | Delegation grant has expired |
-| `errors.internal` | — | Unexpected server error |
+| `delegation.expired` |, | Delegation grant has expired |
+| `errors.internal` |, | Unexpected server error |
 | `email.verification.subject` | `appName` | Email verification subject line |
 | `email.passwordReset.subject` | `appName` | Password reset subject line |
 | `email.magicLink.subject` | `appName` | Magic link subject line |
@@ -121,6 +121,10 @@ Custom locales merge with the built-in keys. Any key you do not supply falls bac
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Email templates" description="Built-in HTML templates for every auth flow." href="/docs/email-templates" />
-  <Card title="Error reference" description="Full list of KavachOS error codes." href="/docs/errors" />
+  <Card title="Email templates" href="/email-templates">
+  Built-in HTML templates for every auth flow.
+</Card>
+  <Card title="Error reference" href="/errors">
+  Full list of KavachOS error codes.
+</Card>
 </CardGroup>

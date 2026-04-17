@@ -85,7 +85,7 @@ Events are returned newest first. The optional `limit` parameter overrides the m
 
 ## Result type
 
-All methods return `Result<T>` — either `{ success: true; data: T }` or `{ success: false; error: KavachError }`. No exceptions are thrown.
+All methods return `Result<T>`, either `{ success: true; data: T }` or `{ success: false; error: KavachError }`. No exceptions are thrown.
 
 ```ts
 const result = await loginHistory.getLastLogin(userId);

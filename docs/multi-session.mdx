@@ -4,7 +4,7 @@ description: Let users hold multiple active sessions and manage them from an acc
 icon: key
 ---
 
-By default, KavachOS allows unlimited concurrent sessions per user. The multi-session module adds a cap, a configurable overflow strategy, and endpoints for listing and revoking sessions — useful for building an "active devices" settings page.
+By default, KavachOS allows unlimited concurrent sessions per user. The multi-session module adds a cap, a configurable overflow strategy, and endpoints for listing and revoking sessions, useful for building an "active devices" settings page.
 
 ## Setup
 
@@ -30,7 +30,7 @@ const kavach = await createKavach({
 | Strategy | Behavior |
 |----------|----------|
 | `evict-oldest` | Deletes the least-recently-used session when the cap is reached |
-| `reject` | Returns `429` with code `SESSION_LIMIT_REACHED` — new sign-in fails |
+| `reject` | Returns `429` with code `SESSION_LIMIT_REACHED`, new sign-in fails |
 
 ## List sessions
 
@@ -67,7 +67,7 @@ const { sessions } = await res.json();
 }
 ```
 
-Device information is parsed from the `User-Agent` header at sign-in time. IP addresses are stored as-is — apply your own masking if required.
+Device information is parsed from the `User-Agent` header at sign-in time. IP addresses are stored as-is, apply your own masking if required.
 
 ## Revoke a session
 

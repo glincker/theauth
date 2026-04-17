@@ -7,14 +7,14 @@ icon: user-check
 
 ## What approval flows solve
 
-Some agent actions are too sensitive to run without a human saying yes first. File deletions, financial transfers, permission escalations — these benefit from a checkpoint before execution.
+Some agent actions are too sensitive to run without a human saying yes first. File deletions, financial transfers, permission escalations, these benefit from a checkpoint before execution.
 
 KavachOS supports this with a permission constraint called `requireApproval`. When the permission engine sees it, authorization is denied with the reason `"This action requires human approval before execution"`. Your application catches that signal, creates an approval request, notifies a human, and retries the action after a response comes back.
 
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
 <Info>
-  KavachOS creates the approval request and persists it. Delivering the notification to the human — email, Slack, push notification — is your application's job. Use `webhookUrl` or `onApprovalNeeded` to hook into your existing notification stack.
+  KavachOS creates the approval request and persists it. Delivering the notification to the human, email, Slack, push notification, is your application's job. Use `webhookUrl` or `onApprovalNeeded` to hook into your existing notification stack.
 </Info>
 
 ## How the flow works
@@ -111,7 +111,7 @@ When `webhookUrl` is set, KavachOS sends a `POST` to that URL with a JSON body:
 }
 ```
 
-Webhook delivery failures are non-fatal. The request is already persisted — your app can poll `listPending()` as a fallback.
+Webhook delivery failures are non-fatal. The request is already persisted, your app can poll `listPending()` as a fallback.
 
 ## Code examples
 
@@ -212,7 +212,13 @@ if (request?.status === 'approved') {
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Permissions" description="Add requireApproval constraints to individual permissions." href="/docs/permissions" />
-  <Card title="Trust scoring" description="Use trust levels to decide which agents need approval." href="/docs/trust" />
-  <Card title="Audit trail" description="Every approval decision is linked to an audit entry." href="/docs/audit" />
+  <Card title="Permissions" href="/permissions">
+  Add requireApproval constraints to individual permissions.
+</Card>
+  <Card title="Trust scoring" href="/trust">
+  Use trust levels to decide which agents need approval.
+</Card>
+  <Card title="Audit trail" href="/audit">
+  Every approval decision is linked to an audit entry.
+</Card>
 </CardGroup>

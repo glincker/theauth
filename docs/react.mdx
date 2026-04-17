@@ -9,10 +9,10 @@ icon: code
 
 `@kavachos/react` provides React hooks and a context provider for building auth UIs on top of KavachOS. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup.
 
-The package itself has no Node.js dependencies — it runs entirely in the browser. Your KavachOS API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
+The package itself has no Node.js dependencies, it runs entirely in the browser. Your KavachOS API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
 
 <Info>
-  All hooks must be rendered inside `KavachProvider`. The provider talks to your KavachOS API route — no direct database access from the browser.
+  All hooks must be rendered inside `KavachProvider`. The provider talks to your KavachOS API route, no direct database access from the browser.
 </Info>
 
 ## Installation
@@ -248,7 +248,13 @@ function Dashboard() {
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="TypeScript client" description="Server-side and Node.js usage with @kavachos/client." href="/docs/client-sdk" />
-  <Card title="Agent identity" description="How agents are modelled and what fields they carry." href="/docs/agents" />
-  <Card title="Adapters" description="Mount the KavachOS handler in Next.js, Express, Hono, and others." href="/docs/adapters" />
+  <Card title="TypeScript client" href="/client-sdk">
+  Server-side and Node.js usage with @kavachos/client.
+</Card>
+  <Card title="Agent identity" href="/agents">
+  How agents are modelled and what fields they carry.
+</Card>
+  <Card title="Adapters" href="/adapters">
+  Mount the KavachOS handler in Next.js, Express, Hono, and others.
+</Card>
 </CardGroup>

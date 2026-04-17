@@ -87,16 +87,16 @@ Both `since` and `until` are optional on exports. Omitting both exports the enti
 ## Compliance references
 
 <AccordionGroup>
-  <Accordion title="EU AI Act, Article 12 — Record keeping">
+  <Accordion title="EU AI Act, Article 12. Record keeping">
     Article 12 requires high-risk AI systems to log events automatically throughout the system lifecycle, including the period of activity and data used. KavachOS records every authorization decision with agent identity, resource, action, parameters, outcome, and timestamp.
   </Accordion>
-  <Accordion title="NIST AI RMF — GOVERN 1.7 / MANAGE 4.2">
+  <Accordion title="NIST AI RMF. GOVERN 1.7 / MANAGE 4.2">
     The NIST AI Risk Management Framework calls for documented accountability mechanisms and the ability to trace AI actions to specific identities. The append-only audit trail links every decision to a named agent and user.
   </Accordion>
-  <Accordion title="SOC 2 — CC6.1 through CC7.2">
+  <Accordion title="SOC 2. CC6.1 through CC7.2">
     SOC 2 trust services criteria for logical access controls and system monitoring require evidence that access is granted only to authorized identities and that access events are logged. The `allowed`/`denied`/`rate_limited` result field satisfies CC6.1–CC6.3. The tamper-evident, append-only structure satisfies CC7.2.
   </Accordion>
-  <Accordion title="ISO 42001, Annex A.8 — Documentation of AI system behaviour">
+  <Accordion title="ISO 42001, Annex A.8. Documentation of AI system behaviour">
     ISO 42001 recommends documenting the behavior of AI systems in production. Exporting the audit log as JSON or CSV gives auditors a machine-readable record of every decision the system made.
   </Accordion>
 </AccordionGroup>
@@ -145,7 +145,13 @@ A sudden spike in call volume from a single agent often indicates a runaway loop
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Compliance" description="Map audit data to EU AI Act, NIST, SOC 2, and ISO 42001." href="/docs/compliance" />
-  <Card title="REST API" description="Query audit logs via HTTP endpoints." href="/docs/api" />
-  <Card title="Admin dashboard" description="Visual audit log viewer with filters and export." href="/docs/dashboard" />
+  <Card title="Compliance" href="/compliance">
+  Map audit data to EU AI Act, NIST, SOC 2, and ISO 42001.
+</Card>
+  <Card title="REST API" href="/api">
+  Query audit logs via HTTP endpoints.
+</Card>
+  <Card title="Admin dashboard" href="/dashboard">
+  Visual audit log viewer with filters and export.
+</Card>
 </CardGroup>

@@ -17,8 +17,8 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
 
 ## Setup
 
-<Tabs items={['SQLite', 'Postgres', 'MySQL']}>
-  <Tab value="SQLite">
+<Tabs>
+  <Tab title="SQLite">
     SQLite is the default for development. No peer dependencies beyond `better-sqlite3`, which ships with `kavachos`.
 
     ```typescript
@@ -49,7 +49,7 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
     PRAGMA foreign_keys = ON;
     ```
   </Tab>
-  <Tab value="Postgres">
+  <Tab title="Postgres">
     Install the `pg` peer dependency:
 
     ```bash
@@ -71,7 +71,7 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
 
     KavachOS uses `drizzle-orm/node-postgres` with a connection pool via `pg.Pool`. The `pg` package is loaded with a dynamic import, so it stays an optional peer dep.
   </Tab>
-  <Tab value="MySQL">
+  <Tab title="MySQL">
     Install the `mysql2` peer dependency:
 
     ```bash

@@ -42,8 +42,8 @@ const kavach = await createKavach({
 
 Out of the box, the plugin validates message structure and nonce integrity but does not do on-chain secp256k1 recovery. For production, pass a `verifySignature` function using [viem](https://viem.sh) or [ethers](https://docs.ethers.org):
 
-<Tabs items={['viem', 'ethers']}>
-  <Tab value="viem">
+<Tabs>
+  <Tab title="viem">
 ```typescript title="lib/kavach.ts"
 import { verifyMessage } from 'viem';
 import { siwe } from 'kavachos/auth';
@@ -58,7 +58,7 @@ siwe({
 })
 ```
   </Tab>
-  <Tab value="ethers">
+  <Tab title="ethers">
 ```typescript title="lib/kavach.ts"
 import { ethers } from 'ethers';
 import { siwe } from 'kavachos/auth';
@@ -173,7 +173,7 @@ if (!res.ok) {
 }
 ```
 
-**Response** — `200 OK`
+**Response**, `200 OK`
 
 ```json
 {
@@ -192,7 +192,7 @@ Every sign-in attempt must use a fresh nonce from the server. Nonces:
 
 - Are 32 random hex bytes (256 bits of entropy)
 - Expire after `nonceTtlSeconds` (default: 300 seconds)
-- Are deleted immediately after a successful or failed verification — they cannot be reused
+- Are deleted immediately after a successful or failed verification, they cannot be reused
 
 The nonce is embedded in the signed message, so it cannot be stripped or replaced after signing. This prevents replay attacks: a captured `(message, signature)` pair from one session cannot be submitted again.
 
@@ -200,7 +200,7 @@ If the nonce expires before the user signs, the verify endpoint returns `400` wi
 
 ## Linking wallets to users
 
-SIWE verifies an address — it does not create or look up a user by itself. After a successful `/auth/siwe/verify`, use the returned `address` to find an existing user record or create a new one:
+SIWE verifies an address, it does not create or look up a user by itself. After a successful `/auth/siwe/verify`, use the returned `address` to find an existing user record or create a new one:
 
 ```typescript
 const { address, chainId } = await res.json();
@@ -235,9 +235,9 @@ const session = await kavach.sessions.create({ userId: user.id });
 |--------|------|---------|-------------|
 | `domain` | `string` | required | Your app's domain, shown in the wallet prompt (e.g. `example.com`) |
 | `uri` | `string` | required | Full origin URI (e.g. `https://example.com`). Must match what the wallet signed |
-| `statement` | `string` | — | Human-readable statement shown in the wallet (e.g. `Sign in to Example App`) |
+| `statement` | `string` |, | Human-readable statement shown in the wallet (e.g. `Sign in to Example App`) |
 | `nonceTtlSeconds` | `number` | `300` | How long a nonce is valid before it expires |
-| `verifySignature` | `(message, signature) => Promise<string>` | — | Custom secp256k1 recovery function. Returns the recovered address. Required in production |
+| `verifySignature` | `(message, signature) => Promise<string>` |, | Custom secp256k1 recovery function. Returns the recovered address. Required in production |
 
 ## Security considerations
 
