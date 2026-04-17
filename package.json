@@ -43,7 +43,8 @@
     "vitest": "^3.0.0"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint && pnpm --filter kavachos typecheck"
+    "pre-commit": "pnpm lint && pnpm --filter kavachos typecheck",
+    "pre-push": "pnpm typecheck && pnpm test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

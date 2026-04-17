@@ -194,6 +194,13 @@ describe("approval – CIBA async approval flows", () => {
 
 			const kavachWithHook = await createKavach({
 				database: { provider: "sqlite", url: ":memory:" },
+				agents: {
+					enabled: true,
+					maxPerUser: 10,
+					defaultPermissions: [],
+					auditAll: true,
+					tokenExpiry: "24h",
+				},
 				approval: { onApprovalNeeded: handler },
 			});
 
