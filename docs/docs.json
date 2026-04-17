@@ -61,26 +61,32 @@
     "tabs": [
       {
         "tab": "Get started",
+        "icon": "rocket",
         "groups": [
           {
             "group": "Introduction",
+            "icon": "compass",
             "pages": ["index", "quickstart", "configuration", "database"]
           },
           {
             "group": "Sessions",
+            "icon": "clock",
             "pages": ["sessions", "jwt-sessions", "one-time-tokens"]
           }
         ]
       },
       {
         "tab": "Authentication",
+        "icon": "key",
         "groups": [
           {
             "group": "Overview",
+            "icon": "circle-info",
             "pages": ["auth/index", "last-login"]
           },
           {
             "group": "Methods",
+            "icon": "door-open",
             "pages": [
               "auth/email-password",
               "auth/username",
@@ -99,6 +105,7 @@
           },
           {
             "group": "OAuth providers",
+            "icon": "plug",
             "pages": [
               "auth/oauth",
               "auth/google",
@@ -143,6 +150,7 @@
           },
           {
             "group": "Enterprise",
+            "icon": "building",
             "pages": [
               "auth/organizations",
               "auth/sso",
@@ -158,21 +166,26 @@
       },
       {
         "tab": "Agents",
+        "icon": "robot",
         "groups": [
           {
             "group": "Identity",
+            "icon": "fingerprint",
             "pages": ["agents", "ephemeral-sessions", "delegation"]
           },
           {
             "group": "Authorization",
+            "icon": "shield-halved",
             "pages": ["permissions", "policy-engine", "rebac"]
           },
           {
             "group": "Observability",
+            "icon": "chart-line",
             "pages": ["audit", "analyzer", "trust", "anomaly"]
           },
           {
             "group": "Controls",
+            "icon": "gauge",
             "pages": [
               "approval",
               "rate-limiting",
@@ -184,13 +197,16 @@
       },
       {
         "tab": "Platform",
+        "icon": "layer-group",
         "groups": [
           {
             "group": "MCP and gateway",
+            "icon": "network-wired",
             "pages": ["mcp", "gateway"]
           },
           {
             "group": "Framework adapters",
+            "icon": "puzzle-piece",
             "pages": [
               "adapters/index",
               "adapters/hono",
@@ -207,6 +223,7 @@
           },
           {
             "group": "Client SDKs",
+            "icon": "code",
             "pages": [
               "client-sdk",
               "react",
@@ -220,19 +237,23 @@
           },
           {
             "group": "Infra",
+            "icon": "server",
             "pages": ["terraform", "prisma"]
           }
         ]
       },
       {
         "tab": "Advanced",
+        "icon": "sliders",
         "groups": [
           {
             "group": "Compliance and security",
+            "icon": "scale-balanced",
             "pages": ["compliance", "gdpr", "hibp", "trusted-device", "multi-session"]
           },
           {
             "group": "Lifecycle",
+            "icon": "arrows-spin",
             "pages": [
               "hooks",
               "webhooks",
@@ -245,15 +266,18 @@
           },
           {
             "group": "Identity primitives",
+            "icon": "user-shield",
             "pages": ["did", "verifiable-credentials", "federation", "multi-tenant"]
           }
         ]
       },
       {
         "tab": "Reference",
+        "icon": "book",
         "groups": [
           {
             "group": "API",
+            "icon": "code-branch",
             "pages": ["api", "errors", "test-utils", "a2a"]
           }
         ]
