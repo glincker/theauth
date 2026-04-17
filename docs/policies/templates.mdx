@@ -1,0 +1,29 @@
+---
+title: Policy templates
+description: Copy-paste policy definitions for common agent authorization patterns.
+---
+
+Each template is a self-contained directory under `docs/policies/templates/`. It contains a `policy.ts` file with the permission definitions and a `README.md` with the scenario, expected decisions, and notes on engine limitations where relevant.
+
+Seed the exported arrays into `kavach_permissions` (and the supporting tables noted in each README), then call `engine.evaluate()` against them.
+
+## Templates
+
+| # | Slug | Summary |
+|---|------|---------|
+| 01 | [tool-allowlist](/policies/templates/01-tool-allowlist) | One agent, only tools on an explicit allowlist can execute |
+| 02 | [principal-and-delegate](/policies/templates/02-principal-and-delegate) | Principal owns read+write; delegated agent gets read-only with expiry |
+| 03 | [org-scoped-agents](/policies/templates/03-org-scoped-agents) | Multi-tenant: each agent sees only its own org's resources |
+| 04 | [budget-gated](/policies/templates/04-budget-gated) | Hard cap on calls per hour via `maxCallsPerHour` |
+| 05 | [step-up-for-writes](/policies/templates/05-step-up-for-writes) | Reads are free; writes and deletes require human approval |
+| 06 | [friends-of-a-friend-rebac](/policies/templates/06-friends-of-a-friend-rebac) | Document access via ReBAC graph tuples with concrete IDs |
+| 07 | [business-hours-only](/policies/templates/07-business-hours-only) | Tool calls gated to a server-local HH:MM window |
+
+## How to use a template
+
+1. Copy `policy.ts` from the template directory into your project.
+2. Seed the exported permission arrays into `kavach_permissions` using your database adapter.
+3. For templates that need supporting rows (delegation chains, ReBAC tuples, rate-limit counters), follow the instructions in the template's `README.md`.
+4. Call `engine.evaluate({ subject, action, resource })` in your request handler.
+
+The tests under `packages/core/tests/policies/templates/` show exactly how each template behaves and can serve as integration tests in your own suite.
