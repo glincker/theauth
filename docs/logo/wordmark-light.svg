@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" width="280" height="64">
+  <defs>
+    <linearGradient id="kavach-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0D87A"/>
+      <stop offset="50%" stop-color="#C9A84C"/>
+      <stop offset="100%" stop-color="#8B6914"/>
+    </linearGradient>
+    <linearGradient id="kavach-gold-text" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C9A84C"/>
+      <stop offset="100%" stop-color="#8B6914"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8, 8) scale(0.09375)">
+    <rect x="32" y="32" width="448" height="448" rx="0" stroke="url(#kavach-gold)" stroke-width="24" fill="none"/>
+    <rect x="96" y="96" width="320" height="320" rx="0" stroke="url(#kavach-gold)" stroke-width="20" fill="none" opacity="0.7"/>
+    <rect x="160" y="160" width="192" height="192" rx="0" stroke="url(#kavach-gold)" stroke-width="16" fill="none" opacity="0.5"/>
+    <circle cx="256" cy="256" r="24" fill="url(#kavach-gold)"/>
+  </g>
+  <text x="60" y="42" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="22" font-weight="700" letter-spacing="-0.02em" fill="#0a0a0a">kavach</text>
+  <text x="156" y="42" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="22" font-weight="700" letter-spacing="-0.02em" fill="url(#kavach-gold-text)">OS</text>
+</svg>

@@ -1,0 +1,37 @@
+/* Subtle gold gradient backdrop. Lives behind page content; pages and
+   sidebars sit on top with their own backgrounds, so legibility stays clean. */
+
+:root {
+  --kavach-gold-1: #c9a84c;
+  --kavach-gold-2: #8b6914;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 90% -10%, rgba(201, 168, 76, 0.06), transparent 60%),
+    radial-gradient(900px 500px at -10% 120%, rgba(139, 105, 20, 0.05), transparent 65%);
+  background-attachment: fixed;
+}
+
+html.dark body {
+  background:
+    radial-gradient(1200px 600px at 90% -10%, rgba(201, 168, 76, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 120%, rgba(139, 105, 20, 0.08), transparent 65%),
+    #0a0a0a;
+  background-attachment: fixed;
+}
+
+/* Tighten sidebar group label tracking so dense nav reads cleaner. */
+nav [data-group-title],
+nav h5 {
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* Card lift on hover for the home page CardGroup grids. */
+a[class*="card"]:hover {
+  transform: translateY(-1px);
+  transition: transform 120ms ease;
+}

@@ -1,18 +1,28 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "maple",
   "name": "KavachOS",
   "description": "Auth OS for AI agents. TypeScript SDK for agent identity, permissions, delegation, audit, and MCP OAuth 2.1.",
   "colors": {
     "primary": "#C9A84C",
-    "light": "#D4B870",
+    "light": "#E0C56A",
     "dark": "#8B6914"
   },
+  "background": {
+    "decoration": "gradient"
+  },
   "favicon": "/favicon.png",
+  "styling": {
+    "codeblocks": "system"
+  },
+  "css": "/styles/custom.css",
   "logo": {
-    "light": "/logo.svg",
-    "dark": "/logo.svg",
+    "light": "/logo/wordmark-light.svg",
+    "dark": "/logo/wordmark-dark.svg",
     "href": "https://kavachos.com"
+  },
+  "styling": {
+    "codeblocks": "system"
   },
   "fonts": {
     "heading": { "family": "Inter" },
@@ -24,6 +34,7 @@
   },
   "navbar": {
     "links": [
+      { "label": "Site", "href": "https://kavachos.com" },
       { "label": "GitHub", "href": "https://github.com/kavachos/kavachos" }
     ],
     "primary": {
@@ -35,7 +46,8 @@
   "footer": {
     "socials": {
       "github": "https://github.com/kavachos/kavachos",
-      "x": "https://x.com/thedsks"
+      "x": "https://x.com/thedsks",
+      "website": "https://kavachos.com"
     }
   },
   "seo": {
@@ -48,164 +60,179 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Documentation",
+        "tab": "Get started",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Introduction",
+            "pages": ["index", "quickstart", "configuration", "database"]
+          },
+          {
+            "group": "Sessions",
+            "pages": ["sessions", "jwt-sessions", "one-time-tokens"]
+          }
+        ]
+      },
+      {
+        "tab": "Authentication",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["auth/index", "last-login"]
+          },
+          {
+            "group": "Methods",
             "pages": [
-              "index",
-              "quickstart",
-              "configuration",
-              "database",
-              "sessions",
-              "jwt-sessions",
-              "one-time-tokens"
+              "auth/email-password",
+              "auth/username",
+              "auth/magic-link",
+              "auth/email-otp",
+              "auth/phone",
+              "auth/passkey",
+              "auth/siwe",
+              "auth/device",
+              "auth/two-factor",
+              "auth/anonymous",
+              "auth/one-tap",
+              "auth/captcha",
+              "auth/oauth-proxy"
             ]
           },
           {
-            "group": "Authentication",
+            "group": "OAuth providers",
             "pages": [
-              "auth/index",
-              {
-                "group": "Methods",
-                "pages": [
-                  "auth/email-password",
-                  "auth/username",
-                  "auth/magic-link",
-                  "auth/email-otp",
-                  "auth/phone",
-                  "auth/passkey",
-                  "auth/siwe",
-                  "auth/device",
-                  "auth/two-factor",
-                  "auth/anonymous",
-                  "auth/one-tap",
-                  "auth/captcha",
-                  "auth/oauth-proxy"
-                ]
-              },
-              {
-                "group": "Providers",
-                "pages": [
-                  "auth/oauth",
-                  "auth/google",
-                  "auth/github",
-                  "auth/apple",
-                  "auth/microsoft",
-                  "auth/discord",
-                  "auth/slack",
-                  "auth/gitlab",
-                  "auth/linkedin",
-                  "auth/facebook",
-                  "auth/spotify",
-                  "auth/twitch",
-                  "auth/reddit",
-                  "auth/notion",
-                  "auth/twitter",
-                  "auth/figma",
-                  "auth/dropbox",
-                  "auth/zoom",
-                  "auth/atlassian",
-                  "auth/tiktok",
-                  "auth/paypal",
-                  "auth/salesforce",
-                  "auth/vk",
-                  "auth/kakao",
-                  "auth/naver",
-                  "auth/huggingface",
-                  "auth/roblox",
-                  "auth/vercel",
-                  "auth/linear",
-                  "auth/railway",
-                  "auth/kick",
-                  "auth/wechat",
-                  "auth/polar",
-                  "auth/line",
-                  "auth/auth0",
-                  "auth/okta",
-                  "auth/yahoo",
-                  "auth/bitbucket",
-                  "auth/coinbase"
-                ]
-              },
-              {
-                "group": "Enterprise",
-                "pages": [
-                  "auth/organizations",
-                  "auth/sso",
-                  "auth/admin",
-                  "auth/api-keys",
-                  "auth/stripe",
-                  "auth/polar-payment",
-                  "auth/scim",
-                  "auth/oidc-provider"
-                ]
-              },
-              "last-login"
+              "auth/oauth",
+              "auth/google",
+              "auth/github",
+              "auth/apple",
+              "auth/microsoft",
+              "auth/discord",
+              "auth/slack",
+              "auth/gitlab",
+              "auth/linkedin",
+              "auth/facebook",
+              "auth/spotify",
+              "auth/twitch",
+              "auth/reddit",
+              "auth/notion",
+              "auth/twitter",
+              "auth/figma",
+              "auth/dropbox",
+              "auth/zoom",
+              "auth/atlassian",
+              "auth/tiktok",
+              "auth/paypal",
+              "auth/salesforce",
+              "auth/vk",
+              "auth/kakao",
+              "auth/naver",
+              "auth/huggingface",
+              "auth/roblox",
+              "auth/vercel",
+              "auth/linear",
+              "auth/railway",
+              "auth/kick",
+              "auth/wechat",
+              "auth/polar",
+              "auth/line",
+              "auth/auth0",
+              "auth/okta",
+              "auth/yahoo",
+              "auth/bitbucket",
+              "auth/coinbase"
             ]
           },
           {
-            "group": "Agents",
+            "group": "Enterprise",
             "pages": [
-              "agents",
-              "ephemeral-sessions",
-              "permissions",
-              "policy-engine",
-              "rebac",
-              "delegation",
-              "audit",
-              "analyzer"
+              "auth/organizations",
+              "auth/sso",
+              "auth/admin",
+              "auth/api-keys",
+              "auth/stripe",
+              "auth/polar-payment",
+              "auth/scim",
+              "auth/oidc-provider"
             ]
+          }
+        ]
+      },
+      {
+        "tab": "Agents",
+        "groups": [
+          {
+            "group": "Identity",
+            "pages": ["agents", "ephemeral-sessions", "delegation"]
           },
           {
-            "group": "Security",
+            "group": "Authorization",
+            "pages": ["permissions", "policy-engine", "rebac"]
+          },
+          {
+            "group": "Observability",
+            "pages": ["audit", "analyzer", "trust", "anomaly"]
+          },
+          {
+            "group": "Controls",
             "pages": [
-              "trust",
-              "anomaly",
               "approval",
               "rate-limiting",
-              "compliance",
-              "hibp",
-              "trusted-device",
-              "multi-session",
-              "gdpr"
+              "budget-policies",
+              "cost-attribution"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Platform",
+        "groups": [
+          {
+            "group": "MCP and gateway",
+            "pages": ["mcp", "gateway"]
+          },
+          {
+            "group": "Framework adapters",
+            "pages": [
+              "adapters/index",
+              "adapters/hono",
+              "adapters/express",
+              "adapters/nextjs",
+              "adapters/nestjs",
+              "adapters/fastify",
+              "adapters/nuxt",
+              "adapters/sveltekit",
+              "adapters/solidstart",
+              "adapters/tanstack",
+              "adapters/astro"
             ]
           },
           {
-            "group": "Platform",
+            "group": "Client SDKs",
             "pages": [
-              "mcp",
-              "gateway",
-              "terraform",
-              "prisma",
-              {
-                "group": "Framework adapters",
-                "pages": [
-                  "adapters/index",
-                  "adapters/hono",
-                  "adapters/express",
-                  "adapters/nextjs",
-                  "adapters/nestjs",
-                  "adapters/fastify",
-                  "adapters/nuxt",
-                  "adapters/sveltekit",
-                  "adapters/solidstart",
-                  "adapters/tanstack",
-                  "adapters/astro"
-                ]
-              },
-              "dashboard",
               "client-sdk",
               "react",
               "vue",
               "svelte",
               "expo",
               "electron",
-              "ui-components"
+              "ui-components",
+              "dashboard"
             ]
           },
           {
-            "group": "Advanced",
+            "group": "Infra",
+            "pages": ["terraform", "prisma"]
+          }
+        ]
+      },
+      {
+        "tab": "Advanced",
+        "groups": [
+          {
+            "group": "Compliance and security",
+            "pages": ["compliance", "gdpr", "hibp", "trusted-device", "multi-session"]
+          },
+          {
+            "group": "Lifecycle",
             "pages": [
               "hooks",
               "webhooks",
@@ -213,17 +240,20 @@
               "custom-session",
               "additional-fields",
               "email-templates",
-              "i18n",
-              "did",
-              "verifiable-credentials",
-              "federation",
-              "multi-tenant",
-              "budget-policies",
-              "cost-attribution"
+              "i18n"
             ]
           },
           {
-            "group": "Reference",
+            "group": "Identity primitives",
+            "pages": ["did", "verifiable-credentials", "federation", "multi-tenant"]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "API",
             "pages": ["api", "errors", "test-utils", "a2a"]
           }
         ]
