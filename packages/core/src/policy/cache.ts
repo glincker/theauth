@@ -58,8 +58,10 @@ const DEFAULT_TTL_MS = 60_000;
 // ---------------------------------------------------------------------------
 
 export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
-	const maxEntries =
+	const rawMax =
 		config.maxEntries ?? readEnvNumber("KAVACH_POLICY_CACHE_MAX") ?? DEFAULT_MAX_ENTRIES;
+	// Clamp to >=1 so set() can never enter an infinite eviction loop on misconfig.
+	const maxEntries = rawMax > 0 ? rawMax : DEFAULT_MAX_ENTRIES;
 
 	const ttlMs = config.ttlMs ?? readEnvNumber("KAVACH_POLICY_CACHE_TTL_MS") ?? DEFAULT_TTL_MS;
 

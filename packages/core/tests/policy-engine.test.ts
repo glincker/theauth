@@ -3,7 +3,7 @@
  * ABAC constraints, deny-overrides combining, audit emission.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
@@ -341,5 +341,155 @@ describe("createPolicyEngine - audit emission", () => {
 		const rows = await db.select().from(auditLogs).where(eq(auditLogs.agentId, "agent-1"));
 		expect(rows.length).toBe(0);
 		spy.mockRestore();
+	});
+
+	it("returned auditId matches the written audit row id on cold path", async () => {
+		const engine = createPolicyEngine({ db });
+
+		const decision = await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "tool:read",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		const rows = await db.select().from(auditLogs).where(eq(auditLogs.agentId, "agent-1"));
+		expect(rows).toHaveLength(1);
+		expect(decision.auditId).toBeDefined();
+		expect(rows[0]?.id).toBe(decision.auditId);
+	});
+
+	it("returned auditId matches the written audit row id on cache hit", async () => {
+		const engine = createPolicyEngine({ db });
+
+		await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "tool:read",
+		});
+		const second = await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "tool:read",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(second.cacheHit).toBe(true);
+		expect(second.auditId).toBeDefined();
+		const rows = await db.select().from(auditLogs).where(eq(auditLogs.agentId, "agent-1"));
+		expect(rows).toHaveLength(2);
+		expect(rows.some((r) => r.id === second.auditId)).toBe(true);
+	});
+
+	it("does not set auditId when no audit row will be written (audit disabled)", async () => {
+		const engine = createPolicyEngine({ db, config: { audit: false } });
+
+		const decision = await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "tool:read",
+		});
+
+		expect(decision.auditId).toBeUndefined();
+	});
+});
+
+describe("createPolicyEngine - cache key isolation (security)", () => {
+	let db: Database;
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		await seedUser(db, "user-1", "u1@test");
+		await seedOrg(db, "org-a", "user-1");
+		await seedOrg(db, "org-b", "user-1");
+		await seedRole(db, "role-a", "org-a", "admin", ["docs:write"]);
+		// org-b has no roles for user-1
+		await seedMember(db, "mem-a", "org-a", "user-1", "admin");
+	});
+
+	it("different orgIds produce different decisions for the same user/action/resource", async () => {
+		const engine = createPolicyEngine({ db });
+
+		const inOrgA = await engine.evaluate({
+			subject: { userId: "user-1", orgId: "org-a" },
+			action: "write",
+			resource: "docs",
+		});
+		const inOrgB = await engine.evaluate({
+			subject: { userId: "user-1", orgId: "org-b" },
+			action: "write",
+			resource: "docs",
+		});
+
+		expect(inOrgA.allowed).toBe(true);
+		expect(inOrgB.allowed).toBe(false);
+		// Critical: the second call must NOT hit the cache and inherit org-a's PERMIT.
+		expect(inOrgB.cacheHit).toBe(false);
+	});
+});
+
+describe("createPolicyEngine - argument bypass prevention (security)", () => {
+	let db: Database;
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		await seedUser(db, "user-1", "u1@test");
+		await seedAgent(db, "agent-1", "user-1");
+		await seedPermission(db, "p1", "agent-1", "files", ["read"], {
+			constraints: { allowedArgPatterns: ["^[a-z]+\\.txt$"] },
+		});
+	});
+
+	it("does not cache decisions for permissions with allowedArgPatterns", async () => {
+		const engine = createPolicyEngine({ db });
+
+		const safe = await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "files",
+			context: { arguments: { name: "doc.txt" } },
+		});
+		const unsafe = await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "files",
+			context: { arguments: { name: "../etc/passwd" } },
+		});
+
+		expect(safe.allowed).toBe(true);
+		expect(unsafe.allowed).toBe(false);
+		// Both must hit the cold path; otherwise the unsafe args would inherit
+		// the safe-args PERMIT.
+		expect(safe.cacheHit).toBe(false);
+		expect(unsafe.cacheHit).toBe(false);
+		expect(engine.stats().size).toBe(0);
+	});
+});
+
+describe("createPolicyEngine - fail-closed on graph errors (security)", () => {
+	it("any graph error short-circuits even when a sibling permission would permit", async () => {
+		const db = await createTestDb();
+		await seedUser(db, "user-1", "u1@test");
+		await seedAgent(db, "agent-1", "user-1");
+		// Two permissions for the same resource+action: one relation-gated,
+		// one broad. Broad would permit on its own.
+		await seedPermission(db, "p-relation", "agent-1", "doc:1", ["read"], { relation: "viewer" });
+		await seedPermission(db, "p-broad", "agent-1", "doc:1", ["read"]);
+
+		// Stub crypto.subtle.digest? No, simpler: replace the rebac module's
+		// underlying check by making rebac_relationships table unreadable.
+		// We do this by dropping the table after createTables ran.
+		await db.run(sql`DROP TABLE IF EXISTS kavach_rebac_relationships`);
+
+		const engine = createPolicyEngine({ db });
+
+		const decision = await engine.evaluate({
+			subject: { agentId: "agent-1" },
+			action: "read",
+			resource: "doc:1",
+		});
+
+		expect(decision.allowed).toBe(false);
+		expect(decision.reason).toBe(POLICY_ERROR_CODES.GRAPH_QUERY_FAILED);
 	});
 });

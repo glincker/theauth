@@ -53,25 +53,28 @@ function parseResource(resource: string): { objectType: string; objectId: string
 
 /**
  * Derive a single (subjectType, subjectId) pair from the policy subject.
- * Exactly one of agentId, userId, orgId must be set.
+ *
+ * agentId or userId identifies the actor; orgId travels alongside as RBAC
+ * scope and is ignored here. orgId is used as the subject only when neither
+ * actor id is present. Setting both agentId and userId is ambiguous and
+ * returns null.
  */
 function parseSubject(
 	subject: PolicyDecisionSubject,
 ): { subjectType: string; subjectId: string } | null {
-	const candidates: Array<{ subjectType: string; subjectId: string }> = [];
-
+	if (subject.agentId !== undefined && subject.userId !== undefined) {
+		return null;
+	}
 	if (subject.agentId !== undefined) {
-		candidates.push({ subjectType: "agent", subjectId: subject.agentId });
+		return { subjectType: "agent", subjectId: subject.agentId };
 	}
 	if (subject.userId !== undefined) {
-		candidates.push({ subjectType: "user", subjectId: subject.userId });
+		return { subjectType: "user", subjectId: subject.userId };
 	}
 	if (subject.orgId !== undefined) {
-		candidates.push({ subjectType: "org", subjectId: subject.orgId });
+		return { subjectType: "org", subjectId: subject.orgId };
 	}
-
-	if (candidates.length !== 1) return null;
-	return candidates[0] ?? null;
+	return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

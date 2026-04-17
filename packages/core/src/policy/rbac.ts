@@ -32,10 +32,11 @@ export interface RbacResolver {
 
 /**
  * Parse a stored "resource:action" string into a { resource, action } pair.
- * Splits on the first colon only so resources like "mcp:github" are preserved.
+ * Splits on the LAST colon so multi-segment resources like "mcp:github:read"
+ * parse to resource="mcp:github", action="read".
  */
 function parsePermissionString(raw: string): { resource: string; action: string } | null {
-	const idx = raw.indexOf(":");
+	const idx = raw.lastIndexOf(":");
 	if (idx === -1) return null;
 	const resource = raw.slice(0, idx);
 	const action = raw.slice(idx + 1);
@@ -94,34 +95,26 @@ export function createRbacResolver(deps: { db: Database }): RbacResolver {
 	}): Promise<Permission[]> {
 		const { userId, orgId } = input;
 
-		// 1. Fetch the relevant orgMember rows.
-		const memberRows = orgId
-			? await db
-					.select({ role: orgMembers.role, orgId: orgMembers.orgId })
-					.from(orgMembers)
-					.where(and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, orgId)))
-			: await db
-					.select({ role: orgMembers.role, orgId: orgMembers.orgId })
-					.from(orgMembers)
-					.where(eq(orgMembers.userId, userId));
+		// One join per call instead of N+1: pull the role permissions for every
+		// matching membership in a single query.
+		const baseWhere = orgId
+			? and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, orgId))
+			: eq(orgMembers.userId, userId);
 
-		if (memberRows.length === 0) return [];
+		const roleRows = await db
+			.select({ permissions: orgRoles.permissions })
+			.from(orgMembers)
+			.innerJoin(
+				orgRoles,
+				and(eq(orgRoles.orgId, orgMembers.orgId), eq(orgRoles.name, orgMembers.role)),
+			)
+			.where(baseWhere);
 
-		// 2. For each membership, fetch the matching orgRole and collect raw strings.
-		const allRawPermissions: string[] = [];
-		for (const member of memberRows) {
-			const roleRows = await db
-				.select({ permissions: orgRoles.permissions })
-				.from(orgRoles)
-				.where(and(eq(orgRoles.orgId, member.orgId), eq(orgRoles.name, member.role)));
-			for (const row of roleRows) {
-				allRawPermissions.push(...row.permissions);
-			}
-		}
+		if (roleRows.length === 0) return [];
 
+		const allRawPermissions = roleRows.flatMap((r) => r.permissions);
 		if (allRawPermissions.length === 0) return [];
 
-		// 3. Parse, group by resource, then deduplicate across roles.
 		return deduplicate(toPermissions(allRawPermissions));
 	}
 

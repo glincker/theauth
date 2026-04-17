@@ -236,11 +236,19 @@ export async function evaluateConstraints(
 }
 
 /**
- * Returns true if the constraints contain a check whose result depends on
- * mutable per-call state (rate limit) or wall-clock time inside the day
- * (time window). Such permissions must not be cached by the policy engine.
+ * Returns true when the constraint result depends on per-call state or input,
+ * so the decision must NOT be cached:
+ *  - maxCallsPerHour: counter changes every call
+ *  - timeWindow: result flips at window boundaries
+ *  - allowedArgPatterns: result depends on context.arguments, which are not
+ *    part of the cache key. Caching could otherwise let safe-args permits
+ *    serve unsafe-args requests.
  */
-export function isTimeSensitive(constraints?: PermissionConstraints): boolean {
+export function isCacheUnsafe(constraints?: PermissionConstraints): boolean {
 	if (!constraints) return false;
-	return Boolean(constraints.maxCallsPerHour) || Boolean(constraints.timeWindow);
+	return (
+		Boolean(constraints.maxCallsPerHour) ||
+		Boolean(constraints.timeWindow) ||
+		(Array.isArray(constraints.allowedArgPatterns) && constraints.allowedArgPatterns.length > 0)
+	);
 }

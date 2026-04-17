@@ -1,5 +1,7 @@
 // Unified policy engine: RBAC + ABAC + ReBAC behind one evaluate() call.
 
+export type { PolicyEngineDeps } from "./engine.js";
+export { createPolicyEngine } from "./engine.js";
 export type {
 	EvaluateInput,
 	InvalidateScope,

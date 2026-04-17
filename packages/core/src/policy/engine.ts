@@ -11,7 +11,7 @@ import {
 	permissions as permissionsTable,
 } from "../db/schema.js";
 import type { Permission } from "../types.js";
-import { evaluateConstraints, isTimeSensitive, matchAction, matchResource } from "./abac.js";
+import { evaluateConstraints, isCacheUnsafe, matchAction, matchResource } from "./abac.js";
 import type { PolicyCache } from "./cache.js";
 import { createPolicyCache } from "./cache.js";
 import type { PartialDecision } from "./combiner.js";
@@ -62,12 +62,16 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const cacheKey = buildCacheKey(input);
 		const cached = cache.get(cacheKey);
 		if (cached) {
+			// Each cache hit gets a fresh audit id so the returned PolicyDecision
+			// matches the audit row that emitAudit will write.
+			const auditIdForHit = willEmitAudit(input) ? generateId() : undefined;
 			const decision: PolicyDecision = {
 				...cached,
+				auditId: auditIdForHit,
 				cacheHit: true,
 				durationMs: Math.round(performance.now() - start),
 			};
-			emitAudit(decision, input).catch(noop);
+			emitAudit(decision, input, auditIdForHit).catch(noop);
 			return decision;
 		}
 
@@ -88,8 +92,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		}
 
 		const partials: PartialDecision[] = [];
-		let graphQueryFailed = false;
-		let timeSensitiveSeen = false;
+		let cacheUnsafeSeen = false;
 
 		for (const perm of effective) {
 			if (!matchResource(perm.resource, input.resource)) continue;
@@ -101,15 +104,26 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 					relation: perm.relation,
 					resource: input.resource,
 				});
+				// Fail-closed: a graph error on any matching permission stops the
+				// entire evaluation. We refuse to grant when the graph is uncertain
+				// even if a broader permission would have permitted on its own.
 				if (result.reason === "rebac:graph-query-failed") {
-					graphQueryFailed = true;
-					continue;
+					return finalize(
+						{
+							allowed: false,
+							effect: "indeterminate",
+							reason: POLICY_ERROR_CODES.GRAPH_QUERY_FAILED,
+							cacheHit: false,
+							durationMs: 0,
+						},
+						start,
+					);
 				}
 				if (!result.matched) continue;
 			}
 
 			if (perm.constraints) {
-				if (isTimeSensitive(perm.constraints)) timeSensitiveSeen = true;
+				if (isCacheUnsafe(perm.constraints)) cacheUnsafeSeen = true;
 				const constraintResult = await evaluateConstraints(
 					db,
 					{
@@ -137,34 +151,30 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			});
 		}
 
-		if (partials.length === 0 && graphQueryFailed) {
-			return finalize(
-				{
-					allowed: false,
-					effect: "indeterminate",
-					reason: POLICY_ERROR_CODES.GRAPH_QUERY_FAILED,
-					cacheHit: false,
-					durationMs: 0,
-				},
-				start,
-			);
-		}
-
 		const combined = combine(partials, strategy);
-		const auditId = generateId();
+		const auditIdForMiss = willEmitAudit(input) ? generateId() : undefined;
 		const decision: PolicyDecision = {
 			...combined,
-			auditId,
+			auditId: auditIdForMiss,
 			cacheHit: false,
 			durationMs: Math.round(performance.now() - start),
 		};
 
-		if (!timeSensitiveSeen) {
+		if (!cacheUnsafeSeen) {
 			cache.set(cacheKey, decision);
 		}
 
-		emitAudit(decision, input).catch(noop);
+		emitAudit(decision, input, auditIdForMiss).catch(noop);
 		return decision;
+	}
+
+	function willEmitAudit(input: EvaluateInput): boolean {
+		if (!auditEnabled) return false;
+		if (!input.subject.agentId) return false;
+		// Sampling decision is made here so the returned auditId stays consistent
+		// with whether emitAudit actually writes a row. Math.random() is called
+		// twice per evaluate when sampling, which is acceptable.
+		return sampleRate >= 1 || Math.random() < sampleRate;
 	}
 
 	function invalidate(scope: InvalidateScope): void {
@@ -177,10 +187,15 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		return cache.stats();
 	}
 
-	async function emitAudit(decision: PolicyDecision, input: EvaluateInput): Promise<void> {
-		if (!auditEnabled) return;
-		if (sampleRate < 1 && Math.random() >= sampleRate) return;
-		if (!input.subject.agentId) return; // audit_logs.agent_id is NOT NULL; skip user-only
+	async function emitAudit(
+		decision: PolicyDecision,
+		input: EvaluateInput,
+		auditId: string | undefined,
+	): Promise<void> {
+		// auditId being undefined is the explicit signal that no row should be
+		// written. The gate (audit enabled, agentId present, sampling) was
+		// already evaluated by willEmitAudit() so emitAudit just acts on it.
+		if (!auditId || !input.subject.agentId) return;
 
 		let userId = input.subject.userId;
 		if (!userId) {
@@ -194,9 +209,6 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		}
 
 		try {
-			// Cache hits get a fresh audit id; otherwise the cached decision's
-			// id collides with the row written on the original miss.
-			const auditId = decision.cacheHit ? generateId() : (decision.auditId ?? generateId());
 			await db.insert(auditLogs).values({
 				id: auditId,
 				agentId: input.subject.agentId,
@@ -213,7 +225,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				cacheHit: decision.cacheHit,
 			});
 		} catch {
-			// non-blocking; spec says emit a warning but the engine returns the decision regardless
+			// non-blocking by design; the decision is already returned
 		}
 	}
 
@@ -225,9 +237,14 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 // ──────────────────────────────────────────────────────────────────────────────
 
 function buildCacheKey(input: EvaluateInput): string {
+	// orgId scopes RBAC role lookup, so two requests from the same user against
+	// different orgs MUST get different keys. Use an explicit sentinel when
+	// orgId is omitted so { user: u, orgId: undefined } cannot collide with
+	// { user: u, orgId: "" } or any other unscoped form.
 	const subjectKey = input.subject.agentId ?? input.subject.userId ?? "";
+	const orgKey = input.subject.orgId ?? "__noorg__";
 	const ipKey = input.context?.ip ?? "";
-	return `${subjectKey}|${input.action}|${input.resource}|${ipKey}`;
+	return `${subjectKey}|${orgKey}|${input.action}|${input.resource}|${ipKey}`;
 }
 
 function validateInput(input: EvaluateInput): { ok: true } | { ok: false; reason: string } {
