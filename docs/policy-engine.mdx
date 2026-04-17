@@ -190,7 +190,7 @@ Full `PolicyEngineConfig` reference:
 <ParamField path="cache.maxEntries" type="number" default="10000">Maximum LRU entries. Evicts oldest entries when exceeded.</ParamField>
 <ParamField path="cache.ttlMs" type="number" default="60000">Time-to-live per cache entry, in milliseconds.</ParamField>
 <ParamField path="cache.enabled" type="boolean" default="true">Set to false to disable the cache entirely. All evaluations go cold.</ParamField>
-<ParamField path="combineStrategy" type=""deny-overrides" | "permit-overrides"" default="&quot;deny-overrides&quot;">How to combine PERMIT and DENY results from multiple matching permissions.</ParamField>
+<ParamField path="combineStrategy" type={`"deny-overrides" | "permit-overrides"`} default={`"deny-overrides"`}>How to combine PERMIT and DENY results from multiple matching permissions.</ParamField>
 <ParamField path="audit" type="boolean" default="true">Whether to write audit rows. Disabling suppresses all audit writes.</ParamField>
 <ParamField path="auditSampleRate" type="number" default="1.0">Fraction of evaluations that write audit rows, from 0.0 to 1.0.</ParamField>
 

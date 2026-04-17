@@ -49,7 +49,7 @@ const kavach = await createKavach({
 });
 ```
 
-<ParamField path="store" type=""memory" | "redis"" default="&quot;memory&quot;">Where to persist counters. Use redis in production when running multiple instances.</ParamField>
+<ParamField path="store" type={`"memory" | "redis"`} default={`"memory"`}>Where to persist counters. Use redis in production when running multiple instances.</ParamField>
 <ParamField path="redisUrl" type="string | undefined">Redis connection string. Required when store is redis.</ParamField>
 <ParamField path="endpoints.signIn" type="{ limit: number; window: number }">Override for the sign-in endpoint. window is in seconds.</ParamField>
 <ParamField path="endpoints.signUp" type="{ limit: number; window: number }">Override for the sign-up endpoint.</ParamField>
@@ -122,7 +122,7 @@ const inferenceLimit = createRateLimiter({
 <ParamField path="limit" type="number">Maximum number of requests allowed within the window.</ParamField>
 <ParamField path="window" type="number">Time window in seconds.</ParamField>
 <ParamField path="keyFn" type="(req: Request) => string">Derives the rate limit key from the request. Defaults to the client IP.</ParamField>
-<ParamField path="store" type=""memory" | "redis"" default="&quot;memory&quot;">Counter storage backend.</ParamField>
+<ParamField path="store" type={`"memory" | "redis"`} default={`"memory"`}>Counter storage backend.</ParamField>
 <ParamField path="redisUrl" type="string | undefined">Redis connection string. Required when store is redis.</ParamField>
 
 ## withRateLimit middleware
