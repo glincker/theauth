@@ -1,0 +1,83 @@
+---
+title: Password breach checking
+description: Reject or warn on passwords found in known data breaches using the HaveIBeenPwned API.
+icon: Shield
+---
+
+KavachOS integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model — only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.
+
+## Setup
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { emailPassword } from 'kavachos/auth';
+import { createHibpModule } from 'kavachos/modules/hibp'; // [!code highlight]
+
+const hibp = createHibpModule(); // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    emailPassword({
+      appUrl: 'https://app.example.com',
+      onPasswordValidate: hibp.enforce, // [!code highlight]
+    }),
+  ],
+});
+```
+
+## check() and enforce()
+
+The module exposes two methods with different failure modes:
+
+```typescript title="Manual usage"
+const hibp = createHibpModule();
+
+// Returns { breached: true, count: 4830 } or { breached: false, count: 0 }
+const result = await hibp.check('user-entered-password');
+
+if (result.breached) {
+  console.warn(`Password seen ${result.count} times in breaches`);
+}
+
+// Throws KavachError with code PASSWORD_BREACHED if compromised
+await hibp.enforce('user-entered-password');
+```
+
+`check()` is useful when you want to warn the user without blocking them. `enforce()` integrates directly into the password validation lifecycle and blocks the request.
+
+## How k-anonymity works
+
+```
+1. SHA-1 hash the password               → "5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8"
+2. Send only the first 5 chars           → GET /range/5BAA6
+3. API returns ~500 hashes with that prefix
+4. Check if the rest of the hash appears in the list
+5. If yes, the password has been breached — never sent the full hash
+```
+
+The full password hash is never transmitted. The API response contains partial hashes from other users' passwords, so the provider cannot determine which password you were checking.
+
+## Custom API key
+
+The HIBP Passwords API is free and does not require authentication, but a paid key removes rate limits:
+
+```typescript title="lib/kavach.ts"
+const hibp = createHibpModule({
+  apiKey: process.env.HIBP_API_KEY, // optional // [!code highlight]
+  timeout: 3000, // ms before the check is skipped, not failed // [!code highlight]
+});
+```
+
+<Info>
+  If the HIBP API is unreachable, `check()` returns `{ breached: false }` and `enforce()` passes through. The default behavior is fail-open so a slow network does not block your users from registering. Set `failClosed: true` to change this.
+</Info>
+
+## Configuration reference
+
+<ParamField path="apiKey" type="string">Optional HIBP API key for higher rate limits.</ParamField>
+<ParamField path="timeout" type="number" default="3000">Milliseconds to wait for the HIBP API before giving up.</ParamField>
+<ParamField path="failClosed" type="boolean" default="false">Reject the password if HIBP is unreachable instead of passing through.</ParamField>
+<ParamField path="minBreachCount" type="number" default="1">Minimum breach count before a password is considered compromised.</ParamField>

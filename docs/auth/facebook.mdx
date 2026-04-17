@@ -1,0 +1,76 @@
+---
+title: Facebook
+description: Sign in with Facebook using OAuth 2.0.
+icon: Facebook
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to the [Facebook Developer Portal](https://developers.facebook.com/) and create an app. Under **Facebook Login > Settings**, add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/facebook
+```
+
+Copy the **App ID** and **App Secret** from the app dashboard.
+</Step>
+
+<Step>
+### Configure
+
+```ts
+import { createKavach, oauth } from 'kavachos';
+import { facebookProvider } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        facebookProvider( // [!code highlight]
+          process.env.FACEBOOK_CLIENT_ID, // [!code highlight]
+          process.env.FACEBOOK_CLIENT_SECRET, // [!code highlight]
+        ), // [!code highlight]
+      ],
+    }),
+  ],
+});
+```
+</Step>
+</Steps>
+
+## Environment variables
+
+```bash
+FACEBOOK_CLIENT_ID=your_app_id
+FACEBOOK_CLIENT_SECRET=your_app_secret
+```
+
+## Scopes
+
+Default scopes: `email`, `public_profile`
+
+To request additional data, pass a `scopes` array:
+
+```ts
+facebookProvider(
+  process.env.FACEBOOK_CLIENT_ID,
+  process.env.FACEBOOK_CLIENT_SECRET,
+  { scopes: ['email', 'public_profile', 'user_birthday'] }, // [!code highlight]
+)
+```
+
+<Warning>
+  Facebook requires app review before requesting most extended permissions beyond `email` and `public_profile`.
+</Warning>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/facebook` | Redirect to Facebook |
+| GET | `/auth/oauth/callback/facebook` | Handle callback |

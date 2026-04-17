@@ -1,0 +1,65 @@
+---
+title: Railway
+description: Sign in with Railway using OAuth 2.0.
+icon: Railway
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [railway.com](https://railway.com) and navigate to **Account Settings > Developer > OAuth Apps**. Create an app and add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/railway
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'railway',
+          clientId: process.env.RAILWAY_CLIENT_ID!,
+          clientSecret: process.env.RAILWAY_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+RAILWAY_CLIENT_ID=...
+RAILWAY_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `read:profile`, `read:email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `read:profile` | Read user profile |
+| `read:email` | Read email address |
+| `read:projects` | Read project list |
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/railway` | Redirect to Railway |
+| GET | `/auth/oauth/callback/railway` | Handle callback |

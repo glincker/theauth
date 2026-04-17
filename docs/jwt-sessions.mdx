@@ -1,0 +1,82 @@
+---
+title: JWT sessions
+description: Stateless JWT access tokens with refresh rotation.
+icon: Key
+---
+
+
+The JWT session plugin issues short-lived access tokens (JWTs) and long-lived refresh tokens. Access tokens are stateless (no DB lookup on every request). Refresh tokens are stored in the database and support rotation.
+
+## Setup
+
+```ts
+import { createKavach } from 'kavachos';
+import { jwtSession } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    jwtSession({
+      secret: process.env.JWT_SECRET, // min 32 chars for HS256
+      accessTokenTtl: 900,            // 15 minutes
+      refreshTokenTtl: 604800,        // 7 days
+      issuer: 'https://myapp.com',
+      audience: 'https://api.myapp.com',
+    }),
+  ],
+});
+```
+
+## Usage
+
+### Create a session
+
+```ts
+const { accessToken, refreshToken, expiresIn } = await kavach.jwt.createSession({
+  userId: user.id,
+  email: user.email,
+  name: user.name,
+  claims: { role: 'admin' }, // custom claims
+});
+```
+
+### Verify an access token
+
+```ts
+const payload = await kavach.jwt.verifyAccessToken(accessToken);
+// { sub: 'user-123', email: '...', role: 'admin', exp: ..., iss: '...' }
+```
+
+### Refresh
+
+```ts
+const { accessToken: newAccess, refreshToken: newRefresh } = await kavach.jwt.refreshSession(refreshToken);
+// Old refresh token is revoked (rotation)
+```
+
+### Revoke
+
+```ts
+await kavach.jwt.revokeSession(refreshToken);
+await kavach.jwt.revokeAllSessions(userId);
+```
+
+## Algorithms
+
+| Algorithm | Config | Notes |
+|-----------|--------|-------|
+| HS256 | `secret: string` | Symmetric, simplest |
+| RS256 | `privateKey: CryptoKey, publicKey: CryptoKey` | Asymmetric, for distributed verification |
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/jwt/token` | Create session |
+| POST | `/auth/jwt/refresh` | Refresh tokens |
+| POST | `/auth/jwt/revoke` | Revoke refresh token |
+| GET | `/auth/jwt/.well-known/jwks.json` | JWKS endpoint (RS256 only) |
+
+<Info>
+Access tokens are stateless. Revocation only affects refresh tokens. For immediate access token invalidation, use short TTLs (5-15 minutes).
+</Info>

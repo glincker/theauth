@@ -1,0 +1,211 @@
+---
+title: Permission engine
+description: Resource pattern matching, actions, constraints, and permission templates.
+icon: ShieldCheck
+---
+
+
+## How permissions work
+
+A permission grants an agent the right to perform one or more actions on a resource. KavachOS evaluates permissions at call time by checking whether any of the agent's permissions match the requested resource and include the requested action, then verifying all constraints pass.
+
+<ParamField path="resource" type="string">Colon-separated resource path. Wildcards (*) match exactly one segment.</ParamField>
+<ParamField path="actions" type="string[]">The actions this permission grants. No fixed set — define what fits your tools.</ParamField>
+<ParamField path="constraints" type="PermissionConstraints" default="undefined">Optional conditions that must all be satisfied for the permission to apply.</ParamField>
+
+## Matching rules
+
+### Resource pattern matching
+
+Resources follow a colon-separated hierarchy. The `resource` field in a permission is matched against the resource in the authorization request using exact matches or wildcards.
+
+```
+mcp:github:repos        // exact match
+mcp:github:*            // matches any direct child of mcp:github
+mcp:*                   // matches anything directly under mcp
+*                       // matches all resources
+```
+
+A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos` and `mcp:github:issues`, but not `mcp:github:repos:comments` — that is two segments deeper.
+
+```typescript
+// This permission...
+{ resource: 'mcp:github:*', actions: ['read'] }
+
+// ...matches these:
+// mcp:github:repos          ✓
+// mcp:github:issues         ✓
+// mcp:github:pull_requests  ✓
+
+// ...but NOT these:
+// mcp:github                ✗  (no wildcard segment)
+// mcp:slack:channels        ✗  (different namespace)
+// mcp:github:repos:comments ✗  (two levels deeper)
+```
+
+### Actions
+
+Actions describe what the agent can do to a resource. KavachOS does not enforce a fixed set — you define what makes sense for your tools.
+
+Common actions in MCP contexts:
+
+| Action | Typical use |
+|---|---|
+| `read` | Fetching data, listing resources |
+| `write` | Creating or modifying resources |
+| `execute` | Running tools, shell commands, deployments |
+| `delete` | Permanent removal of resources |
+
+An authorization check passes when an agent has a permission with: a matching resource pattern, the requested action in that permission's `actions` array, and all constraints satisfied.
+
+## Constraints
+
+Constraints add conditions to a permission. All conditions must be met for the permission to apply.
+
+<ParamField path="maxCallsPerHour" type="number" default="undefined (no limit)">Sliding 5-minute window rate limit. Calls beyond this return RATE_LIMIT_EXCEEDED.</ParamField>
+<ParamField path="allowedArgPatterns" type="string[]" default="undefined (any arguments allowed)">Glob-style patterns. The arguments field in the authorization request must match at least one.</ParamField>
+<ParamField path="requireApproval" type="boolean" default="false">When true, the call is denied with APPROVAL_REQUIRED. Your app must handle the approval flow.</ParamField>
+<ParamField path="timeWindow" type="{ start: string; end: string }" default="undefined (any time)">HH:MM format, UTC. Calls outside this range are denied.</ParamField>
+<ParamField path="ipAllowlist" type="string[]" default="undefined (any IP)">CIDR ranges. Requests from IPs outside this list are denied.</ParamField>
+
+<AccordionGroup>
+  <Accordion title="Rate limiting">
+    Limits how many times an agent can call a resource per hour. Uses a 5-minute sliding window.
+
+    ```typescript
+    {
+      resource: 'mcp:deploy:staging',
+      actions: ['execute'],
+      constraints: {
+        maxCallsPerHour: 20,
+      },
+    }
+    ```
+
+    Calls beyond the limit return `result: 'rate_limited'` in the audit log and `allowed: false` with reason `RATE_LIMIT_EXCEEDED`.
+  </Accordion>
+
+  <Accordion title="Argument pattern matching">
+    Restricts what arguments an agent can pass to a tool. Patterns are glob-style strings matched against the `arguments` field of the authorization request.
+
+    ```typescript
+    {
+      resource: 'tool:file_write',
+      actions: ['execute'],
+      constraints: {
+        allowedArgPatterns: ['/home/agent/**', '/tmp/**'],
+      },
+    }
+    ```
+
+    If no pattern matches, the call is denied.
+  </Accordion>
+
+  <Accordion title="Human-in-the-loop approval">
+    Prevents automatic authorization. The call is logged and denied until a human approves it through your application's approval flow.
+
+    ```typescript
+    {
+      resource: 'mcp:deploy:production',
+      actions: ['execute'],
+      constraints: {
+        requireApproval: true,
+      },
+    }
+    ```
+
+    The authorization result has `allowed: false` and reason `APPROVAL_REQUIRED`. Your application is responsible for presenting the approval UI and re-authorizing after approval.
+
+    <Info>
+      KavachOS does not ship an approval UI. It provides the enforcement point. How you build the human review step is up to you.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Time windows">
+    Restricts when an action is allowed. Times are in 24-hour format, UTC.
+
+    ```typescript
+    {
+      resource: 'mcp:github:*',
+      actions: ['read', 'write'],
+      constraints: {
+        timeWindow: { start: '09:00', end: '17:00' },
+      },
+    }
+    ```
+
+    Calls outside the window return `allowed: false`. Useful for business-hours-only policies or maintenance windows.
+  </Accordion>
+
+  <Accordion title="IP allowlist">
+    Restricts which source IPs can use the permission. Accepts CIDR notation.
+
+    ```typescript
+    {
+      resource: 'mcp:internal:*',
+      actions: ['read', 'write', 'execute'],
+      constraints: {
+        ipAllowlist: ['10.0.0.0/8', '172.16.0.0/12'],
+      },
+    }
+    ```
+
+    Pass the caller's IP in the authorization request for this to take effect. Requests from IPs outside the list are denied.
+  </Accordion>
+</AccordionGroup>
+
+## Permission templates
+
+KavachOS ships named templates for common patterns. Import them from `kavachos`:
+
+```typescript
+import { permissionTemplates, getPermissionTemplate } from 'kavachos';
+
+const agent = await kavach.agent.create({
+  ownerId: 'user-123',
+  name: 'readonly-agent',
+  type: 'autonomous',
+  permissions: permissionTemplates.readonly,
+});
+```
+
+Available templates:
+
+| Template | Actions | Resource | Notes |
+|---|---|---|---|
+| `readonly` | `read` | `*` | |
+| `readwrite` | `read`, `write` | `*` | |
+| `admin` | `*` | `*` | All actions on all resources |
+| `mcpBasic` | `read`, `execute` | `mcp:*` | |
+| `mcpFull` | `read`, `write`, `execute` | `mcp:*` | |
+| `rateLimitedRead` | `read` | `*` | 100 calls/hour |
+| `approvalRequired` | `*` | `*` | Every call requires human approval |
+| `businessHours` | `read`, `write`, `execute` | `*` | 09:00–17:00 UTC |
+
+Templates are plain `Permission[]` arrays. Spread and extend them directly:
+
+```typescript
+permissions: [
+  ...permissionTemplates.mcpBasic,
+  { resource: 'tool:custom_tool', actions: ['execute'] },
+]
+```
+
+Use `getPermissionTemplate(name)` when you need a deep copy rather than a reference to the shared array:
+
+```typescript
+const perms = getPermissionTemplate('mcpBasic');
+perms[0].actions.push('write'); // safe — does not mutate the original
+```
+
+<Warning>
+  Spreading directly from `permissionTemplates` gives you a reference to the original array entries. If you mutate the objects after spreading, you will modify the template. Use `getPermissionTemplate` when you need to modify entries.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Delegation chains" description="Delegate permission subsets to other agents." href="/docs/delegation" />
+  <Card title="Audit trail" description="See how permissions are logged on every call." href="/docs/audit" />
+  <Card title="Compliance" description="Map permissions to EU AI Act and NIST requirements." href="/docs/compliance" />
+</CardGroup>

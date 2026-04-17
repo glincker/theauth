@@ -1,0 +1,96 @@
+---
+title: Trusted devices
+description: Let users skip two-factor auth on devices they have explicitly trusted.
+icon: Shield
+---
+
+The trusted device module lets users mark a device as trusted after completing two-factor authentication. On subsequent sign-ins from that device, 2FA is skipped. Trust is stored as an HMAC-signed fingerprint — not a plain device ID — so it cannot be guessed or forged.
+
+## Setup
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { twoFactor } from 'kavachos/auth';
+import { createTrustedDeviceModule } from 'kavachos/modules/trusted-device'; // [!code highlight]
+
+const trustedDevice = createTrustedDeviceModule({ // [!code highlight]
+  secret: process.env.TRUSTED_DEVICE_SECRET!, // separate from KAVACH_SECRET // [!code highlight]
+  trustDuration: 30 * 24 * 60 * 60, // 30 days in seconds // [!code highlight]
+}); // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    twoFactor({
+      isTrustedDevice: trustedDevice.verify, // [!code highlight]
+    }),
+  ],
+  modules: [trustedDevice], // [!code highlight]
+});
+```
+
+## Trust a device
+
+After the user completes 2FA, call `trust()` to mark their device. Pass any stable identifier — a browser fingerprint, a cookie value you control, or a combination:
+
+```typescript title="Trust after 2FA (server)"
+import { trustedDevice } from './lib/kavach';
+
+// After verifying the 2FA code:
+const { token, expiresAt } = await trustedDevice.trust({
+  userId: session.userId,
+  fingerprint: request.headers.get('x-device-fingerprint') ?? '',
+  userAgent: request.headers.get('user-agent') ?? '',
+});
+
+// Store the token in a long-lived cookie
+response.setCookie('td_token', token, { maxAge: 30 * 24 * 60 * 60, httpOnly: true });
+```
+
+## Verify a trusted device
+
+On sign-in, check whether the device is already trusted before requiring 2FA:
+
+```typescript title="Check on sign-in (server)"
+const token = request.cookies.get('td_token');
+
+const trusted = await trustedDevice.verify({
+  userId: user.id,
+  token,
+  fingerprint: request.headers.get('x-device-fingerprint') ?? '',
+});
+
+if (trusted) {
+  // Skip 2FA, proceed with session creation
+}
+```
+
+## Revoke a device
+
+Users can revoke specific devices from an account settings page:
+
+```typescript title="Revoke one device (server)"
+await trustedDevice.revoke({ userId: session.userId, token: deviceToken });
+```
+
+## Revoke all devices
+
+```typescript title="Revoke all devices (server)"
+await trustedDevice.revokeAll({ userId: session.userId });
+```
+
+## List trusted devices
+
+```typescript title="List devices (server)"
+const devices = await trustedDevice.list({ userId: session.userId });
+
+// [{ id, userAgent, createdAt, expiresAt }, ...]
+```
+
+## Configuration reference
+
+<ParamField path="secret" type="string" required>Secret used to HMAC-sign device fingerprints. Rotate this to invalidate all trusted devices instantly.</ParamField>
+<ParamField path="trustDuration" type="number" default="2592000 (30 days)">How long a device stays trusted, in seconds.</ParamField>
+<ParamField path="maxDevicesPerUser" type="number" default="10">Maximum number of trusted devices per user. Oldest is evicted when exceeded.</ParamField>

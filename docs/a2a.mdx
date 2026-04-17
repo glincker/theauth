@@ -1,0 +1,332 @@
+---
+title: A2A protocol
+description: Agent-to-Agent communication using Google's A2A protocol with KavachOS authentication.
+icon: Network
+---
+
+
+## What A2A is
+
+The Agent-to-Agent (A2A) protocol is an open standard from Google that lets AI agents discover and communicate with each other. Where MCP handles the connection between agents and tools, A2A handles the connection between agents themselves.
+
+Think of it this way: MCP is how an agent uses a tool. A2A is how an agent talks to another agent.
+
+KavachOS implements A2A with built-in authentication, so every agent interaction is identity-verified and audited.
+
+### A2A and MCP compared
+
+| | MCP | A2A |
+|---|---|---|
+| Purpose | Agent-to-tool communication | Agent-to-agent communication |
+| Discovery | OAuth metadata endpoints | `/.well-known/agent.json` |
+| Protocol | Tool-specific RPC | JSON-RPC 2.0 |
+| Auth | OAuth 2.1 | OAuth 2.1, API keys, OIDC, mTLS |
+| Lifecycle | Stateless tool calls | Stateful task lifecycle |
+| Streaming | Not defined | SSE via `message/stream` |
+
+## Setup
+
+### Install
+
+```bash
+pnpm add kavachos
+```
+
+### Create an A2A server
+
+The A2A server exposes your agent as a JSON-RPC endpoint that other agents can call.
+
+```typescript
+import { createKavach } from 'kavachos';
+import { createAgentCard, createA2AServer } from 'kavachos/a2a';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+});
+
+// Register an agent identity
+const agent = await kavach.createAgent({
+  ownerId: 'user-1',
+  name: 'Code Reviewer',
+  type: 'service',
+});
+
+// Build the A2A Agent Card
+const card = createAgentCard({
+  agent: { id: agent.id, name: agent.name, type: agent.type },
+  url: 'https://your-app.com/a2a',
+  description: 'Reviews pull requests and suggests improvements',
+  version: '1.0.0',
+  skills: [
+    {
+      id: 'review-code',
+      name: 'Code review',
+      description: 'Analyzes code changes and provides feedback',
+      tags: ['code', 'review', 'quality'],
+    },
+  ],
+  capabilities: { streaming: true },
+  securitySchemes: {
+    bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+  },
+  security: [{ bearer: [] }],
+});
+
+// Create the server
+const server = createA2AServer({
+  agentCard: card,
+  handler: {
+    onMessage: async (message) => {
+      // Your agent logic here
+      const text = message.parts
+        .filter((p) => p.type === 'text')
+        .map((p) => p.text)
+        .join('\n');
+
+      return {
+        id: crypto.randomUUID(),
+        contextId: crypto.randomUUID(),
+        status: { code: 'completed' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        artifacts: [
+          {
+            id: crypto.randomUUID(),
+            parts: [{ type: 'text', text: `Review complete for: ${text}` }],
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      };
+    },
+  },
+  authenticate: async (request) => {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) return null;
+    const session = await kavach.mcp.validateToken(token);
+    return session.success ? session.data.userId : null;
+  },
+  onAudit: async (event) => {
+    console.log('[A2A audit]', event.method, event.agentId, event.success);
+  },
+});
+
+// Mount in your framework
+// app.all('/a2a', (req) => server.handleRequest(req));
+// app.get('/.well-known/agent.json', (req) => server.handleRequest(req));
+```
+
+### A2A server config
+
+<ParamField path="agentCard" type="A2AAgentCard">The Agent Card that describes this agent. Served at /.well-known/agent.json.</ParamField>
+<ParamField path="handler" type="A2ATaskHandler">Callbacks for handling incoming messages, cancellations, and streaming.</ParamField>
+<ParamField path="authenticate" type="(request: Request) => Promise<string | null>">Validates the caller. Return an agent/user ID or null to reject. Optional — omit to allow unauthenticated calls.</ParamField>
+<ParamField path="onAudit" type="(event: A2AAuditEvent) => Promise<void>">Called after each A2A interaction for audit logging.</ParamField>
+<ParamField path="taskStore" type="A2ATaskStore">Custom task persistence. Defaults to an in-memory Map.</ParamField>
+
+## Agent Cards
+
+An Agent Card is a JSON document that describes what an agent can do, how to authenticate with it, and where to reach it. Other agents fetch this card to decide whether and how to communicate.
+
+### Creating a card
+
+```typescript
+import { createAgentCard } from 'kavachos/a2a';
+
+const card = createAgentCard({
+  agent: { id: 'agent-1', name: 'Translator', type: 'service' },
+  url: 'https://translator.example.com/a2a',
+  description: 'Translates text between languages',
+  version: '2.1.0',
+  skills: [
+    {
+      id: 'translate',
+      name: 'Translate text',
+      description: 'Translates text from one language to another',
+      supportedMediaTypes: ['text/plain'],
+      tags: ['translation', 'i18n'],
+    },
+  ],
+  provider: { name: 'Acme Corp', url: 'https://acme.com' },
+  defaultInputModes: ['text/plain'],
+  defaultOutputModes: ['text/plain'],
+});
+```
+
+### Validating a card
+
+```typescript
+import { validateAgentCard } from 'kavachos/a2a';
+
+const result = validateAgentCard(incomingJson);
+if (!result.success) {
+  console.error('Bad card:', result.error.message);
+}
+```
+
+### Signing and verifying
+
+Agent Cards can be signed with a private key so that consumers can verify the card hasn't been tampered with.
+
+```typescript
+import { generateKeyPair } from 'jose';
+import { signAgentCard, verifyAgentCard } from 'kavachos/a2a';
+
+const { publicKey, privateKey } = await generateKeyPair('ES256');
+
+// Sign
+const signed = await signAgentCard({ card, privateKey });
+
+// Verify
+const verified = await verifyAgentCard({
+  card: signed.data,
+  publicKey,
+});
+console.log('Valid:', verified.data.valid); // true
+```
+
+## Calling other agents
+
+The A2A client discovers remote agents and sends them tasks.
+
+```typescript
+import { createA2AClient } from 'kavachos/a2a';
+
+const client = createA2AClient({
+  agent: 'https://remote-agent.example.com',
+  getAuthToken: async () => {
+    // Use KavachOS to get a token for this agent
+    const token = await kavach.issueToken({ agentId: myAgent.id });
+    return token;
+  },
+});
+
+// Discover the remote agent's capabilities
+const discovery = await client.discover();
+if (discovery.success) {
+  console.log('Skills:', discovery.data.skills.map((s) => s.name));
+}
+
+// Send a message
+const result = await client.sendMessage({
+  message: {
+    id: crypto.randomUUID(),
+    role: 'user',
+    parts: [{ type: 'text', text: 'Review this PR: https://github.com/...' }],
+    createdAt: new Date().toISOString(),
+  },
+});
+
+if (result.success) {
+  console.log('Task status:', result.data.status.code);
+  console.log('Artifacts:', result.data.artifacts);
+}
+```
+
+### Retrieving and canceling tasks
+
+```typescript
+// Get a task by ID
+const task = await client.getTask({ id: 'task-123' });
+
+// Cancel a running task
+const canceled = await client.cancelTask({ id: 'task-123' });
+```
+
+## Authentication between agents
+
+KavachOS supports all A2A security schemes. You declare them in the Agent Card and enforce them in the server's `authenticate` callback.
+
+<Tabs items={['Bearer token', 'API key', 'OAuth 2.0']}>
+  <Tab value="Bearer token">
+    ```typescript
+    const card = createAgentCard({
+      // ...
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      },
+      security: [{ bearer: [] }],
+    });
+
+    const server = createA2AServer({
+      agentCard: card,
+      handler: { onMessage: handleMessage },
+      authenticate: async (req) => {
+        const token = req.headers.get('Authorization')?.slice(7);
+        if (!token) return null;
+        const session = await kavach.mcp.validateToken(token);
+        return session.success ? session.data.userId : null;
+      },
+    });
+    ```
+  </Tab>
+
+  <Tab value="API key">
+    ```typescript
+    const card = createAgentCard({
+      // ...
+      securitySchemes: {
+        apiKey: { type: 'apiKey', name: 'X-API-Key', in: 'header' },
+      },
+      security: [{ apiKey: [] }],
+    });
+
+    const server = createA2AServer({
+      agentCard: card,
+      handler: { onMessage: handleMessage },
+      authenticate: async (req) => {
+        const key = req.headers.get('X-API-Key');
+        const agent = await kavach.verifyApiKey(key);
+        return agent?.id ?? null;
+      },
+    });
+    ```
+  </Tab>
+
+  <Tab value="OAuth 2.0">
+    ```typescript
+    const card = createAgentCard({
+      // ...
+      securitySchemes: {
+        oauth2: {
+          type: 'oauth2',
+          flows: {
+            clientCredentials: {
+              tokenUrl: 'https://auth.example.com/oauth/token',
+              scopes: { 'a2a:call': 'Call this agent' },
+            },
+          },
+        },
+      },
+      security: [{ oauth2: ['a2a:call'] }],
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Task lifecycle
+
+A2A tasks go through a defined state machine:
+
+```
+submitted -> working -> completed
+                    \-> failed
+                    \-> canceled
+                    \-> input-required -> working -> ...
+                    \-> auth-required -> working -> ...
+                    \-> rejected
+```
+
+Each state transition is tracked with timestamps. When the server's `onAudit` callback is set, every interaction is logged with the method name, caller identity, task ID, and outcome.
+
+<Info>
+  A2A tasks are independent from MCP tool calls. An agent might use MCP to call tools internally while processing an A2A task, but the two protocols operate at different layers.
+</Info>
+
+## JSON-RPC methods
+
+| Method | Purpose |
+|---|---|
+| `message/send` | Send a message and get a task result |
+| `message/stream` | Send a message and receive SSE events |
+| `tasks/get` | Retrieve a task by ID |
+| `tasks/cancel` | Cancel a running task |

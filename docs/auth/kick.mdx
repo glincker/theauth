@@ -1,0 +1,69 @@
+---
+title: Kick
+description: Sign in with Kick using OAuth 2.0.
+icon: Kick
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [kick.com](https://kick.com) and navigate to **Dashboard > Developer > Applications**. Create an app and set your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/kick
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'kick',
+          clientId: process.env.KICK_CLIENT_ID!,
+          clientSecret: process.env.KICK_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+KICK_CLIENT_ID=...
+KICK_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `user:read`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `user:read` | Read user profile and email |
+| `channel:read` | Read channel information |
+| `chat:read` | Read chat messages |
+
+<Info>
+  Kick's OAuth implementation is relatively new. Check the [Kick API documentation](https://kick.com/api) for the latest scope definitions.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/kick` | Redirect to Kick |
+| GET | `/auth/oauth/callback/kick` | Handle callback |

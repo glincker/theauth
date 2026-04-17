@@ -1,0 +1,82 @@
+---
+title: Captcha
+description: Protect sign-up and sign-in endpoints with Cloudflare Turnstile, hCaptcha, or reCAPTCHA.
+icon: Shield
+---
+
+The `captcha` plugin adds bot protection to any KavachOS endpoint. It validates a client-side token before the request is processed, blocking automated sign-ups and credential stuffing without extra middleware.
+
+## Supported providers
+
+| Provider | Value |
+|----------|-------|
+| Cloudflare Turnstile | `'turnstile'` |
+| hCaptcha | `'hcaptcha'` |
+| Google reCAPTCHA v2 | `'recaptcha-v2'` |
+| Google reCAPTCHA v3 | `'recaptcha-v3'` |
+
+## Setup
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { captcha } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    captcha({ // [!code highlight]
+      provider: 'turnstile', // [!code highlight]
+      secretKey: process.env.TURNSTILE_SECRET_KEY!, // [!code highlight]
+      endpoints: ['/auth/sign-up', '/auth/sign-in'], // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+## Client-side token
+
+Add the provider's widget to your form. When the user completes the challenge, include the token in the request body as `captchaToken`.
+
+```typescript title="Sign up with captcha token (client)"
+const res = await fetch('/auth/sign-up', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'correct horse battery',
+    captchaToken: turnstile.getResponse(), // [!code highlight]
+  }),
+});
+```
+
+The `captchaToken` field is stripped from the request before it reaches other plugins. Other plugin handlers never see it.
+
+**Error codes**
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `CAPTCHA_MISSING` | 400 | Request did not include a token |
+| `CAPTCHA_INVALID` | 403 | Provider rejected the token |
+
+## reCAPTCHA v3 score threshold
+
+For reCAPTCHA v3, set a minimum score (0.0–1.0). Requests below the threshold are rejected:
+
+```typescript title="lib/kavach.ts"
+captcha({
+  provider: 'recaptcha-v3',
+  secretKey: process.env.RECAPTCHA_SECRET!,
+  minScore: 0.5, // [!code highlight]
+  endpoints: ['/auth/sign-up'],
+}),
+```
+
+## Configuration reference
+
+<ParamField path="provider" type="" required>Captcha provider to use.</ParamField>
+<ParamField path="secretKey" type="string" required>Server-side secret key from the provider dashboard.</ParamField>
+<ParamField path="endpoints" type="string[]" default="[">List of endpoint paths where captcha validation is enforced. Defaults to sign-up and sign-in.</ParamField>
+<ParamField path="minScore" type="number" default={0.5}>Minimum score for reCAPTCHA v3. Ignored for other providers.</ParamField>
+<ParamField path="fieldName" type="string">Request body field that contains the captcha token.</ParamField>

@@ -1,0 +1,136 @@
+---
+title: Email templates
+description: Customizable HTML email templates for auth flows.
+icon: FileText
+---
+
+
+## Overview
+
+`createEmailTemplates` returns a set of pre-built HTML email templates for every auth flow KavachOS supports. Each template produces a `{ subject, text, html }` object you pass directly to your mail provider.
+
+## Setup
+
+```typescript
+import { createEmailTemplates } from 'kavachos';
+
+const templates = createEmailTemplates({
+  appName: 'MyApp',
+  appUrl: 'https://myapp.com',
+  supportEmail: 'support@myapp.com', // optional
+});
+```
+
+## Built-in templates
+
+| Template | When to use |
+|----------|------------|
+| `verification` | Email address verification on signup |
+| `passwordReset` | Password reset request |
+| `magicLink` | Passwordless login link |
+| `emailOtp` | One-time passcode for email OTP auth |
+| `invitation` | Invite a user to an organization |
+| `welcome` | Post-signup welcome message |
+
+## Using a template
+
+Every template is a function that accepts the variables it needs and returns `{ subject, text, html }`.
+
+```typescript
+const { subject, text, html } = templates.magicLink({
+  url: 'https://myapp.com/auth/callback?token=abc123',
+  expiresInMinutes: 15,
+  userEmail: 'alice@example.com',
+});
+
+await mailer.send({ to: 'alice@example.com', subject, text, html });
+```
+
+## All template signatures
+
+```typescript
+templates.verification({ url: string; userEmail: string });
+templates.passwordReset({ url: string; expiresInMinutes: number; userEmail: string });
+templates.magicLink({ url: string; expiresInMinutes: number; userEmail: string });
+templates.emailOtp({ otp: string; expiresInMinutes: number; userEmail: string });
+templates.invitation({ url: string; inviterName: string; orgName: string; userEmail: string });
+templates.welcome({ userName: string; userEmail: string });
+```
+
+## Integrating with auth plugins
+
+Auth plugins expose callbacks like `onSendVerification` and `onSendMagicLink`. Pass template output directly into them.
+
+<Tabs items={['Magic link', 'Email OTP', 'Password reset']}>
+  <Tab value="Magic link">
+```typescript
+import { createKavach, magicLinkPlugin, createEmailTemplates } from 'kavachos';
+
+const templates = createEmailTemplates({ appName: 'MyApp', appUrl: 'https://myapp.com' });
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    magicLinkPlugin({
+      async onSendMagicLink({ email, url, expiresInMinutes }) {
+        const mail = templates.magicLink({ url, expiresInMinutes, userEmail: email });
+        await mailer.send({ to: email, ...mail });
+      },
+    }),
+  ],
+});
+```
+  </Tab>
+  <Tab value="Email OTP">
+```typescript
+emailOtpPlugin({
+  async onSendOtp({ email, otp, expiresInMinutes }) {
+    const mail = templates.emailOtp({ otp, expiresInMinutes, userEmail: email });
+    await mailer.send({ to: email, ...mail });
+  },
+});
+```
+  </Tab>
+  <Tab value="Password reset">
+```typescript
+emailPasswordPlugin({
+  async onSendResetPassword({ email, url }) {
+    const mail = templates.passwordReset({ url, expiresInMinutes: 60, userEmail: email });
+    await mailer.send({ to: email, ...mail });
+  },
+});
+```
+  </Tab>
+</Tabs>
+
+## Customizing templates
+
+Override any template by passing your own function. Custom templates receive the same arguments as built-ins and must return `{ subject, text, html }`.
+
+```typescript
+const templates = createEmailTemplates({
+  appName: 'MyApp',
+  appUrl: 'https://myapp.com',
+  overrides: {
+    welcome({ userName, userEmail }) {
+      return {
+        subject: `Welcome to MyApp, ${userName}`,
+        text: `Hey ${userName}, your account (${userEmail}) is ready.`,
+        html: `<p>Hey <strong>${userName}</strong>, your account is ready. <a href="https://myapp.com">Get started</a>.</p>`,
+      };
+    },
+  },
+});
+```
+
+<Note>
+  Overrides only replace the templates you provide. All other templates continue to use the defaults.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Magic link" description="Passwordless auth via email links." href="/docs/auth/magic-link" />
+  <Card title="Email OTP" description="One-time passcodes delivered by email." href="/docs/auth/email-otp" />
+  <Card title="Internationalization" description="Translate email subjects and error messages." href="/docs/i18n" />
+</CardGroup>

@@ -1,0 +1,114 @@
+---
+title: Notion
+description: Sign in with Notion using OAuth 2.0.
+icon: Notion
+---
+
+## Get credentials
+
+<Steps>
+
+<Step>
+
+### Create an integration
+
+Go to [Notion Integrations](https://www.notion.so/profile/integrations) and click **New integration**. Set the type to **Public** — this is required for OAuth with external users.
+
+</Step>
+
+<Step>
+
+### Configure OAuth settings
+
+In the integration settings, scroll to **OAuth Domain & URIs**. Add your redirect URI:
+
+```
+https://auth.example.com/auth/oauth/notion/callback
+```
+
+Set **Redirect URIs** and save.
+
+</Step>
+
+<Step>
+
+### Copy credentials
+
+Under **Basic Information**, copy the **OAuth client ID** and generate an **OAuth client secret**.
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'notion', // [!code highlight]
+          clientId: process.env.NOTION_CLIENT_ID!, // [!code highlight]
+          clientSecret: process.env.NOTION_CLIENT_SECRET!, // [!code highlight]
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+NOTION_CLIENT_ID=your-notion-oauth-client-id
+NOTION_CLIENT_SECRET=secret_...
+```
+
+## Endpoints
+
+| Endpoint | URL |
+|----------|-----|
+| Authorization | `https://api.notion.com/v1/oauth/authorize` |
+| Token | `https://api.notion.com/v1/oauth/token` |
+| User info | Embedded in token response (`owner.user`) |
+
+## Scopes
+
+Notion does not use granular OAuth scopes. Permissions are configured at the integration level in the Notion UI. When a user authorizes your integration, they choose which pages and databases to share.
+
+## User data returned
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `id` | `owner.user.id` | Stable Notion user UUID |
+| `email` | `owner.user.person.email` | Present only for person-type authorizations |
+| `name` | `owner.user.name` | Full display name |
+| `avatar` | `owner.user.avatar_url` | May be null if the user has no profile photo |
+
+<Info>
+  Notion returns user identity as part of the token exchange response — there is no separate `/me` endpoint. KavachOS caches the token payload internally so no extra network call is made.
+</Info>
+
+<Warning>
+  The `email` field is only present when a **person** authorizes the integration. If a workspace bot is the owner (`owner.type === "workspace"`), the email will be absent. Always check for `userInfo.email` before using it.
+</Warning>
+
+## Workspace data
+
+The token response also includes workspace context, available in `userInfo.raw`:
+
+```typescript
+const { userInfo } = await oauth.handleCallback('notion', code, state, redirectUri);
+
+// Access workspace info from the raw token payload
+const raw = userInfo.raw as { workspace_id: string; workspace_name: string };
+console.log(raw.workspace_id);   // e.g. "1234abcd-..."
+console.log(raw.workspace_name); // e.g. "Acme Corp"
+```
+
+This is useful for multi-workspace SaaS apps where you want to scope data per Notion workspace.

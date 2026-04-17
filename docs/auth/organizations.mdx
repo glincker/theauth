@@ -1,0 +1,121 @@
+---
+title: Organizations
+description: Multi-tenant organizations with member management, invitations, and RBAC.
+icon: Users
+---
+
+## Setup
+
+Add the `organization` plugin to your KavachOS instance:
+
+```ts
+import { createKavach } from 'kavachos';
+import { organization } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    organization({ // [!code highlight]
+      maxMembers: 100, // [!code highlight]
+      maxOrgsPerUser: 5, // [!code highlight]
+      allowCustomRoles: true, // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+## Creating organizations
+
+```ts
+const org = await kavach.org.create({
+  name: 'Acme Corp',
+  slug: 'acme-corp',   // lowercase letters, numbers, hyphens only
+  ownerId: 'user_abc',
+  metadata: { plan: 'pro' },
+});
+// org.id = 'org_...'
+```
+
+The creator is automatically added as a member with the `owner` role.
+
+## Inviting members
+
+```ts
+const invitation = await kavach.org.invite({
+  orgId: org.id,
+  email: 'alice@acme.com',
+  role: 'admin',
+  invitedBy: 'user_abc',
+});
+// invitation.id, invitation.expiresAt (7 days)
+```
+
+Accept on the invited user's side:
+
+```ts
+const member = await kavach.org.acceptInvitation(invitation.id, 'user_xyz');
+```
+
+## Managing members
+
+```ts
+// List all members
+const members = await kavach.org.getMembers(org.id);
+
+// Change a member's role
+await kavach.org.updateMemberRole(org.id, 'user_xyz', 'member');
+
+// Remove a member
+await kavach.org.removeMember(org.id, 'user_xyz');
+```
+
+## Roles and permissions
+
+Four built-in roles ship by default:
+
+| Role | Permissions |
+|------|-------------|
+| `owner` | All permissions including `org:manage`, `org:delete`, `roles:manage` |
+| `admin` | `members:invite`, `members:remove`, `agents:create`, `agents:revoke`, `agents:manage` |
+| `member` | `agents:create`, `agents:manage` |
+| `viewer` | None |
+
+Check permissions at runtime:
+
+```ts
+const allowed = await kavach.org.hasPermission(org.id, userId, 'agents:create'); // [!code highlight]
+```
+
+### Custom roles
+
+```ts
+await kavach.org.createRole(org.id, {
+  name: 'billing',
+  permissions: ['invoices:read', 'invoices:pay'],
+});
+```
+
+<Note>
+  Set `allowCustomRoles: false` in the plugin config to restrict orgs to the built-in roles only.
+</Note>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/org` | Create organization |
+| GET | `/auth/org/user/:userId` | List orgs for user |
+| GET | `/auth/org/:orgId` | Get organization |
+| PATCH | `/auth/org/:orgId` | Update organization |
+| DELETE | `/auth/org/:orgId` | Delete organization |
+| GET | `/auth/org/:orgId/members` | List members |
+| POST | `/auth/org/:orgId/members` | Add member |
+| PATCH | `/auth/org/:orgId/members/:userId` | Update member role |
+| DELETE | `/auth/org/:orgId/members/:userId` | Remove member |
+| POST | `/auth/org/:orgId/invite` | Send invitation |
+| GET | `/auth/org/:orgId/invitations` | List invitations |
+| POST | `/auth/org/invite/:invitationId/accept` | Accept invitation |
+| DELETE | `/auth/org/invite/:invitationId` | Revoke invitation |
+| GET | `/auth/org/:orgId/roles` | List roles |
+| POST | `/auth/org/:orgId/roles` | Create role |
+| GET | `/auth/org/:orgId/permissions/:userId/:permission` | Check permission |

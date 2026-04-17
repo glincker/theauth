@@ -1,0 +1,79 @@
+---
+title: Bitbucket
+description: Sign in with Bitbucket using OAuth 2.0.
+icon: Bitbucket
+---
+
+## Get credentials
+
+<Steps>
+<Step>
+### Create an OAuth consumer
+
+Go to your Bitbucket workspace settings: **Workspace Settings > Apps and features > OAuth consumers > Add consumer**.
+
+Set the **Callback URL** to:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/bitbucket
+```
+
+Under **Permissions**, enable at minimum **Account: Read**.
+</Step>
+
+<Step>
+### Copy your credentials
+
+After saving, expand the consumer to see the **Key** (client ID) and **Secret** (client secret).
+</Step>
+</Steps>
+
+## Configuration
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth, bitbucketProvider } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://your-app.com',
+  plugins: [
+    oauth({
+      providers: [
+        bitbucketProvider(
+          process.env.BITBUCKET_CLIENT_ID!,
+          process.env.BITBUCKET_CLIENT_SECRET!,
+        ),
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+BITBUCKET_CLIENT_ID=...
+BITBUCKET_CLIENT_SECRET=...
+```
+
+## Scopes
+
+Default scope: `account`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `account` | Read account info, email, profile |
+| `email` | Read primary email address |
+| `repository` | Read repository list |
+| `team` | Read workspace/team memberships |
+
+<Info>
+  Bitbucket does not expose the user's email by default through the profile endpoint if it is set to private. The `email` scope fetches it from a separate endpoint. KavachOS requests both automatically.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/bitbucket` | Redirect to Bitbucket |
+| GET | `/auth/oauth/callback/bitbucket` | Handle callback |

@@ -1,0 +1,69 @@
+---
+title: VK
+description: Sign in with VK using OAuth 2.0.
+icon: VK
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [dev.vk.com](https://dev.vk.com) and create an application. Set the platform to **Website** and add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/vk
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'vk',
+          clientId: process.env.VK_CLIENT_ID!,
+          clientSecret: process.env.VK_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+VK_CLIENT_ID=...
+VK_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `email` | Email address |
+| `profile` | Name and photo |
+| `friends` | Friends list |
+
+<Info>
+  VK returns email as part of the access token response rather than a separate userinfo endpoint. KavachOS handles this automatically.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/vk` | Redirect to VK |
+| GET | `/auth/oauth/callback/vk` | Handle callback |

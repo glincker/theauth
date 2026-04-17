@@ -1,0 +1,69 @@
+---
+title: Kakao
+description: Sign in with Kakao using OAuth 2.0.
+icon: Kakao
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to the [Kakao Developers](https://developers.kakao.com) portal and create an application. Under **Kakao Login**, enable the feature and add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/kakao
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'kakao',
+          clientId: process.env.KAKAO_CLIENT_ID!,
+          clientSecret: process.env.KAKAO_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+KAKAO_CLIENT_ID=...
+KAKAO_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `profile_nickname`, `account_email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `profile_nickname` | Kakao nickname |
+| `profile_image` | Profile image |
+| `account_email` | Email address (requires business verification) |
+
+<Warning>
+  Email access requires business verification in the Kakao Developer Console. Without it, only `profile_nickname` and `profile_image` are available.
+</Warning>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/kakao` | Redirect to Kakao |
+| GET | `/auth/oauth/callback/kakao` | Handle callback |

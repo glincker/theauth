@@ -1,0 +1,169 @@
+---
+title: Budget policies
+description: Controlling LLM spend and call volume with per-agent, per-user, and per-tenant policies.
+icon: DollarSign
+---
+
+
+## The problem policies solve
+
+When agents make LLM calls, costs accumulate in the background. Without limits, a single runaway agent or a misconfigured loop can burn through a month's budget in hours. Budget policies let you set hard caps and choose what happens when those caps are hit.
+
+Policies are evaluated at authorization time, before any LLM call is made. If an agent is over budget, the authorization check fails before your code even runs.
+
+<Info>
+  Policies stack. An agent can have a per-agent policy, a per-user policy, and a per-tenant policy all active at once. KavachOS evaluates all of them and returns the first one that is exceeded.
+</Info>
+
+## Data model
+
+<ParamField path="id" type="string">Stable identifier with a pol_ prefix.</ParamField>
+<ParamField path="agentId" type="string" default="undefined (all agents)">Agent this policy applies to. Omit to create a global policy that applies to all agents.</ParamField>
+<ParamField path="userId" type="string" default="undefined (all users)">User this policy applies to. Omit to apply regardless of owner.</ParamField>
+<ParamField path="tenantId" type="string" default="undefined (all tenants)">Tenant this policy applies to.</ParamField>
+<ParamField path="limits" type="BudgetLimits">The numeric thresholds for this policy.</ParamField>
+<ParamField path="action" type="'warn' | 'throttle' | 'block' | 'revoke'">What happens when a limit is exceeded.</ParamField>
+<ParamField path="status" type="'active' | 'triggered' | 'disabled'">Current policy state. 'triggered' means a limit has been hit.</ParamField>
+<ParamField path="currentUsage" type="BudgetUsage">Running counters for this policy.</ParamField>
+
+### BudgetLimits
+
+<ParamField path="maxTokensCostPerDay" type="number" default="undefined (no daily token limit)">Maximum token cost units allowed per day. Resets at midnight UTC.</ParamField>
+<ParamField path="maxTokensCostPerMonth" type="number" default="undefined (no monthly token limit)">Maximum token cost units allowed per calendar month.</ParamField>
+<ParamField path="maxCallsPerDay" type="number" default="undefined (no daily call limit)">Maximum authorize() calls allowed per day.</ParamField>
+<ParamField path="maxCallsPerMonth" type="number" default="undefined (no monthly call limit)">Maximum authorize() calls allowed per calendar month.</ParamField>
+
+## Actions
+
+| Action | What happens |
+|--------|--------------|
+| `warn` | Authorization still succeeds. The policy is marked as `triggered`. |
+| `throttle` | Authorization fails. The agent must wait for the reset cycle. |
+| `block` | Authorization fails. Stays blocked until the limit resets or you reset manually. |
+| `revoke` | Authorization fails. The agent's token is revoked immediately. |
+
+`warn` is useful for sending alerts before you start blocking. Set a `warn` policy at 80% of your limit and a `block` policy at 100%.
+
+## Creating a policy
+
+```typescript
+// Per-agent daily token cap
+const policy = await kavach.policy.create({
+  agentId: 'agt_abc123',
+  limits: {
+    maxTokensCostPerDay: 1000,
+    maxCallsPerDay: 500,
+  },
+  action: 'block',
+});
+
+// Per-user monthly cap (applies to all agents owned by this user)
+const userPolicy = await kavach.policy.create({
+  userId: 'user-456',
+  limits: {
+    maxTokensCostPerMonth: 10_000,
+  },
+  action: 'throttle',
+});
+
+// Tenant-wide monthly cap
+const tenantPolicy = await kavach.policy.create({
+  tenantId: 'tnt_acme',
+  limits: {
+    maxTokensCostPerMonth: 50_000,
+    maxCallsPerMonth: 1_000_000,
+  },
+  action: 'block',
+});
+```
+
+## Checking a budget before a call
+
+Call `checkBudget` with a speculative `tokensCost` to see whether this call would exceed any policy. The cost is included in the check but not recorded yet.
+
+```typescript
+const check = await kavach.policy.checkBudget('agt_abc123', 50);
+
+if (!check.allowed) {
+  console.error(check.reason);
+  // check.policy contains the policy that was exceeded
+}
+```
+
+`checkBudget` evaluates all active policies for the agent (both exact-match and global). If any policy is exceeded, it returns the first violation and stops.
+
+## Recording usage after a call
+
+Call `recordUsage` after the LLM call completes to update the counters.
+
+```typescript
+const result = await llm.complete(prompt);
+const actualCost = result.usage.totalTokens;
+
+await kavach.policy.recordUsage('agt_abc123', actualCost);
+```
+
+`recordUsage` increments `callsToday`, `callsThisMonth`, `tokensCostToday`, and `tokensCostThisMonth` on every active policy that applies to this agent. It also transitions any policy from `active` to `triggered` if the new totals cross a threshold.
+
+## Resetting counters
+
+Reset daily counters on a UTC midnight cron job:
+
+```typescript
+const { reset } = await kavach.policy.resetDaily();
+console.log(`Reset ${reset} policies`);
+```
+
+Reset monthly counters on the first of each month:
+
+```typescript
+const { reset } = await kavach.policy.resetMonthly();
+```
+
+After a reset, policies that were `triggered` are automatically moved back to `active` if the new totals are within limits.
+
+## Listing and updating policies
+
+```typescript
+// All policies for an agent (including global ones)
+const policies = await kavach.policy.list({ agentId: 'agt_abc123' });
+
+// Change the limit and action
+await kavach.policy.update(policy.id, {
+  limits: { maxTokensCostPerDay: 2000 },
+  action: 'warn',
+});
+
+// Remove a policy
+await kavach.policy.remove(policy.id);
+```
+
+## Combining warn and block
+
+A common pattern: warn at a soft limit, block at the hard limit.
+
+```typescript
+// Warn at 800 tokens/day
+await kavach.policy.create({
+  agentId: 'agt_abc123',
+  limits: { maxTokensCostPerDay: 800 },
+  action: 'warn',
+});
+
+// Block at 1000 tokens/day
+await kavach.policy.create({
+  agentId: 'agt_abc123',
+  limits: { maxTokensCostPerDay: 1000 },
+  action: 'block',
+});
+```
+
+When the agent hits 800, the `warn` policy triggers and you can send an alert (via a lifecycle hook). At 1000, the `block` policy triggers and requests stop.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Lifecycle hooks" description="Fire custom logic when a policy is triggered." href="/docs/hooks" />
+  <Card title="Cost tracking" description="Aggregate token costs for billing reports." href="/docs/cost-tracking" />
+  <Card title="Multi-tenant isolation" description="Attach policies to entire tenants." href="/docs/multi-tenant" />
+</CardGroup>

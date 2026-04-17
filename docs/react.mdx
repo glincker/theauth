@@ -1,0 +1,254 @@
+---
+title: React hooks
+description: Client-side React hooks for KavachOS auth.
+icon: Code
+---
+
+
+## Overview
+
+`@kavachos/react` provides React hooks and a context provider for building auth UIs on top of KavachOS. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup.
+
+The package itself has no Node.js dependencies — it runs entirely in the browser. Your KavachOS API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
+
+<Info>
+  All hooks must be rendered inside `KavachProvider`. The provider talks to your KavachOS API route — no direct database access from the browser.
+</Info>
+
+## Installation
+
+```bash
+pnpm add @kavachos/react
+```
+
+## Provider setup
+
+Wrap your app with `KavachProvider`. In Next.js App Router, create a client component and import it from your root layout.
+
+```tsx
+// app/providers.tsx
+'use client';
+import { KavachProvider } from '@kavachos/react';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <KavachProvider basePath="/api/kavach">
+      {children}
+    </KavachProvider>
+  );
+}
+```
+
+```tsx
+// app/layout.tsx
+import { Providers } from './providers';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+<ParamField path="basePath" type="string" default="&quot;/api/kavach&quot;">Path to your KavachOS API handler. Must match the route you mounted in the adapter.</ParamField>
+<ParamField path="fetchOptions" type="RequestInit" default="undefined">Merged into every fetch call. Use this to add custom headers or credentials mode.</ParamField>
+
+<Info>
+Sessions are stored in `localStorage` under the key `kavach_session`. The hooks automatically restore the session on page reload.
+</Info>
+
+## useSession
+
+Returns the raw session object. Useful when you need the session token or expiry directly.
+
+```tsx
+import { useSession } from '@kavachos/react';
+
+function SessionDebug() {
+  const { session, isLoading } = useSession();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!session) return <p>No active session.</p>;
+
+  return (
+    <p>
+      Session expires: {new Date(session.expiresAt).toLocaleString()}
+    </p>
+  );
+}
+```
+
+<ParamField path="session" type="Session | null">The current session. Null when unauthenticated or still loading.</ParamField>
+<ParamField path="isLoading" type="boolean">True during the initial session fetch.</ParamField>
+<ParamField path="refetch" type="() => Promise<void>">Force a re-fetch of the session. Call this after making out-of-band auth changes.</ParamField>
+
+## useUser
+
+Returns the authenticated user and a boolean flag. This is the most common hook for protecting UI.
+
+```tsx
+import { useUser } from '@kavachos/react';
+
+function ProfileCard() {
+  const { user, isAuthenticated, isLoading } = useUser();
+
+  if (isLoading) return <Skeleton />;
+  if (!isAuthenticated) return <SignInPrompt />;
+
+  return (
+    <div>
+      <p>{user.name}</p>
+      <p>{user.email}</p>
+    </div>
+  );
+}
+```
+
+<ParamField path="user" type="User | null">The authenticated user object. Null when unauthenticated.</ParamField>
+<ParamField path="isAuthenticated" type="boolean">True when a valid session with a user is present.</ParamField>
+<ParamField path="isLoading" type="boolean">True during the initial load. Avoid rendering auth-gated UI until this is false.</ParamField>
+
+## useSignIn
+
+Handles email and password sign-in. Returns a `signIn` function and state fields.
+
+The hook posts to `POST /api/kavach/auth/sign-in` (not `/sign-in/email`). Make sure your adapter is mounted at `/api/kavach`.
+
+```tsx
+import { useSignIn } from '@kavachos/react';
+import { useRouter } from 'next/navigation';
+
+function SignInForm() {
+  const { signIn, isLoading, error } = useSignIn();
+  const router = useRouter();
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const result = await signIn({
+      email: form.get('email') as string,
+      password: form.get('password') as string,
+    });
+    if (result.success) router.push('/dashboard');
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" />
+      <input name="password" type="password" />
+      {error && <p>{error.message}</p>}
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? 'Signing in...' : 'Sign in'}
+      </button>
+    </form>
+  );
+}
+```
+
+## useSignUp
+
+Handles new account registration. Posts to `POST /api/kavach/auth/sign-up` (not `/sign-up/email`).
+
+```tsx
+import { useSignUp } from '@kavachos/react';
+
+function SignUpForm() {
+  const { signUp, isLoading, error } = useSignUp();
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    await signUp({
+      email: form.get('email') as string,
+      password: form.get('password') as string,
+      name: form.get('name') as string,
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="name" type="text" />
+      <input name="email" type="email" />
+      <input name="password" type="password" />
+      {error && <p>{error.message}</p>}
+      <button type="submit" disabled={isLoading}>Create account</button>
+    </form>
+  );
+}
+```
+
+## useSignOut
+
+Signs the user out and clears the local session. Optionally redirects after sign-out.
+
+```tsx
+import { useSignOut } from '@kavachos/react';
+
+function NavBar() {
+  const { signOut } = useSignOut();
+
+  return (
+    <nav>
+      <button onClick={() => signOut({ redirectTo: '/login' })}>
+        Sign out
+      </button>
+    </nav>
+  );
+}
+```
+
+## useAgents
+
+Lets your UI create, list, and revoke agents without going through a custom API route.
+
+```tsx
+import { useAgents } from '@kavachos/react';
+
+function Dashboard() {
+  const { user, isAuthenticated, isLoading } = useUser();
+  const { agents, create, revoke, isLoading: agentsLoading } = useAgents();
+
+  if (!isAuthenticated) return null;
+
+  async function handleCreate() {
+    await create({
+      name: 'my-bot',
+      type: 'autonomous',
+      permissions: [
+        { resource: 'reports:*', actions: ['read'] },
+      ],
+    });
+  }
+
+  return (
+    <div>
+      <button onClick={handleCreate}>New agent</button>
+      {agentsLoading && <p>Loading agents...</p>}
+      {agents.map((agent) => (
+        <div key={agent.id}>
+          <span>{agent.name}</span>
+          <button onClick={() => revoke(agent.id)}>Revoke</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+<ParamField path="agents" type="Agent[]">Current list of agents for the authenticated user.</ParamField>
+<ParamField path="create" type="(input: CreateAgentInput) => Promise<Agent>">Create a new agent. The list refreshes automatically on success.</ParamField>
+<ParamField path="revoke" type="(agentId: string) => Promise<void>">Revoke an agent by ID. Removes it from the local list on success.</ParamField>
+<ParamField path="refetch" type="() => Promise<void>">Re-fetch the agent list manually.</ParamField>
+<ParamField path="isLoading" type="boolean">True during the initial agents fetch.</ParamField>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="TypeScript client" description="Server-side and Node.js usage with @kavachos/client." href="/docs/client-sdk" />
+  <Card title="Agent identity" description="How agents are modelled and what fields they carry." href="/docs/agents" />
+  <Card title="Adapters" description="Mount the KavachOS handler in Next.js, Express, Hono, and others." href="/docs/adapters" />
+</CardGroup>

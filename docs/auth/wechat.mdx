@@ -1,0 +1,70 @@
+---
+title: WeChat
+description: Sign in with WeChat using OAuth 2.0.
+icon: WeChat
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to the [WeChat Open Platform](https://open.weixin.qq.com) and register a website app. Set the authorization callback domain (not a full URL — just the domain):
+
+```
+your-app.com
+```
+
+KavachOS will handle the path `/api/kavach/auth/oauth/callback/wechat`.
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'wechat',
+          clientId: process.env.WECHAT_APP_ID!,
+          clientSecret: process.env.WECHAT_APP_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+WECHAT_APP_ID=...
+WECHAT_APP_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `snsapi_login`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `snsapi_login` | Web login, returns `openid` and `unionid` |
+| `snsapi_userinfo` | Full profile (name, avatar, gender) |
+
+<Warning>
+  WeChat uses `appid` and `secret` rather than the standard `client_id` / `client_secret` naming, but KavachOS maps these correctly. The WeChat Open Platform requires ICP filing for mainland China deployments.
+</Warning>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/wechat` | Redirect to WeChat |
+| GET | `/auth/oauth/callback/wechat` | Handle callback |

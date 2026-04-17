@@ -1,0 +1,66 @@
+---
+title: Zoom
+description: Sign in with Zoom using OAuth 2.0.
+icon: Zoom
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to the [Zoom App Marketplace](https://marketplace.zoom.us) and click **Develop > Build App**. Choose **OAuth** as the app type. Add your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/zoom
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+import { zoomProvider } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        zoomProvider(
+          process.env.ZOOM_CLIENT_ID!,
+          process.env.ZOOM_CLIENT_SECRET!,
+        ),
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+ZOOM_CLIENT_ID=...
+ZOOM_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `openid`, `profile`, `email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `openid` | OIDC identity token |
+| `profile` | Name and profile picture |
+| `email` | Email address |
+| `meeting:read` | Read meeting info |
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/zoom` | Redirect to Zoom |
+| GET | `/auth/oauth/callback/zoom` | Handle callback |

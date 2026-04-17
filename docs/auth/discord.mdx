@@ -1,0 +1,92 @@
+---
+title: Discord
+description: Sign in with Discord using OAuth 2.0.
+icon: Discord
+---
+
+## Get credentials
+
+<Steps>
+
+<Step>
+
+### Create an application
+
+Go to the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**. Give it a name.
+
+</Step>
+
+<Step>
+
+### Add a redirect URI
+
+Navigate to **OAuth2 > General**. Under **Redirects**, add:
+
+```
+https://auth.example.com/auth/oauth/discord/callback
+```
+
+</Step>
+
+<Step>
+
+### Copy credentials
+
+From **OAuth2 > General**, copy the **Client ID** and **Client Secret**.
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'discord', // [!code highlight]
+          clientId: process.env.DISCORD_CLIENT_ID!, // [!code highlight]
+          clientSecret: process.env.DISCORD_CLIENT_SECRET!, // [!code highlight]
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+DISCORD_CLIENT_ID=1234567890123456789
+DISCORD_CLIENT_SECRET=...
+```
+
+## Scopes
+
+Default scopes: `identify email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `identify` | Read username, discriminator, avatar |
+| `email` | Read the user's email address |
+| `guilds` | Read the servers the user belongs to |
+| `guilds.members.read` | Read guild membership details |
+
+## User data returned
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `id` | `id` field | Stable Discord snowflake ID |
+| `email` | `email` field | Verified email |
+| `name` | `username` field | Current username (not discriminator) |
+| `image` | `avatar` hash | Constructed CDN URL |
+
+<Info>
+  Discord email addresses are verified before the account can use OAuth. You will always receive a verified email when the `email` scope is requested.
+</Info>

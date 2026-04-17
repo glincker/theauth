@@ -1,0 +1,126 @@
+---
+title: Internationalization
+description: Multi-language error messages and UI text.
+icon: Globe
+---
+
+
+## Overview
+
+`createI18n` gives you typed access to KavachOS's built-in translation strings. Use it to return localized error messages to users, translate email subjects, or power a multi-language UI.
+
+## Setup
+
+```typescript
+import { createI18n } from 'kavachos';
+
+const i18n = createI18n({ defaultLocale: 'en' });
+```
+
+The active locale defaults to `defaultLocale`. You can override it per-request (see below).
+
+## Built-in locales
+
+| Code | Language |
+|------|----------|
+| `en` | English |
+| `es` | Spanish |
+| `fr` | French |
+| `de` | German |
+| `ja` | Japanese |
+| `zh` | Chinese (Simplified) |
+
+## Translating a string
+
+```typescript
+const message = i18n.t('auth.invalidCredentials');
+// → "Invalid email or password."
+
+const localized = i18n.t('auth.invalidCredentials', { locale: 'fr' });
+// → "Adresse e-mail ou mot de passe invalide."
+```
+
+## Variable interpolation
+
+Pass a variables object as the second argument. Variables are referenced with `{{name}}` in translation strings.
+
+```typescript
+i18n.t('email.welcome.subject', { name: 'Alice' });
+// → "Welcome to MyApp, Alice"
+
+i18n.t('auth.rateLimited', { retryAfter: '30' });
+// → "Too many attempts. Try again in 30 seconds."
+```
+
+## Per-request locale
+
+Detect the user's locale from the `Accept-Language` header and pass it to each call:
+
+```typescript
+function getLocale(req: Request): string {
+  const header = req.headers.get('accept-language') ?? 'en';
+  const tag = header.split(',')[0].split('-')[0].trim();
+  return ['en', 'es', 'fr', 'de', 'ja', 'zh'].includes(tag) ? tag : 'en';
+}
+
+app.post('/login', async (req, res) => {
+  const locale = getLocale(req);
+  const result = await kavach.auth.login(credentials);
+  if (!result.success) {
+    const message = i18n.t(`errors.${result.error.code}`, { locale });
+    return res.status(401).json({ error: message });
+  }
+});
+```
+
+## Adding a custom locale
+
+Register additional locales at runtime by passing a `locales` map:
+
+```typescript
+const i18n = createI18n({
+  defaultLocale: 'en',
+  locales: {
+    pt: {
+      'auth.invalidCredentials': 'E-mail ou senha inválidos.',
+      'auth.rateLimited': 'Muitas tentativas. Tente novamente em {{retryAfter}} segundos.',
+      'email.welcome.subject': 'Bem-vindo ao {{appName}}, {{name}}',
+    },
+  },
+});
+```
+
+Custom locales merge with the built-in keys. Any key you do not supply falls back to `defaultLocale`.
+
+<Note>
+  Missing keys always fall back to the `defaultLocale` value rather than throwing. This means partial translations are safe to ship.
+</Note>
+
+## Translation key reference
+
+| Key | Variables | Description |
+|-----|-----------|-------------|
+| `auth.invalidCredentials` | — | Wrong email or password |
+| `auth.rateLimited` | `retryAfter` | Too many login attempts |
+| `auth.sessionExpired` | — | Session has expired |
+| `auth.unauthorized` | — | Request is not authenticated |
+| `auth.forbidden` | — | Authenticated but lacks permission |
+| `auth.emailNotVerified` | — | Email address not yet verified |
+| `auth.otpInvalid` | — | OTP code is incorrect or expired |
+| `agent.notFound` | `agentId` | Agent ID does not exist |
+| `agent.revoked` | `agentId` | Agent has been revoked |
+| `delegation.expired` | — | Delegation grant has expired |
+| `errors.internal` | — | Unexpected server error |
+| `email.verification.subject` | `appName` | Email verification subject line |
+| `email.passwordReset.subject` | `appName` | Password reset subject line |
+| `email.magicLink.subject` | `appName` | Magic link subject line |
+| `email.otp.subject` | `appName` | OTP delivery subject line |
+| `email.invitation.subject` | `orgName` | Organization invitation subject |
+| `email.welcome.subject` | `appName`, `name` | Welcome email subject line |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Email templates" description="Built-in HTML templates for every auth flow." href="/docs/email-templates" />
+  <Card title="Error reference" description="Full list of KavachOS error codes." href="/docs/errors" />
+</CardGroup>

@@ -1,0 +1,93 @@
+---
+title: Admin
+description: Global user management — listing, banning, impersonation, and deletion.
+icon: Settings
+---
+
+## Setup
+
+Pass `adminUserIds` when creating your KavachOS instance:
+
+```ts
+import { createKavach } from 'kavachos';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  admin: { // [!code highlight]
+    adminUserIds: [process.env.ADMIN_USER_ID], // [!code highlight]
+    allowImpersonation: true, // [!code highlight]
+  }, // [!code highlight]
+});
+```
+
+Admin status is determined by the `adminUserIds` list. There is no role column — keep these IDs in environment variables, not hardcoded.
+
+## Listing users
+
+```ts
+const { users, total } = await kavach.admin.listUsers({
+  limit: 50,
+  offset: 0,
+  search: 'alice',   // optional email filter
+});
+```
+
+Each user object includes `id`, `email`, `name`, `banned`, `banReason`, `banExpiresAt`, `agentCount`, and `createdAt`.
+
+## Banning users
+
+```ts
+// Permanent ban
+await kavach.admin.banUser('user_xyz', 'Violating terms of service');
+
+// Temporary ban
+await kavach.admin.banUser('user_xyz', 'Spam', new Date('2025-06-01'));
+
+// Lift the ban
+await kavach.admin.unbanUser('user_xyz');
+```
+
+Banning immediately revokes all active sessions for that user.
+
+## Impersonation
+
+<Warning>
+  Impersonation creates a real session token. Use it only for debugging and support. All impersonated sessions are tagged with `impersonating: true` and the originating `adminUserId`.
+</Warning>
+
+```ts
+const { session } = await kavach.admin.impersonate('admin_abc', 'user_xyz'); // [!code highlight]
+// session.token — use this as a regular session token
+// session.expiresAt
+
+// Stop impersonating
+await kavach.admin.stopImpersonation(session.token);
+```
+
+## Force password reset
+
+```ts
+await kavach.admin.forcePasswordReset('user_xyz');
+```
+
+This sets a flag on the user. Your app should check `user.forcePasswordReset` after login and redirect to a reset flow.
+
+## Deleting users
+
+```ts
+await kavach.admin.deleteUser('user_xyz');
+```
+
+Deleting revokes all sessions and marks owned agents as `revoked` to preserve the audit trail, then removes the user record.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/admin/users` | List users (`limit`, `offset`, `search`) |
+| GET | `/auth/admin/users/:id` | Get user |
+| POST | `/auth/admin/users/:id/ban` | Ban user |
+| POST | `/auth/admin/users/:id/unban` | Unban user |
+| DELETE | `/auth/admin/users/:id` | Delete user |
+| POST | `/auth/admin/impersonate/:userId` | Impersonate user |
+| POST | `/auth/admin/stop-impersonation` | End impersonation session |

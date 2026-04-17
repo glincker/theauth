@@ -1,0 +1,265 @@
+---
+title: Policy engine
+description: Unified authorization combining RBAC, ABAC constraints, and ReBAC graph queries behind one evaluate() call.
+icon: ShieldHalf
+---
+
+
+The policy engine is the single decision point for all authorization in KavachOS. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
+
+Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. The existing `authorize()` function still works unchanged in v1; it shares ABAC primitives with the policy engine but evaluates only the agent's direct permissions. Migrate calls to `evaluate()` when you want role expansion, ReBAC checks, or richer decision metadata.
+
+## Quick start
+
+```typescript
+import { createPolicyEngine } from 'kavachos/policy';
+import { createDatabase } from 'kavachos/db';
+
+const db = await createDatabase({ provider: 'sqlite', url: 'kavach.db' });
+
+const engine = createPolicyEngine({ db });
+
+const decision = await engine.evaluate({
+  subject: { agentId: 'agt_abc123', orgId: 'org_acme' },
+  action: 'read',
+  resource: 'mcp:github:repos',
+  context: { ip: '203.0.113.42' },
+});
+
+if (!decision.allowed) {
+  throw new Error(`Denied: ${decision.reason}`);
+}
+// decision.cacheHit === false on first call
+// decision.durationMs shows wall time in milliseconds
+```
+
+## The PolicyDecision shape
+
+Every `evaluate()` call returns a `PolicyDecision`. Never throw on a denied decision inside the engine: all failures, including validation errors, return `allowed: false` with a reason code.
+
+| Field | Type | Description |
+|---|---|---|
+| `allowed` | `boolean` | Whether the request is permitted. |
+| `effect` | `"permit" \| "deny" \| "indeterminate"` | The combining result. `indeterminate` means no permission matched or an error occurred; callers should treat it as deny. |
+| `reason` | `string` | A human-readable or error-code string explaining the decision. On clean permits, this is `"matched"`. |
+| `matchedPermissionId` | `string \| undefined` | ID of the permission row that produced the final result, if available. |
+| `matchedRelation` | `string \| undefined` | The ReBAC relation string that was consulted, if a permission has `relation` set. |
+| `cacheHit` | `boolean` | Whether this decision came from the LRU cache. |
+| `durationMs` | `number` | Wall time for the evaluation, rounded to the nearest millisecond. |
+| `auditId` | `string \| undefined` | ID of the audit row written for this evaluation. Undefined if audit is disabled, sampling excluded it, or the subject is user-only. |
+
+## What it combines
+
+### Direct and delegated permissions
+
+For agent subjects, the engine fetches permissions stored directly on the agent (via the `permissions` table) and permissions received through active, non-expired delegation chains. These are the same records that `authorize()` evaluated before the policy engine existed.
+
+### Role-derived permissions
+
+For user subjects (when `subject.userId` is present), the engine joins `orgMembers` to `orgRoles` and folds the resulting permissions into the effective set. Supply `subject.orgId` to scope the lookup to a specific org; without it the engine considers all orgs the user belongs to.
+
+```typescript
+// User subject with org scope
+const decision = await engine.evaluate({
+  subject: {
+    userId: 'usr_alice',
+    orgId: 'org_acme',
+  },
+  action: 'write',
+  resource: 'mcp:github:issues',
+});
+```
+
+### ReBAC relationships
+
+When a permission has `relation` set, the engine makes a graph query against the `rebacRelationships` table before counting that permission as a match.
+
+```typescript
+// This permission only fires if the subject has relation "viewer" on the resource
+const perm: Permission = {
+  resource: 'document:*',
+  actions: ['read'],
+  relation: 'viewer',   // triggers a ReBAC graph walk
+};
+```
+
+At evaluation time the engine calls into the existing ReBAC module to check whether `(subject, "viewer", resource)` is satisfied, including inherited relations from parent objects. If no tuple matches, the permission is skipped. It does not contribute a PERMIT or DENY, the next permission in the effective set is checked instead.
+
+If the graph query itself fails (database error or depth limit exceeded), the engine records `POLICY_GRAPH_QUERY_FAILED` and returns `indeterminate` rather than accidentally granting access. The engine is fail-closed on graph errors.
+
+## Caching
+
+The engine keeps a process-local LRU cache. Defaults are 10,000 entries and a 60-second TTL.
+
+Configure via environment variables:
+
+| Variable | Type | Default | Effect |
+|---|---|---|---|
+| `KAVACH_POLICY_CACHE` | `"true"` \| `"false"` | `"true"` | Disable the cache entirely. |
+| `KAVACH_POLICY_CACHE_MAX` | number | `10000` | Maximum number of cached entries. |
+| `KAVACH_POLICY_CACHE_TTL_MS` | number | `60000` | Time-to-live per entry in milliseconds. |
+
+Or pass config directly:
+
+```typescript
+const engine = createPolicyEngine({
+  db,
+  config: {
+    cache: {
+      maxEntries: 5000,
+      ttlMs: 30_000,
+    },
+  },
+});
+```
+
+**What gets cached:** Decisions for purely RBAC and ReBAC paths are cached. A second `evaluate()` call with the same subject, action, resource, and IP returns in under 1ms with `cacheHit: true`.
+
+**What does not get cached:** Permissions with `maxCallsPerHour` or `timeWindow` constraints are time-sensitive. Caching those would let a rate-limited agent exceed its limit or let a timed-out permission linger past its window. The engine detects any time-sensitive permission in the effective set and skips the cache write for that evaluation entirely.
+
+**Invalidation:** TTL expiry happens lazily on read. For immediate invalidation after a write:
+
+```typescript
+// Flush all decisions for a specific agent
+engine.invalidate({ agentId: 'agt_abc123' });
+
+// Flush all decisions for a specific user
+engine.invalidate({ userId: 'usr_alice' });
+
+// Flush all decisions touching a specific resource (clears the full cache)
+engine.invalidate({ resource: 'mcp:github:repos' });
+```
+
+Resource-scoped invalidation flushes the entire cache rather than walking all keys to find matches, which is cheaper at high entry counts.
+
+**Cross-instance invalidation:** The cache is process-local. In a multi-process or multi-instance deployment, one process calling `invalidate()` does not affect other processes. Permissions granted or revoked will take up to `ttlMs` to propagate naturally via TTL expiry across all instances. See [Limitations](#limitations-and-follow-ups).
+
+Cache statistics are available for dashboards and benchmark assertions:
+
+```typescript
+const { hits, misses, size, evictions } = engine.stats();
+```
+
+## Combining algorithm
+
+The default strategy is deny-overrides. Any explicit DENY in the matched permission set wins over any number of PERMITs. This reflects the conservative principle: if any rule says no, the answer is no.
+
+A worked example:
+
+```
+Effective permissions for agent agt_abc123 on resource "mcp:deploy:prod":
+  perm-1: resource=mcp:deploy:*, actions=[execute]        → PERMIT
+  perm-2: resource=mcp:deploy:prod, actions=[execute],
+          constraints.timeWindow={start:"09:00",end:"17:00"}  → DENY (outside window)
+
+combine([PERMIT, DENY]) → DENY
+decision.allowed === false
+decision.effect === "deny"
+```
+
+Even though `perm-1` would allow the call in isolation, the time-window constraint on `perm-2` produces a DENY, and deny-overrides means the final answer is no.
+
+If no permission matched at all, the result is `indeterminate`, which `allowed: false` represents. Callers should treat `indeterminate` the same as an explicit deny.
+
+To flip to permit-overrides (any PERMIT wins over DENYs), pass `combineStrategy: "permit-overrides"` in config. That is less common; most deployments want the conservative default.
+
+## Audit
+
+Every `evaluate()` call writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards.
+
+```typescript
+const engine = createPolicyEngine({
+  db,
+  config: {
+    audit: true,           // default; set false to disable entirely
+    auditSampleRate: 0.1,  // write audit rows for 10% of evaluations
+  },
+});
+```
+
+`auditSampleRate` defaults to `1.0` (every evaluation). Dial it down in high-throughput environments where a hot cache path would otherwise generate millions of rows per hour.
+
+**Current limitation:** Only evaluations with an `agentId` in the subject write audit rows. The `audit_logs` table has `agent_id NOT NULL`, so user-only subjects (where only `userId` is present) are silently skipped. This will be addressed when the audit schema adds a nullable `user_id` column separate from `agent_id`.
+
+Audit writes are non-blocking. A write failure logs a warning and does not affect the returned decision. The `auditId` field on the decision will be `undefined` if the write was skipped or failed.
+
+## Configuration
+
+Full `PolicyEngineConfig` reference:
+
+<ParamField path="cache.maxEntries" type="number" default="10000">Maximum LRU entries. Evicts oldest entries when exceeded.</ParamField>
+<ParamField path="cache.ttlMs" type="number" default="60000">Time-to-live per cache entry, in milliseconds.</ParamField>
+<ParamField path="cache.enabled" type="boolean" default="true">Set to false to disable the cache entirely. All evaluations go cold.</ParamField>
+<ParamField path="combineStrategy" type=""deny-overrides" | "permit-overrides"" default="&quot;deny-overrides&quot;">How to combine PERMIT and DENY results from multiple matching permissions.</ParamField>
+<ParamField path="audit" type="boolean" default="true">Whether to write audit rows. Disabling suppresses all audit writes.</ParamField>
+<ParamField path="auditSampleRate" type="number" default="1.0">Fraction of evaluations that write audit rows, from 0.0 to 1.0.</ParamField>
+
+## Migration from `authorize()`
+
+`authorize()` still works. Its body now calls `evaluate()` internally and returns the same shape it always did. Adapters can migrate at their own pace.
+
+If you want the full `PolicyDecision` (cache stats, matched relation, duration), call `evaluate()` directly:
+
+```typescript
+// Before: using authorize()
+const result = await authorize(agent, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+  ip: '203.0.113.42',
+});
+// result: { allowed: boolean; reason: string; auditId?: string }
+
+// After: using evaluate() directly
+const engine = createPolicyEngine({ db });
+const decision = await engine.evaluate({
+  subject: { agentId: agent.id },
+  action: 'read',
+  resource: 'mcp:github:repos',
+  context: { ip: '203.0.113.42' },
+});
+// decision: PolicyDecision (richer shape)
+```
+
+The `authorize()` signature is locked by a snapshot test in `policy-backwards-compat.test.ts`. Any drift from the existing return shape will fail CI.
+
+`requireScopes()` in `mcp/require-scopes.ts` still uses its own code path. It does not yet call `evaluate()`.
+
+## Performance targets and benchmarks
+
+Targets measured on a single M-series core:
+
+| Path | p99 target |
+|---|---|
+| Cache hit | < 1 ms |
+| Cold path, RBAC only | < 5 ms |
+| Cold path, ReBAC walk depth 3 | < 5 ms |
+| Throughput, cache warm | ≥ 50,000 evaluations/sec |
+
+The benchmark suite lives at `packages/core/bench/policy-engine.bench.ts` and uses `tinybench`. Run it locally:
+
+```bash
+pnpm --filter @kavachos/core bench
+```
+
+CI captures the output as a JSON artifact. A regression of more than 20% from the previous main run fails the build.
+
+## Limitations and follow-ups
+
+These are known gaps in v1, tracked for future work:
+
+**Process-local cache only.** `invalidate()` affects only the current process. In a multi-instance deployment, stale entries persist in other processes until TTL expiry. A KV or Redis cache layer can slot in later through the same `PolicyCache` interface, but it is not implemented yet.
+
+**No auto-invalidation on writes.** The spec describes hooks that call `invalidate()` whenever permissions, delegation chains, org roles, org members, or ReBAC relationships are mutated. Those hooks are not yet wired to the write paths. Until they are, callers must call `engine.invalidate()` manually after mutations that should take effect immediately.
+
+**User-only subjects skip audit.** If `subject.agentId` is absent, no audit row is written. This is a schema constraint (`audit_logs.agent_id NOT NULL`), not a policy choice.
+
+**No declarative policy DSL.** Permissions are plain typed objects. Cedar, Rego, and Casbin-style rule languages are out of scope for v1. Permissions stay as structured data.
+
+**`requireScopes()` is not wired.** MCP scope checks in `mcp/require-scopes.ts` still use their own path and do not call `evaluate()`. The combining and caching benefits of the policy engine do not apply to scope checks yet.
+
+<CardGroup cols={2}>
+  <Card title="Permissions" description="Direct permissions, constraints, and templates." href="/docs/permissions" />
+  <Card title="ReBAC" description="Relationship graph, hierarchy traversal, and tuple management." href="/docs/rebac" />
+  <Card title="Delegation" description="Grant permission subsets between agents." href="/docs/delegation" />
+  <Card title="Audit" description="How decisions are logged and surfaced in the dashboard." href="/docs/audit" />
+</CardGroup>

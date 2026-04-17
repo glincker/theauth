@@ -1,0 +1,304 @@
+---
+title: Configuration
+description: All createKavach() options explained.
+icon: Settings
+---
+
+
+`createKavach()` accepts a `KavachConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
+
+```typescript
+import { createKavach } from 'kavachos';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+});
+```
+
+## Common development setup
+
+A minimal config for local development with email/password auth and no email sending:
+
+```typescript
+import { createKavach } from 'kavachos';
+import { emailPassword } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: './kavach.db' },
+  plugins: [
+    emailPassword({
+      requireVerification: false, // skip in dev
+      onSendVerification: async (email, token) => {
+        console.log(`Verify: http://localhost:3000/verify?token=${token}`);
+      },
+    }),
+  ],
+});
+```
+
+## Top-level options
+
+<ParamField path="database" type="DatabaseConfig" required>Database connection config. Required.</ParamField>
+<ParamField path="agents" type="AgentConfig">Agent identity settings.</ParamField>
+<ParamField path="mcp" type="McpConfig">MCP OAuth 2.1 authorization server.</ParamField>
+<ParamField path="auth" type="{ adapter?: AuthAdapter; session?: SessionConfig }">Human auth adapter and session config.</ParamField>
+<ParamField path="anomaly" type="AnomalyConfig">Anomaly detection thresholds.</ParamField>
+<ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config.</ParamField>
+<ParamField path="trust" type="TrustConfig">Graduated autonomy trust scoring.</ParamField>
+<ParamField path="telemetry" type="TelemetryConfig">OpenTelemetry integration via hooks.</ParamField>
+<ParamField path="hooks" type="KavachHooks">Lifecycle hooks for sandboxing and custom validation.</ParamField>
+<ParamField path="baseUrl" type="string">Base URL for the auth server (e.g. https://auth.example.com).</ParamField>
+<ParamField path="secret" type="string">Secret key used to sign tokens. Min 32 characters.</ParamField>
+
+## Database config
+
+<ParamField path="provider" type=""sqlite" | "postgres" | "mysql" | "d1"" required>Database driver to use.</ParamField>
+<ParamField path="url" type="string">File path for SQLite, connection string for Postgres/MySQL. Not used with D1.</ParamField>
+<ParamField path="binding" type="D1Database">D1Database binding from the Worker environment. Required when provider is "d1".</ParamField>
+<ParamField path="skipMigrations" type="boolean">Skip automatic CREATE TABLE IF NOT EXISTS on init. Use when you manage migrations externally (Flyway, drizzle-kit push, etc.). Defaults to false.</ParamField>
+
+```typescript
+// Cloudflare D1 (edge)
+const kavach = await createKavach({
+  database: {
+    provider: 'd1',
+    binding: env.KAVACH_DB,  // D1Database from Worker env
+  },
+});
+
+// SQLite (Node.js)
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: './kavach.db' },
+});
+
+// PostgreSQL
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL },
+});
+
+// MySQL
+database: { provider: 'mysql', url: process.env.DATABASE_URL }
+
+// In-memory SQLite (tests)
+database: { provider: 'sqlite', url: ':memory:' }
+```
+
+## Agent config
+
+Controls the agent identity lifecycle.
+
+<ParamField path="enabled" type="boolean" required>Enable agent identity management.</ParamField>
+<ParamField path="maxPerUser" type="number">Maximum number of agents a single user can create.</ParamField>
+<ParamField path="defaultPermissions" type="string[]">Permission strings assigned to every new agent unless overridden.</ParamField>
+<ParamField path="auditAll" type="boolean">Write every agent action to the audit log regardless of permission outcome.</ParamField>
+<ParamField path="tokenExpiry" type="string">Default token expiry duration string (e.g. "7d", "24h", "30m").</ParamField>
+
+```typescript
+agents: {
+  enabled: true,
+  maxPerUser: 10,
+  defaultPermissions: [],
+  auditAll: true,
+  tokenExpiry: '30d',
+},
+```
+
+## MCP config
+
+Enables the OAuth 2.1 authorization server for MCP-compliant tool access.
+
+<ParamField path="enabled" type="boolean" required>Enable the MCP authorization server.</ParamField>
+<ParamField path="issuer" type="string">Token issuer URL. Appears as the iss claim in JWTs.</ParamField>
+<ParamField path="baseUrl" type="string">Base path for MCP endpoints.</ParamField>
+<ParamField path="signingSecret" type="string">Secret used to sign JWTs. Min 32 characters. Defaults to the top-level secret.</ParamField>
+<ParamField path="accessTokenTtl" type="number">Access token lifetime in seconds. Defaults to 3600 (1 hour).</ParamField>
+<ParamField path="refreshTokenTtl" type="number">Refresh token lifetime in seconds. Defaults to 604800 (7 days).</ParamField>
+<ParamField path="codeTtl" type="number">Authorization code lifetime in seconds. Defaults to 600 (10 minutes).</ParamField>
+<ParamField path="enforceAuth" type="boolean">Reject all MCP requests without a valid Bearer token.</ParamField>
+<ParamField path="scopes" type="string[]">Custom OAuth scopes supported by this server.</ParamField>
+<ParamField path="allowedResources" type="string[]">Allowed resource URIs for RFC 8707 resource indicators.</ParamField>
+<ParamField path="loginPage" type="string">URL of your login page. Users are redirected here when unauthenticated.</ParamField>
+<ParamField path="consentPage" type="string">URL of your consent page. Users are redirected here to approve scopes.</ParamField>
+<ParamField path="preRegisteredClients" type="Array<{ clientId, clientSecret?, redirectUris, clientName?, scope? }>">OAuth clients registered at startup (first-party apps, CLIs, test fixtures).</ParamField>
+<ParamField path="getAdditionalClaims" type="(userId: string, scopes: string[]) => Promise<Record<string, unknown>>">Async function to add custom claims to issued tokens.</ParamField>
+
+```typescript
+mcp: {
+  enabled: true,
+  issuer: 'https://auth.example.com',
+  baseUrl: 'https://auth.example.com',
+  accessTokenTtl: 3600,
+  refreshTokenTtl: 604800,
+  enforceAuth: true,
+  loginPage: 'https://example.com/login',
+  consentPage: 'https://example.com/consent',
+},
+```
+
+## Auth config
+
+Connects KavachOS to your existing auth provider so it can resolve the human user behind incoming requests.
+
+```typescript
+auth: {
+  adapter: betterAuthAdapter(auth),   // resolves user from request
+  session: {                          // optional: KavachOS-managed sessions
+    secret: process.env.SESSION_SECRET,
+    maxAge: 60 * 60 * 24 * 30,       // 30 days in seconds
+  },
+},
+```
+
+When `auth` is omitted, `kavach.auth.resolveUser()` always returns `null` (manual user management mode).
+
+See [Auth adapters](/docs/guides/auth-adapters) for all adapter options.
+
+## Session config
+
+<ParamField path="secret" type="string" required>Signing secret for session JWTs. Min 32 characters.</ParamField>
+<ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds.</ParamField>
+<ParamField path="cookieName" type="string" default="'kavach_session'">Name of the session cookie.</ParamField>
+
+## Password reset config
+
+Requires `auth.session` to be configured. The caller provides an email-sending callback.
+
+<ParamField path="sendResetEmail" type="(email: string, token: string, url: string) => Promise<void>" required>Callback to deliver the reset email. Receives email, raw token, and constructed URL.</ParamField>
+<ParamField path="resetUrl" type="string" required>Base URL for the reset page. Token is appended as ?token=...</ParamField>
+<ParamField path="tokenTtlSeconds" type="number" default="3600 (1h)">Reset token lifetime in seconds.</ParamField>
+<ParamField path="revokeSessionsOnReset" type="boolean" default="true">Revoke all sessions when the password is successfully reset.</ParamField>
+<ParamField path="minPasswordLength" type="number" default="8">Minimum new password length.</ParamField>
+<ParamField path="maxPasswordLength" type="number" default="128">Maximum new password length.</ParamField>
+
+<Warning>
+  Always use an HTTPS URL for `resetUrl` in production. Reset tokens in plain HTTP links can be intercepted in transit or leaked via `Referer` headers.
+</Warning>
+
+```typescript
+auth: {
+  adapter: betterAuthAdapter(auth),
+  session: {
+    secret: process.env.SESSION_SECRET!,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  },
+  passwordReset: {
+    resetUrl: 'https://example.com/reset-password',
+    tokenTtlSeconds: 3600,
+    revokeSessionsOnReset: true,
+    minPasswordLength: 10,
+    sendResetEmail: async (email, token, url) => {
+      await mailer.send({
+        to: email,
+        subject: 'Reset your password',
+        html: `<a href="${url}">Reset password</a>`,
+      });
+    },
+  },
+},
+```
+
+## Session freshness config
+
+Controls when sessions are considered "fresh" for sensitive operations like password changes and passkey registration.
+
+<ParamField path="freshAge" type="number" default="300 (5 minutes)">Maximum session age in seconds to be considered fresh.</ParamField>
+
+## Plugins
+
+KavachOS features are composable. Enable what you need:
+
+| Plugin | Import | What it does |
+|--------|--------|--------------|
+| `emailPassword` | `kavachos/auth` | Email + password with verification and reset |
+| `passkey` | `kavachos/auth` | WebAuthn/FIDO2 biometric auth |
+| `magicLink` | `kavachos/auth` | Passwordless email links |
+| `emailOtp` | `kavachos/auth` | One-time password codes via email |
+| `twoFactor` | `kavachos/auth` | TOTP 2FA with backup codes |
+| `multiSession` | `kavachos/auth` | Session limits and device management |
+| `organization` | `kavachos/auth` | Organizations with RBAC |
+| `apiKeys` | `kavachos/auth` | Static API key management |
+| `admin` | `kavachos/auth` | User management, banning, impersonation |
+| `stripe` | `kavachos/auth` | Stripe billing integration |
+| `polar` | `kavachos/auth` | Polar payment integration |
+
+## Anomaly config
+
+<ParamField path="highFrequencyThreshold" type="number">Calls per agent per hour before flagging as high-frequency. Defaults to 500.</ParamField>
+<ParamField path="highDenialRateThreshold" type="number">Denial rate percentage that triggers an alert. Defaults to 50.</ParamField>
+<ParamField path="expectedHours" type="{ start: number; end: number }">Flag access outside these hours (0-23) as off-hours anomaly. Optional.</ParamField>
+
+```typescript
+anomaly: {
+  highFrequencyThreshold: 200,
+  highDenialRateThreshold: 30,
+  expectedHours: { start: 8, end: 20 },
+},
+```
+
+## Environment variables pattern
+
+Never hardcode secrets in config. Pass them through environment variables:
+
+```typescript
+const kavach = await createKavach({
+  database: {
+    provider: 'postgres',
+    url: process.env.DATABASE_URL!,
+  },
+  secret: process.env.KAVACH_SECRET!,
+  mcp: {
+    enabled: true,
+    issuer: process.env.KAVACH_ISSUER!,
+    signingSecret: process.env.KAVACH_SIGNING_SECRET,
+  },
+});
+```
+
+## Dev vs production example
+
+```typescript
+// config/kavach.ts
+const isDev = process.env.NODE_ENV !== 'production';
+
+export const kavach = await createKavach({
+  database: isDev
+    ? { provider: 'sqlite', url: './kavach-dev.db' }
+    : { provider: 'postgres', url: process.env.DATABASE_URL! },
+
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: process.env.KAVACH_BASE_URL ?? 'http://localhost:3000',
+
+  agents: {
+    enabled: true,
+    maxPerUser: isDev ? 100 : 25,
+    auditAll: true,
+    tokenExpiry: '30d',
+  },
+
+  mcp: {
+    enabled: true,
+    issuer: process.env.KAVACH_BASE_URL ?? 'http://localhost:3000',
+    accessTokenTtl: isDev ? 86400 : 3600,
+    enforceAuth: !isDev,
+    loginPage: '/login',
+    consentPage: '/consent',
+  },
+
+  anomaly: {
+    highFrequencyThreshold: 500,
+    highDenialRateThreshold: 50,
+  },
+});
+```
+
+<Warning>
+  `secret` and `mcp.signingSecret` must be at least 32 characters. In production, generate them with `openssl rand -base64 32`.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Auth adapters" description="Connect to better-auth, Auth.js, or Clerk." href="/docs/auth-adapters" />
+  <Card title="Database setup" description="SQLite, Postgres, or MySQL configuration." href="/docs/database" />
+  <Card title="Framework adapters" description="Mount KavachOS on your framework." href="/docs/adapters" />
+</CardGroup>

@@ -1,0 +1,224 @@
+---
+title: Passkey
+description: WebAuthn/FIDO2 biometric and hardware key authentication.
+icon: Fingerprint
+---
+
+Passkeys use the WebAuthn standard (FIDO2) to authenticate users with device biometrics (Touch ID, Face ID, Windows Hello) or hardware security keys. No password is ever created or stored.
+
+## Setup
+
+<Steps>
+
+<Step>
+
+### Install
+
+```bash
+pnpm add kavachos
+```
+
+</Step>
+
+<Step>
+
+### Add the plugin
+
+```typescript title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { passkey } from 'kavachos/auth'; // [!code highlight]
+
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  plugins: [
+    passkey({ // [!code highlight]
+      rpName: 'My App',           // Shown in the browser prompt // [!code highlight]
+      rpId: 'example.com',        // Must match your domain, no protocol // [!code highlight]
+    }), // [!code highlight]
+  ],
+});
+```
+
+<Warning>
+  `rpId` must be a registrable domain suffix of the origin. For `https://app.example.com`, valid values are `app.example.com` or `example.com`. Localhost works during development.
+</Warning>
+
+</Step>
+
+</Steps>
+
+## Registration ceremony
+
+A passkey is tied to a specific device. Users register once per device they want to use.
+
+<Steps>
+
+<Step>
+
+### Get registration options
+
+`POST /auth/passkey/register/options`
+
+Returns a WebAuthn challenge from the server. Requires an active session (the user must already be signed in to register a passkey).
+
+```typescript
+const res = await fetch('/auth/passkey/register/options', {
+  method: 'POST',
+  credentials: 'include',
+});
+
+const options = await res.json();
+```
+
+</Step>
+
+<Step>
+
+### Create the credential
+
+Pass the options to the browser's WebAuthn API:
+
+```typescript
+import { startRegistration } from '@simplewebauthn/browser';
+
+const credential = await startRegistration(options);
+```
+
+</Step>
+
+<Step>
+
+### Verify and store
+
+`POST /auth/passkey/register/verify`
+
+```typescript
+await fetch('/auth/passkey/register/verify', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(credential),
+});
+```
+
+On success, the credential is stored and the passkey is active.
+
+</Step>
+
+</Steps>
+
+## Authentication ceremony
+
+<Steps>
+
+<Step>
+
+### Get authentication options
+
+`POST /auth/passkey/authenticate/options`
+
+Does not require a session — this is the start of sign-in.
+
+```typescript
+const res = await fetch('/auth/passkey/authenticate/options', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'user@example.com' }), // optional
+});
+
+const options = await res.json();
+```
+
+Omitting `email` returns options for any registered passkey on the device (useful for conditional UI).
+
+</Step>
+
+<Step>
+
+### Get the assertion
+
+```typescript
+import { startAuthentication } from '@simplewebauthn/browser';
+
+const assertion = await startAuthentication(options);
+```
+
+</Step>
+
+<Step>
+
+### Verify and start session
+
+`POST /auth/passkey/authenticate/verify`
+
+```typescript
+const res = await fetch('/auth/passkey/authenticate/verify', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(assertion), // [!code highlight]
+});
+
+const { userId, sessionId } = await res.json(); // [!code highlight]
+```
+
+On success, a session cookie is set.
+
+</Step>
+
+</Steps>
+
+## Managing credentials
+
+Users can register multiple passkeys across different devices.
+
+### List credentials
+
+`GET /auth/passkey/credentials`
+
+```typescript
+const res = await fetch('/auth/passkey/credentials', {
+  credentials: 'include',
+});
+
+const { credentials } = await res.json();
+// [{ id, name, createdAt, lastUsedAt, deviceType }]
+```
+
+### Delete a credential
+
+`DELETE /auth/passkey/credentials/:id`
+
+```typescript
+await fetch(`/auth/passkey/credentials/${credentialId}`, {
+  method: 'DELETE',
+  credentials: 'include',
+});
+```
+
+<Warning>
+  If a user deletes their last passkey and has no other sign-in method, they will be locked out. Check the credential count before allowing deletion, or prompt the user to set a password first.
+</Warning>
+
+## Endpoints
+
+| Endpoint | Auth required | Description |
+|----------|--------------|-------------|
+| `POST /auth/passkey/register/options` | Yes | Get challenge to start registration |
+| `POST /auth/passkey/register/verify` | Yes | Store the new credential |
+| `POST /auth/passkey/authenticate/options` | No | Get challenge to start sign-in |
+| `POST /auth/passkey/authenticate/verify` | No | Verify assertion, set session |
+| `GET /auth/passkey/credentials` | Yes | List registered credentials |
+| `DELETE /auth/passkey/credentials/:id` | Yes | Remove a credential |
+
+## Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `rpName` | `string` | required | App name shown in the browser passkey prompt |
+| `rpId` | `string` | required | Relying party ID, must match your domain |
+| `timeout` | `number` | `60000` | WebAuthn operation timeout in milliseconds |
+| `attestation` | `string` | `'none'` | Attestation preference: `'none'`, `'indirect'`, `'direct'` |
+| `userVerification` | `string` | `'preferred'` | Whether biometric check is required: `'required'`, `'preferred'`, `'discouraged'` |

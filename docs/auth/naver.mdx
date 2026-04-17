@@ -1,0 +1,66 @@
+---
+title: Naver
+description: Sign in with Naver using OAuth 2.0.
+icon: Naver
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [developers.naver.com](https://developers.naver.com) and create an application. Under **API Settings**, add **Naver Login** and set your redirect URI:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/naver
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'naver',
+          clientId: process.env.NAVER_CLIENT_ID!,
+          clientSecret: process.env.NAVER_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+NAVER_CLIENT_ID=...
+NAVER_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `name`, `email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `name` | Display name |
+| `email` | Email address |
+| `profile_image` | Profile image URL |
+| `mobile` | Mobile phone number |
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/naver` | Redirect to Naver |
+| GET | `/auth/oauth/callback/naver` | Handle callback |

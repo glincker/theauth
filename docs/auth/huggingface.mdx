@@ -1,0 +1,71 @@
+---
+title: Hugging Face
+description: Sign in with Hugging Face using OAuth 2.0.
+icon: HuggingFace
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Go to [huggingface.co/settings/applications](https://huggingface.co/settings/applications) and click **New OAuth application**. Set the redirect URI to:
+
+```
+https://your-app.com/api/kavach/auth/oauth/callback/huggingface
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+const kavach = await createKavach({
+  database: { provider: 'sqlite', url: 'kavach.db' },
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'huggingface',
+          clientId: process.env.HUGGINGFACE_CLIENT_ID!,
+          clientSecret: process.env.HUGGINGFACE_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+```bash
+HUGGINGFACE_CLIENT_ID=...
+HUGGINGFACE_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `openid`, `profile`, `email`
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `openid` | OIDC identity token |
+| `profile` | Username and full name |
+| `email` | Email address |
+| `read-repos` | Read access to user repositories |
+| `read-billing` | Read billing information |
+
+<Info>
+  Hugging Face supports the OIDC discovery endpoint at `https://huggingface.co`. User IDs are stable numeric values.
+</Info>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/huggingface` | Redirect to Hugging Face |
+| GET | `/auth/oauth/callback/huggingface` | Handle callback |
