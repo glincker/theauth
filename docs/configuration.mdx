@@ -151,7 +151,7 @@ auth: {
 
 When `auth` is omitted, `kavach.auth.resolveUser()` always returns `null` (manual user management mode).
 
-See [Auth adapters](/docs/guides/auth-adapters) for all adapter options.
+See [Auth adapters](/guides/auth-adapters) for all adapter options.
 
 ## Session config
 
@@ -298,7 +298,13 @@ export const kavach = await createKavach({
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Auth adapters" description="Connect to better-auth, Auth.js, or Clerk." href="/docs/auth-adapters" />
-  <Card title="Database setup" description="SQLite, Postgres, or MySQL configuration." href="/docs/database" />
-  <Card title="Framework adapters" description="Mount KavachOS on your framework." href="/docs/adapters" />
+  <Card title="Auth adapters" href="/auth-adapters">
+  Connect to better-auth, Auth.js, or Clerk.
+</Card>
+  <Card title="Database setup" href="/database">
+  SQLite, Postgres, or MySQL configuration.
+</Card>
+  <Card title="Framework adapters" href="/adapters">
+  Mount KavachOS on your framework.
+</Card>
 </CardGroup>

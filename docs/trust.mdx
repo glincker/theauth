@@ -9,7 +9,7 @@ icon: user-shield
 
 A trust score is a 0–100 number that reflects how much an agent has earned autonomous operation. New agents start with a baseline of 50. Over time, successful calls raise the score; denied requests, permission violations, and anomalous patterns lower it.
 
-The score maps to one of five named levels that your application can use to gate behavior — requiring human approval for low-trust agents, unlocking faster paths for high-trust ones.
+The score maps to one of five named levels that your application can use to gate behavior, requiring human approval for low-trust agents, unlocking faster paths for high-trust ones.
 
 Scores are computed from the audit log, not guessed. An agent cannot self-report a high score.
 
@@ -40,7 +40,7 @@ score += 5  if ageInDays > 7                   // smaller bonus for recent agent
 score = clamp(score, 0, 100)
 ```
 
-An agent with 200 successful calls, no denials, and 40 days of history scores: `50 + 2 + 10 = 62` — landing in the `standard` band.
+An agent with 200 successful calls, no denials, and 40 days of history scores: `50 + 2 + 10 = 62`, landing in the `standard` band.
 
 ## Trust levels
 
@@ -136,13 +136,19 @@ await deleteFiles(agentId);
 ```
 
 <Info>
-  Scores are recomputed on demand. KavachOS does not maintain a background scorer. Call `computeScore` or `computeAll` on a schedule that fits your use case — every request, every few minutes, or nightly.
+  Scores are recomputed on demand. KavachOS does not maintain a background scorer. Call `computeScore` or `computeAll` on a schedule that fits your use case, every request, every few minutes, or nightly.
 </Info>
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Anomaly detection" description="Surface unusual patterns in agent behavior." href="/docs/anomaly" />
-  <Card title="Approval flows" description="Route high-risk actions through human review." href="/docs/approval" />
-  <Card title="Audit trail" description="The raw data that feeds trust scoring." href="/docs/audit" />
+  <Card title="Anomaly detection" href="/anomaly">
+  Surface unusual patterns in agent behavior.
+</Card>
+  <Card title="Approval flows" href="/approval">
+  Route high-risk actions through human review.
+</Card>
+  <Card title="Audit trail" href="/audit">
+  The raw data that feeds trust scoring.
+</Card>
 </CardGroup>

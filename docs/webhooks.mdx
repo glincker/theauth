@@ -76,7 +76,7 @@ Every webhook delivery includes these headers:
 
 | Header | Value |
 |--------|-------|
-| `X-Kavach-Signature` | `sha256=<hmac>` — HMAC-SHA256 of the raw body |
+| `X-Kavach-Signature` | `sha256=<hmac>`. HMAC-SHA256 of the raw body |
 | `X-Kavach-Event` | Event type, e.g. `user.created` |
 | `X-Kavach-Delivery` | Unique UUID for this delivery attempt |
 | `X-Kavach-Timestamp` | Unix timestamp (seconds) of delivery |
@@ -85,8 +85,8 @@ Every webhook delivery includes these headers:
 
 Always verify the signature before trusting the payload.
 
-<Tabs items={['Node', 'Edge (Web Crypto)']}>
-  <Tab value="Node">
+<Tabs>
+  <Tab title="Node">
 ```typescript
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -107,7 +107,7 @@ app.post('/webhooks/kavach', express.raw({ type: 'application/json' }), (req, re
 });
 ```
   </Tab>
-  <Tab value="Edge (Web Crypto)">
+  <Tab title="Edge (Web Crypto)">
 ```typescript
 async function verifyWebhook(rawBody: string, signature: string, secret: string): Promise<boolean> {
   const key = await crypto.subtle.importKey(
@@ -150,6 +150,10 @@ The test delivery sends `{ event: 'ping', timestamp: '...' }` and respects the s
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Lifecycle hooks" description="Run async callbacks on auth events inside the SDK process." href="/docs/hooks" />
-  <Card title="Audit log" description="Query the full record of every authorization decision." href="/docs/audit" />
+  <Card title="Lifecycle hooks" href="/hooks">
+  Run async callbacks on auth events inside the SDK process.
+</Card>
+  <Card title="Audit log" href="/audit">
+  Query the full record of every authorization decision.
+</Card>
 </CardGroup>

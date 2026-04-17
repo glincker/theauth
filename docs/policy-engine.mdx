@@ -258,8 +258,16 @@ These are known gaps in v1, tracked for future work:
 **`requireScopes()` is not wired.** MCP scope checks in `mcp/require-scopes.ts` still use their own path and do not call `evaluate()`. The combining and caching benefits of the policy engine do not apply to scope checks yet.
 
 <CardGroup cols={2}>
-  <Card title="Permissions" description="Direct permissions, constraints, and templates." href="/docs/permissions" />
-  <Card title="ReBAC" description="Relationship graph, hierarchy traversal, and tuple management." href="/docs/rebac" />
-  <Card title="Delegation" description="Grant permission subsets between agents." href="/docs/delegation" />
-  <Card title="Audit" description="How decisions are logged and surfaced in the dashboard." href="/docs/audit" />
+  <Card title="Permissions" href="/permissions">
+  Direct permissions, constraints, and templates.
+</Card>
+  <Card title="ReBAC" href="/rebac">
+  Relationship graph, hierarchy traversal, and tuple management.
+</Card>
+  <Card title="Delegation" href="/delegation">
+  Grant permission subsets between agents.
+</Card>
+  <Card title="Audit" href="/audit">
+  How decisions are logged and surfaced in the dashboard.
+</Card>
 </CardGroup>

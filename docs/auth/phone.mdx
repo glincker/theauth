@@ -4,7 +4,7 @@ description: Verify users by sending a one-time code to their phone number via S
 icon: key
 ---
 
-The `phoneAuth` plugin registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function — KavachOS handles code generation, expiry, and rate limiting.
+The `phoneAuth` plugin registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. KavachOS handles code generation, expiry, and rate limiting.
 
 ## Setup
 
@@ -35,7 +35,7 @@ const kavach = await createKavach({
 });
 ```
 
-Mount the handler the same way as any other plugin — see [adapters](/docs/adapters).
+Mount the handler the same way as any other plugin, see [adapters](/adapters).
 
 ## Send code
 

@@ -61,8 +61,8 @@ templates.welcome({ userName: string; userEmail: string });
 
 Auth plugins expose callbacks like `onSendVerification` and `onSendMagicLink`. Pass template output directly into them.
 
-<Tabs items={['Magic link', 'Email OTP', 'Password reset']}>
-  <Tab value="Magic link">
+<Tabs>
+  <Tab title="Magic link">
 ```typescript
 import { createKavach, magicLinkPlugin, createEmailTemplates } from 'kavachos';
 
@@ -81,7 +81,7 @@ const kavach = await createKavach({
 });
 ```
   </Tab>
-  <Tab value="Email OTP">
+  <Tab title="Email OTP">
 ```typescript
 emailOtpPlugin({
   async onSendOtp({ email, otp, expiresInMinutes }) {
@@ -91,7 +91,7 @@ emailOtpPlugin({
 });
 ```
   </Tab>
-  <Tab value="Password reset">
+  <Tab title="Password reset">
 ```typescript
 emailPasswordPlugin({
   async onSendResetPassword({ email, url }) {
@@ -130,7 +130,13 @@ const templates = createEmailTemplates({
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Magic link" description="Passwordless auth via email links." href="/docs/auth/magic-link" />
-  <Card title="Email OTP" description="One-time passcodes delivered by email." href="/docs/auth/email-otp" />
-  <Card title="Internationalization" description="Translate email subjects and error messages." href="/docs/i18n" />
+  <Card title="Magic link" href="/auth/magic-link">
+  Passwordless auth via email links.
+</Card>
+  <Card title="Email OTP" href="/auth/email-otp">
+  One-time passcodes delivered by email.
+</Card>
+  <Card title="Internationalization" href="/i18n">
+  Translate email subjects and error messages.
+</Card>
 </CardGroup>

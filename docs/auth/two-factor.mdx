@@ -71,7 +71,7 @@ const res = await fetch('/auth/2fa/enroll', {
 const { secret, qrCodeUrl, backupCodes } = await res.json(); // [!code highlight]
 ```
 
-Render `qrCodeUrl` as a QR code image in your UI. The user scans it with their authenticator app. Show `backupCodes` once at this point — they cannot be retrieved again.
+Render `qrCodeUrl` as a QR code image in your UI. The user scans it with their authenticator app. Show `backupCodes` once at this point, they cannot be retrieved again.
 
 </Step>
 
@@ -126,7 +126,7 @@ On success, a session cookie is set.
 
 ## Backup codes
 
-Ten single-use backup codes are generated at enrollment. Each is a 10-character alphanumeric string. A backup code can be submitted in place of a TOTP code at the verify endpoint — useful when the user has lost access to their authenticator app.
+Ten single-use backup codes are generated at enrollment. Each is a 10-character alphanumeric string. A backup code can be submitted in place of a TOTP code at the verify endpoint, useful when the user has lost access to their authenticator app.
 
 ### Regenerate backup codes
 
@@ -185,6 +185,6 @@ All endpoints require an authenticated session unless noted.
 |--------|------|---------|-------------|
 | `issuer` | `string` | required | App name shown in the authenticator |
 | `enforce` | `boolean` | `false` | Require 2FA for all users |
-| `shouldEnforce` | `(user: User) => Promise<boolean>` | — | Per-user enforcement logic |
+| `shouldEnforce` | `(user: User) => Promise<boolean>` |, | Per-user enforcement logic |
 | `backupCodeCount` | `number` | `10` | Number of backup codes generated at enrollment |
 | `challengeTokenTtl` | `number` | `300` | Seconds to complete verification after primary auth |

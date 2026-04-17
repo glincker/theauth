@@ -4,7 +4,7 @@ description: Server-side OAuth for mobile apps. Exchange authorization codes wit
 icon: shield-halved
 ---
 
-Mobile apps cannot safely store OAuth client secrets. Embedding a secret in an iOS or Android binary is not safe — it can be extracted. The standard workaround (PKCE without a secret) works for some providers but not all.
+Mobile apps cannot safely store OAuth client secrets. Embedding a secret in an iOS or Android binary is not safe, it can be extracted. The standard workaround (PKCE without a secret) works for some providers but not all.
 
 The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through KavachOS, which holds the client secret and performs the code exchange on the device's behalf. The app gets back tokens via its custom URL scheme, never touching the secret directly.
 
@@ -88,7 +88,7 @@ When registering the OAuth application with your provider (Google, GitHub, etc.)
 https://auth.example.com/auth/oauth-proxy/callback
 ```
 
-The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider — only KavachOS's server URL is.
+The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only KavachOS's server URL is.
 
 </Step>
 
@@ -133,8 +133,8 @@ async function signInWithGoogle() {
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/auth/oauth-proxy/start` | `GET` | Start a proxy flow — returns the provider auth URL |
-| `/auth/oauth-proxy/callback` | `GET` | Provider callback — exchanges the code and redirects to the mobile app |
+| `/auth/oauth-proxy/start` | `GET` | Start a proxy flow, returns the provider auth URL |
+| `/auth/oauth-proxy/callback` | `GET` | Provider callback, exchanges the code and redirects to the mobile app |
 
 ### `/auth/oauth-proxy/start` query parameters
 
@@ -172,21 +172,21 @@ If the user denies the request or the provider returns an error, the redirect in
 
 ## PKCE support
 
-The proxy generates a PKCE code verifier and challenge for every flow. The verifier is stored server-side alongside the proxy state and is used when exchanging the authorization code. The mobile app never needs to supply its own verifier — the server handles this entirely, preventing authorization code interception attacks even for providers that do not require PKCE.
+The proxy generates a PKCE code verifier and challenge for every flow. The verifier is stored server-side alongside the proxy state and is used when exchanging the authorization code. The mobile app never needs to supply its own verifier, the server handles this entirely, preventing authorization code interception attacks even for providers that do not require PKCE.
 
 <Warning>
-  Tokens are passed as URL query parameters so that custom-scheme handlers on iOS and Android can read them. Treat them as you would any OAuth token — store them in the device's secure keychain, not in plain storage.
+  Tokens are passed as URL query parameters so that custom-scheme handlers on iOS and Android can read them. Treat them as you would any OAuth token, store them in the device's secure keychain, not in plain storage.
 </Warning>
 
 ## Security
 
-**Redirect URI validation** — only URIs in `allowedRedirectUris` are accepted. Exact matches and scheme-prefix matches (entries ending with `://`) are supported. Everything else returns `400`.
+**Redirect URI validation**, only URIs in `allowedRedirectUris` are accepted. Exact matches and scheme-prefix matches (entries ending with `://`) are supported. Everything else returns `400`.
 
-**State TTL** — proxy state entries expire after 10 minutes by default. An expired or unknown state returns `400` and cannot be replayed.
+**State TTL**, proxy state entries expire after 10 minutes by default. An expired or unknown state returns `400` and cannot be replayed.
 
-**One-time state** — the state entry is deleted before the token exchange network call, preventing replay attacks even if the callback is called twice.
+**One-time state**, the state entry is deleted before the token exchange network call, preventing replay attacks even if the callback is called twice.
 
-**No open redirects** — the final redirect destination always comes from the stored state entry, never from user-supplied query parameters at callback time.
+**No open redirects**, the final redirect destination always comes from the stored state entry, never from user-supplied query parameters at callback time.
 
 ## Configuration reference
 

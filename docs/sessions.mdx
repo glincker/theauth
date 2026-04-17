@@ -11,7 +11,7 @@ KavachOS has three session types:
 - **JWT sessions** for SPAs, mobile apps, and server-to-server flows. Stateless access tokens paired with rotating refresh tokens.
 - **Ephemeral agent sessions** for AI agents (Claude, GPT-with-browsing, operator loops). Short-lived, budget-bounded credentials that expire by time or action count, whichever comes first.
 
-This page covers cookie sessions and JWT sessions. For ephemeral agent sessions see the [agents guide](/docs/agents).
+This page covers cookie sessions and JWT sessions. For ephemeral agent sessions see the [agents guide](/agents).
 
 ---
 
@@ -310,14 +310,14 @@ if (!originOk) {
 
 ## Revocation patterns
 
-<Tabs items={['Single session', 'All sessions', 'All except current']}>
-  <Tab value="Single session">
+<Tabs>
+  <Tab title="Single session">
 ```typescript title="Revoke one session"
 // Revoke by session ID. Use this for "sign out this device"
 await sessions.revokeSession(sessionId); // [!code highlight]
 ```
   </Tab>
-  <Tab value="All sessions">
+  <Tab title="All sessions">
 ```typescript title="Revoke all sessions for a user"
 // Full sign-out. Use this after a password reset or account compromise
 await sessions.revokeAllSessions(userId); // [!code highlight]
@@ -325,7 +325,7 @@ await sessions.revokeAllSessions(userId); // [!code highlight]
 
 Password reset automatically calls `revokeAllSessions` for you when using the `emailPassword` plugin. You only need to call this directly when handling a security event (suspicious login, compromised credential detected, etc.).
   </Tab>
-  <Tab value="All except current">
+  <Tab title="All except current">
 ```typescript title="Revoke all other sessions"
 // Keep the current session, revoke everything else
 // The session ID of the current request comes from validateSession

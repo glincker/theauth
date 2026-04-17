@@ -105,7 +105,7 @@ if (!result.allowed) {
 
 ## createRateLimiter
 
-Use `createRateLimiter` for custom rate limiting on your own endpoints — for example, an expensive AI inference route that should be capped per user.
+Use `createRateLimiter` for custom rate limiting on your own endpoints, for example, an expensive AI inference route that should be capped per user.
 
 ```typescript
 import { createRateLimiter } from 'kavachos';
@@ -149,7 +149,7 @@ When the limit is exceeded, `withRateLimit` returns a `429` response automatical
 
 ## 429 response format
 
-All rate limit rejections — from auth endpoints, the permission engine, or `withRateLimit` — return the same shape:
+All rate limit rejections, from auth endpoints, the permission engine, or `withRateLimit`, return the same shape:
 
 ```json
 {
@@ -176,7 +176,13 @@ Retry-After: 42
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Permissions" description="Add maxCallsPerHour and other constraints to individual permissions." href="/docs/permissions" />
-  <Card title="Approval flows" description="Pair rate limits with human-in-the-loop approval for sensitive actions." href="/docs/approval" />
-  <Card title="Anomaly detection" description="Use anomaly scoring alongside rate limits for behavioural signals." href="/docs/anomaly" />
+  <Card title="Permissions" href="/permissions">
+  Add maxCallsPerHour and other constraints to individual permissions.
+</Card>
+  <Card title="Approval flows" href="/approval">
+  Pair rate limits with human-in-the-loop approval for sensitive actions.
+</Card>
+  <Card title="Anomaly detection" href="/anomaly">
+  Use anomaly scoring alongside rate limits for behavioural signals.
+</Card>
 </CardGroup>

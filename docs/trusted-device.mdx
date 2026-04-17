@@ -4,7 +4,7 @@ description: Let users skip two-factor auth on devices they have explicitly trus
 icon: shield-halved
 ---
 
-The trusted device module lets users mark a device as trusted after completing two-factor authentication. On subsequent sign-ins from that device, 2FA is skipped. Trust is stored as an HMAC-signed fingerprint — not a plain device ID — so it cannot be guessed or forged.
+The trusted device module lets users mark a device as trusted after completing two-factor authentication. On subsequent sign-ins from that device, 2FA is skipped. Trust is stored as an HMAC-signed fingerprint, not a plain device ID, so it cannot be guessed or forged.
 
 ## Setup
 
@@ -33,7 +33,7 @@ const kavach = await createKavach({
 
 ## Trust a device
 
-After the user completes 2FA, call `trust()` to mark their device. Pass any stable identifier — a browser fingerprint, a cookie value you control, or a combination:
+After the user completes 2FA, call `trust()` to mark their device. Pass any stable identifier, a browser fingerprint, a cookie value you control, or a combination:
 
 ```typescript title="Trust after 2FA (server)"
 import { trustedDevice } from './lib/kavach';

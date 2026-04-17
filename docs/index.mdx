@@ -1,13 +1,13 @@
 ---
 title: What is KavachOS
-description: KavachOS is an auth OS for AI agents. It handles identity, permissions, delegation, and audit for agentic systems.
+description: Auth OS for AI agents. Identity, permissions, delegation, audit, and MCP OAuth in one TypeScript SDK.
 icon: book-open
 ---
 
 
-KavachOS is a TypeScript SDK that gives AI agents their own identity, enforces permissions at call time, and logs every decision. It plugs into your existing auth provider (Clerk, Auth.js, better-auth) and handles everything after the human is authenticated.
+KavachOS is a TypeScript SDK that gives AI agents their own identity, enforces permissions at call time, and logs every decision. It plugs into whatever human auth you already run (Clerk, Auth.js, better-auth) and takes over once the human is signed in.
 
-```ts {4-6,8-13}
+```ts
 import { createKavach } from 'kavachos';
 
 const kavach = await createKavach({
@@ -28,78 +28,104 @@ const result = await kavach.authorize(agent.id, {
 // { allowed: true, auditId: '550e8400-...' }
 ```
 
+## Get started
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+  Create your first agent, authorize a call, read the audit trail. Five minutes.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+  Every `createKavach()` option grouped by feature.
+  </Card>
+  <Card title="API reference" icon="code" href="/api">
+  Every method, shape, and error code.
+  </Card>
+</CardGroup>
+
+## Pick your framework
+
+<CardGroup cols={4}>
+  <Card title="Next.js" icon="/brand-icons/nextdotjs.svg" href="/adapters/nextjs">
+  App Router and Pages, middleware included.
+  </Card>
+  <Card title="Hono" icon="/brand-icons/hono.svg" href="/adapters/hono">
+  Edge-first: Workers, Deno, Bun.
+  </Card>
+  <Card title="Express" icon="/brand-icons/express.svg" href="/adapters/express">
+  Classic Node handlers.
+  </Card>
+  <Card title="Fastify" icon="/brand-icons/fastify.svg" href="/adapters/fastify">
+  Plugins and decorators.
+  </Card>
+  <Card title="NestJS" icon="/brand-icons/nestjs.svg" href="/adapters/nestjs">
+  Guards and decorators.
+  </Card>
+  <Card title="Nuxt" icon="/brand-icons/nuxt.svg" href="/adapters/nuxt">
+  Server routes and middleware.
+  </Card>
+  <Card title="SvelteKit" icon="/brand-icons/svelte.svg" href="/adapters/sveltekit">
+  Hooks and endpoints.
+  </Card>
+  <Card title="Astro" icon="/brand-icons/astro.svg" href="/adapters/astro">
+  Server islands.
+  </Card>
+</CardGroup>
+
 ## What it does
 
 <CardGroup cols={2}>
-  <Card title="Agent identity" description="Create agents with bearer tokens (kv_...), rotate credentials instantly, set expiry dates. Tokens are SHA-256 hashed in the database." href="/docs/agents" />
-  <Card title="Permission engine" description="Resource wildcards (mcp:github:*), rate limits, time windows, IP allowlists, and human-in-the-loop approval gates." href="/docs/permissions" />
-  <Card title="Delegation chains" description="An orchestrator delegates a subset of its permissions to a sub-agent, with depth limits and expiry. Revocation cascades." href="/docs/delegation" />
-  <Card title="Audit trail" description="Every authorize() call is logged: agent, user, resource, action, result, duration. Export as JSON or CSV." href="/docs/audit" />
-  <Card title="MCP OAuth 2.1" description="Spec-compliant auth server with PKCE (S256), Protected Resource Metadata (RFC 9728), and Dynamic Client Registration." href="/docs/mcp" />
-  <Card title="7 framework adapters" description="Drop-in middleware for Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, and Astro." href="/docs/adapters" />
+  <Card title="Agent identity" icon="robot" href="/agents">
+  Bearer tokens (`kv_...`), rotation, expiry. Tokens are SHA-256 hashed at rest.
+  </Card>
+  <Card title="Permission engine" icon="shield-halved" href="/permissions">
+  Resource wildcards (`mcp:github:*`), rate limits, time windows, IP allowlists, approval gates.
+  </Card>
+  <Card title="Delegation chains" icon="link" href="/delegation">
+  An orchestrator delegates a subset of its permissions to a sub-agent with depth and expiry. Revocation cascades.
+  </Card>
+  <Card title="Audit trail" icon="scroll" href="/audit">
+  Every `authorize()` call writes agent, user, resource, action, result, duration. Export as JSON or CSV.
+  </Card>
+  <Card title="MCP OAuth 2.1" icon="globe" href="/mcp">
+  Spec-compliant authorization server with PKCE S256, Protected Resource Metadata (RFC 9728), and Dynamic Client Registration (RFC 7591).
+  </Card>
+  <Card title="Framework adapters" icon="puzzle-piece" href="/adapters">
+  Drop-in middleware for ten frameworks, covering Node, edge, and SSR runtimes.
+  </Card>
 </CardGroup>
 
 ## How it fits
 
-```
-┌────────────────────────────────────────────────────┐
-│  Your application                                  │
-│                                                    │
-│  ┌──────────────┐       ┌───────────────────────┐  │
-│  │ Human auth   │       │ KavachOS              │  │
-│  │              │──────>│                       │  │
-│  │ Clerk,       │ user  │  kavach.agent.create() │  │
-│  │ Auth.js,     │  ID   │  kavach.authorize()    │  │
-│  │ better-auth  │       │  kavach.delegate()     │  │
-│  └──────────────┘       │  kavach.audit.query()  │  │
-│                         └───────────┬───────────┘  │
-│                                     │              │
-│                            allowed / denied        │
-│                                     │              │
-│                         ┌───────────▼───────────┐  │
-│                         │ MCP servers, APIs,    │  │
-│                         │ tools, databases      │  │
-│                         └───────────────────────┘  │
-└────────────────────────────────────────────────────┘
-```
+Your auth provider handles human login and returns a user ID. That user ID is what KavachOS hangs agents off of. When an agent wants to act, your code calls `authorize()` with the agent ID, the action, and the resource. KavachOS returns `{ allowed, reason, auditId }` and writes a row to the audit log either way.
 
-Your auth provider handles human login. KavachOS takes the user ID and manages their agents. When an agent wants to act, your code calls `authorize()`. KavachOS returns `{ allowed, reason, auditId }`.
+```ts
+// After Clerk / Auth.js / better-auth verifies the human:
+const agent = await kavach.agent.create({ ownerId: user.id });
+
+// Later, when the agent calls a tool:
+const { allowed, reason, auditId } = await kavach.authorize(agent.id, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+});
+```
 
 <Info>
-KavachOS does not replace your human auth. It does not handle login, sessions, or OAuth social providers. It starts where human auth ends.
+KavachOS does not replace your human auth. It does not handle login forms, sessions, or social OAuth. It starts where human auth ends.
 </Info>
 
-## The problem
+## Keep reading
 
 <CardGroup cols={2}>
-  <Card title="81% deploying agents" description="But only 14% have security approval for those deployments." />
-  <Card title="45% use shared API keys" description="No per-agent identity, no scoped permissions, no audit trail." />
-  <Card title="88% had incidents" description="Security incidents from uncontrolled agent access in 2025-2026." />
-</CardGroup>
-
-Three things break without agent-specific auth:
-
-- **No identity.** Shared API keys make every agent indistinguishable. You cannot trace an action back to a specific agent.
-- **No least privilege.** Broad access with no enforcement is not a security model.
-- **No accountability.** Console logs are not an audit trail. Compliance requires structured, immutable records.
-
-## Quick comparison
-
-|  | KavachOS | better-auth | DIY |
-|---|---|---|---|
-| Agent-first data model | Yes | No (plugin) | You build it |
-| Wildcard permissions | Yes | No | You build it |
-| Delegation chains | Yes | No | Rarely done |
-| MCP OAuth 2.1 | Yes | No | Months of spec work |
-| Audit log with export | Yes | Partial | You build it |
-| Token rotation | Yes | No | You build it |
-| Framework adapters | 7 | Many | You build each |
-
-## Get started
-
-<CardGroup cols={2}>
-  <Card title="Quickstart" description="Create your first agent in 5 minutes." href="/docs/quickstart" />
-  <Card title="Configuration" description="All createKavach() options explained." href="/docs/configuration" />
-  <Card title="Auth adapters" description="Plug into better-auth, Auth.js, Clerk." href="/docs/auth-adapters" />
-  <Card title="REST API reference" description="All HTTP endpoints." href="/docs/api" />
+  <Card title="Agents" icon="robot" href="/agents">
+  The identity primitive, from creation to rotation.
+  </Card>
+  <Card title="Permissions" icon="shield-halved" href="/permissions">
+  Resource strings, rate limits, approval flows.
+  </Card>
+  <Card title="MCP OAuth 2.1" icon="globe" href="/mcp">
+  Run your own MCP authorization server.
+  </Card>
+  <Card title="Audit and trust" icon="chart-line" href="/audit">
+  Query, export, score.
+  </Card>
 </CardGroup>

@@ -4,7 +4,7 @@ description: Subscription billing with Polar.
 icon: "/brand-icons/polar.svg"
 ---
 
-Polar is an open-source funding platform for developers. The KavachOS plugin wires Polar checkout sessions and subscription webhooks to your user records — no Polar SDK required.
+Polar is an open-source funding platform for developers. The KavachOS plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required.
 
 ## Setup
 
@@ -99,7 +99,7 @@ Returns `{ "subscription": null }` when the user has no active subscription.
 
 ### POST /auth/polar/webhook
 
-Receives webhook events from Polar. Signature is verified with HMAC-SHA256 — no session auth needed.
+Receives webhook events from Polar. Signature is verified with HMAC-SHA256, no session auth needed.
 
 Handled events:
 

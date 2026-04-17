@@ -65,7 +65,7 @@ npx @kavachos/gateway \
 | `--upstream` | required | URL of the upstream service |
 | `--port` | `3000` | Port the gateway listens on |
 | `--database` | `:memory:` | SQLite database path for KavachOS |
-| `--config` | — | Path to a `gateway.json` config file |
+| `--config` |, | Path to a `gateway.json` config file |
 | `--strip-auth` | false | Remove the `Authorization` header before forwarding |
 | `--no-audit` | false | Disable audit trail recording |
 
@@ -182,15 +182,15 @@ Patterns use standard glob syntax via [micromatch](https://github.com/micromatch
 
 ### Auth flow per request
 
-1. Check if the path is `/_kavach/health` — serve locally, no upstream
+1. Check if the path is `/_kavach/health`, serve locally, no upstream
 2. Handle CORS preflight if `cors` is configured
 3. Match the request against policies (path + method)
 4. If the matched policy is `public: true` or `requireAuth: false`, skip auth
 5. Otherwise extract the `Authorization: Bearer <token>` header
-6. Validate the token against KavachOS — reject with 401 if invalid
-7. Check global rate limit (keyed by agent ID or IP) — reject with 429 if exceeded
-8. Check policy-level rate limit — reject with 429 if exceeded
-9. Check `requiredPermissions` if any — reject with 403 if insufficient
+6. Validate the token against KavachOS, reject with 401 if invalid
+7. Check global rate limit (keyed by agent ID or IP), reject with 429 if exceeded
+8. Check policy-level rate limit, reject with 429 if exceeded
+9. Check `requiredPermissions` if any, reject with 403 if insufficient
 10. Proxy the request to the upstream
 11. Record an audit entry if `audit: true`
 12. Return the upstream response with CORS headers merged in

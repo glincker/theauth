@@ -5,7 +5,7 @@ icon: "/brand-icons/expo.svg"
 ---
 
 
-`@kavachos/expo` brings KavachOS auth to React Native and Expo apps. It stores session tokens in any storage adapter you choose — AsyncStorage, SecureStore, or your own — and sends them via `Authorization` header rather than cookies.
+`@kavachos/expo` brings KavachOS auth to React Native and Expo apps. It stores session tokens in any storage adapter you choose. AsyncStorage, SecureStore, or your own, and sends them via `Authorization` header rather than cookies.
 
 ## Installation
 
@@ -48,7 +48,7 @@ export default function RootLayout() {
 }
 ```
 
-The `storage` prop accepts any object with `getItem`, `setItem`, and `removeItem` methods — the same interface as `AsyncStorage` and `expo-secure-store`.
+The `storage` prop accepts any object with `getItem`, `setItem`, and `removeItem` methods, the same interface as `AsyncStorage` and `expo-secure-store`.
 </Step>
 
 <Step>

@@ -35,8 +35,8 @@ After saving, copy the **Application ID** and **Secret**.
 
 ## Configuration
 
-<Tabs items={['gitlab.com', 'Self-hosted']}>
-  <Tab value="gitlab.com">
+<Tabs>
+  <Tab title="gitlab.com">
     ```typescript title="lib/kavach.ts"
     import { createKavach } from 'kavachos';
     import { oauth } from 'kavachos/auth';
@@ -59,7 +59,7 @@ After saving, copy the **Application ID** and **Secret**.
     });
     ```
   </Tab>
-  <Tab value="Self-hosted">
+  <Tab title="Self-hosted">
     ```typescript title="lib/kavach.ts"
     oauth({
       providers: [

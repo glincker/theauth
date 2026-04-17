@@ -10,7 +10,7 @@ icon: user-shield
 A permission grants an agent the right to perform one or more actions on a resource. KavachOS evaluates permissions at call time by checking whether any of the agent's permissions match the requested resource and include the requested action, then verifying all constraints pass.
 
 <ParamField path="resource" type="string">Colon-separated resource path. Wildcards (*) match exactly one segment.</ParamField>
-<ParamField path="actions" type="string[]">The actions this permission grants. No fixed set — define what fits your tools.</ParamField>
+<ParamField path="actions" type="string[]">The actions this permission grants. No fixed set, define what fits your tools.</ParamField>
 <ParamField path="constraints" type="PermissionConstraints" default="undefined">Optional conditions that must all be satisfied for the permission to apply.</ParamField>
 
 ## Matching rules
@@ -26,7 +26,7 @@ mcp:*                   // matches anything directly under mcp
 *                       // matches all resources
 ```
 
-A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos` and `mcp:github:issues`, but not `mcp:github:repos:comments` — that is two segments deeper.
+A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos` and `mcp:github:issues`, but not `mcp:github:repos:comments`, that is two segments deeper.
 
 ```typescript
 // This permission...
@@ -45,7 +45,7 @@ A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos
 
 ### Actions
 
-Actions describe what the agent can do to a resource. KavachOS does not enforce a fixed set — you define what makes sense for your tools.
+Actions describe what the agent can do to a resource. KavachOS does not enforce a fixed set, you define what makes sense for your tools.
 
 Common actions in MCP contexts:
 
@@ -205,7 +205,13 @@ perms[0].actions.push('write'); // safe — does not mutate the original
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Delegation chains" description="Delegate permission subsets to other agents." href="/docs/delegation" />
-  <Card title="Audit trail" description="See how permissions are logged on every call." href="/docs/audit" />
-  <Card title="Compliance" description="Map permissions to EU AI Act and NIST requirements." href="/docs/compliance" />
+  <Card title="Delegation chains" href="/delegation">
+  Delegate permission subsets to other agents.
+</Card>
+  <Card title="Audit trail" href="/audit">
+  See how permissions are logged on every call.
+</Card>
+  <Card title="Compliance" href="/compliance">
+  Map permissions to EU AI Act and NIST requirements.
+</Card>
 </CardGroup>
