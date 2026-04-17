@@ -98,6 +98,16 @@ const result = await kavach.authorize(agent.id, {
 
 Your auth provider handles human login and returns a user ID. That user ID is what KavachOS hangs agents off of. When an agent wants to act, your code calls `authorize()` with the agent ID, the action, and the resource. KavachOS returns `{ allowed, reason, auditId }` and writes a row to the audit log either way.
 
+```mermaid
+flowchart LR
+  User([Human user]) -->|signs in| HumanAuth[Clerk / Auth.js / better-auth]
+  HumanAuth -->|user ID| Kavach[KavachOS]
+  Kavach -->|agent.create| Agents[(Agents)]
+  Kavach -->|authorize| Decision{allowed?}
+  Decision -->|yes| Tools[MCP servers, APIs, databases]
+  Decision -.->|logged either way| Audit[(Audit trail)]
+```
+
 ```ts
 // After Clerk / Auth.js / better-auth verifies the human:
 const agent = await kavach.agent.create({ ownerId: user.id });
