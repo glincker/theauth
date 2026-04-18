@@ -29,7 +29,9 @@ const AUTHORIZATION_URL = "https://discord.com/api/oauth2/authorize";
 const TOKEN_URL = "https://discord.com/api/oauth2/token";
 const USER_INFO_URL = "https://discord.com/api/users/@me";
 const CDN_BASE = "https://cdn.discordapp.com";
-const DEFAULT_SCOPES = ["identify", "email"];
+
+export const DEFAULT_DISCORD_SCOPES = ["identify", "email"];
+const DEFAULT_SCOPES = DEFAULT_DISCORD_SCOPES;
 
 // ---------------------------------------------------------------------------
 // Raw response shapes
@@ -177,6 +179,33 @@ export function createDiscordProvider(config: OAuthProviderConfig): OAuthProvide
 		getAuthorizationUrl,
 		exchangeCode,
 		getUserInfo,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Profile normalisation
+// ---------------------------------------------------------------------------
+
+export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
+	const data = raw as unknown as DiscordUserResponse;
+
+	if (!data.id) {
+		throw new Error("Discord user response missing required field: id");
+	}
+
+	if (!data.email) {
+		throw new Error("Discord user response has no email. Ensure the `email` scope is granted.");
+	}
+
+	const avatar = buildAvatarUrl(data.id, data.avatar);
+	const name = data.global_name ?? buildLegacyName(data.username, data.discriminator);
+
+	return {
+		id: data.id,
+		email: data.email,
+		name,
+		avatar,
+		raw,
 	};
 }
 

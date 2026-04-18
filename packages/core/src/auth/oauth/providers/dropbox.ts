@@ -1,22 +1,21 @@
 /**
- * Twitch OAuth 2.0 provider.
+ * Dropbox OAuth 2.0 provider.
  *
  * Endpoints:
- * - Authorization: https://id.twitch.tv/oauth2/authorize
- * - Token:         https://id.twitch.tv/oauth2/token
- * - UserInfo:      https://api.twitch.tv/helix/users
+ * - Authorization: https://www.dropbox.com/oauth2/authorize
+ * - Token:         https://api.dropboxapi.com/oauth2/token
+ * - UserInfo:      https://api.dropboxapi.com/2/users/get_current_account (POST)
  *
  * Notes:
- * - PKCE S256 is supported by the Twitch OAuth 2.0 implementation.
- * - The `user:read:email` scope is required to receive the user's email address.
- * - The UserInfo endpoint (/helix/users) requires a `Client-ID` header in
- *   addition to the Bearer token. Without it the request returns 400.
- * - User data is nested under a `data` array; the authenticated user is always
- *   the first element.
- * - Profile image URLs are direct CDN links and may change when the user
- *   updates their profile picture.
+ * - PKCE S256 is supported by Dropbox's OAuth 2.0 implementation (since 2021).
+ * - The userinfo endpoint is a POST with an empty body (JSON null is the
+ *   documented request body). No query params are needed.
+ * - The `account_info.read` scope grants access to basic account info including
+ *   email, name, and account ID.
+ * - Dropbox account IDs start with "dbid:" and are stable across sessions.
+ * - The `name` object contains `display_name`, `given_name`, `surname`, etc.
  *
- * Docs: https://dev.twitch.tv/docs/authentication/
+ * Docs: https://developers.dropbox.com/oauth-guide
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
@@ -26,35 +25,67 @@ import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } f
 // Constants
 // ---------------------------------------------------------------------------
 
-const AUTHORIZATION_URL = "https://id.twitch.tv/oauth2/authorize";
-const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
-const USER_INFO_URL = "https://api.twitch.tv/helix/users";
+const AUTHORIZATION_URL = "https://www.dropbox.com/oauth2/authorize";
+const TOKEN_URL = "https://api.dropboxapi.com/oauth2/token";
+const USER_INFO_URL = "https://api.dropboxapi.com/2/users/get_current_account";
 
-export const DEFAULT_TWITCH_SCOPES = ["user:read:email"];
-const DEFAULT_SCOPES = DEFAULT_TWITCH_SCOPES;
+export const DEFAULT_DROPBOX_SCOPES = ["account_info.read"];
 
 // ---------------------------------------------------------------------------
 // Raw response shapes
 // ---------------------------------------------------------------------------
 
-interface TwitchTokenResponse {
+interface DropboxTokenResponse {
 	access_token: string;
 	refresh_token?: string;
 	expires_in?: number;
 	token_type: string;
-	scope?: string[];
+	account_id?: string;
+	scope?: string;
 }
 
-interface TwitchUser {
-	id: string;
-	login: string;
-	display_name: string;
+interface DropboxName {
+	display_name?: string;
+	given_name?: string;
+	surname?: string;
+	abbreviated_name?: string;
+}
+
+interface DropboxProfilePhoto {
+	url?: string;
+}
+
+interface DropboxUserResponse {
+	account_id: string;
 	email?: string;
-	profile_image_url?: string;
+	email_verified?: boolean;
+	name?: DropboxName;
+	profile_photo_url?: string;
+	profile_photo?: DropboxProfilePhoto;
 }
 
-interface TwitchUserResponse {
-	data: TwitchUser[];
+// ---------------------------------------------------------------------------
+// Profile normalisation
+// ---------------------------------------------------------------------------
+
+export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
+	const data = raw as unknown as DropboxUserResponse;
+
+	if (!data.account_id) {
+		throw new Error("Dropbox user response missing required field: account_id");
+	}
+
+	if (!data.email) {
+		throw new Error("Dropbox user response missing required field: email");
+	}
+
+	return {
+		id: data.account_id,
+		email: data.email,
+		name: data.name?.display_name,
+		avatar: data.profile_photo_url ?? data.profile_photo?.url,
+		raw,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -62,18 +93,18 @@ interface TwitchUserResponse {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a Twitch OAuth provider instance.
+ * Create a Dropbox OAuth provider instance.
  *
  * @example
  * ```typescript
- * const twitch = createTwitchProvider({
- *   clientId: process.env.TWITCH_CLIENT_ID,
- *   clientSecret: process.env.TWITCH_CLIENT_SECRET,
+ * const dropbox = createDropboxProvider({
+ *   clientId: process.env.DROPBOX_CLIENT_ID,
+ *   clientSecret: process.env.DROPBOX_CLIENT_SECRET,
  * });
  * ```
  */
-export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider {
-	const scopes = mergeScopes(DEFAULT_SCOPES, config.scopes);
+export function createDropboxProvider(config: OAuthProviderConfig): OAuthProvider {
+	const scopes = mergeScopes(DEFAULT_DROPBOX_SCOPES, config.scopes);
 
 	async function getAuthorizationUrl(
 		state: string,
@@ -91,6 +122,7 @@ export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider
 			state,
 			code_challenge: codeChallenge,
 			code_challenge_method: "S256",
+			token_access_type: "offline",
 		});
 
 		return `${AUTHORIZATION_URL}?${params.toString()}`;
@@ -120,11 +152,11 @@ export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider
 
 		if (!response.ok) {
 			const text = await response.text();
-			throw new Error(`Twitch token exchange failed (${response.status}): ${text}`);
+			throw new Error(`Dropbox token exchange failed (${response.status}): ${text}`);
 		}
 
 		const raw = (await response.json()) as Record<string, unknown>;
-		const data = raw as unknown as TwitchTokenResponse;
+		const data = raw as unknown as DropboxTokenResponse;
 
 		return {
 			accessToken: data.access_token,
@@ -136,46 +168,30 @@ export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider
 	}
 
 	async function getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
-		// Twitch's Helix API requires the Client-ID header on every request,
-		// even when a valid Bearer token is provided.
+		// Dropbox's get_current_account endpoint is a POST with a null body.
 		const response = await fetch(USER_INFO_URL, {
+			method: "POST",
 			headers: {
 				Authorization: `Bearer ${accessToken}`,
-				"Client-ID": config.clientId,
+				"Content-Type": "application/json",
 			},
+			body: "null",
 		});
 
 		if (!response.ok) {
 			const text = await response.text();
-			throw new Error(`Twitch /helix/users fetch failed (${response.status}): ${text}`);
-		}
-
-		const raw = (await response.json()) as Record<string, unknown>;
-		const body = raw as unknown as TwitchUserResponse;
-
-		const user = body.data?.[0];
-		if (!user?.id) {
-			throw new Error("Twitch user response missing required field: id");
-		}
-
-		if (!user.email) {
 			throw new Error(
-				"Twitch user response has no email. Ensure the `user:read:email` scope is granted.",
+				`Dropbox /2/users/get_current_account fetch failed (${response.status}): ${text}`,
 			);
 		}
 
-		return {
-			id: user.id,
-			email: user.email,
-			name: user.display_name,
-			avatar: user.profile_image_url,
-			raw,
-		};
+		const raw = (await response.json()) as Record<string, unknown>;
+		return normalizeProfile(raw);
 	}
 
 	return {
-		id: "twitch",
-		name: "Twitch",
+		id: "dropbox",
+		name: "Dropbox",
 		authorizationUrl: AUTHORIZATION_URL,
 		tokenUrl: TOKEN_URL,
 		userInfoUrl: USER_INFO_URL,
@@ -183,33 +199,6 @@ export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider
 		getAuthorizationUrl,
 		exchangeCode,
 		getUserInfo,
-	};
-}
-
-// ---------------------------------------------------------------------------
-// Profile normalisation
-// ---------------------------------------------------------------------------
-
-export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
-	const body = raw as unknown as TwitchUserResponse;
-	const user = body.data?.[0];
-
-	if (!user?.id) {
-		throw new Error("Twitch user response missing required field: id");
-	}
-
-	if (!user.email) {
-		throw new Error(
-			"Twitch user response has no email. Ensure the `user:read:email` scope is granted.",
-		);
-	}
-
-	return {
-		id: user.id,
-		email: user.email,
-		name: user.display_name,
-		avatar: user.profile_image_url,
-		raw,
 	};
 }
 

@@ -34,8 +34,10 @@ import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } f
 const AUTHORIZATION_URL = "https://www.reddit.com/api/v1/authorize";
 const TOKEN_URL = "https://www.reddit.com/api/v1/access_token";
 const USER_INFO_URL = "https://oauth.reddit.com/api/v1/me";
-const DEFAULT_SCOPES = ["identity"];
 const DEFAULT_USER_AGENT = "web:kavachos-oauth:v1 (by /u/kavachos)";
+
+export const DEFAULT_REDDIT_SCOPES = ["identity"];
+const DEFAULT_SCOPES = DEFAULT_REDDIT_SCOPES;
 
 // ---------------------------------------------------------------------------
 // Raw response shapes
@@ -189,6 +191,34 @@ export function createRedditProvider(config: OAuthProviderConfig): OAuthProvider
 		getAuthorizationUrl,
 		exchangeCode,
 		getUserInfo,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Profile normalisation
+// ---------------------------------------------------------------------------
+
+export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
+	const data = raw as unknown as RedditUserResponse;
+
+	if (!data.id) {
+		throw new Error("Reddit user response missing required field: id");
+	}
+
+	if (!data.name) {
+		throw new Error("Reddit user response missing required field: name");
+	}
+
+	// Reddit does not expose email via OAuth. Strip query params from the avatar URL.
+	const avatar = data.icon_img ? stripQueryParams(data.icon_img) : undefined;
+
+	return {
+		id: data.id,
+		// Reddit does not return email through OAuth; callers must handle this.
+		email: undefined,
+		name: data.name,
+		avatar,
+		raw,
 	};
 }
 
