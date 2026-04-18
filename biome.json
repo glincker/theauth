@@ -111,6 +111,7 @@
       "!**/.cache",
       "!**/docs-local",
       "!docs",
+      "!packages/create-kavachos-app/templates",
       "!**/.next",
       "!sdks/python",
       "!examples/nextjs-demo"
