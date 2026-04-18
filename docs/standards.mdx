@@ -1,0 +1,74 @@
+---
+title: Standards alignment
+description: Which IETF drafts KavachOS maps to, and how to emit the matching claims on issued tokens.
+icon: book-open
+---
+
+KavachOS tracks the two emerging IETF drafts for agent authorization: `draft-goswami-agentic-jwt-00` (agentic JWT claims) and `draft-liu-agent-operation-authorization-01` (three-layer user-workload-token binding). Claim names are defined in a single file so future audits are a one-file review.
+
+## The claim constants
+
+Every claim name lives in `packages/core/src/standards/claims.ts` as `AGENTIC_JWT_CLAIMS`. Each constant has a JSDoc reference to the relevant draft section.
+
+```ts
+import { AGENTIC_JWT_CLAIMS } from "kavachos/standards";
+
+AGENTIC_JWT_CLAIMS.AGENT_ID;         // "agent_id"
+AGENTIC_JWT_CLAIMS.AGENT_TYPE;       // "agent_type"
+AGENTIC_JWT_CLAIMS.ON_BEHALF_OF;     // "on_behalf_of"
+AGENTIC_JWT_CLAIMS.ACT;              // "act"
+AGENTIC_JWT_CLAIMS.MAY_ACT;          // "may_act"
+AGENTIC_JWT_CLAIMS.TRUST_TIER;       // "trust_tier"
+AGENTIC_JWT_CLAIMS.AUDIT_REF;        // "audit_ref"
+AGENTIC_JWT_CLAIMS.TOOL_CONSTRAINTS; // "tool_constraints"
+AGENTIC_JWT_CLAIMS.WORKLOAD_BINDING; // "wit"
+AGENTIC_JWT_CLAIMS.OPERATION;        // "operation"
+```
+
+## Turning claim emission on
+
+Claim emission is off by default. Flip the `emitAgenticJwtClaims` flag on your Kavach config to start populating claims on issued JWTs:
+
+```ts
+import { createKavach } from "kavachos";
+
+const kavach = createKavach({
+  database: { url: process.env.DATABASE_URL },
+  secret: process.env.KAVACHOS_SECRET,
+  emitAgenticJwtClaims: true,
+});
+```
+
+With the flag on, a JWT issued for a delegated agent looks like this (abridged):
+
+```json
+{
+  "sub": "user_123",
+  "iss": "https://your-app.example.com",
+  "exp": 1700000000,
+  "agent_id": "agent_42",
+  "agent_type": "delegated",
+  "trust_tier": "standard"
+}
+```
+
+## What is populated today
+
+| Claim | Populated when | Source |
+|---|---|---|
+| `agent_id` | The issuing code path has an agent in context | `AgentIdentity.id` |
+| `agent_type` | Agent session is delegated, autonomous, or supervised | Delegation mode |
+| `trust_tier` | Trust score band is resolvable | Trust module |
+| `on_behalf_of`, `act`, `may_act`, `audit_ref`, `tool_constraints`, `wit`, `operation` | Deferred to follow-up releases | See "Roadmap" below |
+
+## Roadmap
+
+- Three-layer binding (`wit`, `operation`): coming with workload identity support.
+- `act` and `may_act` for RFC 8693 delegation chains: coming with the delegation chain refactor.
+- Auto-populated `trust_tier` on the MCP token path without manual context wiring: follow-up.
+
+## What this does not aim at
+
+- OpenID for Verifiable Presentations (OID4VP). Out of scope for agent sign-in. Verifiable Credentials KavachOS issues are for audit, not for sign-in.
+- SPIFFE URI scheme. Agent identity uses DIDs (`did:key`, `did:web`) which fit the hosted path better.
+- Post-quantum signatures (ML-DSA). Tracked, not scheduled.
