@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/astro",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Astro adapter for KavachOS - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",

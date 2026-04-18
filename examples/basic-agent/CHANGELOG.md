@@ -1,5 +1,12 @@
 # @kavachos/example-basic-agent
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies
+  - kavachos@0.4.2
+
 ## 0.0.5
 
 ### Patch Changes

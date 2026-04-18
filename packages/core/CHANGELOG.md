@@ -1,5 +1,13 @@
 # kavachos
 
+## 0.4.2
+
+### Patch Changes
+
+- fix: re-export the 10 new OAuth provider factories from `kavachos/auth`
+
+  The wave that added Notion, Spotify, Discord, Slack, Twitch, Reddit, Figma, Dropbox, Zoom, and Atlassian updated the OAuth `providers/index.ts` barrel but left the top-level `auth/index.ts` pointing at the old 9-provider list. Consumers could not import the new factories or their `DEFAULT_*_SCOPES` constants from `kavachos/auth`. Replaced the explicit list with `export *` so new providers picked up automatically in future releases too.
+
 ## 0.4.1
 
 ### Patch Changes

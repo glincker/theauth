@@ -146,17 +146,7 @@ export { createOAuthModule } from "./oauth/module.js";
 // OAuth 2.0 / OIDC provider system
 export type { OAuthPluginConfig } from "./oauth/plugin.js";
 export { oauth } from "./oauth/plugin.js";
-export {
-	createAppleProvider,
-	createDiscordProvider,
-	createGithubProvider,
-	createGitlabProvider,
-	createGoogleProvider,
-	createLinkedInProvider,
-	createMicrosoftProvider,
-	createSlackProvider,
-	createTwitterProvider,
-} from "./oauth/providers/index.js";
+export * from "./oauth/providers/index.js";
 export type {
 	OAuthAccount,
 	OAuthCallbackResult,

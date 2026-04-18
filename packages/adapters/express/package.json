@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/express",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Express adapter for KavachOS - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
