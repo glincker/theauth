@@ -4,6 +4,38 @@ description: Get KavachOS running in five minutes.
 icon: rocket
 ---
 
+## Start from a template
+
+The fastest path is the scaffolder. One command, three prompts, a running Next.js SaaS with KavachOS wired up.
+
+<Tabs>
+  <Tab title="pnpm">
+    ```bash title="terminal"
+    pnpm create kavachos-app
+    ```
+  </Tab>
+  <Tab title="npm">
+    ```bash title="terminal"
+    npm create kavachos-app
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```bash title="terminal"
+    yarn create kavachos-app
+    ```
+  </Tab>
+  <Tab title="bun">
+    ```bash title="terminal"
+    bun create kavachos-app
+    ```
+  </Tab>
+</Tabs>
+
+The CLI asks for a directory, a template, a package manager, and a database driver. Only the Next.js SaaS template is shipping today; the Hono MCP and Expo templates print a coming-soon note and exit. Placeholders in the template (`__APP_NAME__`, `__DB_DRIVER__`, `__DB_URL__`) are replaced on copy.
+
+Next steps are printed at the end: `cd`, install, `db:push`, `dev`.
+
+Prefer to wire up an existing app? Keep reading.
 
 ## Your first agent
 
