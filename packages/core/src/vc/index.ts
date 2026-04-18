@@ -1,4 +1,16 @@
 export type {
+	AuditCredentialSubject,
+	AuditExportResult,
+	AuditRecord,
+	ExportAuditOptions,
+} from "./audit-export.js";
+export {
+	exportAuditAsVC,
+	KAVACHOS_AUDIT_CONTEXT,
+	KAVACHOS_AUDIT_CREDENTIAL,
+	listAuditRecords,
+} from "./audit-export.js";
+export type {
 	DelegationLink,
 	IssueAgentCredentialInput,
 	IssueDelegationCredentialInput,
