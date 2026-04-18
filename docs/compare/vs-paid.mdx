@@ -1,0 +1,29 @@
+---
+title: KavachOS vs paid auth platforms
+description: Open-source and self-hosted compared to managed closed-source auth services.
+icon: building
+---
+
+Clerk and Auth0 are polished products. The onboarding is fast, the UI components are good, and you can be in production in an afternoon. That's a real advantage worth naming before anything else.
+
+The tradeoff is real too. You don't own the code, self-hosting is not an option, and the bill scales with your user count. Both have free tiers that feel generous until you hit the ceiling. Check their pricing pages directly, [Clerk pricing](https://clerk.com/pricing) and [Auth0 pricing](https://auth0.com/pricing), before making a spreadsheet.
+
+## The structural differences
+
+**Open source vs. closed.** KavachOS is MIT. You can read every line, fork it, run it anywhere. Paid platforms are proprietary. You're trusting their security posture, their uptime SLA, and their product roadmap.
+
+**Self-hosted vs. vendor.** Running KavachOS means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure but own the logs too.
+
+**Agent-native vs. bolted on.** Neither Clerk nor Auth0 was designed with AI agents in mind. Both can issue tokens that an agent can use, but there's no concept of `AgentIdentity`, delegation chains, ephemeral sessions, or cost attribution. You build that layer yourself on top of their APIs. KavachOS ships it.
+
+## When managed platforms make sense
+
+Managed auth is the right call when speed matters more than cost or control. If you're validating a product idea, a startup in week two, or a solo developer who doesn't want to run a database, the vendor handles the operational complexity.
+
+It's also worth considering if your team has no one who wants to own auth infrastructure. KavachOS is simple to run, but it still runs on your stack.
+
+## When open source makes sense
+
+Once you have a stable user base, the cost curve of managed platforms typically exceeds what it costs to run a database and a self-hosted SDK. Beyond cost, open source gives you the ability to audit the code for compliance, patch issues without waiting on a vendor, and keep sensitive auth data inside your own infrastructure.
+
+For any product with AI agents, KavachOS is the only open-source option that treats them as first-class entities rather than an afterthought.
