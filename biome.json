@@ -109,7 +109,7 @@
       "!**/build",
       "!**/.turbo",
       "!**/.cache",
-      "!**/docs-local/repo-ref",
+      "!**/docs-local",
       "!docs",
       "!**/.next",
       "!sdks/python",

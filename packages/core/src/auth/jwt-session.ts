@@ -45,6 +45,8 @@ import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { jwtRefreshTokens } from "../db/schema.js";
 import type { KavachError, Result } from "../mcp/types.js";
+import type { AgentType, TrustTier } from "../standards/claims.js";
+import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
@@ -72,6 +74,32 @@ export interface JwtSessionConfig {
 	audience?: string;
 	/** Attach extra claims to the access token payload. */
 	customClaims?: (user: { id: string; email?: string; name?: string }) => Record<string, unknown>;
+	/**
+	 * Emit IETF agentic JWT claims on issued access tokens.
+	 *
+	 * When true, `agent_id`, `agent_type`, and `trust_tier` are included
+	 * in the token payload if the corresponding values are present on
+	 * `SessionUser.agenticContext`. Claims not present in the context are
+	 * omitted rather than fabricated. Off by default.
+	 *
+	 * @default false
+	 */
+	emitAgenticJwtClaims?: boolean;
+}
+
+/**
+ * Optional agentic context carried alongside a session user.
+ *
+ * Used when `JwtSessionConfig.emitAgenticJwtClaims` is true to populate
+ * draft-goswami-agentic-jwt-00 claims on the issued access token.
+ */
+export interface AgenticSessionContext {
+	/** Stable agent identifier (populates `agent_id`). */
+	agentId?: string;
+	/** Operational mode (populates `agent_type`). */
+	agentType?: AgentType;
+	/** Trust tier band at issuance (populates `trust_tier`). */
+	trustTier?: TrustTier;
 }
 
 export interface SessionUser {
@@ -79,6 +107,11 @@ export interface SessionUser {
 	email?: string;
 	name?: string;
 	image?: string;
+	/**
+	 * Optional agentic context. Only used when
+	 * `JwtSessionConfig.emitAgenticJwtClaims` is true.
+	 */
+	agenticContext?: AgenticSessionContext;
 }
 
 export interface SessionTokens {
@@ -270,6 +303,20 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 					...(user.name !== undefined ? { name: user.name } : {}),
 				});
 				Object.assign(claimsFromUser, extra);
+			}
+
+			// Agentic JWT claims (draft-goswami-agentic-jwt-00)
+			if (config.emitAgenticJwtClaims === true && user.agenticContext !== undefined) {
+				const ac = user.agenticContext;
+				if (ac.agentId !== undefined) {
+					claimsFromUser[AGENTIC_JWT_CLAIMS.AGENT_ID] = ac.agentId;
+				}
+				if (ac.agentType !== undefined) {
+					claimsFromUser[AGENTIC_JWT_CLAIMS.AGENT_TYPE] = ac.agentType;
+				}
+				if (ac.trustTier !== undefined) {
+					claimsFromUser[AGENTIC_JWT_CLAIMS.TRUST_TIER] = ac.trustTier;
+				}
 			}
 
 			// Build access token

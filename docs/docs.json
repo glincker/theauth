@@ -268,6 +268,11 @@
             "group": "Identity primitives",
             "icon": "user-shield",
             "pages": ["did", "verifiable-credentials", "federation", "multi-tenant"]
+          },
+          {
+            "group": "Standards",
+            "icon": "book-open",
+            "pages": ["standards"]
           }
         ]
       },

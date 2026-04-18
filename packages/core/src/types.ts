@@ -229,6 +229,19 @@ export interface KavachConfig {
 	 * When omitted, defaults to 300 seconds (5 minutes).
 	 */
 	sessionFreshness?: SessionFreshnessConfig;
+
+	/**
+	 * Emit IETF agentic JWT claims on issued tokens.
+	 *
+	 * When true, tokens issued by the MCP token endpoint and the JWT session
+	 * module include additional claims defined in draft-goswami-agentic-jwt-00
+	 * and draft-liu-agent-operation-authorization-01, such as `agent_id`,
+	 * `agent_type`, and `trust_tier`. Off by default to preserve backward
+	 * compatibility with existing token consumers.
+	 *
+	 * @default false
+	 */
+	emitAgenticJwtClaims?: boolean;
 }
 
 /**
