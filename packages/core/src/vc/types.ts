@@ -48,25 +48,29 @@ export type CredentialStatus = z.infer<typeof CredentialStatusSchema>;
 
 // ─── Credential Subject ─────────────────────────────────────────────────────
 
-export const CredentialSubjectSchema = z.object({
-	id: z.string().optional(),
-	agentId: z.string().optional(),
-	permissions: z.array(z.string()).optional(),
-	trustLevel: z.number().min(0).max(1).optional(),
-	delegationScope: z.array(z.string()).optional(),
-	delegationChain: z
-		.array(
-			z.object({
-				delegator: z.string(),
-				delegatee: z.string(),
-				permissions: z.array(z.string()),
-				createdAt: z.string(),
-			}),
-		)
-		.optional(),
-	name: z.string().optional(),
-	type: z.string().optional(),
-});
+export const CredentialSubjectSchema = z
+	.object({
+		id: z.string().optional(),
+		agentId: z.string().optional(),
+		permissions: z.array(z.string()).optional(),
+		trustLevel: z.number().min(0).max(1).optional(),
+		delegationScope: z.array(z.string()).optional(),
+		delegationChain: z
+			.array(
+				z.object({
+					delegator: z.string(),
+					delegatee: z.string(),
+					permissions: z.array(z.string()),
+					createdAt: z.string(),
+				}),
+			)
+			.optional(),
+		name: z.string().optional(),
+		type: z.string().optional(),
+	})
+	// Passthrough preserves application-specific fields (e.g. audit subject fields)
+	// so that signature verification can reconstruct the exact signed content.
+	.passthrough();
 
 export type CredentialSubject = z.infer<typeof CredentialSubjectSchema>;
 
