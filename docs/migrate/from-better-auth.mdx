@@ -1,0 +1,388 @@
+---
+title: Migrate from better-auth
+description: Step-by-step guide for moving a better-auth app to KavachOS.
+icon: arrow-right-arrow-left
+---
+
+better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR compliance exports, or trust scoring per agent, KavachOS is worth the switch. If you need one of the ~23 OAuth providers that better-auth covers but KavachOS does not yet have as first-class (we have 14 plus a generic factory as of 2026-04), or if your existing stack depends on the Prisma adapter (currently on our roadmap), you may want to wait.
+
+## Concepts map
+
+| better-auth | KavachOS |
+|---|---|
+| `auth = betterAuth({...})` | `kavach = createKavach({...})` |
+| `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
+| `Session` | `Session` + `AgentSession` + `EphemeralAgentSession` |
+| `organization` plugin | `organization` plugin (same name, similar shape) |
+| `admin` plugin | `admin` plugin (adds ban + impersonate-with-TTL) |
+| `two-factor`, `passkey`, `magic-link`, `username`, `email-otp`, `phone-number`, `anonymous`, `siwe`, `device-authorization`, `one-tap` | All present with the same hook names |
+| `api-key` plugin | `api-key-plugin` |
+| `mcp` plugin (thin wrapper) | Built-in MCP OAuth 2.1 server with agent identity and delegation, no separate plugin |
+| `@better-auth/agent-auth` | KavachOS core, no separate package |
+| `sso`, `saml`, `scim`, `oidc-provider`, `openapi`, `jwt`, `custom-session`, `additional-fields`, `bearer` | All present under similar names |
+
+## Server migration
+
+### Next.js App Router
+
+```ts
+// BEFORE: lib/auth.ts (better-auth)
+import { betterAuth } from 'better-auth';
+import { organization, twoFactor } from 'better-auth/plugins';
+
+export const auth = betterAuth({
+  database: {
+    provider: 'postgresql',
+    url: process.env.DATABASE_URL,
+  },
+  emailAndPassword: { enabled: true },
+  plugins: [organization(), twoFactor()],
+});
+```
+
+```ts
+// AFTER: lib/kavach.ts (KavachOS)
+import { createKavach } from 'kavachos';
+import { organization, twoFactor } from 'kavachos/plugins';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!,
+  emailAndPassword: { enabled: true },
+  plugins: [organization(), twoFactor()],
+});
+```
+
+```ts
+// BEFORE: app/api/auth/[...all]/route.ts (better-auth)
+import { auth } from '@/lib/auth';
+import { toNextJsHandler } from 'better-auth/next-js';
+
+export const { GET, POST } = toNextJsHandler(auth);
+```
+
+```ts
+// AFTER: app/api/kavach/[...kavach]/route.ts (KavachOS)
+import { kavachNextjs } from '@kavachos/nextjs';
+import { kavach } from '@/lib/kavach';
+
+const handlers = kavachNextjs(kavach);
+
+export const GET = handlers.GET;
+export const POST = handlers.POST;
+export const PATCH = handlers.PATCH;
+export const DELETE = handlers.DELETE;
+export const OPTIONS = handlers.OPTIONS;
+```
+
+### Hono
+
+```ts
+// BEFORE: src/index.ts (better-auth)
+import { Hono } from 'hono';
+import { auth } from './lib/auth.js';
+
+const app = new Hono();
+
+app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+```
+
+```ts
+// AFTER: src/index.ts (KavachOS)
+import { Hono } from 'hono';
+import { kavachHono } from '@kavachos/hono';
+import { kavach } from './lib/kavach.js';
+
+const app = new Hono();
+
+app.route('/api/kavach', kavachHono(kavach));
+```
+
+## Database adapter
+
+better-auth supports Prisma, Drizzle, Mongoose, and others. KavachOS uses Drizzle exclusively. A Prisma adapter is on our roadmap; if you are Prisma-only today, that is the main blocker.
+
+```ts
+// BEFORE: better-auth with Drizzle adapter
+import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { db } from './db.js';
+
+export const auth = betterAuth({
+  database: drizzleAdapter(db, { provider: 'pg' }),
+});
+```
+
+```ts
+// AFTER: KavachOS (Drizzle is built in, no separate adapter import)
+import { createKavach } from 'kavachos';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+});
+```
+
+KavachOS runs its own schema migrations. You do not pass your Drizzle `db` instance; pass the connection URL and KavachOS manages its own tables. See [data migration](#data-migration) below for how to move existing rows.
+
+## Client SDK
+
+```ts
+// BEFORE: better-auth client
+import { createAuthClient } from 'better-auth/client';
+import { organizationClient } from 'better-auth/client/plugins';
+
+export const authClient = createAuthClient({
+  baseURL: 'http://localhost:3000',
+  plugins: [organizationClient()],
+});
+
+const { data: session } = await authClient.useSession();
+```
+
+```ts
+// AFTER: KavachOS client
+import { createKavachClient } from '@kavachos/client';
+
+export const client = createKavachClient({
+  baseUrl: 'http://localhost:3000/api/kavach',
+});
+```
+
+For React, swap the hook import:
+
+```tsx
+// BEFORE (better-auth React hooks)
+import { useSession } from 'better-auth/react'; // verify against current better-auth docs
+
+// AFTER (KavachOS React hooks)
+import { useSession } from '@kavachos/react';
+
+// Wrap your app:
+import { KavachProvider } from '@kavachos/react';
+
+<KavachProvider basePath="/api/kavach">
+  {children}
+</KavachProvider>
+```
+
+## OAuth providers
+
+GitHub, Google, and Discord side-by-side:
+
+```ts
+// BEFORE: better-auth
+import { betterAuth } from 'better-auth';
+
+export const auth = betterAuth({
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    discord: {
+      clientId: process.env.DISCORD_CLIENT_ID!,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+    },
+  },
+});
+```
+
+```ts
+// AFTER: KavachOS
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!,
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'github',
+          clientId: process.env.GITHUB_CLIENT_ID!,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        },
+        {
+          id: 'google',
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        },
+        {
+          id: 'discord',
+          clientId: process.env.DISCORD_CLIENT_ID!,
+          clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+For a provider not in our first-class list, use the generic factory:
+
+```ts
+{
+  id: 'linear',
+  clientId: process.env.LINEAR_CLIENT_ID!,
+  clientSecret: process.env.LINEAR_CLIENT_SECRET!,
+  authorizationEndpoint: 'https://linear.app/oauth/authorize',
+  tokenEndpoint: 'https://api.linear.app/oauth/token',
+  scopes: ['read'],
+}
+```
+
+## Breaking differences
+
+### Session tokens
+
+better-auth and KavachOS use different token structures. An existing session token from better-auth will not be accepted by KavachOS and vice versa. To avoid signing everyone out on cutover day, use our `cookieAuth` adapter to accept both token formats during a transition window:
+
+```ts
+import { createKavach } from 'kavachos';
+import { cookieAuth } from 'kavachos/adapters';
+
+export const kavach = createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACH_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!,
+  externalAuth: [
+    cookieAuth({
+      // Accept better-auth sessions signed with the old secret
+      secret: process.env.BETTER_AUTH_SECRET!,
+      cookieName: 'better-auth.session_token', // verify against your better-auth cookie config
+    }),
+  ],
+});
+```
+
+Run both token paths for 30 days. Once traffic drops to near-zero on the old tokens, remove the `cookieAuth` adapter.
+
+### Cookie defaults
+
+| Setting | better-auth default | KavachOS default |
+|---|---|---|
+| `Secure` | Depends on `NODE_ENV` | Always `true` in production |
+| `SameSite` | `Lax` | `Lax` |
+| `HttpOnly` | `true` | `true` |
+
+If your better-auth app set `secure: false` in a staging environment, check your `baseUrl`. KavachOS infers Secure from the URL scheme: `https://` turns the flag on, plain `http://` leaves it off.
+
+### `@better-auth/agent-auth`
+
+If you use `@better-auth/agent-auth`, none of its config maps 1:1. That package is a thin wrapper; KavachOS replaces it with a native `AgentIdentity` entity, built-in delegation, ephemeral sessions, and the MCP OAuth server. Start with the [agents quickstart](/agents) rather than trying to adapt your existing `agent-auth` config.
+
+## Data migration
+
+better-auth and KavachOS share a similar base schema, but column names differ in a few places. Run this SQL after you have applied KavachOS migrations to the same database (adjust the schema name if needed):
+
+```sql
+-- Users
+INSERT INTO kavach_user (id, email, name, email_verified, created_at, updated_at)
+SELECT
+  id,
+  email,
+  name,
+  email_verified,
+  created_at,
+  updated_at
+FROM "user"           -- better-auth default table name
+ON CONFLICT (id) DO NOTHING;
+
+-- Accounts (OAuth connections)
+INSERT INTO kavach_account (
+  id, user_id, provider_id, provider_account_id,
+  access_token, refresh_token, expires_at, created_at, updated_at
+)
+SELECT
+  id,
+  user_id,
+  provider_id,
+  account_id,          -- better-auth calls this account_id
+  access_token,
+  refresh_token,
+  expires_at,
+  created_at,
+  updated_at
+FROM account
+ON CONFLICT (id) DO NOTHING;
+
+-- Sessions (active sessions)
+INSERT INTO kavach_session (
+  id, user_id, token, expires_at, ip_address, user_agent, created_at, updated_at
+)
+SELECT
+  id,
+  user_id,
+  token,
+  expires_at,
+  ip_address,
+  user_agent,
+  created_at,
+  updated_at
+FROM session
+ON CONFLICT (id) DO NOTHING;
+```
+
+<Warning>
+Column names in better-auth can vary depending on your adapter and any custom fields you added. Run `SELECT column_name FROM information_schema.columns WHERE table_name = 'user'` against your database to confirm the exact names before running the migration.
+</Warning>
+
+## Rollback
+
+Keep better-auth running behind a feature flag while you roll out KavachOS to a percentage of traffic.
+
+```ts
+// middleware.ts (Next.js)
+import { NextRequest, NextResponse } from 'next/server';
+
+export function middleware(req: NextRequest) {
+  const userId = req.cookies.get('user_id')?.value ?? '';
+  // Hash the ID and check if it falls in the rollout bucket
+  const bucket = hashToPercent(userId);
+  const rolloutPercent = Number(process.env.KAVACHOS_ROLLOUT ?? '0');
+
+  if (bucket < rolloutPercent) {
+    // Route to KavachOS handler
+    return NextResponse.rewrite(new URL(req.url.replace('/api/auth', '/api/kavach'), req.url));
+  }
+
+  // Fall through to better-auth
+  return NextResponse.next();
+}
+
+function hashToPercent(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash % 100;
+}
+
+export const config = { matcher: '/api/auth/:path*' };
+```
+
+Set `KAVACHOS_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the KavachOS tables. The `cookieAuth` adapter described above keeps existing users signed in during the overlap.
+
+## FAQ
+
+**Does KavachOS support all 37 OAuth providers better-auth has?**
+No. As of 2026-04 we ship 14 first-class providers. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
+
+**Is Prisma supported?**
+Not yet. A Prisma adapter is on the roadmap. Today KavachOS requires a Drizzle-compatible database connection.
+
+**Do I need to install an MCP plugin?**
+No. MCP OAuth 2.1 is built into KavachOS core. Pass a `mcp` config block to `createKavach` and enable it in your adapter.
+
+**Can I run better-auth and KavachOS side by side?**
+Yes. Use the `cookieAuth` adapter to accept better-auth sessions inside KavachOS, and route traffic with a feature flag as shown above.
+
+**Will my users have to sign in again?**
+With the `cookieAuth` adapter, no. KavachOS will accept existing better-auth sessions and issue new KavachOS tokens on the next request. Without the adapter, yes, existing tokens will be rejected.

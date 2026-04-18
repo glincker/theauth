@@ -277,6 +277,20 @@
         ]
       },
       {
+        "tab": "Migrate",
+        "icon": "arrow-right-arrow-left",
+        "groups": [
+          {
+            "group": "Migration guides",
+            "icon": "arrow-right-arrow-left",
+            "pages": [
+              "migrate/index",
+              "migrate/from-better-auth"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Reference",
         "icon": "book",
         "groups": [
