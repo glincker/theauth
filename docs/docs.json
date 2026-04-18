@@ -176,7 +176,7 @@
           {
             "group": "Authorization",
             "icon": "shield-halved",
-            "pages": ["permissions", "policy-engine", "rebac"]
+            "pages": ["permissions", "policy-engine", "rebac", "policies/templates"]
           },
           {
             "group": "Observability",
