@@ -4,3 +4,4 @@ packages:
   - "packages/auth/*"
   - "packages/plugins/*"
   - "examples/*"
+  - "apps/*"
