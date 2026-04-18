@@ -1,5 +1,13 @@
 # kavachos
 
+## 0.4.1
+
+### Patch Changes
+
+- fix: expose the `kavachos/standards` subpath
+
+  The standards module shipped in 0.4.0 but was missing from `tsup.config.ts` entries and the `exports` field in `package.json`. Consumers can now `import { AGENTIC_JWT_CLAIMS } from "kavachos/standards"` as the docs describe.
+
 ## 0.4.0
 
 ### Minor Changes

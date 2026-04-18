@@ -12,6 +12,7 @@ export default defineConfig({
 		"vc/index": "src/vc/index.ts",
 		"crypto/index": "src/crypto/index.ts",
 		"redirect/index": "src/redirect/index.ts",
+		"standards/index": "src/standards/index.ts",
 	},
 	format: ["esm"],
 	dts: true,

@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/prisma",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Prisma database adapter for KavachOS - use PrismaClient as your KavachOS database backend",
   "type": "module",
   "main": "dist/index.js",

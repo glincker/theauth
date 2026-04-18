@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/tanstack",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "TanStack Start adapter for KavachOS",
   "type": "module",
   "main": "dist/index.js",

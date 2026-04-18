@@ -1,5 +1,13 @@
 # @kavachos/cli
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies
+  - kavachos@0.4.1
+  - @kavachos/hono@3.0.1
+
 ## 0.1.2
 
 ### Patch Changes

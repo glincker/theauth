@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/gateway",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Standalone auth proxy for KavachOS - enforces auth, authorization, and audit in front of any API or MCP server",
   "type": "module",
   "main": "dist/index.js",

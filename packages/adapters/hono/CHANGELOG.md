@@ -1,5 +1,12 @@
 # @kavachos/hono
 
+## 3.0.1
+
+### Patch Changes
+
+- Updated dependencies
+  - kavachos@0.4.1
+
 ## 3.0.0
 
 ### Patch Changes

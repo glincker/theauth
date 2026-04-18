@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/nuxt",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Nuxt adapter for KavachOS - exposes agent auth as HTTP REST endpoints via H3",
   "type": "module",
   "main": "dist/index.js",
