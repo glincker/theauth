@@ -1,6 +1,6 @@
 {
   "name": "@kavachos/hono",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Hono adapter for KavachOS - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",

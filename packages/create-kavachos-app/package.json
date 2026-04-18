@@ -1,8 +1,26 @@
 {
   "name": "create-kavachos-app",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Scaffold a KavachOS-powered app in seconds",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kavachos/kavachos.git",
+    "directory": "packages/create-kavachos-app"
+  },
+  "homepage": "https://kavachos.com",
+  "keywords": [
+    "kavachos",
+    "auth",
+    "agent",
+    "mcp",
+    "scaffold",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "create-kavachos-app": "./dist/bin.js"
   },

@@ -1,5 +1,12 @@
 # @kavachos/tanstack
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - kavachos@0.4.0
+
 ## 2.0.0
 
 ### Patch Changes

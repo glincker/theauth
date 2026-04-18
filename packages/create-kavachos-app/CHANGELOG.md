@@ -1,6 +1,6 @@
-# kavachos
+# create-kavachos-app
 
-## 0.4.0
+## 0.1.0
 
 ### Minor Changes
 
@@ -10,25 +10,3 @@
   - Ten OAuth providers (Notion, Spotify, Discord, Slack, Twitch, Reddit, Figma, Dropbox, Zoom, Atlassian) promoted to first-class named exports with typed factories, `DEFAULT_X_SCOPES` constants, and profile normalisers.
   - `exportAuditAsVC` in `kavachos/vc` for compliance audit exports as W3C Verifiable Credentials (`ldp_vc` or `jwt_vc`, individual or Verifiable Presentation).
   - Initial `create-kavachos-app` scaffolder on npm with a Next.js App Router template.
-
-## 0.3.0
-
-### Minor Changes
-
-- feat: add cookieAuth adapter and external auth mode
-
-  - `cookieAuth()` adapter: validates JWT from httpOnly cookies (for Go/Python/etc backends)
-  - `KavachProvider` external mode: delegate auth to any external API
-  - Feature-gated table creation: only creates tables for features you enable
-
-## 0.1.0
-
-### Minor Changes
-
-- 94804ec: Launch release: promote core and primary client-facing packages to the 0.1 line.
-
-  Highlights:
-
-  - Stabilize package exports and build artifacts for launch.
-  - Ship improved CLI version handling and launch docs.
-  - Keep adapters/plugins/dashboard on existing release tracks for a separate coordinated versioning pass.
