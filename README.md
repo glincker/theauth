@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://kavachos.com/logo.svg" height="80" alt="KavachOS — authentication and authorization for AI agents and humans" />
+  <img src="https://kavachos.com/logo.svg" height="80" alt="KavachOS: authentication and authorization for AI agents and humans" />
 </p>
 
 <h1 align="center">KavachOS</h1>
@@ -13,18 +13,16 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/v/kavachos?style=flat-square&color=c9a84c&label=npm" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/dm/kavachos?style=flat-square&color=c9a84c&label=downloads" alt="monthly downloads" /></a>
-  <a href="https://github.com/kavachos/kavachos/actions"><img src="https://img.shields.io/github/actions/workflow/status/kavachos/kavachos/ci.yml?style=flat-square&label=CI" alt="CI status" /></a>
-  <a href="https://github.com/kavachos/kavachos/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT license" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square" alt="TypeScript strict" /></a>
-  <a href="https://docs.kavachos.com"><img src="https://img.shields.io/badge/docs-kavachos.com-c9a84c?style=flat-square" alt="documentation" /></a>
+  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/v/kavachos?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/dm/kavachos?style=flat&colorA=000000&colorB=000000&label=downloads" alt="monthly downloads" /></a>
+  <a href="https://github.com/kavachos/kavachos/stargazers"><img src="https://img.shields.io/github/stars/kavachos/kavachos?style=flat&colorA=000000&colorB=000000&label=stars" alt="GitHub stars" /></a>
 </p>
 
 <p align="center">
   <a href="https://docs.kavachos.com/docs/quickstart">Quickstart</a> ·
   <a href="https://docs.kavachos.com/docs">Documentation</a> ·
   <a href="https://github.com/kavachos/kavachos/tree/main/examples">Examples</a> ·
+  <a href="https://github.com/kavachos/kavachos/discussions">Discussions</a> ·
   <a href="https://app.kavachos.com">KavachOS Cloud</a>
 </p>
 
@@ -33,6 +31,17 @@
 ## Why KavachOS
 
 Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. KavachOS handles both in one place.
+
+### How it differs
+
+Ask yourself about the auth library you're using or evaluating:
+
+- Does it model AI agents as first-class identities, with their own scoped permissions and an audit trail you can export, not just human users with API keys?
+- Does it ship an MCP OAuth 2.1 authorization server that complies with the published RFC stack (9728, 8707, 8414, 7591), so your agents can talk to MCP servers without you writing the spec?
+- Does it run on Cloudflare Workers, Bun, and Deno without Node-only APIs in the core?
+- Does it give you delegation chains with depth limits, budget policies per agent, and CIBA-style approval flows for sensitive tool calls?
+
+If any of those is a no, that gap is why kavachos exists.
 
 ### Agent identity
 

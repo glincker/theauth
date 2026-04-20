@@ -2,6 +2,10 @@
 
 Thanks for contributing. This guide helps you ship changes quickly and safely.
 
+## Response times
+
+We respond to issues and PRs within 48 hours on weekdays. If you don't hear back, ping the thread or open a discussion. Threads tend to move faster than email.
+
 ## Code of conduct
 
 By participating, you agree to [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
@@ -63,8 +67,7 @@ Choose bump type carefully:
 - `minor`: backward-compatible features
 - `major`: breaking changes
 
-For coordinated release waves, follow the runbook in:
-`docs-local/release-versioning-runbook-2026-03-29.md`
+For coordinated release waves across multiple packages, open a discussion before bumping. The maintainer will help line up the changesets so the release graph stays clean.
 
 ## Pull request checklist
 
@@ -88,6 +91,6 @@ Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`
 ## Reporting issues and support
 
 - Bug reports and feature requests: GitHub issue templates
-- Questions: GitHub Discussions or Discord
+- Questions: GitHub Discussions
 - Security issues: follow [SECURITY.md](SECURITY.md)
 - Support channels: [SUPPORT.md](SUPPORT.md)

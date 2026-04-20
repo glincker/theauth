@@ -54,6 +54,4 @@ See: `docs-local/release-versioning-runbook-2026-03-29.md`
 
 ## Contact
 
-- Security: security@kavachos.com
-- Conduct: conduct@kavachos.com
-- General: hello@kavachos.com
+- All inquiries (security, conduct, general): support@glincker.com

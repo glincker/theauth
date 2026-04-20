@@ -5,12 +5,11 @@ Thanks for using KavachOS.
 ## Where to get help
 
 - Usage questions and integration help:
-  - GitHub Discussions (preferred)
-  - Discord: https://discord.gg/kavachos
+  - GitHub Discussions
 - Bugs and reproducible defects:
   - Open an issue using the bug template
 - Security vulnerabilities:
-  - Email security@kavachos.com
+  - Email support@glincker.com
   - Do not open public issues for security reports
 
 ## Before opening an issue
@@ -44,4 +43,4 @@ Lower priority:
 
 ## Commercial and enterprise support
 
-For enterprise support, contact hello@kavachos.com.
+For enterprise support, contact support@glincker.com.
