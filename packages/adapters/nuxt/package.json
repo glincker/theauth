@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "kavachos": "workspace:*",
-    "h3": "^1.13.0",
+    "h3": "^1.15.11",
     "nuxt": "^3.16.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
