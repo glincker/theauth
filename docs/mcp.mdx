@@ -142,10 +142,10 @@ if (!result.valid) {
   return new Response('Unauthorized', { status: 401 });
 }
 
-// result.agentId  — the agent making the call
-// result.userId   — the human owner
-// result.scopes   — granted scopes as a string array
-// result.expiresAt — Date object
+// result.agentId:   the agent making the call
+// result.userId:    the human owner
+// result.scopes:    granted scopes as a string array
+// result.expiresAt: Date object
 ```
 
 Validation checks the JWT signature, audience binding, scope presence, and expiry. A token issued for a different audience fails even if the signature is valid.
@@ -155,7 +155,7 @@ Validation checks the JWT signature, audience binding, scope presence, and expir
 The `withMcpAuth` middleware extracts the bearer token from the `Authorization` header, validates it, and attaches the agent context to the request. It returns 401 if no token is present or invalid, and 403 if the token is valid but lacks the required scope.
 
 ```typescript
-// Hono example — see adapters doc for other frameworks
+// Hono example. See the adapters doc for other frameworks.
 import { kavachHono } from '@kavachos/hono';
 import { createMcpModule } from 'kavachos';
 

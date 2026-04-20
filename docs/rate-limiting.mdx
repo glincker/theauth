@@ -138,7 +138,7 @@ const inferenceLimit = createRateLimiter({
   keyFn: (req) => req.headers.get('x-user-id') ?? 'anonymous',
 });
 
-// Works with any framework adapter — handler receives a standard Request
+// Works with any framework adapter. The handler receives a standard Request.
 export const POST = withRateLimit(inferenceLimit, async (req: Request) => {
   const result = await runInference(await req.json());
   return Response.json(result);

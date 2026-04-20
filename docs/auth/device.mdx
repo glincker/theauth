@@ -157,11 +157,11 @@ while (Date.now() < deadline) {
   }
 
   if (result.error === 'expired_token') {
-    console.error('Code expired — start over.');
+    console.error('Code expired. Start over.');
     break;
   }
 
-  // 'authorization_pending' — keep polling
+  // 'authorization_pending', keep polling
 }
 ```
 

@@ -86,7 +86,7 @@ const { signIn, isLoading, error } = useSignIn();
 
 async function handleSubmit(email: string, password: string) {
   await signIn({ email, password });
-  // Redirect on success — composable does not navigate automatically
+  // Redirect on success. The composable does not navigate automatically.
 }
 </script>
 ```

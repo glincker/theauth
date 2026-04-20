@@ -169,7 +169,7 @@ if (!res.ok) {
   console.error(error); // e.g. "Nonce expired" or "Signature does not match address"
 } else {
   const { address, chainId } = await res.json(); // [!code highlight]
-  // address is the verified Ethereum address — use it to look up or create the user
+  // address is the verified Ethereum address. Use it to look up or create the user.
 }
 ```
 
@@ -211,7 +211,7 @@ let user = await db.query.users.findFirst({
 });
 
 if (!user) {
-  // First time — create account
+  // First time, create account
   user = await db.insert(users).values({
     walletAddress: address.toLowerCase(),
     createdAt: new Date(),

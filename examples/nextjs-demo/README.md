@@ -38,5 +38,5 @@ lib/
 ## Notes
 
 - SQLite database written to `kavach-demo.db` in the project root
-- No `.env` required — everything runs out of the box
+- No `.env` required, everything runs out of the box
 - Verification and password reset links print to the terminal in dev

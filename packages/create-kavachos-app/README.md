@@ -24,8 +24,8 @@ You'll be asked for a project directory, a template, and a database driver. The 
 
 ## Database drivers
 
-- `better-sqlite3` (default) — local SQLite, zero setup
-- `pg` — Postgres (you provide the connection string)
+- `better-sqlite3` (default): local SQLite, zero setup
+- `pg`: Postgres (you provide the connection string)
 
 ## What you get
 
@@ -50,7 +50,6 @@ pnpm dev
 
 - KavachOS repo: <https://github.com/kavachos/kavachos>
 - Docs: <https://docs.kavachos.com>
-- Discord: <https://discord.gg/kavachos>
 
 ## License
 

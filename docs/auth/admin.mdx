@@ -57,7 +57,7 @@ Banning immediately revokes all active sessions for that user.
 
 ```ts
 const { session } = await kavach.admin.impersonate('admin_abc', 'user_xyz'); // [!code highlight]
-// session.token — use this as a regular session token
+// session.token: use this as a regular session token
 // session.expiresAt
 
 // Stop impersonating

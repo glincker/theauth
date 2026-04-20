@@ -214,13 +214,13 @@ const stream = createEventStreamModule({
 interface EventStreamConfig {
   db: Database;
 
-  // Maximum concurrent connections — returns 503 when exceeded (default: 100)
+  // Maximum concurrent connections. Returns 503 when exceeded (default: 100).
   maxConnections?: number;
 
   // Interval between heartbeat comments in ms (default: 30000)
   heartbeatIntervalMs?: number;
 
-  // Module-level event type allow-list — clients cannot exceed this (default: all)
+  // Module-level event type allow-list. Clients cannot exceed this (default: all).
   eventTypes?: EventType[];
 
   // Require a Bearer token to connect (default: true)
@@ -266,7 +266,7 @@ interface EventStreamModule {
   // Emit an event to all connected clients and persist for replay
   emit(event: StreamEvent): void;
 
-  // Handle an SSE connection request — returns a Response or null
+  // Handle an SSE connection request. Returns a Response or null.
   handleRequest(request: Request): Response | null;
 
   // Number of currently active connections

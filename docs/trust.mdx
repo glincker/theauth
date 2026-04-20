@@ -60,7 +60,7 @@ const kavach = await createKavach({
   // Override specific thresholds while keeping others at their defaults
 });
 
-// kavach.trust uses the module directly — no threshold config exposed yet
+// kavach.trust uses the module directly. No threshold config exposed yet.
 // Use the computed level in your application logic instead
 ```
 
@@ -85,7 +85,7 @@ const score = await kavach.trust.getScore('agt_abc123');
 
 if (!score) {
   // Score has never been computed for this agent
-  console.log('No score yet — call computeScore first');
+  console.log('No score yet, call computeScore first');
 }
 ```
 

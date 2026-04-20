@@ -191,7 +191,7 @@ export default function SignInPage() {
         signUpUrl="/sign-up"
         forgotPasswordUrl="/forgot-password"
         onSuccess={() => {
-          // Client navigation — wrap in 'use client' if needed
+          // Client navigation. Wrap in 'use client' if needed.
           window.location.href = '/dashboard';
         }}
       />

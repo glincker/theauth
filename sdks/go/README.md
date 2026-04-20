@@ -1,6 +1,6 @@
 # kavachos-go
 
-Go client for [KavachOS](https://github.com/kavachos/kavachos) — auth OS for AI agents and humans.
+Go client for [KavachOS](https://github.com/kavachos/kavachos). Auth OS for AI agents and humans.
 
 Agent identity, permissions, delegation chains, audit logs, and human authentication over a single typed API.
 

@@ -55,7 +55,7 @@ await hibp.enforce('user-entered-password');
 2. Send only the first 5 chars           → GET /range/5BAA6
 3. API returns ~500 hashes with that prefix
 4. Check if the rest of the hash appears in the list
-5. If yes, the password has been breached — never sent the full hash
+5. If yes, the password has been breached. The full hash is never sent.
 ```
 
 The full password hash is never transmitted. The API response contains partial hashes from other users' passwords, so the provider cannot determine which password you were checking.

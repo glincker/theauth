@@ -50,13 +50,13 @@ const { signOut } = useSignOut();
 
 ## Exports
 
-- `createKavachPlugin` — Vue plugin factory
-- `useSession` — current session and loading state
-- `useUser` — authenticated user object
-- `useSignIn` — sign-in composable
-- `useSignOut` — sign-out composable
-- `useSignUp` — sign-up composable
-- `useAgents` — manage AI agents for the current user
+- `createKavachPlugin`: Vue plugin factory
+- `useSession`: current session and loading state
+- `useUser`: authenticated user object
+- `useSignIn`: sign-in composable
+- `useSignOut`: sign-out composable
+- `useSignUp`: sign-up composable
+- `useAgents`: manage AI agents for the current user
 
 ## Docs
 

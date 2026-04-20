@@ -45,14 +45,14 @@ function Dashboard() {
 
 ## Exports
 
-- `KavachProvider` — context provider, wrap your app root
-- `useSession` — current session and loading state
-- `useUser` — authenticated user object
-- `useSignIn` — sign-in action
-- `useSignOut` — sign-out action
-- `useSignUp` — sign-up action
-- `useAgents` — manage AI agents for the current user
-- `useKavachContext` — raw context access
+- `KavachProvider`: context provider, wrap your app root
+- `useSession`: current session and loading state
+- `useUser`: authenticated user object
+- `useSignIn`: sign-in action
+- `useSignOut`: sign-out action
+- `useSignUp`: sign-up action
+- `useAgents`: manage AI agents for the current user
+- `useKavachContext`: raw context access
 
 ## Docs
 
