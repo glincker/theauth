@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "lib": ["ES2023", "DOM"]
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
