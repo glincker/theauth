@@ -1,0 +1,23 @@
+{
+  "name": "@kavachos/example-migrate-from-better-auth-agent-plugin",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Runnable companion to docs/migrate/from-better-auth-agent-plugin.mdx. Demonstrates: AgentIdentity creation, multi-hop delegation chains, cascading revocation, authorizeByToken.",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "drizzle-orm": "^0.41.0",
+    "kavachos": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
+  }
+}

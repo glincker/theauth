@@ -30,6 +30,19 @@ const checks = [
 		command: ["pnpm", "--filter", "@kavachos/example-mcp-server", "test"],
 	},
 	{
+		name: "migrate-from-auth0 example smoke",
+		command: ["pnpm", "--filter", "@kavachos/example-migrate-from-auth0", "test"],
+	},
+	{
+		name: "migrate-from-better-auth-agent-plugin example smoke",
+		command: [
+			"pnpm",
+			"--filter",
+			"@kavachos/example-migrate-from-better-auth-agent-plugin",
+			"test",
+		],
+	},
+	{
 		name: "dashboard e2e",
 		command: ["pnpm", "--filter", "@kavachos/dashboard", "test:e2e"],
 	},
