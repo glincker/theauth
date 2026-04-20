@@ -17,9 +17,10 @@ cp .env.example .env
 # Edit .env: set KAVACHOS_SECRET to a 32+ byte random hex string
 
 pnpm install
-pnpm run db:push
 pnpm run dev
 ```
+
+KavachOS creates the auth tables on first boot, no separate migration step for SQLite or Postgres.
 
 The server listens on `http://localhost:3001`. Visit the root URL to see the MCP discovery links and the list of tools.
 
@@ -27,7 +28,7 @@ The server listens on `http://localhost:3001`. Visit the root URL to see the MCP
 
 ```bash
 # 1. Create an agent with scoped MCP permissions
-curl -X POST http://localhost:3001/api/kavach/agents \
+curl -X POST http://localhost:3001/api/agents \
   -H "Content-Type: application/json" \
   -d '{
     "ownerId": "user-1",
@@ -60,14 +61,13 @@ src/
   tools.ts             Example MCP tool list
   lib/
     kavach.ts          Lazy createKavach singleton
-    schema.ts          Re-exports the KavachOS auth tables for drizzle-kit
 ```
 
 ## Deploying
 
 Any Node runtime works. Set `BASE_URL` to your public URL before boot so MCP clients find the right endpoints, and set a real `KAVACHOS_SECRET` out of band.
 
-If you switch to Postgres, update `DATABASE_URL` and re-run `pnpm run db:push`.
+If you switch to Postgres, set `DB_PROVIDER=postgres` and point `DATABASE_URL` at your connection string. KavachOS creates the tables on boot.
 
 ## Next
 
