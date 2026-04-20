@@ -1,0 +1,268 @@
+---
+title: Migrate from the better-auth agent plugin
+description: Move from @better-auth/agent-auth to KavachOS built-in agent identity.
+icon: arrow-right-arrow-left
+---
+
+`@better-auth/agent-auth` is better-auth's attempt to add AI-agent support alongside a human-first auth library. It is marked "heavy development, not yet stable" in their repo as of 2026-03. If you started there to get agent identity with the broader better-auth feature set, moving to KavachOS gives you a single codebase where agents are a first-class entity instead of a separate package bolted onto the user model.
+
+Both libraries share the same ancestor on the human-auth side. Most of the familiar hooks keep their names. The agent story is the part that changes materially.
+
+If you use the human-auth half of better-auth and not the agent plugin yet, read the [general better-auth migration guide](/migrate/from-better-auth) first, this page only covers the agent-plugin deltas.
+
+## Where the model diverges
+
+better-auth treats an agent as an OAuth client attached to a user. A single-hop delegation is possible. There is no delegation chain tracking, no trust score, no cost attribution, no ephemeral session type, and no MCP OAuth 2.1 authorization server built in.
+
+KavachOS treats an agent as a primary database entity with its own lifecycle:
+
+- `AgentIdentity` row in the schema, owned by a user, with status transitions (`active`, `revoked`, `expired`).
+- Multi-hop delegation chains with depth limits and cascading revocation.
+- Trust scoring, 5 levels, computed from the audit log.
+- Cost attribution per agent, tool, and chain.
+- MCP OAuth 2.1 authorization server baked into the same instance.
+- Ephemeral agent sessions for one-off tasks.
+
+## Concepts map
+
+| `@better-auth/agent-auth` | KavachOS |
+|---|---|
+| `agentPlugin()` added to `betterAuth` | Built into `createKavach`. No plugin needed for the core agent surface. |
+| `auth.api.createAgent({ userId, scopes })` | `kavach.agent.create({ ownerId, name, type, permissions })` |
+| `agent.accessToken` | `agent.token` (prefix `kv_`, returned once, SHA-256 hashed at rest) |
+| `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
+| `agent.kind: 'service' \| 'user-agent'` | `agent.type: 'autonomous' \| 'delegated' \| 'service'` |
+| `auth.api.verifyAgentToken(token)` | `kavach.agent.verifyToken(token)` or `kavach.authorizeByToken(token, req)` |
+| Single-hop delegation via second `createAgent` call | `kavach.delegation.create({ fromAgent, toAgent, permissions, maxDepth })` |
+| No cascading revocation | Revoking a parent cascades down the chain. Immediate. |
+| No audit module (relies on generic logs) | `kavach.audit.query()` + structured CSV and JSON export |
+| No trust score | `kavach.trust.computeScore(agentId)` |
+| No MCP server | Built-in OAuth 2.1 authorization server, PKCE S256, RFC 9728 / 8707 / 8414 / 7591 |
+| No per-agent rate cap | Permission constraint: `maxCallsPerHour` |
+| No approval gate | Permission constraint: `requireApproval: true`, surfaces a CIBA-style approval flow |
+| No ephemeral sessions | `kavach.ephemeral.create({ agentId, ttlMs })` |
+
+## Server setup
+
+```ts
+// BEFORE: lib/auth.ts (better-auth + agent plugin)
+import { betterAuth } from 'better-auth';
+import { agent } from '@better-auth/agent-auth';
+
+export const auth = betterAuth({
+  database: { provider: 'postgresql', url: process.env.DATABASE_URL },
+  emailAndPassword: { enabled: true },
+  plugins: [agent()],
+});
+```
+
+```ts
+// AFTER: lib/kavach.ts
+import { createKavach } from 'kavachos';
+
+export const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACHOS_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!,
+  emailAndPassword: { enabled: true },
+  // No agent plugin, it is core.
+});
+```
+
+The rest of the human-auth config (`organization`, `twoFactor`, etc.) maps one-to-one and keeps its plugin shape.
+
+## Creating an agent
+
+```ts
+// BEFORE (better-auth + agent plugin)
+const agent = await auth.api.createAgent({
+  userId: user.id,
+  name: 'github-reader',
+  kind: 'service',
+  scopes: ['github:read'],
+});
+
+// agent.accessToken is the bearer. Store it.
+```
+
+```ts
+// AFTER (KavachOS)
+const agent = await kavach.agent.create({
+  ownerId: user.id,
+  name: 'github-reader',
+  type: 'service',
+  permissions: [
+    {
+      resource: 'mcp:github:*',
+      actions: ['read'],
+      constraints: { maxCallsPerHour: 500 },
+    },
+  ],
+});
+
+// agent.token (prefix kv_) is the bearer. Returned once. Rotate with
+// kavach.agent.rotate(agent.id) to cut a new one; the old token is invalidated
+// atomically.
+```
+
+The shape of the call is close. The substantive difference is the permission model. A `scopes: ['github:read']` list maps to `{ resource: 'mcp:github:*', actions: ['read'] }`. The extra structure pays for itself when you need to add rate caps, argument allowlists, or time windows.
+
+## Authorizing a tool call
+
+```ts
+// BEFORE (better-auth + agent plugin)
+const result = await auth.api.verifyAgentToken(token);
+if (!result.valid) return new Response('Unauthorized', { status: 401 });
+
+if (!result.scopes.includes('github:read')) {
+  return new Response('Forbidden', { status: 403 });
+}
+```
+
+```ts
+// AFTER (KavachOS)
+const result = await kavach.authorizeByToken(token, {
+  action: 'read',
+  resource: 'mcp:github:repos',
+});
+
+if (!result.allowed) {
+  return new Response(result.reason ?? 'Forbidden', { status: 403 });
+}
+
+// Every call is audited. result.auditId points at the row.
+```
+
+One call. One audit row. One place to reason about rate caps and constraints.
+
+## Delegation
+
+```ts
+// BEFORE: single-hop only. You create a new agent whose scopes are a subset of the parent.
+const child = await auth.api.createAgent({
+  userId: user.id,
+  name: 'child-agent',
+  kind: 'service',
+  scopes: ['github:read'], // must be a subset of parent
+});
+```
+
+```ts
+// AFTER: explicit chain with depth and expiry
+const chain = await kavach.delegation.create({
+  fromAgent: parent.id,
+  toAgent: child.id,
+  permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
+  maxDepth: 2,
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+});
+
+// If you revoke `parent.id`, `child.id` loses delegated permissions automatically.
+```
+
+The depth limit matters when agents delegate to sub-agents. A run-away loop cannot issue a fourth-hop token if `maxDepth: 2` is set on the root.
+
+## Trust scoring
+
+`@better-auth/agent-auth` does not ship scoring. KavachOS computes a 0-100 score from the audit history, mapped to five named levels. Useful as a gate for sensitive actions that should only run for agents with a clean track record.
+
+```ts
+const score = await kavach.trust.computeScore(agent.id);
+
+if (score.level === 'untrusted' || score.level === 'limited') {
+  // Route through the approval flow instead of auto-execute.
+  await kavach.approval.request({
+    agentId: agent.id,
+    userId: agent.ownerId,
+    action: 'delete',
+    resource: 'file:prod-data/*',
+  });
+  return { queued: true };
+}
+```
+
+## MCP server
+
+If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. KavachOS mounts the MCP endpoints on the same adapter:
+
+```ts
+import { createKavach, createMcpModule } from 'kavachos';
+import { kavachNextjs } from '@kavachos/nextjs';
+
+const kavach = await createKavach({ /* ... */ });
+const mcp = createMcpModule(kavach);
+
+export const { GET, POST, PATCH, DELETE, OPTIONS } = kavachNextjs(kavach, { mcp });
+```
+
+The `.well-known` documents, dynamic client registration, authorize endpoint, and token endpoint all come up under the same mount path.
+
+## Data migration
+
+Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration, usually `agents` or `bettterauth_agents`). KavachOS uses `agent_identities` by default.
+
+```sql
+-- Rough shape. Adjust column names to match your actual better-auth plugin schema.
+INSERT INTO agent_identities (id, owner_id, name, type, token_hash, status, created_at, metadata)
+SELECT
+  id,
+  user_id                              AS owner_id,
+  name,
+  CASE kind
+    WHEN 'service' THEN 'service'
+    WHEN 'user-agent' THEN 'autonomous'
+    ELSE 'autonomous'
+  END                                  AS type,
+  access_token_hash                    AS token_hash,
+  CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END AS status,
+  created_at,
+  jsonb_build_object('imported_from', 'better-auth-agent-plugin')
+FROM bettterauth_agents;
+```
+
+Permissions need mapping from `scopes` (flat strings) to `Permission[]` objects. Write a small script that reads scopes, maps each to a resource pattern, and writes the rows to your `agent_permissions` table. Do this in staging first, the mapping is the load-bearing piece.
+
+## Cutover plan
+
+1. Stand up KavachOS next to better-auth against the same database (or a shadow copy). Do not delete the better-auth schema yet.
+2. Import agents. Validate one service token with `kavach.authorizeByToken(token, {...})`. It should succeed against the imported rows.
+3. Flip a single non-critical service to call `kavach.authorizeByToken` instead of `auth.api.verifyAgentToken`.
+4. Watch the audit log for `allowed: false` entries. Fix permission mappings.
+5. Expand the KavachOS-guarded agent surface one service at a time.
+6. Remove the `@better-auth/agent-auth` plugin from `lib/auth.ts` once no service still calls it.
+
+The human-auth side can move in the same PR or stay on better-auth during the transition, see the [general better-auth migration guide](/migrate/from-better-auth).
+
+## Rollback
+
+Keep the better-auth agent plugin wired for at least one rotation cycle after the cut-over. If you need to revert:
+
+1. Re-enable the `agent()` plugin in `lib/auth.ts`.
+2. Point services back at `auth.api.verifyAgentToken`.
+3. KavachOS agent rows remain, they just stop being read. The token hashes are compatible enough that the same bearer keeps working on better-auth until it rotates.
+
+## Runnable example
+
+[`examples/migrate-from-better-auth-agent-plugin`](https://github.com/kavachos/kavachos/tree/main/examples/migrate-from-better-auth-agent-plugin) runs the AFTER patterns end-to-end: AgentIdentity creation, multi-hop delegation with `maxDepth`, authorize-falls-back-to-chain semantics, and cascading chain revocation. The script uses the monorepo `workspace:*` version so it tracks the released package, and a vitest smoke suite runs it in CI.
+
+```bash
+pnpm --filter @kavachos/example-migrate-from-better-auth-agent-plugin start
+pnpm --filter @kavachos/example-migrate-from-better-auth-agent-plugin test
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" icon="robot" href="/agents">
+    The primary entity model and lifecycle.
+  </Card>
+  <Card title="Delegation chains" icon="link" href="/delegation">
+    Multi-hop delegation with depth and cascading revocation.
+  </Card>
+  <Card title="Trust scoring" icon="user-shield" href="/trust">
+    Graduated autonomy by audit history.
+  </Card>
+  <Card title="MCP OAuth 2.1" icon="globe" href="/mcp">
+    The authorization server the better-auth plugin does not ship.
+  </Card>
+</CardGroup>

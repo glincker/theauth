@@ -1,0 +1,299 @@
+---
+title: Migrate from Auth0
+description: Step-by-step guide for moving an Auth0 tenant to KavachOS.
+icon: arrow-right-arrow-left
+---
+
+Auth0 is a hosted identity platform with a deep enterprise feature set, Rules, Actions, Hooks, Organizations, and Machine-to-Machine (M2M) clients. KavachOS is open source, self-hosted, and models AI agents as a first-class entity next to human users. The trade is real: you give up Auth0's hosted Universal Login and rules marketplace, you take back full control of your token issuer, your cookie domain, your audit trail, and your bill.
+
+When the switch makes sense:
+
+- Your M2M client count (or Auth0 MAU) has outgrown what the tier price pays for. Enterprise plans quoted at six figures with a 34% churn rate are a real signal, not a talking point.
+- You are building AI agents and Auth0's per-connection M2M model does not give you delegation chains, per-agent rate caps, trust scoring, or cost attribution.
+- You want an MCP OAuth 2.1 server wired into the same auth instance rather than a second system.
+- You need GDPR export, self-hosted data residency, or EU AI Act reporting on the same platform that issues your tokens.
+
+When to wait:
+
+- You rely on Auth0's Universal Login branding, device enrolment flow, or the Guardian MFA app. KavachOS ships headless building blocks, not a hosted page.
+- Your Rules or Actions logic runs heavy third-party integrations (Okta, Duo, Risk signals). You can port that logic, but it is not a copy-paste job.
+- You are on Enterprise with dedicated support SLAs. We do not have a 24/7 hotline.
+
+## Concepts map
+
+| Auth0 | KavachOS |
+|---|---|
+| Tenant | A `createKavach` instance. One per deployment. |
+| Application (Regular Web, SPA, Native) | `@kavachos/react`, `@kavachos/vue`, etc., plus the adapter for your framework. |
+| API (resource server) | The HTTP handler mounted via an adapter. Audience is bound via the `mcp` config. |
+| Machine-to-Machine client | `AgentIdentity` with `type: 'service'`. Scoped permissions, rotatable token, revocable. |
+| Connection (database, social, enterprise) | OAuth provider in the `oauth` plugin config, or the built-in email/password flow. |
+| Rule | Deprecated in Auth0 as well. Replace with a lifecycle hook on `createKavach` or a policy. |
+| Action (`onExecutePostLogin`, etc.) | Lifecycle hooks: `onSignIn`, `onSignUp`, `beforeSession`, `afterSession`. |
+| Post-login trigger on agent tokens | Policy middleware, evaluated per `authorize()` call. |
+| Organizations | `organization` plugin (same conceptual model). |
+| Roles, Permissions | `rbac` + resource-pattern matching on permissions. |
+| `authorize` endpoint (`/oauth/authorize`) | Built-in. PKCE S256 only. |
+| `userinfo` endpoint | `kavach.auth.getUser()` from a session cookie. |
+| Management API | Server-side instance methods directly, no separate API. |
+| Refresh token rotation | On by default with the `jwtSession` and `refresh` plugins. |
+| Tenant logs | Audit trail via `kavach.audit.query()` and the audit export. |
+| Custom domain, cookie domain | Set `baseUrl` and the cookie config on `createKavach`. |
+| Hooks (Pre-User Registration, Post-User Registration, Send Phone Message) | Lifecycle hooks on the relevant plugins. |
+
+## Server setup
+
+```ts
+// BEFORE: server.ts (Auth0)
+// Auth0 is not constructed locally. You create a tenant in the dashboard,
+// then hit their API with AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_DOMAIN.
+```
+
+```ts
+// AFTER: lib/kavach.ts (KavachOS)
+import { createKavach } from 'kavachos';
+import { organization, rbac, mcp } from 'kavachos/plugins';
+
+export const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACHOS_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!, // e.g. https://auth.example.com
+  emailAndPassword: { enabled: true },
+  plugins: [
+    organization(),
+    rbac(),
+    mcp({
+      issuer: process.env.AUTH_BASE_URL!,
+      audience: process.env.API_BASE_URL!, // the resource server URL
+    }),
+  ],
+});
+```
+
+## Mounting the handler
+
+Auth0 hides its auth server behind the hosted domain. KavachOS exposes an explicit handler on your own domain. Pick your framework adapter.
+
+```ts
+// BEFORE (Auth0 + Next.js, using nextjs-auth0)
+// app/api/auth/[auth0]/route.ts
+import { handleAuth } from '@auth0/nextjs-auth0';
+export const GET = handleAuth();
+```
+
+```ts
+// AFTER (KavachOS + Next.js)
+// app/api/kavach/[...kavach]/route.ts
+import { kavachNextjs } from '@kavachos/nextjs';
+import { kavach } from '@/lib/kavach';
+
+const handlers = kavachNextjs(kavach);
+
+export const { GET, POST, PATCH, DELETE, OPTIONS } = handlers;
+```
+
+Hono, Express, Fastify, SvelteKit, Nuxt, Astro, NestJS, SolidStart, and TanStack Start all have their own adapters with the same shape.
+
+## Client code
+
+```tsx
+// BEFORE (Auth0 React SDK)
+import { useUser } from '@auth0/nextjs-auth0/client';
+
+export function Nav() {
+  const { user, isLoading } = useUser();
+  if (isLoading) return null;
+  return user
+    ? <a href="/api/auth/logout">Sign out {user.name}</a>
+    : <a href="/api/auth/login">Sign in</a>;
+}
+```
+
+```tsx
+// AFTER (@kavachos/react)
+import { useUser, useSignOut } from '@kavachos/react';
+
+export function Nav() {
+  const { user, isLoading } = useUser();
+  const { signOut } = useSignOut();
+  if (isLoading) return null;
+  return user
+    ? <button onClick={() => signOut()}>Sign out {user.name}</button>
+    : <a href="/sign-in">Sign in</a>;
+}
+```
+
+Wrap the root in `<KavachProvider>`, then the hooks work the same way they do in the Auth0 SDK.
+
+## Rules and Actions
+
+Auth0 Rules ran in a VM on their side. Actions replaced them with a saner runtime. Both get replaced by explicit lifecycle hooks that run in your process.
+
+```ts
+// BEFORE: Auth0 Action
+// onExecutePostLogin — enrich the token with a custom claim
+exports.onExecutePostLogin = async (event, api) => {
+  if (event.user.email_verified) {
+    api.accessToken.setCustomClaim('tenantId', event.user.app_metadata.tenantId);
+  }
+};
+```
+
+```ts
+// AFTER: KavachOS lifecycle hook
+import { createKavach } from 'kavachos';
+
+export const kavach = await createKavach({
+  database: { /* ... */ },
+  hooks: {
+    beforeSession: async ({ user, session }) => {
+      if (user.emailVerified && user.metadata?.tenantId) {
+        session.claims = {
+          ...session.claims,
+          tenantId: user.metadata.tenantId,
+        };
+      }
+      return session;
+    },
+  },
+});
+```
+
+The same applies for `onExecutePreUserRegistration` (use the `emailPassword` plugin's `beforeSignUp` hook) and the other Action triggers.
+
+## Machine-to-Machine clients
+
+Auth0's M2M clients issue long-lived tokens against an API. They have a flat scope list, no delegation, no per-client rate cap.
+
+```ts
+// BEFORE (Auth0 M2M)
+// Each M2M client has a client_id and client_secret. Scopes are assigned per-API.
+// Rotation means generating a new secret in the dashboard.
+```
+
+```ts
+// AFTER (KavachOS agent)
+const agent = await kavach.agent.create({
+  ownerId: 'user-ops@example.com',
+  name: 'billing-pipeline',
+  type: 'service',
+  permissions: [
+    {
+      resource: 'mcp:stripe:*',
+      actions: ['read'],
+      constraints: { maxCallsPerHour: 1000 },
+    },
+    {
+      resource: 'mcp:stripe:refund',
+      actions: ['execute'],
+      constraints: { requireApproval: true },
+    },
+  ],
+});
+
+// agent.token → kv_... Bearer. Hand it to the service.
+// Rotate with kavach.agent.rotate(agent.id) when you need to.
+// Revoke with kavach.agent.revoke(agent.id). Everything is audited.
+```
+
+Two differences to call out:
+
+1. Rotation is atomic. Old token dies the moment the new one is issued. No gap.
+2. Per-agent rate caps, approval gates, time windows, and IP allowlists are part of the permission, not a separate rule.
+
+## User data migration
+
+Auth0 exports via the Management API bulk user endpoint, which delivers JSON lines. KavachOS users live in your own Postgres, SQLite, MySQL, or D1.
+
+```sql
+-- Minimal users table (Postgres). Adjust column names to match your schema.
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  email_verified BOOLEAN NOT NULL DEFAULT false,
+  name TEXT,
+  password_hash TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+The Auth0 export delivers one JSON object per user. A small Node script is enough:
+
+```ts
+// scripts/import-auth0.ts
+import fs from 'node:fs';
+import readline from 'node:readline';
+import { kavach } from '../lib/kavach.js';
+
+const stream = readline.createInterface({
+  input: fs.createReadStream('auth0-users.ndjson'),
+});
+
+for await (const line of stream) {
+  const u = JSON.parse(line);
+  await kavach.auth.importUser({
+    email: u.email,
+    emailVerified: u.email_verified,
+    name: u.name,
+    // Auth0 stores passwords as bcrypt. KavachOS accepts bcrypt on import.
+    passwordHash: u.password_hash,
+    metadata: u.app_metadata ?? {},
+  });
+}
+```
+
+Passwords imported from Auth0 bcrypt hashes validate on first sign-in. No password reset email required for users whose `password_hash` came across cleanly. Social-only users have no hash and must use the same social provider on KavachOS, wire it up in the `oauth` plugin before the cutover.
+
+## Cutover plan
+
+1. Stand up KavachOS next to Auth0. Point at the same user database schema. Do not turn off Auth0 yet.
+2. Import users. Validate a sample with a test sign-in.
+3. Point a single route (for example `/api/admin`) at the KavachOS handler. Keep everything else on Auth0.
+4. Watch the audit log for authorization failures. Fix mismatches.
+5. Expand the KavachOS-guarded surface one route at a time. M2M clients cut over last, after you have confirmed rate caps and approval gates in staging.
+6. Final DNS or reverse-proxy switch: all auth traffic hits KavachOS. Decommission the Auth0 tenant after the grace period.
+
+## Rollback
+
+Keep the Auth0 tenant active for at least one full session-refresh cycle after the cutover (default 7 days). If you need to revert:
+
+1. Flip the reverse proxy or middleware back to Auth0.
+2. Users stay signed in using Auth0 cookies. New sessions come from Auth0 again.
+3. KavachOS sessions remain valid locally until they expire. No user-facing disruption.
+
+## What Auth0 does that KavachOS does not (yet)
+
+- Hosted Universal Login. KavachOS ships React, Vue, and Svelte components you host yourself.
+- Guardian push-MFA mobile app. TOTP and passkeys are supported, push MFA is not.
+- Attack Protection suite (bot detection, breached-password detection on their edge). KavachOS has HIBP integration and IP rate limiting, but no managed bot detection.
+- A hosted B2B customer-admin console. KavachOS has an embeddable `@kavachos/dashboard` React component for operators, not a hosted SaaS console.
+
+If any of those are hard requirements, keep Auth0 on the books and read the [competitor notes](/docs/compare) before you commit to a switch.
+
+## Runnable example
+
+A minimal, in-memory version of the AFTER patterns lives at [`examples/migrate-from-auth0`](https://github.com/kavachos/kavachos/tree/main/examples/migrate-from-auth0). It pulls `kavachos` via the monorepo `workspace:*` protocol so the script stays pinned to the same version the docs describe, and the smoke test runs in CI on every push.
+
+```bash
+pnpm --filter @kavachos/example-migrate-from-auth0 start
+pnpm --filter @kavachos/example-migrate-from-auth0 test
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" icon="robot" href="/agents">
+    Model M2M clients as agents with delegation and trust scoring.
+  </Card>
+  <Card title="MCP OAuth 2.1" icon="globe" href="/mcp">
+    The authorization server Auth0 does not ship.
+  </Card>
+  <Card title="Lifecycle hooks" icon="code" href="/hooks">
+    Replace Actions with explicit in-process hooks.
+  </Card>
+  <Card title="Audit trail" icon="file-lines" href="/audit">
+    Tenant logs, queryable, exportable, attached to every authorize() call.
+  </Card>
+</CardGroup>
