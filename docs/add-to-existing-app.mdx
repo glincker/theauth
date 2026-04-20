@@ -1,0 +1,248 @@
+---
+title: Add to an existing app
+description: Drop KavachOS into an app that already has human auth. Clerk, Auth.js, better-auth, or your own.
+icon: screwdriver-wrench
+---
+
+You already have users. You just added agents. This is the ten-minute recipe.
+
+<Info>
+KavachOS does not replace your human auth. It runs alongside it. This guide assumes you already have a way to get a stable `userId` for every request.
+</Info>
+
+## What you need before you start
+
+<CardGroup cols={2}>
+  <Card title="A user ID on every request" icon="user-check">
+    Your existing auth must expose a stable string ID, anything from Clerk's `userId`, Auth.js's `session.user.id`, or a row id from your own users table.
+  </Card>
+  <Card title="A database" icon="database">
+    Postgres, MySQL, SQLite, or Cloudflare D1. Kavach creates its own tables, prefixed `kavach_`, alongside yours.
+  </Card>
+</CardGroup>
+
+## Steps
+
+<Steps>
+
+<Step title="Install">
+
+```bash
+pnpm add kavachos @kavachos/nextjs
+```
+
+Substitute the adapter for your framework: `@kavachos/hono`, `@kavachos/express`, `@kavachos/fastify`, and so on. See [Framework adapters](/adapters).
+
+</Step>
+
+<Step title="Create the Kavach instance">
+
+```ts title="lib/kavach.ts"
+import { createKavach } from 'kavachos';
+
+let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
+
+export async function getKavach() {
+  if (!instance) {
+    instance = await createKavach({
+      database: {
+        provider: 'postgres',
+        url: process.env.DATABASE_URL!,
+      },
+      secret: process.env.KAVACHOS_SECRET!,
+    });
+  }
+  return instance;
+}
+```
+
+The lazy pattern lets Next.js build without opening a DB connection.
+
+</Step>
+
+<Step title="Wire the route handler">
+
+```ts title="app/api/kavach/[...kavach]/route.ts"
+import { kavachNextjs } from '@kavachos/nextjs';
+import { getKavach } from '@/lib/kavach';
+
+const { GET, POST } = kavachNextjs(getKavach);
+
+export { GET, POST };
+```
+
+Pick a path that does not collide with your existing auth. `/api/kavach/*` lives next to `/api/auth/*` (Clerk / Auth.js) without stepping on it.
+
+</Step>
+
+<Step title="Create an agent when a user signs up or activates AI features">
+
+Hook into your existing post-sign-in flow. For Clerk, that is a webhook or a server action. For Auth.js, the `signIn` event. For better-auth, the `onSignIn` hook.
+
+```ts title="wherever you create user-scoped resources"
+import { getKavach } from '@/lib/kavach';
+
+export async function createDefaultAgent(userId: string) {
+  const kavach = await getKavach();
+
+  const agent = await kavach.agent.create({
+    ownerId: userId,                     // stable ID from your auth provider
+    name: 'default',
+    type: 'autonomous',
+    permissions: [
+      { resource: 'app:read:*', actions: ['read'] },
+    ],
+  });
+
+  // Persist agent.token somewhere the user can access, encrypted at rest.
+  // It is returned once and cannot be recovered.
+  return { agentId: agent.id, token: agent.token };
+}
+```
+
+<Warning>
+The token is shown once. Store it in your secrets store or hand it directly to the agent process. If you lose it, rotate with `kavach.agent.rotate(agentId)` to issue a new one.
+</Warning>
+
+</Step>
+
+<Step title="Authorize in your handlers">
+
+Anywhere your agent code runs, check authorization before the call.
+
+```ts title="app/api/agent-action/route.ts"
+import { getKavach } from '@/lib/kavach';
+
+export async function POST(req: Request) {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+  if (!token) return new Response('Missing token', { status: 401 });
+
+  const kavach = await getKavach();
+
+  const { allowed, reason, auditId } = await kavach.authorizeByToken(token, {
+    action: 'read',
+    resource: 'mcp:github:repos',
+  });
+
+  if (!allowed) {
+    return Response.json({ error: reason, auditId }, { status: 403 });
+  }
+
+  // allowed. Do the work.
+  const repos = await fetchGithubRepos();
+  return Response.json({ repos, auditId });
+}
+```
+
+</Step>
+
+</Steps>
+
+## Fitting in with Clerk, Auth.js, and better-auth
+
+<Tabs>
+<Tab title="Clerk">
+
+```ts
+import { auth } from '@clerk/nextjs/server';
+import { getKavach } from '@/lib/kavach';
+
+export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return new Response('Unauthorized', { status: 401 });
+
+  const kavach = await getKavach();
+  const agent = await kavach.agent.create({
+    ownerId: userId,
+    name: 'default',
+    type: 'autonomous',
+    permissions: [{ resource: 'app:read:*', actions: ['read'] }],
+  });
+
+  return Response.json({ agentId: agent.id, token: agent.token });
+}
+```
+
+</Tab>
+<Tab title="Auth.js">
+
+```ts
+import { auth } from '@/auth';
+import { getKavach } from '@/lib/kavach';
+
+export async function POST() {
+  const session = await auth();
+  if (!session?.user?.id) return new Response('Unauthorized', { status: 401 });
+
+  const kavach = await getKavach();
+  const agent = await kavach.agent.create({
+    ownerId: session.user.id,
+    name: 'default',
+    type: 'autonomous',
+    permissions: [{ resource: 'app:read:*', actions: ['read'] }],
+  });
+
+  return Response.json({ agentId: agent.id, token: agent.token });
+}
+```
+
+</Tab>
+<Tab title="better-auth">
+
+```ts
+import { auth } from '@/lib/auth';
+import { getKavach } from '@/lib/kavach';
+import { headers } from 'next/headers';
+
+export async function POST() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) return new Response('Unauthorized', { status: 401 });
+
+  const kavach = await getKavach();
+  const agent = await kavach.agent.create({
+    ownerId: session.user.id,
+    name: 'default',
+    type: 'autonomous',
+    permissions: [{ resource: 'app:read:*', actions: ['read'] }],
+  });
+
+  return Response.json({ agentId: agent.id, token: agent.token });
+}
+```
+
+</Tab>
+</Tabs>
+
+## Common first-day questions
+
+<AccordionGroup>
+<Accordion title="Do I need to run Kavach migrations manually?" icon="database">
+No by default. Kavach runs its own migrations on first boot. Set `skipMigrations: true` in `createKavach` if you want to run them yourself via `kavach-cli migrate`.
+</Accordion>
+<Accordion title="Can I share the session cookie with my existing auth?" icon="cookie-bite">
+Not directly. Kavach issues its own cookie for sessions created via its plugins. If you never use Kavach's human-auth plugins (because you have Clerk / Auth.js / better-auth), you never see that cookie and there is nothing to share.
+</Accordion>
+<Accordion title="What if my user IDs change shape later?" icon="arrows-rotate">
+Kavach stores `ownerId` as a string and never interprets it. Migrating from numeric IDs to UUIDs later means updating `kavach_agents.owner_id` in a single SQL update.
+</Accordion>
+<Accordion title="Does Kavach emit events I can subscribe to?" icon="rss">
+Yes, via [event streaming](/event-streaming) and [webhooks](/webhooks). Wire them to your analytics or to Stripe / PostHog / Slack.
+</Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Permissions" icon="shield-halved" href="/permissions">
+    Define what agents can and cannot do.
+  </Card>
+  <Card title="MCP OAuth 2.1" icon="globe" href="/mcp">
+    Run your own authorization server for MCP tools.
+  </Card>
+  <Card title="Delegation" icon="link" href="/delegation">
+    Let agents spawn sub-agents with scoped permissions.
+  </Card>
+  <Card title="Audit trail" icon="scroll" href="/audit">
+    Query and export every authorization decision.
+  </Card>
+</CardGroup>

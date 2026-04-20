@@ -4,44 +4,63 @@ description: Creating, managing, and rotating agent identities in KavachOS.
 icon: robot
 ---
 
+<Columns cols={2}>
+<div>
+An `AgentIdentity` is the primary entity in KavachOS. It represents one AI agent, a process acting on behalf of a human user. Agents are not users. No password, no session, no OAuth flow. Just a token, a set of permissions, and an audit row for every call.
 
-## What is an agent identity
+Create one against an existing user ID, hand the token to the agent, and check every action through `authorize()`.
+</div>
 
-`AgentIdentity` is the primary entity in KavachOS. It represents a single AI agent, a process acting on behalf of a human user.
+```ts
+const agent = await kavach.agent.create({
+  ownerId: user.id,
+  name: 'code-reviewer',
+  type: 'autonomous',
+  permissions: [
+    { resource: 'mcp:github:*', actions: ['read'] },
+  ],
+});
 
-Agents are not users. No passwords, sessions, or OAuth flows. Just tokens and permissions.
+// agent.token is a kv_... bearer, shown once, hashed at rest
+console.log(agent.token);
+```
+</Columns>
 
-<ParamField path="id" type="string">Stable identifier with an agt_ prefix. Never changes.</ParamField>
-<ParamField path="token" type="string">Bearer token with a kv_ prefix. Shown once at creation, then hashed. Rotate to replace.</ParamField>
-<ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every authorize() call.</ParamField>
+## Anatomy
+
+<ParamField path="id" type="string">Stable identifier with an `agt_` prefix. Never changes.</ParamField>
+<ParamField path="token" type="string">Bearer token with a `kv_` prefix. Shown once at creation, then SHA-256 hashed. Rotate to replace.</ParamField>
+<ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every `authorize()` call.</ParamField>
 <ParamField path="status" type="'active' | 'revoked' | 'expired'">Current state. Revocation is permanent.</ParamField>
 <ParamField path="ownerId" type="string">The user ID from your auth provider who owns this agent.</ParamField>
-<ParamField path="name" type="string">Human-readable label for the agent.</ParamField>
+<ParamField path="name" type="string">Human-readable label.</ParamField>
 <ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
-<ParamField path="expiresAt" type="Date" default="undefined (never expires)">Optional expiry. After this time the agent status becomes expired.</ParamField>
-<ParamField path="metadata" type={`Record<string, unknown>`} default="{}">Arbitrary key/value pairs for your own use.</ParamField>
+<ParamField path="expiresAt" type="Date" default="undefined (never expires)">Optional expiry. After this time, `status` becomes `expired`.</ParamField>
+<ParamField path="metadata" type="Record<string, unknown>" default="{}">Arbitrary key/value pairs for your own use.</ParamField>
 
 ## Agent types
 
 <AccordionGroup>
-  <Accordion title="autonomous">
+  <Accordion title="autonomous" icon="robot">
     Acts independently without requiring human approval on each call, unless a permission constraint mandates it. The standard type for background agents, cron jobs, and AI assistants that run unattended.
   </Accordion>
-  <Accordion title="delegated">
-    Receives permissions from another agent via a delegation chain rather than having them declared at creation. Use this for ephemeral sub-agents spun up to complete a specific task, then discarded.
+  <Accordion title="delegated" icon="link">
+    Receives permissions from another agent via a delegation chain rather than having them declared at creation. Use this for ephemeral sub-agents spun up to complete one task, then discarded.
   </Accordion>
-  <Accordion title="service">
+  <Accordion title="service" icon="server">
     Long-lived identity for infrastructure, such as an MCP server or an internal microservice that calls other services on behalf of users. Treat it like a service account.
   </Accordion>
 </AccordionGroup>
 
 ## Lifecycle
 
-### Creating an agent
+<Steps>
 
-```typescript
+<Step title="Create">
+
+```ts
 const agent = await kavach.agent.create({
-  ownerId: 'user-123',   // ID from your auth provider
+  ownerId: 'user-123',
   name: 'github-reader',
   type: 'autonomous',
   permissions: [
@@ -55,44 +74,30 @@ console.log(agent.token); // kv_a3f8c2e1...  — only shown here
 ```
 
 <Warning>
-  The token is returned once at creation. KavachOS stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or rotate to get a new one.
+The token is returned once at creation. KavachOS stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or rotate to get a new one.
 </Warning>
 
-### Tokens
+</Step>
 
-Tokens use the `kv_` prefix followed by 32 cryptographically random bytes encoded as 64 hex characters:
+<Step title="Authenticate">
 
-```
-kv_a3f8c2e1d4b5...   (64 hex chars after the prefix)
-```
-
-Authenticate by passing the token as a Bearer credential:
+Tokens use the `kv_` prefix followed by 32 random bytes as 64 hex chars. Pass as a Bearer credential:
 
 ```http
 Authorization: Bearer kv_a3f8c2e1d4b5...
 ```
 
-<Info>
-  The hash-only storage model means a full database dump cannot reveal active tokens. There are no secrets to rotate after a DB breach, only the tokens themselves.
-</Info>
+<Tip>
+Hash-only storage: a full database dump cannot reveal an active token. There are no secrets to rotate after a DB breach, only the tokens themselves.
+</Tip>
 
-### Token rotation
+</Step>
 
-Rotation issues a new token and immediately invalidates the old one. The operation is atomic: there is no window where both tokens are valid.
+<Step title="Authorize">
 
-```typescript
-const rotated = await kavach.agent.rotate(agentId);
-// rotated.token is the new plaintext token
-// The old token is rejected on all subsequent calls
-```
+When a caller only has the raw token, use `authorizeByToken` in your HTTP middleware:
 
-Rotate tokens on a schedule, or any time you suspect a token has been exposed.
-
-### Token-based authorization
-
-When a caller only has a raw bearer token (for example, in HTTP middleware), use `authorizeByToken` instead of `authorize`:
-
-```typescript
+```ts
 const token = request.headers.get('Authorization')?.replace('Bearer ', '');
 if (!token) return new Response('Unauthorized', { status: 401 });
 
@@ -106,15 +111,33 @@ if (!result.allowed) {
 }
 ```
 
-This performs a single database lookup (hash comparison), then evaluates permissions in memory. No JWTs, no network calls.
+One database lookup (hash compare), then in-memory permission evaluation. No JWTs, no network round-trip.
 
-### Listing and filtering agents
+</Step>
 
-```typescript
-// All agents owned by a user
-const agents = await kavach.agent.list({ userId: 'user-123' });
+<Step title="Rotate">
 
-// Only active autonomous agents
+Rotation issues a new token and immediately invalidates the old one. Atomic: no window where both are valid.
+
+```ts
+const rotated = await kavach.agent.rotate(agentId);
+// rotated.token is the new plaintext token
+```
+
+Rotate on a schedule, or any time you suspect a token has been exposed.
+
+</Step>
+
+<Step title="Update or list">
+
+Permission updates take effect immediately. In-flight requests that already passed authorization are not affected.
+
+```ts
+await kavach.agent.update(agentId, {
+  name: 'github-reader-v2',
+  permissions: [{ resource: 'mcp:github:*', actions: ['read', 'comment'] }],
+});
+
 const active = await kavach.agent.list({
   userId: 'user-123',
   status: 'active',
@@ -122,36 +145,29 @@ const active = await kavach.agent.list({
 });
 ```
 
-### Updating an agent
+</Step>
 
-```typescript
-const updated = await kavach.agent.update(agentId, {
-  name: 'github-reader-v2',
-  permissions: [
-    { resource: 'mcp:github:*', actions: ['read', 'comment'] },
-  ],
-});
-```
+<Step title="Revoke">
 
-Permission updates take effect immediately. In-flight requests that have already passed authorization are not affected.
-
-### Revoking an agent
-
-```typescript
+```ts
 await kavach.agent.revoke(agentId);
-// All future authorize() or authorizeByToken() calls return allowed: false
-// The agent's token is also invalidated immediately
+// All future authorize() calls return allowed: false
+// The agent's token is rejected immediately
 ```
 
 <Warning>
-  Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
+Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
 </Warning>
 
-### Agent limits
+</Step>
 
-The default limit is 10 active agents per user. Raise it at initialization:
+</Steps>
 
-```typescript
+## Limits
+
+The default is 10 active agents per user. Raise at initialization:
+
+```ts
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
   agents: {
@@ -160,18 +176,27 @@ const kavach = createKavach({
 });
 ```
 
-Attempts to create agents beyond the limit return an error with code `AGENT_LIMIT_EXCEEDED`.
+Attempts to exceed the cap return an error with code `AGENT_LIMIT_EXCEEDED`.
+
+## What agents aren't
+
+<Info>
+An agent is not a user. It has no email, no password, no session, no OAuth account. It has a bearer token and a permission set. If you find yourself reaching for password reset, email verification, or social sign-in on an agent, you want a user, not an agent. Create the user first, then create agents that the user owns.
+</Info>
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Permission engine" href="/permissions">
-  Define what your agents can and cannot do.
-</Card>
-  <Card title="Delegation chains" href="/delegation">
-  Let agents delegate access to sub-agents.
-</Card>
-  <Card title="Token-based auth with adapters" href="/adapters">
-  Use agents in HTTP middleware.
-</Card>
+  <Card title="Permission engine" icon="shield-halved" href="/permissions">
+    Define what agents can and cannot do.
+  </Card>
+  <Card title="Delegation chains" icon="link" href="/delegation">
+    Let agents delegate access to sub-agents.
+  </Card>
+  <Card title="Ephemeral sessions" icon="stopwatch" href="/ephemeral-sessions">
+    Short-lived agents for one-off tasks.
+  </Card>
+  <Card title="Framework adapters" icon="puzzle-piece" href="/adapters">
+    Use agents in HTTP middleware.
+  </Card>
 </CardGroup>

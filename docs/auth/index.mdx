@@ -1,72 +1,19 @@
 ---
 title: Authentication
-description: Human sign-in methods and OAuth providers for KavachOS.
+description: Human sign-in methods and OAuth providers for the humans who own and manage agents.
 icon: key
 ---
 
-KavachOS supports multiple authentication methods for the humans who own and manage agents. Each method is a plugin you opt into, use only what your app needs.
+<Columns cols={2}>
+<div>
+KavachOS runs the sign-in for the humans who own agents. Each method is a plugin you opt into, use only what your app needs. Every provider is wired the same way in code.
 
-<Info>
-  If you already have Clerk, Auth.js, or better-auth managing sign-in, skip plugins entirely and use an [auth adapter](/guides/auth-adapters) instead.
-</Info>
+If you already run Clerk, Auth.js, or better-auth, keep them and skip the plugins. [Plug into an existing provider.](/migrate)
+</div>
 
-## Auth methods
-
-<CardGroup cols={2}>
-  <Card title="Email and password" href="/auth/methods/email-password">
-  Register, sign in, password reset, and email verification with argon2id hashing.
-</Card>
-  <Card title="Magic link" href="/auth/methods/magic-link">
-  Passwordless sign-in: send a one-time link to the user's email.
-</Card>
-  <Card title="Email OTP" href="/auth/methods/email-otp">
-  Six-digit one-time codes delivered via email.
-</Card>
-  <Card title="Passkey" href="/auth/methods/passkey">
-  WebAuthn/FIDO2 biometric and hardware key sign-in.
-</Card>
-  <Card title="Two-factor auth" href="/auth/methods/two-factor">
-  TOTP authenticator app support with backup codes.
-</Card>
-</CardGroup>
-
-## OAuth providers
-
-<CardGroup cols={2}>
-  <Card title="Google" href="/auth/providers/google">
-  Sign in with Google accounts via OAuth 2.0.
-</Card>
-  <Card title="GitHub" href="/auth/providers/github">
-  Sign in with GitHub using user:email scope.
-</Card>
-  <Card title="Apple" href="/auth/providers/apple">
-  Sign in with Apple ID.
-</Card>
-  <Card title="Discord" href="/auth/providers/discord">
-  Sign in with Discord accounts.
-</Card>
-  <Card title="Slack" href="/auth/providers/slack">
-  Sign in with Slack workspace accounts.
-</Card>
-  <Card title="Microsoft" href="/auth/providers/microsoft">
-  Sign in with Microsoft / Azure AD accounts.
-</Card>
-  <Card title="GitLab" href="/auth/providers/gitlab">
-  Sign in with GitLab accounts (cloud or self-hosted).
-</Card>
-  <Card title="LinkedIn" href="/auth/providers/linkedin">
-  Sign in with LinkedIn professional accounts.
-</Card>
-</CardGroup>
-
-## How plugins work
-
-Pass plugins to `createKavach()`. Each plugin registers its own routes, database tables, and session logic:
-
-```typescript title="lib/kavach.ts"
+```ts
 import { createKavach } from 'kavachos';
-import { emailPassword } from 'kavachos/auth';
-import { oauth } from 'kavachos/auth';
+import { emailPassword, oauth } from 'kavachos/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -83,10 +30,130 @@ const kavach = await createKavach({
   ],
 });
 ```
+</Columns>
 
-Once a user signs in, resolve their identity from any request:
+## Sign-in methods
 
-```typescript
+<CardGroup cols={3}>
+  <Card title="Email and password" icon="envelope" href="/auth/email-password">
+    PBKDF2-SHA256 hashing, verification, reset.
+  </Card>
+  <Card title="Username and password" icon="user" href="/auth/username">
+    For apps that prefer handles over email.
+  </Card>
+  <Card title="Magic link" icon="link" href="/auth/magic-link">
+    One-time link in an email, no password.
+  </Card>
+  <Card title="Email OTP" icon="hashtag" href="/auth/email-otp">
+    Six-digit code via email.
+  </Card>
+  <Card title="Phone OTP" icon="phone" href="/auth/phone">
+    SMS code, any provider.
+  </Card>
+  <Card title="Passkey" icon="fingerprint" href="/auth/passkey">
+    WebAuthn / FIDO2 biometrics and security keys.
+  </Card>
+  <Card title="Sign-in with Ethereum" icon="wallet" href="/auth/siwe">
+    EIP-4361 wallet-based sign-in.
+  </Card>
+  <Card title="Device code" icon="tv" href="/auth/device">
+    For TVs and CLIs that can't take a password.
+  </Card>
+  <Card title="Two-factor" icon="shield-halved" href="/auth/two-factor">
+    TOTP with backup codes.
+  </Card>
+  <Card title="Captcha" icon="shield-check" href="/auth/captcha">
+    Turnstile, hCaptcha, reCAPTCHA.
+  </Card>
+  <Card title="Anonymous" icon="user-secret" href="/auth/anonymous">
+    Throwaway sessions, upgrade on sign-up.
+  </Card>
+  <Card title="Google One Tap" icon="hand-pointer" href="/auth/one-tap">
+    Google's one-tap sign-in widget.
+  </Card>
+  <Card title="OAuth proxy" icon="arrows-left-right" href="/auth/oauth-proxy">
+    Reverse-proxy mode for trusted ingress.
+  </Card>
+</CardGroup>
+
+## OAuth providers
+
+Thirty-eight first-class providers, plus a generic factory for anything with a standard authorization code flow.
+
+<Tabs>
+<Tab title="Popular">
+<CardGroup cols={4}>
+  <Card title="Google" icon="google" href="/auth/google" />
+  <Card title="GitHub" icon="github" href="/auth/github" />
+  <Card title="Apple" icon="apple" href="/auth/apple" />
+  <Card title="Microsoft" icon="microsoft" href="/auth/microsoft" />
+  <Card title="Discord" icon="discord" href="/auth/discord" />
+  <Card title="Slack" icon="slack" href="/auth/slack" />
+  <Card title="LinkedIn" icon="linkedin" href="/auth/linkedin" />
+</CardGroup>
+</Tab>
+<Tab title="Social">
+<CardGroup cols={4}>
+  <Card title="Facebook" icon="facebook" href="/auth/facebook" />
+  <Card title="X / Twitter" icon="twitter" href="/auth/twitter" />
+  <Card title="Spotify" icon="spotify" href="/auth/spotify" />
+  <Card title="Twitch" icon="twitch" href="/auth/twitch" />
+  <Card title="Reddit" icon="reddit" href="/auth/reddit" />
+  <Card title="TikTok" icon="tiktok" href="/auth/tiktok" />
+  <Card title="Kakao" icon="/brand-icons/kakaotalk.svg" href="/auth/kakao" />
+  <Card title="Naver" icon="/brand-icons/naver.svg" href="/auth/naver" />
+  <Card title="VK" icon="vk" href="/auth/vk" />
+  <Card title="Line" icon="/brand-icons/line.svg" href="/auth/line" />
+  <Card title="WeChat" icon="weixin" href="/auth/wechat" />
+  <Card title="Kick" icon="/brand-icons/kick.svg" href="/auth/kick" />
+  <Card title="Roblox" icon="/brand-icons/roblox.svg" href="/auth/roblox" />
+</CardGroup>
+</Tab>
+<Tab title="Work">
+<CardGroup cols={4}>
+  <Card title="Notion" icon="/brand-icons/notion.svg" href="/auth/notion" />
+  <Card title="Figma" icon="figma" href="/auth/figma" />
+  <Card title="Dropbox" icon="dropbox" href="/auth/dropbox" />
+  <Card title="Zoom" icon="/brand-icons/zoom.svg" href="/auth/zoom" />
+  <Card title="Atlassian" icon="atlassian" href="/auth/atlassian" />
+  <Card title="Linear" icon="/brand-icons/linear.svg" href="/auth/linear" />
+  <Card title="GitLab" icon="gitlab" href="/auth/gitlab" />
+  <Card title="Bitbucket" icon="bitbucket" href="/auth/bitbucket" />
+  <Card title="Salesforce" icon="salesforce" href="/auth/salesforce" />
+</CardGroup>
+</Tab>
+<Tab title="Developer">
+<CardGroup cols={4}>
+  <Card title="Vercel" icon="/brand-icons/vercel.svg" href="/auth/vercel" />
+  <Card title="Railway" icon="/brand-icons/railway.svg" href="/auth/railway" />
+  <Card title="Hugging Face" icon="/brand-icons/huggingface.svg" href="/auth/huggingface" />
+</CardGroup>
+</Tab>
+<Tab title="Payments">
+<CardGroup cols={4}>
+  <Card title="PayPal" icon="paypal" href="/auth/paypal" />
+  <Card title="Coinbase" icon="/brand-icons/coinbase.svg" href="/auth/coinbase" />
+  <Card title="Polar" icon="/brand-icons/polar.svg" href="/auth/polar" />
+</CardGroup>
+</Tab>
+<Tab title="Enterprise">
+<CardGroup cols={4}>
+  <Card title="Auth0" icon="/brand-icons/auth0.svg" href="/auth/auth0" />
+  <Card title="Okta" icon="/brand-icons/okta.svg" href="/auth/okta" />
+  <Card title="Yahoo" icon="yahoo" href="/auth/yahoo" />
+</CardGroup>
+</Tab>
+</Tabs>
+
+<Tip>
+Don't see your provider? The [generic OAuth factory](/auth/oauth) wires any authorization-code provider in about ten lines of config.
+</Tip>
+
+## How plugins fit
+
+Every plugin registers routes, tables, and session logic at `createKavach()` time. The resulting instance carries `auth.*` methods you call from your handlers.
+
+```ts title="resolving a user from a request"
 const user = await kavach.auth.resolveUser(request);
 
 if (!user) {
@@ -95,3 +162,30 @@ if (!user) {
 
 // user.id is the stable owner ID for creating agents
 ```
+
+<Info>
+Once the user is resolved, KavachOS is done with human auth. The rest of the stack (agents, permissions, audit) hangs off `user.id`.
+</Info>
+
+## Enterprise identity
+
+<CardGroup cols={3}>
+  <Card title="Organizations" icon="building" href="/auth/organizations">
+    Multi-user accounts, roles, invitations.
+  </Card>
+  <Card title="SSO / SAML" icon="key" href="/auth/sso">
+    SAML 2.0 and OIDC SSO.
+  </Card>
+  <Card title="SCIM" icon="arrows-rotate" href="/auth/scim">
+    Automated provisioning from your IdP.
+  </Card>
+  <Card title="Admin plugin" icon="user-shield" href="/auth/admin">
+    Ban, impersonate with TTL, audit.
+  </Card>
+  <Card title="API keys" icon="key-skeleton" href="/auth/api-keys">
+    For machine-to-machine callers.
+  </Card>
+  <Card title="OIDC provider" icon="plug" href="/auth/oidc-provider">
+    Turn your Kavach into an IdP for other apps.
+  </Card>
+</CardGroup>
