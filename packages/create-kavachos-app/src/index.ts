@@ -70,7 +70,7 @@ export async function main(): Promise<void> {
 						},
 						{
 							value: "hono-mcp",
-							label: `Hono MCP  ${yellow("(coming soon)")}`,
+							label: "Hono MCP",
 							hint: "Hono server · MCP OAuth 2.1",
 						},
 						{
@@ -112,9 +112,9 @@ export async function main(): Promise<void> {
 
 	const template = answers.template as Template;
 
-	if (template === "hono-mcp" || template === "expo-mobile") {
+	if (template === "expo-mobile") {
 		p.note(
-			`The ${bold(template)} template is not ready yet.\nPick ${bold("next-saas")} for now and stay tuned.`,
+			`The ${bold(template)} template is not ready yet.\nPick ${bold("next-saas")} or ${bold("hono-mcp")} for now and stay tuned.`,
 			yellow("Coming soon"),
 		);
 		exit(0);
