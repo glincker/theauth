@@ -1,0 +1,499 @@
+---
+title: Migrate from Clerk
+description: Step-by-step guide for moving a Clerk app to KavachOS.
+icon: arrow-right-arrow-left
+---
+
+Clerk is a hosted identity service with a strong Next.js story and paid tiers that scale with MAU. KavachOS is open source, self-hosted, and treats AI agents as a first-class entity next to users. The two trade-offs are real: you give up Clerk's hosted sign-in UI and org management console, you take back your data, your cookie domain, your rate limits, and your bill. Read this before you cut over.
+
+When the switch makes sense:
+
+- You are hitting Clerk's MAU pricing tiers and the cost stops matching the value.
+- Your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, or per-agent trust scoring. Clerk does not model any of that.
+- You want full control over session cookies, token issuance, and audit logs.
+- Compliance needs (GDPR export, self-hosted data residency) are easier with a local service.
+
+When to wait:
+
+- You rely heavily on Clerk's hosted sign-in / sign-up components and have no designer bandwidth to rebuild them. KavachOS ships headless building blocks, not a dashboard you drop in.
+- You use Clerk's B2B Organizations extensively with their admin UI. KavachOS has an organization plugin but no hosted admin console yet.
+- You need Clerk-specific features like device attestation at the sign-in edge or their waitlist product.
+
+## Concepts map
+
+| Clerk | KavachOS |
+|---|---|
+| `clerkClient` (server) | instance from `createKavach({...})` |
+| `<ClerkProvider>` | `<KavachProvider>` from `@kavachos/react` |
+| `useUser()` | `useUser()` from `@kavachos/react` |
+| `useAuth()` | `useSession()` + `useSignOut()` from `@kavachos/react` |
+| `useSession()` | `useSession()` from `@kavachos/react` |
+| `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@kavachos/react` |
+| `auth()` in server components | `kavach.auth.getSession()` using the request cookies |
+| `currentUser()` | `kavach.auth.getUser()` using the request cookies |
+| `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
+| `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the Kavach event hooks. |
+| Hosted sign-in at `/sign-in` | Build your own page against `useSignIn()`. |
+| Hosted org switcher | Build your own against the `organization` plugin. |
+| JWT templates | `jwt` plugin with claim customisation. |
+| Clerk backend SDK `@clerk/backend` | Kavach server instance directly. |
+| `Organization`, `Membership` | `organization` plugin (same model, similar shape). |
+
+## Server setup
+
+```ts
+// BEFORE: lib/auth.ts (Clerk)
+// Clerk is initialised via env vars; there is no explicit constructor.
+// CLERK_SECRET_KEY and NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY are read at runtime.
+```
+
+```ts
+// AFTER: lib/kavach.ts (KavachOS)
+import { createKavach } from 'kavachos';
+import { organization } from 'kavachos/plugins';
+
+let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
+
+export async function getKavach() {
+  if (!instance) {
+    instance = await createKavach({
+      database: {
+        provider: 'postgres',
+        url: process.env.DATABASE_URL!,
+      },
+      secret: process.env.KAVACHOS_SECRET!,
+      baseUrl: process.env.AUTH_BASE_URL!,
+      emailAndPassword: { enabled: true },
+      plugins: [organization()],
+    });
+  }
+  return instance;
+}
+```
+
+### Next.js App Router route handler
+
+Clerk hides its route handling behind the middleware. KavachOS exposes an explicit handler so you can see and control what runs.
+
+```ts
+// BEFORE: no route handler needed. Clerk handles /sign-in, /sign-up, and session refresh
+// on its own domain, then sets a cookie for yours.
+```
+
+```ts
+// AFTER: app/api/auth/[...kavach]/route.ts (KavachOS)
+import { kavachNextjs } from '@kavachos/nextjs';
+import { getKavach } from '@/lib/kavach';
+
+const { GET, POST } = kavachNextjs(getKavach);
+
+export { GET, POST };
+```
+
+### middleware.ts
+
+Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. KavachOS does not ship an equivalent wrapper. Roll your own, or only protect at the page level using `getSession()`.
+
+```ts
+// BEFORE: middleware.ts (Clerk)
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+
+const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/api/private(.*)']);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) {
+    await auth.protect();
+  }
+});
+
+export const config = {
+  matcher: ['/((?!_next|[^?]*\\.(?:html?|css|js|png|jpg|jpeg|gif|svg|ico)).*)'],
+};
+```
+
+```ts
+// AFTER: middleware.ts (KavachOS)
+import { NextRequest, NextResponse } from 'next/server';
+import { getKavach } from '@/lib/kavach';
+
+const PROTECTED = [/^\/dashboard/, /^\/api\/private/];
+
+export async function middleware(req: NextRequest) {
+  const needsAuth = PROTECTED.some((r) => r.test(req.nextUrl.pathname));
+  if (!needsAuth) return NextResponse.next();
+
+  const kavach = await getKavach();
+  const session = await kavach.auth.getSession({ request: req });
+
+  if (!session.success || !session.data) {
+    const signInUrl = new URL('/sign-in', req.url);
+    signInUrl.searchParams.set('next', req.nextUrl.pathname);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/dashboard/:path*', '/api/private/:path*'],
+};
+```
+
+Note that Kavach's `getSession` returns a `Result` type (`{ success, data }` or `{ success: false, error }`), not a thrown exception. See the [configuration](/configuration) page for full signatures.
+
+## Client SDK
+
+```tsx
+// BEFORE: app/layout.tsx (Clerk)
+import { ClerkProvider } from '@clerk/nextjs';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClerkProvider>
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
+  );
+}
+```
+
+```tsx
+// AFTER: app/layout.tsx (KavachOS)
+import { KavachProvider } from '@kavachos/react';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <KavachProvider basePath="/api/auth">
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    </KavachProvider>
+  );
+}
+```
+
+### Hooks
+
+```tsx
+// BEFORE (Clerk)
+import { useUser, useAuth } from '@clerk/nextjs';
+
+function Profile() {
+  const { user, isLoaded } = useUser();
+  const { signOut } = useAuth();
+  if (!isLoaded) return null;
+  return (
+    <div>
+      <p>{user?.emailAddresses[0]?.emailAddress}</p>
+      <button type="button" onClick={() => signOut()}>Sign out</button>
+    </div>
+  );
+}
+```
+
+```tsx
+// AFTER (KavachOS)
+import { useUser, useSignOut } from '@kavachos/react';
+
+function Profile() {
+  const { user, isLoading } = useUser();
+  const signOut = useSignOut();
+  if (isLoading) return null;
+  return (
+    <div>
+      <p>{user?.email}</p>
+      <button type="button" onClick={() => signOut()}>Sign out</button>
+    </div>
+  );
+}
+```
+
+## Sign-in and sign-up pages
+
+Clerk ships `<SignIn />` and `<SignUp />` components that render their hosted flow inside your layout. KavachOS gives you hooks and expects you to build the form.
+
+```tsx
+// BEFORE: app/sign-in/[[...sign-in]]/page.tsx (Clerk)
+import { SignIn } from '@clerk/nextjs';
+
+export default function Page() {
+  return <SignIn />;
+}
+```
+
+```tsx
+// AFTER: app/sign-in/page.tsx (KavachOS)
+'use client';
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useSignIn } from '@kavachos/react';
+
+export default function SignInPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const signIn = useSignIn();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const result = await signIn({ email, password });
+    if (!result.success) {
+      setError(result.error.message);
+      return;
+    }
+    router.push(params.get('next') ?? '/dashboard');
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <button type="submit">Sign in</button>
+      {error ? <p role="alert">{error}</p> : null}
+    </form>
+  );
+}
+```
+
+If you were relying on Clerk's first-party passkey UI or phone OTP UI, you will rebuild the forms. The hooks expose the same primitives: `useSignIn({ factor: 'passkey' })`, `useSignIn({ factor: 'phone' })`. See [auth flows](/auth) for the full list.
+
+## Organizations
+
+Clerk's Organizations model ports cleanly. The Kavach organization plugin uses the same three concepts: organization, membership, role.
+
+```ts
+// BEFORE (Clerk backend)
+import { clerkClient } from '@clerk/nextjs/server';
+
+const org = await clerkClient().organizations.createOrganization({
+  name: 'Acme',
+  createdBy: userId,
+});
+await clerkClient().organizations.createOrganizationMembership({
+  organizationId: org.id,
+  userId: otherUserId,
+  role: 'org:member',
+});
+```
+
+```ts
+// AFTER (KavachOS)
+import { getKavach } from '@/lib/kavach';
+
+const kavach = await getKavach();
+const org = await kavach.organizations.create({
+  name: 'Acme',
+  ownerId: userId,
+});
+await kavach.organizations.addMember({
+  organizationId: org.data!.id,
+  userId: otherUserId,
+  role: 'member',
+});
+```
+
+Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in Kavach. If you have code reading `orgMembership.role`, search for `org:` and strip the prefix.
+
+## OAuth providers
+
+Clerk configures OAuth providers in its dashboard. KavachOS does it in code. Side by side for GitHub and Google:
+
+```ts
+// BEFORE (Clerk dashboard)
+// No code. Configure providers in the Clerk dashboard, set your OAuth app
+// redirect URI to https://<your-clerk-frontend-api>.clerk.accounts.dev/v1/oauth_callback/<provider>
+```
+
+```ts
+// AFTER (KavachOS)
+import { createKavach } from 'kavachos';
+import { oauth } from 'kavachos/auth';
+
+export const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACHOS_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!,
+  plugins: [
+    oauth({
+      providers: [
+        {
+          id: 'github',
+          clientId: process.env.GITHUB_CLIENT_ID!,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        },
+        {
+          id: 'google',
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+Update each OAuth app in the provider's console: change the callback URL from `https://<your-clerk>.clerk.accounts.dev/v1/oauth_callback/<provider>` to `https://<your-domain>/api/auth/oauth/<provider>/callback`. Do this before cutover so the first sign-in after the switch works.
+
+## Data migration
+
+Clerk's data lives in Clerk's cloud. You export it, then import it. Clerk exposes a Backend API and an SDK. Pagination caps at 500 per page.
+
+### Step 1: export users from Clerk
+
+```ts
+// scripts/export-clerk-users.ts
+import { clerkClient } from '@clerk/backend';
+import { writeFileSync } from 'node:fs';
+
+const clerk = clerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+
+const out: unknown[] = [];
+let offset = 0;
+const limit = 500;
+
+while (true) {
+  const { data } = await clerk.users.getUserList({ limit, offset });
+  if (!data.length) break;
+  out.push(...data);
+  offset += data.length;
+  if (data.length < limit) break;
+}
+
+writeFileSync('./clerk-users.json', JSON.stringify(out, null, 2));
+console.log(`exported ${out.length} users`);
+```
+
+### Step 2: import into the Kavach tables
+
+Kavach uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through password reset or their next sign-in (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth and passkey sign-ins work immediately.
+
+```sql
+-- Users. Run after you have loaded clerk-users.json into a staging table
+-- called clerk_user_import with the fields below.
+INSERT INTO kavach_user (
+  id, email, name, email_verified, image, created_at, updated_at
+)
+SELECT
+  id,                                      -- keep Clerk's id so foreign keys survive
+  (email_addresses->0->>'email_address'),
+  COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''),
+  (email_addresses->0->>'verification'->>'status') = 'verified',
+  image_url,
+  to_timestamp(created_at / 1000),
+  to_timestamp(updated_at / 1000)
+FROM clerk_user_import
+ON CONFLICT (id) DO NOTHING;
+
+-- External OAuth connections, one row per provider link.
+INSERT INTO kavach_account (
+  id, user_id, provider_id, provider_account_id,
+  access_token, refresh_token, created_at, updated_at
+)
+SELECT
+  gen_random_uuid(),
+  u.id,
+  e.value->>'provider',
+  e.value->>'provider_user_id',
+  NULL,                                    -- Clerk does not export OAuth tokens
+  NULL,
+  to_timestamp(u.created_at / 1000),
+  to_timestamp(u.updated_at / 1000)
+FROM clerk_user_import u,
+     jsonb_array_elements(u.external_accounts) e;
+```
+
+<Warning>
+Clerk exports historical metadata, not live OAuth tokens. Users will re-authorise the provider the first time they sign in after migration; the refresh token will be fetched fresh. If you rely on the access token for third-party API calls, plan for a grace period where those calls fail until users sign in.
+</Warning>
+
+### Next sign-in rehash
+
+If you want password sign-in to keep working without a forced reset, accept Clerk bcrypt hashes during a transition window and rehash to PBKDF2 on successful sign-in. The shape of the hook:
+
+```ts
+import { createKavach } from 'kavachos';
+import { compare as bcryptCompare } from 'bcrypt';
+
+export const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACHOS_SECRET!,
+  baseUrl: process.env.AUTH_BASE_URL!,
+  emailAndPassword: {
+    enabled: true,
+    verifyLegacyHash: async ({ storedHash, password }) => {
+      if (!storedHash.startsWith('$2')) return false;
+      return bcryptCompare(password, storedHash);
+    },
+  },
+});
+```
+
+On a successful legacy verify, Kavach rehashes the password with PBKDF2 and overwrites the stored value. After 30 to 60 days, drop the `verifyLegacyHash` hook and force password reset for any stragglers.
+
+## Session cookies
+
+Clerk sets the `__session` cookie signed by Clerk's keys. KavachOS cannot read those cookies without calling Clerk. That means one of two things:
+
+1. **Hard cutover.** All signed-in users sign in once on the KavachOS flow. Simpler. Set an expectation with a banner for a few days.
+2. **Side-by-side with a rollout flag.** Keep Clerk running for a percentage of traffic while KavachOS takes the rest. Each user picks one stack until you flip them to 100% KavachOS. Sample middleware below.
+
+Unlike a library-to-library migration, there is no cookie adapter that verifies Clerk tokens locally. Clerk session tokens require round-trips to Clerk's backend.
+
+## Rollback
+
+Keep Clerk wired up on a different subdomain while you roll out.
+
+```ts
+// middleware.ts (Next.js)
+import { NextRequest, NextResponse } from 'next/server';
+
+export function middleware(req: NextRequest) {
+  const userHint = req.cookies.get('migration_cohort')?.value ?? '';
+  const onKavach = userHint === 'kavach' || hashBucket(userHint) < Number(process.env.KAVACHOS_ROLLOUT ?? '0');
+
+  if (onKavach) {
+    return NextResponse.next();
+  }
+
+  // Redirect to the Clerk subdomain, preserving the path.
+  const url = new URL(req.nextUrl.pathname + req.nextUrl.search, 'https://legacy.example.com');
+  return NextResponse.redirect(url);
+}
+
+function hashBucket(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 100;
+}
+```
+
+Start at `KAVACHOS_ROLLOUT=10`, watch error rates and sign-in conversions, raise to 100 over a week or two. Cut the Clerk app once traffic is zero.
+
+## FAQ
+
+**Will my users be signed out on cutover day?**
+Yes, unless you run a side-by-side rollout. Clerk session cookies cannot be verified without Clerk, so KavachOS cannot accept them. A one-time sign-in is the simplest story. Tell users ahead of time and keep the old subdomain alive as a fallback.
+
+**Do OAuth tokens survive the migration?**
+No. Clerk does not export live OAuth access or refresh tokens. Users re-authorise the provider on first sign-in after migration. If your app calls provider APIs using those tokens, plan for a grace period.
+
+**Does KavachOS have an equivalent of Clerk's Organizations UI?**
+Not hosted. The `organization` plugin has the same model (organization, membership, role). You build the UI. The [example app](https://github.com/kavachos/kavachos/tree/main/packages/create-kavachos-app/templates/next-saas) has a minimal organization page to copy.
+
+**What about Clerk's waitlist, age gate, or impersonation features?**
+- Waitlist: not in KavachOS core. Gate sign-up in your own route handler.
+- Age gate: use the `additionalFields` config to collect DOB and enforce in middleware.
+- Impersonation with TTL: the `admin` plugin ships this.
+
+**Will my Clerk webhooks still fire?**
+No. Clerk webhooks are driven by Clerk's internal events. KavachOS emits events from your own database via the event system (see [events](/events)). If you used Clerk webhooks to sync users to Stripe, port that to a Kavach event hook that runs in your process.
+
+**I use Clerk's JWT templates. What replaces them?**
+The `jwt` plugin exposes a `customClaims` callback that runs at token issuance. It receives the session and returns any extra claims you want in the JWT.
+
+**Can I keep Clerk for B2B and use KavachOS for B2C in the same app?**
+Technically yes, but you will spend more time on the boundary than on the migration itself. Pick one.

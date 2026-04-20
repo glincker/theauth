@@ -1,0 +1,112 @@
+---
+title: Cookie options
+description: How KavachOS sets session cookies, how to customize them, and the defaults for cross-subdomain and cross-origin setups.
+icon: cookie-bite
+---
+
+KavachOS only sets cookies when you use its human-auth plugins. If Clerk, Auth.js, or better-auth runs your sign-in, Kavach is cookie-free, it authenticates agents with bearer tokens instead.
+
+## Defaults
+
+| Attribute | Value |
+|---|---|
+| Name | `kavach_session` |
+| `HttpOnly` | `true` |
+| `Secure` | inferred from `baseUrl` scheme |
+| `SameSite` | `Lax` |
+| `Path` | `/` |
+| `Domain` | unset (host-only) |
+| `Max-Age` | 30 days, rolling |
+
+`Secure` is `true` whenever your `baseUrl` starts with `https://`. For local `http://localhost` it is `false` so the cookie survives a dev session. This is the most common source of "cookie missing in production" bug reports, so Kavach flips it automatically.
+
+## Overriding
+
+```ts
+const kavach = await createKavach({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  secret: process.env.KAVACHOS_SECRET!,
+  baseUrl: 'https://auth.example.com',
+  cookies: {
+    name: 'myapp_session',
+    sameSite: 'strict',
+    domain: '.example.com',
+    maxAge: 60 * 60 * 24 * 7,   // seconds; seven days
+  },
+});
+```
+
+<Warning>
+Changing the cookie name on a live app signs every user out on the next request. Do it during a planned migration window or ship a middleware that reads both names for a transition period.
+</Warning>
+
+## Cross-subdomain
+
+Share sessions across `app.example.com` and `auth.example.com` by setting a leading-dot domain.
+
+```ts
+cookies: {
+  domain: '.example.com',
+  sameSite: 'lax',     // required for top-level nav; 'strict' would break redirects
+}
+```
+
+<Info>
+A leading dot is the shape browsers accept even if the spec no longer requires it. It is still the interoperable choice across every browser that matters.
+</Info>
+
+## Cross-origin (different registrable domains)
+
+If your auth server and your app live on different registrable domains (`auth.example.com` and `app.example.org`), cookies are not enough. Use the [JWT session](/jwt-sessions) path instead. Cookies do not cross registrable domains under any `SameSite` mode that browsers accept in 2026.
+
+## Rolling vs absolute expiry
+
+By default, the cookie's `Max-Age` resets on every authenticated request. A user signed in thirty days ago but still active stays signed in. Flip to absolute expiry to force a re-auth on a schedule:
+
+```ts
+cookies: {
+  maxAge: 60 * 60 * 24 * 7,
+  rolling: false,          // expire seven days after sign-in, regardless of activity
+}
+```
+
+Absolute expiry pairs with high-trust-tier policies. See [Trust scoring](/trust).
+
+## Reading the cookie yourself
+
+Most code never needs to. Use `kavach.auth.getSession({ request })` and let Kavach handle it. If you do want the raw string (for a custom route that bypasses the SDK), the cookie value is the opaque session token; hand it back to `kavach.auth.verifySession(token)` to get the user.
+
+```ts
+import { getKavach } from '@/lib/kavach';
+
+export async function GET(req: Request) {
+  const kavach = await getKavach();
+  const result = await kavach.auth.getSession({ request: req });
+
+  if (!result.success || !result.data) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  return Response.json({ userId: result.data.userId });
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="Cookie missing in production, present in dev" icon="bug">
+Your `baseUrl` probably still points at `http://...` in production. Kavach sets `Secure: true` when the scheme is `https`, and browsers drop `Secure` cookies sent over plain HTTP. Set `baseUrl` to `https://your-domain.com`.
+</Accordion>
+
+<Accordion title="Cookie missing on a subdomain" icon="bug">
+Default cookies are host-only. Set `cookies.domain: '.your-domain.com'` (with the leading dot) and re-sign the user in, or issue the cookie from the top-level domain.
+</Accordion>
+
+<Accordion title="User signed out after every deploy" icon="bug">
+You are probably changing the `secret`. The cookie value is signed with it; a new secret invalidates existing cookies. Keep `secret` stable across deploys, or pass an array (`secret: [current, previous]`) during a rotation window.
+</Accordion>
+
+<Accordion title="SameSite=Lax rejected by a mobile webview" icon="bug">
+Some older mobile webviews treat `Lax` inconsistently across top-level POSTs. Drop to `SameSite: 'none'; Secure: true` and make sure you are on HTTPS.
+</Accordion>
+</AccordionGroup>

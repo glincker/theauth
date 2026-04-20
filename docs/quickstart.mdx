@@ -4,6 +4,26 @@ description: Get KavachOS running in five minutes.
 icon: rocket
 ---
 
+<Columns cols={2}>
+<div>
+Two paths. Pick whichever fits your day.
+
+<CardGroup cols={1}>
+  <Card title="Start from a template" icon="wand-magic-sparkles" href="#start-from-a-template">
+    One command, a running Next.js SaaS, KavachOS wired up.
+  </Card>
+  <Card title="Add to an existing app" icon="screwdriver-wrench" href="#your-first-agent">
+    Install, create, authorize, audit. Six steps.
+  </Card>
+</CardGroup>
+</div>
+
+```bash
+pnpm create kavachos-app my-app
+cd my-app && pnpm install && pnpm db:push && pnpm dev
+```
+</Columns>
+
 ## Start from a template
 
 The fastest path is the scaffolder. One command, three prompts, a running Next.js SaaS with KavachOS wired up.
@@ -224,7 +244,9 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 
 ## Full working example
 
-A self-contained script covering agent creation, authorization by ID and token, token rotation, delegation, and audit export.
+<Expandable title="Self-contained script: create, authorize, rotate, delegate, export">
+
+Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
 import { createKavach } from 'kavachos';
@@ -293,6 +315,8 @@ console.log(perms);
 // Export the full audit trail
 const csv = await kavach.audit.export({ format: 'csv' });
 ```
+
+</Expandable>
 
 ## Cloudflare Workers
 
@@ -368,22 +392,22 @@ The React hooks store sessions in `localStorage`. Make sure your app is wrapped 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Permission engine" href="/permissions">
-  Wildcards, rate limits, time windows, IP allowlists, and approval gates.
-</Card>
-  <Card title="Delegation chains" href="/delegation">
-  Sub-agent delegation with depth limits and cascading revocation.
-</Card>
-  <Card title="MCP OAuth 2.1" href="/mcp">
-  Set up the authorization server for MCP tool servers.
-</Card>
-  <Card title="Framework adapters" href="/adapters">
-  Drop-in middleware for Hono, Express, Next.js, and 4 more.
-</Card>
-  <Card title="Auth adapters" href="/auth-adapters">
-  Plug into better-auth, Auth.js, Clerk, or bring your own.
-</Card>
-  <Card title="Configuration" href="/configuration">
-  All createKavach() options and environment patterns.
-</Card>
+  <Card title="Permission engine" icon="shield-halved" href="/permissions">
+    Wildcards, rate limits, time windows, IP allowlists, approval gates.
+  </Card>
+  <Card title="Delegation chains" icon="link" href="/delegation">
+    Sub-agent delegation with depth limits and cascading revocation.
+  </Card>
+  <Card title="MCP OAuth 2.1" icon="globe" href="/mcp">
+    Set up the authorization server for MCP tool servers.
+  </Card>
+  <Card title="Framework adapters" icon="puzzle-piece" href="/adapters">
+    Drop-in middleware for ten frameworks.
+  </Card>
+  <Card title="Coming from another library" icon="arrow-right-arrow-left" href="/migrate">
+    Migration guides from better-auth and Clerk.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    All `createKavach()` options and environment patterns.
+  </Card>
 </CardGroup>

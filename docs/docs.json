@@ -21,9 +21,6 @@
     "dark": "/logo/wordmark-dark.svg",
     "href": "https://kavachos.com"
   },
-  "styling": {
-    "codeblocks": "system"
-  },
   "fonts": {
     "heading": { "family": "Inter" },
     "body": { "family": "Inter" }
@@ -32,21 +29,51 @@
     "default": "dark",
     "strict": false
   },
+  "metadata": {
+    "timestamp": true
+  },
+  "search": {
+    "prompt": "Search docs, agents, or standards"
+  },
+  "interaction": {
+    "drilldown": true
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "mcp"
+    ]
+  },
+  "banner": {
+    "content": "KavachOS v0.4.2 is out. [Install](/quickstart) or [star on GitHub](https://github.com/kavachos/kavachos).",
+    "dismissible": true
+  },
+  "errors": {
+    "404": {
+      "title": "Page not found",
+      "description": "This page moved or never existed. Head to the [quickstart](/quickstart) or search above.",
+      "redirect": false
+    }
+  },
   "navbar": {
     "links": [
-      { "label": "Site", "href": "https://kavachos.com" },
-      { "label": "GitHub", "href": "https://github.com/kavachos/kavachos" }
+      { "label": "Changelog", "icon": "clock-rotate-left", "href": "https://github.com/kavachos/kavachos/releases" },
+      { "label": "GitHub", "icon": "github", "href": "https://github.com/kavachos/kavachos" }
     ],
     "primary": {
       "type": "button",
-      "label": "Get started",
+      "label": "npm i kavachos",
       "href": "/quickstart"
     }
   },
   "footer": {
     "socials": {
       "github": "https://github.com/kavachos/kavachos",
-      "x": "https://x.com/thedsks",
+      "x": "https://x.com/thegdsks",
       "website": "https://kavachos.com"
     }
   },
@@ -64,14 +91,19 @@
         "icon": "rocket",
         "groups": [
           {
-            "group": "Introduction",
-            "icon": "compass",
-            "pages": ["index", "quickstart", "configuration", "database"]
+            "group": "Start here",
+            "icon": "flag",
+            "pages": ["index", "concepts", "quickstart"]
+          },
+          {
+            "group": "Setup",
+            "icon": "wrench",
+            "pages": ["add-to-existing-app", "configuration", "database"]
           },
           {
             "group": "Sessions",
-            "icon": "clock",
-            "pages": ["sessions", "jwt-sessions", "one-time-tokens"]
+            "icon": "stopwatch",
+            "pages": ["sessions", "jwt-sessions", "cookies", "one-time-tokens"]
           }
         ]
       },
@@ -88,19 +120,33 @@
             "group": "Methods",
             "icon": "door-open",
             "pages": [
-              "auth/email-password",
-              "auth/username",
-              "auth/magic-link",
-              "auth/email-otp",
-              "auth/phone",
-              "auth/passkey",
-              "auth/siwe",
-              "auth/device",
-              "auth/two-factor",
-              "auth/anonymous",
-              "auth/one-tap",
-              "auth/captcha",
-              "auth/oauth-proxy"
+              {
+                "group": "Password",
+                "icon": "key",
+                "pages": ["auth/email-password", "auth/username"]
+              },
+              {
+                "group": "Passwordless",
+                "icon": "wand-magic-sparkles",
+                "pages": [
+                  "auth/magic-link",
+                  "auth/email-otp",
+                  "auth/phone",
+                  "auth/passkey",
+                  "auth/siwe",
+                  "auth/device"
+                ]
+              },
+              {
+                "group": "MFA and anti-abuse",
+                "icon": "shield-check",
+                "pages": ["auth/two-factor", "auth/captcha"]
+              },
+              {
+                "group": "Other",
+                "icon": "ellipsis",
+                "pages": ["auth/anonymous", "auth/one-tap", "auth/oauth-proxy"]
+              }
             ]
           },
           {
@@ -108,44 +154,80 @@
             "icon": "plug",
             "pages": [
               "auth/oauth",
-              "auth/google",
-              "auth/github",
-              "auth/apple",
-              "auth/microsoft",
-              "auth/discord",
-              "auth/slack",
-              "auth/gitlab",
-              "auth/linkedin",
-              "auth/facebook",
-              "auth/spotify",
-              "auth/twitch",
-              "auth/reddit",
-              "auth/notion",
-              "auth/twitter",
-              "auth/figma",
-              "auth/dropbox",
-              "auth/zoom",
-              "auth/atlassian",
-              "auth/tiktok",
-              "auth/paypal",
-              "auth/salesforce",
-              "auth/vk",
-              "auth/kakao",
-              "auth/naver",
-              "auth/huggingface",
-              "auth/roblox",
-              "auth/vercel",
-              "auth/linear",
-              "auth/railway",
-              "auth/kick",
-              "auth/wechat",
-              "auth/polar",
-              "auth/line",
-              "auth/auth0",
-              "auth/okta",
-              "auth/yahoo",
-              "auth/bitbucket",
-              "auth/coinbase"
+              {
+                "group": "Popular",
+                "icon": "star",
+                "pages": [
+                  "auth/google",
+                  "auth/github",
+                  "auth/apple",
+                  "auth/microsoft",
+                  "auth/discord",
+                  "auth/slack",
+                  "auth/linkedin"
+                ]
+              },
+              {
+                "group": "Social",
+                "icon": "users",
+                "pages": [
+                  "auth/facebook",
+                  "auth/spotify",
+                  "auth/twitch",
+                  "auth/reddit",
+                  "auth/twitter",
+                  "auth/tiktok",
+                  "auth/kakao",
+                  "auth/naver",
+                  "auth/vk",
+                  "auth/line",
+                  "auth/wechat",
+                  "auth/kick",
+                  "auth/roblox"
+                ]
+              },
+              {
+                "group": "Work and productivity",
+                "icon": "briefcase",
+                "pages": [
+                  "auth/notion",
+                  "auth/figma",
+                  "auth/dropbox",
+                  "auth/zoom",
+                  "auth/atlassian",
+                  "auth/linear",
+                  "auth/gitlab",
+                  "auth/bitbucket",
+                  "auth/salesforce"
+                ]
+              },
+              {
+                "group": "Developer platforms",
+                "icon": "cloud",
+                "pages": [
+                  "auth/vercel",
+                  "auth/railway",
+                  "auth/huggingface"
+                ]
+              },
+              {
+                "group": "Payments and crypto",
+                "icon": "wallet",
+                "pages": [
+                  "auth/paypal",
+                  "auth/coinbase",
+                  "auth/polar"
+                ]
+              },
+              {
+                "group": "Enterprise IdPs",
+                "icon": "building-shield",
+                "pages": [
+                  "auth/auth0",
+                  "auth/okta",
+                  "auth/yahoo"
+                ]
+              }
             ]
           },
           {
@@ -209,16 +291,28 @@
             "icon": "puzzle-piece",
             "pages": [
               "adapters/index",
-              "adapters/hono",
-              "adapters/express",
-              "adapters/nextjs",
-              "adapters/nestjs",
-              "adapters/fastify",
-              "adapters/nuxt",
-              "adapters/sveltekit",
-              "adapters/solidstart",
-              "adapters/tanstack",
-              "adapters/astro"
+              {
+                "group": "Server frameworks",
+                "icon": "server",
+                "pages": [
+                  "adapters/hono",
+                  "adapters/express",
+                  "adapters/fastify",
+                  "adapters/nestjs"
+                ]
+              },
+              {
+                "group": "Meta-frameworks",
+                "icon": "window-restore",
+                "pages": [
+                  "adapters/nextjs",
+                  "adapters/nuxt",
+                  "adapters/sveltekit",
+                  "adapters/solidstart",
+                  "adapters/tanstack",
+                  "adapters/astro"
+                ]
+              }
             ]
           },
           {
@@ -285,7 +379,8 @@
             "icon": "arrow-right-arrow-left",
             "pages": [
               "migrate/index",
-              "migrate/from-better-auth"
+              "migrate/from-better-auth",
+              "migrate/from-clerk"
             ]
           }
         ]
@@ -303,7 +398,7 @@
       },
       {
         "tab": "Compare",
-        "icon": "scale-balanced",
+        "icon": "code-compare",
         "groups": [
           {
             "group": "Comparisons",
