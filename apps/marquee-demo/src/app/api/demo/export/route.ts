@@ -45,7 +45,7 @@ function buildSignedExport(
 			"https://kavachos.com/contexts/audit/v1",
 		],
 		type: "KavachOSAuditCredential",
-		issuer: "https://demo.kavachos.com",
+		issuer: "https://kavachos.com",
 		issuanceDate: now,
 		credentialSubject: {
 			agentId,
