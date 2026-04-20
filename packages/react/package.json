@@ -32,8 +32,8 @@
   },
   "devDependencies": {
     "@types/react-dom": "^19.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "jsdom": "^29.0.1",
     "@types/react": "^19.0.0",
     "vitest": "^3.0.0",
