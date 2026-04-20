@@ -19,7 +19,7 @@ You'll be asked for a project directory, a template, and a database driver. The 
 | Template | Status | Stack |
 | --- | --- | --- |
 | `next-saas` | available | Next.js App Router · Drizzle · KavachOS auth |
-| `hono-mcp` | coming soon | Hono server · MCP OAuth 2.1 |
+| `hono-mcp` | available | Hono server · MCP OAuth 2.1 |
 | `expo-mobile` | coming soon | Expo Router · React Native |
 
 ## Database drivers

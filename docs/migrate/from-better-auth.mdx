@@ -376,7 +376,7 @@ Set `KAVACHOS_ROLLOUT=10` to start at 10%, then raise it over days as you valida
 No. As of 2026-04 we ship 14 first-class providers. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
-Not yet. A Prisma adapter is on the roadmap. Today KavachOS requires a Drizzle-compatible database connection.
+Yes. Install `@kavachos/prisma` and pass a `PrismaClient` as the database backend. See the [Prisma adapter docs](/docs/prisma) for the setup.
 
 **Do I need to install an MCP plugin?**
 No. MCP OAuth 2.1 is built into KavachOS core. Pass a `mcp` config block to `createKavach` and enable it in your adapter.

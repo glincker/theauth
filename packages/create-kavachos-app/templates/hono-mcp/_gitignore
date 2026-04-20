@@ -1,0 +1,8 @@
+node_modules
+.env
+*.db
+*.db-shm
+*.db-wal
+.turbo
+dist
+drizzle

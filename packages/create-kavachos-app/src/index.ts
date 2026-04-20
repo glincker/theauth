@@ -25,21 +25,21 @@ function printBanner(): void {
 	p.intro(`${bold(green("KavachOS"))} ${green("·")} Auth OS for AI agents`);
 }
 
-function printNextSteps(targetDir: string, pm: PackageManager): void {
+function printNextSteps(targetDir: string, pm: PackageManager, template: Template): void {
 	const rel = targetDir.startsWith(process.cwd())
 		? targetDir.slice(process.cwd().length + 1)
 		: targetDir;
 	const runCmd = pm === "npm" ? "npm run" : pm;
-	p.note(
-		[
-			`cd ${rel}`,
-			`${pm} install`,
-			`cp .env.example .env   # then fill in KAVACHOS_SECRET`,
-			`${runCmd} db:push`,
-			`${runCmd} dev`,
-		].join("\n"),
-		"Next steps",
-	);
+	const steps = [
+		`cd ${rel}`,
+		`${pm} install`,
+		`cp .env.example .env   # then fill in KAVACHOS_SECRET`,
+	];
+	if (template === "next-saas") {
+		steps.push(`${runCmd} db:push`);
+	}
+	steps.push(`${runCmd} dev`);
+	p.note(steps.join("\n"), "Next steps");
 	p.outro(`${bold(green("Done."))} Happy building.`);
 }
 
@@ -70,7 +70,7 @@ export async function main(): Promise<void> {
 						},
 						{
 							value: "hono-mcp",
-							label: `Hono MCP  ${yellow("(coming soon)")}`,
+							label: "Hono MCP",
 							hint: "Hono server · MCP OAuth 2.1",
 						},
 						{
@@ -112,9 +112,9 @@ export async function main(): Promise<void> {
 
 	const template = answers.template as Template;
 
-	if (template === "hono-mcp" || template === "expo-mobile") {
+	if (template === "expo-mobile") {
 		p.note(
-			`The ${bold(template)} template is not ready yet.\nPick ${bold("next-saas")} for now and stay tuned.`,
+			`The ${bold(template)} template is not ready yet.\nPick ${bold("next-saas")} or ${bold("hono-mcp")} for now and stay tuned.`,
 			yellow("Coming soon"),
 		);
 		exit(0);
@@ -138,5 +138,5 @@ export async function main(): Promise<void> {
 		exit(1);
 	}
 
-	printNextSteps(targetDir, pm);
+	printNextSteps(targetDir, pm, template);
 }

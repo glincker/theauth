@@ -193,6 +193,14 @@ export default app;
 | [`@kavachos/solidstart`](https://www.npmjs.com/package/@kavachos/solidstart) | SolidStart | [![npm](https://img.shields.io/npm/v/@kavachos/solidstart?style=flat-square)](https://www.npmjs.com/package/@kavachos/solidstart) |
 | [`@kavachos/tanstack`](https://www.npmjs.com/package/@kavachos/tanstack) | TanStack Start | [![npm](https://img.shields.io/npm/v/@kavachos/tanstack?style=flat-square)](https://www.npmjs.com/package/@kavachos/tanstack) |
 
+### Database adapters
+
+Core ships with SQLite, Postgres, MySQL, and Cloudflare D1 providers built in. Use the Prisma adapter when your app already owns a PrismaClient and you want KavachOS to share the same connection.
+
+| Package | What it does | |
+| --- | --- | --- |
+| [`@kavachos/prisma`](https://www.npmjs.com/package/@kavachos/prisma) | Prisma adapter, pass a PrismaClient as the KavachOS database | [![npm](https://img.shields.io/npm/v/@kavachos/prisma?style=flat-square)](https://www.npmjs.com/package/@kavachos/prisma) |
+
 ---
 
 ## UI components
