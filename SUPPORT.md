@@ -5,8 +5,7 @@ Thanks for using KavachOS.
 ## Where to get help
 
 - Usage questions and integration help:
-  - GitHub Discussions (preferred)
-  - Discord: https://discord.gg/kavachos
+  - GitHub Discussions
 - Bugs and reproducible defects:
   - Open an issue using the bug template
 - Security vulnerabilities:

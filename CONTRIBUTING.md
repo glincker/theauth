@@ -4,7 +4,7 @@ Thanks for contributing. This guide helps you ship changes quickly and safely.
 
 ## Response times
 
-We respond to issues and PRs within 48 hours on weekdays. If you don't hear back, ping the thread or join the Discord — it's usually faster than waiting on email.
+We respond to issues and PRs within 48 hours on weekdays. If you don't hear back, ping the thread or open a discussion. Threads tend to move faster than email.
 
 ## Code of conduct
 
@@ -67,7 +67,7 @@ Choose bump type carefully:
 - `minor`: backward-compatible features
 - `major`: breaking changes
 
-For coordinated release waves across multiple packages, ask in the Discord or open a discussion before bumping — the maintainer will help line up the changesets so the release graph stays clean.
+For coordinated release waves across multiple packages, open a discussion before bumping. The maintainer will help line up the changesets so the release graph stays clean.
 
 ## Pull request checklist
 
@@ -91,6 +91,6 @@ Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`
 ## Reporting issues and support
 
 - Bug reports and feature requests: GitHub issue templates
-- Questions: GitHub Discussions or Discord
+- Questions: GitHub Discussions
 - Security issues: follow [SECURITY.md](SECURITY.md)
 - Support channels: [SUPPORT.md](SUPPORT.md)

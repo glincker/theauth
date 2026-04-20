@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://kavachos.com/logo.svg" height="80" alt="KavachOS — authentication and authorization for AI agents and humans" />
+  <img src="https://kavachos.com/logo.svg" height="80" alt="KavachOS: authentication and authorization for AI agents and humans" />
 </p>
 
 <h1 align="center">KavachOS</h1>
@@ -22,7 +22,7 @@
   <a href="https://docs.kavachos.com/docs/quickstart">Quickstart</a> ·
   <a href="https://docs.kavachos.com/docs">Documentation</a> ·
   <a href="https://github.com/kavachos/kavachos/tree/main/examples">Examples</a> ·
-  <a href="https://discord.gg/kavachos">Discord</a> ·
+  <a href="https://github.com/kavachos/kavachos/discussions">Discussions</a> ·
   <a href="https://app.kavachos.com">KavachOS Cloud</a>
 </p>
 
@@ -36,7 +36,7 @@ Most auth libraries stop at human sign-in. That leaves you stitching together se
 
 Ask yourself about the auth library you're using or evaluating:
 
-- Does it model AI agents as first-class identities, with their own scoped permissions and an audit trail you can export — not just human users with API keys?
+- Does it model AI agents as first-class identities, with their own scoped permissions and an audit trail you can export, not just human users with API keys?
 - Does it ship an MCP OAuth 2.1 authorization server that complies with the published RFC stack (9728, 8707, 8414, 7591), so your agents can talk to MCP servers without you writing the spec?
 - Does it run on Cloudflare Workers, Bun, and Deno without Node-only APIs in the core?
 - Does it give you delegation chains with depth limits, budget policies per agent, and CIBA-style approval flows for sensitive tool calls?
