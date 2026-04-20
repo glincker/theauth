@@ -1,0 +1,70 @@
+# Auto-label PRs based on changed paths.
+# Used by .github/workflows/labeler.yml via actions/labeler@v5.
+
+"area:core":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/core/**
+
+"area:adapters":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/adapters/**
+
+"area:client":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/react/**
+          - packages/vue/**
+          - packages/svelte/**
+          - packages/expo/**
+          - packages/electron/**
+          - packages/client/**
+
+"area:dashboard":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/dashboard/**
+
+"area:cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/cli/**
+          - packages/create-kavachos-app/**
+
+"area:plugins":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/plugins/**
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - "**/*.md"
+          - "**/*.mdx"
+
+"area:release":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .changeset/**
+          - .github/workflows/release.yml
+          - .github/workflows/publish.yml
+          - .github/workflows/release-python.yml
+
+"type:test":
+  - changed-files:
+      - all-globs-to-all-files:
+          - "**/*.test.ts"
+          - "**/*.spec.ts"
+
+"type:chore":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - package.json
+          - pnpm-workspace.yaml
+          - turbo.json
+          - biome.json
+          - tsconfig*.json
+          - .gitignore

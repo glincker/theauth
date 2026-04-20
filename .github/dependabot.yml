@@ -1,0 +1,60 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - type:chore
+      - area:core
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      typescript-tooling:
+        patterns:
+          - "typescript"
+          - "@types/*"
+          - "tsup"
+          - "tsx"
+      eslint-biome:
+        patterns:
+          - "biome"
+          - "@biomejs/*"
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      next:
+        patterns:
+          - "next"
+          - "@next/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - type:chore
+      - area:release
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"

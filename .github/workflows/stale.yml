@@ -1,0 +1,40 @@
+name: Close inactive issues and PRs
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-issue-stale: 45
+          days-before-issue-close: 14
+          stale-issue-label: state:stale
+          exempt-issue-labels: "priority:P0,priority:P1,type:security,state:blocked,good-first-issue,help-wanted"
+          stale-issue-message: >
+            This issue has been quiet for 45 days. It will close in 14 days
+            unless there's new activity. Drop a comment if it's still relevant
+            and we'll keep it open.
+          close-issue-message: >
+            Closing for inactivity. Reopen any time if this is still a problem
+            for you — context is welcome.
+          days-before-pr-stale: 60
+          days-before-pr-close: 21
+          stale-pr-label: state:stale
+          exempt-pr-labels: "state:blocked,state:in-progress"
+          stale-pr-message: >
+            This PR has been quiet for 60 days. It will close in 21 days unless
+            there's an update. Push a commit or comment if you'd like to keep
+            it open.
+          close-pr-message: >
+            Closing for inactivity. Reopen any time if you'd like to continue.
+          operations-per-run: 60
