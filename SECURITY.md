@@ -14,7 +14,7 @@ KavachOS takes security seriously. If you discover a security vulnerability, ple
 
 ### How to report
 
-Email **security@kavachos.com** with:
+Email **support@glincker.com** with:
 
 1. Description of the vulnerability
 2. Steps to reproduce

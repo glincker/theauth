@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "TypeScript client for the KavachOS REST API",
   "license": "MIT",
-  "author": "KavachOS <hello@kavachos.com>",
+  "author": "KavachOS <support@glincker.com>",
   "repository": {
     "type": "git",
     "url": "https://github.com/kavachos/kavachos.git",

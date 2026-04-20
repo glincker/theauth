@@ -108,7 +108,7 @@ See the main [kavachos repository](https://github.com/kavachos/kavachos) for imp
 
 ## Security
 
-For security vulnerabilities, email security@kavachos.com with reproduction steps and impact assessment. See [SECURITY.md](https://github.com/kavachos/kavachos/blob/main/SECURITY.md) for details.
+For security vulnerabilities, email support@glincker.com with reproduction steps and impact assessment. See [SECURITY.md](https://github.com/kavachos/kavachos/blob/main/SECURITY.md) for details.
 
 ## License
 
