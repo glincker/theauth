@@ -71,6 +71,10 @@ Works on Cloudflare Workers, Deno, and Bun without code changes. Three runtime d
 
 Rate limiting per agent and per IP, HIBP password breach checking, CSRF protection, httpOnly secure cookies, email enumeration prevention, trusted device windows, signed expiring reset tokens, session freshness enforcement.
 
+### Performance
+
+The policy engine hits 2.6M warm-cache evals/sec with a p99 of 500ns. Cold paths stay under 0.3ms p99 on direct permissions, RBAC role expansion, and ReBAC graph lookups. Numbers from `pnpm bench` on the `policy-engine` suite in `packages/core/bench/`, reproducible locally.
+
 ---
 
 ## Install
@@ -291,6 +295,10 @@ All plans include MCP OAuth 2.1, agent identity, delegation, trust scoring, and 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+<a href="https://github.com/kavachos/kavachos/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kavachos/kavachos" alt="Contributors to the KavachOS repository" />
+</a>
 
 ## Support
 
