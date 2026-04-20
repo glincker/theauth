@@ -1,11 +1,5 @@
 <p align="center">
-  <a href="https://kavachos.com">
-    <img src="https://kavachos.com/og.jpg" alt="KavachOS, auth for AI agents and humans" width="100%" />
-  </a>
-</p>
-
-<p align="center">
-  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS logo" />
+  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS" />
 </p>
 
 <h1 align="center">KavachOS</h1>
@@ -30,6 +24,12 @@
   <a href="https://github.com/kavachos/kavachos/tree/main/examples">Examples</a> ·
   <a href="https://github.com/kavachos/kavachos/discussions">Discussions</a> ·
   <a href="https://app.kavachos.com">KavachOS Cloud</a>
+</p>
+
+<p align="center">
+  <a href="https://kavachos.com">
+    <img src="https://kavachos.com/kavachos-og-img.png" alt="KavachOS, auth OS for AI agents and humans" width="960" />
+  </a>
 </p>
 
 ---
