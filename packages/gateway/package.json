@@ -51,7 +51,7 @@
     "@types/micromatch": "^4.0.9",
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",
-    "vitest": "^3.0.0",
+    "vitest": "^4.1.4",
     "zod": "^3.24.0"
   }
 }
