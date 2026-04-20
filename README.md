@@ -1,5 +1,11 @@
 <p align="center">
-  <img src="https://kavachos.com/logo.svg" height="80" alt="KavachOS: authentication and authorization for AI agents and humans" />
+  <a href="https://kavachos.com">
+    <img src="https://kavachos.com/og.jpg" alt="KavachOS, auth for AI agents and humans" width="100%" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS logo" />
 </p>
 
 <h1 align="center">KavachOS</h1>
@@ -53,7 +59,7 @@ Cryptographic bearer tokens (`kv_...`), wildcard permission matching, delegation
 
 ### OAuth
 
-27+ providers out of the box. Google, GitHub, Apple, Microsoft, Discord, Slack, GitLab, LinkedIn, Twitter/X, Facebook, Spotify, Twitch, Reddit, Notion. There's also a generic OIDC factory if yours isn't listed.
+17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Plus a generic OIDC factory for anything else.
 
 ### MCP OAuth 2.1
 

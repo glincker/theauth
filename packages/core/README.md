@@ -29,7 +29,7 @@
 
 ## Why kavachos?
 
-Every auth library handles human login. None of them handle **AI agent identity**. KavachOS gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 27+ OAuth providers, passkeys, SSO) so you don't need two auth systems.
+Every auth library handles human login. None of them handle **AI agent identity**. KavachOS gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
 npm install kavachos
@@ -100,8 +100,8 @@ const result = await kavach.authorize(agent.id, {
 <tr>
 <td>
 
-### OAuth (27+ providers)
-Google, GitHub, Apple, Microsoft, Discord, Slack, GitLab, LinkedIn, Twitter/X, Facebook, Spotify, Twitch, Reddit, Notion, plus a generic OIDC factory for any provider.
+### OAuth (17 providers)
+Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom, plus a generic OIDC factory for anything else.
 
 </td>
 <td>

@@ -4,7 +4,7 @@ description: Step-by-step guide for moving a better-auth app to KavachOS.
 icon: arrow-right-arrow-left
 ---
 
-better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR compliance exports, or trust scoring per agent, KavachOS is worth the switch. If you need one of the ~23 OAuth providers that better-auth covers but KavachOS does not yet have as first-class (we have 14 plus a generic factory as of 2026-04), or if your existing stack depends on the Prisma adapter (currently on our roadmap), you may want to wait.
+better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR compliance exports, or trust scoring per agent, KavachOS is worth the switch. If you rely on an OAuth provider that better-auth covers but KavachOS does not ship first-class (we have 17 plus a generic OIDC factory as of 2026-04), you may want to wait.
 
 ## Concepts map
 
@@ -372,8 +372,8 @@ Set `KAVACHOS_ROLLOUT=10` to start at 10%, then raise it over days as you valida
 
 ## FAQ
 
-**Does KavachOS support all 37 OAuth providers better-auth has?**
-No. As of 2026-04 we ship 14 first-class providers. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
+**Does KavachOS support all the OAuth providers better-auth has?**
+No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
 Yes. Install `@kavachos/prisma` and pass a `PrismaClient` as the database backend. See the [Prisma adapter docs](/docs/prisma) for the setup.
