@@ -1,6 +1,6 @@
 # @kavachos/electron
 
-Electron integration for KavachOS — secure storage, OAuth windows, and IPC bridge.
+Electron integration for KavachOS: secure storage, OAuth windows, and IPC bridge.
 
 [![npm](https://img.shields.io/npm/v/@kavachos/electron?style=flat-square)](https://www.npmjs.com/package/@kavachos/electron)
 
@@ -44,11 +44,11 @@ const result = await openOAuthWindow({ provider: 'google', redirectUri: 'kavach:
 
 ## Exports
 
-- `ElectronKavachProvider` / `ElectronKavachContext` / `useElectronKavachContext` — renderer-side provider
-- `createElectronStorage` — encrypted keychain-backed storage
-- `createMemoryStorage` — in-memory storage for testing
-- `setupKavachIpc` / `createIpcStorage` / `KAVACH_IPC_CHANNELS` — main-process IPC setup
-- `openOAuthWindow` — opens a managed OAuth popup window
+- `ElectronKavachProvider` / `ElectronKavachContext` / `useElectronKavachContext`: renderer-side provider
+- `createElectronStorage`: encrypted keychain-backed storage
+- `createMemoryStorage`: in-memory storage for testing
+- `setupKavachIpc` / `createIpcStorage` / `KAVACH_IPC_CHANNELS`: main-process IPC setup
+- `openOAuthWindow`: opens a managed OAuth popup window
 
 ## Docs
 

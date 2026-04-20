@@ -1,6 +1,6 @@
 # terraform-provider-kavachos
 
-Terraform provider for [KavachOS](https://kavachos.dev) — manages agent identities, permissions, API keys, and organizations as infrastructure.
+Terraform provider for [KavachOS](https://kavachos.dev). Manages agent identities, permissions, API keys, and organizations as infrastructure.
 
 ## Why IaC for auth
 
@@ -130,7 +130,7 @@ resource "kavachos_agent" "github_reader" {
 
 **Computed attributes**: `token` (sensitive), `status`, `created_at`, `updated_at`.
 
-The `token` attribute is only populated on resource creation. Store it securely — read it with `terraform output -raw <name>` and inject into your agent's environment.
+The `token` attribute is only populated on resource creation. Store it securely, read it with `terraform output -raw <name>`, and inject it into your agent's environment.
 
 **Import**
 

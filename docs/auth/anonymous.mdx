@@ -38,7 +38,7 @@ const res = await fetch('/auth/anonymous', {
 
 const { user, session } = await res.json();
 // user.isAnonymous === true
-// user.id is a real user ID — safe to reference in your DB
+// user.id is a real user ID, safe to reference in your DB
 ```
 
 The response shape is the same as any other sign-in. `user.isAnonymous` is `true` and the `email` and `name` fields are `null`.

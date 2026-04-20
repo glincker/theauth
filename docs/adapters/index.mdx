@@ -20,7 +20,7 @@ const kavach = createKavach({
   baseUrl: 'https://auth.yourapp.com',
 });
 
-const mcp = createMcpModule(kavach); // optional — enables MCP OAuth endpoints
+const mcp = createMcpModule(kavach); // optional, enables MCP OAuth endpoints
 ```
 
 Pass `mcp` to the adapter to enable all MCP OAuth 2.1 endpoints under the same mount path.

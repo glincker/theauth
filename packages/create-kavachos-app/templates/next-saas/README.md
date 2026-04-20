@@ -6,7 +6,7 @@ A Next.js SaaS starter with [KavachOS](https://kavachos.com) auth built in.
 
 - **Next.js 15** with App Router and TypeScript
 - **KavachOS** for agent identity, session management, and auth
-- **Drizzle ORM** with **__DB_DRIVER__** — schema-first, type-safe
+- **Drizzle ORM** with **__DB_DRIVER__**: schema-first, type-safe
 - Sign-in / sign-out flow wired to `/api/auth/[...kavach]`
 - An agents list page at `/agents`
 
@@ -35,12 +35,12 @@ Open [http://localhost:3000](http://localhost:3000).
 ```
 src/
   app/
-    api/auth/[...kavach]/route.ts  — KavachOS HTTP handler
-    agents/page.tsx                — agent list UI
-    layout.tsx                     — KavachProvider wrapper
-    page.tsx                       — home / landing
+    api/auth/[...kavach]/route.ts  : KavachOS HTTP handler
+    agents/page.tsx                : agent list UI
+    layout.tsx                     : KavachProvider wrapper
+    page.tsx                       : home / landing
   lib/
-    kavach.ts                      — singleton KavachOS instance
+    kavach.ts                      : singleton KavachOS instance
 ```
 
 ## Deploying

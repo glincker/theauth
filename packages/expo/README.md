@@ -41,12 +41,12 @@ function HomeScreen() {
 
 ## Exports
 
-- `KavachExpoProvider` — context provider with secure storage support
-- `useSession` — current session and loading state
-- `useUser` — authenticated user object
-- `useSignIn` / `useSignOut` / `useSignUp` — auth actions
-- `useAgents` — manage AI agents for the current user
-- `useKavachContext` — raw context access
+- `KavachExpoProvider`: context provider with secure storage support
+- `useSession`: current session and loading state
+- `useUser`: authenticated user object
+- `useSignIn` / `useSignOut` / `useSignUp`: auth actions
+- `useAgents`: manage AI agents for the current user
+- `useKavachContext`: raw context access
 
 ## Docs
 

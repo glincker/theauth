@@ -44,9 +44,9 @@ const gateway = createGateway(config);
 
 ## Exports
 
-- `createGateway` — creates a gateway instance
-- `loadConfigFile` — loads gateway config from a JSON/YAML file
-- `matchPolicy` — utility to test a request against a policy
+- `createGateway`: creates a gateway instance
+- `loadConfigFile`: loads gateway config from a JSON/YAML file
+- `matchPolicy`: utility to test a request against a policy
 
 ## Docs
 

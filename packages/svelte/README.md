@@ -43,8 +43,8 @@ export const agents = createAgentStore({ client: kavach });
 
 ## Exports
 
-- `createKavachClient` — creates a reactive Svelte store client
-- `createAgentStore` — creates a store for managing AI agents
+- `createKavachClient`: creates a reactive Svelte store client
+- `createAgentStore`: creates a store for managing AI agents
 
 ## Docs
 

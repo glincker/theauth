@@ -1,6 +1,6 @@
 # kavachos
 
-Python SDK for [KavachOS](https://kavachos.dev) — auth OS for AI agents and humans.
+Python SDK for [KavachOS](https://kavachos.dev). Auth OS for AI agents and humans.
 
 [![PyPI](https://img.shields.io/pypi/v/kavachos)](https://pypi.org/project/kavachos/)
 [![Python](https://img.shields.io/pypi/pyversions/kavachos)](https://pypi.org/project/kavachos/)
@@ -275,7 +275,7 @@ from kavachos.errors import (
     AuthenticationError,  # 401
     PermissionError,       # 403
     NotFoundError,         # 404
-    RateLimitError,        # 429 — has .retry_after
+    RateLimitError,        # 429, has .retry_after
     ServerError,           # 5xx
     NetworkError,          # Transport failure
 )

@@ -195,7 +195,7 @@ Use `getPermissionTemplate(name)` when you need a deep copy rather than a refere
 
 ```typescript
 const perms = getPermissionTemplate('mcpBasic');
-perms[0].actions.push('write'); // safe — does not mutate the original
+perms[0].actions.push('write'); // safe, does not mutate the original
 ```
 
 <Warning>

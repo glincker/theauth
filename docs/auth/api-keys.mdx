@@ -28,7 +28,7 @@ const { key, apiKey } = await kavach.apiKeys.create({
   expiresAt: new Date('2026-01-01'),  // optional, falls back to defaultExpiryDays // [!code highlight]
 });
 
-// key = 'kos_a3f8c2e1...' — the full secret, returned once only
+// key = 'kos_a3f8c2e1...', the full secret, returned once only
 // apiKey.id, apiKey.prefix, apiKey.permissions, apiKey.expiresAt
 ```
 
@@ -63,7 +63,7 @@ Rotation revokes the existing key and creates a new one with the same name and p
 
 ```ts
 const { key, apiKey } = await kavach.apiKeys.rotate('key_...');
-// key = new full secret — store it now
+// key = new full secret, store it now
 ```
 
 ## Endpoints

@@ -47,7 +47,7 @@ const agent = await client.agents.create({
   ],
 });
 
-console.log(agent.token); // kv_a3f8c2e1... — save this now
+console.log(agent.token); // kv_a3f8c2e1..., save this now
 
 // List with optional filters
 const active = await client.agents.list({
@@ -69,7 +69,7 @@ const updated = await client.agents.update('agt_abc123', {
 
 // Rotate the token
 const rotated = await client.agents.rotate('agt_abc123');
-console.log(rotated.token); // new token — old one is now invalid
+console.log(rotated.token); // new token, old one is now invalid
 
 // Revoke
 await client.agents.revoke('agt_abc123');
@@ -80,7 +80,7 @@ await client.agents.revoke('agt_abc123');
 Two paths: by agent ID (when you manage the agent directly) or by raw bearer token (when the token comes in from an HTTP request).
 
 ```typescript
-// By agent ID — useful in admin or backend code
+// By agent ID, useful in admin or backend code
 const result = await client.authorize('agt_abc123', {
   action: 'read',
   resource: 'db:reports:monthly',
@@ -91,7 +91,7 @@ if (!result.allowed) {
   console.error(result.reason); // why it was denied
 }
 
-// By bearer token — useful in middleware
+// By bearer token, useful in middleware
 const bearerToken = request.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
 const result = await client.authorizeByToken(bearerToken, {
   action: 'read',
@@ -115,7 +115,7 @@ const chain = await client.delegations.create({
 // List delegations for an agent
 const delegations = await client.delegations.list('agt_parent');
 
-// Effective permissions — union of own + delegated
+// Effective permissions: union of own + delegated
 const effective = await client.delegations.getEffectivePermissions('agt_child');
 
 // Revoke a delegation
