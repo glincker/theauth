@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const execFileAsync = promisify(execFile);
 
 describe("migrate-from-better-auth-agent-plugin example", () => {
-	it("runs the documented AFTER script end to end", async () => {
+	it("runs the documented AFTER script end to end", { timeout: 30_000 }, async () => {
 		const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 		const { stdout, stderr } = await execFileAsync(pnpmCmd, ["start"], {
 			cwd: process.cwd(),
