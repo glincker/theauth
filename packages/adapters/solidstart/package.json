@@ -41,7 +41,7 @@
   "devDependencies": {
     "kavachos": "workspace:*",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.0",
+    "typescript": "^6.0.3",
     "vitest": "^3.0.0",
     "zod": "^3.24.0"
   }
