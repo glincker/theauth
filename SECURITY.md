@@ -26,6 +26,7 @@ Email **security@kavachos.com** with:
 - **Acknowledgment** within 48 hours
 - **Assessment** within 5 business days
 - **Fix timeline** communicated within 10 business days
+- **Public disclosure** within 90 days of confirmation, coordinated with the reporter. If we can't ship a fix in that window, we will still disclose so users can mitigate.
 - **Credit** in the security advisory (unless you prefer anonymity)
 
 ### Scope
