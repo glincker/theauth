@@ -2,6 +2,16 @@
 node_modules/
 .pnpm-store/
 
+# Python virtualenvs and caches (sdks/python)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
 # Build outputs
 dist/
 build/
