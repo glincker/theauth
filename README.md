@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS logo" />
+  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS" />
 </p>
 
 <h1 align="center">KavachOS</h1>
