@@ -47,7 +47,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.0",
     "@types/supertest": "^7.2.0",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.9.0",
     "express": "^5.1.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0",
