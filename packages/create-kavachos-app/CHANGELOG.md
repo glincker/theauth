@@ -1,5 +1,13 @@
 # create-kavachos-app
 
+## 0.2.0
+
+### Minor Changes
+
+- Add the `hono-mcp` template. Scaffolds a Hono server that mounts the KavachOS auth routes and the MCP OAuth 2.1 surface under `/api`, with `/tools/list` and `/tools/call/:name` behind `authorizeByToken` or MCP JWT validation. Complements the existing `next-saas` template with an agent-first starter.
+
+  The `expo-mobile` template stays behind its placeholder.
+
 ## 0.1.0
 
 ### Minor Changes
