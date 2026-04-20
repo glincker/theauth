@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "kavachos": "workspace:*",
-    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/kit": "^2.57.1",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0",
