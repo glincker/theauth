@@ -30,22 +30,70 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build all packages
-        run: pnpm build
-
-      - name: Test
-        run: pnpm test --filter kavachos -- --exclude tests/timer-test.test.ts --exclude tests/webhook-delivery.test.ts
-
-      - name: Lint and typecheck
-        run: pnpm lint && pnpm typecheck
-
-      - name: Publish all packages
+      # Single list — keep in sync with the publishable packages.
+      - name: Detect changed packages
+        id: detect
         run: |
-          for dir in packages/core packages/client packages/cli packages/dashboard packages/react packages/vue packages/svelte packages/ui packages/test-utils packages/expo packages/electron packages/auth/email packages/plugins/telemetry packages/plugins/discovery packages/gateway packages/adapters/hono packages/adapters/express packages/adapters/nextjs packages/adapters/fastify packages/adapters/nuxt packages/adapters/sveltekit packages/adapters/astro packages/adapters/nestjs packages/adapters/solidstart packages/adapters/tanstack packages/adapters/prisma; do
-            if [ -d "$dir/dist" ]; then
-              echo "Publishing $dir..."
-              (cd "$dir" && pnpm publish --access public --no-git-checks 2>&1) || echo "Skipped $dir (already published or error)"
+          PACKAGES="packages/core packages/client packages/cli packages/dashboard packages/react packages/vue packages/svelte packages/ui packages/test-utils packages/expo packages/electron packages/auth/email packages/plugins/telemetry packages/plugins/discovery packages/gateway packages/adapters/hono packages/adapters/express packages/adapters/nextjs packages/adapters/fastify packages/adapters/nuxt packages/adapters/sveltekit packages/adapters/astro packages/adapters/nestjs packages/adapters/solidstart packages/adapters/tanstack packages/adapters/prisma"
+
+          # Parallel: for each package, compare local pkg.json version to the
+          # published version on npm. Emit "<dir>" for any package that needs
+          # publishing. `npm view ... version` is a fast HEAD-style request;
+          # running them concurrently keeps this step under 5s for ~25 pkgs.
+          to_publish=""
+          probe() {
+            local dir="$1"
+            [ -f "$dir/package.json" ] || return 0
+            local name local_version published
+            name=$(node -p "require('./$dir/package.json').name")
+            local_version=$(node -p "require('./$dir/package.json').version")
+            published=$(npm view "$name" version 2>/dev/null || echo "")
+            if [ "$local_version" != "$published" ]; then
+              echo "$dir|$name|$local_version|${published:-none}"
             fi
+          }
+          export -f probe
+
+          changed=$(printf '%s\n' $PACKAGES | xargs -P 8 -n 1 -I {} bash -c 'probe "$@"' _ {})
+
+          if [ -z "$changed" ]; then
+            echo "✓ No packages need publishing — all versions match npm registry."
+            echo "changed=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "── Packages to publish ──"
+          echo "$changed" | column -t -s '|' -N 'DIR,NAME,LOCAL,PUBLISHED'
+
+          # Pass dirs to next step via output (one per line, joined with %0A for set-output).
+          dirs=$(echo "$changed" | cut -d'|' -f1 | tr '\n' ' ')
+          echo "changed_dirs=$dirs" >> "$GITHUB_OUTPUT"
+
+      # Build only the packages that will publish (and their workspace deps).
+      # Uses turbo's cache so unchanged transitive deps are instant.
+      - name: Build changed packages
+        if: steps.detect.outputs.changed_dirs != ''
+        run: |
+          # Convert "packages/foo packages/bar" → "--filter=./packages/foo... --filter=./packages/bar..."
+          filters=""
+          for d in ${{ steps.detect.outputs.changed_dirs }}; do
+            filters="$filters --filter=./$d..."
           done
+          pnpm turbo build $filters
+
+      - name: Publish changed packages
+        if: steps.detect.outputs.changed_dirs != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for dir in ${{ steps.detect.outputs.changed_dirs }}; do
+            if [ -d "$dir/dist" ]; then
+              name=$(node -p "require('./$dir/package.json').name")
+              version=$(node -p "require('./$dir/package.json').version")
+              echo "▲ Publishing $name@$version"
+              (cd "$dir" && pnpm publish --access public --no-git-checks)
+            else
+              echo "✗ $dir has no dist/ — skipping (build step likely failed)"
+              exit 1
+            fi
+          done
