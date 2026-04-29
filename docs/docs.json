@@ -80,8 +80,15 @@
   "seo": {
     "metatags": {
       "og:site_name": "KavachOS",
-      "og:type": "website"
+      "og:type": "website",
+      "og:image": "https://docs.kavachos.com/og-logo.png",
+      "og:image:width": "1200",
+      "og:image:height": "630",
+      "twitter:card": "summary_large_image",
+      "twitter:image": "https://docs.kavachos.com/og-logo.png",
+      "twitter:site": "@thegdsks"
     },
+    "canonical": "https://docs.kavachos.com",
     "indexing": "navigable"
   },
   "navigation": {
