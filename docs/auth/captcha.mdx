@@ -80,3 +80,20 @@ captcha({
 <ParamField path="endpoints" type="string[]" default="[">List of endpoint paths where captcha validation is enforced. Defaults to sign-up and sign-in.</ParamField>
 <ParamField path="minScore" type="number" default={0.5}>Minimum score for reCAPTCHA v3. Ignored for other providers.</ParamField>
 <ParamField path="fieldName" type="string">Request body field that contains the captcha token.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    Sign-up and sign-in endpoints that captcha protection applies to.
+  </Card>
+  <Card title="Anonymous auth" href="/auth/anonymous" icon="user-secret">
+    Guest sessions as an alternative to requiring sign-up upfront.
+  </Card>
+  <Card title="Rate limiting" href="/rate-limiting" icon="gauge">
+    Request-level rate limiting for agent and auth endpoints.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Run custom validation logic before sign-up or sign-in.
+  </Card>
+</CardGroup>

@@ -332,3 +332,20 @@ const db = createPrismaAdapter(prisma);
 The full reference schema is in `node_modules/@kavachos/prisma/src/schema.prisma`. It includes all 30+ KavachOS models with correct column mappings, indexes, and default values.
 
 Every model name follows `KavachPascalCase` and maps to a `kavach_snake_case` table, keeping your Prisma namespace clean and your SQL tables clearly scoped.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Database setup" href="/database" icon="database">
+    Core Drizzle-based database configuration and provider options.
+  </Card>
+  <Card title="Configuration" href="/configuration" icon="sliders">
+    Full createKavach() options including database connection setup.
+  </Card>
+  <Card title="Test utilities" href="/test-utils" icon="code">
+    Test auth-dependent code with in-memory mock factories.
+  </Card>
+  <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
+    Migration guide including notes on the Prisma adapter path.
+  </Card>
+</CardGroup>

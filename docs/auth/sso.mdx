@@ -127,3 +127,20 @@ OIDC discovery is fetched automatically from `issuer/.well-known/openid-configur
 | POST | `/auth/sso/saml/:connectionId/acs` | SAML assertion consumer |
 | GET | `/auth/sso/oidc/:connectionId` | Initiate OIDC login (redirect) |
 | GET | `/auth/sso/oidc/:connectionId/callback` | OIDC callback |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Organizations" href="/auth/organizations" icon="users">
+    SSO connections are scoped to organizations.
+  </Card>
+  <Card title="SCIM" href="/auth/scim" icon="database">
+    Automated user provisioning that pairs with SSO connections.
+  </Card>
+  <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
+    Turn KavachOS into an OIDC identity provider for downstream apps.
+  </Card>
+  <Card title="Admin" href="/auth/admin" icon="gear">
+    User management for enterprise accounts.
+  </Card>
+</CardGroup>

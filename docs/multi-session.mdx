@@ -101,3 +101,20 @@ await fetch('/auth/sessions', {
 <ParamField path="overflow" type="'evict-oldest' | 'reject'" default="'evict-oldest'">What to do when a new sign-in would exceed maxSessions.</ParamField>
 <ParamField path="trackDevice" type="boolean" default="true">Parse and store browser/OS information from the User-Agent header.</ParamField>
 <ParamField path="trackIp" type="boolean" default="true">Store the IP address of the sign-in request.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sessions" href="/sessions" icon="key">
+    Core session model with cookie and JWT session details.
+  </Card>
+  <Card title="Cookie options" href="/cookies" icon="cookie-bite">
+    Cookie attributes and rolling expiry that affect session lifetime.
+  </Card>
+  <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
+    Mark specific devices so 2FA is skipped on subsequent sign-ins.
+  </Card>
+  <Card title="GDPR compliance" href="/gdpr" icon="file-lines">
+    Delete or export all sessions as part of an account deletion request.
+  </Card>
+</CardGroup>

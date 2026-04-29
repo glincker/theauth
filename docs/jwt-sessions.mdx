@@ -80,3 +80,20 @@ await kavach.jwt.revokeAllSessions(userId);
 <Info>
 Access tokens are stateless. Revocation only affects refresh tokens. For immediate access token invalidation, use short TTLs (5-15 minutes).
 </Info>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sessions" href="/sessions" icon="key">
+    Cookie sessions, JWT tokens, and the full session lifecycle.
+  </Card>
+  <Card title="Cookie options" href="/cookies" icon="cookie-bite">
+    Configure cookie attributes for same-domain browser setups.
+  </Card>
+  <Card title="MCP OAuth 2.1" href="/mcp" icon="globe">
+    OAuth 2.1 token issuance for MCP tool server authorization.
+  </Card>
+  <Card title="Standards alignment" href="/standards" icon="book-open">
+    IETF draft claims added to agent JWTs.
+  </Card>
+</CardGroup>

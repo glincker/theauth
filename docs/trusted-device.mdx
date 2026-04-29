@@ -94,3 +94,20 @@ const devices = await trustedDevice.list({ userId: session.userId });
 <ParamField path="secret" type="string" required>Secret used to HMAC-sign device fingerprints. Rotate this to invalidate all trusted devices instantly.</ParamField>
 <ParamField path="trustDuration" type="number" default="2592000 (30 days)">How long a device stays trusted, in seconds.</ParamField>
 <ParamField path="maxDevicesPerUser" type="number" default="10">Maximum number of trusted devices per user. Oldest is evicted when exceeded.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Two-factor auth" href="/auth/two-factor" icon="mobile-screen">
+    TOTP plugin that trusted devices integrate with to skip the 2FA step.
+  </Card>
+  <Card title="Multi-session" href="/multi-session" icon="key">
+    List and revoke active sessions alongside trusted device management.
+  </Card>
+  <Card title="Compliance" href="/compliance" icon="file-lines">
+    Audit infrastructure that records trusted device events.
+  </Card>
+  <Card title="Sessions" href="/sessions" icon="key">
+    Session model that trusted device verification gates into.
+  </Card>
+</CardGroup>

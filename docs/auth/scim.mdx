@@ -91,3 +91,20 @@ SCIM clients use these to learn what your server supports:
 <Warning>
 Rotate `SCIM_TOKEN` immediately if it is exposed. All SCIM endpoints reject requests without a valid `Authorization: Bearer <token>` header.
 </Warning>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Organizations" href="/auth/organizations" icon="users">
+    SCIM groups are mapped to KavachOS organizations.
+  </Card>
+  <Card title="SSO" href="/auth/sso" icon="shield-halved">
+    Enterprise SSO via SAML 2.0 and OIDC, often paired with SCIM.
+  </Card>
+  <Card title="Admin" href="/auth/admin" icon="gear">
+    Manual user management tools alongside automated provisioning.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+</CardGroup>

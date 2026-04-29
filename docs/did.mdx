@@ -175,3 +175,20 @@ const doc = await kavach.did.resolve('did:web:auth.example.com');
 <ParamField path="publicKeyJwk" type="JsonWebKey">Ed25519 public key in JWK format.</ParamField>
 <ParamField path="didDocument" type="DidDocument">The full W3C DID document.</ParamField>
 <ParamField path="createdAt" type="Date">When the DID was generated.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Verifiable credentials" href="/verifiable-credentials" icon="circle-check">
+    Issue W3C Verifiable Credentials backed by agent DIDs.
+  </Card>
+  <Card title="Agent identity federation" href="/federation" icon="network-wired">
+    Cross-service agent authentication using signed federation tokens.
+  </Card>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    Bearer token identity and the agent lifecycle managed by KavachOS.
+  </Card>
+  <Card title="Standards alignment" href="/standards" icon="book-open">
+    IETF draft claims KavachOS emits on agent JWTs.
+  </Card>
+</CardGroup>

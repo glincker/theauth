@@ -166,3 +166,20 @@ if (validation.success) {
 **Single-use enforcement is atomic.** The mark-as-used update runs before the result is returned, with a conditional `WHERE used = false`. Concurrent requests for the same token will fail at the database level.
 
 **Purpose binding prevents cross-flow reuse.** A password-reset token cannot be submitted to an email-verify endpoint.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sessions" href="/sessions" icon="key">
+    Sessions issued after a token validates a sign-in or reset flow.
+  </Card>
+  <Card title="Email templates" href="/email-templates" icon="envelope">
+    Send reset and verification emails with the generated token link.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Lifecycle hooks that fire on password reset and email verification.
+  </Card>
+  <Card title="Error codes" href="/errors" icon="triangle-exclamation">
+    Token error codes with their HTTP status and meaning.
+  </Card>
+</CardGroup>

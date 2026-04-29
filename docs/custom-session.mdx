@@ -110,3 +110,20 @@ interface CustomSessionConfig {
 ## Storage
 
 No migrations required. Custom data is stored in the `metadata` JSON column of `kavach_sessions` under the `custom` key. Existing metadata keys (such as those written by other plugins) are not affected.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sessions" href="/sessions" icon="key">
+    Core session model: cookie sessions, JWT tokens, and lifecycle management.
+  </Card>
+  <Card title="Additional fields" href="/additional-fields" icon="sliders">
+    Attach custom columns to users instead of sessions.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Tap into session lifecycle events with server-side hooks.
+  </Card>
+  <Card title="Cookie options" href="/cookies" icon="cookie-bite">
+    Configure cookie attributes for cross-subdomain and production setups.
+  </Card>
+</CardGroup>

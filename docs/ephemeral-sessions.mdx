@@ -196,3 +196,20 @@ Once a session leaves `active`, it cannot be reactivated. Create a new session f
 | `SESSION_REVOKED` | Manually revoked |
 | `TTL_EXCEEDS_MAX` | Requested TTL is above `maxTtlSeconds` |
 | `VALIDATION_ERROR` | Input failed schema validation (e.g. empty permissions) |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    Long-lived agent identities that ephemeral sessions are built on top of.
+  </Card>
+  <Card title="Delegation" href="/delegation" icon="link">
+    Hand a subset of permissions to a sub-agent with depth limits.
+  </Card>
+  <Card title="Audit trail" href="/audit" icon="scroll">
+    How ephemeral session actions group under a single audit session ID.
+  </Card>
+  <Card title="Sessions" href="/sessions" icon="key">
+    The three session types: cookie, JWT, and ephemeral agent sessions.
+  </Card>
+</CardGroup>

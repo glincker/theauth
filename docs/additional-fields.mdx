@@ -163,3 +163,20 @@ interface AdditionalFieldsConfig {
 ## Storage
 
 No database migrations are needed. User fields are stored under `user.metadata.additionalFields` and session fields under `session.metadata.additionalFields`. Other metadata keys written by the core system or other plugins are not modified.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Run custom logic before and after sign-in, sign-up, and session events.
+  </Card>
+  <Card title="Custom session" href="/custom-session" icon="key">
+    Extend the session object returned to your frontend.
+  </Card>
+  <Card title="Database" href="/database" icon="database">
+    Supported databases and schema overview for KavachOS.
+  </Card>
+  <Card title="Organizations" href="/auth/organizations" icon="users">
+    Multi-tenant support with roles and per-org metadata.
+  </Card>
+</CardGroup>

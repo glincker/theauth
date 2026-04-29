@@ -81,3 +81,20 @@ const hibp = createHibpModule({
 <ParamField path="timeout" type="number" default="3000">Milliseconds to wait for the HIBP API before giving up.</ParamField>
 <ParamField path="failClosed" type="boolean" default="false">Reject the password if HIBP is unreachable instead of passing through.</ParamField>
 <ParamField path="minBreachCount" type="number" default="1">Minimum breach count before a password is considered compromised.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Two-factor auth" href="/auth/two-factor" icon="mobile-screen">
+    Add TOTP as a second layer of protection beyond password quality.
+  </Card>
+  <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
+    Skip 2FA on devices verified after a successful sign-in.
+  </Card>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    The primary auth plugin that integrates with HIBP enforcement.
+  </Card>
+  <Card title="Compliance" href="/compliance" icon="file-lines">
+    Broader security posture including audit and anomaly detection.
+  </Card>
+</CardGroup>

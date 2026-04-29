@@ -90,3 +90,20 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 | `FORBIDDEN` | 403 | The credential is valid but does not have access to this resource. |
 | `NOT_FOUND` | 404 | The requested resource does not exist. |
 | `INTERNAL_ERROR` | 500 | An unexpected error occurred. Check server logs for details. |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="API reference" href="/api" icon="code">
+    Full REST endpoint reference with request and response shapes.
+  </Card>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    Agent creation, rotation, and revocation that produce these error codes.
+  </Card>
+  <Card title="Permissions" href="/permissions" icon="shield-halved">
+    Permission and delegation errors explained in context.
+  </Card>
+  <Card title="Test utilities" href="/test-utils" icon="code">
+    Assert on error codes in unit tests without a real database.
+  </Card>
+</CardGroup>

@@ -308,3 +308,20 @@ app.use("/agents/federated/*", async (req, res, next) => {
 ```
 </Tab>
 </Tabs>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="W3C DID identity" href="/did" icon="fingerprint">
+    Ed25519-backed agent identities that federation tokens are signed with.
+  </Card>
+  <Card title="Verifiable credentials" href="/verifiable-credentials" icon="circle-check">
+    Embed W3C Verifiable Credentials in federation tokens for offline proof.
+  </Card>
+  <Card title="Delegation" href="/delegation" icon="link">
+    Delegate permissions within a single KavachOS instance.
+  </Card>
+  <Card title="Multi-tenant" href="/multi-tenant" icon="building">
+    Isolate tenants within a single instance instead of federating.
+  </Card>
+</CardGroup>

@@ -245,3 +245,20 @@ const rebac = createReBACModule({ maxDepth: 5 }, db);
 | Database | SQLite/Postgres/MySQL | Spanner | CockroachDB/Postgres | Managed |
 
 KavachOS ReBAC is opinionated toward the common hierarchy pattern (org > workspace > project > resource) with sensible defaults. Zanzibar and SpiceDB are more general but require you to write a schema DSL. WorkOS FGA is SaaS-only.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Policy engine" href="/policy-engine" icon="shield-halved">
+    Unified RBAC, ABAC, and ReBAC evaluation behind one evaluate() call.
+  </Card>
+  <Card title="Permissions" href="/permissions" icon="shield-halved">
+    Direct resource-action permissions that complement ReBAC relationships.
+  </Card>
+  <Card title="Delegation" href="/delegation" icon="link">
+    Agent-to-agent permission delegation with depth and expiry.
+  </Card>
+  <Card title="Multi-tenant" href="/multi-tenant" icon="building">
+    Tenant isolation that pairs with org-scoped ReBAC hierarchies.
+  </Card>
+</CardGroup>

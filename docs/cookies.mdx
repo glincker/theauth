@@ -110,3 +110,20 @@ You are probably changing the `secret`. The cookie value is signed with it; a ne
 Some older mobile webviews treat `Lax` inconsistently across top-level POSTs. Drop to `SameSite: 'none'; Secure: true` and make sure you are on HTTPS.
 </Accordion>
 </AccordionGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sessions" href="/sessions" icon="key">
+    Cookie and JWT session management with lifecycle details.
+  </Card>
+  <Card title="JWT sessions" href="/jwt-sessions" icon="key">
+    Stateless access tokens for cross-origin and mobile setups.
+  </Card>
+  <Card title="Multi-session" href="/multi-session" icon="key">
+    Cap concurrent sessions and build an active devices page.
+  </Card>
+  <Card title="Custom session fields" href="/custom-session" icon="sliders">
+    Store application-specific data inside every session.
+  </Card>
+</CardGroup>

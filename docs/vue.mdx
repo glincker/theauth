@@ -122,3 +122,20 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 
 <ParamField path="basePath" type="string" default="'/api/kavach'">Base path where your KavachOS handler is mounted.</ParamField>
 <ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call (e.g. custom headers).</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Nuxt adapter" href="/adapters/nuxt" icon="code">
+    Server-side KavachOS handler for Nuxt server routes and middleware.
+  </Card>
+  <Card title="Svelte" href="/svelte" icon="code">
+    Svelte stores and SvelteKit hooks integration.
+  </Card>
+  <Card title="React" href="/react" icon="react">
+    Hooks and provider component for React and Next.js apps.
+  </Card>
+  <Card title="Client SDK" href="/client-sdk" icon="code">
+    Framework-agnostic fetch client underlying all framework SDKs.
+  </Card>
+</CardGroup>

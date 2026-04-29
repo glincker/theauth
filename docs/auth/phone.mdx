@@ -99,3 +99,20 @@ if (res.ok) {
 <ParamField path="codeLength" type="number" default={6}>Number of digits in the generated code.</ParamField>
 <ParamField path="codeExpiry" type="number" default="300 (5 min)">Code validity window in seconds.</ParamField>
 <ParamField path="maxAttempts" type="number" default={5}>Failed attempts allowed before the code is invalidated.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Email OTP" href="/auth/email-otp" icon="hashtag">
+    OTP via email instead of SMS.
+  </Card>
+  <Card title="Magic link" href="/auth/magic-link" icon="link">
+    Passwordless sign-in via email link.
+  </Card>
+  <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
+    Device biometric auth as a phone-free alternative.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+</CardGroup>

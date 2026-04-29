@@ -248,3 +248,20 @@ const session = await kavach.sessions.create({ userId: user.id });
 **Nonce reuse prevention.** Nonces are deleted on first use regardless of whether verification succeeds. A second attempt with the same nonce always fails.
 
 **Chain ID.** The chain ID in the message is returned to your application but is not enforced by the plugin. If your app is chain-specific (e.g. only Ethereum mainnet), check that `chainId === 1` (or your expected value) after verification.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
+    Device biometric auth as another password-free option.
+  </Card>
+  <Card title="Magic link" href="/auth/magic-link" icon="link">
+    Email-based passwordless sign-in.
+  </Card>
+  <Card title="Anonymous auth" href="/auth/anonymous" icon="user-secret">
+    Guest sessions that can be linked to a wallet address later.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+</CardGroup>

@@ -98,3 +98,20 @@ expectPermissionDenied(result, 'not allowed');
 <Note>
 The mock server has zero runtime dependencies. It matches the `AuthAdapter` interface structurally, so TypeScript will accept it anywhere an `AuthAdapter` is expected.
 </Note>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Error codes" href="/errors" icon="triangle-exclamation">
+    Error codes the assertions check against in test expectations.
+  </Card>
+  <Card title="Database setup" href="/database" icon="database">
+    In-memory SQLite for integration tests that need a real database.
+  </Card>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    Agent creation and permission checking that test-utils wraps.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Test lifecycle hooks that fire on auth events.
+  </Card>
+</CardGroup>

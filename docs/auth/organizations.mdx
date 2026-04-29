@@ -119,3 +119,20 @@ await kavach.org.createRole(org.id, {
 | GET | `/auth/org/:orgId/roles` | List roles |
 | POST | `/auth/org/:orgId/roles` | Create role |
 | GET | `/auth/org/:orgId/permissions/:userId/:permission` | Check permission |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="SSO" href="/auth/sso" icon="shield-halved">
+    Enterprise SSO connections scoped to an organization.
+  </Card>
+  <Card title="SCIM" href="/auth/scim" icon="database">
+    Automated user and group sync from your identity provider.
+  </Card>
+  <Card title="Admin" href="/auth/admin" icon="gear">
+    Cross-organization user management tools.
+  </Card>
+  <Card title="Permissions" href="/permissions" icon="lock">
+    Scoped permissions that integrate with org membership.
+  </Card>
+</CardGroup>

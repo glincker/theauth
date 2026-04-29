@@ -386,3 +386,20 @@ Yes. Use the `cookieAuth` adapter to accept better-auth sessions inside KavachOS
 
 **Will my users have to sign in again?**
 With the `cookieAuth` adapter, no. KavachOS will accept existing better-auth sessions and issue new KavachOS tokens on the next request. Without the adapter, yes, existing tokens will be rejected.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="KavachOS vs better-auth" href="/compare/vs-ba" icon="code-compare">
+    Feature-by-feature comparison before committing to a migration.
+  </Card>
+  <Card title="Database setup" href="/database" icon="database">
+    Configure the Drizzle-based database layer KavachOS uses.
+  </Card>
+  <Card title="Prisma adapter" href="/prisma" icon="database">
+    Query KavachOS tables from an existing PrismaClient.
+  </Card>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    The agent primitives that motivated the switch from better-auth.
+  </Card>
+</CardGroup>

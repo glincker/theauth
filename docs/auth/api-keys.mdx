@@ -74,3 +74,20 @@ const { key, apiKey } = await kavach.apiKeys.rotate('key_...');
 | GET | `/auth/api-keys/:userId` | List keys for user |
 | DELETE | `/auth/api-keys/:keyId` | Revoke key |
 | POST | `/auth/api-keys/:keyId/rotate` | Rotate key |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    Bearer-token identities for autonomous agents, distinct from API keys.
+  </Card>
+  <Card title="Admin" href="/auth/admin" icon="gear">
+    User management tools including ban, impersonate, and delete.
+  </Card>
+  <Card title="Permissions" href="/permissions" icon="lock">
+    Attach scoped permissions to agents and keys.
+  </Card>
+  <Card title="Audit" href="/audit" icon="list-check">
+    Track every key validation and revocation event.
+  </Card>
+</CardGroup>

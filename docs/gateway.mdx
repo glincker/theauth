@@ -261,3 +261,20 @@ CMD ["npx", "@kavachos/gateway", "--upstream", "http://localhost:8080", "--port"
 <Info>
   Rate limits are tracked in memory. If you run multiple gateway instances, each tracks limits independently. For distributed rate limiting, wrap the gateway with an external store or use a single gateway instance.
 </Info>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MCP OAuth 2.1" href="/mcp" icon="globe">
+    The authorization server the gateway validates tokens against.
+  </Card>
+  <Card title="Rate limiting" href="/rate-limiting" icon="gauge">
+    Per-agent rate limits that complement the gateway's route-level limits.
+  </Card>
+  <Card title="Audit trail" href="/audit" icon="scroll">
+    How the gateway's per-request audit entries appear in the log.
+  </Card>
+  <Card title="Permissions" href="/permissions" icon="shield-halved">
+    Define the resource and action permissions that gateway policies check.
+  </Card>
+</CardGroup>

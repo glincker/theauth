@@ -100,3 +100,20 @@ oauth({
 ```
 
 `getUserProfile` maps the raw provider response to `{ id, email?, name?, image? }`. The `id` is the provider-side user ID, stored for deduplication.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Google" href="/auth/google" icon="google">
+    Sign in with Google using OIDC, the most common provider.
+  </Card>
+  <Card title="GitHub" href="/auth/github" icon="github">
+    OAuth 2.0 for GitHub with optional org and email scopes.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+  <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
+    Turn KavachOS itself into an OpenID Connect identity provider.
+  </Card>
+</CardGroup>

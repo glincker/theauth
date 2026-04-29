@@ -182,3 +182,20 @@ it('creates an agent', async () => {
 ```
 
 Each `createKavach()` call with `:memory:` gets a completely isolated database, so tests never share state.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Prisma adapter" href="/prisma" icon="database">
+    Query KavachOS tables through an existing PrismaClient.
+  </Card>
+  <Card title="Configuration" href="/configuration" icon="sliders">
+    Full createKavach() options including database and secrets.
+  </Card>
+  <Card title="Test utilities" href="/test-utils" icon="code">
+    In-memory mock server and factories for auth-dependent tests.
+  </Card>
+  <Card title="Terraform" href="/terraform" icon="server">
+    Provision agents and permissions as infrastructure-as-code.
+  </Card>
+</CardGroup>
