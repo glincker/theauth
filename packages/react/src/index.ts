@@ -6,6 +6,7 @@ export { KavachContext, KavachProvider, useKavachContext } from "./context.js";
 // Hooks
 export {
 	useAgents,
+	useRotateSession,
 	useSession,
 	useSignIn,
 	useSignOut,
@@ -23,4 +24,8 @@ export type {
 	KavachPermission,
 	KavachSession,
 	KavachUser,
+	RotateErrorCode,
+	RotateResult,
+	RotateRetryConfig,
+	RotationStatus,
 } from "./types.js";
