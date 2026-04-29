@@ -82,7 +82,7 @@ async function main(): Promise<void> {
 	});
 
 	ok("agent created", `${billing.name} id=${billing.id.slice(0, 12)}...`);
-	ok("bearer token issued (kv_)", billing.token.slice(0, 12) + "...");
+	ok("bearer token issued (kv_)", `${billing.token.slice(0, 12)}...`);
 
 	section("Step 4: Authorize (staging allowed, production gated)");
 
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
 
 	const oldToken = billing.token;
 	const rotated = await kavach.agent.rotate(billing.id);
-	ok("new token", rotated.token.slice(0, 12) + "...");
+	ok("new token", `${rotated.token.slice(0, 12)}...`);
 
 	const oldTokenResult = await kavach.authorizeByToken(oldToken, {
 		action: "read",
