@@ -96,6 +96,31 @@ export function useSignOut() {
 	return { signOut };
 }
 
+// ─── useRotateSession ─────────────────────────────────────────────────────────
+
+/**
+ * Convenience hook for the v0.5 rotation API. Mirrors the values exposed
+ * on the context — `rotate` (single-flight), `status` (`idle | rotating |
+ * error`), and `isOnline`.
+ *
+ * In managed mode (no `external.refreshPath`) `rotate()` resolves with
+ * `{ success: false, code: "network_error" }` so call sites can stay
+ * uniform across modes.
+ *
+ * @example
+ * ```tsx
+ * const { rotate, status, isOnline } = useRotateSession();
+ * useEffect(() => {
+ *   if (!isOnline) return;
+ *   void rotate();
+ * }, [isOnline, rotate]);
+ * ```
+ */
+export function useRotateSession() {
+	const { rotateSession, rotationStatus, isOnline } = useRequiredContext("useRotateSession");
+	return { rotate: rotateSession, status: rotationStatus, isOnline };
+}
+
 // ─── useAgents ────────────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
