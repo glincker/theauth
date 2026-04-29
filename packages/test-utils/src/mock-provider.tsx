@@ -116,6 +116,14 @@ export function MockKavachProvider({
 		signUp: signUp ?? makeDefaultSignUp(),
 		signOut: signOut ?? makeDefaultSignOut(),
 		refresh: refresh ?? makeDefaultRefresh(),
+		// v0.5 rotation surface — managed-mode no-ops in tests by default.
+		rotateSession: async () => ({
+			success: false,
+			code: "network_error",
+			message: "rotateSession not mocked",
+		}),
+		rotationStatus: "idle",
+		isOnline: true,
 	};
 
 	return <KavachContext.Provider value={value}>{children}</KavachContext.Provider>;
