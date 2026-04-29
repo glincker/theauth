@@ -98,3 +98,20 @@ const res = await fetch('/auth/change-username', {
 <ParamField path="maxUsernameLength" type="number" default={32}>Maximum username length.</ParamField>
 <ParamField path="allowedPattern" type="RegExp" default="/^[a-z0-9_-]+$/i">Regex that the username must match. Applied after length validation.</ParamField>
 <ParamField path="caseSensitive" type="boolean" default="false">Whether usernames are case-sensitive during lookup.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    Sibling method that uses email instead of a username as the identifier.
+  </Card>
+  <Card title="Two-factor auth" href="/auth/two-factor" icon="mobile-screen">
+    Add TOTP as a second factor on top of username/password sign-in.
+  </Card>
+  <Card title="Authentication overview" href="/auth/index" icon="key">
+    All available auth methods and how to combine them.
+  </Card>
+  <Card title="Sessions" href="/sessions" icon="clock">
+    What happens after sign-in: cookie and JWT session management.
+  </Card>
+</CardGroup>

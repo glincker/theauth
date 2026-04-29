@@ -108,3 +108,20 @@ The plugin adds these columns to the users table:
 <Warning>
 Set `STRIPE_WEBHOOK_SECRET` in production. Without it, webhook events cannot be verified and will be rejected.
 </Warning>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Polar payment" href="/auth/polar-payment" icon="credit-card">
+    Alternative billing integration using Polar subscriptions and webhooks.
+  </Card>
+  <Card title="Organizations" href="/auth/organizations" icon="building">
+    Manage org membership alongside subscription status.
+  </Card>
+  <Card title="API keys" href="/auth/api-keys" icon="key">
+    Issue scoped API keys for server-to-server billing integrations.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    React to subscription changes with lifecycle hooks.
+  </Card>
+</CardGroup>

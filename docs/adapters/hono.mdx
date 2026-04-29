@@ -119,3 +119,20 @@ app.get('/health', (c) => c.json({ ok: true }));
 
 serve({ fetch: app.fetch, port: 3000 });
 ```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Adapters overview" href="/adapters" icon="code">
+    Compare all available framework adapters and their mount patterns.
+  </Card>
+  <Card title="Fastify" href="/adapters/fastify" icon="code">
+    Plugin-based Node.js adapter for high-throughput apps.
+  </Card>
+  <Card title="Express" href="/adapters/express" icon="code">
+    Router-based adapter for Express apps.
+  </Card>
+  <Card title="MCP" href="/mcp" icon="plug">
+    OAuth 2.1 authorization server endpoints mounted by the adapter.
+  </Card>
+</CardGroup>

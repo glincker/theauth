@@ -188,3 +188,20 @@ All endpoints require an authenticated session unless noted.
 | `shouldEnforce` | `(user: User) => Promise<boolean>` |, | Per-user enforcement logic |
 | `backupCodeCount` | `number` | `10` | Number of backup codes generated at enrollment |
 | `challengeTokenTtl` | `number` | `300` | Seconds to complete verification after primary auth |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
+    Skip 2FA on verified devices using an HMAC-signed fingerprint.
+  </Card>
+  <Card title="Password breach checking" href="/hibp" icon="shield-halved">
+    Block passwords found in known data breaches at sign-up.
+  </Card>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    Primary auth method that pairs with two-factor auth.
+  </Card>
+  <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
+    Phishing-resistant WebAuthn alternative to TOTP.
+  </Card>
+</CardGroup>

@@ -314,3 +314,20 @@ Check `result.success` before accessing `result.data`. Error codes:
 | `GET_CHAIN_COST_FAILED` | Chain attribution query failed |
 | `CHECK_BUDGET_FAILED` | Budget policy lookup failed |
 | `CLEANUP_FAILED` | Cleanup delete failed |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Budget policies" href="/budget-policies" icon="chart-line">
+    Set monthly spend limits that block agents automatically.
+  </Card>
+  <Card title="Audit trail" href="/audit" icon="scroll">
+    The underlying log that cost attribution writes alongside.
+  </Card>
+  <Card title="Anomaly detection" href="/anomaly" icon="triangle-exclamation">
+    Flag unusual spend patterns and high-frequency call bursts.
+  </Card>
+  <Card title="Rate limiting" href="/rate-limiting" icon="gauge">
+    Hard call-count caps per agent, per resource, per hour.
+  </Card>
+</CardGroup>

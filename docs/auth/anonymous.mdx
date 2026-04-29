@@ -96,3 +96,20 @@ await cleanupAnonymousUsers(kavach, {
 
 <ParamField path="guestExpiry" type="number" default="604800 (7 days)">How long an anonymous session lasts before expiring, in seconds.</ParamField>
 <ParamField path="allowUpgrade" type="boolean" default="true">Whether guests can convert to real accounts via the upgrade endpoint.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    Full registration flow users can upgrade into from a guest session.
+  </Card>
+  <Card title="Magic link" href="/auth/magic-link" icon="link">
+    Passwordless sign-in that anonymous users can upgrade into.
+  </Card>
+  <Card title="Sessions" href="/sessions" icon="clock">
+    How KavachOS manages session lifetime and cookie settings.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Run logic on guest creation and upgrade events.
+  </Card>
+</CardGroup>

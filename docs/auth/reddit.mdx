@@ -110,3 +110,20 @@ if (isNewAccount && !userInfo.email) {
   return redirect(`/onboarding/email?accountId=${result.account.id}`);
 }
 ```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="OAuth overview" href="/auth/oauth" icon="lock">
+    Generic OAuth 2.0 setup and account linking behavior.
+  </Card>
+  <Card title="Discord" href="/auth/discord" icon="discord">
+    Another community-focused OAuth provider.
+  </Card>
+  <Card title="GitHub" href="/auth/github" icon="github">
+    Developer-focused OAuth provider with similar setup.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+</CardGroup>

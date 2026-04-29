@@ -119,3 +119,20 @@ app.get('/health', async () => ({ ok: true }));
 
 await app.listen({ port: 3000, host: '0.0.0.0' });
 ```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Adapters overview" href="/adapters" icon="code">
+    Compare all available framework adapters and their mount patterns.
+  </Card>
+  <Card title="Express" href="/adapters/express" icon="code">
+    Router-based adapter for Express apps.
+  </Card>
+  <Card title="Hono" href="/adapters/hono" icon="code">
+    Lightweight adapter that runs on Workers, Bun, and Deno.
+  </Card>
+  <Card title="MCP" href="/mcp" icon="plug">
+    OAuth 2.1 authorization server endpoints mounted by the adapter.
+  </Card>
+</CardGroup>

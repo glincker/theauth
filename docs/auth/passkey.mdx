@@ -222,3 +222,20 @@ await fetch(`/auth/passkey/credentials/${credentialId}`, {
 | `timeout` | `number` | `60000` | WebAuthn operation timeout in milliseconds |
 | `attestation` | `string` | `'none'` | Attestation preference: `'none'`, `'indirect'`, `'direct'` |
 | `userVerification` | `string` | `'preferred'` | Whether biometric check is required: `'required'`, `'preferred'`, `'discouraged'` |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    Password-based auth that passkeys can supplement or replace.
+  </Card>
+  <Card title="Magic link" href="/auth/magic-link" icon="link">
+    Another passwordless option using signed email links.
+  </Card>
+  <Card title="Sign In with Ethereum" href="/auth/siwe" icon="wallet">
+    Wallet-based auth as an alternative to device biometrics.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+</CardGroup>

@@ -138,3 +138,20 @@ KavachModule.forRoot({ kavach, mcp, basePath: '/api/kavach' })
 | `DELETE` | `/delegations/:id` | Revoke delegation |
 | `GET` | `/audit` | Query audit logs |
 | `GET` | `/audit/export` | Export audit logs |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Adapters overview" href="/adapters" icon="code">
+    Compare all available framework adapters and their mount patterns.
+  </Card>
+  <Card title="Express" href="/adapters/express" icon="code">
+    Router-based adapter for Express apps (NestJS uses Express internally).
+  </Card>
+  <Card title="Fastify" href="/adapters/fastify" icon="code">
+    Plugin-based adapter if you use NestJS with the Fastify platform.
+  </Card>
+  <Card title="MCP" href="/mcp" icon="plug">
+    OAuth 2.1 authorization server endpoints mounted by the adapter.
+  </Card>
+</CardGroup>

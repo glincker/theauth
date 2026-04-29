@@ -313,3 +313,20 @@ jobs:
 Every permission change ships as a pull request diff. The plan output shows exactly what will change before it's applied. The apply only runs on merge to main.
 
 This means the same controls you use for code changes, required reviewers, branch protection, signed commits, apply to auth config changes too.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    The agent lifecycle managed as Terraform resources.
+  </Card>
+  <Card title="Permissions" href="/permissions" icon="shield-halved">
+    Resource-action permission model that Terraform permission resources declare.
+  </Card>
+  <Card title="Dashboard" href="/dashboard" icon="table-columns">
+    Visual alternative to Terraform for one-off agent management.
+  </Card>
+  <Card title="Audit trail" href="/audit" icon="scroll">
+    Immutable log showing who changed what, complement to Terraform history.
+  </Card>
+</CardGroup>

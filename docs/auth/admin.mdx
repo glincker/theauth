@@ -91,3 +91,20 @@ Deleting revokes all sessions and marks owned agents as `revoked` to preserve th
 | DELETE | `/auth/admin/users/:id` | Delete user |
 | POST | `/auth/admin/impersonate/:userId` | Impersonate user |
 | POST | `/auth/admin/stop-impersonation` | End impersonation session |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Organizations" href="/auth/organizations" icon="users">
+    Multi-tenant support with org-level roles and membership management.
+  </Card>
+  <Card title="API keys" href="/auth/api-keys" icon="key">
+    Create scoped API keys for machine-to-machine callers.
+  </Card>
+  <Card title="Audit" href="/audit" icon="list-check">
+    Full activity trail for impersonation and admin actions.
+  </Card>
+  <Card title="SCIM" href="/auth/scim" icon="database">
+    Automated user provisioning and deprovisioning via directory sync.
+  </Card>
+</CardGroup>

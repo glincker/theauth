@@ -72,3 +72,20 @@ With the flag on, a JWT issued for a delegated agent looks like this (abridged):
 - OpenID for Verifiable Presentations (OID4VP). Out of scope for agent sign-in. Verifiable Credentials KavachOS issues are for audit, not for sign-in.
 - SPIFFE URI scheme. Agent identity uses DIDs (`did:key`, `did:web`) which fit the hosted path better.
 - Post-quantum signatures (ML-DSA). Tracked, not scheduled.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MCP OAuth 2.1" href="/mcp" icon="globe">
+    PKCE, RFC 9728, RFC 8414, RFC 7591 implementation details.
+  </Card>
+  <Card title="W3C DID identity" href="/did" icon="fingerprint">
+    Ed25519 DIDs that back agentic JWT claims like agent_id.
+  </Card>
+  <Card title="Verifiable credentials" href="/verifiable-credentials" icon="circle-check">
+    W3C VC issuance for audit export and cross-org trust.
+  </Card>
+  <Card title="Agent identity" href="/agents" icon="robot">
+    Where agent_id and trust_tier claims originate.
+  </Card>
+</CardGroup>

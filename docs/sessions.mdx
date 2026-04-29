@@ -450,3 +450,20 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 <Info>
   Short access token TTLs (`accessTokenTtl`) reduce the window of exposure for a stolen token, but they increase refresh traffic. 15 minutes is a reasonable default. If you need to revoke access instantly (account ban, credential compromise), route your API through the session validation middleware instead of relying solely on stateless JWT verification.
 </Info>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Cookie options" href="/cookies" icon="cookie-bite">
+    Cookie attributes, cross-subdomain setup, and rolling vs absolute expiry.
+  </Card>
+  <Card title="JWT sessions" href="/jwt-sessions" icon="key">
+    Stateless access tokens with rotating refresh tokens.
+  </Card>
+  <Card title="Multi-session" href="/multi-session" icon="key">
+    Cap concurrent sessions and build an active devices settings page.
+  </Card>
+  <Card title="Ephemeral sessions" href="/ephemeral-sessions" icon="stopwatch">
+    Short-lived, budget-bounded agent credentials for single tasks.
+  </Card>
+</CardGroup>

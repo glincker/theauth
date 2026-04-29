@@ -107,3 +107,20 @@ After `maxAttempts` failed verifications, the code is invalidated and a new one 
 | `codeTtl` | `number` | `600` | Code lifetime in seconds (default: 10 minutes) |
 | `maxAttempts` | `number` | `5` | Failed attempts before the code is invalidated |
 | `createUserIfNotFound` | `boolean` | `true` | Auto-create accounts for new emails |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Magic link" href="/auth/magic-link" icon="link">
+    Single-use email link as an alternative to numeric codes.
+  </Card>
+  <Card title="Phone number" href="/auth/phone" icon="phone">
+    OTP delivered via SMS instead of email.
+  </Card>
+  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+    Password-based auth that can run alongside OTP.
+  </Card>
+  <Card title="Authentication overview" href="/auth" icon="key">
+    All sign-in methods available in KavachOS.
+  </Card>
+</CardGroup>

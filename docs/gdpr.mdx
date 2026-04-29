@@ -99,3 +99,20 @@ The audit events remain in place with timestamps and action types intact. Person
 <ParamField path="requireDeletionConfirmation" type="boolean" default="true">Require the user's password before processing a deletion request.</ParamField>
 <ParamField path="onBeforeDelete" type={`(userId: string) => Promise<void>`}>Async callback invoked before the user record is deleted. Use this to clean up app-level data.</ParamField>
 <ParamField path="exportFormat" type="'json' | 'url'" default="'json'">Format for the data export response. 'json' returns inline data, 'url' returns a signed download URL.</ParamField>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Compliance" href="/compliance" icon="file-lines">
+    EU AI Act, NIST, SOC 2, and ISO 42001 audit infrastructure.
+  </Card>
+  <Card title="Audit trail" href="/audit" icon="scroll">
+    The audit log that GDPR anonymization targets.
+  </Card>
+  <Card title="Hooks" href="/hooks" icon="bolt">
+    Tap into the account deletion lifecycle to clean up app data.
+  </Card>
+  <Card title="Multi-session" href="/multi-session" icon="key">
+    Session revocation that runs as part of account deletion.
+  </Card>
+</CardGroup>
