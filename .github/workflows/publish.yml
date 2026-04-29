@@ -47,6 +47,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      # Informational: surface what's pending so the action summary
+      # has a clear "what's about to change" line. Does not gate.
+      - name: Report version drift
+        run: node scripts/check-versions.mjs || true
+
       # Single list — keep in sync with the publishable packages.
       - name: Detect changed packages
         id: detect
