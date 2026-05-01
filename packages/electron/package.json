@@ -34,7 +34,7 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.0.0",
     "electron": "^33.0.0",
-    "react": "^19.0.0",
+    "react": "^19.2.5",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^2.0.0"

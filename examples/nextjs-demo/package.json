@@ -13,8 +13,8 @@
     "@kavachos/react": "workspace:*",
     "@kavachos/auth-email": "workspace:*",
     "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {
