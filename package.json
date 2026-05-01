@@ -32,7 +32,7 @@
     "release": "turbo build && changeset publish"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.0.0",
+    "@biomejs/biome": "^2.4.13",
     "@changesets/cli": "^2.30.0",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.9.0",
