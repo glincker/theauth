@@ -190,7 +190,8 @@ export default app;
 | --- | --- | --- |
 | [`@kavachos/hono`](https://www.npmjs.com/package/@kavachos/hono) | Hono | [![npm](https://img.shields.io/npm/v/@kavachos/hono?style=flat-square)](https://www.npmjs.com/package/@kavachos/hono) |
 | [`@kavachos/express`](https://www.npmjs.com/package/@kavachos/express) | Express | [![npm](https://img.shields.io/npm/v/@kavachos/express?style=flat-square)](https://www.npmjs.com/package/@kavachos/express) |
-| [`@kavachos/nextjs`](https://www.npmjs.com/package/@kavachos/nextjs) | Next.js (App Router) | [![npm](https://img.shields.io/npm/v/@kavachos/nextjs?style=flat-square)](https://www.npmjs.com/package/@kavachos/nextjs) |
+| [`@kavachos/nextjs`](https://www.npmjs.com/package/@kavachos/nextjs) | Next.js (App Router) — bundles the agent-management runtime | [![npm](https://img.shields.io/npm/v/@kavachos/nextjs?style=flat-square)](https://www.npmjs.com/package/@kavachos/nextjs) |
+| [`@kavachos/nextjs-auth`](https://www.npmjs.com/package/@kavachos/nextjs-auth) | Next.js adapter for external auth backends — getServerSession, withAuth middleware, cookie + CSRF + token rotation | [![npm](https://img.shields.io/npm/v/@kavachos/nextjs-auth?style=flat-square)](https://www.npmjs.com/package/@kavachos/nextjs-auth) |
 | [`@kavachos/fastify`](https://www.npmjs.com/package/@kavachos/fastify) | Fastify | [![npm](https://img.shields.io/npm/v/@kavachos/fastify?style=flat-square)](https://www.npmjs.com/package/@kavachos/fastify) |
 | [`@kavachos/nuxt`](https://www.npmjs.com/package/@kavachos/nuxt) | Nuxt | [![npm](https://img.shields.io/npm/v/@kavachos/nuxt?style=flat-square)](https://www.npmjs.com/package/@kavachos/nuxt) |
 | [`@kavachos/sveltekit`](https://www.npmjs.com/package/@kavachos/sveltekit) | SvelteKit | [![npm](https://img.shields.io/npm/v/@kavachos/sveltekit?style=flat-square)](https://www.npmjs.com/package/@kavachos/sveltekit) |
