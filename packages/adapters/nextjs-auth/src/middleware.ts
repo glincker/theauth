@@ -83,14 +83,23 @@ export function withAuth<TUser>(
 
 		const needsRefresh = !accessToken || isTokenExpiring(accessToken, config.expiryRefreshBufferS);
 
-		let hasValidSession = Boolean(accessToken && !needsRefresh);
+		// Start optimistically: any existing token (even an expiring one) counts as valid
+		// until we confirm otherwise. This prevents bouncing users to /signin on transient
+		// refresh failures (network blips, backend hiccups) when their token is still
+		// accepted by the backend for the expiryRefreshBufferS grace window.
+		let hasValidSession = Boolean(accessToken);
 
 		if (needsRefresh && refreshToken) {
 			const refreshed = await _tryRefresh(config, refreshToken, refreshTimeoutMs);
 			if (refreshed) {
 				hasValidSession = true;
 				_writeSessionCookies(response, refreshed, config);
+			} else if (!accessToken) {
+				// No existing token at all AND refresh failed → definitely unauthenticated.
+				hasValidSession = false;
 			}
+			// If we had a (possibly expiring) token and refresh failed, keep
+			// hasValidSession=true and let the backend validate it downstream.
 		}
 
 		// Redirect unauthenticated users away from protected paths.

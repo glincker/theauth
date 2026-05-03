@@ -46,7 +46,7 @@ async function _getServerSessionImpl<TUser>(
 	if (!token) return null;
 
 	// 3. Call /me
-	const session = await _fetchMe(config, token);
+	const session = await _fetchMe(config);
 	if (session) {
 		await _stampSessionCache(config, session);
 		return session;
@@ -56,7 +56,7 @@ async function _getServerSessionImpl<TUser>(
 	const refreshed = await refreshSession(config);
 	if (!refreshed) return null;
 
-	const retrySession = await _fetchMe(config, refreshed.accessToken);
+	const retrySession = await _fetchMe(config);
 	if (retrySession) {
 		await _stampSessionCache(config, retrySession);
 	}
@@ -65,7 +65,6 @@ async function _getServerSessionImpl<TUser>(
 
 async function _fetchMe<TUser>(
 	config: ResolvedAuthConfig<TUser>,
-	_accessToken: string,
 ): Promise<AuthSession<TUser> | null> {
 	const headers = await buildAuthHeaders(config, { withAuth: true, withCsrf: false });
 
