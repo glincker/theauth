@@ -4,6 +4,13 @@ All notable changes to `@kavachos/nextjs-auth` will be documented in this file.
 
 This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+
+- **`createSignOutHandler`** replaces `createSignOutAction` as the primary export name. The previous implementation inlined a `"use server"` directive inside the returned function body, which caused a Next.js build error when the adapter was reachable from any client-component graph (`It is not allowed to define inline "use server" annotated Server Actions in Client Components`). The new implementation returns a plain `async function` with no inline directive. Consumers must wrap it in their own `"use server"` file — see README §4 Sign out.
+- `createSignOutAction` is retained as a **deprecated alias** for one release cycle and will be removed in v0.2.
+
 ## [0.1.0] — 2026-05-02
 
 ### Added

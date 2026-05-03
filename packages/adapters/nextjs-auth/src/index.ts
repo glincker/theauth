@@ -19,8 +19,8 @@ export { generateCsrfToken } from "./csrf.js";
 export { buildAuthHeaders, buildClientHeaders } from "./headers.js";
 // Refresh
 export { refreshSession } from "./refresh.js";
-// Sign-out server action factory
-export { createSignOutAction } from "./route-handlers.js";
+// Sign-out handler factory (createSignOutAction is a deprecated alias)
+export { createSignOutAction, createSignOutHandler } from "./route-handlers.js";
 // Session
 export { getServerSession } from "./server-session.js";
 

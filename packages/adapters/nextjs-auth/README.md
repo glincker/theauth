@@ -80,20 +80,26 @@ export const config = {
 
 ### 4. Sign out
 
-```ts
-// src/lib/auth/actions.ts
-import "server-only";
-import { createSignOutAction } from "@kavachos/nextjs-auth";
-import { authConfig } from "./config";
+The adapter returns a plain async function — you add `"use server"` in **your own** file so Next.js can statically analyse it:
 
-export const signOut = createSignOutAction(authConfig);
+```ts
+// src/app/auth/actions.ts   ← your file, your directive
+"use server";
+import { createSignOutHandler } from "@kavachos/nextjs-auth";
+import { authConfig } from "@/lib/auth/config.server";
+
+export const signOut = createSignOutHandler(authConfig);
 ```
 
 ```tsx
 // In any component
-import { signOut } from "@/lib/auth/actions";
+import { signOut } from "@/app/auth/actions";
 <button onClick={signOut}>Sign out</button>
 ```
+
+#### Why no inline `"use server"`?
+
+The adapter is imported by both server and client module graphs (e.g. a client component that imports a shared config file). Next.js forbids inline `"use server"` directives in any module reachable from a client component — the compiler errors out. By keeping the directive out of the adapter, the compiled output is a plain async function that is safe to import anywhere. The `"use server"` annotation belongs in **consumer code** (a dedicated `actions.ts` file), where Next.js can statically verify it belongs to a server-action boundary.
 
 ## API Reference
 
@@ -144,9 +150,11 @@ Server-only. Like `fetchWithRefresh` but for GraphQL. Throws `GraphQLRequestErro
 const data = await graphqlWithRefresh<MyQuery>(authConfig, MY_QUERY, { id: "123" });
 ```
 
-### `createSignOutAction(config)` → `() => Promise<{ success: boolean }>`
+### `createSignOutHandler(config)` → `() => Promise<{ success: boolean }>`
 
-Server-only. Returns a Server Action that calls the backend logout endpoint and clears all auth cookies.
+Server-only. Returns an async function that calls the backend logout endpoint (best-effort) and clears all auth cookies. Does **not** include an inline `"use server"` directive — wrap it in your own `"use server"` file (see [Sign out](#4-sign-out)).
+
+> `createSignOutAction` is a deprecated alias for `createSignOutHandler` and will be removed in v0.2.
 
 ### `buildAuthHeaders(config, opts?)` → `Promise<Record<string, string>>`
 
