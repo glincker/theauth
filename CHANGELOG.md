@@ -6,6 +6,12 @@ For the full raw record see [GitHub Releases](https://github.com/kavachos/kavach
 
 ## Timeline
 
+### @kavachos/nextjs-auth v0.1.0, May 2, 2026
+
+New package. A focused Next.js (14/15/16) adapter for apps whose auth backend lives outside Next.js (Spring, Rails, Hono, Go, etc.). Distinct from `@kavachos/nextjs` which bundles the agent-management runtime — this is the "I have a backend already, just give me session + cookies + refresh on the FE" path.
+
+Ships eight server-side helpers (`createAuthConfig`, `getServerSession`, `refreshSession`, `fetchWithRefresh`, `graphqlWithRefresh`, `buildAuthHeaders`, `buildClientHeaders`, `createSignOutAction`) and an Edge-runtime-safe `withAuth()` middleware via a `/middleware` sub-export. Cookie prefix policy: `__Host-{prefix}-token` in production, plain names in development (browsers reject `__Host-` without Secure on HTTP localhost). 26 tests passing.
+
 ### v0.4.2, April 18, 2026
 
 Fix on a missed barrel in 0.4.0. The ten new OAuth providers were added to `providers/index.ts` but the top-level `auth/index.ts` still pointed at the old nine-provider list, so `import { notion } from "kavachos/auth"` did not resolve. `auth/index.ts` now re-exports the whole barrel, so providers added in later releases pick themselves up automatically.
