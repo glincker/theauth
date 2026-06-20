@@ -1,5 +1,5 @@
 /**
- * Last login tracking module for KavachOS.
+ * Last login tracking module for TheAuth.
  *
  * Records each successful authentication event per user, capturing the method
  * used, optional IP address, optional user agent, and timestamp. A rolling

@@ -1,5 +1,5 @@
 {
-  "name": "@kavachos/example-nextjs-app",
+  "name": "@theauth/example-nextjs-app",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,9 +8,9 @@
     "start": "next start"
   },
   "dependencies": {
-    "kavachos": "workspace:*",
-    "@kavachos/nextjs": "workspace:*",
-    "@kavachos/dashboard": "workspace:*",
+    "theauth": "workspace:*",
+    "@theauth/nextjs": "workspace:*",
+    "@theauth/dashboard": "workspace:*",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -1,13 +1,13 @@
 ---
 title: TypeScript client
-description: Issue HTTP calls to KavachOS from any runtime via `createKavachClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
+description: Issue HTTP calls to TheAuth from any runtime via `createKavachClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
 icon: code
 ---
 
 
 ## Overview
 
-`@kavachos/client` is a typed HTTP client for the KavachOS REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
+`@theauth/client` is a typed HTTP client for the TheAuth REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
 
 <Info>
   Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun, anywhere the Fetch API is available.
@@ -16,13 +16,13 @@ icon: code
 ## Installation
 
 ```bash
-npm install @kavachos/client
+npm install @theauth/client
 ```
 
 ## Creating a client
 
 ```typescript
-import { createKavachClient } from '@kavachos/client';
+import { createKavachClient } from '@theauth/client';
 
 const client = createKavachClient({
   baseUrl: 'https://yourapp.com/api/kavach',
@@ -30,7 +30,7 @@ const client = createKavachClient({
 });
 ```
 
-<ParamField path="baseUrl" type="string">Base URL for the KavachOS API, without a trailing slash.</ParamField>
+<ParamField path="baseUrl" type="string">Base URL for the TheAuth API, without a trailing slash.</ParamField>
 <ParamField path="token" type="string" default="undefined">Bearer token sent as `Authorization: Bearer <token>` on every request.</ParamField>
 <ParamField path="headers" type={`Record<string, string>`} default="{}">Extra headers merged into every request. Useful for API gateways that require custom headers.</ParamField>
 
@@ -151,7 +151,7 @@ const json = await client.audit.export({ format: 'json' });
 All methods throw `KavachApiError` when the server returns a non-2xx response or the network call fails.
 
 ```typescript
-import { KavachApiError } from '@kavachos/client';
+import { KavachApiError } from '@theauth/client';
 
 try {
   const agent = await client.agents.get('agt_nonexistent');

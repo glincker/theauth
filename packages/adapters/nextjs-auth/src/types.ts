@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Core types for @kavachos/nextjs-auth
+// Core types for @theauth/nextjs-auth
 // ---------------------------------------------------------------------------
 
 export interface DefaultUser {
@@ -15,7 +15,7 @@ export interface AuthSession<TUser = DefaultUser> {
 	expiresAt: Date | null;
 }
 
-/** All endpoint path overrides. Defaults to KavachOS/glinr.me conventions. */
+/** All endpoint path overrides. Defaults to TheAuth/glinr.me conventions. */
 export interface AuthEndpoints {
 	/** GET — returns current user payload. Default: "/api/auth/me" */
 	me: string;
@@ -45,7 +45,7 @@ export interface AuthConfig<TUser = DefaultUser> {
 	appUrl: string;
 	/** Tenant identifier sent as X-Tenant-Domain. Optional. */
 	tenantDomain?: string;
-	/** Endpoint path overrides. Defaults to KavachOS conventions. */
+	/** Endpoint path overrides. Defaults to TheAuth conventions. */
 	endpoints?: Partial<AuthEndpoints>;
 	/** Cookie name overrides. */
 	cookies?: Partial<AuthCookieConfig>;

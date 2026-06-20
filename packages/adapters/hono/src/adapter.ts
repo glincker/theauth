@@ -7,8 +7,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+} from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -148,12 +148,12 @@ function mcpNoStore<T>(data: T, status = 200) {
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
 /**
- * Create a Hono app with all KavachOS REST API routes mounted.
+ * Create a Hono app with all TheAuth REST API routes mounted.
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachHono } from '@kavachos/hono';
+ * import { createKavach } from 'theauth';
+ * import { kavachHono } from '@theauth/hono';
  * import { serve } from '@hono/node-server';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
@@ -163,7 +163,7 @@ function mcpNoStore<T>(data: T, status = 200) {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const app = kavachHono(kavach, { mcp });
  * ```

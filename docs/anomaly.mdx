@@ -7,7 +7,7 @@ icon: triangle-exclamation
 
 ## What anomaly detection does
 
-KavachOS scans the audit log for behavioral patterns that suggest an agent is operating outside its intended scope. The most common signal is a cluster of denied calls that match privilege escalation patterns, an agent repeatedly attempting to access resources it was never granted.
+TheAuth scans the audit log for behavioral patterns that suggest an agent is operating outside its intended scope. The most common signal is a cluster of denied calls that match privilege escalation patterns, an agent repeatedly attempting to access resources it was never granted.
 
 Anomaly detection is not a background process. You call `scan()` and get back a list of findings at that point in time. This keeps the system predictable: there are no background threads, no persistent state, and no surprise side effects.
 

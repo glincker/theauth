@@ -161,7 +161,7 @@ afterEach(() => {
 
 let agentsState: KavachAgent[] = [];
 
-describe("@kavachos/react runtime smoke", () => {
+describe("@theauth/react runtime smoke", () => {
 	it("restores the provider session from localStorage and loads agents", async () => {
 		const storedSession: KavachSession = {
 			token: "stored-token",

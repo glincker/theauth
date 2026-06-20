@@ -1,4 +1,4 @@
-# @kavachos/ui
+# @theauth/ui
 
 ## 0.1.0
 

@@ -1,9 +1,9 @@
 /**
- * Password reset module for KavachOS.
+ * Password reset module for TheAuth.
  *
  * Composes the one-time token module with the username auth module to provide
  * a complete forgot-password and reset-password flow. The caller supplies an
- * email-sending callback; KavachOS handles token generation, validation,
+ * email-sending callback; TheAuth handles token generation, validation,
  * password hashing, and session revocation.
  *
  * Security properties:
@@ -62,10 +62,10 @@ export interface PasswordResetConfig {
 	/**
 	 * Callback to send the password reset email.
 	 *
-	 * KavachOS generates the token and constructs the reset URL. Your job is
+	 * TheAuth generates the token and constructs the reset URL. Your job is
 	 * to deliver it (Resend, SES, SMTP, Postmark, whatever you use).
 	 *
-	 * The function should not throw for unknown emails. KavachOS already
+	 * The function should not throw for unknown emails. TheAuth already
 	 * handles that by silently succeeding.
 	 */
 	sendResetEmail: (email: string, token: string, resetUrl: string) => Promise<void>;

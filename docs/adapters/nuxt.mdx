@@ -1,15 +1,15 @@
 ---
 title: Nuxt
-description: Mount KavachOS auth routes in Nuxt with `kavachNuxt(kavach)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
+description: Mount TheAuth auth routes in Nuxt with `kavachNuxt(kavach)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
 icon: "/brand-icons/nuxt.svg"
 ---
 
-`kavachNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all KavachOS paths are handled.
+`kavachNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/nuxt
+pnpm add theauth @theauth/nuxt
 ```
 
 ## Setup
@@ -21,7 +21,7 @@ Create this outside the event handler so it is initialized once at server startu
 
 ```typescript
 // server/utils/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -42,7 +42,7 @@ In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-
 
 ```typescript
 // server/api/kavach/[...].ts
-import { kavachNuxt } from '@kavachos/nuxt';
+import { kavachNuxt } from '@theauth/nuxt';
 import { kavach, mcp } from '../utils/kavach';
 
 export default kavachNuxt(kavach, { mcp });
@@ -98,8 +98,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // server/api/kavach/[...].ts
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachNuxt } from '@kavachos/nuxt';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachNuxt } from '@theauth/nuxt';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -115,7 +115,7 @@ const mcp = createMcpModule(kavach);
 export default kavachNuxt(kavach, { mcp });
 ```
 
-All KavachOS routes are then available at `/api/kavach/...` within your Nuxt server.
+All TheAuth routes are then available at `/api/kavach/...` within your Nuxt server.
 
 ## Related
 

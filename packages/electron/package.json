@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/electron",
+  "name": "@theauth/electron",
   "version": "0.1.0",
-  "description": "KavachOS auth client for Electron desktop apps",
+  "description": "TheAuth auth client for Electron desktop apps",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,10 +20,10 @@
     "test": "vitest run"
   },
   "license": "MIT",
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/electron"
   },
   "peerDependencies": {

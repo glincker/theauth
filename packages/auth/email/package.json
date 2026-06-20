@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/auth-email",
+  "name": "@theauth/auth-email",
   "version": "3.0.2",
-  "description": "Email and password authentication for KavachOS",
+  "description": "Email and password authentication for TheAuth",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,10 +20,10 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*"
+    "theauth": "workspace:*"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "better-sqlite3": "^12.9.0",
     "@types/better-sqlite3": "^7.0.0",
     "@types/node": "^22.0.0",

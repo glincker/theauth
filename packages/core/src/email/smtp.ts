@@ -51,23 +51,23 @@ interface NodemailerModule {
 
 /**
  * Email provider backed by SMTP via nodemailer (peer dependency).
- * Install `nodemailer` separately — it is NOT bundled with kavachos.
+ * Install `nodemailer` separately — it is NOT bundled with theauth.
  *
  * @example
  * ```ts
- * import { smtp } from "kavachos/email";
+ * import { smtp } from "theauth/email";
  * smtp({ host: "smtp.mailgun.org", auth: { user: "...", pass: "..." } })
  * ```
  */
 export function smtp(config: SmtpConfig): EmailProvider {
 	if (!config.host) {
 		throw new Error(
-			"[kavachos/email] smtp: host is required. " +
+			"[theauth/email] smtp: host is required. " +
 				'Pass { host: "smtp.example.com", auth: { user, pass } } when creating the provider.',
 		);
 	}
 	if (!config.auth?.user || !config.auth?.pass) {
-		throw new Error("[kavachos/email] smtp: auth.user and auth.pass are required.");
+		throw new Error("[theauth/email] smtp: auth.user and auth.pass are required.");
 	}
 
 	const from = config.from ?? "noreply@example.com";
@@ -89,7 +89,7 @@ export function smtp(config: SmtpConfig): EmailProvider {
 			nodemailer = (await import("nodemailer")) as unknown as NodemailerModule;
 		} catch {
 			throw new Error(
-				"[kavachos/email] smtp provider requires the `nodemailer` package. " +
+				"[theauth/email] smtp provider requires the `nodemailer` package. " +
 					"Install it with: npm install nodemailer",
 			);
 		}

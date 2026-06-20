@@ -1,10 +1,10 @@
 {
-  "name": "@kavachos/cli",
+  "name": "@theauth/cli",
   "version": "0.1.4",
-  "description": "KavachOS CLI - setup wizard, dashboard launcher, and development tools",
+  "description": "TheAuth CLI - setup wizard, dashboard launcher, and development tools",
   "type": "module",
   "bin": {
-    "kavachos": "./dist/bin.js"
+    "theauth": "./dist/bin.js"
   },
   "files": [
     "dist"
@@ -17,8 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "kavachos": "workspace:*",
-    "@kavachos/hono": "workspace:*",
+    "theauth": "workspace:*",
+    "@theauth/hono": "workspace:*",
     "hono": "^4.12.14",
     "@hono/node-server": "^1.13.0"
   },
@@ -28,16 +28,16 @@
     "typescript": "^6.0.3"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "auth",
     "agent",
     "cli"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/cli"
   }
 }

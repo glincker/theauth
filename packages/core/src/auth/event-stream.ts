@@ -1,5 +1,5 @@
 /**
- * Real-time event streaming via Server-Sent Events (SSE) for KavachOS.
+ * Real-time event streaming via Server-Sent Events (SSE) for TheAuth.
  *
  * Provides a persistent connection feed of audit events, agent lifecycle
  * changes, auth events, and anomalies. SOC teams and monitoring systems can

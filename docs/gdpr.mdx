@@ -4,7 +4,7 @@ description: Data export, account deletion, and audit log anonymization to meet 
 icon: file-lines
 ---
 
-KavachOS includes built-in tools for the three GDPR obligations that most commonly require custom code: giving users their data, deleting their account on request, and anonymizing audit trails.
+TheAuth includes built-in tools for the three GDPR obligations that most commonly require custom code: giving users their data, deleting their account on request, and anonymizing audit trails.
 
 <Info>
   These tools cover the technical layer. Your privacy policy, data processing agreements, and response timelines are your responsibility.
@@ -13,8 +13,8 @@ KavachOS includes built-in tools for the three GDPR obligations that most common
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { gdpr } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { gdpr } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -32,7 +32,7 @@ const kavach = await createKavach({
 
 `POST /auth/gdpr/export`
 
-Returns a JSON bundle of all data KavachOS holds for the authenticated user: profile, sessions, audit events, and any plugin-specific records.
+Returns a JSON bundle of all data TheAuth holds for the authenticated user: profile, sessions, audit events, and any plugin-specific records.
 
 ```typescript title="Request export (client)"
 const res = await fetch('/auth/gdpr/export', {
@@ -65,7 +65,7 @@ const res = await fetch('/auth/gdpr/delete', {
 ```
 
 <Warning>
-  Deletion is irreversible. Any app data you store outside KavachOS that references the user ID will become orphaned. Use the `onBeforeDelete` hook to cascade deletes in your own tables first.
+  Deletion is irreversible. Any app data you store outside TheAuth that references the user ID will become orphaned. Use the `onBeforeDelete` hook to cascade deletes in your own tables first.
 </Warning>
 
 ### onBeforeDelete hook
@@ -81,10 +81,10 @@ gdpr({
 
 ## Anonymize audit log
 
-For cases where you need to retain audit records for compliance but cannot keep personal data, KavachOS can anonymize the audit log for a user without deleting it:
+For cases where you need to retain audit records for compliance but cannot keep personal data, TheAuth can anonymize the audit log for a user without deleting it:
 
 ```typescript title="Anonymize audit log (server)"
-import { anonymizeAuditLog } from 'kavachos/modules/gdpr';
+import { anonymizeAuditLog } from 'theauth/modules/gdpr';
 
 await anonymizeAuditLog(kavach, {
   userId: 'usr_abc123',

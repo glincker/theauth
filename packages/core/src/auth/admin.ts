@@ -1,5 +1,5 @@
 /**
- * Admin module for KavachOS.
+ * Admin module for TheAuth.
  *
  * Global admin operations: user listing, banning, impersonation, and deletion.
  * Admin access is determined by the `adminUserIds` config list.

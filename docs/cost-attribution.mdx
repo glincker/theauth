@@ -14,8 +14,8 @@ Cost attribution gives you per-agent, per-tool, and per-delegation-chain cost re
 ## Setup
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { createCostAttributionModule } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { createCostAttributionModule } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

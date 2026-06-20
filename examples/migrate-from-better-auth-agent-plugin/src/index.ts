@@ -7,7 +7,7 @@
  * authorizeByToken against the delegated permission.
  */
 
-import { createKavach, users } from "kavachos";
+import { createKavach, users } from "theauth";
 
 const BANNER = "=".repeat(60);
 

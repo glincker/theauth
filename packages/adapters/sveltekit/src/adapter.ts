@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@sveltejs/kit";
-import type { Kavach } from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachSvelteKitOptions {
@@ -26,14 +26,14 @@ export interface KavachSvelteKitHandlers {
 }
 
 /**
- * Create SvelteKit route handlers for all KavachOS REST API routes.
+ * Create SvelteKit route handlers for all TheAuth REST API routes.
  *
  * Mount in `src/routes/api/kavach/[...path]/+server.ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachSvelteKit } from '@kavachos/sveltekit';
+ * import { createKavach } from 'theauth';
+ * import { kavachSvelteKit } from '@theauth/sveltekit';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachSvelteKit(kavach);
@@ -47,7 +47,7 @@ export interface KavachSvelteKitHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachSvelteKit(kavach, { mcp });
  * ```

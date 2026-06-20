@@ -1,15 +1,15 @@
 ---
 title: SolidStart
-description: Mount KavachOS auth routes in SolidStart with `kavachSolidStart(kavach)`. Returns named route handlers using Web-standard Request, with no conversion layer needed.
+description: Mount TheAuth auth routes in SolidStart with `kavachSolidStart(kavach)`. Returns named route handlers using Web-standard Request, with no conversion layer needed.
 icon: "/brand-icons/solid.svg"
 ---
 
-`kavachSolidStart(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all API route file so all KavachOS paths are handled.
+`kavachSolidStart(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all API route file so all TheAuth paths are handled.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/solidstart
+pnpm add theauth @theauth/solidstart
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add kavachos @kavachos/solidstart
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -40,7 +40,7 @@ Create `src/routes/api/kavach/[...kavach].ts`. The `[...kavach]` segment catches
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { kavachSolidStart } from '@kavachos/solidstart';
+import { kavachSolidStart } from '@theauth/solidstart';
 import { kavach, mcp } from '~/lib/kavach';
 
 const handlers = kavachSolidStart(kavach, { mcp });
@@ -56,7 +56,7 @@ export const OPTIONS = handlers.OPTIONS;
 </Steps>
 
 <Info>
-  SolidStart API routes receive a standard Web API `Request`, so the adapter delegates directly to the KavachOS dispatcher without any conversion.
+  SolidStart API routes receive a standard Web API `Request`, so the adapter delegates directly to the TheAuth dispatcher without any conversion.
 </Info>
 
 ## Options
@@ -102,8 +102,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachSolidStart } from '@kavachos/solidstart';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachSolidStart } from '@theauth/solidstart';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

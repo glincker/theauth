@@ -1,5 +1,5 @@
 /**
- * Web Crypto API utilities for KavachOS.
+ * Web Crypto API utilities for TheAuth.
  *
  * This module uses ONLY the Web Crypto API (globalThis.crypto) which is
  * available natively in Cloudflare Workers, Deno, Bun, and Node 20+.

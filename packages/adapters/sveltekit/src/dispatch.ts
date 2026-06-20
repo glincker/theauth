@@ -6,8 +6,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+} from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -491,7 +491,7 @@ async function handleDashboardStats(kavach: Kavach): Promise<Response> {
 // ─── Route Dispatcher ────────────────────────────────────────────────────────
 
 /**
- * Dispatches an incoming Web API Request to the correct KavachOS handler based
+ * Dispatches an incoming Web API Request to the correct TheAuth handler based
  * on the request's pathname (relative to the catch-all segment base).
  *
  * The `basePath` is the URL prefix before the catch-all segment, e.g.

@@ -10,7 +10,7 @@
  *
  * Run:
  *   pnpm bench                   (from repo root)
- *   pnpm --filter kavachos bench (package-scoped)
+ *   pnpm --filter theauth bench (package-scoped)
  *
  * Targets are soft-enforced: misses print a warning on stderr, exit 0.
  * A hard CI gate (20% regression from main baseline) is a follow-up.
@@ -52,7 +52,7 @@ async function buildEngineWithData(): Promise<{ engine: PolicyEngine; db: Databa
 	// 1 user
 	await db.insert(users).values({
 		id: "user-1",
-		email: "bench@kavachos.test",
+		email: "bench@theauth.test",
 		createdAt: now,
 		updatedAt: now,
 	});

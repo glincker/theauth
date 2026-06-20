@@ -2,7 +2,7 @@
  * migrate-from-auth0
  *
  * Runnable companion to docs/migrate/from-auth0.mdx. Exercises the AFTER
- * patterns from that guide against the live kavachos workspace package, so
+ * patterns from that guide against the live theauth workspace package, so
  * the documented examples cannot drift from the real API surface.
  *
  * Step list mirrors the guide:
@@ -14,7 +14,7 @@
  *   6. Inspect the audit trail for compliance
  */
 
-import { createKavach, users } from "kavachos";
+import { createKavach, users } from "theauth";
 
 const BANNER = "=".repeat(60);
 

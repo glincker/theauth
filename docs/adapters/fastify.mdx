@@ -1,6 +1,6 @@
 ---
 title: Fastify
-description: Register KavachOS auth routes on Fastify with `kavachFastify(kavach)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
+description: Register TheAuth auth routes on Fastify with `kavachFastify(kavach)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
 icon: "/brand-icons/fastify.svg"
 ---
 
@@ -9,7 +9,7 @@ icon: "/brand-icons/fastify.svg"
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/fastify fastify
+pnpm add theauth @theauth/fastify fastify
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add kavachos @kavachos/fastify fastify
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -39,7 +39,7 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // src/index.ts
 import Fastify from 'fastify';
-import { kavachFastify } from '@kavachos/fastify';
+import { kavachFastify } from '@theauth/fastify';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = Fastify();
@@ -95,8 +95,8 @@ All MCP routes include CORS headers and respond to OPTIONS preflight requests.
 
 ```typescript
 import Fastify from 'fastify';
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachFastify } from '@kavachos/fastify';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachFastify } from '@theauth/fastify';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

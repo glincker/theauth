@@ -24,8 +24,8 @@ Make sure to enable **Log In with PayPal** for the app.
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

@@ -1,10 +1,10 @@
 ---
 title: Migrate from Clerk
-description: Move a Clerk app to KavachOS. Maps ClerkProvider, clerkMiddleware, useAuth, and Organizations to KavachOS, with Next.js middleware sample and data export steps.
+description: Move a Clerk app to TheAuth. Maps ClerkProvider, clerkMiddleware, useAuth, and Organizations to TheAuth, with Next.js middleware sample and data export steps.
 icon: arrow-right-arrow-left
 ---
 
-Clerk is a hosted identity service with a strong Next.js story and paid tiers that scale with MAU. KavachOS is open source, self-hosted, and treats AI agents as a first-class entity next to users. The two trade-offs are real: you give up Clerk's hosted sign-in UI and org management console, you take back your data, your cookie domain, your rate limits, and your bill. Read this before you cut over.
+Clerk is a hosted identity service with a strong Next.js story and paid tiers that scale with MAU. TheAuth is open source, self-hosted, and treats AI agents as a first-class entity next to users. The two trade-offs are real: you give up Clerk's hosted sign-in UI and org management console, you take back your data, your cookie domain, your rate limits, and your bill. Read this before you cut over.
 
 When the switch makes sense:
 
@@ -15,20 +15,20 @@ When the switch makes sense:
 
 When to wait:
 
-- You rely heavily on Clerk's hosted sign-in / sign-up components and have no designer bandwidth to rebuild them. KavachOS ships headless building blocks, not a dashboard you drop in.
-- You use Clerk's B2B Organizations extensively with their admin UI. KavachOS has an organization plugin but no hosted admin console yet.
+- You rely heavily on Clerk's hosted sign-in / sign-up components and have no designer bandwidth to rebuild them. TheAuth ships headless building blocks, not a dashboard you drop in.
+- You use Clerk's B2B Organizations extensively with their admin UI. TheAuth has an organization plugin but no hosted admin console yet.
 - You need Clerk-specific features like device attestation at the sign-in edge or their waitlist product.
 
 ## Concepts map
 
-| Clerk | KavachOS |
+| Clerk | TheAuth |
 |---|---|
 | `clerkClient` (server) | instance from `createKavach({...})` |
-| `<ClerkProvider>` | `<KavachProvider>` from `@kavachos/react` |
-| `useUser()` | `useUser()` from `@kavachos/react` |
-| `useAuth()` | `useSession()` + `useSignOut()` from `@kavachos/react` |
-| `useSession()` | `useSession()` from `@kavachos/react` |
-| `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@kavachos/react` |
+| `<ClerkProvider>` | `<KavachProvider>` from `@theauth/react` |
+| `useUser()` | `useUser()` from `@theauth/react` |
+| `useAuth()` | `useSession()` + `useSignOut()` from `@theauth/react` |
+| `useSession()` | `useSession()` from `@theauth/react` |
+| `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@theauth/react` |
 | `auth()` in server components | `kavach.auth.getSession()` using the request cookies |
 | `currentUser()` | `kavach.auth.getUser()` using the request cookies |
 | `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
@@ -48,9 +48,9 @@ When to wait:
 ```
 
 ```ts
-// AFTER: lib/kavach.ts (KavachOS)
-import { createKavach } from 'kavachos';
-import { organization } from 'kavachos/plugins';
+// AFTER: lib/kavach.ts (TheAuth)
+import { createKavach } from 'theauth';
+import { organization } from 'theauth/plugins';
 
 let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
 
@@ -61,7 +61,7 @@ export async function getKavach() {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
       },
-      secret: process.env.KAVACHOS_SECRET!,
+      secret: process.env.THEAUTH_SECRET!,
       baseUrl: process.env.AUTH_BASE_URL!,
       emailAndPassword: { enabled: true },
       plugins: [organization()],
@@ -73,7 +73,7 @@ export async function getKavach() {
 
 ### Next.js App Router route handler
 
-Clerk hides its route handling behind the middleware. KavachOS exposes an explicit handler so you can see and control what runs.
+Clerk hides its route handling behind the middleware. TheAuth exposes an explicit handler so you can see and control what runs.
 
 ```ts
 // BEFORE: no route handler needed. Clerk handles /sign-in, /sign-up, and session refresh
@@ -81,8 +81,8 @@ Clerk hides its route handling behind the middleware. KavachOS exposes an explic
 ```
 
 ```ts
-// AFTER: app/api/auth/[...kavach]/route.ts (KavachOS)
-import { kavachNextjs } from '@kavachos/nextjs';
+// AFTER: app/api/auth/[...kavach]/route.ts (TheAuth)
+import { kavachNextjs } from '@theauth/nextjs';
 import { getKavach } from '@/lib/kavach';
 
 const { GET, POST } = kavachNextjs(getKavach);
@@ -92,7 +92,7 @@ export { GET, POST };
 
 ### middleware.ts
 
-Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. KavachOS does not ship an equivalent wrapper. Roll your own, or only protect at the page level using `getSession()`.
+Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. TheAuth does not ship an equivalent wrapper. Roll your own, or only protect at the page level using `getSession()`.
 
 ```ts
 // BEFORE: middleware.ts (Clerk)
@@ -112,7 +112,7 @@ export const config = {
 ```
 
 ```ts
-// AFTER: middleware.ts (KavachOS)
+// AFTER: middleware.ts (TheAuth)
 import { NextRequest, NextResponse } from 'next/server';
 import { getKavach } from '@/lib/kavach';
 
@@ -159,8 +159,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```
 
 ```tsx
-// AFTER: app/layout.tsx (KavachOS)
-import { KavachProvider } from '@kavachos/react';
+// AFTER: app/layout.tsx (TheAuth)
+import { KavachProvider } from '@theauth/react';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -193,8 +193,8 @@ function Profile() {
 ```
 
 ```tsx
-// AFTER (KavachOS)
-import { useUser, useSignOut } from '@kavachos/react';
+// AFTER (TheAuth)
+import { useUser, useSignOut } from '@theauth/react';
 
 function Profile() {
   const { user, isLoading } = useUser();
@@ -211,7 +211,7 @@ function Profile() {
 
 ## Sign-in and sign-up pages
 
-Clerk ships `<SignIn />` and `<SignUp />` components that render their hosted flow inside your layout. KavachOS gives you hooks and expects you to build the form.
+Clerk ships `<SignIn />` and `<SignUp />` components that render their hosted flow inside your layout. TheAuth gives you hooks and expects you to build the form.
 
 ```tsx
 // BEFORE: app/sign-in/[[...sign-in]]/page.tsx (Clerk)
@@ -223,11 +223,11 @@ export default function Page() {
 ```
 
 ```tsx
-// AFTER: app/sign-in/page.tsx (KavachOS)
+// AFTER: app/sign-in/page.tsx (TheAuth)
 'use client';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSignIn } from '@kavachos/react';
+import { useSignIn } from '@theauth/react';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -281,7 +281,7 @@ await clerkClient().organizations.createOrganizationMembership({
 ```
 
 ```ts
-// AFTER (KavachOS)
+// AFTER (TheAuth)
 import { getKavach } from '@/lib/kavach';
 
 const kavach = await getKavach();
@@ -300,7 +300,7 @@ Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in Kava
 
 ## OAuth providers
 
-Clerk configures OAuth providers in its dashboard. KavachOS does it in code. Side by side for GitHub and Google:
+Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side by side for GitHub and Google:
 
 ```ts
 // BEFORE (Clerk dashboard)
@@ -309,13 +309,13 @@ Clerk configures OAuth providers in its dashboard. KavachOS does it in code. Sid
 ```
 
 ```ts
-// AFTER (KavachOS)
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+// AFTER (TheAuth)
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 export const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACHOS_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
   plugins: [
     oauth({
@@ -415,12 +415,12 @@ Clerk exports historical metadata, not live OAuth tokens. Users will re-authoris
 If you want password sign-in to keep working without a forced reset, accept Clerk bcrypt hashes during a transition window and rehash to PBKDF2 on successful sign-in. The shape of the hook:
 
 ```ts
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 import { compare as bcryptCompare } from 'bcrypt';
 
 export const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACHOS_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
   emailAndPassword: {
     enabled: true,
@@ -436,10 +436,10 @@ On a successful legacy verify, Kavach rehashes the password with PBKDF2 and over
 
 ## Session cookies
 
-Clerk sets the `__session` cookie signed by Clerk's keys. KavachOS cannot read those cookies without calling Clerk. That means one of two things:
+Clerk sets the `__session` cookie signed by Clerk's keys. TheAuth cannot read those cookies without calling Clerk. That means one of two things:
 
-1. **Hard cutover.** All signed-in users sign in once on the KavachOS flow. Simpler. Set an expectation with a banner for a few days.
-2. **Side-by-side with a rollout flag.** Keep Clerk running for a percentage of traffic while KavachOS takes the rest. Each user picks one stack until you flip them to 100% KavachOS. Sample middleware below.
+1. **Hard cutover.** All signed-in users sign in once on the TheAuth flow. Simpler. Set an expectation with a banner for a few days.
+2. **Side-by-side with a rollout flag.** Keep Clerk running for a percentage of traffic while TheAuth takes the rest. Each user picks one stack until you flip them to 100% TheAuth. Sample middleware below.
 
 Unlike a library-to-library migration, there is no cookie adapter that verifies Clerk tokens locally. Clerk session tokens require round-trips to Clerk's backend.
 
@@ -453,7 +453,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(req: NextRequest) {
   const userHint = req.cookies.get('migration_cohort')?.value ?? '';
-  const onKavach = userHint === 'kavach' || hashBucket(userHint) < Number(process.env.KAVACHOS_ROLLOUT ?? '0');
+  const onKavach = userHint === 'kavach' || hashBucket(userHint) < Number(process.env.THEAUTH_ROLLOUT ?? '0');
 
   if (onKavach) {
     return NextResponse.next();
@@ -471,38 +471,38 @@ function hashBucket(s: string): number {
 }
 ```
 
-Start at `KAVACHOS_ROLLOUT=10`, watch error rates and sign-in conversions, raise to 100 over a week or two. Cut the Clerk app once traffic is zero.
+Start at `THEAUTH_ROLLOUT=10`, watch error rates and sign-in conversions, raise to 100 over a week or two. Cut the Clerk app once traffic is zero.
 
 ## FAQ
 
 **Will my users be signed out on cutover day?**
-Yes, unless you run a side-by-side rollout. Clerk session cookies cannot be verified without Clerk, so KavachOS cannot accept them. A one-time sign-in is the simplest story. Tell users ahead of time and keep the old subdomain alive as a fallback.
+Yes, unless you run a side-by-side rollout. Clerk session cookies cannot be verified without Clerk, so TheAuth cannot accept them. A one-time sign-in is the simplest story. Tell users ahead of time and keep the old subdomain alive as a fallback.
 
 **Do OAuth tokens survive the migration?**
 No. Clerk does not export live OAuth access or refresh tokens. Users re-authorise the provider on first sign-in after migration. If your app calls provider APIs using those tokens, plan for a grace period.
 
-**Does KavachOS have an equivalent of Clerk's Organizations UI?**
-Not hosted. The `organization` plugin has the same model (organization, membership, role). You build the UI. The [example app](https://github.com/kavachos/kavachos/tree/main/packages/create-kavachos-app/templates/next-saas) has a minimal organization page to copy.
+**Does TheAuth have an equivalent of Clerk's Organizations UI?**
+Not hosted. The `organization` plugin has the same model (organization, membership, role). You build the UI. The [example app](https://github.com/glincker/theauth/tree/main/packages/create-theauth-app/templates/next-saas) has a minimal organization page to copy.
 
 **What about Clerk's waitlist, age gate, or impersonation features?**
-- Waitlist: not in KavachOS core. Gate sign-up in your own route handler.
+- Waitlist: not in TheAuth core. Gate sign-up in your own route handler.
 - Age gate: use the `additionalFields` config to collect DOB and enforce in middleware.
 - Impersonation with TTL: the `admin` plugin ships this.
 
 **Will my Clerk webhooks still fire?**
-No. Clerk webhooks are driven by Clerk's internal events. KavachOS emits events from your own database via the event system (see [events](/events)). If you used Clerk webhooks to sync users to Stripe, port that to a Kavach event hook that runs in your process.
+No. Clerk webhooks are driven by Clerk's internal events. TheAuth emits events from your own database via the event system (see [events](/events)). If you used Clerk webhooks to sync users to Stripe, port that to a Kavach event hook that runs in your process.
 
 **I use Clerk's JWT templates. What replaces them?**
 The `jwt` plugin exposes a `customClaims` callback that runs at token issuance. It receives the session and returns any extra claims you want in the JWT.
 
-**Can I keep Clerk for B2B and use KavachOS for B2C in the same app?**
+**Can I keep Clerk for B2B and use TheAuth for B2C in the same app?**
 Technically yes, but you will spend more time on the boundary than on the migration itself. Pick one.
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="KavachOS vs paid platforms" href="/compare/vs-paid" icon="building">
-    Structural comparison of KavachOS versus Clerk and Auth0.
+  <Card title="TheAuth vs paid platforms" href="/compare/vs-paid" icon="building">
+    Structural comparison of TheAuth versus Clerk and Auth0.
   </Card>
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
     Migration guide if you are coming from better-auth instead.

@@ -2,7 +2,7 @@
 icon: google
 iconType: brands
 title: Google
-description: Wire Google OAuth 2.0 and OpenID Connect into KavachOS. Covers Cloud Console setup, People API, consent screen configuration, and profile scope access.
+description: Wire Google OAuth 2.0 and OpenID Connect into TheAuth. Covers Cloud Console setup, People API, consent screen configuration, and profile scope access.
 ---
 
 ## Get credentials
@@ -21,7 +21,7 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
 
 ### Enable the People API
 
-Navigate to **APIs and Services > Library**, search for "Google People API", and enable it. This lets KavachOS fetch the user's name and profile picture.
+Navigate to **APIs and Services > Library**, search for "Google People API", and enable it. This lets TheAuth fetch the user's name and profile picture.
 
 </Step>
 
@@ -51,8 +51,8 @@ Under **OAuth consent screen**, set the app name, support email, and authorized 
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -134,6 +134,6 @@ GET /auth/oauth/google/authorize?redirectTo=/dashboard
     Sign in with Apple for iOS apps and web.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

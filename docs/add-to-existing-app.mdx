@@ -1,13 +1,13 @@
 ---
 title: Add to an existing app
-description: Drop KavachOS into an app that already has human auth. Clerk, Auth.js, better-auth, or your own.
+description: Drop TheAuth into an app that already has human auth. Clerk, Auth.js, better-auth, or your own.
 icon: screwdriver-wrench
 ---
 
 You already have users. You just added agents. This is the ten-minute recipe.
 
 <Info>
-KavachOS does not replace your human auth. It runs alongside it. This guide assumes you already have a way to get a stable `userId` for every request.
+TheAuth does not replace your human auth. It runs alongside it. This guide assumes you already have a way to get a stable `userId` for every request.
 </Info>
 
 ## What you need before you start
@@ -28,17 +28,17 @@ KavachOS does not replace your human auth. It runs alongside it. This guide assu
 <Step title="Install">
 
 ```bash
-pnpm add kavachos @kavachos/nextjs
+pnpm add theauth @theauth/nextjs
 ```
 
-Substitute the adapter for your framework: `@kavachos/hono`, `@kavachos/express`, `@kavachos/fastify`, and so on. See [Framework adapters](/adapters).
+Substitute the adapter for your framework: `@theauth/hono`, `@theauth/express`, `@theauth/fastify`, and so on. See [Framework adapters](/adapters).
 
 </Step>
 
 <Step title="Create the Kavach instance">
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
 
@@ -49,7 +49,7 @@ export async function getKavach() {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
       },
-      secret: process.env.KAVACHOS_SECRET!,
+      secret: process.env.THEAUTH_SECRET!,
     });
   }
   return instance;
@@ -63,7 +63,7 @@ The lazy pattern lets Next.js build without opening a DB connection.
 <Step title="Wire the route handler">
 
 ```ts title="app/api/kavach/[...kavach]/route.ts"
-import { kavachNextjs } from '@kavachos/nextjs';
+import { kavachNextjs } from '@theauth/nextjs';
 import { getKavach } from '@/lib/kavach';
 
 const { GET, POST } = kavachNextjs(getKavach);

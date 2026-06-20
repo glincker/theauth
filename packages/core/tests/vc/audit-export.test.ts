@@ -3,8 +3,8 @@ import { generateDidKey } from "../../src/did/key-method.js";
 import type { AuditEntry } from "../../src/types.js";
 import {
 	exportAuditAsVC,
-	KAVACHOS_AUDIT_CONTEXT,
-	KAVACHOS_AUDIT_CREDENTIAL,
+	THEAUTH_AUDIT_CONTEXT,
+	THEAUTH_AUDIT_CREDENTIAL,
 } from "../../src/vc/audit-export.js";
 import type { VCIssuerConfig } from "../../src/vc/types.js";
 import { VC_CONTEXT_V2 } from "../../src/vc/types.js";
@@ -78,8 +78,8 @@ describe("exportAuditAsVC – ldp_vc individual", () => {
 
 		const first = result.credentials[0];
 		expect(first?.["@context"]).toContain(VC_CONTEXT_V2);
-		expect(first?.["@context"]).toContain(KAVACHOS_AUDIT_CONTEXT);
-		expect(first?.type).toContain(KAVACHOS_AUDIT_CREDENTIAL);
+		expect(first?.["@context"]).toContain(THEAUTH_AUDIT_CONTEXT);
+		expect(first?.type).toContain(THEAUTH_AUDIT_CREDENTIAL);
 		expect(first?.proof).toBeDefined();
 		expect(first?.proof?.type).toBe("JsonWebSignature2020");
 	});

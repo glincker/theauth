@@ -7,7 +7,7 @@ icon: user-shield
 
 ## How permissions work
 
-A permission grants an agent the right to perform one or more actions on a resource. KavachOS evaluates permissions at call time by checking whether any of the agent's permissions match the requested resource and include the requested action, then verifying all constraints pass.
+A permission grants an agent the right to perform one or more actions on a resource. TheAuth evaluates permissions at call time by checking whether any of the agent's permissions match the requested resource and include the requested action, then verifying all constraints pass.
 
 <ParamField path="resource" type="string">Colon-separated resource path. Wildcards (*) match exactly one segment.</ParamField>
 <ParamField path="actions" type="string[]">The actions this permission grants. No fixed set, define what fits your tools.</ParamField>
@@ -45,7 +45,7 @@ A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos
 
 ### Actions
 
-Actions describe what the agent can do to a resource. KavachOS does not enforce a fixed set, you define what makes sense for your tools.
+Actions describe what the agent can do to a resource. TheAuth does not enforce a fixed set, you define what makes sense for your tools.
 
 Common actions in MCP contexts:
 
@@ -117,7 +117,7 @@ Constraints add conditions to a permission. All conditions must be met for the p
     The authorization result has `allowed: false` and reason `APPROVAL_REQUIRED`. Your application is responsible for presenting the approval UI and re-authorizing after approval.
 
     <Info>
-      KavachOS does not ship an approval UI. It provides the enforcement point. How you build the human review step is up to you.
+      TheAuth does not ship an approval UI. It provides the enforcement point. How you build the human review step is up to you.
     </Info>
   </Accordion>
 
@@ -156,10 +156,10 @@ Constraints add conditions to a permission. All conditions must be met for the p
 
 ## Permission templates
 
-KavachOS ships named templates for common patterns. Import them from `kavachos`:
+TheAuth ships named templates for common patterns. Import them from `theauth`:
 
 ```typescript
-import { permissionTemplates, getPermissionTemplate } from 'kavachos';
+import { permissionTemplates, getPermissionTemplate } from 'theauth';
 
 const agent = await kavach.agent.create({
   ownerId: 'user-123',

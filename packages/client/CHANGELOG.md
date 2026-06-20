@@ -1,4 +1,4 @@
-# @kavachos/client
+# @theauth/client
 
 ## 0.1.0
 

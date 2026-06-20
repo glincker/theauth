@@ -1,21 +1,21 @@
-# @kavachos/fastify
+# @theauth/fastify
 
-Fastify adapter for KavachOS.
+Fastify adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/fastify)](https://www.npmjs.com/package/@kavachos/fastify)
+[![npm](https://img.shields.io/npm/v/@theauth/fastify)](https://www.npmjs.com/package/@theauth/fastify)
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/fastify
+pnpm add theauth @theauth/fastify
 ```
 
 ## Usage
 
 ```typescript
 import Fastify from 'fastify';
-import { createKavach } from 'kavachos';
-import { kavachFastify } from '@kavachos/fastify';
+import { createKavach } from 'theauth';
+import { kavachFastify } from '@theauth/fastify';
 
 const app = Fastify();
 
@@ -23,19 +23,19 @@ const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 
-// Register all KavachOS routes under /api/kavach
+// Register all TheAuth routes under /api/kavach
 await app.register(kavachFastify(kavach), { prefix: '/api/kavach' });
 
 await app.listen({ port: 3000 });
 ```
 
-This registers the full KavachOS REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This registers the full TheAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'kavachos/mcp';
-import { kavachFastify } from '@kavachos/fastify';
+import { createMcpModule } from 'theauth/mcp';
+import { kavachFastify } from '@theauth/fastify';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -61,12 +61,12 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 |--------|------|-------------|
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [kavachos](https://www.npmjs.com/package/kavachos) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
 
 ## Links
 
-- [Documentation](https://kavachos.dev/docs)
-- [GitHub](https://github.com/kavachos/kavachos)
+- [Documentation](https://theauth.dev/docs)
+- [GitHub](https://github.com/glincker/theauth)
 
 ## License
 

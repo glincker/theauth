@@ -48,7 +48,7 @@ async function waitForServer(baseUrl: string): Promise<void> {
 
 async function startExample(): Promise<RunningExample> {
 	const port = await getFreePort();
-	const dir = await mkdtemp(join(tmpdir(), "kavachos-hono-example-"));
+	const dir = await mkdtemp(join(tmpdir(), "theauth-hono-example-"));
 	const dbPath = join(dir, "kavach-example.db");
 	const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 	const child = spawn(pnpmCmd, ["start"], {
@@ -106,7 +106,7 @@ describe("hono-server example", () => {
 
 		const homeRes = await fetch(`${app.baseUrl}/`);
 		expect(homeRes.status).toBe(200);
-		expect(await homeRes.text()).toContain("KavachOS");
+		expect(await homeRes.text()).toContain("TheAuth");
 
 		const createRes = await fetch(`${app.baseUrl}/api/agents`, {
 			method: "POST",

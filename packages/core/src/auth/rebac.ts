@@ -1,5 +1,5 @@
 /**
- * Relationship-Based Access Control (ReBAC) engine for KavachOS.
+ * Relationship-Based Access Control (ReBAC) engine for TheAuth.
  *
  * Inspired by Google Zanzibar. Models authorization as a graph of typed
  * relationships between subjects (users, agents, teams) and objects

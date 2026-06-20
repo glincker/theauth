@@ -1,5 +1,5 @@
 /**
- * rateLimit() plugin for KavachOS.
+ * rateLimit() plugin for TheAuth.
  *
  * Wraps auth endpoints with configurable per-IP (and per-agent) throttling.
  * Intercepts requests via the onRequest lifecycle hook before any handler
@@ -7,9 +7,9 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { rateLimit } from 'kavachos/auth';
- * import { kvStore } from 'kavachos/auth/stores/kv';
+ * import { createKavach } from 'theauth';
+ * import { rateLimit } from 'theauth/auth';
+ * import { kvStore } from 'theauth/auth/stores/kv';
  *
  * const kavach = createKavach({
  *   plugins: [

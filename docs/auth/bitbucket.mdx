@@ -32,8 +32,8 @@ After saving, expand the consumer to see the **Key** (client ID) and **Secret** 
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth, bitbucketProvider } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth, bitbucketProvider } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -69,7 +69,7 @@ Default scope: `account`
 | `team` | Read workspace/team memberships |
 
 <Info>
-  Bitbucket does not expose the user's email by default through the profile endpoint if it is set to private. The `email` scope fetches it from a separate endpoint. KavachOS requests both automatically.
+  Bitbucket does not expose the user's email by default through the profile endpoint if it is set to private. The `email` scope fetches it from a separate endpoint. TheAuth requests both automatically.
 </Info>
 
 ## Endpoints

@@ -246,7 +246,7 @@ export function SettingsPage({ client }: SettingsPageProps) {
 			) : (
 				<div className="bg-red-950/30 border border-red-800/50 rounded-xl p-5">
 					<p className="text-sm text-red-400">
-						Failed to load settings. Check that your KavachOS API is reachable.
+						Failed to load settings. Check that your TheAuth API is reachable.
 					</p>
 					{settingsResult && !settingsResult.success && (
 						<p className="text-xs text-red-500 mt-1 font-mono">

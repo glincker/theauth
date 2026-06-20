@@ -1,13 +1,13 @@
 /**
- * Webhook plugin for KavachOS.
+ * Webhook plugin for TheAuth.
  *
  * Integrates the delivery engine and signing into a plugin that hooks into
  * auth events and dispatches signed HTTP POST requests.
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { webhooks } from 'kavachos/webhook';
+ * import { createKavach } from 'theauth';
+ * import { webhooks } from 'theauth/webhook';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

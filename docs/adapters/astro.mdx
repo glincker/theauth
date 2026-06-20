@@ -1,15 +1,15 @@
 ---
 title: Astro
-description: Mount KavachOS auth routes in an Astro app with `kavachAstro(kavach)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
+description: Mount TheAuth auth routes in an Astro app with `kavachAstro(kavach)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
 icon: "/brand-icons/astro.svg"
 ---
 
-`kavachAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all KavachOS paths are handled. Use individual named exports or the `ALL` catch-all handler.
+`kavachAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled. Use individual named exports or the `ALL` catch-all handler.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/astro
+pnpm add theauth @theauth/astro
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add kavachos @kavachos/astro
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
@@ -40,7 +40,7 @@ Create `src/pages/api/kavach/[...path].ts`. The `[...path]` spread catches every
 
 ```typescript
 // src/pages/api/kavach/[...path].ts
-import { kavachAstro } from '@kavachos/astro';
+import { kavachAstro } from '@theauth/astro';
 import { kavach, mcp } from '@/lib/kavach';
 
 const handlers = kavachAstro(kavach, { mcp });
@@ -108,8 +108,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/pages/api/kavach/[...path].ts
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachAstro } from '@kavachos/astro';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachAstro } from '@theauth/astro';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },

@@ -1,5 +1,5 @@
 /**
- * SCIM 2.0 directory sync for KavachOS.
+ * SCIM 2.0 directory sync for TheAuth.
  *
  * Implements RFC 7644 (SCIM 2.0 protocol) to allow enterprise identity
  * providers (Okta, Azure AD, Google Workspace) to provision and deprovision
@@ -9,7 +9,7 @@
  *
  * @example
  * ```typescript
- * import { createScimModule } from 'kavachos/auth';
+ * import { createScimModule } from 'theauth/auth';
  *
  * const scim = createScimModule({
  *   bearerToken: process.env.SCIM_TOKEN,
@@ -1044,7 +1044,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const baseUrl = getBaseUrl(request);
 		return scimResponse({
 			schemas: [SCHEMA_SP_CONFIG],
-			documentationUri: "https://kavachos.dev/docs/scim",
+			documentationUri: "https://theauth.dev/docs/scim",
 			patch: { supported: true },
 			bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
 			filter: { supported: true, maxResults: 200 },

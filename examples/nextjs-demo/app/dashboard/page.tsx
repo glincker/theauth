@@ -201,7 +201,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-zinc-950">
       <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <span className="text-sm font-medium text-zinc-100">KavachOS</span>
+          <span className="text-sm font-medium text-zinc-100">TheAuth</span>
           <span className="ml-2 text-xs text-zinc-500">demo</span>
         </div>
         <div className="flex items-center gap-4">

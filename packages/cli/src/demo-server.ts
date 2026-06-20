@@ -1,4 +1,4 @@
-/** Full KavachOS backend with in-memory SQLite, seed data, and dashboard UI. */
+/** Full TheAuth backend with in-memory SQLite, seed data, and dashboard UI. */
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -6,11 +6,11 @@ import { createRequire } from "node:module";
 import { extname, join, resolve } from "node:path";
 import { env, stdout } from "node:process";
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@kavachos/hono";
+import { kavachHono } from "@theauth/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { Kavach, Permission } from "kavachos";
-import { createKavach, users } from "kavachos";
+import type { Kavach, Permission } from "theauth";
+import { createKavach, users } from "theauth";
 
 export interface DemoServerOptions {
 	port: number;
@@ -35,7 +35,7 @@ const MIME: Record<string, string> = {
 function resolveDashboardDistDir(): string {
 	try {
 		const require = createRequire(import.meta.url);
-		const pkgPath = require.resolve("@kavachos/dashboard/package.json");
+		const pkgPath = require.resolve("@theauth/dashboard/package.json");
 		const pkgDir = resolve(pkgPath, "..");
 		const distDir = join(pkgDir, "dist", "app");
 		if (existsSync(distDir)) return distDir;
@@ -55,7 +55,7 @@ function resolveDashboardDistDir(): string {
 	}
 
 	throw new Error(
-		"Cannot find @kavachos/dashboard dist directory.\n" +
+		"Cannot find @theauth/dashboard dist directory.\n" +
 			"Build the dashboard first: cd packages/dashboard && pnpm build\n",
 	);
 }
@@ -64,7 +64,7 @@ function resolveDashboardDistDir(): string {
 
 async function patchIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const html = await readFile(join(distDir, "index.html"), "utf-8");
-	const injection = `<script>window.__KAVACHOS_API_URL__ = ${JSON.stringify(apiUrl)};</script>`;
+	const injection = `<script>window.__THEAUTH_API_URL__ = ${JSON.stringify(apiUrl)};</script>`;
 	return html.includes("</head>")
 		? html.replace("</head>", `${injection}</head>`)
 		: injection + html;
@@ -78,7 +78,7 @@ async function seedDemoData(kavach: Kavach): Promise<void> {
 		.insert(users)
 		.values({
 			id: "user-demo",
-			email: "demo@kavachos.dev",
+			email: "demo@theauth.dev",
 			name: "Demo User",
 			createdAt: new Date(),
 			updatedAt: new Date(),
@@ -177,13 +177,13 @@ function createAuthRoute(secret: string | null): Hono {
 
 export async function startDemoServer(options: DemoServerOptions): Promise<void> {
 	const { port } = options;
-	const dashboardSecret = env.KAVACHOS_DASHBOARD_SECRET ?? null;
+	const dashboardSecret = env.THEAUTH_DASHBOARD_SECRET ?? null;
 
 	if (dashboardSecret === null) {
-		stdout.write("  [warn] KAVACHOS_DASHBOARD_SECRET is not set -- dashboard auth is disabled.\n");
+		stdout.write("  [warn] THEAUTH_DASHBOARD_SECRET is not set -- dashboard auth is disabled.\n");
 	}
 
-	// 1. Create KavachOS with in-memory SQLite
+	// 1. Create TheAuth with in-memory SQLite
 	const kavach = await createKavach({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
@@ -307,7 +307,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		return c.json([
 			{
 				id: "user-demo",
-				email: "demo@kavachos.dev",
+				email: "demo@theauth.dev",
 				name: "Demo User",
 				agentCount: 3,
 				createdAt: new Date().toISOString(),
@@ -422,7 +422,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	// 5. Start the server
 	serve({ fetch: app.fetch, port }, () => {
 		stdout.write("\n");
-		stdout.write("  KavachOS Dashboard (demo mode)\n");
+		stdout.write("  TheAuth Dashboard (demo mode)\n");
 		stdout.write("  ==============================\n\n");
 		stdout.write(`  Local:     http://localhost:${port}\n`);
 		stdout.write(`  API:       ${apiUrl}\n`);

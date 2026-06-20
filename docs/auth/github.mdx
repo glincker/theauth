@@ -2,7 +2,7 @@
 icon: github
 iconType: brands
 title: GitHub
-description: Wire GitHub OAuth 2.0 into KavachOS with the `oauth()` plugin. Covers app registration, callback URL, client secret setup, and optional scope expansion.
+description: Wire GitHub OAuth 2.0 into TheAuth with the `oauth()` plugin. Covers app registration, callback URL, client secret setup, and optional scope expansion.
 ---
 
 ## Get credentials
@@ -40,8 +40,8 @@ After creating the app, copy the **Client ID**. Click **Generate a new client se
 <Tabs>
   <Tab title="Basic">
     ```typescript title="lib/kavach.ts"
-    import { createKavach } from 'kavachos';
-    import { oauth } from 'kavachos/auth';
+    import { createKavach } from 'theauth';
+    import { oauth } from 'theauth/auth';
 
     const kavach = await createKavach({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -103,7 +103,7 @@ Default scope: `user:email`
 | `image` | `avatar_url` | GitHub avatar URL |
 
 <Warning>
-  GitHub users can set their email to private. KavachOS fetches the primary verified email from the `/user/emails` endpoint using the `user:email` scope, so you still get it even if the profile email is hidden.
+  GitHub users can set their email to private. TheAuth fetches the primary verified email from the `/user/emails` endpoint using the `user:email` scope, so you still get it even if the profile email is hidden.
 </Warning>
 
 ## Related
@@ -119,6 +119,6 @@ Default scope: `user:email`
     Sign in with Google using OIDC.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

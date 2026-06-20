@@ -1,13 +1,13 @@
-# @kavachos/vue
+# @theauth/vue
 
-Vue plugin and composables for KavachOS authentication.
+Vue plugin and composables for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/vue?style=flat-square)](https://www.npmjs.com/package/@kavachos/vue)
+[![npm](https://img.shields.io/npm/v/@theauth/vue?style=flat-square)](https://www.npmjs.com/package/@theauth/vue)
 
 ## Install
 
 ```bash
-npm install @kavachos/vue
+npm install @theauth/vue
 ```
 
 ## Usage
@@ -17,7 +17,7 @@ Register the plugin in your Vue app, then use composables in any component.
 ```ts
 // main.ts
 import { createApp } from 'vue';
-import { createKavachPlugin } from '@kavachos/vue';
+import { createKavachPlugin } from '@theauth/vue';
 import App from './App.vue';
 
 const app = createApp(App);
@@ -32,7 +32,7 @@ app.mount('#app');
 
 ```vue
 <script setup lang="ts">
-import { useSession, useUser, useSignIn, useSignOut } from '@kavachos/vue';
+import { useSession, useUser, useSignIn, useSignOut } from '@theauth/vue';
 
 const { session, isLoading } = useSession();
 const { user } = useUser();
@@ -60,7 +60,7 @@ const { signOut } = useSignOut();
 
 ## Docs
 
-[https://docs.kavachos.com](https://docs.kavachos.com)
+[https://docs.theauth.com](https://docs.theauth.com)
 
 ## License
 

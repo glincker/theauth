@@ -24,8 +24,8 @@ Copy the **App ID** and **App Secret** from the app dashboard.
 ### Configure
 
 ```ts
-import { createKavach, oauth } from 'kavachos';
-import { facebookProvider } from 'kavachos/auth'; // [!code highlight]
+import { createKavach, oauth } from 'theauth';
+import { facebookProvider } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

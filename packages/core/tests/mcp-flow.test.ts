@@ -20,10 +20,10 @@ import { computeS256Challenge, generateSecureToken } from "../src/mcp/utils.js";
 
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
-const ISSUER = "https://auth.kavachos.test";
-const BASE_URL = "https://auth.kavachos.test/api/auth";
+const ISSUER = "https://auth.theauth.test";
+const BASE_URL = "https://auth.theauth.test/api/auth";
 const SIGNING_SECRET = "test-signing-secret-at-least-32-chars-long!!";
-const REDIRECT_URI = "https://app.kavachos.test/callback";
+const REDIRECT_URI = "https://app.theauth.test/callback";
 const TEST_USER_ID = "user_01HXYZ";
 
 // ─── In-memory store factory ──────────────────────────────────────────────────
@@ -694,7 +694,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			const reg = await registerPublicClient(mcp);
 			const tokens = await runFullAuthCodeFlow(mcp, reg.client_id);
 
-			const request = new Request("https://mcp.kavachos.test/tools", {
+			const request = new Request("https://mcp.theauth.test/tools", {
 				headers: { Authorization: `Bearer ${tokens.access_token}` },
 			});
 
@@ -707,7 +707,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 
 		it("returns UNAUTHORIZED when no Authorization header is present", async () => {
-			const request = new Request("https://mcp.kavachos.test/tools");
+			const request = new Request("https://mcp.theauth.test/tools");
 
 			const result = await mcp.middleware(request);
 
@@ -717,7 +717,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 
 		it("returns error for a malformed Bearer token", async () => {
-			const request = new Request("https://mcp.kavachos.test/tools", {
+			const request = new Request("https://mcp.theauth.test/tools", {
 				headers: { Authorization: "Bearer this-is-not-a-jwt" },
 			});
 
@@ -782,7 +782,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 
 			// Validate the alt token against the ORIGINAL module (different secret)
 			const result = await mcp.middleware(
-				new Request("https://mcp.kavachos.test/tools", {
+				new Request("https://mcp.theauth.test/tools", {
 					headers: { Authorization: `Bearer ${altTokens.access_token}` },
 				}),
 			);

@@ -32,7 +32,7 @@ interface KavachContextValue {
 
 export interface ElectronKavachProviderProps {
 	children: ReactNode;
-	/** Base path where KavachOS is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 	/** Custom storage adapter. Defaults to in-memory if not provided. */
 	storage?: SecureStorage;
@@ -76,7 +76,7 @@ function extractErrorMessage(body: unknown, fallback: string): string {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 /**
- * Wraps your Electron renderer with KavachOS auth state.
+ * Wraps your Electron renderer with TheAuth auth state.
  *
  * Extends the base KavachProvider behaviour with:
  * - Session persistence to Electron's safeStorage on sign-in

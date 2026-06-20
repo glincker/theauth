@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/react",
+  "name": "@theauth/react",
   "version": "0.5.0",
-  "description": "React hooks for KavachOS auth (with v0.5 session rotation)",
+  "description": "React hooks for TheAuth auth (with v0.5 session rotation)",
   "type": "module",
   "sideEffects": false,
   "main": "dist/index.js",
@@ -22,10 +22,10 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "license": "MIT",
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/react"
   },
   "peerDependencies": {

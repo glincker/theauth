@@ -30,7 +30,7 @@ export default function DemoPage() {
 			<header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
 				<div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
 					<div className="flex items-center gap-3">
-						<span className="text-brand font-bold text-lg tracking-tight">KavachOS</span>
+						<span className="text-brand font-bold text-lg tracking-tight">TheAuth</span>
 						<span className="text-zinc-500 text-sm">live demo</span>
 					</div>
 					<button
@@ -51,7 +51,7 @@ export default function DemoPage() {
 						Agent auth in under 30 seconds
 					</h1>
 					<p className="text-zinc-400 text-base max-w-2xl mx-auto">
-						Each panel runs real KavachOS, passkey sign-up, scoped agent spawning, live tool
+						Each panel runs real TheAuth, passkey sign-up, scoped agent spawning, live tool
 						authorization with audit, delegation, and an EU AI Act export.
 					</p>
 				</div>
@@ -110,7 +110,7 @@ export default function DemoPage() {
 				<Panel
 					number={2}
 					title="Spawn an agent"
-					description="Create a KavachOS agent with read-only access to the calendar tool surface."
+					description="Create a TheAuth agent with read-only access to the calendar tool surface."
 					done={step >= 2}
 					active={step === 1}
 				>
@@ -140,7 +140,7 @@ export default function DemoPage() {
 				<Panel
 					number={3}
 					title="Make tool calls"
-					description="The agent calls three calendar tools. Each call goes through KavachOS authorization and is written to the audit log."
+					description="The agent calls three calendar tools. Each call goes through TheAuth authorization and is written to the audit log."
 					done={step >= 3}
 					active={step === 2}
 				>

@@ -1,6 +1,6 @@
 ---
 title: Auth0
-description: Authenticate users via Auth0 OIDC with `auth0Provider`. Pass your tenant domain and client credentials to attach Auth0-issued tokens to a KavachOS session.
+description: Authenticate users via Auth0 OIDC with `auth0Provider`. Pass your tenant domain and client credentials to attach Auth0-issued tokens to a TheAuth session.
 icon: "/brand-icons/auth0.svg"
 ---
 
@@ -31,8 +31,8 @@ Your domain looks like `your-tenant.auth0.com`.
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth, auth0Provider } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth, auth0Provider } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

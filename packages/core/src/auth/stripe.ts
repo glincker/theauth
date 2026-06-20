@@ -1,13 +1,13 @@
 /**
- * Stripe payment integration for KavachOS.
+ * Stripe payment integration for TheAuth.
  *
- * Links Stripe customers to KavachOS users, handles subscription lifecycle
+ * Links Stripe customers to TheAuth users, handles subscription lifecycle
  * webhooks, and stores subscription status. Uses Stripe's REST API directly
  * via fetch — no Stripe SDK dependency.
  *
  * @example
  * ```typescript
- * import { createStripeModule } from 'kavachos/auth';
+ * import { createStripeModule } from 'theauth/auth';
  *
  * const stripe = createStripeModule({
  *   secretKey: process.env.STRIPE_SECRET_KEY!,

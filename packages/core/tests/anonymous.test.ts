@@ -70,7 +70,7 @@ describe("AnonymousAuthModule.createAnonymousUser", () => {
 
 		const rows = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
 
-		expect(rows[0]?.email).toMatch(/@kavachos\.anonymous$/);
+		expect(rows[0]?.email).toMatch(/@theauth\.anonymous$/);
 	});
 
 	it("the session token validates correctly", async () => {

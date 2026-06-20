@@ -1,10 +1,10 @@
 /**
- * Google One Tap authentication for KavachOS.
+ * Google One Tap authentication for TheAuth.
  *
  * Verifies a Google ID token (issued by the Google Identity Services JS
  * library) server-side via Google's public JWKS endpoint. No Google SDK
  * required. Uses `jose` for JWT verification — the same library used
- * elsewhere in KavachOS.
+ * elsewhere in TheAuth.
  *
  * Flow:
  * 1. Front-end includes the Google Identity Services script and mounts the
@@ -25,7 +25,7 @@
  * });
  *
  * // Use via plugin
- * import { oneTap } from 'kavachos/auth';
+ * import { oneTap } from 'theauth/auth';
  * // plugins: [oneTap({ clientId: process.env.GOOGLE_CLIENT_ID })]
  *
  * // Or use the module directly

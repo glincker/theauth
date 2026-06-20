@@ -8,8 +8,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+} from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -187,7 +187,7 @@ function buildWebRequest(req: Request): globalThis.Request {
 	});
 }
 
-// ─── KavachOS NestJS Options ─────────────────────────────────────────────────
+// ─── TheAuth NestJS Options ─────────────────────────────────────────────────
 
 export interface KavachNestjsOptions {
 	/** The Kavach instance */
@@ -199,7 +199,7 @@ export interface KavachNestjsOptions {
 // ─── Express Router Builder ──────────────────────────────────────────────────
 
 /**
- * Build the Express Router with all KavachOS routes.
+ * Build the Express Router with all TheAuth routes.
  * Used internally by `KavachModule` and can also be used directly in
  * Express-backed NestJS apps via `app.use`.
  */
@@ -762,7 +762,7 @@ export function buildKavachRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 // ─── NestJS Middleware Factory ────────────────────────────────────────────────
 
 /**
- * Returns an Express-compatible middleware function that mounts all KavachOS
+ * Returns an Express-compatible middleware function that mounts all TheAuth
  * routes. Use this with `app.use()` in your NestJS bootstrap, or register it
  * via `KavachModule.forRoot()`.
  *

@@ -1,9 +1,9 @@
 /**
- * W3C Verifiable Credential verification for KavachOS.
+ * W3C Verifiable Credential verification for TheAuth.
  *
  * Verifies credentials in both JWT and JSON-LD formats. Checks
  * signatures, expiry, and optional revocation status. Extracts
- * KavachOS-specific permissions from verified credentials.
+ * TheAuth-specific permissions from verified credentials.
  */
 
 import { compactVerify, importJWK, errors as joseErrors, jwtVerify } from "jose";
@@ -43,7 +43,7 @@ export interface VCVerifier {
 		vp: string | VerifiablePresentation,
 		publicKeyJwk?: JsonWebKey,
 	): Promise<Result<VerifiedPresentation>>;
-	/** Extract KavachOS permissions from a verified credential */
+	/** Extract TheAuth permissions from a verified credential */
 	extractPermissions(vc: VerifiableCredential): ExtractedPermissions;
 }
 

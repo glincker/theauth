@@ -6,11 +6,11 @@ icon: users
 
 ## Setup
 
-Add the `organization` plugin to your KavachOS instance:
+Add the `organization` plugin to your TheAuth instance:
 
 ```ts
-import { createKavach } from 'kavachos';
-import { organization } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { organization } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

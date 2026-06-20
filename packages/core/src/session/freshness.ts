@@ -1,5 +1,5 @@
 /**
- * Session freshness enforcement for KavachOS.
+ * Session freshness enforcement for TheAuth.
  *
  * Sensitive operations (password change, passkey registration, billing updates)
  * should require a "fresh" session -- one where the user authenticated recently,

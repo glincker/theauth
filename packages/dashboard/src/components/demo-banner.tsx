@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 
-const STORAGE_KEY = "kavachos-demo-banner-dismissed";
+const STORAGE_KEY = "theauth-demo-banner-dismissed";
 
 function isDismissed(): boolean {
 	if (typeof window === "undefined") return false;
@@ -24,7 +24,7 @@ export function DemoBanner() {
 				<span className="inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
 				Running in demo mode with sample data.{" "}
 				<a
-					href="https://kavachos.com/docs"
+					href="https://theauth.com/docs"
 					target="_blank"
 					rel="noopener noreferrer"
 					className="underline underline-offset-2 hover:text-amber-200 transition-colors"

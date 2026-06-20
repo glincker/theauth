@@ -4,13 +4,13 @@ description: The mental model you need before touching code. Agents, permissions
 icon: lightbulb
 ---
 
-A KavachOS app has one loop: a user signs in, creates agents, agents call `authorize()` before acting, and every decision lands in the audit trail. Everything else is detail on top of that loop.
+A TheAuth app has one loop: a user signs in, creates agents, agents call `authorize()` before acting, and every decision lands in the audit trail. Everything else is detail on top of that loop.
 
 ```mermaid
 flowchart LR
   U([User]) -->|creates| A[(Agent)]
   A -->|token| C[Agent call]
-  C -->|authorize| K[KavachOS]
+  C -->|authorize| K[TheAuth]
   K -->|yes / no| Out{Decision}
   K -.->|logs| Log[(Audit)]
   K -.->|adjusts| T[Trust score]
@@ -108,7 +108,7 @@ See [Trust scoring](/trust) for the full formula and [Policy templates](/policie
 
 ## MCP OAuth
 
-KavachOS ships an OAuth 2.1 authorization server for Model Context Protocol tool servers. Your MCP servers register as OAuth clients, your agents get scoped access tokens, and KavachOS audits every tool call with the same `authorize()` loop.
+TheAuth ships an OAuth 2.1 authorization server for Model Context Protocol tool servers. Your MCP servers register as OAuth clients, your agents get scoped access tokens, and TheAuth audits every tool call with the same `authorize()` loop.
 
 Three relevant standards: **PKCE S256** (RFC 7636), **Protected Resource Metadata** (RFC 9728), **Dynamic Client Registration** (RFC 7591). Full details in [MCP OAuth 2.1](/mcp).
 

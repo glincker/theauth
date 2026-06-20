@@ -1,15 +1,15 @@
 ---
 title: Vue
-description: Register KavachOS auth in Vue 3 via createKavachPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
+description: Register TheAuth auth in Vue 3 via createKavachPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
 icon: code
 ---
 
-`@kavachos/vue` provides Vue 3 composables and an app plugin for building auth UIs. It works with Vite, Nuxt, and any Vue 3 setup.
+`@theauth/vue` provides Vue 3 composables and an app plugin for building auth UIs. It works with Vite, Nuxt, and any Vue 3 setup.
 
 ## Installation
 
 ```bash
-pnpm add @kavachos/vue
+pnpm add @theauth/vue
 ```
 
 ## Setup
@@ -18,7 +18,7 @@ Register the plugin in your Vue app:
 
 ```typescript title="main.ts"
 import { createApp } from 'vue';
-import { createKavachPlugin } from '@kavachos/vue'; // [!code highlight]
+import { createKavachPlugin } from '@theauth/vue'; // [!code highlight]
 import App from './App.vue';
 
 const app = createApp(App);
@@ -35,7 +35,7 @@ app.mount('#app');
 In Nuxt, create a plugin file:
 
 ```typescript title="plugins/kavach.client.ts"
-import { createKavachPlugin } from '@kavachos/vue';
+import { createKavachPlugin } from '@theauth/vue';
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.use(createKavachPlugin({
@@ -50,7 +50,7 @@ Returns the current session state. Reactive, updates when the user signs in or o
 
 ```vue title="components/NavBar.vue"
 <script setup lang="ts">
-import { useSession } from '@kavachos/vue';
+import { useSession } from '@theauth/vue';
 
 const { session, isLoading } = useSession();
 </script>
@@ -70,7 +70,7 @@ Returns the current user object, or `null` if signed out.
 
 ```vue
 <script setup lang="ts">
-import { useUser } from '@kavachos/vue';
+import { useUser } from '@theauth/vue';
 
 const { user } = useUser();
 </script>
@@ -80,7 +80,7 @@ const { user } = useUser();
 
 ```vue title="pages/sign-in.vue"
 <script setup lang="ts">
-import { useSignIn } from '@kavachos/vue';
+import { useSignIn } from '@theauth/vue';
 
 const { signIn, isLoading, error } = useSignIn();
 
@@ -92,14 +92,14 @@ async function handleSubmit(email: string, password: string) {
 ```
 
 ```typescript title="Sign up"
-import { useSignUp } from '@kavachos/vue';
+import { useSignUp } from '@theauth/vue';
 
 const { signUp, isLoading, error } = useSignUp();
 await signUp({ email, password, name });
 ```
 
 ```typescript title="Sign out"
-import { useSignOut } from '@kavachos/vue';
+import { useSignOut } from '@theauth/vue';
 
 const { signOut } = useSignOut();
 await signOut();
@@ -110,7 +110,7 @@ await signOut();
 Lists and manages agent identities for the current user.
 
 ```typescript
-import { useAgents } from '@kavachos/vue';
+import { useAgents } from '@theauth/vue';
 
 const { agents, createAgent, revokeAgent, isLoading } = useAgents();
 
@@ -120,14 +120,14 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 
 ## Plugin configuration reference
 
-<ParamField path="basePath" type="string" default="'/api/kavach'">Base path where your KavachOS handler is mounted.</ParamField>
+<ParamField path="basePath" type="string" default="'/api/kavach'">Base path where your TheAuth handler is mounted.</ParamField>
 <ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call (e.g. custom headers).</ParamField>
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Nuxt adapter" href="/adapters/nuxt" icon="code">
-    Server-side KavachOS handler for Nuxt server routes and middleware.
+    Server-side TheAuth handler for Nuxt server routes and middleware.
   </Card>
   <Card title="Svelte" href="/svelte" icon="code">
     Svelte stores and SvelteKit hooks integration.

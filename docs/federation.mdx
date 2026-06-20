@@ -1,13 +1,13 @@
 ---
 title: Agent identity federation
-description: Issue and verify short-lived federation tokens so an AgentIdentity can authenticate at a remote KavachOS instance without re-registration or shared databases.
+description: Issue and verify short-lived federation tokens so an AgentIdentity can authenticate at a remote TheAuth instance without re-registration or shared databases.
 icon: network-wired
 ---
 
 
 ## What federation does
 
-When two services both run KavachOS, an agent created at Service A can authenticate at Service B without creating a new account. The agent's identity, trust score, permissions, and delegation scope travel with it in a short-lived, signed JWT called a federation token.
+When two services both run TheAuth, an agent created at Service A can authenticate at Service B without creating a new account. The agent's identity, trust score, permissions, and delegation scope travel with it in a short-lived, signed JWT called a federation token.
 
 This is useful when:
 
@@ -33,7 +33,7 @@ The source instance signs tokens with an EdDSA keypair. The target instance only
 
 ### Generate a keypair for each instance
 
-Each KavachOS instance needs its own signing key.
+Each TheAuth instance needs its own signing key.
 
 ```typescript
 import { generateKeyPair } from "jose";
@@ -44,7 +44,7 @@ const { publicKey, privateKey } = await generateKeyPair("EdDSA");
 ### Create the federation module
 
 ```typescript
-import { createFederationModule } from "kavachos/auth";
+import { createFederationModule } from "theauth/auth";
 
 const federation = createFederationModule({
   instanceId: "service-a",
@@ -169,7 +169,7 @@ Verification checks:
 You can attach a W3C Verifiable Credential to the federation token for offline verification. This is useful when the target instance needs cryptographic proof of the agent's capabilities that does not depend on the source instance's availability.
 
 ```typescript
-import { createVCIssuer } from "kavachos/vc";
+import { createVCIssuer } from "theauth/vc";
 
 // Issue a VC for the agent
 const vcResult = await vcIssuer.issueAgentCredential({
@@ -191,7 +191,7 @@ On the receiving side, `result.data.credential` will contain the VC JWT, which y
 
 ## Discovery protocol
 
-Each KavachOS instance can publish its identity at:
+Each TheAuth instance can publish its identity at:
 
 ```
 GET /.well-known/kavach-federation.json
@@ -237,7 +237,7 @@ Two services federating agents:
 <Tabs>
 <Tab title="Service A (source)">
 ```typescript
-import { createFederationModule } from "kavachos/auth";
+import { createFederationModule } from "theauth/auth";
 import { generateKeyPair, exportJWK } from "jose";
 
 const { publicKey, privateKey } = await generateKeyPair("EdDSA");
@@ -273,7 +273,7 @@ app.post("/agents/:id/federate", async (req, res) => {
 </Tab>
 <Tab title="Service B (target)">
 ```typescript
-import { createFederationModule } from "kavachos/auth";
+import { createFederationModule } from "theauth/auth";
 import { generateKeyPair } from "jose";
 
 const { privateKey } = await generateKeyPair("EdDSA");
@@ -319,7 +319,7 @@ app.use("/agents/federated/*", async (req, res, next) => {
     Embed W3C Verifiable Credentials in federation tokens for offline proof.
   </Card>
   <Card title="Delegation" href="/delegation" icon="link">
-    Delegate permissions within a single KavachOS instance.
+    Delegate permissions within a single TheAuth instance.
   </Card>
   <Card title="Multi-tenant" href="/multi-tenant" icon="building">
     Isolate tenants within a single instance instead of federating.

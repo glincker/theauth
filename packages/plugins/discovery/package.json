@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/plugin-discovery",
+  "name": "@theauth/plugin-discovery",
   "version": "3.0.2",
-  "description": "A2A agent capability card discovery plugin for KavachOS",
+  "description": "A2A agent capability card discovery plugin for TheAuth",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,28 +22,28 @@
     "clean": "rm -rf dist .turbo"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "discovery",
     "a2a",
     "agent",
     "capability",
     "mcp"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/plugins/discovery"
   },
   "dependencies": {
     "drizzle-orm": "^0.41.0"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*"
+    "theauth": "workspace:*"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "better-sqlite3": "^12.9.0",

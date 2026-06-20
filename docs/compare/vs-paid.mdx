@@ -1,6 +1,6 @@
 ---
-title: KavachOS vs paid auth platforms
-description: "KavachOS versus Clerk and Auth0: open-source self-hosted against managed platforms. Covers cost, data residency, agent identity gaps, and when each fits."
+title: TheAuth vs paid auth platforms
+description: "TheAuth versus Clerk and Auth0: open-source self-hosted against managed platforms. Covers cost, data residency, agent identity gaps, and when each fits."
 icon: building
 ---
 
@@ -10,32 +10,32 @@ The tradeoff is real too. You don't own the code, self-hosting is not an option,
 
 ## The structural differences
 
-**Open source vs. closed.** KavachOS is MIT. You can read every line, fork it, run it anywhere. Paid platforms are proprietary. You're trusting their security posture, their uptime SLA, and their product roadmap.
+**Open source vs. closed.** TheAuth is MIT. You can read every line, fork it, run it anywhere. Paid platforms are proprietary. You're trusting their security posture, their uptime SLA, and their product roadmap.
 
-**Self-hosted vs. vendor.** Running KavachOS means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure but own the logs too.
+**Self-hosted vs. vendor.** Running TheAuth means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure but own the logs too.
 
-**Agent-native vs. bolted on.** Neither Clerk nor Auth0 was designed with AI agents in mind. Both can issue tokens that an agent can use, but there's no concept of `AgentIdentity`, delegation chains, ephemeral sessions, or cost attribution. You build that layer yourself on top of their APIs. KavachOS ships it.
+**Agent-native vs. bolted on.** Neither Clerk nor Auth0 was designed with AI agents in mind. Both can issue tokens that an agent can use, but there's no concept of `AgentIdentity`, delegation chains, ephemeral sessions, or cost attribution. You build that layer yourself on top of their APIs. TheAuth ships it.
 
 ## When managed platforms make sense
 
 Managed auth is the right call when speed matters more than cost or control. If you're validating a product idea, a startup in week two, or a solo developer who doesn't want to run a database, the vendor handles the operational complexity.
 
-It's also worth considering if your team has no one who wants to own auth infrastructure. KavachOS is simple to run, but it still runs on your stack.
+It's also worth considering if your team has no one who wants to own auth infrastructure. TheAuth is simple to run, but it still runs on your stack.
 
 ## When open source makes sense
 
 Once you have a stable user base, the cost curve of managed platforms typically exceeds what it costs to run a database and a self-hosted SDK. Beyond cost, open source gives you the ability to audit the code for compliance, patch issues without waiting on a vendor, and keep sensitive auth data inside your own infrastructure.
 
-For any product with AI agents, KavachOS is the only open-source option that treats them as first-class entities rather than an afterthought.
+For any product with AI agents, TheAuth is the only open-source option that treats them as first-class entities rather than an afterthought.
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Migrate from Clerk" href="/migrate/from-clerk" icon="arrow-right-arrow-left">
-    How to move a Clerk app to KavachOS with a concrete migration plan.
+    How to move a Clerk app to TheAuth with a concrete migration plan.
   </Card>
-  <Card title="KavachOS vs better-auth" href="/compare/vs-ba" icon="code-compare">
-    Comparing KavachOS to the open-source better-auth library.
+  <Card title="TheAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
+    Comparing TheAuth to the open-source better-auth library.
   </Card>
   <Card title="GDPR compliance" href="/gdpr" icon="file-lines">
     Built-in data export and deletion for self-hosted data residency.

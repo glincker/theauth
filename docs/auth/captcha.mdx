@@ -4,7 +4,7 @@ description: Protect sign-up and sign-in endpoints with Cloudflare Turnstile, hC
 icon: shield-halved
 ---
 
-The `captcha` plugin adds bot protection to any KavachOS endpoint. It validates a client-side token before the request is processed, blocking automated sign-ups and credential stuffing without extra middleware.
+The `captcha` plugin adds bot protection to any TheAuth endpoint. It validates a client-side token before the request is processed, blocking automated sign-ups and credential stuffing without extra middleware.
 
 ## Supported providers
 
@@ -18,8 +18,8 @@ The `captcha` plugin adds bot protection to any KavachOS endpoint. It validates 
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { captcha } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { captcha } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

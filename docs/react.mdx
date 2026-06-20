@@ -1,24 +1,24 @@
 ---
 title: React hooks
-description: Wire KavachOS into React 18 apps via KavachProvider and hooks from @kavachos/react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
+description: Wire TheAuth into React 18 apps via KavachProvider and hooks from @theauth/react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
 icon: code
 ---
 
 
 ## Overview
 
-`@kavachos/react` provides React hooks and a context provider for building auth UIs on top of KavachOS. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup.
+`@theauth/react` provides React hooks and a context provider for building auth UIs on top of TheAuth. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup.
 
-The package itself has no Node.js dependencies, it runs entirely in the browser. Your KavachOS API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
+The package itself has no Node.js dependencies, it runs entirely in the browser. Your TheAuth API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
 
 <Info>
-  All hooks must be rendered inside `KavachProvider`. The provider talks to your KavachOS API route, no direct database access from the browser.
+  All hooks must be rendered inside `KavachProvider`. The provider talks to your TheAuth API route, no direct database access from the browser.
 </Info>
 
 ## Installation
 
 ```bash
-pnpm add @kavachos/react
+pnpm add @theauth/react
 ```
 
 ## Provider setup
@@ -28,7 +28,7 @@ Wrap your app with `KavachProvider`. In Next.js App Router, create a client comp
 ```tsx
 // app/providers.tsx
 'use client';
-import { KavachProvider } from '@kavachos/react';
+import { KavachProvider } from '@theauth/react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-<ParamField path="basePath" type="string" default="&quot;/api/kavach&quot;">Path to your KavachOS API handler. Must match the route you mounted in the adapter.</ParamField>
+<ParamField path="basePath" type="string" default="&quot;/api/kavach&quot;">Path to your TheAuth API handler. Must match the route you mounted in the adapter.</ParamField>
 <ParamField path="fetchOptions" type="RequestInit" default="undefined">Merged into every fetch call. Use this to add custom headers or credentials mode.</ParamField>
 
 <Info>
@@ -66,7 +66,7 @@ Sessions are stored in `localStorage` under the key `kavach_session`. The hooks 
 Returns the raw session object. Useful when you need the session token or expiry directly.
 
 ```tsx
-import { useSession } from '@kavachos/react';
+import { useSession } from '@theauth/react';
 
 function SessionDebug() {
   const { session, isLoading } = useSession();
@@ -91,7 +91,7 @@ function SessionDebug() {
 Returns the authenticated user and a boolean flag. This is the most common hook for protecting UI.
 
 ```tsx
-import { useUser } from '@kavachos/react';
+import { useUser } from '@theauth/react';
 
 function ProfileCard() {
   const { user, isAuthenticated, isLoading } = useUser();
@@ -119,7 +119,7 @@ Handles email and password sign-in. Returns a `signIn` function and state fields
 The hook posts to `POST /api/kavach/auth/sign-in` (not `/sign-in/email`). Make sure your adapter is mounted at `/api/kavach`.
 
 ```tsx
-import { useSignIn } from '@kavachos/react';
+import { useSignIn } from '@theauth/react';
 import { useRouter } from 'next/navigation';
 
 function SignInForm() {
@@ -154,7 +154,7 @@ function SignInForm() {
 Handles new account registration. Posts to `POST /api/kavach/auth/sign-up` (not `/sign-up/email`).
 
 ```tsx
-import { useSignUp } from '@kavachos/react';
+import { useSignUp } from '@theauth/react';
 
 function SignUpForm() {
   const { signUp, isLoading, error } = useSignUp();
@@ -186,7 +186,7 @@ function SignUpForm() {
 Signs the user out and clears the local session. Optionally redirects after sign-out.
 
 ```tsx
-import { useSignOut } from '@kavachos/react';
+import { useSignOut } from '@theauth/react';
 
 function NavBar() {
   const { signOut } = useSignOut();
@@ -206,7 +206,7 @@ function NavBar() {
 Lets your UI create, list, and revoke agents without going through a custom API route.
 
 ```tsx
-import { useAgents } from '@kavachos/react';
+import { useAgents } from '@theauth/react';
 
 function Dashboard() {
   const { user, isAuthenticated, isLoading } = useUser();
@@ -249,12 +249,12 @@ function Dashboard() {
 
 <CardGroup cols={2}>
   <Card title="TypeScript client" href="/client-sdk">
-  Server-side and Node.js usage with @kavachos/client.
+  Server-side and Node.js usage with @theauth/client.
 </Card>
   <Card title="Agent identity" href="/agents">
   How agents are modelled and what fields they carry.
 </Card>
   <Card title="Adapters" href="/adapters">
-  Mount the KavachOS handler in Next.js, Express, Hono, and others.
+  Mount the TheAuth handler in Next.js, Express, Hono, and others.
 </Card>
 </CardGroup>

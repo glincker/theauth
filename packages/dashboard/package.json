@@ -1,16 +1,16 @@
 {
-  "name": "@kavachos/dashboard",
+  "name": "@theauth/dashboard",
   "version": "0.1.3",
   "type": "module",
-  "description": "KavachOS admin dashboard - React UI for managing agents, permissions, and audit logs",
+  "description": "TheAuth admin dashboard - React UI for managing agents, permissions, and audit logs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/dashboard"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "dashboard",
     "admin",
     "agents",

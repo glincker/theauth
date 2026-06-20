@@ -1,4 +1,4 @@
-package kavachos
+package theauth
 
 // AgentType represents the kind of agent identity.
 type AgentType string
@@ -57,7 +57,7 @@ type Permission struct {
 	Constraints *PermissionConstraints `json:"constraints,omitempty"`
 }
 
-// Agent is an agent identity returned by the KavachOS API.
+// Agent is an agent identity returned by the TheAuth API.
 type Agent struct {
 	ID          string      `json:"id"`
 	OwnerID     string      `json:"ownerId"`

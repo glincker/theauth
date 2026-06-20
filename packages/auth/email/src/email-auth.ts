@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { Database } from "kavachos";
+import type { Database } from "theauth";
 import { EmailAuthError, ErrorCodes } from "./errors.js";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "./password.js";
 import type {
@@ -43,7 +43,7 @@ function generateToken(): string {
 
 /**
  * Execute a raw SQL statement against the underlying SQLite connection.
- * Uses the same pattern as kavachos/packages/core/src/db/migrations.ts.
+ * Uses the same pattern as theauth/packages/core/src/db/migrations.ts.
  */
 function execRaw(db: Database, sql: string): void {
 	// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle session for raw DDL
@@ -187,10 +187,10 @@ function rowToEmailUser(user: UserRow, account: AccountRow): EmailUser {
 // ---------------------------------------------------------------------------
 
 /**
- * Create an email+password authentication module backed by the KavachOS database.
+ * Create an email+password authentication module backed by the TheAuth database.
  *
  * @param config - Email auth configuration (callbacks, password policy, URLs).
- * @param db     - The KavachOS Drizzle database instance.
+ * @param db     - The TheAuth Drizzle database instance.
  */
 export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAuthModule {
 	// Resolve config with defaults

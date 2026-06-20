@@ -9,8 +9,8 @@ The `usernamePassword` plugin lets users pick a username at registration and sig
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { usernamePassword } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { usernamePassword } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

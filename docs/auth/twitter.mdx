@@ -24,9 +24,9 @@ Set the app type to **Web App** and enable **Read** permissions at minimum.
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
-import { createTwitterProvider } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
+import { createTwitterProvider } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -61,7 +61,7 @@ Default scopes: `users.read`, `tweet.read`
 | `offline.access` | Refresh token support |
 
 <Warning>
-  Twitter does not return an email address through the standard OAuth 2.0 flow. KavachOS uses a synthetic non-deliverable address (`username@twitter.invalid`) as a placeholder. Do not treat it as a real email.
+  Twitter does not return an email address through the standard OAuth 2.0 flow. TheAuth uses a synthetic non-deliverable address (`username@twitter.invalid`) as a placeholder. Do not treat it as a real email.
 </Warning>
 
 ## Endpoints

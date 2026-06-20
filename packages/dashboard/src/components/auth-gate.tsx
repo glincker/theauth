@@ -11,7 +11,7 @@ interface AuthGateProps {
 
 type AuthState = "checking" | "authenticated" | "unauthenticated";
 
-const SESSION_KEY = "kavachos_dashboard_secret";
+const SESSION_KEY = "theauth_dashboard_secret";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

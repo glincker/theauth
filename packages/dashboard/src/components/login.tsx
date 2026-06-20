@@ -30,10 +30,10 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 			});
 
 			if (res.ok) {
-				sessionStorage.setItem("kavachos_dashboard_secret", secret);
+				sessionStorage.setItem("theauth_dashboard_secret", secret);
 				onAuthenticated(secret);
 			} else {
-				setError("Invalid secret. Check your KAVACHOS_DASHBOARD_SECRET.");
+				setError("Invalid secret. Check your THEAUTH_DASHBOARD_SECRET.");
 			}
 		} catch {
 			setError("Could not reach the API. Make sure the server is running.");
@@ -51,7 +51,7 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 						<ShieldCheck className="w-6 h-6 text-yellow-500" strokeWidth={2} />
 					</div>
 					<h1 className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
-						KavachOS
+						TheAuth
 					</h1>
 					<p className="text-xs text-zinc-500 uppercase tracking-widest mt-0.5 font-medium">
 						Admin Dashboard
@@ -69,14 +69,14 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 						{/* Secret field */}
 						<div>
 							<label
-								htmlFor="kavachos-secret"
+								htmlFor="theauth-secret"
 								className="block text-xs font-medium text-zinc-400 mb-1.5"
 							>
 								Secret
 							</label>
 							<div className="relative">
 								<input
-									id="kavachos-secret"
+									id="theauth-secret"
 									type={showSecret ? "text" : "password"}
 									value={secret}
 									onChange={(e) => setSecret(e.target.value)}
@@ -114,7 +114,7 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 				</div>
 
 				<p className="text-center text-xs text-zinc-600 mt-5">
-					Set <code className="text-zinc-500 font-mono">KAVACHOS_DASHBOARD_SECRET</code> to protect
+					Set <code className="text-zinc-500 font-mono">THEAUTH_DASHBOARD_SECRET</code> to protect
 					this dashboard.
 				</p>
 			</div>

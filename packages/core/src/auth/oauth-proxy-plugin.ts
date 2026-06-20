@@ -10,7 +10,7 @@ export interface OAuthProxyPluginConfig extends OAuthProxyConfig {
 	 *
 	 * @example
 	 * ```typescript
-	 * import { createGoogleProvider } from 'kavachos/auth/oauth/providers/google';
+	 * import { createGoogleProvider } from 'theauth/auth/oauth/providers/google';
 	 *
 	 * oauthProxy({
 	 *   providers: {
@@ -32,7 +32,7 @@ export function oauthProxy(config: OAuthProxyPluginConfig): KavachPlugin {
 
 			if (!baseUrl) {
 				throw new Error(
-					"oauthProxy plugin requires `baseUrl` to be set in the KavachOS config so it can construct the server-side callback URL.",
+					"oauthProxy plugin requires `baseUrl` to be set in the TheAuth config so it can construct the server-side callback URL.",
 				);
 			}
 

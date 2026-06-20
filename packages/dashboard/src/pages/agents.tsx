@@ -672,7 +672,7 @@ export function AgentsPage({ client }: AgentsPageProps) {
 								<EmptyState
 									icon={<Bot className="w-6 h-6" />}
 									title="Create your first agent"
-									description="Agents are the primary identity in KavachOS. Each agent gets a token you use to authorize actions."
+									description="Agents are the primary identity in TheAuth. Each agent gets a token you use to authorize actions."
 									steps={[
 										'Click "New Agent" above',
 										"Set permissions for the resources the agent needs",
@@ -684,7 +684,7 @@ export function AgentsPage({ client }: AgentsPageProps) {
 											Create Agent
 										</Button>
 									}
-									docsLink="https://kavachos.com/docs/quickstart"
+									docsLink="https://theauth.com/docs/quickstart"
 								/>
 							</td>
 						</tr>

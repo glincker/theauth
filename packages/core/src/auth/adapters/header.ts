@@ -7,7 +7,7 @@
  *
  * @example Default header (`X-User-Id`)
  * ```typescript
- * import { headerAuth } from 'kavachos/auth';
+ * import { headerAuth } from 'theauth/auth';
  *
  * const adapter = headerAuth();
  * ```

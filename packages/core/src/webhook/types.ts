@@ -1,7 +1,7 @@
 /**
  * Webhook system types.
  *
- * Event types align with the KavachOS auth event surface:
+ * Event types align with the TheAuth auth event surface:
  * user, session, agent, permission, and organization lifecycle events.
  */
 

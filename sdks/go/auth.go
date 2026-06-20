@@ -1,4 +1,4 @@
-package kavachos
+package theauth
 
 import (
 	"context"
@@ -73,7 +73,7 @@ func (r *AuthResource) GetSession(ctx context.Context, token string) (*Session, 
 	}
 	var session Session
 	if err := json.Unmarshal(unwrapAPIData(raw), &session); err != nil {
-		return nil, fmt.Errorf("kavachos: decode session: %w", err)
+		return nil, fmt.Errorf("theauth: decode session: %w", err)
 	}
 	return &session, nil
 }
@@ -88,7 +88,7 @@ func (r *AuthResource) AuthorizeByToken(ctx context.Context, agentToken string, 
 	}
 	var result AuthorizeResult
 	if err := json.Unmarshal(unwrapAPIData(raw), &result); err != nil {
-		return nil, fmt.Errorf("kavachos: decode authorize result: %w", err)
+		return nil, fmt.Errorf("theauth: decode authorize result: %w", err)
 	}
 	return &result, nil
 }
@@ -96,7 +96,7 @@ func (r *AuthResource) AuthorizeByToken(ctx context.Context, agentToken string, 
 func decodeAuthResponse(data json.RawMessage) (*AuthResponse, error) {
 	var ar AuthResponse
 	if err := json.Unmarshal(data, &ar); err != nil {
-		return nil, fmt.Errorf("kavachos: decode auth response: %w", err)
+		return nil, fmt.Errorf("theauth: decode auth response: %w", err)
 	}
 	return &ar, nil
 }

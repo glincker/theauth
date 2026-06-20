@@ -1,6 +1,6 @@
 # MCP server example
 
-KavachOS as an MCP OAuth 2.1 authorization server. Demonstrates PKCE, resource indicators, and protected resource metadata.
+TheAuth as an MCP OAuth 2.1 authorization server. Demonstrates PKCE, resource indicators, and protected resource metadata.
 
 ## Run
 

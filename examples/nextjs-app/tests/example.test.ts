@@ -9,7 +9,7 @@ vi.mock("@/lib/kavach", () => ({
 	getKavach: async () => state.kavach,
 }));
 
-vi.mock("@kavachos/nextjs", async () => {
+vi.mock("@theauth/nextjs", async () => {
 	return import("../../../packages/adapters/nextjs/src/adapter.ts");
 });
 
@@ -35,7 +35,7 @@ describe("nextjs-app example", () => {
 			.insert(schema.users)
 			.values({
 				id: "user-1",
-				email: "demo@kavachos.dev",
+				email: "demo@theauth.dev",
 				name: "Demo User",
 				createdAt: new Date(),
 				updatedAt: new Date(),

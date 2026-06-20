@@ -1,5 +1,5 @@
-import type { Kavach } from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachSolidStartOptions {
@@ -25,14 +25,14 @@ export interface KavachSolidStartHandlers {
 }
 
 /**
- * Create SolidStart API route handlers for all KavachOS REST API routes.
+ * Create SolidStart API route handlers for all TheAuth REST API routes.
  *
  * Mount in `src/routes/api/kavach/[...kavach].ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachSolidStart } from '@kavachos/solidstart';
+ * import { createKavach } from 'theauth';
+ * import { kavachSolidStart } from '@theauth/solidstart';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachSolidStart(kavach);
@@ -46,7 +46,7 @@ export interface KavachSolidStartHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachSolidStart(kavach, { mcp });
  * ```
@@ -59,7 +59,7 @@ export function kavachSolidStart(
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	// SolidStart API routes receive a standard Web API Request, so we can pass
-	// it directly to the KavachOS dispatcher without any conversion.
+	// it directly to the TheAuth dispatcher without any conversion.
 	const handler = (request: Request): Promise<Response> => dispatch(request, kavach, mcp, basePath);
 
 	return {

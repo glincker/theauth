@@ -89,7 +89,7 @@ afterEach(() => {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe("@kavachos/react v0.5 rotation", () => {
+describe("@theauth/react v0.5 rotation", () => {
 	it("single-flights concurrent rotateSession calls", async () => {
 		let refreshCalls = 0;
 		fetchMock = vi.fn(async (input: RequestInfo | URL) => {

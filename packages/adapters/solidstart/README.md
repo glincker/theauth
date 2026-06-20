@@ -1,20 +1,20 @@
-# @kavachos/solidstart
+# @theauth/solidstart
 
-SolidStart adapter for KavachOS.
+SolidStart adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/solidstart?style=flat-square)](https://www.npmjs.com/package/@kavachos/solidstart)
+[![npm](https://img.shields.io/npm/v/@theauth/solidstart?style=flat-square)](https://www.npmjs.com/package/@theauth/solidstart)
 
 ## Install
 
 ```bash
-npm install kavachos @kavachos/solidstart
+npm install theauth @theauth/solidstart
 ```
 
 ## Usage
 
 ```typescript
-import { createKavach } from "kavachos";
-import { kavachSolidStart } from "@kavachos/solidstart";
+import { createKavach } from "theauth";
+import { kavachSolidStart } from "@theauth/solidstart";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -26,7 +26,7 @@ export const { GET, POST } = kavachSolidStart(kavach);
 
 ## Docs
 
-[docs.kavachos.com/docs/adapters/solidstart](https://docs.kavachos.com/docs/adapters/solidstart)
+[docs.theauth.com/docs/adapters/solidstart](https://docs.theauth.com/docs/adapters/solidstart)
 
 ## License
 

@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Install KavachOS, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with create-kavachos-app in one command.
+description: Install TheAuth, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with create-theauth-app in one command.
 icon: rocket
 ---
 
@@ -10,7 +10,7 @@ Two paths. Pick whichever fits your day.
 
 <CardGroup cols={1}>
   <Card title="Start from a template" icon="wand-magic-sparkles" href="#start-from-a-template">
-    One command, a running Next.js SaaS, KavachOS wired up.
+    One command, a running Next.js SaaS, TheAuth wired up.
   </Card>
   <Card title="Add to an existing app" icon="screwdriver-wrench" href="#your-first-agent">
     Install, create, authorize, audit. Six steps.
@@ -19,34 +19,34 @@ Two paths. Pick whichever fits your day.
 </div>
 
 ```bash
-pnpm create kavachos-app my-app
+pnpm create theauth-app my-app
 cd my-app && pnpm install && pnpm db:push && pnpm dev
 ```
 </Columns>
 
 ## Start from a template
 
-The fastest path is the scaffolder. One command, three prompts, a running Next.js SaaS with KavachOS wired up.
+The fastest path is the scaffolder. One command, three prompts, a running Next.js SaaS with TheAuth wired up.
 
 <Tabs>
   <Tab title="pnpm">
     ```bash title="terminal"
-    pnpm create kavachos-app
+    pnpm create theauth-app
     ```
   </Tab>
   <Tab title="npm">
     ```bash title="terminal"
-    npm create kavachos-app
+    npm create theauth-app
     ```
   </Tab>
   <Tab title="yarn">
     ```bash title="terminal"
-    yarn create kavachos-app
+    yarn create theauth-app
     ```
   </Tab>
   <Tab title="bun">
     ```bash title="terminal"
-    bun create kavachos-app
+    bun create theauth-app
     ```
   </Tab>
 </Tabs>
@@ -68,17 +68,17 @@ Prefer to wire up an existing app? Keep reading.
 <Tabs>
   <Tab title="pnpm">
     ```bash title="terminal"
-    pnpm add kavachos
+    pnpm add theauth
     ```
   </Tab>
   <Tab title="npm">
     ```bash title="terminal"
-    npm install kavachos
+    npm install theauth
     ```
   </Tab>
   <Tab title="yarn">
     ```bash title="terminal"
-    yarn add kavachos
+    yarn add theauth
     ```
   </Tab>
 </Tabs>
@@ -92,7 +92,7 @@ Prefer to wire up an existing app? Keep reading.
 Pass a database config to `createKavach`. Use SQLite for local development and Postgres in production.
 
 ```ts
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -119,7 +119,7 @@ Set `requireVerification: false` during development so you can sign in without v
 
 ### Create an agent
 
-An agent always has an owner: the user ID from your existing auth system. KavachOS does not manage human authentication.
+An agent always has an owner: the user ID from your existing auth system. TheAuth does not manage human authentication.
 
 ```ts
 const agent = await kavach.agent.create({
@@ -249,7 +249,7 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: ':memory:' },
@@ -320,10 +320,10 @@ const csv = await kavach.audit.export({ format: 'csv' });
 
 ## Cloudflare Workers
 
-KavachOS runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
+TheAuth runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 import { Hono } from 'hono';
 
 type Env = { KAVACH_DB: D1Database };
@@ -357,7 +357,7 @@ database_name = "kavach"
 database_id = "<your-database-id>"
 ```
 
-Run `npx wrangler d1 execute kavach --file=./kavach-schema.sql` to apply the schema, or set `skipMigrations: false` to let KavachOS run migrations on first boot.
+Run `npx wrangler d1 execute kavach --file=./kavach-schema.sql` to apply the schema, or set `skipMigrations: false` to let TheAuth run migrations on first boot.
 
 <Info>
 `createKavach` is async when using D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.

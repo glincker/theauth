@@ -5,15 +5,15 @@ icon: shield-halved
 ---
 
 
-The policy engine is the single decision point for all authorization in KavachOS. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
+The policy engine is the single decision point for all authorization in TheAuth. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
 
 Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. The existing `authorize()` function still works unchanged in v1; it shares ABAC primitives with the policy engine but evaluates only the agent's direct permissions. Migrate calls to `evaluate()` when you want role expansion, ReBAC checks, or richer decision metadata.
 
 ## Quick start
 
 ```typescript
-import { createPolicyEngine } from 'kavachos/policy';
-import { createDatabase } from 'kavachos/db';
+import { createPolicyEngine } from 'theauth/policy';
+import { createDatabase } from 'theauth/db';
 
 const db = await createDatabase({ provider: 'sqlite', url: 'kavach.db' });
 
@@ -238,7 +238,7 @@ Targets measured on a single M-series core:
 The benchmark suite lives at `packages/core/bench/policy-engine.bench.ts` and uses `tinybench`. Run it locally:
 
 ```bash
-pnpm --filter @kavachos/core bench
+pnpm --filter @theauth/core bench
 ```
 
 CI captures the output as a JSON artifact. A regression of more than 20% from the previous main run fails the build.

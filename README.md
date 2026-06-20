@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS" />
+  <img src="https://theauth.com/logo.svg" height="64" alt="TheAuth" />
 </p>
 
-<h1 align="center">KavachOS</h1>
+<h1 align="center">TheAuth</h1>
 
 <p align="center">
   Auth for AI agents and humans. One library, both sides.
@@ -13,30 +13,30 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/v/kavachos?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/dm/kavachos?style=flat&colorA=000000&colorB=000000&label=downloads" alt="monthly downloads" /></a>
-  <a href="https://github.com/kavachos/kavachos/stargazers"><img src="https://img.shields.io/github/stars/kavachos/kavachos?style=flat&colorA=000000&colorB=000000&label=stars" alt="GitHub stars" /></a>
+  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/v/theauth?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/dm/theauth?style=flat&colorA=000000&colorB=000000&label=downloads" alt="monthly downloads" /></a>
+  <a href="https://github.com/glincker/theauth/stargazers"><img src="https://img.shields.io/github/stars/glincker/theauth?style=flat&colorA=000000&colorB=000000&label=stars" alt="GitHub stars" /></a>
 </p>
 
 <p align="center">
-  <a href="https://docs.kavachos.com/docs/quickstart">Quickstart</a> ·
-  <a href="https://docs.kavachos.com/docs">Documentation</a> ·
-  <a href="https://github.com/kavachos/kavachos/tree/main/examples">Examples</a> ·
-  <a href="https://github.com/kavachos/kavachos/discussions">Discussions</a> ·
-  <a href="https://app.kavachos.com">KavachOS Cloud</a>
+  <a href="https://docs.theauth.com/docs/quickstart">Quickstart</a> ·
+  <a href="https://docs.theauth.com/docs">Documentation</a> ·
+  <a href="https://github.com/glincker/theauth/tree/main/examples">Examples</a> ·
+  <a href="https://github.com/glincker/theauth/discussions">Discussions</a> ·
+  <a href="https://app.theauth.com">TheAuth Cloud</a>
 </p>
 
 <p align="center">
-  <a href="https://kavachos.com">
-    <img src="https://kavachos.com/kavachos-og-img.png" alt="KavachOS, auth OS for AI agents and humans" width="960" />
+  <a href="https://theauth.com">
+    <img src="https://theauth.com/theauth-og-img.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
   </a>
 </p>
 
 ---
 
-## Why KavachOS
+## Why TheAuth
 
-Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. KavachOS handles both in one place.
+Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. TheAuth handles both in one place.
 
 ### How it differs
 
@@ -47,7 +47,7 @@ Ask yourself about the auth library you're using or evaluating:
 - Does it run on Cloudflare Workers, Bun, and Deno without Node-only APIs in the core?
 - Does it give you delegation chains with depth limits, budget policies per agent, and CIBA-style approval flows for sensitive tool calls?
 
-If any of those is a no, that gap is why kavachos exists.
+If any of those is a no, that gap is why theauth exists.
 
 ### Agent identity
 
@@ -86,15 +86,15 @@ The policy engine hits 2.6M warm-cache evals/sec with a p99 of 500ns. Cold paths
 ## Install
 
 ```bash
-npm install kavachos
+npm install theauth
 ```
 
 ## Quick start
 
 ```typescript
-import { createKavach } from "kavachos";
-import { emailPassword } from "kavachos/auth";
-import { createHonoAdapter } from "@kavachos/hono";
+import { createKavach } from "theauth";
+import { emailPassword } from "theauth/auth";
+import { createHonoAdapter } from "@theauth/hono";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -132,7 +132,7 @@ const result = await kavach.authorize(agent.id, {
 <summary><strong>Cloudflare Workers + D1 example</strong></summary>
 
 ```typescript
-import { createKavach } from "kavachos";
+import { createKavach } from "theauth";
 import { Hono } from "hono";
 
 type Env = { KAVACH_DB: D1Database };
@@ -166,56 +166,56 @@ export default app;
 
 | Package | What it does | |
 | --- | --- | --- |
-| [`kavachos`](https://www.npmjs.com/package/kavachos) | Core SDK: agents, permissions, delegation, audit, auth plugins | [![npm](https://img.shields.io/npm/v/kavachos?style=flat-square&color=c9a84c)](https://www.npmjs.com/package/kavachos) |
-| [`@kavachos/client`](https://www.npmjs.com/package/@kavachos/client) | TypeScript REST client, no dependencies | [![npm](https://img.shields.io/npm/v/@kavachos/client?style=flat-square)](https://www.npmjs.com/package/@kavachos/client) |
-| [`@kavachos/cli`](https://www.npmjs.com/package/@kavachos/cli) | `kavach init`, `kavach migrate`, `kavach dashboard` | [![npm](https://img.shields.io/npm/v/@kavachos/cli?style=flat-square)](https://www.npmjs.com/package/@kavachos/cli) |
-| [`@kavachos/dashboard`](https://www.npmjs.com/package/@kavachos/dashboard) | Embeddable React admin UI | [![npm](https://img.shields.io/npm/v/@kavachos/dashboard?style=flat-square)](https://www.npmjs.com/package/@kavachos/dashboard) |
-| [`@kavachos/gateway`](https://www.npmjs.com/package/@kavachos/gateway) | Auth proxy with rate limiting | [![npm](https://img.shields.io/npm/v/@kavachos/gateway?style=flat-square)](https://www.npmjs.com/package/@kavachos/gateway) |
+| [`theauth`](https://www.npmjs.com/package/theauth) | Core SDK: agents, permissions, delegation, audit, auth plugins | [![npm](https://img.shields.io/npm/v/theauth?style=flat-square&color=c9a84c)](https://www.npmjs.com/package/theauth) |
+| [`@theauth/client`](https://www.npmjs.com/package/@theauth/client) | TypeScript REST client, no dependencies | [![npm](https://img.shields.io/npm/v/@theauth/client?style=flat-square)](https://www.npmjs.com/package/@theauth/client) |
+| [`@theauth/cli`](https://www.npmjs.com/package/@theauth/cli) | `kavach init`, `kavach migrate`, `kavach dashboard` | [![npm](https://img.shields.io/npm/v/@theauth/cli?style=flat-square)](https://www.npmjs.com/package/@theauth/cli) |
+| [`@theauth/dashboard`](https://www.npmjs.com/package/@theauth/dashboard) | Embeddable React admin UI | [![npm](https://img.shields.io/npm/v/@theauth/dashboard?style=flat-square)](https://www.npmjs.com/package/@theauth/dashboard) |
+| [`@theauth/gateway`](https://www.npmjs.com/package/@theauth/gateway) | Auth proxy with rate limiting | [![npm](https://img.shields.io/npm/v/@theauth/gateway?style=flat-square)](https://www.npmjs.com/package/@theauth/gateway) |
 
 ### Client libraries
 
 | Package | What it does | |
 | --- | --- | --- |
-| [`@kavachos/react`](https://www.npmjs.com/package/@kavachos/react) | `KavachProvider` + hooks | [![npm](https://img.shields.io/npm/v/@kavachos/react?style=flat-square)](https://www.npmjs.com/package/@kavachos/react) |
-| [`@kavachos/vue`](https://www.npmjs.com/package/@kavachos/vue) | Vue 3 plugin + composables | [![npm](https://img.shields.io/npm/v/@kavachos/vue?style=flat-square)](https://www.npmjs.com/package/@kavachos/vue) |
-| [`@kavachos/svelte`](https://www.npmjs.com/package/@kavachos/svelte) | Svelte stores | [![npm](https://img.shields.io/npm/v/@kavachos/svelte?style=flat-square)](https://www.npmjs.com/package/@kavachos/svelte) |
-| [`@kavachos/ui`](https://www.npmjs.com/package/@kavachos/ui) | Sign-in, sign-up, user button components | [![npm](https://img.shields.io/npm/v/@kavachos/ui?style=flat-square)](https://www.npmjs.com/package/@kavachos/ui) |
-| [`@kavachos/expo`](https://www.npmjs.com/package/@kavachos/expo) | React Native / Expo with SecureStore | [![npm](https://img.shields.io/npm/v/@kavachos/expo?style=flat-square)](https://www.npmjs.com/package/@kavachos/expo) |
-| [`@kavachos/electron`](https://www.npmjs.com/package/@kavachos/electron) | Electron with safeStorage + OAuth popup | [![npm](https://img.shields.io/npm/v/@kavachos/electron?style=flat-square)](https://www.npmjs.com/package/@kavachos/electron) |
-| [`@kavachos/test-utils`](https://www.npmjs.com/package/@kavachos/test-utils) | Mocks, factories, test assertions | [![npm](https://img.shields.io/npm/v/@kavachos/test-utils?style=flat-square)](https://www.npmjs.com/package/@kavachos/test-utils) |
+| [`@theauth/react`](https://www.npmjs.com/package/@theauth/react) | `KavachProvider` + hooks | [![npm](https://img.shields.io/npm/v/@theauth/react?style=flat-square)](https://www.npmjs.com/package/@theauth/react) |
+| [`@theauth/vue`](https://www.npmjs.com/package/@theauth/vue) | Vue 3 plugin + composables | [![npm](https://img.shields.io/npm/v/@theauth/vue?style=flat-square)](https://www.npmjs.com/package/@theauth/vue) |
+| [`@theauth/svelte`](https://www.npmjs.com/package/@theauth/svelte) | Svelte stores | [![npm](https://img.shields.io/npm/v/@theauth/svelte?style=flat-square)](https://www.npmjs.com/package/@theauth/svelte) |
+| [`@theauth/ui`](https://www.npmjs.com/package/@theauth/ui) | Sign-in, sign-up, user button components | [![npm](https://img.shields.io/npm/v/@theauth/ui?style=flat-square)](https://www.npmjs.com/package/@theauth/ui) |
+| [`@theauth/expo`](https://www.npmjs.com/package/@theauth/expo) | React Native / Expo with SecureStore | [![npm](https://img.shields.io/npm/v/@theauth/expo?style=flat-square)](https://www.npmjs.com/package/@theauth/expo) |
+| [`@theauth/electron`](https://www.npmjs.com/package/@theauth/electron) | Electron with safeStorage + OAuth popup | [![npm](https://img.shields.io/npm/v/@theauth/electron?style=flat-square)](https://www.npmjs.com/package/@theauth/electron) |
+| [`@theauth/test-utils`](https://www.npmjs.com/package/@theauth/test-utils) | Mocks, factories, test assertions | [![npm](https://img.shields.io/npm/v/@theauth/test-utils?style=flat-square)](https://www.npmjs.com/package/@theauth/test-utils) |
 
 ### Framework adapters
 
 | Package | Framework | |
 | --- | --- | --- |
-| [`@kavachos/hono`](https://www.npmjs.com/package/@kavachos/hono) | Hono | [![npm](https://img.shields.io/npm/v/@kavachos/hono?style=flat-square)](https://www.npmjs.com/package/@kavachos/hono) |
-| [`@kavachos/express`](https://www.npmjs.com/package/@kavachos/express) | Express | [![npm](https://img.shields.io/npm/v/@kavachos/express?style=flat-square)](https://www.npmjs.com/package/@kavachos/express) |
-| [`@kavachos/nextjs`](https://www.npmjs.com/package/@kavachos/nextjs) | Next.js (App Router) — bundles the agent-management runtime | [![npm](https://img.shields.io/npm/v/@kavachos/nextjs?style=flat-square)](https://www.npmjs.com/package/@kavachos/nextjs) |
-| [`@kavachos/nextjs-auth`](https://www.npmjs.com/package/@kavachos/nextjs-auth) | Next.js adapter for external auth backends — getServerSession, withAuth middleware, cookie + CSRF + token rotation | [![npm](https://img.shields.io/npm/v/@kavachos/nextjs-auth?style=flat-square)](https://www.npmjs.com/package/@kavachos/nextjs-auth) |
-| [`@kavachos/fastify`](https://www.npmjs.com/package/@kavachos/fastify) | Fastify | [![npm](https://img.shields.io/npm/v/@kavachos/fastify?style=flat-square)](https://www.npmjs.com/package/@kavachos/fastify) |
-| [`@kavachos/nuxt`](https://www.npmjs.com/package/@kavachos/nuxt) | Nuxt | [![npm](https://img.shields.io/npm/v/@kavachos/nuxt?style=flat-square)](https://www.npmjs.com/package/@kavachos/nuxt) |
-| [`@kavachos/sveltekit`](https://www.npmjs.com/package/@kavachos/sveltekit) | SvelteKit | [![npm](https://img.shields.io/npm/v/@kavachos/sveltekit?style=flat-square)](https://www.npmjs.com/package/@kavachos/sveltekit) |
-| [`@kavachos/astro`](https://www.npmjs.com/package/@kavachos/astro) | Astro | [![npm](https://img.shields.io/npm/v/@kavachos/astro?style=flat-square)](https://www.npmjs.com/package/@kavachos/astro) |
-| [`@kavachos/nestjs`](https://www.npmjs.com/package/@kavachos/nestjs) | NestJS | [![npm](https://img.shields.io/npm/v/@kavachos/nestjs?style=flat-square)](https://www.npmjs.com/package/@kavachos/nestjs) |
-| [`@kavachos/solidstart`](https://www.npmjs.com/package/@kavachos/solidstart) | SolidStart | [![npm](https://img.shields.io/npm/v/@kavachos/solidstart?style=flat-square)](https://www.npmjs.com/package/@kavachos/solidstart) |
-| [`@kavachos/tanstack`](https://www.npmjs.com/package/@kavachos/tanstack) | TanStack Start | [![npm](https://img.shields.io/npm/v/@kavachos/tanstack?style=flat-square)](https://www.npmjs.com/package/@kavachos/tanstack) |
+| [`@theauth/hono`](https://www.npmjs.com/package/@theauth/hono) | Hono | [![npm](https://img.shields.io/npm/v/@theauth/hono?style=flat-square)](https://www.npmjs.com/package/@theauth/hono) |
+| [`@theauth/express`](https://www.npmjs.com/package/@theauth/express) | Express | [![npm](https://img.shields.io/npm/v/@theauth/express?style=flat-square)](https://www.npmjs.com/package/@theauth/express) |
+| [`@theauth/nextjs`](https://www.npmjs.com/package/@theauth/nextjs) | Next.js (App Router) — bundles the agent-management runtime | [![npm](https://img.shields.io/npm/v/@theauth/nextjs?style=flat-square)](https://www.npmjs.com/package/@theauth/nextjs) |
+| [`@theauth/nextjs-auth`](https://www.npmjs.com/package/@theauth/nextjs-auth) | Next.js adapter for external auth backends — getServerSession, withAuth middleware, cookie + CSRF + token rotation | [![npm](https://img.shields.io/npm/v/@theauth/nextjs-auth?style=flat-square)](https://www.npmjs.com/package/@theauth/nextjs-auth) |
+| [`@theauth/fastify`](https://www.npmjs.com/package/@theauth/fastify) | Fastify | [![npm](https://img.shields.io/npm/v/@theauth/fastify?style=flat-square)](https://www.npmjs.com/package/@theauth/fastify) |
+| [`@theauth/nuxt`](https://www.npmjs.com/package/@theauth/nuxt) | Nuxt | [![npm](https://img.shields.io/npm/v/@theauth/nuxt?style=flat-square)](https://www.npmjs.com/package/@theauth/nuxt) |
+| [`@theauth/sveltekit`](https://www.npmjs.com/package/@theauth/sveltekit) | SvelteKit | [![npm](https://img.shields.io/npm/v/@theauth/sveltekit?style=flat-square)](https://www.npmjs.com/package/@theauth/sveltekit) |
+| [`@theauth/astro`](https://www.npmjs.com/package/@theauth/astro) | Astro | [![npm](https://img.shields.io/npm/v/@theauth/astro?style=flat-square)](https://www.npmjs.com/package/@theauth/astro) |
+| [`@theauth/nestjs`](https://www.npmjs.com/package/@theauth/nestjs) | NestJS | [![npm](https://img.shields.io/npm/v/@theauth/nestjs?style=flat-square)](https://www.npmjs.com/package/@theauth/nestjs) |
+| [`@theauth/solidstart`](https://www.npmjs.com/package/@theauth/solidstart) | SolidStart | [![npm](https://img.shields.io/npm/v/@theauth/solidstart?style=flat-square)](https://www.npmjs.com/package/@theauth/solidstart) |
+| [`@theauth/tanstack`](https://www.npmjs.com/package/@theauth/tanstack) | TanStack Start | [![npm](https://img.shields.io/npm/v/@theauth/tanstack?style=flat-square)](https://www.npmjs.com/package/@theauth/tanstack) |
 
 ### Database adapters
 
-Core ships with SQLite, Postgres, MySQL, and Cloudflare D1 providers built in. Use the Prisma adapter when your app already owns a PrismaClient and you want KavachOS to share the same connection.
+Core ships with SQLite, Postgres, MySQL, and Cloudflare D1 providers built in. Use the Prisma adapter when your app already owns a PrismaClient and you want TheAuth to share the same connection.
 
 | Package | What it does | |
 | --- | --- | --- |
-| [`@kavachos/prisma`](https://www.npmjs.com/package/@kavachos/prisma) | Prisma adapter, pass a PrismaClient as the KavachOS database | [![npm](https://img.shields.io/npm/v/@kavachos/prisma?style=flat-square)](https://www.npmjs.com/package/@kavachos/prisma) |
+| [`@theauth/prisma`](https://www.npmjs.com/package/@theauth/prisma) | Prisma adapter, pass a PrismaClient as the TheAuth database | [![npm](https://img.shields.io/npm/v/@theauth/prisma?style=flat-square)](https://www.npmjs.com/package/@theauth/prisma) |
 
 ---
 
 ## UI components
 
-If you want ready-made forms, `@kavachos/ui` has them. Override styling with `classNames`, swap sub-components, or skip the package entirely and use hooks from `@kavachos/react`.
+If you want ready-made forms, `@theauth/ui` has them. Override styling with `classNames`, swap sub-components, or skip the package entirely and use hooks from `@theauth/react`.
 
 ```tsx
-import { SignIn, OAUTH_PROVIDERS } from "@kavachos/ui";
+import { SignIn, OAUTH_PROVIDERS } from "@theauth/ui";
 
 <SignIn
   providers={[OAUTH_PROVIDERS.google, OAUTH_PROVIDERS.github]}
@@ -233,7 +233,7 @@ import { SignIn, OAUTH_PROVIDERS } from "@kavachos/ui";
 Everything is a plugin. Auth methods, security features, integrations. Turn on what you need:
 
 ```typescript
-import { createKavach } from "kavachos";
+import { createKavach } from "theauth";
 import {
   emailPassword,
   magicLink,
@@ -244,7 +244,7 @@ import {
   admin,
   apiKeys,
   jwtSession,
-} from "kavachos/auth";
+} from "theauth/auth";
 
 const kavach = createKavach({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
@@ -276,21 +276,21 @@ const kavach = createKavach({
 
 ## Docs
 
-[docs.kavachos.com](https://docs.kavachos.com/docs)
+[docs.theauth.com](https://docs.theauth.com/docs)
 
-- [Getting started](https://docs.kavachos.com/docs/quickstart)
-- [Authentication](https://docs.kavachos.com/docs/auth)
-- [Agent identity](https://docs.kavachos.com/docs/agents)
-- [Permissions and delegation](https://docs.kavachos.com/docs/permissions)
-- [MCP OAuth 2.1](https://docs.kavachos.com/docs/mcp)
-- [Framework adapters](https://docs.kavachos.com/docs/adapters)
-- [API reference](https://docs.kavachos.com/docs/api)
+- [Getting started](https://docs.theauth.com/docs/quickstart)
+- [Authentication](https://docs.theauth.com/docs/auth)
+- [Agent identity](https://docs.theauth.com/docs/agents)
+- [Permissions and delegation](https://docs.theauth.com/docs/permissions)
+- [MCP OAuth 2.1](https://docs.theauth.com/docs/mcp)
+- [Framework adapters](https://docs.theauth.com/docs/adapters)
+- [API reference](https://docs.theauth.com/docs/api)
 
 ---
 
-## KavachOS Cloud
+## TheAuth Cloud
 
-KavachOS Cloud is the hosted version. Dashboard, billing, no infrastructure.
+TheAuth Cloud is the hosted version. Dashboard, billing, no infrastructure.
 
 |       | Free  | Starter | Growth | Scale   | Enterprise |
 | ----- | ----- | ------- | ------ | ------- | ---------- |
@@ -300,9 +300,9 @@ KavachOS Cloud is the hosted version. Dashboard, billing, no infrastructure.
 All plans include MCP OAuth 2.1, agent identity, delegation, trust scoring, and compliance reports.
 
 <p align="center">
-  <a href="https://app.kavachos.com/sign-up"><strong>Start free</strong></a> ·
-  <a href="https://kavachos.com/pricing">Pricing</a> ·
-  <a href="https://docs.kavachos.com/docs/quickstart">Self-host instead</a>
+  <a href="https://app.theauth.com/sign-up"><strong>Start free</strong></a> ·
+  <a href="https://theauth.com/pricing">Pricing</a> ·
+  <a href="https://docs.theauth.com/docs/quickstart">Self-host instead</a>
 </p>
 
 ---
@@ -311,8 +311,8 @@ All plans include MCP OAuth 2.1, agent identity, delegation, trust scoring, and 
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-<a href="https://github.com/kavachos/kavachos/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=kavachos/kavachos" alt="Contributors to the KavachOS repository" />
+<a href="https://github.com/glincker/theauth/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=glincker/theauth" alt="Contributors to the TheAuth repository" />
 </a>
 
 ## Support
@@ -328,3 +328,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ---
 
 <p align="center">A <a href="https://glincker.com">GLINCKER LLC</a> open source project</p>
+
+---
+
+> **Rebranded from `kavachos` in June 2026.** If you're arriving from the old `kavachos` / `@kavachos/*` npm packages, the API surface is unchanged — only the package names and import paths have moved. See [MIGRATION.md](docs/migrate/index.mdx) or just swap `@kavachos/` → `@theauth/` in your imports.

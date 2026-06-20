@@ -6,7 +6,7 @@ body:
     id: problem
     attributes:
       label: Problem
-      description: What are you trying to do that KavachOS doesn't support yet?
+      description: What are you trying to do that TheAuth doesn't support yet?
     validations:
       required: true
 

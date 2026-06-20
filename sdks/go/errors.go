@@ -1,8 +1,8 @@
-package kavachos
+package theauth
 
 import "fmt"
 
-// KavachError is the base error type for all KavachOS API errors.
+// KavachError is the base error type for all TheAuth API errors.
 type KavachError struct {
 	Code       string                 `json:"code"`
 	Message    string                 `json:"message"`
@@ -11,7 +11,7 @@ type KavachError struct {
 }
 
 func (e *KavachError) Error() string {
-	return fmt.Sprintf("kavachos: [%s] %s", e.Code, e.Message)
+	return fmt.Sprintf("theauth: [%s] %s", e.Code, e.Message)
 }
 
 // ErrAuthentication is returned when the request lacks valid credentials (HTTP 401).

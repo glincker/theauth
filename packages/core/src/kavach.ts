@@ -83,7 +83,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
 }
 
 /**
- * Create a KavachOS instance.
+ * Create a TheAuth instance.
  *
  * The factory is **async** so it can open database connections for Postgres
  * and MySQL (which require async driver initialisation) and optionally run
@@ -91,7 +91,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
  *
  * @example SQLite (simplest)
  * ```typescript
- * import { createKavach } from 'kavachos';
+ * import { createKavach } from 'theauth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -645,7 +645,7 @@ export async function createKavach(config: KavachConfig) {
 		 * Multi-tenant isolation.
 		 *
 		 * Create and manage tenants (organizations) that share a single
-		 * KavachOS instance with full data isolation. Agents can be scoped
+		 * TheAuth instance with full data isolation. Agents can be scoped
 		 * to a tenant via `tenantId`.
 		 */
 		tenant: tenantModule,

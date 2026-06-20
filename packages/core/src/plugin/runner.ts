@@ -52,7 +52,7 @@ async function runMigrations(
 			anyDb.$client ?? anyDb.session?.client;
 		if (!client) {
 			throw new Error(
-				"KavachOS plugin migrations: cannot access underlying pg client from Drizzle instance.",
+				"TheAuth plugin migrations: cannot access underlying pg client from Drizzle instance.",
 			);
 		}
 		for (const sql of statements) {
@@ -66,7 +66,7 @@ async function runMigrations(
 			anyDb.$client ?? anyDb.session?.client;
 		if (!client) {
 			throw new Error(
-				"KavachOS plugin migrations: cannot access underlying mysql2 client from Drizzle instance.",
+				"TheAuth plugin migrations: cannot access underlying mysql2 client from Drizzle instance.",
 			);
 		}
 		for (const sql of statements) {

@@ -6,8 +6,8 @@ import pytest
 import respx
 import httpx
 
-from kavachos import KavachClient, KavachSyncClient
-from kavachos.types import AuthorizeRequest, AuthResponse, Session
+from theauth import KavachClient, KavachSyncClient
+from theauth.types import AuthorizeRequest, AuthResponse, Session
 
 from tests.conftest import (
     AUTH_RESPONSE_FIXTURE,

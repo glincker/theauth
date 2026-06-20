@@ -10,7 +10,7 @@ import { expect, test } from "@playwright/test";
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3001";
 
-test.describe("KavachOS marquee demo", () => {
+test.describe("TheAuth marquee demo", () => {
 	test.beforeEach(async ({ page }) => {
 		// Clear any existing session before each test
 		await page.goto(BASE);
@@ -143,7 +143,7 @@ test.describe("KavachOS marquee demo", () => {
 		const downloadPromise = page.waitForEvent("download");
 		await page.getByTestId("export-button").click();
 		const download = await downloadPromise;
-		expect(download.suggestedFilename()).toBe("kavachos-audit-export.json");
+		expect(download.suggestedFilename()).toBe("theauth-audit-export.json");
 
 		await expect(page.getByTestId("panel-5")).toHaveAttribute("data-done", "true", {
 			timeout: 8000,

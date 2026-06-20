@@ -1,13 +1,13 @@
-# @kavachos/nuxt
+# @theauth/nuxt
 
-Nuxt adapter for KavachOS.
+Nuxt adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/nuxt)](https://www.npmjs.com/package/@kavachos/nuxt)
+[![npm](https://img.shields.io/npm/v/@theauth/nuxt)](https://www.npmjs.com/package/@theauth/nuxt)
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/nuxt
+pnpm add theauth @theauth/nuxt
 ```
 
 ## Usage
@@ -15,8 +15,8 @@ pnpm add kavachos @kavachos/nuxt
 Create `server/api/kavach/[...].ts`:
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { kavachNuxt } from '@kavachos/nuxt';
+import { createKavach } from 'theauth';
+import { kavachNuxt } from '@theauth/nuxt';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -25,13 +25,13 @@ const kavach = createKavach({
 export default kavachNuxt(kavach);
 ```
 
-This handles the full KavachOS REST API under `/api/kavach`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This handles the full TheAuth REST API under `/api/kavach`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'kavachos/mcp';
-import { kavachNuxt } from '@kavachos/nuxt';
+import { createMcpModule } from 'theauth/mcp';
+import { kavachNuxt } from '@theauth/nuxt';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -58,12 +58,12 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 | `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/kavach` |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [kavachos](https://www.npmjs.com/package/kavachos) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
 
 ## Links
 
-- [Documentation](https://kavachos.dev/docs)
-- [GitHub](https://github.com/kavachos/kavachos)
+- [Documentation](https://theauth.dev/docs)
+- [GitHub](https://github.com/glincker/theauth)
 
 ## License
 

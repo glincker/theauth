@@ -1,4 +1,4 @@
-# @kavachos/test-utils
+# @theauth/test-utils
 
 ## 0.1.0
 

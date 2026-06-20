@@ -4,12 +4,12 @@
  *
  * In a production passkey flow, we would call navigator.credentials.create()
  * in the browser and verify the attestation here. For the demo we simulate
- * the passkey ceremony and create a real KavachOS session record so all
+ * the passkey ceremony and create a real TheAuth session record so all
  * downstream steps use authentic data.
  */
 
-import { generateId } from "kavachos";
 import { NextResponse } from "next/server";
+import { generateId } from "theauth";
 import { makeSessionCookie } from "@/lib/cookie";
 import { getKavach } from "@/lib/kavach-instance";
 import { createFreshSession, setSession } from "@/lib/session-store";
@@ -25,7 +25,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		const sessionId = generateId();
 		const userId = generateId();
 
-		// Pre-warm the KavachOS singleton so it's ready for step 2.
+		// Pre-warm the TheAuth singleton so it's ready for step 2.
 		// The user lives only in the session store; no DB call needed here.
 		await getKavach();
 

@@ -1,16 +1,16 @@
 ---
 title: Phone number
-description: Authenticate users with `phoneAuth()` via SMS one-time codes. Supply an `onSendCode` callback, configure expiry, and KavachOS handles rate limiting.
+description: Authenticate users with `phoneAuth()` via SMS one-time codes. Supply an `onSendCode` callback, configure expiry, and TheAuth handles rate limiting.
 icon: key
 ---
 
-The `phoneAuth` plugin registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. KavachOS handles code generation, expiry, and rate limiting.
+The `phoneAuth` plugin registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. TheAuth handles code generation, expiry, and rate limiting.
 
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { phoneAuth } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { phoneAuth } from 'theauth/auth'; // [!code highlight]
 import { Twilio } from 'twilio';
 
 const twilio = new Twilio(process.env.TWILIO_SID!, process.env.TWILIO_TOKEN!);
@@ -113,6 +113,6 @@ if (res.ok) {
     Device biometric auth as a phone-free alternative.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

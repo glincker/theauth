@@ -9,7 +9,7 @@ export default defineConfig({
 	treeshake: true,
 	target: "node22",
 	external: [
-		"kavachos",
+		"theauth",
 		"@nestjs/common",
 		"@nestjs/core",
 		"rxjs",

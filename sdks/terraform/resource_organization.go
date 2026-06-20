@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
-// organizationResponse mirrors the KavachOS API response for organization operations.
+// organizationResponse mirrors the TheAuth API response for organization operations.
 type organizationResponse struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`
@@ -23,7 +23,7 @@ type organizationResponse struct {
 
 func resourceOrganization() *schema.Resource {
 	return &schema.Resource{
-		Description: "Manages a KavachOS organization. " +
+		Description: "Manages a TheAuth organization. " +
 			"Organizations provide multi-tenant isolation: agents, API keys, and audit logs " +
 			"are scoped to the organization that owns them.",
 
@@ -107,7 +107,7 @@ func resourceOrganizationCreate(ctx context.Context, d *schema.ResourceData, met
 
 	var org organizationResponse
 	if err := cfg.http.do(ctx, "POST", "/organizations", input, &org); err != nil {
-		return diag.Errorf("creating kavachos_organization: %s", err)
+		return diag.Errorf("creating theauth_organization: %s", err)
 	}
 
 	d.SetId(org.ID)
@@ -123,7 +123,7 @@ func resourceOrganizationRead(ctx context.Context, d *schema.ResourceData, meta 
 			d.SetId("")
 			return nil
 		}
-		return diag.Errorf("reading kavachos_organization %s: %s", d.Id(), err)
+		return diag.Errorf("reading theauth_organization %s: %s", d.Id(), err)
 	}
 
 	return setOrganizationState(d, &org)
@@ -154,7 +154,7 @@ func resourceOrganizationUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	var org organizationResponse
 	if err := cfg.http.do(ctx, "PATCH", fmt.Sprintf("/organizations/%s", d.Id()), input, &org); err != nil {
-		return diag.Errorf("updating kavachos_organization %s: %s", d.Id(), err)
+		return diag.Errorf("updating theauth_organization %s: %s", d.Id(), err)
 	}
 
 	return setOrganizationState(d, &org)
@@ -167,7 +167,7 @@ func resourceOrganizationDelete(ctx context.Context, d *schema.ResourceData, met
 		if isNotFound(err) {
 			return nil
 		}
-		return diag.Errorf("deleting kavachos_organization %s: %s", d.Id(), err)
+		return diag.Errorf("deleting theauth_organization %s: %s", d.Id(), err)
 	}
 
 	return nil

@@ -1,14 +1,14 @@
 /**
- * Human auth adapter system for KavachOS.
+ * Human auth adapter system for TheAuth.
  *
- * Lets KavachOS plug into existing auth providers (better-auth, Auth.js,
+ * Lets TheAuth plug into existing auth providers (better-auth, Auth.js,
  * Clerk, or a custom resolver) so that human user identity can be resolved
  * from an incoming HTTP request before agent operations are performed.
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { bearerAuth } from 'kavachos/auth';
+ * import { createKavach } from 'theauth';
+ * import { bearerAuth } from 'theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -163,7 +163,7 @@ export { createOAuthProxyModule, OAuthProxyError } from "./oauth-proxy.js";
 // OAuth proxy plugin (KavachPlugin wrapper)
 export type { OAuthProxyPluginConfig } from "./oauth-proxy-plugin.js";
 export { oauthProxy } from "./oauth-proxy-plugin.js";
-// OIDC Provider (KavachOS as an identity provider)
+// OIDC Provider (TheAuth as an identity provider)
 export type {
 	AccessTokenClaims,
 	AuthorizeParams,

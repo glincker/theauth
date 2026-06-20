@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/tanstack",
+  "name": "@theauth/tanstack",
   "version": "3.0.2",
-  "description": "TanStack Start adapter for KavachOS",
+  "description": "TanStack Start adapter for TheAuth",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,26 +21,26 @@
     "test:watch": "vitest watch"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "tanstack",
     "tanstack-start",
     "auth",
     "agent",
     "mcp"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/tanstack"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.9.0",
     "tsup": "^8.4.0",

@@ -1,5 +1,5 @@
-import type { Kavach } from "kavachos";
-import { createKavach, users } from "kavachos";
+import type { Kavach } from "theauth";
+import { createKavach, users } from "theauth";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DiscoveryModule } from "../src/cards.js";
 import { createDiscoveryModule } from "../src/cards.js";

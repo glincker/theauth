@@ -1,9 +1,9 @@
-# kavachos
+# theauth
 
-Python SDK for [KavachOS](https://kavachos.dev). Auth OS for AI agents and humans.
+Python SDK for [TheAuth](https://theauth.dev). Auth OS for AI agents and humans.
 
-[![PyPI](https://img.shields.io/pypi/v/kavachos)](https://pypi.org/project/kavachos/)
-[![Python](https://img.shields.io/pypi/pyversions/kavachos)](https://pypi.org/project/kavachos/)
+[![PyPI](https://img.shields.io/pypi/v/theauth)](https://pypi.org/project/theauth/)
+[![Python](https://img.shields.io/pypi/pyversions/theauth)](https://pypi.org/project/theauth/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](../../LICENSE)
 
 ---
@@ -11,7 +11,7 @@ Python SDK for [KavachOS](https://kavachos.dev). Auth OS for AI agents and human
 ## Install
 
 ```bash
-pip install kavachos
+pip install theauth
 ```
 
 Requires Python 3.9+ and `httpx`.
@@ -24,9 +24,9 @@ Requires Python 3.9+ and `httpx`.
 
 ```python
 import asyncio
-from kavachos import KavachClient
-from kavachos.types import CreateAgentInput
-from kavachos.permissions import read, with_approval, execute
+from theauth import KavachClient
+from theauth.types import CreateAgentInput
+from theauth.permissions import read, with_approval, execute
 
 async def main():
     async with KavachClient(
@@ -59,9 +59,9 @@ asyncio.run(main())
 ### Sync
 
 ```python
-from kavachos import KavachSyncClient
-from kavachos.types import CreateAgentInput
-from kavachos.permissions import read
+from theauth import KavachSyncClient
+from theauth.types import CreateAgentInput
+from theauth.permissions import read
 
 with KavachSyncClient(
     base_url="https://your-app.com/api/kavach",
@@ -113,7 +113,7 @@ async with KavachClient(base_url="https://your-app.com/api/kavach") as client:
 ## Agent management
 
 ```python
-from kavachos.types import AgentFilters, UpdateAgentInput
+from theauth.types import AgentFilters, UpdateAgentInput
 
 # List agents for a user
 agents = await client.agents.list(AgentFilters(user_id="user-123", status="active"))
@@ -140,7 +140,7 @@ await client.agents.revoke("agent-abc123")
 ## Authorization
 
 ```python
-from kavachos.types import AuthorizeRequest
+from theauth.types import AuthorizeRequest
 
 # Authorize by agent ID (requires admin/service token on the client)
 result = await client.authorize(
@@ -165,10 +165,10 @@ result = await client.auth.authorize_by_token(
 
 ## Permissions helpers
 
-The `kavachos.permissions` module provides shorthand constructors.
+The `theauth.permissions` module provides shorthand constructors.
 
 ```python
-from kavachos.permissions import (
+from theauth.permissions import (
     read,
     write,
     execute,
@@ -177,7 +177,7 @@ from kavachos.permissions import (
     with_approval,
     rate_limited,
 )
-from kavachos.types import PermissionConstraints
+from theauth.types import PermissionConstraints
 
 # Simple read permission
 perm = read("mcp:github:*")
@@ -189,7 +189,7 @@ perm = with_approval(execute("mcp:deploy:production"))
 perm = rate_limited(read("mcp:github:*"), max_calls_per_hour=100)
 
 # Full manual construction
-from kavachos.types import Permission
+from theauth.types import Permission
 perm = Permission(
     resource="mcp:github:*",
     actions=["read", "write"],
@@ -205,7 +205,7 @@ perm = Permission(
 ## Audit log
 
 ```python
-from kavachos.types import AuditFilters, ExportOptions
+from theauth.types import AuditFilters, ExportOptions
 
 # Query the audit log
 entries = await client.audit.query(
@@ -239,8 +239,8 @@ Delegate a subset of an agent's permissions to another agent, with an optional
 depth limit.
 
 ```python
-from kavachos.types import DelegateInput
-from kavachos.permissions import read
+from theauth.types import DelegateInput
+from theauth.permissions import read
 
 # Create a delegation
 chain = await client.delegation.create(
@@ -267,10 +267,10 @@ await client.delegation.revoke(chain.id)
 
 ## Error handling
 
-All exceptions inherit from `kavachos.KavachError`.
+All exceptions inherit from `theauth.KavachError`.
 
 ```python
-from kavachos.errors import (
+from theauth.errors import (
     KavachError,
     AuthenticationError,  # 401
     PermissionError,       # 403

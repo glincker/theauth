@@ -10,8 +10,8 @@ The JWT session plugin issues short-lived access tokens (JWTs) and long-lived re
 ## Setup
 
 ```ts
-import { createKavach } from 'kavachos';
-import { jwtSession } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { jwtSession } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

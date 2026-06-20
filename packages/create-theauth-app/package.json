@@ -1,0 +1,47 @@
+{
+  "name": "create-theauth-app",
+  "version": "0.2.0",
+  "description": "Scaffold a TheAuth-powered app in seconds",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glincker/theauth.git",
+    "directory": "packages/create-theauth-app"
+  },
+  "homepage": "https://theauth.com",
+  "keywords": [
+    "theauth",
+    "auth",
+    "agent",
+    "mcp",
+    "scaffold",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "create-theauth-app": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/bin.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/bin.ts --format esm --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.2.0",
+    "kolorist": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^6.0.3",
+    "vitest": "^3.0.0"
+  }
+}

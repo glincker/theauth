@@ -1,6 +1,6 @@
 ---
 title: A2A protocol
-description: Authenticate Google A2A protocol traffic between agents with KavachOS bearer tokens, scoped permissions, and a shared audit trail.
+description: Authenticate Google A2A protocol traffic between agents with TheAuth bearer tokens, scoped permissions, and a shared audit trail.
 icon: network-wired
 ---
 
@@ -11,7 +11,7 @@ The Agent-to-Agent (A2A) protocol is an open standard from Google that lets AI a
 
 Think of it this way: MCP is how an agent uses a tool. A2A is how an agent talks to another agent.
 
-KavachOS implements A2A with built-in authentication, so every agent interaction is identity-verified and audited.
+TheAuth implements A2A with built-in authentication, so every agent interaction is identity-verified and audited.
 
 ### A2A and MCP compared
 
@@ -29,7 +29,7 @@ KavachOS implements A2A with built-in authentication, so every agent interaction
 ### Install
 
 ```bash
-pnpm add kavachos
+pnpm add theauth
 ```
 
 ### Create an A2A server
@@ -37,8 +37,8 @@ pnpm add kavachos
 The A2A server exposes your agent as a JSON-RPC endpoint that other agents can call.
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { createAgentCard, createA2AServer } from 'kavachos/a2a';
+import { createKavach } from 'theauth';
+import { createAgentCard, createA2AServer } from 'theauth/a2a';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -130,7 +130,7 @@ An Agent Card is a JSON document that describes what an agent can do, how to aut
 ### Creating a card
 
 ```typescript
-import { createAgentCard } from 'kavachos/a2a';
+import { createAgentCard } from 'theauth/a2a';
 
 const card = createAgentCard({
   agent: { id: 'agent-1', name: 'Translator', type: 'service' },
@@ -155,7 +155,7 @@ const card = createAgentCard({
 ### Validating a card
 
 ```typescript
-import { validateAgentCard } from 'kavachos/a2a';
+import { validateAgentCard } from 'theauth/a2a';
 
 const result = validateAgentCard(incomingJson);
 if (!result.success) {
@@ -169,7 +169,7 @@ Agent Cards can be signed with a private key so that consumers can verify the ca
 
 ```typescript
 import { generateKeyPair } from 'jose';
-import { signAgentCard, verifyAgentCard } from 'kavachos/a2a';
+import { signAgentCard, verifyAgentCard } from 'theauth/a2a';
 
 const { publicKey, privateKey } = await generateKeyPair('ES256');
 
@@ -189,12 +189,12 @@ console.log('Valid:', verified.data.valid); // true
 The A2A client discovers remote agents and sends them tasks.
 
 ```typescript
-import { createA2AClient } from 'kavachos/a2a';
+import { createA2AClient } from 'theauth/a2a';
 
 const client = createA2AClient({
   agent: 'https://remote-agent.example.com',
   getAuthToken: async () => {
-    // Use KavachOS to get a token for this agent
+    // Use TheAuth to get a token for this agent
     const token = await kavach.issueToken({ agentId: myAgent.id });
     return token;
   },
@@ -234,7 +234,7 @@ const canceled = await client.cancelTask({ id: 'task-123' });
 
 ## Authentication between agents
 
-KavachOS supports all A2A security schemes. You declare them in the Agent Card and enforce them in the server's `authenticate` callback.
+TheAuth supports all A2A security schemes. You declare them in the Agent Card and enforce them in the server's `authenticate` callback.
 
 <Tabs>
   <Tab title="Bearer token">

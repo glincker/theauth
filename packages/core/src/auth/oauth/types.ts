@@ -1,7 +1,7 @@
 /**
  * Types for the OAuth 2.0 / OIDC provider system.
  *
- * KavachOS uses PKCE (S256) for all provider flows regardless of whether
+ * TheAuth uses PKCE (S256) for all provider flows regardless of whether
  * the provider strictly requires it. This prevents authorization code
  * interception attacks on both public and confidential clients.
  */
@@ -119,8 +119,8 @@ export interface OAuthModuleConfig {
 	 *
 	 * @example
 	 * ```typescript
-	 * import { createGoogleProvider } from 'kavachos/auth/oauth/providers/google';
-	 * import { createGithubProvider } from 'kavachos/auth/oauth/providers/github';
+	 * import { createGoogleProvider } from 'theauth/auth/oauth/providers/google';
+	 * import { createGithubProvider } from 'theauth/auth/oauth/providers/github';
 	 *
 	 * providers: {
 	 *   google: createGoogleProvider({ clientId: '...', clientSecret: '...' }),
@@ -173,7 +173,7 @@ export interface OAuthModule {
 	): Promise<OAuthCallbackResult>;
 
 	/**
-	 * Manually link an OAuth provider account to an existing KavachOS user.
+	 * Manually link an OAuth provider account to an existing TheAuth user.
 	 *
 	 * Useful when you want to add a second provider to a user who already
 	 * authenticated via a different method.
@@ -186,7 +186,7 @@ export interface OAuthModule {
 	): Promise<OAuthAccount>;
 
 	/**
-	 * Look up the KavachOS user linked to a given provider account.
+	 * Look up the TheAuth user linked to a given provider account.
 	 *
 	 * Returns `null` when no link exists yet.
 	 */

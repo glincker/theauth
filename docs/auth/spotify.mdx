@@ -24,8 +24,8 @@ Copy the **Client ID** and **Client Secret** from the app overview.
 ### Configure
 
 ```ts
-import { createKavach, oauth } from 'kavachos';
-import { spotifyProvider } from 'kavachos/auth'; // [!code highlight]
+import { createKavach, oauth } from 'theauth';
+import { spotifyProvider } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

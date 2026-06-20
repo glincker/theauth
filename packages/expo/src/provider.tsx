@@ -10,7 +10,7 @@ import type {
 	KavachUser,
 } from "./types.js";
 
-const SESSION_KEY = "kavachos_session";
+const SESSION_KEY = "theauth_session";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 

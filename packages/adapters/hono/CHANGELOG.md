@@ -1,32 +1,32 @@
-# @kavachos/hono
+# @theauth/hono
 
 ## 3.0.2
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.4.2
+  - theauth@0.4.2
 
 ## 3.0.1
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.4.1
+  - theauth@0.4.1
 
 ## 3.0.0
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.4.0
+  - theauth@0.4.0
 
 ## 2.0.0
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.3.0
+  - theauth@0.3.0
 
 ## 1.0.0
 
@@ -42,9 +42,9 @@
   Operator notes:
 
   - Publish this wave separately from the core/client 0.1.0 wave.
-  - Keep `@kavachos/dashboard` on its independent track.
+  - Keep `@theauth/dashboard` on its independent track.
 
 ### Patch Changes
 
 - Updated dependencies [94804ec]
-  - kavachos@0.1.0
+  - theauth@0.1.0

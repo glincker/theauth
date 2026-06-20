@@ -1,20 +1,20 @@
-# @kavachos/tanstack
+# @theauth/tanstack
 
-TanStack Start adapter for KavachOS.
+TanStack Start adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/tanstack?style=flat-square)](https://www.npmjs.com/package/@kavachos/tanstack)
+[![npm](https://img.shields.io/npm/v/@theauth/tanstack?style=flat-square)](https://www.npmjs.com/package/@theauth/tanstack)
 
 ## Install
 
 ```bash
-npm install kavachos @kavachos/tanstack
+npm install theauth @theauth/tanstack
 ```
 
 ## Usage
 
 ```typescript
-import { createKavach } from "kavachos";
-import { kavachTanStack } from "@kavachos/tanstack";
+import { createKavach } from "theauth";
+import { kavachTanStack } from "@theauth/tanstack";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -26,7 +26,7 @@ export const { GET, POST } = kavachTanStack(kavach);
 
 ## Docs
 
-[docs.kavachos.com/docs/adapters/tanstack](https://docs.kavachos.com/docs/adapters/tanstack)
+[docs.theauth.com/docs/adapters/tanstack](https://docs.theauth.com/docs/adapters/tanstack)
 
 ## License
 

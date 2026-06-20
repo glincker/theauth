@@ -1,5 +1,5 @@
 /**
- * API key management for KavachOS.
+ * API key management for TheAuth.
  *
  * Creates and validates static API keys with permission scopes. Keys are
  * stored as SHA-256 hashes — the full key is returned once at creation and

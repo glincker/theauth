@@ -1,11 +1,11 @@
 ---
 title: Database setup
-description: Configure KavachOS with SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for SQLite, and skipping auto-migrations.
+description: Configure TheAuth with SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for SQLite, and skipping auto-migrations.
 icon: database
 ---
 
 
-KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a provider and pass the connection URL; KavachOS handles the rest.
+TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a provider and pass the connection URL; TheAuth handles the rest.
 
 ## Choosing a provider
 
@@ -19,10 +19,10 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
 
 <Tabs>
   <Tab title="SQLite">
-    SQLite is the default for development. No peer dependencies beyond `better-sqlite3`, which ships with `kavachos`.
+    SQLite is the default for development. No peer dependencies beyond `better-sqlite3`, which ships with `theauth`.
 
     ```typescript
-    import { createKavach } from 'kavachos';
+    import { createKavach } from 'theauth';
 
     const kavach = await createKavach({
       database: {
@@ -43,7 +43,7 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
     });
     ```
 
-    KavachOS enables WAL mode and foreign keys automatically:
+    TheAuth enables WAL mode and foreign keys automatically:
     ```sql
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -58,7 +58,7 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
     ```
 
     ```typescript
-    import { createKavach } from 'kavachos';
+    import { createKavach } from 'theauth';
 
     const kavach = await createKavach({
       database: {
@@ -69,7 +69,7 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
     });
     ```
 
-    KavachOS uses `drizzle-orm/node-postgres` with a connection pool via `pg.Pool`. The `pg` package is loaded with a dynamic import, so it stays an optional peer dep.
+    TheAuth uses `drizzle-orm/node-postgres` with a connection pool via `pg.Pool`. The `pg` package is loaded with a dynamic import, so it stays an optional peer dep.
   </Tab>
   <Tab title="MySQL">
     Install the `mysql2` peer dependency:
@@ -79,7 +79,7 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
     ```
 
     ```typescript
-    import { createKavach } from 'kavachos';
+    import { createKavach } from 'theauth';
 
     const kavach = await createKavach({
       database: {
@@ -90,13 +90,13 @@ KavachOS uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a
     });
     ```
 
-    KavachOS uses `drizzle-orm/mysql2` with a connection pool. `mysql2` is loaded via dynamic import and stays an optional peer dep.
+    TheAuth uses `drizzle-orm/mysql2` with a connection pool. `mysql2` is loaded via dynamic import and stays an optional peer dep.
   </Tab>
 </Tabs>
 
 ## Auto-migration
 
-By default, KavachOS calls `CREATE TABLE IF NOT EXISTS` for all its tables on startup. This means your database is always ready to use without any manual migration step.
+By default, TheAuth calls `CREATE TABLE IF NOT EXISTS` for all its tables on startup. This means your database is always ready to use without any manual migration step.
 
 To disable this (e.g. when you manage migrations externally with Flyway, Liquibase, or `drizzle-kit push`), set `skipMigrations: true`:
 
@@ -109,12 +109,12 @@ database: {
 ```
 
 <Warning>
-  When `skipMigrations: true`, you are responsible for keeping the schema in sync. KavachOS will fail at runtime if expected tables or columns are missing.
+  When `skipMigrations: true`, you are responsible for keeping the schema in sync. TheAuth will fail at runtime if expected tables or columns are missing.
 </Warning>
 
 ## Schema overview
 
-KavachOS creates the following tables in your database:
+TheAuth creates the following tables in your database:
 
 | Table | Purpose |
 |-------|---------|
@@ -126,7 +126,7 @@ KavachOS creates the following tables in your database:
 | `kavach_audit_logs` | Immutable log of every agent action |
 | `kavach_rate_limits` | Per-agent call-rate counters |
 | `kavach_mcp_servers` | Registered MCP servers |
-| `kavach_sessions` | KavachOS-managed human user sessions |
+| `kavach_sessions` | TheAuth-managed human user sessions |
 | `kavach_oauth_clients` | OAuth 2.1 client registrations (RFC 7591) |
 | `kavach_oauth_access_tokens` | Issued access and refresh tokens |
 | `kavach_oauth_authorization_codes` | Short-lived PKCE authorization codes |
@@ -145,10 +145,10 @@ All table and column names use `snake_case`. All IDs are `text` (UUID or CUID2).
 | Postgres | `pg` |
 | MySQL | `mysql2` |
 
-KavachOS uses dynamic imports for Postgres and MySQL drivers so they remain optional. You will get a clear error message at startup if the required package is missing:
+TheAuth uses dynamic imports for Postgres and MySQL drivers so they remain optional. You will get a clear error message at startup if the required package is missing:
 
 ```
-KavachOS: provider "postgres" requires the "pg" package.
+TheAuth: provider "postgres" requires the "pg" package.
 Install it with: npm install pg
 ```
 
@@ -157,7 +157,7 @@ Install it with: npm install pg
 Use `:memory:` for fast, isolated tests that need no setup or teardown:
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 import { describe, beforeEach, it } from 'vitest';
 
 let kavach: Awaited<ReturnType<typeof createKavach>>;
@@ -187,7 +187,7 @@ Each `createKavach()` call with `:memory:` gets a completely isolated database, 
 
 <CardGroup cols={2}>
   <Card title="Prisma adapter" href="/prisma" icon="database">
-    Query KavachOS tables through an existing PrismaClient.
+    Query TheAuth tables through an existing PrismaClient.
   </Card>
   <Card title="Configuration" href="/configuration" icon="sliders">
     Full createKavach() options including database and secrets.

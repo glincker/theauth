@@ -6,12 +6,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	kavachos "github.com/kavachos/kavachos-go"
+	theauth "github.com/glincker/theauth-go"
 )
 
 func dataSourceAgents() *schema.Resource {
 	return &schema.Resource{
-		Description: "Lists KavachOS agents, optionally filtered by owner, status, or type.",
+		Description: "Lists TheAuth agents, optionally filtered by owner, status, or type.",
 
 		ReadContext: dataSourceAgentsRead,
 
@@ -83,24 +83,24 @@ func dataSourceAgents() *schema.Resource {
 func dataSourceAgentsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*providerConfig)
 
-	filters := &kavachos.AgentFilters{}
+	filters := &theauth.AgentFilters{}
 
 	if v, ok := d.GetOk("owner_id"); ok {
 		s := v.(string)
 		filters.UserID = &s
 	}
 	if v, ok := d.GetOk("status"); ok {
-		s := kavachos.AgentStatus(v.(string))
+		s := theauth.AgentStatus(v.(string))
 		filters.Status = &s
 	}
 	if v, ok := d.GetOk("type"); ok {
-		t := kavachos.AgentType(v.(string))
+		t := theauth.AgentType(v.(string))
 		filters.Type = &t
 	}
 
 	agents, err := cfg.client.Agents.List(ctx, filters)
 	if err != nil {
-		return diag.Errorf("listing kavachos_agents: %s", err)
+		return diag.Errorf("listing theauth_agents: %s", err)
 	}
 
 	// Use a deterministic ID based on the filter combination.
@@ -115,7 +115,7 @@ func dataSourceAgentsRead(ctx context.Context, d *schema.ResourceData, meta inte
 	return nil
 }
 
-func flattenAgentList(agents []kavachos.Agent) []interface{} {
+func flattenAgentList(agents []theauth.Agent) []interface{} {
 	result := make([]interface{}, 0, len(agents))
 	for _, a := range agents {
 		m := map[string]interface{}{

@@ -6,7 +6,7 @@
  * all of them. Useful for compliance exports that must be
  * cryptographically verifiable (EU AI Act Article 12, SOC 2 CC7).
  *
- * Context URL: https://kavachos.com/contexts/audit/v1.jsonld
+ * Context URL: https://theauth.com/contexts/audit/v1.jsonld
  * This context is defined locally — the URL does not need to resolve at
  * runtime. It serves as a stable identifier for the credential schema.
  */
@@ -25,15 +25,15 @@ import { VC_CONTEXT_V2, VC_TYPE_CREDENTIAL, VC_TYPE_PRESENTATION } from "./types
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const KAVACHOS_AUDIT_CREDENTIAL = "KavachosAuditCredential";
+export const THEAUTH_AUDIT_CREDENTIAL = "TheAuthAuditCredential";
 
 /**
- * Context URL for KavachosAuditCredential.
+ * Context URL for TheAuthAuditCredential.
  * Defined locally — the URL does not need to resolve at runtime.
  */
-export const KAVACHOS_AUDIT_CONTEXT = "https://kavachos.com/contexts/audit/v1.jsonld";
+export const THEAUTH_AUDIT_CONTEXT = "https://theauth.com/contexts/audit/v1.jsonld";
 
-const KAVACHOS_VERSION = "0.3.0";
+const THEAUTH_VERSION = "0.3.0";
 const DEFAULT_TTL_SECONDS = 86400;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export interface AuditExportResult {
 	count: number;
 }
 
-/** The credentialSubject for a KavachosAuditCredential. */
+/** The credentialSubject for a TheAuthAuditCredential. */
 export interface AuditCredentialSubject {
 	id: string;
 	agentId: string;
@@ -97,7 +97,7 @@ export interface AuditCredentialSubject {
 	policyName?: string;
 	timestamp: string;
 	traceId?: string;
-	kavachosVersion: string;
+	theauthVersion: string;
 }
 
 // ─── Decision mapping ────────────────────────────────────────────────────────
@@ -120,13 +120,13 @@ function buildAuditCredential(record: AuditRecord, issuerDid: string): Verifiabl
 		decision: toDecision(record.result),
 		...(record.reason ? { policyName: record.reason } : {}),
 		timestamp: record.timestamp.toISOString(),
-		kavachosVersion: KAVACHOS_VERSION,
+		theauthVersion: THEAUTH_VERSION,
 	};
 
 	return {
-		"@context": [VC_CONTEXT_V2, KAVACHOS_AUDIT_CONTEXT],
+		"@context": [VC_CONTEXT_V2, THEAUTH_AUDIT_CONTEXT],
 		id: `urn:uuid:${generateId()}`,
-		type: [VC_TYPE_CREDENTIAL, KAVACHOS_AUDIT_CREDENTIAL],
+		type: [VC_TYPE_CREDENTIAL, THEAUTH_AUDIT_CREDENTIAL],
 		issuer: issuerDid,
 		issuanceDate: new Date().toISOString(),
 		expirationDate: new Date(Date.now() + DEFAULT_TTL_SECONDS * 1000).toISOString(),
@@ -297,7 +297,7 @@ export async function exportAuditAsVC(options: ExportAuditOptions): Promise<Audi
 
 	// Build a Verifiable Presentation wrapping all credentials
 	const basePresentation: VerifiablePresentation = {
-		"@context": [VC_CONTEXT_V2, KAVACHOS_AUDIT_CONTEXT],
+		"@context": [VC_CONTEXT_V2, THEAUTH_AUDIT_CONTEXT],
 		id: `urn:uuid:${generateId()}`,
 		type: [VC_TYPE_PRESENTATION],
 		holder: issuerDid,

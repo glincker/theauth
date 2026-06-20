@@ -1,5 +1,5 @@
 /**
- * Additional user/session fields plugin for KavachOS.
+ * Additional user/session fields plugin for TheAuth.
  *
  * Lets callers extend the user and session schemas with typed custom fields
  * without writing any database migrations.  Fields are stored in the existing
@@ -11,8 +11,8 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { additionalFields } from 'kavachos/auth';
+ * import { createKavach } from 'theauth';
+ * import { additionalFields } from 'theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

@@ -7,12 +7,12 @@
  *
  * @example
  * ```typescript
- * import { bearerAuth } from 'kavachos/auth';
+ * import { bearerAuth } from 'theauth/auth';
  *
  * const adapter = bearerAuth({
  *   secret: process.env.JWT_SECRET,
  *   issuer: 'https://my-app.example.com',
- *   audience: 'kavachos',
+ *   audience: 'theauth',
  * });
  * ```
  */
@@ -40,7 +40,7 @@ const BearerAuthOptionsSchema = z.object({
 export type BearerAuthOptions = z.infer<typeof BearerAuthOptionsSchema>;
 
 // ---------------------------------------------------------------------------
-// Payload schema – only the fields KavachOS cares about
+// Payload schema – only the fields TheAuth cares about
 // ---------------------------------------------------------------------------
 
 const JwtPayloadSchema = z.object({

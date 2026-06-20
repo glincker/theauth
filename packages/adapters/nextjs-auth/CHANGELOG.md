@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@kavachos/nextjs-auth` will be documented in this file.
+All notable changes to `@theauth/nextjs-auth` will be documented in this file.
 
 This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
@@ -17,7 +17,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 New package — initial release.
 
-**What it is:** A focused Next.js (14/15/16) adapter for projects whose auth backend lives elsewhere (Spring, Rails, Hono, Go, etc.). Distinct from `@kavachos/nextjs` which bundles the agent-management runtime; this package covers the "I already have a backend, just give me cookie + session + refresh on the FE" case.
+**What it is:** A focused Next.js (14/15/16) adapter for projects whose auth backend lives elsewhere (Spring, Rails, Hono, Go, etc.). Distinct from `@theauth/nextjs` which bundles the agent-management runtime; this package covers the "I already have a backend, just give me cookie + session + refresh on the FE" case.
 
 **Server-side API (from main import):**
 
@@ -43,4 +43,4 @@ New package — initial release.
 
 **Build output:** 12.77 KB main bundle, 5.51 KB middleware sub-export (ESM only, tree-shakeable).
 
-[0.1.0]: https://github.com/kavachos/kavachos/releases/tag/%40kavachos%2Fnextjs-auth%400.1.0
+[0.1.0]: https://github.com/glincker/theauth/releases/tag/%40theauth%2Fnextjs-auth%400.1.0

@@ -22,8 +22,8 @@ https://your-app.com/api/kavach/auth/oauth/callback/vk
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -59,7 +59,7 @@ Default scopes: `email`
 | `friends` | Friends list |
 
 <Info>
-  VK returns email as part of the access token response rather than a separate userinfo endpoint. KavachOS handles this automatically.
+  VK returns email as part of the access token response rather than a separate userinfo endpoint. TheAuth handles this automatically.
 </Info>
 
 ## Endpoints

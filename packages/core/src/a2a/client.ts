@@ -1,5 +1,5 @@
 /**
- * A2A client for KavachOS.
+ * A2A client for TheAuth.
  *
  * Discovers remote agents via /.well-known/agent.json and communicates
  * with them through JSON-RPC over HTTP. Supports message send, task

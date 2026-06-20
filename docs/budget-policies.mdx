@@ -12,7 +12,7 @@ When agents make LLM calls, costs accumulate in the background. Without limits, 
 Policies are evaluated at authorization time, before any LLM call is made. If an agent is over budget, the authorization check fails before your code even runs.
 
 <Info>
-  Policies stack. An agent can have a per-agent policy, a per-user policy, and a per-tenant policy all active at once. KavachOS evaluates all of them and returns the first one that is exceeded.
+  Policies stack. An agent can have a per-agent policy, a per-user policy, and a per-tenant policy all active at once. TheAuth evaluates all of them and returns the first one that is exceeded.
 </Info>
 
 ## Data model

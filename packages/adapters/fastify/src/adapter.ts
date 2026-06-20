@@ -7,8 +7,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+} from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -208,13 +208,13 @@ export interface KavachFastifyOptions {
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
 /**
- * Create a Fastify plugin that registers all KavachOS REST API routes.
+ * Create a Fastify plugin that registers all TheAuth REST API routes.
  *
  * @example
  * ```typescript
  * import Fastify from 'fastify';
- * import { createKavach } from 'kavachos';
- * import { kavachFastify } from '@kavachos/fastify';
+ * import { createKavach } from 'theauth';
+ * import { kavachFastify } from '@theauth/fastify';
  *
  * const app = Fastify();
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
@@ -225,7 +225,7 @@ export interface KavachFastifyOptions {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
  * ```

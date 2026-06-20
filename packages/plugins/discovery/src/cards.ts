@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Database } from "kavachos";
-import { agentCards, and, eq, like } from "kavachos";
+import type { Database } from "theauth";
+import { agentCards, and, eq, like } from "theauth";
 
 export interface AgentCapability {
 	name: string;
@@ -45,13 +45,13 @@ function rowToCard(row: typeof agentCards.$inferSelect): AgentCard {
 /**
  * Create the A2A discovery module for agent capability cards.
  *
- * Accepts the KavachOS database instance, which is available on the
+ * Accepts the TheAuth database instance, which is available on the
  * `kavach.db` property returned by `createKavach()`.
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { createDiscoveryModule } from '@kavachos/plugin-discovery';
+ * import { createKavach } from 'theauth';
+ * import { createDiscoveryModule } from '@theauth/plugin-discovery';
  *
  * const kavach = await createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const discovery = createDiscoveryModule(kavach.db);

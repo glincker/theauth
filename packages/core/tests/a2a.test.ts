@@ -67,7 +67,7 @@ function makeTask(overrides?: Partial<A2ATask>): A2ATask {
 
 describe("A2A Agent Card", () => {
 	describe("createAgentCard", () => {
-		it("creates a card from a KavachOS agent identity", () => {
+		it("creates a card from a TheAuth agent identity", () => {
 			const card = createAgentCard({
 				agent: { id: "agent-1", name: "Code Reviewer", type: "service" },
 				url: "https://agent.example.com/a2a",

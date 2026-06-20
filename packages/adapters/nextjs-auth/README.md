@@ -1,24 +1,24 @@
-# @kavachos/nextjs-auth
+# @theauth/nextjs-auth
 
 Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware — all typed end-to-end.
 
-## When to use this vs `@kavachos/nextjs`
+## When to use this vs `@theauth/nextjs`
 
-| | `@kavachos/nextjs-auth` | `@kavachos/nextjs` |
+| | `@theauth/nextjs-auth` | `@theauth/nextjs` |
 |---|---|---|
-| **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the KavachOS agent-management runtime with its built-in auth |
-| **Auth source** | External REST API (`/api/auth/*`) | In-process KavachOS SDK |
-| **Zero deps on** | `kavachos` core, `@kavachos/nextjs` | — |
+| **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the TheAuth agent-management runtime with its built-in auth |
+| **Auth source** | External REST API (`/api/auth/*`) | In-process TheAuth SDK |
+| **Zero deps on** | `theauth` core, `@theauth/nextjs` | — |
 | **Key exports** | `getServerSession`, `withAuth`, `refreshSession`, `fetchWithRefresh` | `kavachNextjs()` handler |
 
-vs **next-auth**: next-auth requires a database adapter and runs auth in-process. Use `@kavachos/nextjs-auth` when your backend already handles session state and you just want the FE plumbing.
+vs **next-auth**: next-auth requires a database adapter and runs auth in-process. Use `@theauth/nextjs-auth` when your backend already handles session state and you just want the FE plumbing.
 
 vs **better-auth**: better-auth also runs in-process (or via a hosted service). Use this adapter when you cannot or do not want to run auth logic inside the Next.js process — only a REST call over the wire.
 
 ## Quickstart
 
 ```bash
-pnpm add @kavachos/nextjs-auth
+pnpm add @theauth/nextjs-auth
 ```
 
 ### 1. Create your config
@@ -26,7 +26,7 @@ pnpm add @kavachos/nextjs-auth
 ```ts
 // src/lib/auth/config.ts
 import "server-only";
-import { createAuthConfig } from "@kavachos/nextjs-auth";
+import { createAuthConfig } from "@theauth/nextjs-auth";
 
 export const authConfig = createAuthConfig({
   backendUrl: process.env.NEXT_PUBLIC_API_BASE_URL!,
@@ -50,7 +50,7 @@ export const authConfig = createAuthConfig({
 
 ```ts
 // app/dashboard/page.tsx
-import { getServerSession } from "@kavachos/nextjs-auth";
+import { getServerSession } from "@theauth/nextjs-auth";
 import { authConfig } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
 
 ```ts
 // middleware.ts (project root)
-import { withAuth } from "@kavachos/nextjs-auth/middleware";
+import { withAuth } from "@theauth/nextjs-auth/middleware";
 import { authConfig } from "@/lib/auth/config";
 
 export default withAuth(authConfig, {
@@ -85,7 +85,7 @@ The adapter returns a plain async function — you add `"use server"` in **your 
 ```ts
 // src/app/auth/actions.ts   ← your file, your directive
 "use server";
-import { createSignOutHandler } from "@kavachos/nextjs-auth";
+import { createSignOutHandler } from "@theauth/nextjs-auth";
 import { authConfig } from "@/lib/auth/config.server";
 
 export const signOut = createSignOutHandler(authConfig);
@@ -164,7 +164,7 @@ Server-only. Returns headers for server → backend calls: `Authorization`, `Ori
 
 Client-safe. Returns minimal headers for browser → backend fetches (no auth headers, no Origin). The browser sends auth cookies and Origin automatically.
 
-### `withAuth(config, options?)` (from `@kavachos/nextjs-auth/middleware`)
+### `withAuth(config, options?)` (from `@theauth/nextjs-auth/middleware`)
 
 Edge-runtime safe. Returns a Next.js middleware function.
 
@@ -218,7 +218,7 @@ Uses the double-submit cookie pattern:
 3. The backend compares header value vs. cookie value; they must match.
 4. An attacker on a different origin cannot read the cookie → cannot forge the header.
 
-`buildAuthHeaders` includes both `X-CSRF-Token` and a `Cookie` echo of the plain (non-`__Host-`) CSRF cookie name, matching KavachOS Spring backends that use a `CsrfDoubleSubmitFilter`.
+`buildAuthHeaders` includes both `X-CSRF-Token` and a `Cookie` echo of the plain (non-`__Host-`) CSRF cookie name, matching TheAuth Spring backends that use a `CsrfDoubleSubmitFilter`.
 
 ## Cookie prefix policy
 

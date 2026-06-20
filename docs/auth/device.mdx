@@ -17,8 +17,8 @@ The device displays a short code like `BDFK-RSTV`. The user opens a URL on their
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { deviceAuth } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { deviceAuth } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -237,13 +237,13 @@ The initial interval is returned by the `/auth/device/code` endpoint (default: 5
 
 <CardGroup cols={2}>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
   <Card title="Magic link" href="/auth/magic-link" icon="link">
     Another passwordless flow for devices that can open a browser.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
-    How KavachOS manages session lifetime after device authorization.
+    How TheAuth manages session lifetime after device authorization.
   </Card>
   <Card title="MCP" href="/mcp" icon="plug">
     OAuth 2.1 flows for agent-to-tool authentication.

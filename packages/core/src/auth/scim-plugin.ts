@@ -9,7 +9,7 @@ export type { ScimConfig };
 // ---------------------------------------------------------------------------
 
 /**
- * SCIM 2.0 directory sync plugin for KavachOS.
+ * SCIM 2.0 directory sync plugin for TheAuth.
  *
  * Mounts SCIM endpoints under `/scim/v2/` so enterprise IdPs (Okta, Azure AD,
  * Google Workspace) can provision and deprovision users and groups.
@@ -18,8 +18,8 @@ export type { ScimConfig };
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { scim } from 'kavachos/auth';
+ * import { createKavach } from 'theauth';
+ * import { scim } from 'theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

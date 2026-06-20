@@ -1,13 +1,13 @@
-# @kavachos/ui
+# @theauth/ui
 
-Headless, slot-based auth UI components for KavachOS.
+Headless, slot-based auth UI components for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/ui?style=flat-square)](https://www.npmjs.com/package/@kavachos/ui)
+[![npm](https://img.shields.io/npm/v/@theauth/ui?style=flat-square)](https://www.npmjs.com/package/@theauth/ui)
 
 ## Install
 
 ```bash
-npm install @kavachos/ui
+npm install @theauth/ui
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @kavachos/ui
 Drop pre-built components into any React app. All components accept `classNames` for slot-level style overrides.
 
 ```tsx
-import { AuthCard, SignIn, OAuthButtons } from '@kavachos/ui';
+import { AuthCard, SignIn, OAuthButtons } from '@theauth/ui';
 
 function LoginPage() {
   return (
@@ -48,7 +48,7 @@ All provider icons are exported individually (`GoogleIcon`, `GitHubIcon`, `Micro
 
 ## Docs
 
-[https://docs.kavachos.com/ui](https://docs.kavachos.com/ui)
+[https://docs.theauth.com/ui](https://docs.theauth.com/ui)
 
 ## License
 

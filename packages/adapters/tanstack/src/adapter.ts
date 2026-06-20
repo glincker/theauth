@@ -1,5 +1,5 @@
-import type { Kavach } from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachTanStackOptions {
@@ -25,14 +25,14 @@ export interface KavachTanStackHandlers {
 }
 
 /**
- * Create TanStack Start API route handlers for all KavachOS REST API routes.
+ * Create TanStack Start API route handlers for all TheAuth REST API routes.
  *
  * Mount in `app/routes/api/kavach.$.ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachTanStack } from '@kavachos/tanstack';
+ * import { createKavach } from 'theauth';
+ * import { kavachTanStack } from '@theauth/tanstack';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachTanStack(kavach);
@@ -46,7 +46,7 @@ export interface KavachTanStackHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachTanStack(kavach, { mcp });
  * ```
@@ -59,7 +59,7 @@ export function kavachTanStack(
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	// TanStack Start API routes receive a standard Web API Request, so we can
-	// pass it directly to the KavachOS dispatcher without any conversion.
+	// pass it directly to the TheAuth dispatcher without any conversion.
 	const handler = (request: Request): Promise<Response> => dispatch(request, kavach, mcp, basePath);
 
 	return {

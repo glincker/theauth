@@ -1,6 +1,6 @@
 ---
 title: Terraform provider
-description: Manage KavachOS agents, permissions, API keys, and organizations as Terraform resources.
+description: Manage TheAuth agents, permissions, API keys, and organizations as Terraform resources.
 icon: server
 ---
 
@@ -20,9 +20,9 @@ The provider requires Go 1.21 to build.
 Clone the repository and build the binary:
 
 ```bash
-git clone https://github.com/kavachos/terraform-provider-kavachos
-cd terraform-provider-kavachos/sdks/terraform
-go build -o terraform-provider-kavachos .
+git clone https://github.com/glincker/terraform-provider-theauth
+cd terraform-provider-theauth/sdks/terraform
+go build -o terraform-provider-theauth .
 ```
 </Step>
 <Step>
@@ -31,9 +31,9 @@ Install into the local plugin cache:
 ```bash
 OS=$(go env GOOS)
 ARCH=$(go env GOARCH)
-PLUGIN_DIR=~/.terraform.d/plugins/registry.terraform.io/kavachos/kavachos/0.1.0/${OS}_${ARCH}
+PLUGIN_DIR=~/.terraform.d/plugins/registry.terraform.io/theauth/theauth/0.1.0/${OS}_${ARCH}
 mkdir -p "$PLUGIN_DIR"
-mv terraform-provider-kavachos "$PLUGIN_DIR/"
+mv terraform-provider-theauth "$PLUGIN_DIR/"
 ```
 </Step>
 <Step>
@@ -43,8 +43,8 @@ Declare the provider in your Terraform configuration:
 terraform {
   required_version = ">= 1.5"
   required_providers {
-    kavachos = {
-      source  = "kavachos/kavachos"
+    theauth = {
+      source  = "theauth/theauth"
       version = "~> 0.1"
     }
   }
@@ -56,30 +56,30 @@ terraform {
 ## Provider setup
 
 ```hcl
-provider "kavachos" {
+provider "theauth" {
   base_url = "https://your-app.com/api/kavach"
-  token    = var.kavachos_token
+  token    = var.theauth_token
 }
 ```
 
 Both arguments can be set via environment variables, which is preferred in CI:
 
 ```bash
-export KAVACHOS_BASE_URL=https://your-app.com/api/kavach
-export KAVACHOS_TOKEN=kv_live_...
+export THEAUTH_BASE_URL=https://your-app.com/api/kavach
+export THEAUTH_TOKEN=kv_live_...
 ```
 
-<ParamField path="base_url" type="string" default="KAVACHOS_BASE_URL env var">Base URL of your KavachOS deployment.</ParamField>
-<ParamField path="token" type="string" default="KAVACHOS_TOKEN env var">API token for authenticating with KavachOS.</ParamField>
+<ParamField path="base_url" type="string" default="THEAUTH_BASE_URL env var">Base URL of your TheAuth deployment.</ParamField>
+<ParamField path="token" type="string" default="THEAUTH_TOKEN env var">API token for authenticating with TheAuth.</ParamField>
 
 ## Resources
 
-### kavachos_agent
+### theauth_agent
 
-Manages an agent identity, the primary entity in KavachOS.
+Manages an agent identity, the primary entity in TheAuth.
 
 ```hcl
-resource "kavachos_agent" "github_reader" {
+resource "theauth_agent" "github_reader" {
   owner_id = "user-123"
   name     = "github-reader"
   type     = "autonomous"
@@ -110,7 +110,7 @@ terraform output -raw github_reader_token
 ```
 
 <Warning>
-The raw token is only returned once, at creation time. KavachOS does not store it in recoverable form. If you lose it, rotate the agent's token via the API or dashboard.
+The raw token is only returned once, at creation time. TheAuth does not store it in recoverable form. If you lose it, rotate the agent's token via the API or dashboard.
 </Warning>
 
 <ParamField path="owner_id" type="string" required>ID of the user who owns this agent.</ParamField>
@@ -134,13 +134,13 @@ The raw token is only returned once, at creation time. KavachOS does not store i
 
 ---
 
-### kavachos_permission
+### theauth_permission
 
-Grants a single permission to an existing agent from a separate module. If you control both the agent and all its permissions in one place, use inline `permission` blocks on `kavachos_agent` instead.
+Grants a single permission to an existing agent from a separate module. If you control both the agent and all its permissions in one place, use inline `permission` blocks on `theauth_agent` instead.
 
 ```hcl
-resource "kavachos_permission" "staging_deploy" {
-  agent_id           = kavachos_agent.deploy_bot.id
+resource "theauth_permission" "staging_deploy" {
+  agent_id           = theauth_agent.deploy_bot.id
   resource           = "mcp:deploy:staging"
   actions            = ["execute"]
   max_calls_per_hour = 20
@@ -157,18 +157,18 @@ resource "kavachos_permission" "staging_deploy" {
 
 ---
 
-### kavachos_api_key
+### theauth_api_key
 
 Manages an API key for server-to-server requests.
 
 ```hcl
-resource "kavachos_api_key" "ci_pipeline" {
+resource "theauth_api_key" "ci_pipeline" {
   name   = "ci-pipeline"
   scopes = ["agents:read", "agents:write"]
 }
 
 output "ci_key" {
-  value     = kavachos_api_key.ci_pipeline.key
+  value     = theauth_api_key.ci_pipeline.key
   sensitive = true
 }
 ```
@@ -181,12 +181,12 @@ The `key` attribute is only populated immediately after creation. Read it with `
 
 ---
 
-### kavachos_organization
+### theauth_organization
 
 Manages an organization for multi-tenant isolation.
 
 ```hcl
-resource "kavachos_organization" "engineering" {
+resource "theauth_organization" "engineering" {
   name = "Engineering"
   slug = "engineering"
   plan = "pro"
@@ -199,33 +199,33 @@ resource "kavachos_organization" "engineering" {
 
 ## Data sources
 
-### kavachos_agent
+### theauth_agent
 
 Reads an agent that was not created by this Terraform configuration.
 
 ```hcl
-data "kavachos_agent" "legacy" {
+data "theauth_agent" "legacy" {
   id = "agent-id-from-dashboard"
 }
 
 output "status" {
-  value = data.kavachos_agent.legacy.status
+  value = data.theauth_agent.legacy.status
 }
 ```
 
-### kavachos_agents
+### theauth_agents
 
 Lists agents, optionally filtered.
 
 ```hcl
-data "kavachos_agents" "active_bots" {
+data "theauth_agents" "active_bots" {
   owner_id = "user-123"
   status   = "active"
   type     = "autonomous"
 }
 
 output "bot_count" {
-  value = length(data.kavachos_agents.active_bots.agents)
+  value = length(data.theauth_agents.active_bots.agents)
 }
 ```
 
@@ -239,13 +239,13 @@ Resources provisioned outside Terraform can be brought under management:
 
 ```bash
 # Import an agent
-terraform import kavachos_agent.my_bot agent-abc123
+terraform import theauth_agent.my_bot agent-abc123
 
 # Import an API key
-terraform import kavachos_api_key.ci kv_key_abc123
+terraform import theauth_api_key.ci kv_key_abc123
 
 # Import an organization
-terraform import kavachos_organization.eng org-xyz789
+terraform import theauth_organization.eng org-xyz789
 ```
 
 After importing, run `terraform plan`. Terraform will show a diff for any attributes that differ from your configuration. Update the HCL to match, or let Terraform converge.
@@ -258,12 +258,12 @@ Importing an API key restores the ID and metadata but not the raw key value, tha
 
 ## GitOps workflow
 
-Manage KavachOS configuration alongside your application infrastructure:
+Manage TheAuth configuration alongside your application infrastructure:
 
 ```
 infra/
 ├── main.tf           # Provider and state backend
-├── organizations.tf  # kavachos_organization resources
+├── organizations.tf  # theauth_organization resources
 ├── agents.tf         # Agent definitions
 ├── api_keys.tf       # API keys for CI and services
 └── variables.tf
@@ -298,15 +298,15 @@ jobs:
       - name: Plan
         id: plan
         env:
-          KAVACHOS_BASE_URL: ${{ secrets.KAVACHOS_BASE_URL }}
-          KAVACHOS_TOKEN: ${{ secrets.KAVACHOS_TOKEN }}
+          THEAUTH_BASE_URL: ${{ secrets.THEAUTH_BASE_URL }}
+          THEAUTH_TOKEN: ${{ secrets.THEAUTH_TOKEN }}
         run: terraform -chdir=infra plan -out=tfplan -no-color
 
       - name: Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
-          KAVACHOS_BASE_URL: ${{ secrets.KAVACHOS_BASE_URL }}
-          KAVACHOS_TOKEN: ${{ secrets.KAVACHOS_TOKEN }}
+          THEAUTH_BASE_URL: ${{ secrets.THEAUTH_BASE_URL }}
+          THEAUTH_TOKEN: ${{ secrets.THEAUTH_TOKEN }}
         run: terraform -chdir=infra apply tfplan
 ```
 

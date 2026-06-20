@@ -66,7 +66,7 @@ export default function Home() {
 		<div className="min-h-screen flex items-center justify-center bg-zinc-950">
 			<div className="w-full max-w-sm mx-auto p-6">
 				<div className="text-center mb-8">
-					<h1 className="text-2xl font-bold text-white">KavachOS Demo</h1>
+					<h1 className="text-2xl font-bold text-white">TheAuth Demo</h1>
 					<p className="text-zinc-500 text-sm mt-1">Auth OS for AI agents and humans</p>
 				</div>
 
@@ -159,7 +159,7 @@ export default function Home() {
 				</div>
 
 				<p className="text-center text-zinc-600 text-xs mt-4">
-					Powered by <span className="text-amber-600">kavachos</span>
+					Powered by <span className="text-amber-600">theauth</span>
 				</p>
 			</div>
 		</div>

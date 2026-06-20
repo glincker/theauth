@@ -1,5 +1,5 @@
 /**
- * GDPR module for KavachOS.
+ * GDPR module for TheAuth.
  *
  * Implements Article 17 (right to erasure) and Article 20 (right to data
  * portability) for user accounts. Compliance-critical: every data removal

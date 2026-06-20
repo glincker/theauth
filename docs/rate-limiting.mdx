@@ -7,7 +7,7 @@ icon: shield-halved
 
 ## Overview
 
-KavachOS applies rate limits at two layers: auth endpoints get IP-based limits to protect against brute force and credential stuffing, and the permission engine enforces per-agent call limits via the `maxCallsPerHour` constraint.
+TheAuth applies rate limits at two layers: auth endpoints get IP-based limits to protect against brute force and credential stuffing, and the permission engine enforces per-agent call limits via the `maxCallsPerHour` constraint.
 
 Both layers return a standard `429` response and set `Retry-After` when applicable.
 
@@ -33,7 +33,7 @@ These limits apply automatically with no configuration required.
 Pass a `rateLimit` block to `createKavach` to override the defaults or enable Redis:
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
@@ -108,7 +108,7 @@ if (!result.allowed) {
 Use `createRateLimiter` for custom rate limiting on your own endpoints, for example, an expensive AI inference route that should be capped per user.
 
 ```typescript
-import { createRateLimiter } from 'kavachos';
+import { createRateLimiter } from 'theauth';
 
 const inferenceLimit = createRateLimiter({
   limit: 20,
@@ -130,7 +130,7 @@ const inferenceLimit = createRateLimiter({
 Wrap any handler with `withRateLimit` to apply a limiter without modifying the handler itself.
 
 ```typescript
-import { withRateLimit } from 'kavachos';
+import { withRateLimit } from 'theauth';
 
 const inferenceLimit = createRateLimiter({
   limit: 20,

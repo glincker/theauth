@@ -1,11 +1,11 @@
 /**
- * Factory functions for creating mock KavachOS entities in tests.
+ * Factory functions for creating mock TheAuth entities in tests.
  *
  * Each factory fills in sensible defaults so you only need to specify
  * the fields relevant to the behaviour under test.
  */
 
-import type { KavachAgent, KavachPermission, KavachSession, KavachUser } from "@kavachos/react";
+import type { KavachAgent, KavachPermission, KavachSession, KavachUser } from "@theauth/react";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 

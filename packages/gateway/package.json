@@ -1,12 +1,12 @@
 {
-  "name": "@kavachos/gateway",
+  "name": "@theauth/gateway",
   "version": "3.0.2",
-  "description": "Standalone auth proxy for KavachOS - enforces auth, authorization, and audit in front of any API or MCP server",
+  "description": "Standalone auth proxy for TheAuth - enforces auth, authorization, and audit in front of any API or MCP server",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "kavachos-gateway": "dist/cli.js"
+    "theauth-gateway": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -24,7 +24,7 @@
     "test:watch": "vitest watch"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "gateway",
     "proxy",
     "auth",
@@ -32,22 +32,22 @@
     "mcp",
     "middleware"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/gateway"
   },
   "dependencies": {
     "micromatch": "^4.0.8"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@types/micromatch": "^4.0.9",
     "@types/node": "^25.6.0",
     "tsup": "^8.4.0",

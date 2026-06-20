@@ -1,4 +1,4 @@
-# @kavachos/svelte
+# @theauth/svelte
 
 ## 0.1.0
 

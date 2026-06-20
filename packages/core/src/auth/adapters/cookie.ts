@@ -8,7 +8,7 @@
  *
  * @example
  * ```typescript
- * import { cookieAuth } from 'kavachos/auth';
+ * import { cookieAuth } from 'theauth/auth';
  *
  * const adapter = cookieAuth({
  *   secret: process.env.JWT_SECRET,

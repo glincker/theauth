@@ -1,5 +1,5 @@
 /**
- * OAuth Device Authorization Grant (RFC 8628) for KavachOS.
+ * OAuth Device Authorization Grant (RFC 8628) for TheAuth.
  *
  * Supports TVs, CLI tools, smart displays, and any device where the user
  * cannot easily type a URL or complete an interactive login flow. The device

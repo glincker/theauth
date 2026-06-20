@@ -304,7 +304,7 @@ export interface EmailTemplates {
 }
 
 export function createEmailTemplates(config: EmailTemplateConfig = {}): EmailTemplates {
-	const appName = config.appName ?? "KavachOS";
+	const appName = config.appName ?? "TheAuth";
 	const appUrl = config.appUrl ?? "http://localhost:3000";
 	const overrides = config.templates ?? {};
 

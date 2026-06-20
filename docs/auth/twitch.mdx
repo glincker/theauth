@@ -36,8 +36,8 @@ After saving, click **Manage** on the app. Copy the **Client ID**. Click **New S
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -90,7 +90,7 @@ Default scope: `user:read:email`
 | `avatar` | `data[0].profile_image_url` | Direct CDN URL; changes when user updates profile |
 
 <Info>
-  The Twitch Helix API requires a `Client-ID` header on every request alongside the Bearer token. KavachOS handles this automatically, you do not need to set it manually.
+  The Twitch Helix API requires a `Client-ID` header on every request alongside the Bearer token. TheAuth handles this automatically, you do not need to set it manually.
 </Info>
 
 <Warning>

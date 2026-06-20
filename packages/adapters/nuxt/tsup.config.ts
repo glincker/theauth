@@ -8,5 +8,5 @@ export default defineConfig({
 	splitting: false,
 	treeshake: true,
 	target: "node22",
-	external: ["kavachos", "zod", "h3", "nuxt"],
+	external: ["theauth", "zod", "h3", "nuxt"],
 });

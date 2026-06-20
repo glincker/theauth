@@ -1,9 +1,9 @@
 package main
 
-// client.go provides a thin HTTP helper for KavachOS API endpoints that the Go SDK
+// client.go provides a thin HTTP helper for TheAuth API endpoints that the Go SDK
 // does not yet expose as typed methods (API keys, organizations).
 //
-// The Terraform provider uses the Go SDK (github.com/kavachos/kavachos-go) for all
+// The Terraform provider uses the Go SDK (github.com/glincker/theauth-go) for all
 // agent, audit, and delegation operations. For API keys and organizations we talk to
 // the same REST API directly using this helper so the provider does not depend on
 // an unreleased SDK build.
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// httpClient is a minimal REST client for KavachOS endpoints not covered by the Go SDK.
+// httpClient is a minimal REST client for TheAuth endpoints not covered by the Go SDK.
 type httpClient struct {
 	baseURL    string
 	token      string
@@ -46,14 +46,14 @@ func (c *httpClient) do(ctx context.Context, method, path string, body interface
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("kavachos: marshal request body: %w", err)
+			return fmt.Errorf("theauth: marshal request body: %w", err)
 		}
 		reqBody = bytes.NewReader(b)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, reqBody)
 	if err != nil {
-		return fmt.Errorf("kavachos: build request: %w", err)
+		return fmt.Errorf("theauth: build request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -64,7 +64,7 @@ func (c *httpClient) do(ctx context.Context, method, path string, body interface
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("kavachos: http request: %w", err)
+		return fmt.Errorf("theauth: http request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -74,7 +74,7 @@ func (c *httpClient) do(ctx context.Context, method, path string, body interface
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("kavachos: read response: %w", err)
+		return fmt.Errorf("theauth: read response: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -105,7 +105,7 @@ func (c *httpClient) do(ctx context.Context, method, path string, body interface
 			msg = fmt.Sprintf("HTTP %d", resp.StatusCode)
 		}
 
-		return fmt.Errorf("kavachos: [%s] %s (status %d)", code, msg, resp.StatusCode)
+		return fmt.Errorf("theauth: [%s] %s (status %d)", code, msg, resp.StatusCode)
 	}
 
 	if dst == nil {
@@ -122,13 +122,13 @@ func (c *httpClient) do(ctx context.Context, method, path string, body interface
 				return nil
 			}
 		}
-		return fmt.Errorf("kavachos: decode response: %w", err)
+		return fmt.Errorf("theauth: decode response: %w", err)
 	}
 
 	return nil
 }
 
-// isNotFound returns true when err looks like a 404 from the KavachOS API.
+// isNotFound returns true when err looks like a 404 from the TheAuth API.
 func isNotFound(err error) bool {
 	if err == nil {
 		return false

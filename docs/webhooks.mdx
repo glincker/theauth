@@ -7,12 +7,12 @@ icon: globe
 
 ## What webhooks do
 
-Webhooks push signed HTTP POST requests to a URL you control whenever a KavachOS auth event occurs. Use them to sync user records, trigger onboarding flows, alert on suspicious logins, or feed events into your analytics pipeline.
+Webhooks push signed HTTP POST requests to a URL you control whenever a TheAuth auth event occurs. Use them to sync user records, trigger onboarding flows, alert on suspicious logins, or feed events into your analytics pipeline.
 
 ## Setup
 
 ```typescript
-import { createKavach, createWebhookModule } from 'kavachos';
+import { createKavach, createWebhookModule } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -31,7 +31,7 @@ const kavach = await createKavach({
 ```
 
 <Warning>
-  Store the webhook secret in an environment variable, not in source code. KavachOS uses it to sign every request with HMAC-SHA256.
+  Store the webhook secret in an environment variable, not in source code. TheAuth uses it to sign every request with HMAC-SHA256.
 </Warning>
 
 ## Subscribing to events
@@ -127,7 +127,7 @@ async function verifyWebhook(rawBody: string, signature: string, secret: string)
 
 ## Retry behavior
 
-If your endpoint returns a non-2xx status or times out, KavachOS retries the delivery three times with exponential backoff:
+If your endpoint returns a non-2xx status or times out, TheAuth retries the delivery three times with exponential backoff:
 
 | Attempt | Delay |
 |---------|-------|

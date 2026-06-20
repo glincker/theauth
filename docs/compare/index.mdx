@@ -1,22 +1,22 @@
 ---
-title: Compare KavachOS
-description: Side-by-side breakdowns of KavachOS against better-auth, Hanko, Casdoor, and paid platforms. Covers agent identity, MCP OAuth, RBAC, and deployment model.
+title: Compare TheAuth
+description: Side-by-side breakdowns of TheAuth against better-auth, Hanko, Casdoor, and paid platforms. Covers agent identity, MCP OAuth, RBAC, and deployment model.
 icon: scale-balanced
 ---
 
 Auth is a crowded space. These pages are meant to help you pick the right tool, not sell you on any particular one. If a competitor does something better, we say so.
 
 <CardGroup cols={2}>
-  <Card title="KavachOS vs better-auth" icon="code-compare" href="/compare/vs-ba">
-    Both are MIT TypeScript libraries with a broad OAuth provider list. The split is agent primitives: better-auth treats agents as OAuth clients; KavachOS makes them first-class entities with delegation, ephemeral sessions, trust scoring, and compliance exports.
+  <Card title="TheAuth vs better-auth" icon="code-compare" href="/compare/vs-ba">
+    Both are MIT TypeScript libraries with a broad OAuth provider list. The split is agent primitives: better-auth treats agents as OAuth clients; TheAuth makes them first-class entities with delegation, ephemeral sessions, trust scoring, and compliance exports.
   </Card>
-  <Card title="KavachOS vs Hanko" icon="fingerprint" href="/compare/vs-hanko">
+  <Card title="TheAuth vs Hanko" icon="fingerprint" href="/compare/vs-hanko">
     Hanko is a passkey-first library with an AGPL backend. If passkeys are your entire auth story and you have no agent workloads, it's worth a look. If you need any agent identity or RBAC, you'll be building on top of it yourself.
   </Card>
-  <Card title="KavachOS vs Casdoor" icon="server" href="/compare/vs-casdoor">
-    Casdoor is a deployed Go IAM service with LDAP, CAS, and RADIUS support. It targets employee SSO in Go shops. KavachOS is a library, not a service, and it's built for agent-native TypeScript apps.
+  <Card title="TheAuth vs Casdoor" icon="server" href="/compare/vs-casdoor">
+    Casdoor is a deployed Go IAM service with LDAP, CAS, and RADIUS support. It targets employee SSO in Go shops. TheAuth is a library, not a service, and it's built for agent-native TypeScript apps.
   </Card>
-  <Card title="KavachOS vs paid options" icon="building" href="/compare/vs-paid">
+  <Card title="TheAuth vs paid options" icon="building" href="/compare/vs-paid">
     Clerk and Auth0 are polished, fast to start, and expensive at scale. They're also closed-source. This page covers the open-source vs. managed tradeoff without reproducing any pricing tables.
   </Card>
 </CardGroup>

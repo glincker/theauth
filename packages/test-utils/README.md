@@ -1,9 +1,9 @@
-# @kavachos/test-utils
+# @theauth/test-utils
 
-Test helpers for apps using KavachOS: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
+Test helpers for apps using TheAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
 
 ```bash
-npm install --save-dev @kavachos/test-utils
+npm install --save-dev @theauth/test-utils
 ```
 
 ## What's in the box
@@ -16,7 +16,7 @@ npm install --save-dev @kavachos/test-utils
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { MockKavachProvider, makeUser } from "@kavachos/test-utils";
+import { MockKavachProvider, makeUser } from "@theauth/test-utils";
 import { Dashboard } from "../src/dashboard.js";
 
 test("dashboard greets the signed-in user", () => {
@@ -32,12 +32,12 @@ test("dashboard greets the signed-in user", () => {
 
 ## Peer deps
 
-`react` and `@kavachos/react` are optional peers. Install them only if you're testing React UI. Server-side helpers work without either.
+`react` and `@theauth/react` are optional peers. Install them only if you're testing React UI. Server-side helpers work without either.
 
 ## Links
 
-- KavachOS repo: <https://github.com/kavachos/kavachos>
-- Docs: <https://docs.kavachos.com>
+- TheAuth repo: <https://github.com/glincker/theauth>
+- Docs: <https://docs.theauth.com>
 
 ## License
 

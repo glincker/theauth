@@ -111,7 +111,7 @@ export function buildDidDocument(did: string, publicKeyJwk: JsonWebKey): DidDocu
  *
  * Returns the DID, key pair (JWK format), and auto-generated DID document.
  * The private key is returned to the caller and must be stored securely —
- * it is never persisted by KavachOS.
+ * it is never persisted by TheAuth.
  */
 export async function generateDidKey(): Promise<DidKeyPair> {
 	const { publicKey, privateKey } = await generateKeyPair("EdDSA", {

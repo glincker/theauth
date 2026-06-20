@@ -5,7 +5,7 @@
  * agent delegation and audit export, using in-memory SQLite throughout.
  *
  * Steps:
- *  1.  Create a KavachOS instance with email OTP auth
+ *  1.  Create a TheAuth instance with email OTP auth
  *  2.  Sign up a user (sendCode → verifyCode creates the account)
  *  3.  Verify the user record exists and a session was issued
  *  4.  Sign in again (re-verify) — simulates returning user

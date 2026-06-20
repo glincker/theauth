@@ -18,7 +18,7 @@ type Snapshot = {
 	agents: ReturnType<typeof useAgents>;
 };
 
-const SESSION_KEY = "kavachos_session";
+const SESSION_KEY = "theauth_session";
 
 let root: Root | null = null;
 let latest: Snapshot | null = null;
@@ -192,7 +192,7 @@ afterEach(() => {
 	latest = null;
 });
 
-describe("@kavachos/expo runtime smoke", () => {
+describe("@theauth/expo runtime smoke", () => {
 	it("restores a stored session, authenticates agent requests, and loads agents", async () => {
 		await storage.setItem(SESSION_KEY, "stored-token");
 		agentsState = [

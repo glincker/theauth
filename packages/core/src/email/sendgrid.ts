@@ -22,7 +22,7 @@ export interface SendGridConfig {
 export function sendgrid(config: SendGridConfig): EmailProvider {
 	if (!config.apiKey) {
 		throw new Error(
-			"[kavachos/email] sendgrid: apiKey is required. " +
+			"[theauth/email] sendgrid: apiKey is required. " +
 				"Pass { apiKey: process.env.SENDGRID_API_KEY } when creating the provider.",
 		);
 	}
@@ -61,7 +61,7 @@ export function sendgrid(config: SendGridConfig): EmailProvider {
 			if (!response.ok) {
 				const text = await response.text().catch(() => "(no body)");
 				throw new Error(
-					`[kavachos/email] sendgrid: request failed with status ${response.status}: ${text}`,
+					`[theauth/email] sendgrid: request failed with status ${response.status}: ${text}`,
 				);
 			}
 

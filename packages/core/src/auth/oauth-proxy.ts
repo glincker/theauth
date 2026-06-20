@@ -3,21 +3,21 @@
  *
  * Mobile apps cannot safely store OAuth client secrets. This module acts as a
  * server-side intermediary: the mobile app redirects to the provider via
- * KavachOS, which holds the secret and exchanges the authorization code for
+ * TheAuth, which holds the secret and exchanges the authorization code for
  * tokens on the app's behalf.
  *
  * Flow:
  *   1. Mobile app calls GET /auth/oauth-proxy/start?provider=google&redirect_uri=myapp://callback
- *   2. KavachOS validates redirect_uri, stores proxy state, returns provider auth URL.
+ *   2. TheAuth validates redirect_uri, stores proxy state, returns provider auth URL.
  *   3. User authenticates with the provider in a browser.
- *   4. Provider redirects to KavachOS callback with code + state.
- *   5. KavachOS exchanges the code (using the server-held client secret), then
+ *   4. Provider redirects to TheAuth callback with code + state.
+ *   5. TheAuth exchanges the code (using the server-held client secret), then
  *      redirects the mobile app to its custom scheme URL with tokens as query params.
  *
  * Security:
  *   - redirect_uri is validated against an explicit allowlist — no open redirects.
  *   - Proxy state is a random UUID stored in memory with a 10-minute TTL.
- *   - PKCE passthrough: the mobile app may supply a code_challenge; KavachOS
+ *   - PKCE passthrough: the mobile app may supply a code_challenge; TheAuth
  *     forwards it to the provider and passes the verifier back via the callback.
  */
 
@@ -102,9 +102,9 @@ interface ProxyStateEntry {
 	redirectUri: string;
 	/** Caller's own state value (forwarded to the mobile app on completion). */
 	callerState: string | undefined;
-	/** PKCE verifier KavachOS generated for the provider exchange. */
+	/** PKCE verifier TheAuth generated for the provider exchange. */
 	serverCodeVerifier: string;
-	/** KavachOS's redirect URI pointing back to the callback endpoint. */
+	/** TheAuth's redirect URI pointing back to the callback endpoint. */
 	serverRedirectUri: string;
 	expiresAt: number;
 }
@@ -149,7 +149,7 @@ function getClientIp(request: Request): string {
 export function createOAuthProxyModule(
 	config: OAuthProxyConfig,
 	providers: Record<string, OAuthProvider>,
-	/** Base URL of the KavachOS server, e.g. "https://auth.example.com". */
+	/** Base URL of the TheAuth server, e.g. "https://auth.example.com". */
 	baseUrl: string,
 ): OAuthProxyModule {
 	const ttlMs = (config.stateTtlSeconds ?? DEFAULT_STATE_TTL_SECONDS) * 1000;
@@ -159,7 +159,7 @@ export function createOAuthProxyModule(
 	// In-memory state store — keyed by opaque proxyState UUID.
 	const stateStore = new Map<string, ProxyStateEntry>();
 
-	// The KavachOS-side callback URL registered with the provider.
+	// The TheAuth-side callback URL registered with the provider.
 	const serverCallbackUri = `${baseUrl.replace(/\/$/, "")}/auth/oauth-proxy/callback`;
 
 	// ---------------------------------------------------------------------------

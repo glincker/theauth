@@ -1,4 +1,4 @@
-# Contributing to KavachOS
+# Contributing to TheAuth
 
 Thanks for contributing. This guide helps you ship changes quickly and safely.
 
@@ -38,8 +38,8 @@ pnpm lint
 Run commands for one package:
 
 ```bash
-pnpm --filter kavachos test
-pnpm --filter @kavachos/cli test
+pnpm --filter theauth test
+pnpm --filter @theauth/cli test
 ```
 
 ## Style and quality

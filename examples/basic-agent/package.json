@@ -1,5 +1,5 @@
 {
-  "name": "@kavachos/example-basic-agent",
+  "name": "@theauth/example-basic-agent",
   "private": true,
   "type": "module",
   "version": "0.0.6",
@@ -10,7 +10,7 @@
   "dependencies": {
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.41.0",
-    "kavachos": "workspace:*"
+    "theauth": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

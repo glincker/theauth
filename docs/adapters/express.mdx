@@ -1,15 +1,15 @@
 ---
 title: Express
-description: Mount KavachOS auth routes on Express with `kavachExpress(kavach)`. Returns a Router with agent identity, delegation, audit, and MCP OAuth 2.1 endpoints pre-mounted.
+description: Mount TheAuth auth routes on Express with `kavachExpress(kavach)`. Returns a Router with agent identity, delegation, audit, and MCP OAuth 2.1 endpoints pre-mounted.
 icon: "/brand-icons/express.svg"
 ---
 
-`kavachExpress(kavach, options?)` returns an Express `Router` with all KavachOS routes pre-mounted. Use `app.use` to attach it at your chosen path.
+`kavachExpress(kavach, options?)` returns an Express `Router` with all TheAuth routes pre-mounted. Use `app.use` to attach it at your chosen path.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/express express
+pnpm add theauth @theauth/express express
 pnpm add -D @types/express
 ```
 
@@ -20,7 +20,7 @@ pnpm add -D @types/express
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -40,7 +40,7 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // src/index.ts
 import express from 'express';
-import { kavachExpress } from '@kavachos/express';
+import { kavachExpress } from '@theauth/express';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = express();
@@ -49,7 +49,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Mount all KavachOS routes
+// Mount all TheAuth routes
 app.use('/api/kavach', kavachExpress(kavach, { mcp }));
 
 app.listen(3000);
@@ -98,8 +98,8 @@ app.use('/api/kavach', kavachExpress(kavach, { mcp }));
 
 ```typescript
 import express from 'express';
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachExpress } from '@kavachos/express';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachExpress } from '@theauth/express';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

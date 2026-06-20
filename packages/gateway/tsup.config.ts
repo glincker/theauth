@@ -9,7 +9,7 @@ export default defineConfig([
 		splitting: false,
 		treeshake: true,
 		target: "node22",
-		external: ["kavachos", "zod"],
+		external: ["theauth", "zod"],
 	},
 	{
 		entry: ["src/cli.ts"],
@@ -20,7 +20,7 @@ export default defineConfig([
 		splitting: false,
 		treeshake: true,
 		target: "node22",
-		external: ["kavachos", "zod"],
+		external: ["theauth", "zod"],
 		banner: {
 			js: "#!/usr/bin/env node",
 		},

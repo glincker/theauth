@@ -1,5 +1,5 @@
 /**
- * Cookie-aware session manager for KavachOS.
+ * Cookie-aware session manager for TheAuth.
  *
  * Wraps the lower-level `createSessionManager` with cookie serialization and
  * optional CSRF protection so callers work with `Request`/`Response` objects

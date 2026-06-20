@@ -9,7 +9,7 @@ Measures the unified policy engine across four evaluation paths.
 pnpm bench
 
 # Or scoped to the core package
-pnpm --filter kavachos bench
+pnpm --filter theauth bench
 ```
 
 Requires no extra dependencies. `vitest bench` uses `tinybench` internally, which is already a transitive dependency.

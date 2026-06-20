@@ -1,18 +1,18 @@
 ---
-title: KavachOS vs Casdoor
-description: KavachOS as an in-process TypeScript library versus Casdoor as a standalone Go IAM service. Compares MCP OAuth 2.1, agent identity, LDAP, RBAC, and deployment model.
+title: TheAuth vs Casdoor
+description: TheAuth as an in-process TypeScript library versus Casdoor as a standalone Go IAM service. Compares MCP OAuth 2.1, agent identity, LDAP, RBAC, and deployment model.
 icon: server
 ---
 
 Casdoor is a deployed Go IAM service. You run it as a separate process alongside your app, and it handles SSO, LDAP, CAS, RADIUS, and a native MCP OAuth server. It's designed for organizations that need a standalone identity provider, especially in Go environments.
 
-KavachOS is a library, not a service. You import it into your TypeScript app and it runs in-process. Same MCP OAuth 2.1 spec, very different deployment model.
+TheAuth is a library, not a service. You import it into your TypeScript app and it runs in-process. Same MCP OAuth 2.1 spec, very different deployment model.
 
 A migration guide from Casdoor is coming soon.
 
 ## Feature matrix
 
-| Capability | KavachOS | Casdoor |
+| Capability | TheAuth | Casdoor |
 |---|---|---|
 | Language | TypeScript library | Go service |
 | First-party TypeScript SDK | Yes | No (third-party only) |
@@ -28,7 +28,7 @@ A migration guide from Casdoor is coming soon.
 | Self-hostable | Yes | Yes |
 | License | MIT | Apache 2.0 |
 
-## Pick KavachOS if
+## Pick TheAuth if
 
 - You're building a TypeScript or edge-native app and want auth in-process, not as a sidecar.
 - You need first-class agent primitives: delegation, ephemeral sessions, trust scoring, and cost attribution.
@@ -40,19 +40,19 @@ A migration guide from Casdoor is coming soon.
 - You need LDAP, CAS, or RADIUS compatibility for employee SSO.
 - You're in a Go shop and want to own the full server.
 
-The clearest signal: if you're writing `import { createKavach }`, KavachOS. If you're writing `docker run casdoor`, Casdoor.
+The clearest signal: if you're writing `import { createKavach }`, TheAuth. If you're writing `docker run casdoor`, Casdoor.
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="KavachOS vs better-auth" href="/compare/vs-ba" icon="code-compare">
-    How KavachOS compares to the TypeScript-native auth library.
+  <Card title="TheAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
+    How TheAuth compares to the TypeScript-native auth library.
   </Card>
-  <Card title="KavachOS vs Hanko" href="/compare/vs-hanko" icon="fingerprint">
-    KavachOS versus the passkey-first Go auth library.
+  <Card title="TheAuth vs Hanko" href="/compare/vs-hanko" icon="fingerprint">
+    TheAuth versus the passkey-first Go auth library.
   </Card>
   <Card title="MCP OAuth 2.1" href="/mcp" icon="globe">
-    How KavachOS implements the MCP authorization server spec.
+    How TheAuth implements the MCP authorization server spec.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
     First-class agent identities with delegation and audit.

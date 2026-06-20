@@ -108,7 +108,7 @@ export interface TokenFamilyStore {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a `TokenFamilyStore` backed by the KavachOS database.
+ * Create a `TokenFamilyStore` backed by the TheAuth database.
  */
 export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 	// ── helpers ────────────────────────────────────────────────────────────

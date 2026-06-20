@@ -1,6 +1,6 @@
 ---
 title: MCP OAuth 2.1
-description: Configure KavachOS as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
+description: Configure TheAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
 icon: globe
 ---
 
@@ -9,7 +9,7 @@ icon: globe
 
 The Model Context Protocol defines how AI clients connect to tool servers. The 2025-03 revision added an auth layer: MCP servers can now require OAuth 2.1 tokens before accepting tool calls.
 
-KavachOS implements the full MCP auth stack:
+TheAuth implements the full MCP auth stack:
 
 - OAuth 2.1 with PKCE (S256 code challenge method only)
 - Protected Resource Metadata (RFC 9728)
@@ -22,7 +22,7 @@ KavachOS implements the full MCP auth stack:
 ### Setting up
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -47,7 +47,7 @@ Then mount the MCP module via a framework adapter. See [Framework adapters](/ada
 
 ### Endpoints
 
-Once mounted, KavachOS serves these endpoints (relative to your `basePath`, default `/api/kavach`):
+Once mounted, TheAuth serves these endpoints (relative to your `basePath`, default `/api/kavach`):
 
 | Endpoint | RFC | Purpose |
 |---|---|---|
@@ -59,14 +59,14 @@ Once mounted, KavachOS serves these endpoints (relative to your `basePath`, defa
 | `POST /oauth/revoke` | RFC 7009 | Token revocation |
 
 <Info>
-  The well-known endpoints are served at the root of your domain, not under `basePath`. KavachOS registers them separately so MCP clients can discover your auth server from any path.
+  The well-known endpoints are served at the root of your domain, not under `basePath`. TheAuth registers them separately so MCP clients can discover your auth server from any path.
 </Info>
 
 ## OAuth flow
 
 ### PKCE flow
 
-KavachOS only accepts `S256`. Plain PKCE is rejected at the authorization endpoint.
+TheAuth only accepts `S256`. Plain PKCE is rejected at the authorization endpoint.
 
 <Steps>
   <Step>
@@ -156,8 +156,8 @@ The `withMcpAuth` middleware extracts the bearer token from the `Authorization` 
 
 ```typescript
 // Hono example. See the adapters doc for other frameworks.
-import { kavachHono } from '@kavachos/hono';
-import { createMcpModule } from 'kavachos';
+import { kavachHono } from '@theauth/hono';
+import { createMcpModule } from 'theauth';
 
 const mcp = createMcpModule(kavach);
 const { withMcpAuth } = kavachHono(kavach, { mcp });
@@ -175,7 +175,7 @@ app.get('/mcp/tools/list', (c) => {
 When writing custom handlers, use `buildUnauthorizedResponse` to produce a well-formed 401 with a `WWW-Authenticate` header pointing to your auth server:
 
 ```typescript
-import { buildUnauthorizedResponse } from 'kavachos';
+import { buildUnauthorizedResponse } from 'theauth';
 
 return buildUnauthorizedResponse({
   issuer: 'https://auth.yourapp.com',
@@ -203,7 +203,7 @@ Registered servers appear in the protected resource metadata document. Their too
 
 <AccordionGroup>
   <Accordion title="Protected resource metadata document">
-    KavachOS generates this document automatically from your `mcp` config and registered servers:
+    TheAuth generates this document automatically from your `mcp` config and registered servers:
 
     ```json
     {

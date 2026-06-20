@@ -1,18 +1,18 @@
 ---
-title: KavachOS vs Hanko
-description: KavachOS versus Hanko across passkey support, OAuth providers, agent identity, MCP OAuth, RBAC, and licensing. Includes a clear decision framework for each tool.
+title: TheAuth vs Hanko
+description: TheAuth versus Hanko across passkey support, OAuth providers, agent identity, MCP OAuth, RBAC, and licensing. Includes a clear decision framework for each tool.
 icon: fingerprint
 ---
 
 Hanko is built around one idea: passkeys should be the default, not the fallback. It's a focused library with a Go backend, official TypeScript bindings, and an AGPL license. If passkeys are your entire auth surface and you have zero agent workloads, it's worth a serious look.
 
-KavachOS includes passkey support as one method among many. The bigger difference is what happens after the human authenticates: KavachOS was designed for the agent layer that comes next.
+TheAuth includes passkey support as one method among many. The bigger difference is what happens after the human authenticates: TheAuth was designed for the agent layer that comes next.
 
 A migration guide from Hanko is coming soon.
 
 ## Feature matrix
 
-| Capability | KavachOS | Hanko |
+| Capability | TheAuth | Hanko |
 |---|---|---|
 | License | MIT | AGPL (backend), MIT (JS SDK) |
 | Primary focus | Agent-first auth SDK | Passkey-first auth |
@@ -26,7 +26,7 @@ A migration guide from Hanko is coming soon.
 | Edge runtime | Web Crypto throughout | Go backend required |
 | Self-hostable | Yes | Yes |
 
-## Pick KavachOS if
+## Pick TheAuth if
 
 - You need more than passkeys: OAuth providers, agent identity, or a policy engine.
 - You're building AI-powered products where agents need their own auth layer.
@@ -38,21 +38,21 @@ A migration guide from Hanko is coming soon.
 - You have no agent story and passkey-first is exactly the feature you need.
 - You're comfortable with AGPL for your backend auth service.
 
-Hanko does one thing well. KavachOS does more, which is a tradeoff in either direction.
+Hanko does one thing well. TheAuth does more, which is a tradeoff in either direction.
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="KavachOS vs better-auth" href="/compare/vs-ba" icon="code-compare">
+  <Card title="TheAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
     Feature comparison with the TypeScript-native auth library.
   </Card>
-  <Card title="KavachOS vs Casdoor" href="/compare/vs-casdoor" icon="server">
-    KavachOS as a library versus Casdoor as a standalone Go service.
+  <Card title="TheAuth vs Casdoor" href="/compare/vs-casdoor" icon="server">
+    TheAuth as a library versus Casdoor as a standalone Go service.
   </Card>
   <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
-    WebAuthn / FIDO2 support in KavachOS.
+    WebAuthn / FIDO2 support in TheAuth.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
-    What KavachOS adds beyond passkey auth for the agent layer.
+    What TheAuth adds beyond passkey auth for the agent layer.
   </Card>
 </CardGroup>

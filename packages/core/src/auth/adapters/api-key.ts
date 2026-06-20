@@ -1,5 +1,5 @@
 /**
- * API key auth adapter for KavachOS.
+ * API key auth adapter for TheAuth.
  *
  * Reads an API key from a request header (default: `x-api-key`) and delegates
  * validation to a caller-supplied function.  Useful for service-to-service
@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { apiKeyAdapter } from 'kavachos/auth';
+ * import { apiKeyAdapter } from 'theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

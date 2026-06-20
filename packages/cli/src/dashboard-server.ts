@@ -40,10 +40,10 @@ function getMimeType(filePath: string): string {
 // ─── Dist Dir Resolution ──────────────────────────────────────────────────────
 
 function resolveDashboardDistDir(): string {
-	// Try resolving from the @kavachos/dashboard package first
+	// Try resolving from the @theauth/dashboard package first
 	try {
 		const require = createRequire(import.meta.url);
-		const pkgPath = require.resolve("@kavachos/dashboard/package.json");
+		const pkgPath = require.resolve("@theauth/dashboard/package.json");
 		const pkgDir = resolve(pkgPath, "..");
 		const distDir = join(pkgDir, "dist", "app");
 		if (existsSync(distDir)) {
@@ -68,7 +68,7 @@ function resolveDashboardDistDir(): string {
 	}
 
 	throw new Error(
-		"Cannot find @kavachos/dashboard dist directory.\n" +
+		"Cannot find @theauth/dashboard dist directory.\n" +
 			"Make sure the dashboard package is built first:\n\n" +
 			"  cd packages/dashboard && npm run build\n",
 	);
@@ -81,7 +81,7 @@ async function readIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const html = await readFile(indexPath, "utf-8");
 
 	// Inject the API URL as a global before any other scripts load
-	const injection = `<script>window.__KAVACHOS_API_URL__ = ${JSON.stringify(apiUrl)};</script>`;
+	const injection = `<script>window.__THEAUTH_API_URL__ = ${JSON.stringify(apiUrl)};</script>`;
 
 	// Prefer injecting right before </head>; fall back to prepend
 	if (html.includes("</head>")) {
@@ -119,7 +119,7 @@ function sendJson(res: ServerResponse, status: number, body: Record<string, unkn
 }
 
 function resolveDashboardSecret(): string | null {
-	return env.KAVACHOS_DASHBOARD_SECRET ?? null;
+	return env.THEAUTH_DASHBOARD_SECRET ?? null;
 }
 
 function handleAuthRequest(
@@ -157,7 +157,7 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 	const dashboardSecret = resolveDashboardSecret();
 
 	if (dashboardSecret === null) {
-		stdout.write("  [warn] KAVACHOS_DASHBOARD_SECRET is not set — dashboard auth is disabled.\n");
+		stdout.write("  [warn] THEAUTH_DASHBOARD_SECRET is not set — dashboard auth is disabled.\n");
 	}
 
 	const distDir = resolveDashboardDistDir();
@@ -219,7 +219,7 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 	});
 
 	stdout.write("\n");
-	stdout.write("  KavachOS Dashboard\n");
+	stdout.write("  TheAuth Dashboard\n");
 	stdout.write("  ==================\n\n");
 	stdout.write(`  Local:   http://localhost:${port}\n`);
 	stdout.write(`  API:     ${apiUrl}\n\n`);

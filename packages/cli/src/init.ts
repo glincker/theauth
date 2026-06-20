@@ -66,7 +66,7 @@ function configTemplate(answers: InitAnswers): string {
 			? `  provider: "sqlite",\n  url: "${answers.dbUrl}",`
 			: `  provider: "postgres",\n  url: process.env.DATABASE_URL ?? "${answers.dbUrl}",`;
 
-	return `import { type KavachConfig } from "kavachos";
+	return `import { type KavachConfig } from "theauth";
 
 const config: KavachConfig = {
   database: {
@@ -85,10 +85,10 @@ export default config;
 
 function exampleTemplate(answers: InitAnswers): string {
 	const adapterPkg: Record<Framework, string> = {
-		hono: "@kavachos/hono",
-		express: "@kavachos/express",
-		nextjs: "@kavachos/nextjs",
-		fastify: "@kavachos/fastify",
+		hono: "@theauth/hono",
+		express: "@theauth/express",
+		nextjs: "@theauth/nextjs",
+		fastify: "@theauth/fastify",
 	};
 
 	const frameworkComment: Record<Framework, string> = {
@@ -103,7 +103,7 @@ function exampleTemplate(answers: InitAnswers): string {
 			? `  database: { provider: "sqlite", url: "kavach.db" },`
 			: `  database: { provider: "postgres", url: process.env.DATABASE_URL! },`;
 
-	return `import { createKavach } from "kavachos";
+	return `import { createKavach } from "theauth";
 ${frameworkComment[answers.framework]}
 // Adapter: npm install ${adapterPkg[answers.framework]}
 
@@ -154,7 +154,7 @@ console.log("New token:", rotated.token);
 // ── Main init flow ────────────────────────────────────────────────────────────
 
 export async function runInit(): Promise<InitResult | InitError> {
-	stdout.write("\nKavachOS — project setup\n");
+	stdout.write("\nTheAuth — project setup\n");
 	stdout.write("─────────────────────────────────────\n");
 
 	const rl = createInterface({ input: stdin, output: stdout });
@@ -225,32 +225,32 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		// Print next steps
 		stdout.write("\n  Files written\n");
-		stdout.write(`  kavach.config.ts   — your KavachOS configuration\n`);
+		stdout.write(`  kavach.config.ts   — your TheAuth configuration\n`);
 		stdout.write(`  kavach.example.ts  — minimal agent + authorization example\n`);
 
 		stdout.write("\nNext steps\n");
 		stdout.write("──────────\n");
 		stdout.write("  1. Install the core package:\n");
-		stdout.write("       npm install kavachos\n");
+		stdout.write("       npm install theauth\n");
 		if (framework !== "hono") {
 			const adapterPkg: Record<Exclude<Framework, "hono">, string> = {
-				express: "@kavachos/express",
-				nextjs: "@kavachos/nextjs",
-				fastify: "@kavachos/fastify",
+				express: "@theauth/express",
+				nextjs: "@theauth/nextjs",
+				fastify: "@theauth/fastify",
 			};
 			stdout.write(`       npm install ${adapterPkg[framework]}\n`);
 		} else {
-			stdout.write("       npm install @kavachos/hono\n");
+			stdout.write("       npm install @theauth/hono\n");
 		}
 		if (database === "postgres") {
 			stdout.write("       npm install pg\n");
 		}
 		stdout.write("  2. Set DATABASE_URL in your environment (if using Postgres).\n");
-		stdout.write("  3. Run your app — KavachOS creates tables automatically on first start.\n");
+		stdout.write("  3. Run your app — TheAuth creates tables automatically on first start.\n");
 		stdout.write(
 			"  4. Open kavach.example.ts to see how to create agents and authorize requests.\n",
 		);
-		stdout.write("\n  Docs: https://kavachos.com/docs\n\n");
+		stdout.write("\n  Docs: https://theauth.com/docs\n\n");
 
 		return { success: true, configPath, examplePath };
 	} catch (err: unknown) {

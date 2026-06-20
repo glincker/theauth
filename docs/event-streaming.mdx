@@ -7,7 +7,7 @@ icon: tower-broadcast
 
 ## What event streaming is
 
-Event streaming gives you a persistent, real-time connection to KavachOS events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). The moment an agent is revoked, a budget is exceeded, or an anomaly is detected, connected clients receive the event, no polling required.
+Event streaming gives you a persistent, real-time connection to TheAuth events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). The moment an agent is revoked, a budget is exceeded, or an anomaly is detected, connected clients receive the event, no polling required.
 
 Events are also persisted to the database so you can replay anything you missed.
 
@@ -28,8 +28,8 @@ Use webhooks when you need durable delivery to an external service. Use event st
 ## Setup
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { createEventStreamModule } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { createEventStreamModule } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -166,7 +166,7 @@ Events are persisted in the `kavach_stream_events` table. If a client disconnect
 GET /api/kavach/events/stream?since=2026-01-15T10:00:00Z
 ```
 
-The browser `EventSource` can also pass the last received event ID via the `Last-Event-ID` header, which the browser manages automatically when you set the `id:` field on SSE events. KavachOS uses the `Last-Event-ID` value as the replay cursor.
+The browser `EventSource` can also pass the last received event ID via the `Last-Event-ID` header, which the browser manages automatically when you set the `id:` field on SSE events. TheAuth uses the `Last-Event-ID` value as the replay cursor.
 
 ```typescript
 // Programmatic replay without an open connection

@@ -1,5 +1,5 @@
-import { createKavach } from 'kavachos';
-import { emailPassword } from '@kavachos/auth-email';
+import { createKavach } from 'theauth';
+import { emailPassword } from '@theauth/auth-email';
 
 type KavachInstance = Awaited<ReturnType<typeof createKavach>>;
 
@@ -29,11 +29,11 @@ export function getKavach(): Promise<KavachInstance> {
           appUrl: 'http://localhost:3002',
           requireVerification: false,
           sendVerificationEmail: async (email, _token, url) => {
-            console.log(`\n[KavachOS] Verify email for ${email}:`);
+            console.log(`\n[TheAuth] Verify email for ${email}:`);
             console.log(`  ${url}\n`);
           },
           sendResetEmail: async (email, _token, url) => {
-            console.log(`\n[KavachOS] Reset password for ${email}:`);
+            console.log(`\n[TheAuth] Reset password for ${email}:`);
             console.log(`  ${url}\n`);
           },
         }),

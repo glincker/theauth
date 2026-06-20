@@ -311,7 +311,7 @@ export function AuditPage({ client }: AuditPageProps) {
 									icon={<ScrollText className="w-6 h-6" />}
 									title="No audit events yet"
 									description="Events are created automatically when agents call kavach.authorize(). Every allow and deny decision is recorded here."
-									docsLink="https://kavachos.com/docs/audit"
+									docsLink="https://theauth.com/docs/audit"
 								/>
 							</td>
 						</tr>

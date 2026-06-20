@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/nextjs-auth",
+  "name": "@theauth/nextjs-auth",
   "version": "0.1.0",
-  "description": "Next.js adapter for KavachOS-style external auth backends — cookies, refresh, CSRF, getServerSession, middleware.",
+  "description": "Next.js adapter for TheAuth-style external auth backends — cookies, refresh, CSRF, getServerSession, middleware.",
   "type": "module",
   "sideEffects": false,
   "main": "dist/index.js",
@@ -25,7 +25,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "nextjs",
     "auth",
     "session",
@@ -33,10 +33,10 @@
     "middleware"
   ],
   "license": "MIT",
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/nextjs-auth"
   },
   "peerDependencies": {

@@ -14,7 +14,7 @@
  *   included. For sign-in we want the user token.
  * - PKCE is not natively supported by Slack's OAuth v2 server. The code
  *   challenge is sent but silently ignored — CSRF protection via `state` still
- *   applies within KavachOS.
+ *   applies within TheAuth.
  * - Slack user IDs are workspace-scoped, not global. The `sub` claim from the
  *   OIDC userinfo endpoint is the globally unique identifier across workspaces.
  *

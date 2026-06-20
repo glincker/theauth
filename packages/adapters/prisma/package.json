@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/prisma",
+  "name": "@theauth/prisma",
   "version": "3.0.2",
-  "description": "Prisma database adapter for KavachOS - use PrismaClient as your KavachOS database backend",
+  "description": "Prisma database adapter for TheAuth - use PrismaClient as your TheAuth database backend",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,26 +23,26 @@
     "clean": "rm -rf dist .turbo"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "prisma",
     "auth",
     "agent",
     "database",
     "adapter"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/prisma"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@prisma/client": ">=5.0.0"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@types/node": "^25.6.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",

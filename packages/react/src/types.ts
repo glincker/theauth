@@ -52,7 +52,7 @@ export interface CreateAgentInput {
 /**
  * Canonical error codes returned by `rotateSession()` and surfaced to
  * `onAuthError`. Mirrors the server-side `RefreshError` enum from
- * `@kavachos/core` plus three client-only categories: `network_error`,
+ * `@theauth/core` plus three client-only categories: `network_error`,
  * `server_error`, and `unknown`.
  */
 export type RotateErrorCode =
@@ -99,7 +99,7 @@ export type RotationStatus = "idle" | "rotating" | "error";
 
 /**
  * Configuration for external API auth mode.
- * When passed to `<KavachProvider external={...}>`, KavachOS delegates all
+ * When passed to `<KavachProvider external={...}>`, TheAuth delegates all
  * auth to the specified API instead of managing sessions locally.
  */
 export interface ExternalAuthConfig {

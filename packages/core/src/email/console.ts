@@ -32,7 +32,7 @@ export function consoleProvider(config: ConsoleConfig = {}): EmailProvider {
 
 			const lines = [
 				"",
-				"┌─────────────── kavachos email (console) ───────────────",
+				"┌─────────────── theauth email (console) ───────────────",
 				`│  id      : ${id}`,
 				`│  to      : ${options.to}`,
 				`│  from    : ${options.from ?? "(not set)"}`,

@@ -4,13 +4,13 @@ description: Let users hold multiple active sessions and manage them from an acc
 icon: key
 ---
 
-By default, KavachOS allows unlimited concurrent sessions per user. The multi-session module adds a cap, a configurable overflow strategy, and endpoints for listing and revoking sessions, useful for building an "active devices" settings page.
+By default, TheAuth allows unlimited concurrent sessions per user. The multi-session module adds a cap, a configurable overflow strategy, and endpoints for listing and revoking sessions, useful for building an "active devices" settings page.
 
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { multiSession } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { multiSession } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

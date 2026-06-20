@@ -1,7 +1,7 @@
 import type { EventHandler, H3Event } from "h3";
 import { defineEventHandler, getRequestURL, readBody, setHeader, setResponseStatus } from "h3";
-import type { Kavach } from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachNuxtOptions {
@@ -19,14 +19,14 @@ export interface KavachNuxtOptions {
 }
 
 /**
- * Create a Nuxt/H3 event handler for all KavachOS REST API routes.
+ * Create a Nuxt/H3 event handler for all TheAuth REST API routes.
  *
  * Mount in `server/api/kavach/[...].ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachNuxt } from '@kavachos/nuxt';
+ * import { createKavach } from 'theauth';
+ * import { kavachNuxt } from '@theauth/nuxt';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * export default kavachNuxt(kavach);
@@ -34,7 +34,7 @@ export interface KavachNuxtOptions {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * export default kavachNuxt(kavach, { mcp });
  * ```

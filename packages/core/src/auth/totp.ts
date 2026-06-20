@@ -1,5 +1,5 @@
 /**
- * TOTP two-factor authentication for KavachOS.
+ * TOTP two-factor authentication for TheAuth.
  *
  * Implements RFC 6238 (TOTP) and RFC 4226 (HOTP) from scratch using
  * the Web Crypto API — no external dependencies.
@@ -21,7 +21,7 @@ import { totpRecords } from "../db/schema.js";
 // ---------------------------------------------------------------------------
 
 export interface TotpConfig {
-	/** App name shown in authenticator apps (default: "KavachOS") */
+	/** App name shown in authenticator apps (default: "TheAuth") */
 	appName?: string;
 	/** TOTP period in seconds (default: 30) */
 	period?: number;
@@ -232,7 +232,7 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 // ---------------------------------------------------------------------------
 
 export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
-	const appName = config.appName ?? "KavachOS";
+	const appName = config.appName ?? "TheAuth";
 	const period = config.period ?? 30;
 	const backupCodeCount = config.backupCodeCount ?? 10;
 	const window = config.window ?? 1;

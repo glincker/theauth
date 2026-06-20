@@ -1,5 +1,5 @@
 {
-  "name": "kavachos",
+  "name": "theauth",
   "version": "0.4.2",
   "description": "The auth OS for AI agents - identity, permissions, delegation, and audit for the agentic era",
   "type": "module",
@@ -87,14 +87,14 @@
     "audit",
     "permissions"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/core"
   },
-  "homepage": "https://kavachos.com",
+  "homepage": "https://theauth.com",
   "dependencies": {
     "drizzle-orm": "^0.41.0",
     "jose": "^6.0.0",

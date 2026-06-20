@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kavachos"
+name = "theauth"
 version = "0.1.0"
-description = "Python SDK for KavachOS — auth OS for AI agents and humans"
+description = "Python SDK for TheAuth — auth OS for AI agents and humans"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
@@ -36,13 +36,13 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://kavachos.com"
-Repository = "https://github.com/kavachos/kavachos"
-Documentation = "https://kavachos.com/docs"
-Issues = "https://github.com/kavachos/kavachos/issues"
+Homepage = "https://theauth.com"
+Repository = "https://github.com/glincker/theauth"
+Documentation = "https://theauth.com/docs"
+Issues = "https://github.com/glincker/theauth/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["kavachos"]
+packages = ["theauth"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

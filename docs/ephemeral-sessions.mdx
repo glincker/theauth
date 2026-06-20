@@ -22,11 +22,11 @@ Key differences from a regular agent:
 
 ## Setup
 
-No extra configuration is needed, ephemeral sessions are part of the `kavachos` core package and share the same database as the rest of KavachOS.
+No extra configuration is needed, ephemeral sessions are part of the `theauth` core package and share the same database as the rest of TheAuth.
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { createEphemeralSessionModule } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { createEphemeralSessionModule } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

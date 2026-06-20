@@ -9,10 +9,10 @@ One-time tokens are short-lived, single-use strings for flows like email verific
 
 ## Setup
 
-The module is part of KavachOS core. No extra plugin needed.
+The module is part of TheAuth core. No extra plugin needed.
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

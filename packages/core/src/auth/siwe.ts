@@ -1,5 +1,5 @@
 /**
- * Sign In With Ethereum (SIWE) for KavachOS.
+ * Sign In With Ethereum (SIWE) for TheAuth.
  *
  * Authenticates users by verifying an Ethereum wallet signature per EIP-4361.
  * Full secp256k1 recovery requires ethers or viem as peer deps — this module

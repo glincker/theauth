@@ -1,14 +1,14 @@
-"""Shared fixtures for KavachOS SDK tests."""
+"""Shared fixtures for TheAuth SDK tests."""
 
 from __future__ import annotations
 
 import pytest
 import respx
 
-from kavachos import KavachClient, KavachSyncClient
+from theauth import KavachClient, KavachSyncClient
 
 
-BASE_URL = "https://test.kavachos.dev/api/kavach"
+BASE_URL = "https://test.theauth.dev/api/kavach"
 
 
 @pytest.fixture

@@ -126,7 +126,7 @@ export function DelegationsPage({ client }: DelegationsPageProps) {
 									icon={<Network className="w-6 h-6" />}
 									title="No delegation chains"
 									description="Delegations let one agent grant a subset of its permissions to another. Use the SDK to create delegation chains between agents."
-									docsLink="https://kavachos.com/docs/delegation"
+									docsLink="https://theauth.com/docs/delegation"
 								/>
 							</td>
 						</tr>

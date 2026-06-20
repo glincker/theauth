@@ -1,5 +1,5 @@
 # GitHub Labels Configuration
-# Sync to repo using: gh label create -R kavachos/kavachos --name <name> --description <desc> --color <color>
+# Sync to repo using: gh label create -R glincker/theauth --name <name> --description <desc> --color <color>
 # Or use GitHub CLI bulk update script
 
 # =============================================================================

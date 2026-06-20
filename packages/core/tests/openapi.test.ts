@@ -68,7 +68,7 @@ describe("OpenApiModule.generateSpec defaults", () => {
 
 	it("uses default title when none supplied", () => {
 		const spec = mod.generateSpec();
-		expect(spec.info.title).toBe("KavachOS API");
+		expect(spec.info.title).toBe("TheAuth API");
 	});
 
 	it("uses default version when none supplied", () => {

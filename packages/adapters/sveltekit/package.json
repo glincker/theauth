@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/sveltekit",
+  "name": "@theauth/sveltekit",
   "version": "3.0.2",
-  "description": "SvelteKit adapter for KavachOS - exposes agent auth as HTTP REST endpoints",
+  "description": "SvelteKit adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,26 +21,26 @@
     "test:watch": "vitest watch"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "sveltekit",
     "auth",
     "agent",
     "mcp"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/sveltekit"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@sveltejs/kit": ">=2.0.0",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "@sveltejs/kit": "^2.57.1",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",

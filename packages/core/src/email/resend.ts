@@ -22,7 +22,7 @@ export interface ResendConfig {
 export function resend(config: ResendConfig): EmailProvider {
 	if (!config.apiKey) {
 		throw new Error(
-			"[kavachos/email] resend: apiKey is required. " +
+			"[theauth/email] resend: apiKey is required. " +
 				"Pass { apiKey: process.env.RESEND_API_KEY } when creating the provider.",
 		);
 	}
@@ -57,7 +57,7 @@ export function resend(config: ResendConfig): EmailProvider {
 			if (!response.ok) {
 				const text = await response.text().catch(() => "(no body)");
 				throw new Error(
-					`[kavachos/email] resend: request failed with status ${response.status}: ${text}`,
+					`[theauth/email] resend: request failed with status ${response.status}: ${text}`,
 				);
 			}
 

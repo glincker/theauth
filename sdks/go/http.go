@@ -1,4 +1,4 @@
-package kavachos
+package theauth
 
 import (
 	"bytes"
@@ -43,7 +43,7 @@ func (t *transport) doJSONWithHeaders(ctx context.Context, method, path string, 
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("kavachos: marshal request: %w", err)
+			return fmt.Errorf("theauth: marshal request: %w", err)
 		}
 		reqBody = bytes.NewReader(b)
 	}
@@ -89,7 +89,7 @@ func (t *transport) doJSONWithHeaders(ctx context.Context, method, path string, 
 
 	// Decode response
 	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
-		return fmt.Errorf("kavachos: decode response: %w", err)
+		return fmt.Errorf("theauth: decode response: %w", err)
 	}
 	return nil
 }
@@ -131,7 +131,7 @@ func (t *transport) doRaw(ctx context.Context, method, path string, params map[s
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("kavachos: read response: %w", err)
+		return "", fmt.Errorf("theauth: read response: %w", err)
 	}
 	return string(data), nil
 }

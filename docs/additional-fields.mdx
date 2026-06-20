@@ -8,15 +8,15 @@ The `additionalFields` plugin lets you attach typed custom data to users and ses
 
 ## Install
 
-Ships inside `kavachos/auth`, no extra packages needed.
+Ships inside `theauth/auth`, no extra packages needed.
 
 ## Setup
 
-Define a schema once when creating your KavachOS instance:
+Define a schema once when creating your TheAuth instance:
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { additionalFields } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { additionalFields } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -40,7 +40,7 @@ const kavach = await createKavach({
 ## Reading and writing user fields
 
 ```typescript
-import type { AdditionalFieldsModule } from 'kavachos/auth';
+import type { AdditionalFieldsModule } from 'theauth/auth';
 
 const mod = kavach.plugins.getContext().additionalFields as AdditionalFieldsModule;
 
@@ -174,7 +174,7 @@ No database migrations are needed. User fields are stored under `user.metadata.a
     Extend the session object returned to your frontend.
   </Card>
   <Card title="Database" href="/database" icon="database">
-    Supported databases and schema overview for KavachOS.
+    Supported databases and schema overview for TheAuth.
   </Card>
   <Card title="Organizations" href="/auth/organizations" icon="users">
     Multi-tenant support with roles and per-org metadata.

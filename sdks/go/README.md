@@ -1,13 +1,13 @@
-# kavachos-go
+# theauth-go
 
-Go client for [KavachOS](https://github.com/kavachos/kavachos). Auth OS for AI agents and humans.
+Go client for [TheAuth](https://github.com/glincker/theauth). Auth OS for AI agents and humans.
 
 Agent identity, permissions, delegation chains, audit logs, and human authentication over a single typed API.
 
 ## Install
 
 ```bash
-go get github.com/kavachos/kavachos-go
+go get github.com/glincker/theauth-go
 ```
 
 Requires Go 1.21+. No external dependencies.
@@ -22,22 +22,22 @@ import (
     "fmt"
     "time"
 
-    kavachos "github.com/kavachos/kavachos-go"
+    theauth "github.com/glincker/theauth-go"
 )
 
 func main() {
-    client := kavachos.NewClient("https://your-app.com/api/kavach",
-        kavachos.WithToken("kv_..."),
-        kavachos.WithTimeout(10*time.Second),
+    client := theauth.NewClient("https://your-app.com/api/kavach",
+        theauth.WithToken("kv_..."),
+        theauth.WithTimeout(10*time.Second),
     )
 
     ctx := context.Background()
 
-    agent, err := client.Agents.Create(ctx, kavachos.CreateAgentInput{
+    agent, err := client.Agents.Create(ctx, theauth.CreateAgentInput{
         OwnerID: "user-123",
         Name:    "github-reader",
-        Type:    kavachos.AgentTypeAutonomous,
-        Permissions: []kavachos.Permission{
+        Type:    theauth.AgentTypeAutonomous,
+        Permissions: []theauth.Permission{
             {Resource: "mcp:github:*", Actions: []string{"read"}},
         },
     })
@@ -45,7 +45,7 @@ func main() {
         panic(err)
     }
 
-    result, err := client.Authorize(ctx, agent.ID, kavachos.AuthorizeRequest{
+    result, err := client.Authorize(ctx, agent.ID, theauth.AuthorizeRequest{
         Action:   "read",
         Resource: "mcp:github:repos",
     })
@@ -60,11 +60,11 @@ func main() {
 ## Configuration
 
 ```go
-client := kavachos.NewClient(baseURL,
-    kavachos.WithToken("kv_..."),          // bearer token for every request
-    kavachos.WithTimeout(10*time.Second),  // HTTP timeout (default 30s)
-    kavachos.WithHeader("X-Tenant", "acme"), // extra header on every request
-    kavachos.WithHTTPClient(customHTTPClient), // bring your own http.Client
+client := theauth.NewClient(baseURL,
+    theauth.WithToken("kv_..."),          // bearer token for every request
+    theauth.WithTimeout(10*time.Second),  // HTTP timeout (default 30s)
+    theauth.WithHeader("X-Tenant", "acme"), // extra header on every request
+    theauth.WithHTTPClient(customHTTPClient), // bring your own http.Client
 )
 ```
 
@@ -72,15 +72,15 @@ client := kavachos.NewClient(baseURL,
 
 ```go
 // Create
-agent, err := client.Agents.Create(ctx, kavachos.CreateAgentInput{
+agent, err := client.Agents.Create(ctx, theauth.CreateAgentInput{
     OwnerID: "user-123",
     Name:    "data-pipeline",
-    Type:    kavachos.AgentTypeService,
-    Permissions: []kavachos.Permission{
+    Type:    theauth.AgentTypeService,
+    Permissions: []theauth.Permission{
         {
             Resource: "mcp:s3:my-bucket/*",
             Actions:  []string{"read", "write"},
-            Constraints: &kavachos.PermissionConstraints{
+            Constraints: &theauth.PermissionConstraints{
                 MaxCallsPerHour: ptr(1000),
             },
         },
@@ -89,8 +89,8 @@ agent, err := client.Agents.Create(ctx, kavachos.CreateAgentInput{
 })
 
 // List (with optional filters)
-status := kavachos.AgentStatusActive
-agents, err := client.Agents.List(ctx, &kavachos.AgentFilters{
+status := theauth.AgentStatusActive
+agents, err := client.Agents.List(ctx, &theauth.AgentFilters{
     Status: &status,
 })
 
@@ -98,7 +98,7 @@ agents, err := client.Agents.List(ctx, &kavachos.AgentFilters{
 agent, err := client.Agents.Get(ctx, "agent-id")
 
 // Update
-agent, err := client.Agents.Update(ctx, "agent-id", kavachos.UpdateAgentInput{
+agent, err := client.Agents.Update(ctx, "agent-id", theauth.UpdateAgentInput{
     Name: ptr("new-name"),
 })
 
@@ -109,7 +109,7 @@ agent, err := client.Agents.Rotate(ctx, "agent-id")
 err = client.Agents.Revoke(ctx, "agent-id")
 
 // Authorize
-result, err := client.Agents.Authorize(ctx, "agent-id", kavachos.AuthorizeRequest{
+result, err := client.Agents.Authorize(ctx, "agent-id", theauth.AuthorizeRequest{
     Action:   "read",
     Resource: "mcp:github:repos",
 })
@@ -125,8 +125,8 @@ perms, err := client.Agents.GetEffectivePermissions(ctx, "agent-id")
 ```go
 // Sign in
 resp, err := client.Auth.SignIn(ctx, "user@example.com", "password")
-// resp.User   kavachos.User
-// resp.Session kavachos.Session (contains Token)
+// resp.User   theauth.User
+// resp.Session theauth.Session (contains Token)
 
 // Sign up (name is optional, pass "" to omit)
 resp, err := client.Auth.SignUp(ctx, "user@example.com", "password", "Alice")
@@ -138,7 +138,7 @@ err = client.Auth.SignOut(ctx, resp.Session.Token)
 session, err := client.Auth.GetSession(ctx, "tok_...")
 
 // Authorize by agent token (when you have the raw token, not the ID)
-result, err := client.Auth.AuthorizeByToken(ctx, "kv_agent_token", kavachos.AuthorizeRequest{
+result, err := client.Auth.AuthorizeByToken(ctx, "kv_agent_token", theauth.AuthorizeRequest{
     Action:   "execute",
     Resource: "mcp:deploy:production",
 })
@@ -148,14 +148,14 @@ result, err := client.Auth.AuthorizeByToken(ctx, "kv_agent_token", kavachos.Auth
 
 ```go
 // Query (returns entries, newest first)
-entries, err := client.Audit.Query(ctx, &kavachos.AuditFilters{
+entries, err := client.Audit.Query(ctx, &theauth.AuditFilters{
     AgentID: ptr("agent-id"),
     Since:   ptr("2024-01-01T00:00:00Z"),
     Limit:   ptr(50),
 })
 
 // Query paginated (includes total count)
-result, err := client.Audit.QueryPaginated(ctx, &kavachos.AuditFilters{
+result, err := client.Audit.QueryPaginated(ctx, &theauth.AuditFilters{
     Limit:  ptr(20),
     Offset: ptr(40),
 })
@@ -163,8 +163,8 @@ result, err := client.Audit.QueryPaginated(ctx, &kavachos.AuditFilters{
 // result.Total   *int
 
 // Export as JSON or CSV
-csv, err := client.Audit.Export(ctx, &kavachos.ExportOptions{
-    Format: kavachos.ExportFormatCSV,
+csv, err := client.Audit.Export(ctx, &theauth.ExportOptions{
+    Format: theauth.ExportFormatCSV,
     Since:  ptr("2024-01-01T00:00:00Z"),
 })
 ```
@@ -173,10 +173,10 @@ csv, err := client.Audit.Export(ctx, &kavachos.ExportOptions{
 
 ```go
 // Create a delegation
-chain, err := client.Delegation.Create(ctx, kavachos.DelegateInput{
+chain, err := client.Delegation.Create(ctx, theauth.DelegateInput{
     FromAgent: "agent-orchestrator",
     ToAgent:   "agent-worker",
-    Permissions: []kavachos.Permission{
+    Permissions: []theauth.Permission{
         {Resource: "mcp:github:*", Actions: []string{"read"}},
     },
     ExpiresAt: "2025-06-01T00:00:00Z",
@@ -201,18 +201,18 @@ All API errors implement the `error` interface and can be type-checked:
 agent, err := client.Agents.Get(ctx, id)
 if err != nil {
     switch {
-    case kavachos.IsNotFound(err):
+    case theauth.IsNotFound(err):
         // 404 - resource doesn't exist
-    case kavachos.IsAuthentication(err):
+    case theauth.IsAuthentication(err):
         // 401 - invalid or missing token
-    case kavachos.IsPermission(err):
+    case theauth.IsPermission(err):
         // 403 - insufficient permissions
-    case kavachos.IsRateLimit(err):
-        rl := err.(*kavachos.ErrRateLimit)
+    case theauth.IsRateLimit(err):
+        rl := err.(*theauth.ErrRateLimit)
         if rl.RetryAfter != nil {
             time.Sleep(time.Duration(*rl.RetryAfter) * time.Second)
         }
-    case kavachos.IsServer(err):
+    case theauth.IsServer(err):
         // 5xx - server-side error
     default:
         // network error or unexpected

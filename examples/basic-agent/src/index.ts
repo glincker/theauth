@@ -1,8 +1,8 @@
 /**
- * KavachOS Basic Agent Example
+ * TheAuth Basic Agent Example
  *
  * This script walks through the core SDK capabilities:
- *   1. Initializing a KavachOS instance with an in-memory SQLite database
+ *   1. Initializing a TheAuth instance with an in-memory SQLite database
  *   2. Creating a user (the human owner of agents)
  *   3. Creating agents with different permission scopes
  *   4. Authorizing actions (both allowed and denied)
@@ -10,10 +10,10 @@
  *   6. Token-based authorization (stateless bearer token flow)
  *   7. Agent-to-agent delegation chains
  *
- * Run with:  pnpm --filter @kavachos/example-basic-agent start
+ * Run with:  pnpm --filter @theauth/example-basic-agent start
  */
 
-import { createKavach, users } from "kavachos";
+import { createKavach, users } from "theauth";
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -39,12 +39,12 @@ function info(text: string): void {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	// ── Step 1: Create a KavachOS instance ─────────────────────────────────────
+	// ── Step 1: Create a TheAuth instance ─────────────────────────────────────
 	//
 	// Pass provider "sqlite" with url ":memory:" for a fast, disposable database.
 	// In production use a file path (SQLite) or a Postgres/MySQL connection URL.
 	//
-	header("Step 1 — Initialize KavachOS");
+	header("Step 1 — Initialize TheAuth");
 
 	const kavach = await createKavach({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
 
 	// ── Step 3: Create a user ───────────────────────────────────────────────────
 	//
-	// KavachOS is agent-first, but agents are always owned by a human user.
+	// TheAuth is agent-first, but agents are always owned by a human user.
 	// In production you would sync users from your auth provider (better-auth,
 	// Clerk, Auth.js, etc.) via the adapter layer.
 	//

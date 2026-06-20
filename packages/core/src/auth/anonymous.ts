@@ -1,11 +1,11 @@
 /**
- * Anonymous authentication for KavachOS.
+ * Anonymous authentication for TheAuth.
  *
  * Lets users start as guests without providing credentials. The anonymous
  * user can later be upgraded to a real account by supplying an email.
  *
  * Anonymous users are stored in `kavach_users` with a synthetic placeholder
- * email (`anon_<uuid>@kavachos.anonymous`) and a metadata flag
+ * email (`anon_<uuid>@theauth.anonymous`) and a metadata flag
  * `{ anonymous: true }`. This satisfies the NOT NULL UNIQUE constraint on
  * the email column while keeping them easily identifiable.
  *
@@ -58,7 +58,7 @@ export interface AnonymousAuthModule {
 
 const DEFAULT_SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 const DEFAULT_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
-const ANONYMOUS_EMAIL_DOMAIN = "kavachos.anonymous";
+const ANONYMOUS_EMAIL_DOMAIN = "theauth.anonymous";
 
 // ---------------------------------------------------------------------------
 // Factory

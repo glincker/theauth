@@ -1,5 +1,5 @@
 /**
- * Captcha integration for KavachOS.
+ * Captcha integration for TheAuth.
  *
  * Supports reCAPTCHA v2/v3, hCaptcha, and Cloudflare Turnstile. All three
  * providers share the same verification pattern: POST form-encoded data with

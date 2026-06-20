@@ -1,21 +1,21 @@
-# @kavachos/prisma
+# @theauth/prisma
 
-Prisma database adapter for KavachOS. Use PrismaClient as your KavachOS database backend.
+Prisma database adapter for TheAuth. Use PrismaClient as your TheAuth database backend.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/prisma?style=flat-square)](https://www.npmjs.com/package/@kavachos/prisma)
+[![npm](https://img.shields.io/npm/v/@theauth/prisma?style=flat-square)](https://www.npmjs.com/package/@theauth/prisma)
 
 ## Install
 
 ```bash
-npm install kavachos @kavachos/prisma @prisma/client
+npm install theauth @theauth/prisma @prisma/client
 ```
 
 ## Usage
 
 ```typescript
-import { createKavach } from "kavachos";
+import { createKavach } from "theauth";
 import { PrismaClient } from "@prisma/client";
-import { kavachPrisma } from "@kavachos/prisma";
+import { kavachPrisma } from "@theauth/prisma";
 
 const prisma = new PrismaClient();
 
@@ -26,11 +26,11 @@ const kavach = createKavach({
 
 ## When to use
 
-Use this adapter if your app already uses Prisma and you want KavachOS to share the same database connection and transaction context. For new projects, the built-in database providers (`sqlite`, `postgres`, `mysql`, `d1`) are simpler.
+Use this adapter if your app already uses Prisma and you want TheAuth to share the same database connection and transaction context. For new projects, the built-in database providers (`sqlite`, `postgres`, `mysql`, `d1`) are simpler.
 
 ## Docs
 
-[docs.kavachos.com/docs/adapters/prisma](https://docs.kavachos.com/docs/adapters/prisma)
+[docs.theauth.com/docs/adapters/prisma](https://docs.theauth.com/docs/adapters/prisma)
 
 ## License
 

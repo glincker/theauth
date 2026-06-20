@@ -5,6 +5,6 @@ export default defineConfig({
 	format: ["esm"],
 	dts: true,
 	sourcemap: true,
-	external: ["react", "@kavachos/react", "vitest"],
+	external: ["react", "@theauth/react", "vitest"],
 	target: "es2022",
 });

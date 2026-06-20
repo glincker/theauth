@@ -48,7 +48,7 @@ interface RefreshTokenResponse {
  * @example
  * ```ts
  * // middleware.ts (project root)
- * import { withAuth } from "@kavachos/nextjs-auth/middleware";
+ * import { withAuth } from "@theauth/nextjs-auth/middleware";
  * import { authConfig } from "@/lib/auth/config";
  *
  * export default withAuth(authConfig, {

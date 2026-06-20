@@ -1,13 +1,13 @@
-# @kavachos/expo
+# @theauth/expo
 
-Expo / React Native provider and hooks for KavachOS authentication.
+Expo / React Native provider and hooks for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/expo?style=flat-square)](https://www.npmjs.com/package/@kavachos/expo)
+[![npm](https://img.shields.io/npm/v/@theauth/expo?style=flat-square)](https://www.npmjs.com/package/@theauth/expo)
 
 ## Install
 
 ```bash
-npm install @kavachos/expo
+npm install @theauth/expo
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @kavachos/expo
 Wrap your Expo app with `KavachExpoProvider`. Tokens are persisted using the configured storage (defaults to `expo-secure-store`).
 
 ```tsx
-import { KavachExpoProvider, useSession, useUser, useSignIn } from '@kavachos/expo';
+import { KavachExpoProvider, useSession, useUser, useSignIn } from '@theauth/expo';
 
 export default function App() {
   return (
@@ -50,7 +50,7 @@ function HomeScreen() {
 
 ## Docs
 
-[https://docs.kavachos.com](https://docs.kavachos.com)
+[https://docs.theauth.com](https://docs.theauth.com)
 
 ## License
 
