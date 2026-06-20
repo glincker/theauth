@@ -1,10 +1,10 @@
-// Package main is the entry point for the KavachOS Terraform provider.
+// Package main is the entry point for the TheAuth Terraform provider.
 //
 // To build and install locally:
 //
-//	go build -o terraform-provider-kavachos .
-//	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/kavachos/kavachos/0.1.0/linux_amd64/
-//	mv terraform-provider-kavachos ~/.terraform.d/plugins/registry.terraform.io/kavachos/kavachos/0.1.0/linux_amd64/
+//	go build -o terraform-provider-theauth .
+//	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/theauth/theauth/0.1.0/linux_amd64/
+//	mv terraform-provider-theauth ~/.terraform.d/plugins/registry.terraform.io/theauth/theauth/0.1.0/linux_amd64/
 package main
 
 import (
@@ -26,7 +26,7 @@ func main() {
 	}
 
 	if debugMode {
-		err := plugin.Debug(context.Background(), "registry.terraform.io/kavachos/kavachos", opts)
+		err := plugin.Debug(context.Background(), "registry.terraform.io/theauth/theauth", opts)
 		if err != nil {
 			log.Fatal(err)
 		}

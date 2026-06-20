@@ -1,17 +1,17 @@
 ---
 title: Standards alignment
-description: Which IETF drafts KavachOS maps to, and how to emit the matching claims on issued tokens.
+description: Which IETF drafts TheAuth maps to, and how to emit the matching claims on issued tokens.
 icon: book-open
 ---
 
-KavachOS tracks the two emerging IETF drafts for agent authorization: `draft-goswami-agentic-jwt-00` (agentic JWT claims) and `draft-liu-agent-operation-authorization-01` (three-layer user-workload-token binding). Claim names are defined in a single file so future audits are a one-file review.
+TheAuth tracks the two emerging IETF drafts for agent authorization: `draft-goswami-agentic-jwt-00` (agentic JWT claims) and `draft-liu-agent-operation-authorization-01` (three-layer user-workload-token binding). Claim names are defined in a single file so future audits are a one-file review.
 
 ## The claim constants
 
 Every claim name lives in `packages/core/src/standards/claims.ts` as `AGENTIC_JWT_CLAIMS`. Each constant has a JSDoc reference to the relevant draft section.
 
 ```ts
-import { AGENTIC_JWT_CLAIMS } from "kavachos/standards";
+import { AGENTIC_JWT_CLAIMS } from "theauth/standards";
 
 AGENTIC_JWT_CLAIMS.AGENT_ID;         // "agent_id"
 AGENTIC_JWT_CLAIMS.AGENT_TYPE;       // "agent_type"
@@ -30,11 +30,11 @@ AGENTIC_JWT_CLAIMS.OPERATION;        // "operation"
 Claim emission is off by default. Flip the `emitAgenticJwtClaims` flag on your Kavach config to start populating claims on issued JWTs:
 
 ```ts
-import { createKavach } from "kavachos";
+import { createKavach } from "theauth";
 
 const kavach = createKavach({
   database: { url: process.env.DATABASE_URL },
-  secret: process.env.KAVACHOS_SECRET,
+  secret: process.env.THEAUTH_SECRET,
   emitAgenticJwtClaims: true,
 });
 ```
@@ -69,7 +69,7 @@ With the flag on, a JWT issued for a delegated agent looks like this (abridged):
 
 ## What this does not aim at
 
-- OpenID for Verifiable Presentations (OID4VP). Out of scope for agent sign-in. Verifiable Credentials KavachOS issues are for audit, not for sign-in.
+- OpenID for Verifiable Presentations (OID4VP). Out of scope for agent sign-in. Verifiable Credentials TheAuth issues are for audit, not for sign-in.
 - SPIFFE URI scheme. Agent identity uses DIDs (`did:key`, `did:web`) which fit the hosted path better.
 - Post-quantum signatures (ML-DSA). Tracked, not scheduled.
 

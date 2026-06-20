@@ -1,6 +1,6 @@
 # Support
 
-Thanks for using KavachOS.
+Thanks for using TheAuth.
 
 ## Where to get help
 
@@ -16,7 +16,7 @@ Thanks for using KavachOS.
 
 Please include:
 
-1. Package name and version (`npm list kavachos` or package.json)
+1. Package name and version (`npm list theauth` or package.json)
 2. Runtime details (Node version, OS, database)
 3. Minimal reproduction (repo link or code snippet)
 4. Expected behavior vs actual behavior

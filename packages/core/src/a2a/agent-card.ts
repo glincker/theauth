@@ -22,7 +22,7 @@ import { A2A_PROTOCOL_VERSION, A2AAgentCardSchema } from "./types.js";
 // ─── Create Agent Card ───────────────────────────────────────────────────────
 
 export interface CreateAgentCardInput {
-	/** The KavachOS agent identity to build the card from */
+	/** The TheAuth agent identity to build the card from */
 	agent: Pick<AgentIdentity, "id" | "name" | "type">;
 	/** The URL where this agent's A2A endpoint is hosted */
 	url: string;
@@ -51,9 +51,9 @@ export interface CreateAgentCardInput {
 }
 
 /**
- * Create an A2A-compliant Agent Card from a KavachOS agent identity.
+ * Create an A2A-compliant Agent Card from a TheAuth agent identity.
  *
- * Maps KavachOS agent fields to the A2A Agent Card format and sets
+ * Maps TheAuth agent fields to the A2A Agent Card format and sets
  * the protocol version automatically.
  */
 export function createAgentCard(input: CreateAgentCardInput): A2AAgentCard {

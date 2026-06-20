@@ -188,8 +188,8 @@ describe("bearerAuth", () => {
 	});
 
 	it("validates audience when configured", async () => {
-		const token = await signJwt({ sub: "user-9" }, { audience: "kavachos" });
-		const adapterOk = bearerAuth({ secret: TEST_SECRET, audience: "kavachos" });
+		const token = await signJwt({ sub: "user-9" }, { audience: "theauth" });
+		const adapterOk = bearerAuth({ secret: TEST_SECRET, audience: "theauth" });
 		const adapterBad = bearerAuth({ secret: TEST_SECRET, audience: "other-service" });
 
 		const req = makeRequest({ authorization: `Bearer ${token}` });

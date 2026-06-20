@@ -1,5 +1,5 @@
 /**
- * W3C Verifiable Credentials Data Model 2.0 types for KavachOS.
+ * W3C Verifiable Credentials Data Model 2.0 types for TheAuth.
  *
  * Defines Zod-validated schemas for credentials, presentations,
  * proofs, and credential status. Agent-centric: the credential
@@ -16,7 +16,7 @@ export const VC_CONTEXT_V1 = "https://www.w3.org/2018/credentials/v1";
 export const VC_TYPE_CREDENTIAL = "VerifiableCredential";
 export const VC_TYPE_PRESENTATION = "VerifiablePresentation";
 
-// KavachOS-specific credential types
+// TheAuth-specific credential types
 export const KAVACH_AGENT_CREDENTIAL = "KavachAgentCredential";
 export const KAVACH_PERMISSION_CREDENTIAL = "KavachPermissionCredential";
 export const KAVACH_DELEGATION_CREDENTIAL = "KavachDelegationCredential";

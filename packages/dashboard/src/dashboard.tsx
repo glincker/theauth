@@ -80,7 +80,7 @@ function InnerDashboard({ apiUrl, onLogout, demo, theme, onThemeToggle }: InnerD
 
 // ─── Public Component ─────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "kavachos-theme";
+const STORAGE_KEY = "theauth-theme";
 
 function resolveInitialTheme(defaultTheme: "light" | "dark"): "light" | "dark" {
 	if (typeof window === "undefined") return defaultTheme;
@@ -110,7 +110,7 @@ export function KavachDashboard({ apiUrl, theme = "dark", demo }: DashboardProps
 	}, [currentTheme]);
 
 	return (
-		<div data-kavachos-dashboard>
+		<div data-theauth-dashboard>
 			<AuthGate apiUrl={apiUrl}>
 				{(onLogout) => (
 					<QueryClientProvider client={defaultQueryClient}>

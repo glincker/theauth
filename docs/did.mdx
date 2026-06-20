@@ -7,7 +7,7 @@ icon: fingerprint
 
 ## What are DIDs
 
-W3C Decentralized Identifiers give agents a portable, cryptographic identity that works across services. Instead of an opaque token tied to one KavachOS instance, an agent gets a DID like `did:key:z6Mk...` backed by an Ed25519 keypair.
+W3C Decentralized Identifiers give agents a portable, cryptographic identity that works across services. Instead of an opaque token tied to one TheAuth instance, an agent gets a DID like `did:key:z6Mk...` backed by an Ed25519 keypair.
 
 The agent can prove its identity to any service by signing a payload with its private key. The verifier resolves the DID to get the public key and checks the signature. No shared secrets, no central registry.
 
@@ -17,7 +17,7 @@ DIDs are optional. Regular `kv_` bearer tokens work fine for single-service depl
 
 ## Two DID methods
 
-KavachOS supports two W3C DID methods:
+TheAuth supports two W3C DID methods:
 
 | Method | Format | Best for |
 |---|---|---|
@@ -186,9 +186,9 @@ const doc = await kavach.did.resolve('did:web:auth.example.com');
     Cross-service agent authentication using signed federation tokens.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
-    Bearer token identity and the agent lifecycle managed by KavachOS.
+    Bearer token identity and the agent lifecycle managed by TheAuth.
   </Card>
   <Card title="Standards alignment" href="/standards" icon="book-open">
-    IETF draft claims KavachOS emits on agent JWTs.
+    IETF draft claims TheAuth emits on agent JWTs.
   </Card>
 </CardGroup>

@@ -1,11 +1,11 @@
 /**
  * POST /api/demo/tool-call
- * Step 3: Execute a mock calendar tool call through the KavachOS authorization engine.
+ * Step 3: Execute a mock calendar tool call through the TheAuth authorization engine.
  * The tool surface is simulated; the auth/audit is real.
  */
 
-import { generateId } from "kavachos";
 import { NextResponse } from "next/server";
+import { generateId } from "theauth";
 import { getSessionId } from "@/lib/cookie";
 import { getKavach } from "@/lib/kavach-instance";
 import { getSession, setSession } from "@/lib/session-store";

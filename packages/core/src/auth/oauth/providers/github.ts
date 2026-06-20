@@ -10,7 +10,7 @@
  * Notes:
  * - GitHub does not natively support PKCE in its OAuth flow, but we send the
  *   `code_challenge` parameter anyway — it is silently ignored, which is safe.
- *   The code verifier is still validated server-side within KavachOS state
+ *   The code verifier is still validated server-side within TheAuth state
  *   storage so the CSRF protection guarantee holds.
  * - The `user:email` scope is required to read the primary email when it is
  *   set to private on the GitHub profile.

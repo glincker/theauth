@@ -1,5 +1,5 @@
 /**
- * One-time token module for KavachOS.
+ * One-time token module for TheAuth.
  *
  * Issues single-use tokens for email verification, password resets,
  * invitations, and custom flows. The raw token is returned to the caller

@@ -1,6 +1,6 @@
 # Next.js app example
 
-Full-stack Next.js 15 app with KavachOS authentication. Uses `@kavachos/nextjs` adapter and `@kavachos/react` hooks.
+Full-stack Next.js 15 app with TheAuth authentication. Uses `@theauth/nextjs` adapter and `@theauth/react` hooks.
 
 ## Run
 

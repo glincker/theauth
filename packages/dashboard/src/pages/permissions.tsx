@@ -401,7 +401,7 @@ export function PermissionsPage({ client }: PermissionsPageProps) {
 											Create Template
 										</Button>
 									}
-									docsLink="https://kavachos.com/docs/permissions"
+									docsLink="https://theauth.com/docs/permissions"
 								/>
 							</td>
 						</tr>

@@ -6,8 +6,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+} from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -510,7 +510,7 @@ async function handleDashboardStats(kavach: Kavach): Promise<Response> {
 // ─── Route Dispatcher ────────────────────────────────────────────────────────
 
 /**
- * Dispatches an incoming Web API Request to the correct KavachOS handler based
+ * Dispatches an incoming Web API Request to the correct TheAuth handler based
  * on the request's pathname (relative to the catch-all segment base).
  *
  * The `basePath` is the URL prefix before the `[...kavach]` segment, e.g.
@@ -739,14 +739,14 @@ export interface KavachNextjsHandlers {
 }
 
 /**
- * Create Next.js App Router route handlers for all KavachOS REST API routes.
+ * Create Next.js App Router route handlers for all TheAuth REST API routes.
  *
  * Mount in `app/api/kavach/[...kavach]/route.ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachNextjs } from '@kavachos/nextjs';
+ * import { createKavach } from 'theauth';
+ * import { kavachNextjs } from '@theauth/nextjs';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachNextjs(kavach);
@@ -760,7 +760,7 @@ export interface KavachNextjsHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachNextjs(kavach, { mcp });
  * ```

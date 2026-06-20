@@ -1,13 +1,13 @@
-# @kavachos/nestjs
+# @theauth/nestjs
 
-NestJS adapter for KavachOS.
+NestJS adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/nestjs?style=flat-square)](https://www.npmjs.com/package/@kavachos/nestjs)
+[![npm](https://img.shields.io/npm/v/@theauth/nestjs?style=flat-square)](https://www.npmjs.com/package/@theauth/nestjs)
 
 ## Install
 
 ```bash
-npm install kavachos @kavachos/nestjs
+npm install theauth @theauth/nestjs
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ npm install kavachos @kavachos/nestjs
 
 ```typescript
 import { Module } from "@nestjs/common";
-import { KavachModule } from "@kavachos/nestjs";
+import { KavachModule } from "@theauth/nestjs";
 
 @Module({
   imports: [
@@ -31,8 +31,8 @@ export class AppModule {}
 ### Middleware
 
 ```typescript
-import { createKavach } from "kavachos";
-import { kavachMiddleware } from "@kavachos/nestjs";
+import { createKavach } from "theauth";
+import { kavachMiddleware } from "@theauth/nestjs";
 
 const kavach = createKavach({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
@@ -44,7 +44,7 @@ app.use("/api/kavach", kavachMiddleware(kavach));
 
 ## Docs
 
-[docs.kavachos.com/docs/adapters/nestjs](https://docs.kavachos.com/docs/adapters/nestjs)
+[docs.theauth.com/docs/adapters/nestjs](https://docs.theauth.com/docs/adapters/nestjs)
 
 ## License
 

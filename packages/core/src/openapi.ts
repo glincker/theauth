@@ -1,5 +1,5 @@
 /**
- * OpenAPI 3.1 specification generator for KavachOS REST API.
+ * OpenAPI 3.1 specification generator for TheAuth REST API.
  *
  * This generates the spec that enables auto-generated SDKs
  * for Python, Go, Java, Rust, etc. via OpenAPI codegen tools.
@@ -56,7 +56,7 @@ interface SchemaObject {
 }
 
 /**
- * Generate the full OpenAPI 3.1 specification for the KavachOS REST API.
+ * Generate the full OpenAPI 3.1 specification for the TheAuth REST API.
  */
 export function generateOpenAPISpec(options?: { baseUrl?: string; version?: string }): OpenAPISpec {
 	const baseUrl = options?.baseUrl ?? "http://localhost:3000";
@@ -65,12 +65,12 @@ export function generateOpenAPISpec(options?: { baseUrl?: string; version?: stri
 	return {
 		openapi: "3.1.0",
 		info: {
-			title: "KavachOS API",
+			title: "TheAuth API",
 			version,
 			description:
 				"The Auth OS for AI Agents. Identity, permissions, delegation, and audit for the agentic era.",
 		},
-		servers: [{ url: baseUrl, description: "KavachOS API Server" }],
+		servers: [{ url: baseUrl, description: "TheAuth API Server" }],
 		paths: {
 			"/agents": {
 				post: {
@@ -457,7 +457,7 @@ export function generateOpenAPISpec(options?: { baseUrl?: string; version?: stri
 				AgentToken: {
 					type: "http",
 					scheme: "bearer",
-					bearerFormat: "KavachOS Agent Token (kv_...)",
+					bearerFormat: "TheAuth Agent Token (kv_...)",
 				},
 			},
 		},

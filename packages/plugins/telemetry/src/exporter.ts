@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AgentIdentity, AuditEntry, DelegationChain } from "kavachos";
+import type { AgentIdentity, AuditEntry, DelegationChain } from "theauth";
 
 export interface TelemetrySpan {
 	traceId: string;
@@ -29,13 +29,13 @@ function generateId(): string {
 /**
  * Create the telemetry module.
  *
- * Converts KavachOS events into OpenTelemetry-compatible span shapes and
+ * Converts TheAuth events into OpenTelemetry-compatible span shapes and
  * delivers them via the user-supplied `onSpan` callback. No @opentelemetry
  * dependency — callers wire this into their own OTel SDK.
  *
  * @example
  * ```typescript
- * import { createTelemetryModule } from '@kavachos/plugin-telemetry';
+ * import { createTelemetryModule } from '@theauth/plugin-telemetry';
  *
  * const telemetry = createTelemetryModule({
  *   serviceName: 'my-agent-service',
@@ -47,7 +47,7 @@ function generateId(): string {
  * ```
  */
 export function createTelemetryModule(config: TelemetryConfig) {
-	const serviceName = config.serviceName ?? "kavachos";
+	const serviceName = config.serviceName ?? "theauth";
 	const includeArguments = config.includeArguments ?? false;
 
 	function emit(span: TelemetrySpan): void {

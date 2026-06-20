@@ -19,7 +19,7 @@
  * - Avatar URLs (`icon_img`) include query parameters; strip them when storing
  *   to avoid caching issues.
  * - PKCE is supported but Reddit also accepts flows without it for server-side
- *   apps; KavachOS uses PKCE S256 consistently.
+ *   apps; TheAuth uses PKCE S256 consistently.
  *
  * Docs: https://www.reddit.com/dev/api/oauth
  */
@@ -34,7 +34,7 @@ import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } f
 const AUTHORIZATION_URL = "https://www.reddit.com/api/v1/authorize";
 const TOKEN_URL = "https://www.reddit.com/api/v1/access_token";
 const USER_INFO_URL = "https://oauth.reddit.com/api/v1/me";
-const DEFAULT_USER_AGENT = "web:kavachos-oauth:v1 (by /u/kavachos)";
+const DEFAULT_USER_AGENT = "web:theauth-oauth:v1 (by /u/theauth)";
 
 export const DEFAULT_REDDIT_SCOPES = ["identity"];
 const DEFAULT_SCOPES = DEFAULT_REDDIT_SCOPES;

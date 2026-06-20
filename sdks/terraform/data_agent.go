@@ -5,12 +5,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	kavachos "github.com/kavachos/kavachos-go"
+	theauth "github.com/glincker/theauth-go"
 )
 
 func dataSourceAgent() *schema.Resource {
 	return &schema.Resource{
-		Description: "Reads a single KavachOS agent by ID. " +
+		Description: "Reads a single TheAuth agent by ID. " +
 			"Use this when you need to reference an agent that was not created by Terraform.",
 
 		ReadContext: dataSourceAgentRead,
@@ -111,7 +111,7 @@ func dataSourceAgentRead(ctx context.Context, d *schema.ResourceData, meta inter
 
 	agent, err := cfg.client.Agents.Get(ctx, id)
 	if err != nil {
-		return diag.Errorf("reading kavachos_agent data source (id=%s): %s", id, err)
+		return diag.Errorf("reading theauth_agent data source (id=%s): %s", id, err)
 	}
 	if agent == nil {
 		return diag.Errorf("agent %s not found", id)
@@ -122,9 +122,9 @@ func dataSourceAgentRead(ctx context.Context, d *schema.ResourceData, meta inter
 	return setAgentDataState(d, agent)
 }
 
-// setAgentDataState writes a *kavachos.Agent into a data source's Terraform state.
+// setAgentDataState writes a *theauth.Agent into a data source's Terraform state.
 // Unlike setAgentState (resource), this never sets the token (not returned by read).
-func setAgentDataState(d *schema.ResourceData, a *kavachos.Agent) diag.Diagnostics {
+func setAgentDataState(d *schema.ResourceData, a *theauth.Agent) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	fields := map[string]interface{}{

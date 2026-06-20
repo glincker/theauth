@@ -1,5 +1,5 @@
 /**
- * Phone number (SMS OTP) authentication for KavachOS.
+ * Phone number (SMS OTP) authentication for TheAuth.
  *
  * Generates a short numeric code, hashes it with SHA-256 before storage, and
  * calls the caller-provided `sendSms` function. On verification the hash is

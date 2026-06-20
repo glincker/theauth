@@ -1,5 +1,5 @@
 /**
- * JWT session plugin for KavachOS.
+ * JWT session plugin for TheAuth.
  *
  * Issues short-lived access JWTs and long-lived refresh tokens for general-purpose
  * session management. This is distinct from the internal OIDC provider JWT — this

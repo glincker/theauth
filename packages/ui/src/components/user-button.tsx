@@ -1,4 +1,4 @@
-import { useSignOut, useUser } from "@kavachos/react";
+import { useSignOut, useUser } from "@theauth/react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AvatarSlotProps, UserButtonProps } from "../types.js";

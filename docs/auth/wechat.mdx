@@ -17,15 +17,15 @@ Go to the [WeChat Open Platform](https://open.weixin.qq.com) and register a webs
 your-app.com
 ```
 
-KavachOS will handle the path `/api/kavach/auth/oauth/callback/wechat`.
+TheAuth will handle the path `/api/kavach/auth/oauth/callback/wechat`.
 </Step>
 
 <Step>
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -60,7 +60,7 @@ Default scopes: `snsapi_login`
 | `snsapi_userinfo` | Full profile (name, avatar, gender) |
 
 <Warning>
-  WeChat uses `appid` and `secret` rather than the standard `client_id` / `client_secret` naming, but KavachOS maps these correctly. The WeChat Open Platform requires ICP filing for mainland China deployments.
+  WeChat uses `appid` and `secret` rather than the standard `client_id` / `client_secret` naming, but TheAuth maps these correctly. The WeChat Open Platform requires ICP filing for mainland China deployments.
 </Warning>
 
 ## Endpoints

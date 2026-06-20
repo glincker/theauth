@@ -1,5 +1,5 @@
 /**
- * Have I Been Pwned password checking for KavachOS.
+ * Have I Been Pwned password checking for TheAuth.
  *
  * Uses the k-anonymity model: only the first 5 hex characters of the SHA-1
  * hash are sent to the API. The full hash (and the password itself) never

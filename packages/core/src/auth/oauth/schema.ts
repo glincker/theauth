@@ -2,7 +2,7 @@
  * Drizzle ORM schema additions for OAuth provider support.
  *
  * Two tables:
- * - `kavach_oauth_accounts`  — links a KavachOS user to a provider account.
+ * - `kavach_oauth_accounts`  — links a TheAuth user to a provider account.
  * - `kavach_oauth_states`    — short-lived PKCE state entries for CSRF protection.
  *
  * Import from the main schema barrel (`db/schema.ts`) is intentionally
@@ -17,11 +17,11 @@ import { users } from "../../db/schema.js";
 // ---------------------------------------------------------------------------
 
 /**
- * Persists the link between a KavachOS user and an external OAuth provider
+ * Persists the link between a TheAuth user and an external OAuth provider
  * account.  One user may have multiple rows (one per provider).
  *
  * Tokens are stored in plaintext because they are short-lived access tokens
- * issued by the provider; they carry no KavachOS privileges.  Implementors
+ * issued by the provider; they carry no TheAuth privileges.  Implementors
  * with stricter requirements should encrypt these columns at rest.
  */
 export const oauthAccounts = sqliteTable("kavach_oauth_accounts", {

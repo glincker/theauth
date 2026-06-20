@@ -42,14 +42,14 @@ Go to **Basic Information** and copy the **Client ID** and **Client Secret** und
 </Steps>
 
 <Info>
-  KavachOS uses Slack's OpenID Connect flow (`/openid/connect/authorize`), not the older `identity.basic` scope approach. Make sure you add **User Token Scopes**, not Bot Token Scopes.
+  TheAuth uses Slack's OpenID Connect flow (`/openid/connect/authorize`), not the older `identity.basic` scope approach. Make sure you add **User Token Scopes**, not Bot Token Scopes.
 </Info>
 
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -106,6 +106,6 @@ These are standard OIDC scopes that Slack supports. No additional User Token Sco
     Professional network OAuth using OpenID Connect.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

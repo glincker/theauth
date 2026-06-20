@@ -6,14 +6,14 @@ icon: key
 
 <Columns cols={2}>
 <div>
-KavachOS runs the sign-in for the humans who own agents. Each method is a plugin you opt into, use only what your app needs. Every provider is wired the same way in code.
+TheAuth runs the sign-in for the humans who own agents. Each method is a plugin you opt into, use only what your app needs. Every provider is wired the same way in code.
 
 If you already run Clerk, Auth.js, or better-auth, keep them and skip the plugins. [Plug into an existing provider.](/migrate)
 </div>
 
 ```ts
-import { createKavach } from 'kavachos';
-import { emailPassword, oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { emailPassword, oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -164,7 +164,7 @@ if (!user) {
 ```
 
 <Info>
-Once the user is resolved, KavachOS is done with human auth. The rest of the stack (agents, permissions, audit) hangs off `user.id`.
+Once the user is resolved, TheAuth is done with human auth. The rest of the stack (agents, permissions, audit) hangs off `user.id`.
 </Info>
 
 ## Enterprise identity
@@ -197,10 +197,10 @@ Once the user is resolved, KavachOS is done with human auth. The rest of the sta
     The agent layer that sits on top of human authentication.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
-    How KavachOS manages session lifetime and cookie settings.
+    How TheAuth manages session lifetime and cookie settings.
   </Card>
   <Card title="Quickstart" href="/quickstart" icon="bolt">
-    Get a working KavachOS instance running in minutes.
+    Get a working TheAuth instance running in minutes.
   </Card>
   <Card title="Adapters overview" href="/adapters" icon="code">
     Mount auth routes on Hono, Next.js, Express, and more.

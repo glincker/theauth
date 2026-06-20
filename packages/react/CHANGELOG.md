@@ -1,4 +1,4 @@
-# @kavachos/react
+# @theauth/react
 
 ## 0.2.0
 

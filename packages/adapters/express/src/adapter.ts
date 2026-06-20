@@ -8,8 +8,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+} from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -192,13 +192,13 @@ function buildWebRequest(req: Request): globalThis.Request {
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
 /**
- * Create an Express Router with all KavachOS REST API routes mounted.
+ * Create an Express Router with all TheAuth REST API routes mounted.
  *
  * @example
  * ```typescript
  * import express from 'express';
- * import { createKavach } from 'kavachos';
- * import { kavachExpress } from '@kavachos/express';
+ * import { createKavach } from 'theauth';
+ * import { kavachExpress } from '@theauth/express';
  *
  * const app = express();
  * app.use(express.json());
@@ -212,7 +212,7 @@ function buildWebRequest(req: Request): globalThis.Request {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * app.use('/auth', kavachExpress(kavach, { mcp }));
  * ```

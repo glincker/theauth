@@ -1,5 +1,5 @@
-import type { KavachPlugin, PluginContext } from "kavachos";
-import { createRateLimiter, withRateLimit } from "kavachos/auth";
+import type { KavachPlugin, PluginContext } from "theauth";
+import { createRateLimiter, withRateLimit } from "theauth/auth";
 import { createEmailAuth } from "./email-auth.js";
 import { EmailAuthError, ErrorCodes } from "./errors.js";
 import type { EmailAuthConfig } from "./types.js";
@@ -50,7 +50,7 @@ function errorToResponse(err: unknown): Response {
 // ---------------------------------------------------------------------------
 
 /**
- * Email + password authentication plugin for KavachOS.
+ * Email + password authentication plugin for TheAuth.
  *
  * Usage:
  * ```ts

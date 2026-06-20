@@ -32,7 +32,7 @@ const PACKAGE_DIRS = [
 	"packages/plugins/telemetry",
 	"packages/plugins/discovery",
 	"packages/gateway",
-	"packages/create-kavachos-app",
+	"packages/create-theauth-app",
 ];
 
 const ADAPTERS_DIR = join(ROOT, "packages/adapters");

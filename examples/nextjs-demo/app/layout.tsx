@@ -3,8 +3,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	title: "KavachOS Demo",
-	description: "Reference implementation for KavachOS auth and agent features",
+	title: "TheAuth Demo",
+	description: "Reference implementation for TheAuth auth and agent features",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

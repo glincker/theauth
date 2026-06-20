@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
-const SESSION_KEY = "kavachos_dashboard_secret";
-const THEME_KEY = "kavachos-theme";
+const SESSION_KEY = "theauth_dashboard_secret";
+const THEME_KEY = "theauth-theme";
 
 const STATS_FIXTURE = {
 	totalAgents: 3,
@@ -134,13 +134,13 @@ test.describe("login screen", () => {
 		await page.reload();
 	});
 
-	test("shows KavachOS branding", async ({ page }) => {
-		await expect(page.locator("h1", { hasText: "KavachOS" })).toBeVisible();
+	test("shows TheAuth branding", async ({ page }) => {
+		await expect(page.locator("h1", { hasText: "TheAuth" })).toBeVisible();
 		await expect(page.locator("text=Admin Dashboard")).toBeVisible();
 	});
 
 	test("shows secret input and submit button", async ({ page }) => {
-		await expect(page.locator("#kavachos-secret")).toBeVisible();
+		await expect(page.locator("#theauth-secret")).toBeVisible();
 		await expect(page.locator('button[type="submit"]')).toBeVisible();
 		await expect(page.locator('button[type="submit"]')).toHaveText("Access dashboard");
 	});
@@ -150,12 +150,12 @@ test.describe("login screen", () => {
 	});
 
 	test("submit button enables when secret is typed", async ({ page }) => {
-		await page.fill("#kavachos-secret", "some-secret");
+		await page.fill("#theauth-secret", "some-secret");
 		await expect(page.locator('button[type="submit"]')).toBeEnabled();
 	});
 
 	test("shows toggle to reveal secret", async ({ page }) => {
-		const input = page.locator("#kavachos-secret");
+		const input = page.locator("#theauth-secret");
 		await expect(input).toHaveAttribute("type", "password");
 
 		await page.click('button[aria-label="Show secret"]');
@@ -166,7 +166,7 @@ test.describe("login screen", () => {
 	});
 
 	test("shows error on invalid secret", async ({ page }) => {
-		await page.fill("#kavachos-secret", "wrong-secret");
+		await page.fill("#theauth-secret", "wrong-secret");
 		await page.click('button[type="submit"]');
 
 		// Error appears once the request resolves - either API error or network error
@@ -184,9 +184,9 @@ test.describe("authenticated dashboard", () => {
 		await gotoAuthenticatedDashboard(page);
 	});
 
-	test("shows sidebar with KavachOS logo", async ({ page }) => {
+	test("shows sidebar with TheAuth logo", async ({ page }) => {
 		await expect(page.locator("aside")).toBeVisible();
-		await expect(page.locator("aside", { hasText: "KavachOS" })).toBeVisible();
+		await expect(page.locator("aside", { hasText: "TheAuth" })).toBeVisible();
 	});
 
 	test("sidebar has all main nav items", async ({ page }) => {
@@ -239,7 +239,7 @@ test.describe("authenticated dashboard", () => {
 
 	test("sign out returns to login screen", async ({ page }) => {
 		await page.locator("button", { hasText: "Sign out" }).click();
-		await expect(page.locator("#kavachos-secret")).toBeVisible();
+		await expect(page.locator("#theauth-secret")).toBeVisible();
 	});
 
 	test("theme toggle switches between light and dark", async ({ page }) => {

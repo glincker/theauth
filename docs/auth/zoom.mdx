@@ -21,9 +21,9 @@ https://your-app.com/api/kavach/auth/oauth/callback/zoom
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
-import { zoomProvider } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
+import { zoomProvider } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

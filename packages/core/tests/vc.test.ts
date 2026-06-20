@@ -809,7 +809,7 @@ describe("VC Zod schema validation", () => {
 		const valid: VerifiableCredential = {
 			"@context": [VC_CONTEXT_V2],
 			type: [VC_TYPE_CREDENTIAL],
-			issuer: { id: "did:key:z6MkTest", name: "KavachOS" },
+			issuer: { id: "did:key:z6MkTest", name: "TheAuth" },
 			issuanceDate: new Date().toISOString(),
 			credentialSubject: { id: "agent-1" },
 		};

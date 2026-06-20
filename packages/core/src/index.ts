@@ -1,5 +1,5 @@
 /**
- * kavachos
+ * theauth
  * The Auth OS for AI Agents
  *
  * Identity, permissions, delegation, and audit for the agentic era.

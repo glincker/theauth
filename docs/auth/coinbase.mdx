@@ -29,8 +29,8 @@ After creating the app, copy the **Client ID** and **Client Secret** from the ap
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth, coinbaseProvider } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth, coinbaseProvider } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

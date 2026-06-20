@@ -6,7 +6,7 @@ icon: robot
 
 <Columns cols={2}>
 <div>
-An `AgentIdentity` is the primary entity in KavachOS. It represents one AI agent, a process acting on behalf of a human user. Agents are not users. No password, no session, no OAuth flow. Just a token, a set of permissions, and an audit row for every call.
+An `AgentIdentity` is the primary entity in TheAuth. It represents one AI agent, a process acting on behalf of a human user. Agents are not users. No password, no session, no OAuth flow. Just a token, a set of permissions, and an audit row for every call.
 
 Create one against an existing user ID, hand the token to the agent, and check every action through `authorize()`.
 </div>
@@ -74,7 +74,7 @@ console.log(agent.token); // kv_a3f8c2e1..., only shown here
 ```
 
 <Warning>
-The token is returned once at creation. KavachOS stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or rotate to get a new one.
+The token is returned once at creation. TheAuth stores only the SHA-256 hash, so the plaintext cannot be recovered later. Save it immediately or rotate to get a new one.
 </Warning>
 
 </Step>

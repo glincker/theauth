@@ -1,5 +1,5 @@
 /**
- * Email OTP authentication for KavachOS.
+ * Email OTP authentication for TheAuth.
  *
  * Sends a short numeric code to the user's email. The code is hashed before
  * storage so a database compromise does not leak valid codes. Brute-force is

@@ -1,5 +1,5 @@
 /**
- * Username + password authentication for KavachOS.
+ * Username + password authentication for TheAuth.
  *
  * Users register with a username and password instead of email. Usernames are
  * normalised to lowercase by default. Passwords are hashed with scrypt before

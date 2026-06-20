@@ -1,4 +1,4 @@
-package kavachos
+package theauth
 
 import (
 	"context"
@@ -22,7 +22,7 @@ func (r *DelegationResource) Create(ctx context.Context, input DelegateInput) (*
 	}
 	var chain DelegationChain
 	if err := json.Unmarshal(unwrapAPIData(raw), &chain); err != nil {
-		return nil, fmt.Errorf("kavachos: decode delegation chain: %w", err)
+		return nil, fmt.Errorf("theauth: decode delegation chain: %w", err)
 	}
 	return &chain, nil
 }
@@ -35,7 +35,7 @@ func (r *DelegationResource) ListChains(ctx context.Context, agentID string) ([]
 	}
 	var chains []DelegationChain
 	if err := json.Unmarshal(unwrapAPIData(raw), &chains); err != nil {
-		return nil, fmt.Errorf("kavachos: decode delegation chains: %w", err)
+		return nil, fmt.Errorf("theauth: decode delegation chains: %w", err)
 	}
 	return chains, nil
 }
@@ -54,7 +54,7 @@ func (r *DelegationResource) GetEffectivePermissions(ctx context.Context, agentI
 	}
 	var perms []Permission
 	if err := json.Unmarshal(unwrapAPIData(raw), &perms); err != nil {
-		return nil, fmt.Errorf("kavachos: decode permissions: %w", err)
+		return nil, fmt.Errorf("theauth: decode permissions: %w", err)
 	}
 	return perms, nil
 }

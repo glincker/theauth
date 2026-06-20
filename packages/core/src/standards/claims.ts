@@ -24,7 +24,7 @@ export type AgentType = "autonomous" | "delegated" | "supervised";
 
 /**
  * Trust tier band assigned at token issuance, derived from the numeric trust
- * score. Matches the five-level model in KavachOS trust scoring.
+ * score. Matches the five-level model in TheAuth trust scoring.
  *
  * Mapping (inclusive lower bound):
  *   score 0–19  → "unverified"

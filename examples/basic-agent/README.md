@@ -1,6 +1,6 @@
 # Basic agent example
 
-Minimal example showing agent creation, permission scoping, and authorization with KavachOS.
+Minimal example showing agent creation, permission scoping, and authorization with TheAuth.
 
 ## Run
 
@@ -11,6 +11,6 @@ pnpm dev
 
 ## What it does
 
-1. Creates a KavachOS instance with SQLite
+1. Creates a TheAuth instance with SQLite
 2. Creates an agent with scoped permissions
 3. Authorizes an action and logs the result

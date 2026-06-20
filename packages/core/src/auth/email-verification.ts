@@ -1,5 +1,5 @@
 /**
- * Email verification module for KavachOS.
+ * Email verification module for TheAuth.
  *
  * Handles the full email address verification flow: generating single-use
  * tokens, sending verification emails, and marking user addresses as verified
@@ -59,7 +59,7 @@ export interface EmailVerificationConfig {
 	/**
 	 * Callback to send the verification email.
 	 *
-	 * KavachOS generates the token and constructs the verify URL. Your job is
+	 * TheAuth generates the token and constructs the verify URL. Your job is
 	 * to deliver it (Resend, SES, SMTP, Postmark, whatever you use).
 	 */
 	sendVerificationEmail: (email: string, token: string, verifyUrl: string) => Promise<void>;
@@ -83,7 +83,7 @@ export interface EmailVerificationConfig {
 	 * Default: false.
 	 *
 	 * The caller is still responsible for calling `sendVerification` directly
-	 * if this is false. This flag is informational — KavachOS uses it to
+	 * if this is false. This flag is informational — TheAuth uses it to
 	 * signal intent to integrations (e.g. the username module).
 	 */
 	autoVerifyOnSignUp?: boolean;

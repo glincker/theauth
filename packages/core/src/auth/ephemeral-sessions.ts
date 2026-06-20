@@ -1,5 +1,5 @@
 /**
- * Ephemeral agent sessions for KavachOS.
+ * Ephemeral agent sessions for TheAuth.
  *
  * Short-lived, auto-expiring agent credentials for single-task use. Designed
  * for computer-use agents (Claude, GPT with browsing, operator loops) that

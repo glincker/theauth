@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
-// apiKeyResponse mirrors the KavachOS API response for API key operations.
+// apiKeyResponse mirrors the TheAuth API response for API key operations.
 type apiKeyResponse struct {
 	ID        string   `json:"id"`
 	Name      string   `json:"name"`
@@ -23,7 +23,7 @@ type apiKeyResponse struct {
 
 func resourceAPIKey() *schema.Resource {
 	return &schema.Resource{
-		Description: "Manages a KavachOS API key. " +
+		Description: "Manages a TheAuth API key. " +
 			"API keys authenticate server-to-server requests. " +
 			"The raw key value is only available immediately after creation — " +
 			"store it in a secret manager rather than in Terraform state.",
@@ -114,7 +114,7 @@ func resourceAPIKeyCreate(ctx context.Context, d *schema.ResourceData, meta inte
 
 	var apiKey apiKeyResponse
 	if err := cfg.http.do(ctx, "POST", "/api-keys", input, &apiKey); err != nil {
-		return diag.Errorf("creating kavachos_api_key: %s", err)
+		return diag.Errorf("creating theauth_api_key: %s", err)
 	}
 
 	d.SetId(apiKey.ID)
@@ -130,7 +130,7 @@ func resourceAPIKeyRead(ctx context.Context, d *schema.ResourceData, meta interf
 			d.SetId("")
 			return nil
 		}
-		return diag.Errorf("reading kavachos_api_key %s: %s", d.Id(), err)
+		return diag.Errorf("reading theauth_api_key %s: %s", d.Id(), err)
 	}
 
 	return setAPIKeyState(d, &apiKey)
@@ -163,7 +163,7 @@ func resourceAPIKeyUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 
 	var apiKey apiKeyResponse
 	if err := cfg.http.do(ctx, "PATCH", fmt.Sprintf("/api-keys/%s", d.Id()), input, &apiKey); err != nil {
-		return diag.Errorf("updating kavachos_api_key %s: %s", d.Id(), err)
+		return diag.Errorf("updating theauth_api_key %s: %s", d.Id(), err)
 	}
 
 	return setAPIKeyState(d, &apiKey)
@@ -176,7 +176,7 @@ func resourceAPIKeyDelete(ctx context.Context, d *schema.ResourceData, meta inte
 		if isNotFound(err) {
 			return nil
 		}
-		return diag.Errorf("deleting kavachos_api_key %s: %s", d.Id(), err)
+		return diag.Errorf("deleting theauth_api_key %s: %s", d.Id(), err)
 	}
 
 	return nil

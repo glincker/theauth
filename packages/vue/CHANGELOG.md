@@ -1,4 +1,4 @@
-# @kavachos/vue
+# @theauth/vue
 
 ## 0.1.0
 

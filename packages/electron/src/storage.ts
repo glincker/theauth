@@ -106,7 +106,7 @@ export function createElectronStorage(config?: ElectronStorageConfig): SecureSto
 				warned = true;
 				// biome-ignore lint/suspicious/noConsole: intentional user-facing warning
 				console.warn(
-					"KavachOS: safeStorage encryption unavailable — storing session data in plaintext",
+					"TheAuth: safeStorage encryption unavailable — storing session data in plaintext",
 				);
 			}
 			return null;

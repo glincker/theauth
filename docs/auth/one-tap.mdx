@@ -20,8 +20,8 @@ Go to the [Google Cloud Console](https://console.cloud.google.com/), create an O
 ### Configure the plugin
 
 ```ts
-import { createKavach } from 'kavachos';
-import { oneTap } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oneTap } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -51,13 +51,13 @@ const kavach = await createKavach({
 1. Google's JS shows a sign-in prompt on your page
 2. User taps their Google account
 3. Google sends a `credential` (JWT ID token) to your callback
-4. KavachOS verifies the JWT against Google's JWKS (`https://www.googleapis.com/oauth2/v3/certs`)
+4. TheAuth verifies the JWT against Google's JWKS (`https://www.googleapis.com/oauth2/v3/certs`)
 5. Validates audience, issuer, expiry, and CSRF token
 6. Creates or links the user, returns a session
 
 ## CSRF protection
 
-Google sends a `g_csrf_token` cookie with the request. KavachOS validates that the cookie value matches the `g_csrf_token` field in the POST body.
+Google sends a `g_csrf_token` cookie with the request. TheAuth validates that the cookie value matches the `g_csrf_token` field in the POST body.
 
 ## Config
 
@@ -90,6 +90,6 @@ Google One-tap requires HTTPS in production. It works on localhost for developme
     Another low-friction sign-in option without a password.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

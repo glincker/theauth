@@ -13,8 +13,8 @@ SCIM 2.0 lets Okta, Azure AD, and Google Workspace automatically provision and d
 ### Add the plugin
 
 ```ts
-import { createKavach } from 'kavachos';
-import { scim } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { scim } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
@@ -57,7 +57,7 @@ The plugin exposes standard SCIM 2.0 user CRUD endpoints. Your IdP calls these a
 
 ## Group endpoints
 
-Groups are mapped to KavachOS organizations.
+Groups are mapped to TheAuth organizations.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -96,7 +96,7 @@ Rotate `SCIM_TOKEN` immediately if it is exposed. All SCIM endpoints reject requ
 
 <CardGroup cols={2}>
   <Card title="Organizations" href="/auth/organizations" icon="users">
-    SCIM groups are mapped to KavachOS organizations.
+    SCIM groups are mapped to TheAuth organizations.
   </Card>
   <Card title="SSO" href="/auth/sso" icon="shield-halved">
     Enterprise SSO via SAML 2.0 and OIDC, often paired with SCIM.
@@ -105,6 +105,6 @@ Rotate `SCIM_TOKEN` immediately if it is exposed. All SCIM endpoints reject requ
     Manual user management tools alongside automated provisioning.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

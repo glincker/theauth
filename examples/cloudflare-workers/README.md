@@ -1,6 +1,6 @@
 # Cloudflare Workers example
 
-KavachOS running on Cloudflare Workers with D1 as the database. Zero cold start, global edge deployment.
+TheAuth running on Cloudflare Workers with D1 as the database. Zero cold start, global edge deployment.
 
 ## Run
 

@@ -15,7 +15,7 @@ describe("basic-agent example", () => {
 		});
 
 		const output = `${stdout}\n${stderr}`;
-		expect(output).toContain("Step 1 — Initialize KavachOS");
+		expect(output).toContain("Step 1 — Initialize TheAuth");
 		expect(output).toContain("Step 5 — Authorize actions");
 		expect(output).toContain("authorizeByToken → read mcp:github:repos");
 		expect(output).toContain("delegation created");

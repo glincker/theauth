@@ -1,15 +1,15 @@
 ---
 title: Next.js
-description: Mount KavachOS auth routes in Next.js with `kavachNextjs(kavach)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
+description: Mount TheAuth auth routes in Next.js with `kavachNextjs(kavach)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
 icon: "/brand-icons/nextdotjs.svg"
 ---
 
-`kavachNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all KavachOS paths are handled.
+`kavachNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/nextjs
+pnpm add theauth @theauth/nextjs
 ```
 
 ## Setup
@@ -21,7 +21,7 @@ Create this in a shared module so it is initialized once at server startup:
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -42,7 +42,7 @@ Create `app/api/kavach/[...kavach]/route.ts`. The `[...kavach]` segment catches 
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { kavachNextjs } from '@kavachos/nextjs';
+import { kavachNextjs } from '@theauth/nextjs';
 import { kavach, mcp } from '@/lib/kavach';
 
 const handlers = kavachNextjs(kavach, { mcp });
@@ -104,8 +104,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachNextjs } from '@kavachos/nextjs';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachNextjs } from '@theauth/nextjs';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

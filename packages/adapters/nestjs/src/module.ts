@@ -1,7 +1,7 @@
 import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { Inject, Module } from "@nestjs/common";
-import type { Kavach } from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { kavachMiddleware } from "./adapter.js";
 
 // ─── Injection Token ──────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ export interface KavachModuleOptions {
 	/** Optional MCP OAuth 2.1 module created with `createMcpModule()` */
 	mcp?: McpAuthModule;
 	/**
-	 * The path prefix where KavachOS routes will be mounted.
+	 * The path prefix where TheAuth routes will be mounted.
 	 * @default '/api/kavach'
 	 */
 	basePath?: string;
@@ -25,14 +25,14 @@ export interface KavachModuleOptions {
 // ─── KavachModule ─────────────────────────────────────────────────────────────
 
 /**
- * NestJS dynamic module that mounts all KavachOS REST routes as Express
+ * NestJS dynamic module that mounts all TheAuth REST routes as Express
  * middleware. Import it once in your root `AppModule`.
  *
  * @example
  * ```typescript
  * // app.module.ts
  * import { Module } from '@nestjs/common';
- * import { KavachModule } from '@kavachos/nestjs';
+ * import { KavachModule } from '@theauth/nestjs';
  * import { kavach, mcp } from './lib/kavach.js';
  *
  * @Module({

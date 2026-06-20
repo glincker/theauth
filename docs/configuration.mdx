@@ -8,7 +8,7 @@ icon: gear
 `createKavach()` accepts a `KavachConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -20,8 +20,8 @@ const kavach = await createKavach({
 A minimal config for local development with email/password auth and no email sending:
 
 ```typescript
-import { createKavach } from 'kavachos';
-import { emailPassword } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { emailPassword } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: './kavach.db' },
@@ -137,12 +137,12 @@ mcp: {
 
 ## Auth config
 
-Connects KavachOS to your existing auth provider so it can resolve the human user behind incoming requests.
+Connects TheAuth to your existing auth provider so it can resolve the human user behind incoming requests.
 
 ```typescript
 auth: {
   adapter: betterAuthAdapter(auth),   // resolves user from request
-  session: {                          // optional: KavachOS-managed sessions
+  session: {                          // optional: TheAuth-managed sessions
     secret: process.env.SESSION_SECRET,
     maxAge: 60 * 60 * 24 * 30,       // 30 days in seconds
   },
@@ -205,21 +205,21 @@ Controls when sessions are considered "fresh" for sensitive operations like pass
 
 ## Plugins
 
-KavachOS features are composable. Enable what you need:
+TheAuth features are composable. Enable what you need:
 
 | Plugin | Import | What it does |
 |--------|--------|--------------|
-| `emailPassword` | `kavachos/auth` | Email + password with verification and reset |
-| `passkey` | `kavachos/auth` | WebAuthn/FIDO2 biometric auth |
-| `magicLink` | `kavachos/auth` | Passwordless email links |
-| `emailOtp` | `kavachos/auth` | One-time password codes via email |
-| `twoFactor` | `kavachos/auth` | TOTP 2FA with backup codes |
-| `multiSession` | `kavachos/auth` | Session limits and device management |
-| `organization` | `kavachos/auth` | Organizations with RBAC |
-| `apiKeys` | `kavachos/auth` | Static API key management |
-| `admin` | `kavachos/auth` | User management, banning, impersonation |
-| `stripe` | `kavachos/auth` | Stripe billing integration |
-| `polar` | `kavachos/auth` | Polar payment integration |
+| `emailPassword` | `theauth/auth` | Email + password with verification and reset |
+| `passkey` | `theauth/auth` | WebAuthn/FIDO2 biometric auth |
+| `magicLink` | `theauth/auth` | Passwordless email links |
+| `emailOtp` | `theauth/auth` | One-time password codes via email |
+| `twoFactor` | `theauth/auth` | TOTP 2FA with backup codes |
+| `multiSession` | `theauth/auth` | Session limits and device management |
+| `organization` | `theauth/auth` | Organizations with RBAC |
+| `apiKeys` | `theauth/auth` | Static API key management |
+| `admin` | `theauth/auth` | User management, banning, impersonation |
+| `stripe` | `theauth/auth` | Stripe billing integration |
+| `polar` | `theauth/auth` | Polar payment integration |
 
 ## Anomaly config
 
@@ -305,6 +305,6 @@ export const kavach = await createKavach({
   SQLite, Postgres, or MySQL configuration.
 </Card>
   <Card title="Framework adapters" href="/adapters">
-  Mount KavachOS on your framework.
+  Mount TheAuth on your framework.
 </Card>
 </CardGroup>

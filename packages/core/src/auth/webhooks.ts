@@ -1,5 +1,5 @@
 /**
- * Webhook system for KavachOS.
+ * Webhook system for TheAuth.
  *
  * Fires signed HTTP POST requests to configured endpoints when auth events
  * occur. Payloads are signed with HMAC-SHA256 and sent with

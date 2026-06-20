@@ -1,5 +1,5 @@
 /**
- * In-memory mock auth server that mirrors the KavachOS `AuthAdapter`
+ * In-memory mock auth server that mirrors the TheAuth `AuthAdapter`
  * interface without any network calls, database dependencies, or heavy imports.
  *
  * Use this in Node/server-side tests where you need to exercise code paths
@@ -9,7 +9,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /**
- * Minimal resolved user — matches `ResolvedUser` from `kavachos/auth`
+ * Minimal resolved user — matches `ResolvedUser` from `theauth/auth`
  * exactly.  Redefined here so this package has zero runtime deps.
  */
 export interface MockResolvedUser {
@@ -21,8 +21,8 @@ export interface MockResolvedUser {
 }
 
 /**
- * Shape that mirrors the KavachOS `AuthAdapter` interface.
- * Assign this to any parameter typed `AuthAdapter` from `kavachos`.
+ * Shape that mirrors the TheAuth `AuthAdapter` interface.
+ * Assign this to any parameter typed `AuthAdapter` from `theauth`.
  */
 export interface MockAuthAdapter {
 	resolveUser(request: Request): Promise<MockResolvedUser | null>;

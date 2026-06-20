@@ -5,7 +5,7 @@ import { createKavach } from "../src/kavach.js";
 export type { Kavach };
 
 /**
- * Create a test KavachOS instance with in-memory SQLite.
+ * Create a test TheAuth instance with in-memory SQLite.
  * Tables are auto-created by createKavach. A seed user is inserted.
  */
 export async function createTestKavach(options?: {

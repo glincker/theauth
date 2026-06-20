@@ -79,15 +79,15 @@ interface PrismaClientLike {
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 /**
- * Create a KavachOS Prisma adapter.
+ * Create a TheAuth Prisma adapter.
  *
  * Pass your Prisma `PrismaClient` instance. The returned adapter provides
- * typed CRUD operations for every KavachOS table, backed by Prisma queries.
+ * typed CRUD operations for every TheAuth table, backed by Prisma queries.
  *
  * @example
  * ```typescript
  * import { PrismaClient } from '@prisma/client';
- * import { createPrismaAdapter } from '@kavachos/prisma';
+ * import { createPrismaAdapter } from '@theauth/prisma';
  *
  * const prisma = new PrismaClient();
  * const db = createPrismaAdapter(prisma);
@@ -95,7 +95,7 @@ interface PrismaClientLike {
  * // Use directly
  * const agent = await db.findAgentById('agent-123');
  *
- * // Or pass to kavachos via a custom integration layer
+ * // Or pass to theauth via a custom integration layer
  * ```
  */
 export function createPrismaAdapter(prisma: PrismaClientLike): KavachPrismaAdapter {

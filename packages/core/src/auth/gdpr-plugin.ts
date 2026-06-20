@@ -1,5 +1,5 @@
 /**
- * GDPR plugin for KavachOS.
+ * GDPR plugin for TheAuth.
  *
  * Exposes three self-service endpoints that authenticated users can call
  * to exercise their data rights under GDPR Articles 17 and 20.
@@ -11,8 +11,8 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { gdpr } from 'kavachos/auth';
+ * import { createKavach } from 'theauth';
+ * import { gdpr } from 'theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

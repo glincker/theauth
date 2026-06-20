@@ -1,4 +1,4 @@
-# @kavachos/expo
+# @theauth/expo
 
 ## 0.1.0
 

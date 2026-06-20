@@ -1,13 +1,13 @@
-# @kavachos/react
+# @theauth/react
 
-React provider and hooks for KavachOS authentication.
+React provider and hooks for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/react?style=flat-square)](https://www.npmjs.com/package/@kavachos/react)
+[![npm](https://img.shields.io/npm/v/@theauth/react?style=flat-square)](https://www.npmjs.com/package/@theauth/react)
 
 ## Install
 
 ```bash
-npm install @kavachos/react
+npm install @theauth/react
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @kavachos/react
 Wrap your app with `KavachProvider`, then use hooks anywhere in the tree.
 
 ```tsx
-import { KavachProvider, useSession, useUser, useSignIn, useSignOut } from '@kavachos/react';
+import { KavachProvider, useSession, useUser, useSignIn, useSignOut } from '@theauth/react';
 
 function App() {
   return (
@@ -57,14 +57,14 @@ function Dashboard() {
 
 ## External mode with rotation (v0.5+)
 
-When KavachOS sits behind another auth API (Java/Go/Python), you can run the
+When TheAuth sits behind another auth API (Java/Go/Python), you can run the
 provider in **external mode**. Pass an `external` config object instead of
 relying on the local managed flow. Set `refreshPath` to opt into the rotation
 loop — proactive refresh, exponential-backoff retries, online/offline
 recovery, and reuse-detection callbacks all come along for the ride.
 
 ```tsx
-import { KavachProvider, useRotateSession } from "@kavachos/react";
+import { KavachProvider, useRotateSession } from "@theauth/react";
 
 function App() {
   return (
@@ -145,7 +145,7 @@ The endpoint at `refreshPath` is expected to:
   `family_revoked`, `absolute_timeout`. Use `errorCodeMap` if your backend
   emits different strings.
 
-The `@kavachos/core` package's `createSessionRefresher()` handler implements
+The `@theauth/core` package's `createSessionRefresher()` handler implements
 this contract verbatim.
 
 ### Migrating from a hand-rolled refresh loop
@@ -159,7 +159,7 @@ If you have a bespoke refresher (e.g. `token-refresh-service.ts`):
 
 ## Docs
 
-[https://docs.kavachos.com](https://docs.kavachos.com)
+[https://docs.theauth.com](https://docs.theauth.com)
 
 ## License
 

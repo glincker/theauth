@@ -5,15 +5,15 @@ icon: file-lines
 ---
 
 
-KavachOS is built with compliance requirements in mind. Every agent action produces an immutable audit record with enough detail to satisfy the logging and oversight obligations of major AI governance frameworks.
+TheAuth is built with compliance requirements in mind. Every agent action produces an immutable audit record with enough detail to satisfy the logging and oversight obligations of major AI governance frameworks.
 
 <Note>
-  The EU AI Act high-risk provisions take effect August 2, 2026. KavachOS gives you the audit infrastructure to meet the Article 12 and Article 14 requirements before that deadline.
+  The EU AI Act high-risk provisions take effect August 2, 2026. TheAuth gives you the audit infrastructure to meet the Article 12 and Article 14 requirements before that deadline.
 </Note>
 
-## What KavachOS provides
+## What TheAuth provides
 
-| Requirement | KavachOS feature |
+| Requirement | TheAuth feature |
 |-------------|-----------------|
 | Immutable audit log | `kavach_audit_logs` table with result, reason, duration, IP, user-agent |
 | Human oversight | Approval flows (CIBA), delegation depth limits, permission constraints |
@@ -31,7 +31,7 @@ The EU AI Act imposes obligations on providers and deployers of high-risk AI sys
 
 **Article 9 - Risk management system**
 
-KavachOS supports Article 9 through:
+TheAuth supports Article 9 through:
 
 Permission constraints (`maxCallsPerHour`, `timeWindow`, `ipAllowlist`) that enforce operational boundaries
 
@@ -43,7 +43,7 @@ Trust scoring that adjusts agent autonomy based on track record
 
 > "High-risk AI systems shall technically allow for the automatic recording of events throughout their lifetime."
 
-KavachOS logs every authorization decision (allowed, denied, rate_limited) with:
+TheAuth logs every authorization decision (allowed, denied, rate_limited) with:
 
 Agent and user identity
 
@@ -63,7 +63,7 @@ Records are written to `kavach_audit_logs` and are never updated or deleted by t
 
 > "High-risk AI systems shall be designed and developed in such a way that they can be effectively overseen by natural persons."
 
-KavachOS provides:
+TheAuth provides:
 
 `requireApproval: true` permission constraint to gate sensitive actions behind human approval (CIBA flow)
 
@@ -73,7 +73,7 @@ Revocation (`kavach.agent.revoke()`) that takes effect immediately
 
 **Article 15 - Accuracy, robustness, cybersecurity**
 
-KavachOS supports Article 15 through:
+TheAuth supports Article 15 through:
 
 Token rotation (`kavach.agent.rotate()`) to limit credential exposure
 
@@ -89,11 +89,11 @@ The NIST AI Agent Standards Initiative (published February 2026) establishes bas
 
 **Identity provenance**
 
-NIST requires that every agent action can be traced back to a specific identity. KavachOS links `agentId` and `userId` on every audit entry, creating a complete provenance chain.
+NIST requires that every agent action can be traced back to a specific identity. TheAuth links `agentId` and `userId` on every audit entry, creating a complete provenance chain.
 
 **Least privilege access**
 
-NIST recommends that agents operate with the minimum permissions necessary. KavachOS enforces this through:
+NIST recommends that agents operate with the minimum permissions necessary. TheAuth enforces this through:
 
 Fine-grained resource+action permission model
 
@@ -103,11 +103,11 @@ Scope-limited delegation that cannot exceed the delegating agent's own permissio
 
 **Revocation and expiry**
 
-NIST requires that agent credentials can be invalidated. KavachOS supports both immediate revocation (`kavach.agent.revoke()`) and time-based expiry via `expiresAt`.
+NIST requires that agent credentials can be invalidated. TheAuth supports both immediate revocation (`kavach.agent.revoke()`) and time-based expiry via `expiresAt`.
 
 **Audit trail**
 
-NIST requires tamper-evident logs. KavachOS writes all entries to a database table with no update or delete path in the SDK. For tamper-evidence in production, use your database's audit log features or ship logs to an immutable store (e.g. AWS CloudTrail, Loki with object storage).
+NIST requires tamper-evident logs. TheAuth writes all entries to a database table with no update or delete path in the SDK. For tamper-evidence in production, use your database's audit log features or ship logs to an immutable store (e.g. AWS CloudTrail, Loki with object storage).
 
   </Accordion>
 
@@ -117,7 +117,7 @@ SOC 2 Trust Service Criteria relevant to AI agent access:
 
 **CC6.1 - Logical and physical access controls**
 
-KavachOS addresses CC6.1 through:
+TheAuth addresses CC6.1 through:
 
 Agent identity management with unique IDs per agent
 
@@ -167,11 +167,11 @@ ISO 42001 is the AI management system standard. Annex A.8 covers AI system opera
 
 **A.8.2 - AI system input data**
 
-KavachOS logs the `parameters` field of every authorized action, giving you a record of what inputs were provided to agent-invoked tools.
+TheAuth logs the `parameters` field of every authorized action, giving you a record of what inputs were provided to agent-invoked tools.
 
 **A.8.3 - AI system operation**
 
-KavachOS provides operational controls through:
+TheAuth provides operational controls through:
 
 Rate limiting via `maxCallsPerHour` permission constraints
 
@@ -228,7 +228,7 @@ const costs = await kavach.audit.getCostSummary({
 
 ## Retention
 
-KavachOS does not automatically delete audit records. Configure retention at the database level using your database's native partitioning or TTL features, or via a scheduled cleanup job.
+TheAuth does not automatically delete audit records. Configure retention at the database level using your database's native partitioning or TTL features, or via a scheduled cleanup job.
 
 For EU AI Act Article 12 compliance, the Act currently specifies retention "for a period appropriate to the intended purpose of the high-risk AI system." The generally accepted minimum is one year from the last use of the system.
 

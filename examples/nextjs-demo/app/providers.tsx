@@ -1,6 +1,6 @@
 "use client";
 
-import { KavachProvider } from "@kavachos/react";
+import { KavachProvider } from "@theauth/react";
 import type { ReactNode } from "react";
 
 export function Providers({ children }: { children: ReactNode }) {

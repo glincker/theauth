@@ -7,12 +7,12 @@ icon: file-lines
 
 ## Overview
 
-`createEmailTemplates` returns a set of pre-built HTML email templates for every auth flow KavachOS supports. Each template produces a `{ subject, text, html }` object you pass directly to your mail provider.
+`createEmailTemplates` returns a set of pre-built HTML email templates for every auth flow TheAuth supports. Each template produces a `{ subject, text, html }` object you pass directly to your mail provider.
 
 ## Setup
 
 ```typescript
-import { createEmailTemplates } from 'kavachos';
+import { createEmailTemplates } from 'theauth';
 
 const templates = createEmailTemplates({
   appName: 'MyApp',
@@ -64,7 +64,7 @@ Auth plugins expose callbacks like `onSendVerification` and `onSendMagicLink`. P
 <Tabs>
   <Tab title="Magic link">
 ```typescript
-import { createKavach, magicLinkPlugin, createEmailTemplates } from 'kavachos';
+import { createKavach, magicLinkPlugin, createEmailTemplates } from 'theauth';
 
 const templates = createEmailTemplates({ appName: 'MyApp', appUrl: 'https://myapp.com' });
 

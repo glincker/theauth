@@ -1,4 +1,4 @@
-// KavachOS reference Prisma schema
+// TheAuth reference Prisma schema
 // Copy this into your prisma/schema.prisma or merge it with your existing schema.
 //
 // Relationships are intentionally not declared here so the models compose

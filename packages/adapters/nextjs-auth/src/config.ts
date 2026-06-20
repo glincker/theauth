@@ -10,7 +10,7 @@ const DEFAULT_EXPIRY_REFRESH_BUFFER_S = 60;
  * ```ts
  * // src/lib/auth/config.ts
  * import "server-only";
- * import { createAuthConfig } from "@kavachos/nextjs-auth";
+ * import { createAuthConfig } from "@theauth/nextjs-auth";
  *
  * export const authConfig = createAuthConfig({
  *   backendUrl: process.env.NEXT_PUBLIC_API_BASE_URL!,

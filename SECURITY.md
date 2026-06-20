@@ -8,7 +8,7 @@
 
 ## Reporting a Vulnerability
 
-KavachOS takes security seriously. If you discover a security vulnerability, please report it responsibly.
+TheAuth takes security seriously. If you discover a security vulnerability, please report it responsibly.
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
@@ -51,7 +51,7 @@ The following are in scope:
 
 ## Security best practices
 
-When using KavachOS in production:
+When using TheAuth in production:
 
 1. **Always use HTTPS** in production
 2. **Set strong session secrets** - never use defaults
@@ -60,11 +60,11 @@ When using KavachOS in production:
 5. **Enable TOTP or passkeys** for admin accounts
 6. **Rotate API keys** regularly
 7. **Monitor the audit trail** for anomalies
-8. **Keep kavachos updated** to the latest version
+8. **Keep theauth updated** to the latest version
 
 ## Dependencies
 
-KavachOS has only 3 runtime dependencies:
+TheAuth has only 3 runtime dependencies:
 - `drizzle-orm` - SQL query builder
 - `jose` - JWT/JWS/JWE implementation
 - `zod` - Schema validation

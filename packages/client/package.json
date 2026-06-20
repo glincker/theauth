@@ -1,12 +1,12 @@
 {
-  "name": "@kavachos/client",
+  "name": "@theauth/client",
   "version": "0.1.0",
-  "description": "TypeScript client for the KavachOS REST API",
+  "description": "TypeScript client for the TheAuth REST API",
   "license": "MIT",
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/client"
   },
   "type": "module",

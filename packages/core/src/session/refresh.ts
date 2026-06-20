@@ -1,5 +1,5 @@
 /**
- * Session refresh endpoint handler for KavachOS.
+ * Session refresh endpoint handler for TheAuth.
  *
  * Implements `POST /auth/refresh`:
  * 1. Extracts the refresh token from an httpOnly cookie or the request body.
@@ -231,7 +231,7 @@ const DEFAULT_ACCESS_COOKIE = "kavach_access";
 // ---------------------------------------------------------------------------
 
 /**
- * Create a `SessionRefresher` backed by the KavachOS database.
+ * Create a `SessionRefresher` backed by the TheAuth database.
  */
 export function createSessionRefresher(config: SessionRefresherConfig): SessionRefresher {
 	if (!config.secret || config.secret.length < 32) {

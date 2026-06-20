@@ -5,24 +5,24 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	kavachos "github.com/kavachos/kavachos-go"
+	theauth "github.com/glincker/theauth-go"
 )
 
 // resourcePermission manages a standalone permission grant attached to an existing agent.
 //
-// This is an alternative to the inline permission blocks on kavachos_agent.
+// This is an alternative to the inline permission blocks on theauth_agent.
 // Use this resource when permissions are managed separately from agent creation —
 // for example, when a central permissions module grants access to resources
 // owned by other modules.
 //
-// Note: The KavachOS API stores permissions as part of the agent, so this resource
+// Note: The TheAuth API stores permissions as part of the agent, so this resource
 // reads and updates the agent's permissions list. Concurrent updates to the same
 // agent from multiple resources may conflict — prefer using the inline permission
-// blocks on kavachos_agent when all permissions are managed in one place.
+// blocks on theauth_agent when all permissions are managed in one place.
 func resourcePermission() *schema.Resource {
 	return &schema.Resource{
-		Description: "Manages a single permission grant on a KavachOS agent. " +
-			"For agents where all permissions are known up front, prefer inline permission blocks on kavachos_agent. " +
+		Description: "Manages a single permission grant on a TheAuth agent. " +
+			"For agents where all permissions are known up front, prefer inline permission blocks on theauth_agent. " +
 			"Use this resource when permissions are granted by a separate Terraform module.",
 
 		CreateContext: resourcePermissionCreate,
@@ -97,7 +97,7 @@ func resourcePermissionCreate(ctx context.Context, d *schema.ResourceData, meta 
 	newPerm := buildPermissionFromState(d)
 	updatedPerms := append(agent.Permissions, newPerm)
 
-	updated, err := cfg.client.Agents.Update(ctx, agentID, kavachos.UpdateAgentInput{
+	updated, err := cfg.client.Agents.Update(ctx, agentID, theauth.UpdateAgentInput{
 		Permissions: updatedPerms,
 	})
 	if err != nil {
@@ -141,7 +141,7 @@ func resourcePermissionUpdate(ctx context.Context, d *schema.ResourceData, meta 
 
 	// Replace the matching permission in the list.
 	newPerm := buildPermissionFromState(d)
-	updatedPerms := make([]kavachos.Permission, 0, len(agent.Permissions))
+	updatedPerms := make([]theauth.Permission, 0, len(agent.Permissions))
 	replaced := false
 	for _, p := range agent.Permissions {
 		if p.Resource == resource {
@@ -155,7 +155,7 @@ func resourcePermissionUpdate(ctx context.Context, d *schema.ResourceData, meta 
 		updatedPerms = append(updatedPerms, newPerm)
 	}
 
-	updated, err := cfg.client.Agents.Update(ctx, agentID, kavachos.UpdateAgentInput{
+	updated, err := cfg.client.Agents.Update(ctx, agentID, theauth.UpdateAgentInput{
 		Permissions: updatedPerms,
 	})
 	if err != nil {
@@ -172,7 +172,7 @@ func resourcePermissionDelete(ctx context.Context, d *schema.ResourceData, meta 
 
 	agent, err := cfg.client.Agents.Get(ctx, agentID)
 	if err != nil {
-		if kavachos.IsNotFound(err) {
+		if theauth.IsNotFound(err) {
 			return nil
 		}
 		return diag.Errorf("reading agent %s for permission revoke: %s", agentID, err)
@@ -182,14 +182,14 @@ func resourcePermissionDelete(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	// Remove the matching permission.
-	updatedPerms := make([]kavachos.Permission, 0, len(agent.Permissions))
+	updatedPerms := make([]theauth.Permission, 0, len(agent.Permissions))
 	for _, p := range agent.Permissions {
 		if p.Resource != resource {
 			updatedPerms = append(updatedPerms, p)
 		}
 	}
 
-	if _, err := cfg.client.Agents.Update(ctx, agentID, kavachos.UpdateAgentInput{
+	if _, err := cfg.client.Agents.Update(ctx, agentID, theauth.UpdateAgentInput{
 		Permissions: updatedPerms,
 	}); err != nil {
 		return diag.Errorf("revoking permission on agent %s: %s", agentID, err)
@@ -198,14 +198,14 @@ func resourcePermissionDelete(ctx context.Context, d *schema.ResourceData, meta 
 	return nil
 }
 
-func buildPermissionFromState(d *schema.ResourceData) kavachos.Permission {
-	perm := kavachos.Permission{
+func buildPermissionFromState(d *schema.ResourceData) theauth.Permission {
+	perm := theauth.Permission{
 		Resource: d.Get("resource").(string),
 		Actions:  expandStringList(d.Get("actions").([]interface{})),
 	}
 
 	hasConstraints := false
-	constraints := &kavachos.PermissionConstraints{}
+	constraints := &theauth.PermissionConstraints{}
 
 	if v := d.Get("require_approval").(bool); v {
 		constraints.RequireApproval = &v
@@ -231,7 +231,7 @@ func buildPermissionFromState(d *schema.ResourceData) kavachos.Permission {
 	return perm
 }
 
-func syncPermissionState(d *schema.ResourceData, agent *kavachos.Agent, resource string) diag.Diagnostics {
+func syncPermissionState(d *schema.ResourceData, agent *theauth.Agent, resource string) diag.Diagnostics {
 	for _, p := range agent.Permissions {
 		if p.Resource == resource {
 			if err := d.Set("actions", p.Actions); err != nil {

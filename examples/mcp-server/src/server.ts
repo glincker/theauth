@@ -1,10 +1,10 @@
-// KavachOS MCP Server Example
+// TheAuth MCP Server Example
 //
 // A Hono server that acts as both:
 //   1. An MCP OAuth 2.1 authorization server (issues tokens)
 //   2. An MCP resource server (protects tool endpoints with those tokens)
 //
-// Start: pnpm --filter @kavachos/example-mcp-server start
+// Start: pnpm --filter @theauth/example-mcp-server start
 //
 // Flow:
 //   1. Client registers via POST /api/mcp/register
@@ -20,16 +20,16 @@
 //   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@kavachos/hono";
+import { kavachHono } from "@theauth/hono";
 import { Hono } from "hono";
-import type { Kavach } from "kavachos";
-import { createKavach, users } from "kavachos";
-import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "kavachos/mcp";
-import { createMcpModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import { createKavach, users } from "theauth";
+import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "theauth/mcp";
+import { createMcpModule } from "theauth/mcp";
 
 const PORT = 3001;
 const BASE_URL = `http://localhost:${PORT}`;
-const SIGNING_SECRET = "kavachos-example-secret-key-at-least-32-chars-long";
+const SIGNING_SECRET = "theauth-example-secret-key-at-least-32-chars-long";
 
 // ─── In-memory MCP stores ─────────────────────────────────────────────────────
 // In production, back these with your database.
@@ -46,7 +46,7 @@ function seedUser(kavach: Kavach): void {
 		.insert(users)
 		.values({
 			id: "user-1",
-			email: "demo@kavachos.dev",
+			email: "demo@theauth.dev",
 			name: "Demo User",
 			createdAt: new Date(),
 			updatedAt: new Date(),
@@ -105,7 +105,7 @@ function homepageHtml(): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>KavachOS MCP Server</title>
+  <title>TheAuth MCP Server</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -130,8 +130,8 @@ function homepageHtml(): string {
 </head>
 <body>
   <div class="container">
-    <h1>KavachOS MCP Server</h1>
-    <p class="subtitle">MCP tool server with OAuth 2.1 auth powered by KavachOS</p>
+    <h1>TheAuth MCP Server</h1>
+    <p class="subtitle">MCP tool server with OAuth 2.1 auth powered by TheAuth</p>
     <div class="status"><span class="dot"></span><span style="font-size:0.85rem;color:#4ade80">Running on port ${PORT}</span></div>
 
     <h2>MCP OAuth 2.1 endpoints</h2>
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
 		},
 	});
 
-	// Mount all KavachOS routes (agents, audit, delegation, MCP OAuth)
+	// Mount all TheAuth routes (agents, audit, delegation, MCP OAuth)
 	const api = kavachHono(kavach, { mcp });
 
 	const app = new Hono();
@@ -250,7 +250,7 @@ async function main(): Promise<void> {
 	// Homepage
 	app.get("/", (c) => c.html(homepageHtml()));
 
-	// KavachOS API + MCP OAuth endpoints
+	// TheAuth API + MCP OAuth endpoints
 	app.route("/api", api);
 
 	// ── Protected MCP tool endpoints ─────────────────────────────────────────
@@ -339,7 +339,7 @@ async function main(): Promise<void> {
 
 	serve({ fetch: app.fetch, port: PORT }, () => {
 		process.stdout.write(`
-KavachOS MCP Server
+TheAuth MCP Server
   ${BASE_URL}
 
 MCP OAuth 2.1:
@@ -358,7 +358,7 @@ Agent management:
   GET  /api/agents          (list agents)
   GET  /api/audit           (audit trail)
 
-Seed user: user-1  (demo@kavachos.dev)
+Seed user: user-1  (demo@theauth.dev)
 Database:  mcp-server.db
 
 `);

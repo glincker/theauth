@@ -1,4 +1,4 @@
-import type { Kavach } from "kavachos";
+import type { Kavach } from "theauth";
 import { buildCorsHeaders, isPreflight } from "./cors.js";
 import { matchPolicy } from "./policy-matcher.js";
 import { createGatewayRateLimiter } from "./rate-limiter.js";
@@ -75,7 +75,7 @@ function buildUpstreamRequest(
 	// Forward the original host and indicate proxied request
 	headers.set("X-Forwarded-Host", url.hostname);
 	headers.set("X-Forwarded-Proto", url.protocol.replace(":", ""));
-	headers.set("X-Gateway", "kavachos");
+	headers.set("X-Gateway", "theauth");
 
 	return new Request(target.toString(), {
 		method: request.method,
@@ -152,13 +152,13 @@ async function recordAuditEntry(
 // ─── Gateway Factory ─────────────────────────────────────────────────────────
 
 /**
- * Create a KavachOS Gateway that enforces auth, authorization, and rate
+ * Create a TheAuth Gateway that enforces auth, authorization, and rate
  * limiting in front of any HTTP upstream.
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { createGateway } from '@kavachos/gateway';
+ * import { createKavach } from 'theauth';
+ * import { createGateway } from '@theauth/gateway';
  *
  * const kavach = await createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  *

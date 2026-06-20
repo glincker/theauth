@@ -190,7 +190,7 @@ export const mcpServers = sqliteTable("kavach_mcp_servers", {
 });
 
 // ============================================================
-// Sessions (human user sessions managed by KavachOS)
+// Sessions (human user sessions managed by TheAuth)
 // ============================================================
 export const sessions = sqliteTable("kavach_sessions", {
 	id: text("id").primaryKey(),
@@ -607,7 +607,7 @@ export const agentDids = sqliteTable("kavach_agent_dids", {
 });
 
 // ============================================================
-// OIDC Provider — Clients (apps authenticating against KavachOS IdP)
+// OIDC Provider — Clients (apps authenticating against TheAuth IdP)
 // ============================================================
 export const oidcClients = sqliteTable("kavach_oidc_clients", {
 	id: text("id").primaryKey(),
@@ -753,7 +753,7 @@ export const rebacRelationships = sqliteTable("kavach_rebac_relationships", {
 });
 
 // ============================================================
-// Federation Instances (trusted remote KavachOS instances)
+// Federation Instances (trusted remote TheAuth instances)
 // ============================================================
 export const federationInstances = sqliteTable("kavach_federation_instances", {
 	id: text("id").primaryKey(),

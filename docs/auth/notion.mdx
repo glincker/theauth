@@ -43,8 +43,8 @@ Under **Basic Information**, copy the **OAuth client ID** and generate an **OAut
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -91,7 +91,7 @@ Notion does not use granular OAuth scopes. Permissions are configured at the int
 | `avatar` | `owner.user.avatar_url` | May be null if the user has no profile photo |
 
 <Info>
-  Notion returns user identity as part of the token exchange response, there is no separate `/me` endpoint. KavachOS caches the token payload internally so no extra network call is made.
+  Notion returns user identity as part of the token exchange response, there is no separate `/me` endpoint. TheAuth caches the token payload internally so no extra network call is made.
 </Info>
 
 <Warning>
@@ -126,6 +126,6 @@ This is useful for multi-workspace SaaS apps where you want to scope data per No
     Sign in with Slack using OpenID Connect.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

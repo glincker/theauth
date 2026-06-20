@@ -1,6 +1,6 @@
 # Governance
 
-This document describes how KavachOS OSS is maintained and how decisions are made.
+This document describes how TheAuth OSS is maintained and how decisions are made.
 
 ## Project goals
 

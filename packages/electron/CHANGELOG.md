@@ -1,4 +1,4 @@
-# @kavachos/electron
+# @theauth/electron
 
 ## 0.1.0
 

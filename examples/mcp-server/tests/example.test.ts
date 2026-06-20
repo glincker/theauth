@@ -48,7 +48,7 @@ async function waitForServer(baseUrl: string): Promise<void> {
 
 async function startExample(): Promise<RunningExample> {
 	const port = await getFreePort();
-	const dir = await mkdtemp(join(tmpdir(), "kavachos-mcp-example-"));
+	const dir = await mkdtemp(join(tmpdir(), "theauth-mcp-example-"));
 	const dbPath = join(dir, "mcp-example.db");
 	const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 	const child = spawn(pnpmCmd, ["start"], {
@@ -106,7 +106,7 @@ describe("mcp-server example", () => {
 
 		const homeRes = await fetch(`${app.baseUrl}/`);
 		expect(homeRes.status).toBe(200);
-		expect(await homeRes.text()).toContain("KavachOS MCP Server");
+		expect(await homeRes.text()).toContain("TheAuth MCP Server");
 
 		const metadataRes = await fetch(`${app.baseUrl}/api/.well-known/oauth-authorization-server`);
 		expect(metadataRes.status).toBe(200);

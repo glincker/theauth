@@ -6,7 +6,7 @@ const checks = [
 		command: [
 			"pnpm",
 			"--filter",
-			"kavachos",
+			"theauth",
 			"exec",
 			"vitest",
 			"run",
@@ -15,36 +15,31 @@ const checks = [
 	},
 	{
 		name: "cli smoke",
-		command: ["pnpm", "--filter", "@kavachos/cli", "test"],
+		command: ["pnpm", "--filter", "@theauth/cli", "test"],
 	},
 	{
 		name: "basic agent example smoke",
-		command: ["pnpm", "--filter", "@kavachos/example-basic-agent", "test"],
+		command: ["pnpm", "--filter", "@theauth/example-basic-agent", "test"],
 	},
 	{
 		name: "hono example smoke",
-		command: ["pnpm", "--filter", "@kavachos/example-hono-server", "test"],
+		command: ["pnpm", "--filter", "@theauth/example-hono-server", "test"],
 	},
 	{
 		name: "mcp example smoke",
-		command: ["pnpm", "--filter", "@kavachos/example-mcp-server", "test"],
+		command: ["pnpm", "--filter", "@theauth/example-mcp-server", "test"],
 	},
 	{
 		name: "migrate-from-auth0 example smoke",
-		command: ["pnpm", "--filter", "@kavachos/example-migrate-from-auth0", "test"],
+		command: ["pnpm", "--filter", "@theauth/example-migrate-from-auth0", "test"],
 	},
 	{
 		name: "migrate-from-better-auth-agent-plugin example smoke",
-		command: [
-			"pnpm",
-			"--filter",
-			"@kavachos/example-migrate-from-better-auth-agent-plugin",
-			"test",
-		],
+		command: ["pnpm", "--filter", "@theauth/example-migrate-from-better-auth-agent-plugin", "test"],
 	},
 	{
 		name: "dashboard e2e",
-		command: ["pnpm", "--filter", "@kavachos/dashboard", "test:e2e"],
+		command: ["pnpm", "--filter", "@theauth/dashboard", "test:e2e"],
 	},
 ];
 

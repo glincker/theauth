@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/hono",
+  "name": "@theauth/hono",
   "version": "3.0.2",
-  "description": "Hono adapter for KavachOS - exposes agent auth as HTTP REST endpoints",
+  "description": "Hono adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,26 +21,26 @@
     "test:watch": "vitest watch"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "hono",
     "auth",
     "agent",
     "mcp"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/hono"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "hono": ">=4.0.0",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "hono": "^4.12.14",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",

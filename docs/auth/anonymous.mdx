@@ -9,8 +9,8 @@ The `anonymousAuth` plugin creates a lightweight guest identity on demand. The g
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { anonymousAuth } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { anonymousAuth } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -79,7 +79,7 @@ After upgrade, `user.isAnonymous` becomes `false` and the account is treated the
 Expired anonymous accounts can accumulate. Schedule regular cleanup with the built-in helper:
 
 ```typescript title="Scheduled cleanup"
-import { cleanupAnonymousUsers } from 'kavachos/auth';
+import { cleanupAnonymousUsers } from 'theauth/auth';
 
 // Run daily via cron, queue worker, etc.
 await cleanupAnonymousUsers(kavach, {
@@ -107,7 +107,7 @@ await cleanupAnonymousUsers(kavach, {
     Passwordless sign-in that anonymous users can upgrade into.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
-    How KavachOS manages session lifetime and cookie settings.
+    How TheAuth manages session lifetime and cookie settings.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
     Run logic on guest creation and upgrade events.

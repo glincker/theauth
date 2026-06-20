@@ -1,4 +1,4 @@
-package kavachos
+package theauth
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func (r *AgentsResource) Create(ctx context.Context, input CreateAgentInput) (*A
 	}
 	var agent Agent
 	if err := json.Unmarshal(unwrapAPIData(raw), &agent); err != nil {
-		return nil, fmt.Errorf("kavachos: decode agent: %w", err)
+		return nil, fmt.Errorf("theauth: decode agent: %w", err)
 	}
 	return &agent, nil
 }
@@ -35,7 +35,7 @@ func (r *AgentsResource) List(ctx context.Context, filters *AgentFilters) ([]Age
 	data := unwrapAPIData(raw)
 	var agents []Agent
 	if err := json.Unmarshal(data, &agents); err != nil {
-		return nil, fmt.Errorf("kavachos: decode agents list: %w", err)
+		return nil, fmt.Errorf("theauth: decode agents list: %w", err)
 	}
 	return agents, nil
 }
@@ -52,7 +52,7 @@ func (r *AgentsResource) Get(ctx context.Context, agentID string) (*Agent, error
 	}
 	var agent Agent
 	if err := json.Unmarshal(unwrapAPIData(raw), &agent); err != nil {
-		return nil, fmt.Errorf("kavachos: decode agent: %w", err)
+		return nil, fmt.Errorf("theauth: decode agent: %w", err)
 	}
 	return &agent, nil
 }
@@ -65,7 +65,7 @@ func (r *AgentsResource) Update(ctx context.Context, agentID string, input Updat
 	}
 	var agent Agent
 	if err := json.Unmarshal(unwrapAPIData(raw), &agent); err != nil {
-		return nil, fmt.Errorf("kavachos: decode agent: %w", err)
+		return nil, fmt.Errorf("theauth: decode agent: %w", err)
 	}
 	return &agent, nil
 }
@@ -83,7 +83,7 @@ func (r *AgentsResource) Rotate(ctx context.Context, agentID string) (*Agent, er
 	}
 	var agent Agent
 	if err := json.Unmarshal(unwrapAPIData(raw), &agent); err != nil {
-		return nil, fmt.Errorf("kavachos: decode agent: %w", err)
+		return nil, fmt.Errorf("theauth: decode agent: %w", err)
 	}
 	return &agent, nil
 }
@@ -96,7 +96,7 @@ func (r *AgentsResource) Authorize(ctx context.Context, agentID string, req Auth
 	}
 	var result AuthorizeResult
 	if err := json.Unmarshal(unwrapAPIData(raw), &result); err != nil {
-		return nil, fmt.Errorf("kavachos: decode authorize result: %w", err)
+		return nil, fmt.Errorf("theauth: decode authorize result: %w", err)
 	}
 	return &result, nil
 }
@@ -110,7 +110,7 @@ func (r *AgentsResource) GetEffectivePermissions(ctx context.Context, agentID st
 	}
 	var perms []Permission
 	if err := json.Unmarshal(unwrapAPIData(raw), &perms); err != nil {
-		return nil, fmt.Errorf("kavachos: decode permissions: %w", err)
+		return nil, fmt.Errorf("theauth: decode permissions: %w", err)
 	}
 	return perms, nil
 }

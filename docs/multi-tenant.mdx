@@ -1,13 +1,13 @@
 ---
 title: Multi-tenant isolation
-description: Running multiple organizations on one KavachOS instance with per-tenant settings.
+description: Running multiple organizations on one TheAuth instance with per-tenant settings.
 icon: building
 ---
 
 
 ## What tenants are
 
-A tenant represents an organization or workspace that shares one KavachOS deployment. Each tenant has its own agents, audit log, and policy settings. Data is isolated by `tenantId`: agents in one tenant cannot be seen or authorized against by another.
+A tenant represents an organization or workspace that shares one TheAuth deployment. Each tenant has its own agents, audit log, and policy settings. Data is isolated by `tenantId`: agents in one tenant cannot be seen or authorized against by another.
 
 This is useful for SaaS products where each customer gets their own isolated agent environment without you running a separate database per customer.
 
@@ -34,7 +34,7 @@ This is useful for SaaS products where each customer gets their own isolated age
 
 ## Creating a tenant
 
-Slugs must be unique and match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. KavachOS rejects duplicate slugs at creation time.
+Slugs must be unique and match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. TheAuth rejects duplicate slugs at creation time.
 
 ```typescript
 const tenant = await kavach.tenant.create({

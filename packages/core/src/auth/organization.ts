@@ -1,5 +1,5 @@
 /**
- * Organizations + RBAC module for KavachOS.
+ * Organizations + RBAC module for TheAuth.
  *
  * Provides organization CRUD, membership management, invitation flows,
  * and role-based permission checking. Uses the kavach_organizations,

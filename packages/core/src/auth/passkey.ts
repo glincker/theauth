@@ -1,5 +1,5 @@
 /**
- * Passkey / WebAuthn authentication for KavachOS.
+ * Passkey / WebAuthn authentication for TheAuth.
  *
  * Implements server-side WebAuthn (Level 2) without external libraries.
  * Uses the Web Crypto API for signature verification

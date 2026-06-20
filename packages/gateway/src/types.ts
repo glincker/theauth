@@ -1,4 +1,4 @@
-import type { Kavach } from "kavachos";
+import type { Kavach } from "theauth";
 
 // ─── Gateway Configuration ───────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ export interface GatewayConfig {
 	upstream: string;
 	/** Base path prefix for all proxied routes. Default: '/' */
 	basePath?: string;
-	/** KavachOS instance */
+	/** TheAuth instance */
 	kavach: Kavach;
 	/** Path-based access policies */
 	policies?: GatewayPolicy[];

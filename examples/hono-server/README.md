@@ -1,6 +1,6 @@
 # Hono server example
 
-Full auth server using KavachOS with the Hono adapter. Includes sign-up, sign-in, session management, and agent CRUD.
+Full auth server using TheAuth with the Hono adapter. Includes sign-up, sign-in, session management, and agent CRUD.
 
 ## Run
 

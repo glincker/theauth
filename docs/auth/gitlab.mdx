@@ -38,8 +38,8 @@ After saving, copy the **Application ID** and **Secret**.
 <Tabs>
   <Tab title="gitlab.com">
     ```typescript title="lib/kavach.ts"
-    import { createKavach } from 'kavachos';
-    import { oauth } from 'kavachos/auth';
+    import { createKavach } from 'theauth';
+    import { oauth } from 'theauth/auth';
 
     const kavach = await createKavach({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -104,7 +104,7 @@ Default scopes: `read_user email`
 | `image` | `avatar_url` field | Profile picture URL |
 
 <Info>
-  For self-hosted GitLab instances, make sure your KavachOS server can reach the GitLab API. If you are behind a VPN or firewall, the token exchange and user info calls will fail if the instance is not reachable from your server.
+  For self-hosted GitLab instances, make sure your TheAuth server can reach the GitLab API. If you are behind a VPN or firewall, the token exchange and user info calls will fail if the instance is not reachable from your server.
 </Info>
 
 ## Related
@@ -120,6 +120,6 @@ Default scopes: `read_user email`
     Another work and productivity OAuth provider.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

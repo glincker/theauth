@@ -1,8 +1,8 @@
 /**
- * KavachOS on Cloudflare Workers with D1
+ * TheAuth on Cloudflare Workers with D1
  *
  * Deploy:
- *   wrangler d1 create kavachos-db
+ *   wrangler d1 create theauth-db
  *   wrangler secret put SESSION_SECRET
  *   wrangler deploy
  *
@@ -10,16 +10,16 @@
  *
  *   [[d1_databases]]
  *   binding = "DB"
- *   database_name = "kavachos-db"
+ *   database_name = "theauth-db"
  *   database_id = "<your-database-id>"
  *
  * On first deploy, run migrations:
- *   wrangler d1 execute kavachos-db --file=./migrations/0001_initial.sql
+ *   wrangler d1 execute theauth-db --file=./migrations/0001_initial.sql
  */
 
-import { kavachHono } from "@kavachos/hono";
+import { kavachHono } from "@theauth/hono";
 import { Hono } from "hono";
-import { createKavach } from "kavachos";
+import { createKavach } from "theauth";
 
 // Cloudflare Workers env bindings
 type Env = {
@@ -32,7 +32,7 @@ const app = new Hono<{ Bindings: Env }>();
 // Health check — no DB required
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-// All KavachOS routes under /api
+// All TheAuth routes under /api
 // kavach is created per-request so it picks up the correct D1 binding
 app.all("/api/*", async (c) => {
 	const kavach = await createKavach({

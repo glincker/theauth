@@ -1,5 +1,5 @@
 /**
- * CSRF protection utilities for KavachOS.
+ * CSRF protection utilities for TheAuth.
  *
  * Implements two complementary defences:
  *

@@ -1,5 +1,5 @@
 /**
- * Auth.js (NextAuth v5) adapter for KavachOS.
+ * Auth.js (NextAuth v5) adapter for TheAuth.
  *
  * Auth.js v5's `getSession` varies by framework (Next.js, SvelteKit, etc.) so
  * this adapter is generic: you supply your own `getSession` function and this
@@ -7,7 +7,7 @@
  *
  * @example Next.js App Router (Auth.js v5)
  * ```typescript
- * import { authJsAdapter } from 'kavachos/auth';
+ * import { authJsAdapter } from 'theauth/auth';
  * import { auth } from './auth'; // your Auth.js instance
  *
  * const kavach = await createKavach({
@@ -20,7 +20,7 @@
  *
  * @example SvelteKit (Auth.js v5)
  * ```typescript
- * import { authJsAdapter } from 'kavachos/auth';
+ * import { authJsAdapter } from 'theauth/auth';
  * import { SvelteKitAuth } from '@auth/sveltekit';
  *
  * // Wrap the SvelteKit event resolver into a standard Request-based function.

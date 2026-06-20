@@ -2,9 +2,9 @@
 
 Owner: https://glincker.com
 
-## KavachOS - Authentication and Authorization for AI Agents and Humans
+## TheAuth - Authentication and Authorization for AI Agents and Humans
 
-KavachOS is an open-source authentication and authorization platform built for applications where AI agents and humans collaborate. It provides full human authentication (email, OAuth, passkeys, SSO) alongside agent-native primitives: API keys, delegation, capability-based permissions, and cryptographically verifiable audit trails.
+TheAuth is an open-source authentication and authorization platform built for applications where AI agents and humans collaborate. It provides full human authentication (email, OAuth, passkeys, SSO) alongside agent-native primitives: API keys, delegation, capability-based permissions, and cryptographically verifiable audit trails.
 
 ## Core Features
 
@@ -42,12 +42,12 @@ KavachOS is an open-source authentication and authorization platform built for a
 ## Quick Start
 
 ```bash
-npm install kavachos
+npm install theauth
 ```
 
 ```typescript
-import { createKavach } from "kavachos";
-import { emailPassword } from "kavachos/auth";
+import { createKavach } from "theauth";
+import { emailPassword } from "theauth/auth";
 
 const kavach = createKavach({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
@@ -58,7 +58,7 @@ const kavach = createKavach({
 Use in React:
 
 ```tsx
-import { useSession, useSignIn } from "@kavachos/react";
+import { useSession, useSignIn } from "@theauth/react";
 
 export function App() {
   const { user } = useSession();
@@ -87,28 +87,28 @@ const apiKey = agent.apiKey;
 
 ## Repository Structure
 
-The KavachOS organization contains multiple repositories:
+The TheAuth organization contains multiple repositories:
 
-- **kavachos** - Core monorepo with SDKs, adapters, and client libraries
-- **kavachos-cloud** - Managed service offering (deployment, API, dashboard)
+- **theauth** - Core monorepo with SDKs, adapters, and client libraries
+- **theauth-cloud** - Managed service offering (deployment, API, dashboard)
 - **docs** - Full documentation and guides
 
 ## Documentation
 
-Learn more and get started at https://docs.kavachos.com
+Learn more and get started at https://docs.theauth.com
 
-See the main [kavachos repository](https://github.com/kavachos/kavachos) for implementation details, API reference, and examples.
+See the main [theauth repository](https://github.com/glincker/theauth) for implementation details, API reference, and examples.
 
 ## Governance and Support
 
-- [Governance Model](https://github.com/kavachos/kavachos/blob/main/GOVERNANCE.md)
-- [Contributing Guidelines](https://github.com/kavachos/kavachos/blob/main/CONTRIBUTING.md)
-- [Support Policy](https://github.com/kavachos/kavachos/blob/main/SUPPORT.md)
-- [GitHub Discussions](https://github.com/kavachos/kavachos/discussions)
+- [Governance Model](https://github.com/glincker/theauth/blob/main/GOVERNANCE.md)
+- [Contributing Guidelines](https://github.com/glincker/theauth/blob/main/CONTRIBUTING.md)
+- [Support Policy](https://github.com/glincker/theauth/blob/main/SUPPORT.md)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions)
 
 ## Security
 
-For security vulnerabilities, email support@glincker.com with reproduction steps and impact assessment. See [SECURITY.md](https://github.com/kavachos/kavachos/blob/main/SECURITY.md) for details.
+For security vulnerabilities, email support@glincker.com with reproduction steps and impact assessment. See [SECURITY.md](https://github.com/glincker/theauth/blob/main/SECURITY.md) for details.
 
 ## License
 

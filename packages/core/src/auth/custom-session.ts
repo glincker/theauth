@@ -1,5 +1,5 @@
 /**
- * Custom session fields plugin for KavachOS.
+ * Custom session fields plugin for TheAuth.
  *
  * Lets callers attach arbitrary data to sessions at creation time and read or
  * update that data later.  Everything is stored in the existing
@@ -14,8 +14,8 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { customSession } from 'kavachos/auth';
+ * import { createKavach } from 'theauth';
+ * import { customSession } from 'theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

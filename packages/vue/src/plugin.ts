@@ -21,7 +21,7 @@ export function useRequiredContext(composableName: string): KavachContextValue {
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
 export interface KavachPluginOptions {
-	/** Base path where KavachOS is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 }
 

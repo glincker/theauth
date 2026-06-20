@@ -1,21 +1,21 @@
-# @kavachos/express
+# @theauth/express
 
-Express adapter for KavachOS.
+Express adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/express)](https://www.npmjs.com/package/@kavachos/express)
+[![npm](https://img.shields.io/npm/v/@theauth/express)](https://www.npmjs.com/package/@theauth/express)
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/express
+pnpm add theauth @theauth/express
 ```
 
 ## Usage
 
 ```typescript
 import express from 'express';
-import { createKavach } from 'kavachos';
-import { kavachExpress } from '@kavachos/express';
+import { createKavach } from 'theauth';
+import { kavachExpress } from '@theauth/express';
 
 const app = express();
 app.use(express.json());
@@ -25,19 +25,19 @@ const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 
-// Mount all KavachOS routes at /auth
+// Mount all TheAuth routes at /auth
 app.use('/auth', kavachExpress(kavach));
 
 app.listen(3000);
 ```
 
-This mounts the full KavachOS REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'kavachos/mcp';
-import { kavachExpress } from '@kavachos/express';
+import { createMcpModule } from 'theauth/mcp';
+import { kavachExpress } from '@theauth/express';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -63,12 +63,12 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 |--------|------|-------------|
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [kavachos](https://www.npmjs.com/package/kavachos) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
 
 ## Links
 
-- [Documentation](https://kavachos.dev/docs)
-- [GitHub](https://github.com/kavachos/kavachos)
+- [Documentation](https://theauth.dev/docs)
+- [GitHub](https://github.com/glincker/theauth)
 
 ## License
 

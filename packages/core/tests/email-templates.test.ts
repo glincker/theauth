@@ -267,14 +267,14 @@ describe("email templates: HTML is inline CSS and structurally valid", () => {
 
 	for (const name of allTemplateNames) {
 		it(`${name} HTML does not reference external stylesheets`, () => {
-			const templates = createEmailTemplates({ appName: "KavachOS" });
+			const templates = createEmailTemplates({ appName: "TheAuth" });
 			const result = templates.render(name, vars[name] ?? {});
 			expect(result.html).not.toContain("<link");
 			expect(result.html).not.toContain("@import");
 		});
 
 		it(`${name} HTML starts with DOCTYPE`, () => {
-			const templates = createEmailTemplates({ appName: "KavachOS" });
+			const templates = createEmailTemplates({ appName: "TheAuth" });
 			const result = templates.render(name, vars[name] ?? {});
 			expect(result.html.trimStart()).toMatch(/^<!DOCTYPE html>/i);
 		});

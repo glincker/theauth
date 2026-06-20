@@ -1,12 +1,12 @@
 /**
- * better-auth adapter for KavachOS.
+ * better-auth adapter for TheAuth.
  *
- * Wraps better-auth's `api.getSession` so KavachOS can resolve a human user
+ * Wraps better-auth's `api.getSession` so TheAuth can resolve a human user
  * from an incoming HTTP request without any additional configuration.
  *
  * @example
  * ```typescript
- * import { betterAuthAdapter } from 'kavachos/auth';
+ * import { betterAuthAdapter } from 'theauth/auth';
  * import { auth } from './lib/auth'; // your better-auth instance
  *
  * const kavach = await createKavach({

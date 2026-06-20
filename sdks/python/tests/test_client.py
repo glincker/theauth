@@ -6,12 +6,12 @@ import pytest
 import respx
 import httpx
 
-from kavachos import KavachClient, KavachSyncClient
-from kavachos.agents import AsyncAgentsResource, SyncAgentsResource
-from kavachos.audit import AsyncAuditResource, SyncAuditResource
-from kavachos.auth import AsyncAuthResource, SyncAuthResource
-from kavachos.delegation import AsyncDelegationResource, SyncDelegationResource
-from kavachos.errors import (
+from theauth import KavachClient, KavachSyncClient
+from theauth.agents import AsyncAgentsResource, SyncAgentsResource
+from theauth.audit import AsyncAuditResource, SyncAuditResource
+from theauth.auth import AsyncAuthResource, SyncAuthResource
+from theauth.delegation import AsyncDelegationResource, SyncDelegationResource
+from theauth.errors import (
     AuthenticationError,
     KavachError,
     NetworkError,

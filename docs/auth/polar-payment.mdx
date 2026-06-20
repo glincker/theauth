@@ -1,10 +1,10 @@
 ---
 title: Polar payments
-description: Wire Polar subscription billing into KavachOS with the `polar()` plugin. Set an access token and webhook secret to sync checkout and subscription state.
+description: Wire Polar subscription billing into TheAuth with the `polar()` plugin. Set an access token and webhook secret to sync checkout and subscription state.
 icon: "/brand-icons/polar.svg"
 ---
 
-Polar is an open-source funding platform for developers. The KavachOS plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required.
+Polar is an open-source funding platform for developers. The TheAuth plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required.
 
 ## Setup
 
@@ -19,8 +19,8 @@ From your [Polar dashboard](https://polar.sh), go to **Settings → API** and cr
 ### Configure the plugin
 
 ```ts
-import { createKavach } from 'kavachos';
-import { polar } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { polar } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
@@ -65,7 +65,7 @@ if (sub?.status === 'active') {
 
 ## HTTP endpoints
 
-The plugin registers three routes under your KavachOS base path.
+The plugin registers three routes under your TheAuth base path.
 
 ### POST /auth/polar/checkout
 
@@ -144,7 +144,7 @@ polar({
 | `cancelAtPeriodEnd` | `boolean` | Whether cancellation is scheduled |
 
 <Info>
-KavachOS stores Polar subscription data in the `kavach_users` table. You can query it directly with Drizzle or any SQL client.
+TheAuth stores Polar subscription data in the `kavach_users` table. You can query it directly with Drizzle or any SQL client.
 </Info>
 
 ## Related

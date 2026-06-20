@@ -1,10 +1,10 @@
 /**
- * A2A JSON-RPC server for KavachOS.
+ * A2A JSON-RPC server for TheAuth.
  *
  * Creates a Web API Request/Response handler that implements the A2A
  * protocol's JSON-RPC endpoint. Handles message/send, tasks/get,
  * tasks/cancel, and message/stream (SSE). Authenticates callers through
- * KavachOS and logs every interaction to the audit trail.
+ * TheAuth and logs every interaction to the audit trail.
  */
 
 import type {

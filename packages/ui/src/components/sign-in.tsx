@@ -1,4 +1,4 @@
-import { useSignIn } from "@kavachos/react";
+import { useSignIn } from "@theauth/react";
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useState } from "react";
 import type {

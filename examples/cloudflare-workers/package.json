@@ -1,5 +1,5 @@
 {
-  "name": "@kavachos/example-cloudflare-workers",
+  "name": "@theauth/example-cloudflare-workers",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "kavachos": "workspace:*",
-    "@kavachos/hono": "workspace:*",
+    "theauth": "workspace:*",
+    "@theauth/hono": "workspace:*",
     "hono": "^4.12.14"
   },
   "devDependencies": {

@@ -1,15 +1,15 @@
 ---
 title: Hono
-description: Mount KavachOS auth routes on a Hono app with `kavachHono(kavach)`. Web-standard Request/Response, runs on Workers, Bun, Deno, and Node.
+description: Mount TheAuth auth routes on a Hono app with `kavachHono(kavach)`. Web-standard Request/Response, runs on Workers, Bun, Deno, and Node.
 icon: "/brand-icons/hono.svg"
 ---
 
-`kavachHono(kavach, options?)` returns a `Hono` app instance with all KavachOS routes pre-mounted. Use `app.route` to attach it to your main app.
+`kavachHono(kavach, options?)` returns a `Hono` app instance with all TheAuth routes pre-mounted. Use `app.route` to attach it to your main app.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/hono hono @hono/node-server
+pnpm add theauth @theauth/hono hono @hono/node-server
 ```
 
 ## Setup
@@ -21,7 +21,7 @@ Create this once and reuse it across your app (e.g. `lib/kavach.ts`):
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -42,12 +42,12 @@ export const mcp = createMcpModule(kavach);
 // src/index.ts
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { kavachHono } from '@kavachos/hono';
+import { kavachHono } from '@theauth/hono';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = new Hono();
 
-// Mount all KavachOS routes (agents, permissions, audit, MCP OAuth)
+// Mount all TheAuth routes (agents, permissions, audit, MCP OAuth)
 app.route('/api/kavach', kavachHono(kavach, { mcp }));
 
 serve({ fetch: app.fetch, port: 3000 });
@@ -97,8 +97,8 @@ app.route('/api/kavach', kavachHono(kavach, { mcp }));
 ```typescript
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachHono } from '@kavachos/hono';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachHono } from '@theauth/hono';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

@@ -30,7 +30,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - packages/cli/**
-          - packages/create-kavachos-app/**
+          - packages/create-theauth-app/**
 
 "area:plugins":
   - changed-files:

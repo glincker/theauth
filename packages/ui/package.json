@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/ui",
+  "name": "@theauth/ui",
   "version": "0.1.0",
-  "description": "Pre-built auth UI components for KavachOS",
+  "description": "Pre-built auth UI components for TheAuth",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,18 +21,18 @@
     "test:watch": "vitest"
   },
   "license": "MIT",
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/ui"
   },
   "peerDependencies": {
-    "@kavachos/react": ">=0.0.2",
+    "@theauth/react": ">=0.0.2",
     "react": ">=18.0.0"
   },
   "devDependencies": {
-    "@kavachos/react": "workspace:*",
+    "@theauth/react": "workspace:*",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

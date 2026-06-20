@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a bug in KavachOS
+description: Report a bug in TheAuth
 labels: ["bug"]
 body:
   - type: markdown
@@ -10,8 +10,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: KavachOS version
-      description: Run `npm list kavachos` or check your package.json
+      label: TheAuth version
+      description: Run `npm list theauth` or check your package.json
       placeholder: "0.0.1"
     validations:
       required: true
@@ -21,16 +21,16 @@ body:
     attributes:
       label: Package
       options:
-        - kavachos (core)
-        - "@kavachos/hono"
-        - "@kavachos/express"
-        - "@kavachos/nextjs"
-        - "@kavachos/fastify"
-        - "@kavachos/nuxt"
-        - "@kavachos/sveltekit"
-        - "@kavachos/astro"
-        - "@kavachos/dashboard"
-        - "@kavachos/cli"
+        - theauth (core)
+        - "@theauth/hono"
+        - "@theauth/express"
+        - "@theauth/nextjs"
+        - "@theauth/fastify"
+        - "@theauth/nuxt"
+        - "@theauth/sveltekit"
+        - "@theauth/astro"
+        - "@theauth/dashboard"
+        - "@theauth/cli"
     validations:
       required: true
 

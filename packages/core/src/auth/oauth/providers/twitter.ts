@@ -171,7 +171,7 @@ export function createTwitterProvider(config: OAuthProviderConfig): OAuthProvide
 
 		// Twitter does not provide email through the standard OAuth 2.0 flow.
 		// Elevated access is required and not commonly available. We use a
-		// placeholder derived from the username so the KavachOS user record
+		// placeholder derived from the username so the TheAuth user record
 		// remains valid. Callers should treat this as an identifier, not a
 		// deliverable email address.
 		const email = `${data.username ?? data.id}@twitter.invalid`;

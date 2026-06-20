@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AgentIdentity, AuditEntry, DelegationChain } from "kavachos";
+import type { AgentIdentity, AuditEntry, DelegationChain } from "theauth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TelemetrySpan } from "../src/exporter.js";
 import { createTelemetryModule } from "../src/exporter.js";
@@ -99,11 +99,11 @@ describe("createTelemetryModule", () => {
 			expect(spans[0]?.attributes["service.name"]).toBe("my-service");
 		});
 
-		it("defaults service name to kavachos", () => {
+		it("defaults service name to theauth", () => {
 			const telemetry = createTelemetryModule({ onSpan });
 			telemetry.emitAuthorizeSpan(makeAuditEntry());
 
-			expect(spans[0]?.attributes["service.name"]).toBe("kavachos");
+			expect(spans[0]?.attributes["service.name"]).toBe("theauth");
 		});
 
 		it("includes tokensCost when present", () => {

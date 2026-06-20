@@ -1,13 +1,13 @@
 /**
- * OpenAPI 3.1 spec generation plugin for KavachOS.
+ * OpenAPI 3.1 spec generation plugin for TheAuth.
  *
- * Generates a complete OpenAPI document from KavachOS's registered auth
+ * Generates a complete OpenAPI document from TheAuth's registered auth
  * endpoints. Useful for serving at `/api/kavach/openapi.json` or wiring
  * into Swagger UI / Scalar.
  *
  * @example
  * ```typescript
- * import { createOpenApiModule } from 'kavachos/auth';
+ * import { createOpenApiModule } from 'theauth/auth';
  *
  * const openapi = createOpenApiModule();
  * const spec = openapi.generateSpec({
@@ -38,7 +38,7 @@ export type EndpointGroup =
 	| "webhooks";
 
 export interface OpenApiConfig {
-	/** API title shown in spec. Default: "KavachOS API" */
+	/** API title shown in spec. Default: "TheAuth API" */
 	title?: string;
 	/** Spec version string. Default: "0.0.1" */
 	version?: string;
@@ -46,7 +46,7 @@ export interface OpenApiConfig {
 	description?: string;
 	/** Server base URL. Default: "/" */
 	serverUrl?: string;
-	/** Path prefix for all KavachOS endpoints. Default: "/api/kavach" */
+	/** Path prefix for all TheAuth endpoints. Default: "/api/kavach" */
 	basePath?: string;
 	/**
 	 * Limit which endpoint groups are included in the spec.
@@ -166,7 +166,7 @@ export interface OpenApiModule {
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_TITLE = "KavachOS API";
+const DEFAULT_TITLE = "TheAuth API";
 const DEFAULT_VERSION = "0.0.1";
 const DEFAULT_SERVER_URL = "/";
 const DEFAULT_BASE_PATH = "/api/kavach";
@@ -1186,7 +1186,7 @@ const ALL_GROUPS: EndpointGroup[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Create an OpenAPI module that generates KavachOS API specifications.
+ * Create an OpenAPI module that generates TheAuth API specifications.
  *
  * The returned module is stateless and safe to share across requests.
  */
@@ -1229,7 +1229,7 @@ export function createOpenApiModule(): OpenApiModule {
 						type: "http",
 						scheme: "bearer",
 						bearerFormat: "JWT",
-						description: "KavachOS session token or agent token",
+						description: "TheAuth session token or agent token",
 					},
 				},
 				schemas: {

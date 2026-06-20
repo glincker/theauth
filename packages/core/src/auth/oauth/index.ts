@@ -1,9 +1,9 @@
 /**
- * OAuth 2.0 / OIDC provider support for KavachOS.
+ * OAuth 2.0 / OIDC provider support for TheAuth.
  *
  * @example
  * ```typescript
- * import { createOAuthModule, createGoogleProvider, createGithubProvider, createDiscordProvider } from 'kavachos/auth/oauth';
+ * import { createOAuthModule, createGoogleProvider, createGithubProvider, createDiscordProvider } from 'theauth/auth/oauth';
  *
  * const oauth = createOAuthModule(db, {
  *   providers: {

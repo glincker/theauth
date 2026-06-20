@@ -1,25 +1,25 @@
-# @kavachos/cli
+# @theauth/cli
 
-Setup wizard and dev tools for KavachOS.
+Setup wizard and dev tools for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/cli)](https://www.npmjs.com/package/@kavachos/cli)
+[![npm](https://img.shields.io/npm/v/@theauth/cli)](https://www.npmjs.com/package/@theauth/cli)
 
 ## Usage
 
 No install required. Run with `npx`:
 
 ```bash
-npx kavachos <command>
+npx theauth <command>
 ```
 
 ## Commands
 
 ### `init`
 
-Prints setup instructions for adding KavachOS to a project, including install steps, configuration scaffold, and adapter options:
+Prints setup instructions for adding TheAuth to a project, including install steps, configuration scaffold, and adapter options:
 
 ```bash
-npx kavachos init
+npx theauth init
 ```
 
 ### `migrate`
@@ -27,7 +27,7 @@ npx kavachos init
 Runs database migrations (auto-applies schema on first run):
 
 ```bash
-npx kavachos migrate
+npx theauth migrate
 ```
 
 ### `dashboard`
@@ -35,10 +35,10 @@ npx kavachos migrate
 Launches the standalone admin UI on port 3100 by default:
 
 ```bash
-npx kavachos dashboard
+npx theauth dashboard
 
 # Custom port and API URL
-npx kavachos dashboard --port 4000 --api http://localhost:3000
+npx theauth dashboard --port 4000 --api http://localhost:3000
 ```
 
 ## Options
@@ -46,14 +46,14 @@ npx kavachos dashboard --port 4000 --api http://localhost:3000
 | Flag | Default | Description |
 |---|---|---|
 | `--port` | `3100` | Port for the dashboard server |
-| `--api` | `http://localhost:3000` | KavachOS API URL |
+| `--api` | `http://localhost:3000` | TheAuth API URL |
 | `--help, -h` | | Show help |
 | `--version` | | Show version |
 
 ## Docs and support
 
-- Documentation: [kavachos.com/docs](https://kavachos.com/docs)
-- GitHub: [github.com/kavachos/kavachos](https://github.com/kavachos/kavachos)
+- Documentation: [theauth.com/docs](https://theauth.com/docs)
+- GitHub: [github.com/glincker/theauth](https://github.com/glincker/theauth)
 
 ## License
 

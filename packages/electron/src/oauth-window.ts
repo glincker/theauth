@@ -8,7 +8,7 @@ export interface OAuthWindowConfig {
 	width?: number;
 	/** Window height in pixels. Defaults to 700. */
 	height?: number;
-	/** Base path where KavachOS is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 }
 

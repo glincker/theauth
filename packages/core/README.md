@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://kavachos.com/logo.svg" height="64" alt="KavachOS" />
+  <img src="https://theauth.com/logo.svg" height="64" alt="TheAuth" />
 </p>
 
-<h1 align="center">kavachos</h1>
+<h1 align="center">theauth</h1>
 
 <p align="center">
   <strong>The auth OS for AI agents and humans</strong><br />
@@ -10,36 +10,36 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/v/kavachos?style=flat-square&color=c9a84c" alt="npm" /></a>
-  <a href="https://www.npmjs.com/package/kavachos"><img src="https://img.shields.io/npm/dm/kavachos?style=flat-square&color=c9a84c" alt="downloads" /></a>
-  <a href="https://github.com/kavachos/kavachos/actions"><img src="https://img.shields.io/github/actions/workflow/status/kavachos/kavachos/ci.yml?style=flat-square&label=tests" alt="tests" /></a>
-  <a href="https://github.com/kavachos/kavachos/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT" /></a>
+  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/v/theauth?style=flat-square&color=c9a84c" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/dm/theauth?style=flat-square&color=c9a84c" alt="downloads" /></a>
+  <a href="https://github.com/glincker/theauth/actions"><img src="https://img.shields.io/github/actions/workflow/status/glincker/theauth/ci.yml?style=flat-square&label=tests" alt="tests" /></a>
+  <a href="https://github.com/glincker/theauth/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square" alt="TypeScript" /></a>
-  <a href="https://docs.kavachos.com"><img src="https://img.shields.io/badge/docs-kavachos.com-c9a84c?style=flat-square" alt="docs" /></a>
+  <a href="https://docs.theauth.com"><img src="https://img.shields.io/badge/docs-theauth.com-c9a84c?style=flat-square" alt="docs" /></a>
 </p>
 
 <p align="center">
-  <a href="https://docs.kavachos.com/docs/quickstart">Quickstart</a> &middot;
-  <a href="https://docs.kavachos.com/docs">Documentation</a> &middot;
-  <a href="https://github.com/kavachos/kavachos/tree/main/examples">Examples</a> &middot;
-  <a href="https://app.kavachos.com">KavachOS Cloud</a>
+  <a href="https://docs.theauth.com/docs/quickstart">Quickstart</a> &middot;
+  <a href="https://docs.theauth.com/docs">Documentation</a> &middot;
+  <a href="https://github.com/glincker/theauth/tree/main/examples">Examples</a> &middot;
+  <a href="https://app.theauth.com">TheAuth Cloud</a>
 </p>
 
 ---
 
-## Why kavachos?
+## Why theauth?
 
-Every auth library handles human login. None of them handle **AI agent identity**. KavachOS gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
+Every auth library handles human login. None of them handle **AI agent identity**. TheAuth gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
-npm install kavachos
+npm install theauth
 ```
 
 ## Quick start
 
 ```typescript
-import { createKavach } from "kavachos";
-import { emailPassword } from "kavachos/auth";
+import { createKavach } from "theauth";
+import { emailPassword } from "theauth/auth";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -137,22 +137,22 @@ Works with every major framework:
 
 | Framework | Package | Framework | Package |
 |-----------|---------|-----------|---------|
-| **Hono** | `@kavachos/hono` | **Nuxt** | `@kavachos/nuxt` |
-| **Express** | `@kavachos/express` | **SvelteKit** | `@kavachos/sveltekit` |
-| **Next.js** | `@kavachos/nextjs` | **Astro** | `@kavachos/astro` |
-| **Fastify** | `@kavachos/fastify` | **NestJS** | `@kavachos/nestjs` |
+| **Hono** | `@theauth/hono` | **Nuxt** | `@theauth/nuxt` |
+| **Express** | `@theauth/express` | **SvelteKit** | `@theauth/sveltekit` |
+| **Next.js** | `@theauth/nextjs` | **Astro** | `@theauth/astro` |
+| **Fastify** | `@theauth/fastify` | **NestJS** | `@theauth/nestjs` |
 
 ## Client libraries
 
 | Package | What |
 |---------|------|
-| `@kavachos/react` | KavachProvider + hooks |
-| `@kavachos/vue` | Vue 3 plugin + composables |
-| `@kavachos/svelte` | Svelte stores |
-| `@kavachos/ui` | 7 pre-built auth components (SignIn, SignUp, UserButton...) |
-| `@kavachos/expo` | React Native / Expo |
-| `@kavachos/electron` | Electron desktop |
-| `@kavachos/client` | Zero-dep TypeScript REST client |
+| `@theauth/react` | KavachProvider + hooks |
+| `@theauth/vue` | Vue 3 plugin + composables |
+| `@theauth/svelte` | Svelte stores |
+| `@theauth/ui` | 7 pre-built auth components (SignIn, SignUp, UserButton...) |
+| `@theauth/expo` | React Native / Expo |
+| `@theauth/electron` | Electron desktop |
+| `@theauth/client` | Zero-dep TypeScript REST client |
 
 ## Databases
 
@@ -174,7 +174,7 @@ Auth methods are plugins. Enable what you need:
 import {
   emailPassword, magicLink, passkey, totp,
   organizations, sso, admin, apiKeys, webhooks,
-} from "kavachos/auth";
+} from "theauth/auth";
 
 createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -182,21 +182,21 @@ createKavach({
 });
 ```
 
-## KavachOS Cloud
+## TheAuth Cloud
 
-Don't want to self-host? [KavachOS Cloud](https://app.kavachos.com) is the managed version with dashboard, billing, and zero infrastructure.
+Don't want to self-host? [TheAuth Cloud](https://app.theauth.com) is the managed version with dashboard, billing, and zero infrastructure.
 
 | | Free | Starter | Growth | Scale |
 |---|---|---|---|---|
 | MAU | 1,000 | 10,000 | 50,000 | 200,000 |
 | Price | $0 | $29/mo | $79/mo | $199/mo |
 
-[Start free](https://app.kavachos.com/sign-up) &middot; [Compare plans](https://kavachos.com/pricing) &middot; [Self-host instead](https://docs.kavachos.com/docs/quickstart)
+[Start free](https://app.theauth.com/sign-up) &middot; [Compare plans](https://theauth.com/pricing) &middot; [Self-host instead](https://docs.theauth.com/docs/quickstart)
 
 ## Documentation
 
-Full docs at **[docs.kavachos.com](https://docs.kavachos.com/docs)**
+Full docs at **[docs.theauth.com](https://docs.theauth.com/docs)**
 
 ## License
 
-[MIT](https://github.com/kavachos/kavachos/blob/main/LICENSE)
+[MIT](https://github.com/glincker/theauth/blob/main/LICENSE)

@@ -1,13 +1,13 @@
-# @kavachos/hono
+# @theauth/hono
 
-Hono adapter for KavachOS.
+Hono adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/hono)](https://www.npmjs.com/package/@kavachos/hono)
+[![npm](https://img.shields.io/npm/v/@theauth/hono)](https://www.npmjs.com/package/@theauth/hono)
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/hono
+pnpm add theauth @theauth/hono
 ```
 
 ## Usage
@@ -15,8 +15,8 @@ pnpm add kavachos @kavachos/hono
 ```typescript
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { createKavach } from 'kavachos';
-import { kavachHono } from '@kavachos/hono';
+import { createKavach } from 'theauth';
+import { kavachHono } from '@theauth/hono';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -24,19 +24,19 @@ const kavach = createKavach({
 
 const app = new Hono();
 
-// Mount all KavachOS routes at /api/kavach
+// Mount all TheAuth routes at /api/kavach
 app.route('/api/kavach', kavachHono(kavach));
 
 serve({ fetch: app.fetch, port: 3000 });
 ```
 
-This mounts the full KavachOS REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'kavachos/mcp';
-import { kavachHono } from '@kavachos/hono';
+import { createMcpModule } from 'theauth/mcp';
+import { kavachHono } from '@theauth/hono';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -62,12 +62,12 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 |--------|------|-------------|
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [kavachos](https://www.npmjs.com/package/kavachos) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
 
 ## Links
 
-- [Documentation](https://kavachos.dev/docs)
-- [GitHub](https://github.com/kavachos/kavachos)
+- [Documentation](https://theauth.dev/docs)
+- [GitHub](https://github.com/glincker/theauth)
 
 ## License
 

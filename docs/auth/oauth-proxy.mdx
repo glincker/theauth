@@ -6,16 +6,16 @@ icon: shield-halved
 
 Mobile apps cannot safely store OAuth client secrets. Embedding a secret in an iOS or Android binary is not safe, it can be extracted. The standard workaround (PKCE without a secret) works for some providers but not all.
 
-The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through KavachOS, which holds the client secret and performs the code exchange on the device's behalf. The app gets back tokens via its custom URL scheme, never touching the secret directly.
+The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through TheAuth, which holds the client secret and performs the code exchange on the device's behalf. The app gets back tokens via its custom URL scheme, never touching the secret directly.
 
 <Info>
-  The proxy works with any provider configured in KavachOS. The mobile app only needs to know the provider name and its own redirect URI.
+  The proxy works with any provider configured in TheAuth. The mobile app only needs to know the provider name and its own redirect URI.
 </Info>
 
 ## How it works
 
 ```
-Mobile app                KavachOS                    Google
+Mobile app                TheAuth                    Google
     │                         │                           │
     │ GET /auth/oauth-proxy    │                           │
     │   /start?provider=google │                           │
@@ -52,9 +52,9 @@ Mobile app                KavachOS                    Google
 ### Configure the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauthProxy } from 'kavachos/auth'; // [!code highlight]
-import { createGoogleProvider } from 'kavachos/auth/oauth/providers/google';
+import { createKavach } from 'theauth';
+import { oauthProxy } from 'theauth/auth'; // [!code highlight]
+import { createGoogleProvider } from 'theauth/auth/oauth/providers/google';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -82,13 +82,13 @@ const kavach = await createKavach({
 
 ### Register the server callback URI with your provider
 
-When registering the OAuth application with your provider (Google, GitHub, etc.), add the KavachOS callback URL as an allowed redirect URI:
+When registering the OAuth application with your provider (Google, GitHub, etc.), add the TheAuth callback URL as an allowed redirect URI:
 
 ```
 https://auth.example.com/auth/oauth-proxy/callback
 ```
 
-The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only KavachOS's server URL is.
+The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only TheAuth's server URL is.
 
 </Step>
 
@@ -205,10 +205,10 @@ The proxy generates a PKCE code verifier and challenge for every flow. The verif
     Standard browser-based OAuth 2.0 flow with PKCE.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
-    How KavachOS manages session lifetime and cookie settings.
+    How TheAuth manages session lifetime and cookie settings.
   </Card>
   <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
     A fully on-device alternative to OAuth for mobile apps.

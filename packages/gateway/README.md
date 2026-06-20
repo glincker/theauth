@@ -1,13 +1,13 @@
-# @kavachos/gateway
+# @theauth/gateway
 
-Standalone auth proxy that enforces KavachOS policies in front of any HTTP service.
+Standalone auth proxy that enforces TheAuth policies in front of any HTTP service.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/gateway?style=flat-square)](https://www.npmjs.com/package/@kavachos/gateway)
+[![npm](https://img.shields.io/npm/v/@theauth/gateway?style=flat-square)](https://www.npmjs.com/package/@theauth/gateway)
 
 ## Install
 
 ```bash
-npm install @kavachos/gateway
+npm install @theauth/gateway
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @kavachos/gateway
 Create a gateway with route policies, then call `handle` on every incoming request.
 
 ```ts
-import { createGateway, loadConfigFile } from '@kavachos/gateway';
+import { createGateway, loadConfigFile } from '@theauth/gateway';
 
 const gateway = createGateway({
   kavachApiUrl: 'https://auth.yourapp.com',
@@ -50,7 +50,7 @@ const gateway = createGateway(config);
 
 ## Docs
 
-[https://docs.kavachos.com/gateway](https://docs.kavachos.com/gateway)
+[https://docs.theauth.com/gateway](https://docs.theauth.com/gateway)
 
 ## License
 

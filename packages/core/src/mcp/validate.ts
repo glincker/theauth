@@ -144,7 +144,7 @@ export async function validateAccessToken(
  * and returns the session.  This is the primary entry point for protecting
  * MCP resource server endpoints.
  *
- * Pattern inspired by better-auth's `withMcpAuth()`, adapted to KavachOS's
+ * Pattern inspired by better-auth's `withMcpAuth()`, adapted to TheAuth's
  * functional Result-based API.
  *
  * Usage:

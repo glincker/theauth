@@ -1,15 +1,15 @@
 ---
 title: SvelteKit
-description: Mount KavachOS auth routes in SvelteKit with `kavachSvelteKit(kavach)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
+description: Mount TheAuth auth routes in SvelteKit with `kavachSvelteKit(kavach)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
 icon: "/brand-icons/svelte.svg"
 ---
 
-`kavachSvelteKit(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all KavachOS paths are handled.
+`kavachSvelteKit(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all TheAuth paths are handled.
 
 ## Install
 
 ```bash
-pnpm add kavachos @kavachos/sveltekit
+pnpm add theauth @theauth/sveltekit
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add kavachos @kavachos/sveltekit
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from 'kavachos';
+import { createKavach, createMcpModule } from 'theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -40,7 +40,7 @@ Create `src/routes/api/kavach/[...path]/+server.ts`. The `[...path]` segment cat
 
 ```typescript
 // src/routes/api/kavach/[...path]/+server.ts
-import { kavachSvelteKit } from '@kavachos/sveltekit';
+import { kavachSvelteKit } from '@theauth/sveltekit';
 import { kavach, mcp } from '$lib/kavach';
 
 const handlers = kavachSvelteKit(kavach, { mcp });
@@ -56,7 +56,7 @@ export const OPTIONS = handlers.OPTIONS;
 </Steps>
 
 <Info>
-  SvelteKit passes a standard Web API `Request` to route handlers, so the adapter delegates directly to the KavachOS dispatcher without any conversion.
+  SvelteKit passes a standard Web API `Request` to route handlers, so the adapter delegates directly to the TheAuth dispatcher without any conversion.
 </Info>
 
 ## Options
@@ -102,8 +102,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/routes/api/kavach/[...path]/+server.ts
-import { createKavach, createMcpModule } from 'kavachos';
-import { kavachSvelteKit } from '@kavachos/sveltekit';
+import { createKavach, createMcpModule } from 'theauth';
+import { kavachSvelteKit } from '@theauth/sveltekit';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

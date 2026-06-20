@@ -10,14 +10,14 @@ Traditional RBAC assigns roles to users globally or per-org. That works until yo
 
 ReBAC models authorization as a graph. Subjects (users, agents, teams) connect to objects (orgs, workspaces, projects, documents) through typed relationships. Permission checks walk the graph, following direct relationships and parent-child inheritance. This is the same approach Google uses internally (Zanzibar) and what WorkOS FGA, Ory Keto, and SpiceDB implement.
 
-KavachOS ships a built-in ReBAC engine that works with agents as first-class subjects.
+TheAuth ships a built-in ReBAC engine that works with agents as first-class subjects.
 
 ## Quick start
 
 ```typescript
-import { createReBACModule } from 'kavachos/auth';
-import { createDatabase } from 'kavachos/db';
-import { createTables } from 'kavachos/db/migrations';
+import { createReBACModule } from 'theauth/auth';
+import { createDatabase } from 'theauth/db';
+import { createTables } from 'theauth/db/migrations';
 
 const db = await createDatabase({ provider: 'sqlite', url: 'kavach.db' });
 await createTables(db, 'sqlite');
@@ -222,7 +222,7 @@ const allowed = await rebac.check({
 });
 ```
 
-This works with the existing KavachOS permission system. Use ReBAC for resource-level authorization and the existing `kavach_permissions` table for tool/action-level authorization.
+This works with the existing TheAuth permission system. Use ReBAC for resource-level authorization and the existing `kavach_permissions` table for tool/action-level authorization.
 
 ## Depth limiting
 
@@ -234,7 +234,7 @@ const rebac = createReBACModule({ maxDepth: 5 }, db);
 
 ## Comparison with alternatives
 
-| Feature | KavachOS ReBAC | Google Zanzibar | SpiceDB | WorkOS FGA |
+| Feature | TheAuth ReBAC | Google Zanzibar | SpiceDB | WorkOS FGA |
 |---|---|---|---|---|
 | Relationship tuples | Yes | Yes | Yes | Yes |
 | Resource hierarchy | Built-in | Userland | Userland | Userland |
@@ -244,7 +244,7 @@ const rebac = createReBACModule({ maxDepth: 5 }, db);
 | Depth limiting | Configurable | Internal | Internal | Internal |
 | Database | SQLite/Postgres/MySQL | Spanner | CockroachDB/Postgres | Managed |
 
-KavachOS ReBAC is opinionated toward the common hierarchy pattern (org > workspace > project > resource) with sensible defaults. Zanzibar and SpiceDB are more general but require you to write a schema DSL. WorkOS FGA is SaaS-only.
+TheAuth ReBAC is opinionated toward the common hierarchy pattern (org > workspace > project > resource) with sensible defaults. Zanzibar and SpiceDB are more general but require you to write a schema DSL. WorkOS FGA is SaaS-only.
 
 ## Related
 

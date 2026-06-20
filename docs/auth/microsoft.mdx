@@ -44,8 +44,8 @@ From the app overview, copy the **Application (client) ID** and the **Directory 
 <Tabs>
   <Tab title="Personal + work accounts">
     ```typescript title="lib/kavach.ts"
-    import { createKavach } from 'kavachos';
-    import { oauth } from 'kavachos/auth';
+    import { createKavach } from 'theauth';
+    import { oauth } from 'theauth/auth';
 
     const kavach = await createKavach({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -136,6 +136,6 @@ Default scopes: `openid email profile User.Read`
     Sign in with Google for personal and workspace accounts.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

@@ -110,7 +110,7 @@ function KavachLogo() {
 			</div>
 			<div>
 				<div className="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight">
-					KavachOS
+					TheAuth
 				</div>
 				<div className="text-[10px] text-zinc-500 uppercase tracking-widest font-medium">Admin</div>
 			</div>

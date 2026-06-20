@@ -8,9 +8,9 @@ import httpx
 import pytest
 import respx
 
-from kavachos import KavachClient, KavachSyncClient
-from kavachos.errors import NotFoundError
-from kavachos.types import (
+from theauth import KavachClient, KavachSyncClient
+from theauth.errors import NotFoundError
+from theauth.types import (
     Agent,
     AgentFilters,
     AuthorizeRequest,

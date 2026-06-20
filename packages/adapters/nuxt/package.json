@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/nuxt",
+  "name": "@theauth/nuxt",
   "version": "3.0.2",
-  "description": "Nuxt adapter for KavachOS - exposes agent auth as HTTP REST endpoints via H3",
+  "description": "Nuxt adapter for TheAuth - exposes agent auth as HTTP REST endpoints via H3",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,27 +21,27 @@
     "test:watch": "vitest watch"
   },
   "keywords": [
-    "kavachos",
+    "theauth",
     "nuxt",
     "h3",
     "auth",
     "agent",
     "mcp"
   ],
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/nuxt"
   },
   "peerDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "nuxt": ">=3.0.0",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "kavachos": "workspace:*",
+    "theauth": "workspace:*",
     "h3": "^1.15.11",
     "nuxt": "^3.16.0",
     "tsup": "^8.4.0",

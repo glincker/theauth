@@ -6,12 +6,12 @@ icon: shield-halved
 
 ## Setup
 
-Configure your identity providers when creating the KavachOS instance:
+Configure your identity providers when creating the TheAuth instance:
 
 <Tabs>
 <Tab title="SAML 2.0">
 ```ts
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -32,7 +32,7 @@ const kavach = await createKavach({
 </Tab>
 <Tab title="OIDC">
 ```ts
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -79,9 +79,9 @@ await kavach.sso.removeConnection(connection.id);
 
 ## JIT provisioning
 
-When a user authenticates through SSO for the first time, KavachOS provisions their account automatically using the identity attributes from the IdP (email and display name from SAML `NameID` / OIDC `email` claim). No pre-registration is needed.
+When a user authenticates through SSO for the first time, TheAuth provisions their account automatically using the identity attributes from the IdP (email and display name from SAML `NameID` / OIDC `email` claim). No pre-registration is needed.
 
-User IDs are derived deterministically from the provider and subject, so the same IdP user always maps to the same KavachOS identity.
+User IDs are derived deterministically from the provider and subject, so the same IdP user always maps to the same TheAuth identity.
 
 ## SAML flow
 
@@ -138,7 +138,7 @@ OIDC discovery is fetched automatically from `issuer/.well-known/openid-configur
     Automated user provisioning that pairs with SSO connections.
   </Card>
   <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
-    Turn KavachOS into an OIDC identity provider for downstream apps.
+    Turn TheAuth into an OIDC identity provider for downstream apps.
   </Card>
   <Card title="Admin" href="/auth/admin" icon="gear">
     User management for enterprise accounts.

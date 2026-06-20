@@ -15,7 +15,7 @@ Magic links let users sign in by clicking a link sent to their email. No passwor
 ### Install
 
 ```bash
-pnpm add kavachos
+pnpm add theauth
 ```
 
 </Step>
@@ -25,8 +25,8 @@ pnpm add kavachos
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { magicLink } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { magicLink } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -53,7 +53,7 @@ const kavach = await createKavach({
 
 ### Handle the callback route
 
-Magic links redirect to `baseUrl + /auth/magic-link/verify?token=...`. KavachOS handles this automatically. Set `redirectTo` to control where users land after sign-in:
+Magic links redirect to `baseUrl + /auth/magic-link/verify?token=...`. TheAuth handles this automatically. Set `redirectTo` to control where users land after sign-in:
 
 ```typescript
 magicLink({
@@ -69,9 +69,9 @@ magicLink({
 ## How it works
 
 1. User submits their email to `POST /auth/magic-link/send`.
-2. KavachOS generates a signed token and calls your `onSendLink` function with the email address and the full URL.
+2. TheAuth generates a signed token and calls your `onSendLink` function with the email address and the full URL.
 3. User clicks the link in their inbox.
-4. KavachOS validates the token, creates or retrieves the user, sets a session cookie, and redirects.
+4. TheAuth validates the token, creates or retrieves the user, sets a session cookie, and redirects.
 
 If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created automatically.
 
@@ -99,7 +99,7 @@ body: JSON.stringify({ email: 'user@example.com', redirectTo: '/onboarding' }),
 
 `GET /auth/magic-link/verify?token=<token>`
 
-KavachOS handles this automatically when the user clicks the link. On success, the user is redirected. On failure (expired or already-used token), a `400` is returned.
+TheAuth handles this automatically when the user clicks the link. On success, the user is redirected. On failure (expired or already-used token), a `400` is returned.
 
 ## Rate limiting
 
@@ -131,6 +131,6 @@ Requests to `/auth/magic-link/send` are limited to **5 per minute per IP address
     WebAuthn biometrics as an alternative passwordless method.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

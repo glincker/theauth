@@ -1,5 +1,5 @@
 /**
- * Multi-session support for KavachOS.
+ * Multi-session support for TheAuth.
  *
  * Allows users to maintain multiple concurrent sessions (phone, laptop, tablet)
  * with optional per-user session caps. When the cap is reached, the oldest

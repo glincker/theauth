@@ -1,4 +1,4 @@
-import { kavachNextjs } from '@kavachos/nextjs';
+import { kavachNextjs } from '@theauth/nextjs';
 import { getKavach } from '@/lib/kavach';
 
 const kavach = await getKavach();

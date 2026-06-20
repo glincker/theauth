@@ -1,10 +1,10 @@
-module github.com/kavachos/terraform-provider-kavachos
+module github.com/glincker/terraform-provider-theauth
 
 go 1.21
 
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.33.0
-	github.com/kavachos/kavachos-go v0.1.0
+	github.com/glincker/theauth-go v0.1.0
 )
 
 require (
@@ -47,4 +47,4 @@ require (
 )
 
 // During development, replace with local path to Go SDK:
-// replace github.com/kavachos/kavachos-go => ../go
+// replace github.com/glincker/theauth-go => ../go

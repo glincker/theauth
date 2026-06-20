@@ -28,7 +28,7 @@ import type { SessionConfig } from "./session/session.js";
 export type { DatabaseConfig };
 
 /**
- * Main configuration for KavachOS
+ * Main configuration for TheAuth
  */
 export interface KavachConfig {
 	/** Database connection - Drizzle instance or connection config */
@@ -44,10 +44,10 @@ export interface KavachConfig {
 	 * Human auth configuration.
 	 *
 	 * `adapter` plugs in an existing auth provider (better-auth, Auth.js,
-	 * Clerk, custom) so KavachOS can resolve the human user behind an
+	 * Clerk, custom) so TheAuth can resolve the human user behind an
 	 * incoming request.
 	 *
-	 * `session` enables KavachOS-managed session tokens backed by the
+	 * `session` enables TheAuth-managed session tokens backed by the
 	 * `kavach_sessions` database table.  When provided, the returned
 	 * `kavach.auth.session` manager is available for creating, validating,
 	 * and revoking sessions.
@@ -245,7 +245,7 @@ export interface KavachConfig {
 }
 
 /**
- * The main KavachOS instance returned by createKavach()
+ * The main TheAuth instance returned by createKavach()
  */
 export interface KavachInstance {
 	/** Agent identity management */

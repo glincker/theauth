@@ -111,7 +111,7 @@ interface TaggedStatement {
 }
 
 /**
- * Returns CREATE TABLE statements for all KavachOS tables, adapted to the
+ * Returns CREATE TABLE statements for all TheAuth tables, adapted to the
  * target SQL dialect, tagged with the feature that requires them.
  *
  * Dialect differences handled here:
@@ -968,7 +968,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_federation_instances  (trusted remote KavachOS instances)
+		// kavach_federation_instances  (trusted remote TheAuth instances)
 		// ------------------------------------------------------------------
 		{
 			feature: "federation",
@@ -1059,7 +1059,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create KavachOS tables if they do not already exist.
+ * Create TheAuth tables if they do not already exist.
  *
  * Uses `CREATE TABLE IF NOT EXISTS` so it is safe to call on every startup.
  * Tables are created in dependency order (no forward-reference FK issues).
@@ -1129,7 +1129,7 @@ export async function createTables(
 			anyDb.$client ?? anyDb.session?.client;
 		if (!client) {
 			throw new Error(
-				"KavachOS createTables: cannot access underlying pg client from Drizzle instance.",
+				"TheAuth createTables: cannot access underlying pg client from Drizzle instance.",
 			);
 		}
 		for (const sql of statements) {
@@ -1144,7 +1144,7 @@ export async function createTables(
 			anyDb.$client ?? anyDb.session?.client;
 		if (!client) {
 			throw new Error(
-				"KavachOS createTables: cannot access underlying mysql2 client from Drizzle instance.",
+				"TheAuth createTables: cannot access underlying mysql2 client from Drizzle instance.",
 			);
 		}
 		for (const sql of statements) {

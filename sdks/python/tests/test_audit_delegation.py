@@ -6,8 +6,8 @@ import pytest
 import respx
 import httpx
 
-from kavachos import KavachClient, KavachSyncClient
-from kavachos.types import (
+from theauth import KavachClient, KavachSyncClient
+from theauth.types import (
     AuditEntry,
     AuditFilters,
     DelegateInput,

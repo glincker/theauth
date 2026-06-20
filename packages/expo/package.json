@@ -1,7 +1,7 @@
 {
-  "name": "@kavachos/expo",
+  "name": "@theauth/expo",
   "version": "0.1.0",
-  "description": "React Native / Expo client for KavachOS auth",
+  "description": "React Native / Expo client for TheAuth auth",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,10 +21,10 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "license": "MIT",
-  "author": "KavachOS <support@glincker.com>",
+  "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kavachos/kavachos.git",
+    "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/expo"
   },
   "peerDependencies": {

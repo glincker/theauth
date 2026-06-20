@@ -1,5 +1,5 @@
 /**
- * Session management for KavachOS.
+ * Session management for TheAuth.
  *
  * Provides signed JWT session tokens backed by a `kavach_sessions` database
  * table.  Each token carries the session ID as its `sub` claim; the full
@@ -7,7 +7,7 @@
  * it can be revoked server-side at any time.
  *
  * Tokens are signed with HS256 via `jose` – the same library used for agent
- * JWT tokens elsewhere in KavachOS.
+ * JWT tokens elsewhere in TheAuth.
  *
  * @example
  * ```typescript

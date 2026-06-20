@@ -1,13 +1,13 @@
-# @kavachos/svelte
+# @theauth/svelte
 
-Svelte stores for KavachOS authentication.
+Svelte stores for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/svelte?style=flat-square)](https://www.npmjs.com/package/@kavachos/svelte)
+[![npm](https://img.shields.io/npm/v/@theauth/svelte?style=flat-square)](https://www.npmjs.com/package/@theauth/svelte)
 
 ## Install
 
 ```bash
-npm install @kavachos/svelte
+npm install @theauth/svelte
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ Create a client and stores at the top of your app, then subscribe in any compone
 
 ```ts
 // lib/kavach.ts
-import { createKavachClient, createAgentStore } from '@kavachos/svelte';
+import { createKavachClient, createAgentStore } from '@theauth/svelte';
 
 export const kavach = createKavachClient({
   apiUrl: 'https://auth.yourapp.com',
@@ -48,7 +48,7 @@ export const agents = createAgentStore({ client: kavach });
 
 ## Docs
 
-[https://docs.kavachos.com](https://docs.kavachos.com)
+[https://docs.theauth.com](https://docs.theauth.com)
 
 ## License
 

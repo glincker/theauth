@@ -12,7 +12,7 @@
  *   `sub`, `name`, `email`, and `picture`.
  * - PKCE is not supported by LinkedIn's OAuth server. The code challenge is
  *   sent for symmetry but silently ignored. CSRF protection via `state` still
- *   applies within KavachOS.
+ *   applies within TheAuth.
  * - The `sub` claim is the LinkedIn member ID and is stable across sessions.
  *
  * Docs: https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2

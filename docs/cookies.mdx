@@ -1,10 +1,10 @@
 ---
 title: Cookie options
-description: How KavachOS sets session cookies, how to customize them, and the defaults for cross-subdomain and cross-origin setups.
+description: How TheAuth sets session cookies, how to customize them, and the defaults for cross-subdomain and cross-origin setups.
 icon: cookie-bite
 ---
 
-KavachOS only sets cookies when you use its human-auth plugins. If Clerk, Auth.js, or better-auth runs your sign-in, Kavach is cookie-free, it authenticates agents with bearer tokens instead.
+TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js, or better-auth runs your sign-in, Kavach is cookie-free, it authenticates agents with bearer tokens instead.
 
 ## Defaults
 
@@ -25,7 +25,7 @@ KavachOS only sets cookies when you use its human-auth plugins. If Clerk, Auth.j
 ```ts
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACHOS_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   cookies: {
     name: 'myapp_session',

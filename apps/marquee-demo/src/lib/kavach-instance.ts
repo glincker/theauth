@@ -1,10 +1,10 @@
 /**
- * Singleton KavachOS instance for the marquee demo.
+ * Singleton TheAuth instance for the marquee demo.
  * Uses in-memory SQLite, state resets on cold start (acceptable for a demo).
  */
 
-import type { Kavach } from "kavachos";
-import { createKavach } from "kavachos";
+import type { Kavach } from "theauth";
+import { createKavach } from "theauth";
 
 let instance: Kavach | null = null;
 

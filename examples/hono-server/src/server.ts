@@ -1,6 +1,6 @@
-// KavachOS Hono Server Example
+// TheAuth Hono Server Example
 //
-// Start: pnpm --filter @kavachos/example-hono-server start
+// Start: pnpm --filter @theauth/example-hono-server start
 //
 // Try:
 //   curl http://localhost:3000/api/agents -X POST -H "Content-Type: application/json" \
@@ -10,10 +10,10 @@
 //   curl http://localhost:3000/api/audit
 
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@kavachos/hono";
+import { kavachHono } from "@theauth/hono";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { createKavach, users } from "kavachos";
+import { createKavach, users } from "theauth";
 
 const PORT = 3000;
 
@@ -109,7 +109,7 @@ function seedUser(kavach: Awaited<ReturnType<typeof createKavach>>): void {
 		.insert(users)
 		.values({
 			id: "user-1",
-			email: "demo@kavachos.dev",
+			email: "demo@theauth.dev",
 			name: "Demo User",
 			createdAt: new Date(),
 			updatedAt: new Date(),
@@ -125,7 +125,7 @@ function homepageHtml(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KavachOS Server</title>
+  <title>TheAuth Server</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -179,7 +179,7 @@ function homepageHtml(): string {
 </head>
 <body>
   <div class="container">
-    <h1>KavachOS</h1>
+    <h1>TheAuth</h1>
     <p class="subtitle">Auth OS for AI agents — agent identity, permissions, delegation, audit</p>
 
     <div class="status">
@@ -330,7 +330,7 @@ async function main(): Promise<void> {
 
 	serve({ fetch: app.fetch, port: PORT }, () => {
 		process.stdout.write(`
-KavachOS Hono server
+TheAuth Hono server
   http://localhost:${PORT}
 
 Endpoints (all prefixed /api):
@@ -351,7 +351,7 @@ Endpoints (all prefixed /api):
   GET    /api/dashboard/agents
   GET    /api/dashboard/audit
 
-Seed user: user-1  (demo@kavachos.dev)
+Seed user: user-1  (demo@theauth.dev)
 Database:  kavach.db
 
 `);

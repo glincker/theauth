@@ -17,11 +17,11 @@ export interface ResolvedUser {
 }
 
 /**
- * Plug KavachOS into an existing auth system by implementing this interface.
+ * Plug TheAuth into an existing auth system by implementing this interface.
  *
  * Only `resolveUser` is required – it is called for every inbound request that
  * needs a human identity.  The optional helpers (`getUser`, `syncUser`) are
- * called by higher-level KavachOS flows when they need to fetch or persist user
+ * called by higher-level TheAuth flows when they need to fetch or persist user
  * data.
  */
 export interface AuthAdapter {
@@ -37,14 +37,14 @@ export interface AuthAdapter {
 	/**
 	 * Fetch a user by their ID from the auth provider.
 	 *
-	 * Used when KavachOS needs to verify that a user still exists (e.g. before
+	 * Used when TheAuth needs to verify that a user still exists (e.g. before
 	 * creating an agent on their behalf).  Return `null` when the user is not
 	 * found or has been deleted.
 	 */
 	getUser?(userId: string): Promise<ResolvedUser | null>;
 
 	/**
-	 * Persist / update user data from the auth provider into the KavachOS
+	 * Persist / update user data from the auth provider into the TheAuth
 	 * `kavach_users` table.
 	 *
 	 * Called after a successful `resolveUser` when user data should be kept in

@@ -1,12 +1,12 @@
 ---
 title: "OIDC provider"
-description: "`createOidcProviderModule()` turns KavachOS into an OpenID Connect provider. Covers RS256 key setup, client registration, PKCE, and JWKS endpoint."
+description: "`createOidcProviderModule()` turns TheAuth into an OpenID Connect provider. Covers RS256 key setup, client registration, PKCE, and JWKS endpoint."
 icon: key
 ---
 
-KavachOS can act as a full OpenID Connect identity provider. External apps register as clients and authenticate their users through KavachOS using the standard authorization code flow with PKCE, ID tokens, refresh tokens, discovery, and JWKS.
+TheAuth can act as a full OpenID Connect identity provider. External apps register as clients and authenticate their users through TheAuth using the standard authorization code flow with PKCE, ID tokens, refresh tokens, discovery, and JWKS.
 
-This is distinct from using OAuth providers *with* KavachOS. Here, KavachOS *is* the provider.
+This is distinct from using OAuth providers *with* TheAuth. Here, TheAuth *is* the provider.
 
 ## Setup
 
@@ -28,7 +28,7 @@ Store the private key securely. The corresponding public key is exposed at the J
 
 ```typescript title="lib/kavach.ts"
 import { generateKeyPair } from 'jose';
-import { createOidcProviderModule } from 'kavachos/auth';
+import { createOidcProviderModule } from 'theauth/auth';
 
 const { privateKey } = await generateKeyPair('RS256');
 
@@ -50,7 +50,7 @@ const oidc = createOidcProviderModule(
 );
 ```
 
-The third argument is a `GetUserClaimsFn` callback. KavachOS calls it to build ID tokens and userinfo responses. You control what data is returned per scope.
+The third argument is a `GetUserClaimsFn` callback. TheAuth calls it to build ID tokens and userinfo responses. You control what data is returned per scope.
 </Step>
 
 <Step>
@@ -111,7 +111,7 @@ The `clientSecret` is only returned on registration. It is stored hashed. If you
 
 <CardGroup cols={2}>
   <Card title="OAuth overview" href="/auth/oauth" icon="lock">
-    Using KavachOS as an OAuth client to sign in via other providers.
+    Using TheAuth as an OAuth client to sign in via other providers.
   </Card>
   <Card title="SSO" href="/auth/sso" icon="shield-halved">
     Enterprise SSO via SAML 2.0 and OIDC connections.
@@ -120,6 +120,6 @@ The `clientSecret` is only returned on registration. It is stored hashed. If you
     OAuth 2.1 authorization server for MCP tool connections.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

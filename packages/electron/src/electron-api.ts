@@ -95,7 +95,7 @@ export function getElectronApi(): ElectronApi {
 	const api = loadElectron();
 	if (!api) {
 		throw new Error(
-			"[KavachOS] Electron API not available. Ensure this code runs in an Electron process.",
+			"[TheAuth] Electron API not available. Ensure this code runs in an Electron process.",
 		);
 	}
 	return api;

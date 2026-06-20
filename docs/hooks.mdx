@@ -7,10 +7,10 @@ icon: plug
 
 ## What hooks are
 
-Hooks are async callbacks you register at startup. KavachOS calls them at specific points in the authorization and agent lifecycle. They let you add custom logic without patching the SDK: log denials to Slack, block agents from running in unsandboxed environments, fire webhooks, or update your own database.
+Hooks are async callbacks you register at startup. TheAuth calls them at specific points in the authorization and agent lifecycle. They let you add custom logic without patching the SDK: log denials to Slack, block agents from running in unsandboxed environments, fire webhooks, or update your own database.
 
 <Warning>
-  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` can block requests by returning `{ allow: false }`. All other hooks are fire-and-forget from KavachOS's perspective, but any unhandled exception in a hook will propagate to the caller.
+  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` can block requests by returning `{ allow: false }`. All other hooks are fire-and-forget from TheAuth's perspective, but any unhandled exception in a hook will propagate to the caller.
 </Warning>
 
 ## Available hooks
@@ -39,7 +39,7 @@ The `onViolation` hook receives a typed `type` field so you can route each categ
 Pass a `hooks` object to `createKavach`:
 
 ```typescript
-import { createKavach } from 'kavachos';
+import { createKavach } from 'theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -86,7 +86,7 @@ const kavach = await createKavach({
 });
 ```
 
-The `result.auditId` links this log line to the immutable audit entry. You can use it to correlate your own logs with the KavachOS audit trail.
+The `result.auditId` links this log line to the immutable audit entry. You can use it to correlate your own logs with the TheAuth audit trail.
 
 ## Enforcing a sandbox check
 
@@ -121,7 +121,7 @@ const kavach = await createKavach({
       // Send to your alerting system
       await alerts.send({
         severity: type === 'rate_limited' ? 'warning' : 'error',
-        title: `KavachOS violation: ${type}`,
+        title: `TheAuth violation: ${type}`,
         fields: { agentId, action, resource, reason },
       });
 

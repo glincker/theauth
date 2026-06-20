@@ -1,5 +1,5 @@
 /**
- * Magic link authentication for KavachOS.
+ * Magic link authentication for TheAuth.
  *
  * Sends a one-time-use signed link to the user's email. When the link is
  * clicked the token is verified, the user is found or created, and a session

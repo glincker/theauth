@@ -8,5 +8,5 @@ export default defineConfig({
 	splitting: false,
 	treeshake: true,
 	target: "node22",
-	external: ["kavachos", "@prisma/client"],
+	external: ["theauth", "@prisma/client"],
 });

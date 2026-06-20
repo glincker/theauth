@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import type { Kavach } from "kavachos";
-import type { McpAuthModule } from "kavachos/mcp";
+import type { Kavach } from "theauth";
+import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachAstroOptions {
@@ -27,14 +27,14 @@ export interface KavachAstroHandlers {
 }
 
 /**
- * Create Astro API route handlers for all KavachOS REST API routes.
+ * Create Astro API route handlers for all TheAuth REST API routes.
  *
  * Mount in `src/pages/api/kavach/[...path].ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from 'kavachos';
- * import { kavachAstro } from '@kavachos/astro';
+ * import { createKavach } from 'theauth';
+ * import { kavachAstro } from '@theauth/astro';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachAstro(kavach);
@@ -53,7 +53,7 @@ export interface KavachAstroHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'kavachos/mcp';
+ * import { createMcpModule } from 'theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachAstro(kavach, { mcp });
  * ```

@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI stdout/stderr is intentional here
 import { parseArgs } from "node:util";
-import { createKavach } from "kavachos";
+import { createKavach } from "theauth";
 import { loadConfigFile } from "./config-loader.js";
 import { createGateway } from "./gateway.js";
 import type { GatewayConfig } from "./types.js";
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		console.error(`Failed to initialise KavachOS: ${message}`);
+		console.error(`Failed to initialise TheAuth: ${message}`);
 		process.exit(1);
 	}
 
@@ -81,17 +81,17 @@ async function main(): Promise<void> {
 	process.on("SIGTERM", () => void shutdown());
 
 	await gateway.listen(port);
-	console.log(`KavachOS Gateway running on port ${port}`);
+	console.log(`TheAuth Gateway running on port ${port}`);
 	console.log(`Proxying to: ${upstream}`);
 	console.log(`Health check: http://localhost:${port}/_kavach/health`);
 }
 
 function printHelp(): void {
 	console.log(`
-KavachOS Gateway - auth proxy for any API or MCP server
+TheAuth Gateway - auth proxy for any API or MCP server
 
 Usage:
-  npx @kavachos/gateway --upstream <url> [options]
+  npx @theauth/gateway --upstream <url> [options]
 
 Options:
   -u, --upstream <url>    Upstream service URL (required)
@@ -103,9 +103,9 @@ Options:
   -h, --help              Show this help
 
 Examples:
-  npx @kavachos/gateway --upstream http://localhost:8080
-  npx @kavachos/gateway --upstream http://localhost:8080 --config gateway.json
-  npx @kavachos/gateway --upstream http://localhost:8080 --port 4000 --strip-auth
+  npx @theauth/gateway --upstream http://localhost:8080
+  npx @theauth/gateway --upstream http://localhost:8080 --config gateway.json
+  npx @theauth/gateway --upstream http://localhost:8080 --port 4000 --strip-auth
 `);
 }
 

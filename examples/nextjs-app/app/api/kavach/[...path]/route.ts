@@ -1,7 +1,7 @@
-// KavachOS Next.js App Router catch-all route.
+// TheAuth Next.js App Router catch-all route.
 //
 // Mounts at /api/kavach/[...path] and forwards every request to the
-// kavachNextjs adapter, which handles all KavachOS REST routes.
+// kavachNextjs adapter, which handles all TheAuth REST routes.
 //
 // Routes handled:
 //   GET/POST        /api/kavach/agents
@@ -17,7 +17,7 @@
 //   GET             /api/kavach/dashboard/agents
 //   GET             /api/kavach/dashboard/audit
 
-import { kavachNextjs } from "@kavachos/nextjs";
+import { kavachNextjs } from "@theauth/nextjs";
 import { getKavach } from "@/lib/kavach";
 
 // Build handlers lazily so the singleton is created on first request, not at

@@ -1,13 +1,13 @@
-# @kavachos/client
+# @theauth/client
 
-Zero-dependency TypeScript REST client for the KavachOS API.
+Zero-dependency TypeScript REST client for the TheAuth API.
 
-[![npm](https://img.shields.io/npm/v/@kavachos/client?style=flat-square)](https://www.npmjs.com/package/@kavachos/client)
+[![npm](https://img.shields.io/npm/v/@theauth/client?style=flat-square)](https://www.npmjs.com/package/@theauth/client)
 
 ## Install
 
 ```bash
-npm install @kavachos/client
+npm install @theauth/client
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @kavachos/client
 Works in Node.js, Cloudflare Workers, Deno, and the browser.
 
 ```ts
-import { createKavachClient, KavachApiError } from '@kavachos/client';
+import { createKavachClient, KavachApiError } from '@theauth/client';
 
 const kavach = createKavachClient({
   apiUrl: 'https://auth.yourapp.com',
@@ -52,7 +52,7 @@ try {
 
 ## Docs
 
-[https://docs.kavachos.com/client](https://docs.kavachos.com/client)
+[https://docs.theauth.com/client](https://docs.theauth.com/client)
 
 ## License
 

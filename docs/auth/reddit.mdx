@@ -34,8 +34,8 @@ After saving, the **client ID** appears directly under the app name (a short str
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -93,7 +93,7 @@ Default scope: `identity`
 </Warning>
 
 <Info>
-  Reddit's token endpoint uses HTTP Basic authentication rather than posting credentials in the request body. KavachOS handles this automatically.
+  Reddit's token endpoint uses HTTP Basic authentication rather than posting credentials in the request body. TheAuth handles this automatically.
 </Info>
 
 ## Handling missing email
@@ -124,6 +124,6 @@ if (isNewAccount && !userInfo.email) {
     Developer-focused OAuth provider with similar setup.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

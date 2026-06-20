@@ -15,7 +15,7 @@ Passkeys use the WebAuthn standard (FIDO2) to authenticate users with device bio
 ### Install
 
 ```bash
-pnpm add kavachos
+pnpm add theauth
 ```
 
 </Step>
@@ -25,8 +25,8 @@ pnpm add kavachos
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { passkey } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { passkey } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -236,6 +236,6 @@ await fetch(`/auth/passkey/credentials/${credentialId}`, {
     Wallet-based auth as an alternative to device biometrics.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

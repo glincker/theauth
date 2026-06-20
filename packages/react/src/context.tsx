@@ -36,11 +36,11 @@ export function useKavachContext(): KavachContextValue {
 
 export interface KavachProviderProps {
 	children: ReactNode;
-	/** Base path where KavachOS is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 	/**
 	 * External auth mode — delegates authentication to an external API.
-	 * When set, KavachOS acts as a thin client:
+	 * When set, TheAuth acts as a thin client:
 	 * - User is fetched from `external.apiUrl + external.mePath`
 	 * - Login redirects to `external.apiUrl + external.loginPath`
 	 * - Logout calls `external.apiUrl + external.logoutPath`
@@ -65,7 +65,7 @@ export interface KavachProviderProps {
 	 *
 	 * Useful when integrating against a new backend. Defaults to `false`.
 	 *
-	 * Also enabled at runtime when `localStorage.DEBUG === "kavachos"` so
+	 * Also enabled at runtime when `localStorage.DEBUG === "theauth"` so
 	 * consumers can flip it on without redeploying.
 	 */
 	debug?: boolean;
@@ -77,7 +77,7 @@ function resolveDebug(propDebug?: boolean): boolean {
 	if (propDebug) return true;
 	if (typeof window === "undefined") return false;
 	try {
-		return window.localStorage.getItem("DEBUG") === "kavachos";
+		return window.localStorage.getItem("DEBUG") === "theauth";
 	} catch {
 		return false;
 	}

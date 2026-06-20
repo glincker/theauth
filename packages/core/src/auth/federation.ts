@@ -1,8 +1,8 @@
 /**
- * Agent identity federation for KavachOS.
+ * Agent identity federation for TheAuth.
  *
- * Allows an agent created in one KavachOS instance (Service A) to
- * authenticate at another KavachOS instance (Service B) without
+ * Allows an agent created in one TheAuth instance (Service A) to
+ * authenticate at another TheAuth instance (Service B) without
  * re-registration. The agent's identity, trust score, permissions,
  * and delegation scope travel with the federation token.
  *
@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { createFederationModule } from 'kavachos/auth';
+ * import { createFederationModule } from 'theauth/auth';
  * import { generateKeyPair, exportJWK } from 'jose';
  *
  * const { publicKey, privateKey } = await generateKeyPair('EdDSA');
@@ -75,7 +75,7 @@ export interface TrustedInstance {
 }
 
 export interface FederationConfig {
-	/** Unique identifier for this KavachOS instance */
+	/** Unique identifier for this TheAuth instance */
 	instanceId: string;
 	/** Public URL of this instance */
 	instanceUrl: string;
@@ -83,7 +83,7 @@ export interface FederationConfig {
 	signingKey: CryptoKey;
 	/** Pre-configured trusted instances */
 	trustedInstances?: TrustedInstance[];
-	/** Trust any KavachOS instance (dev mode only) */
+	/** Trust any TheAuth instance (dev mode only) */
 	autoTrust?: boolean;
 	/** Federation token lifetime in seconds. Default: 300 (5 minutes). */
 	tokenTtlSeconds?: number;
@@ -159,7 +159,7 @@ export interface FederationWellKnown {
 export interface FederationModule {
 	/** Issue a federation token for an agent to use at another service */
 	issueFederationToken(input: IssueFederationTokenInput): Promise<Result<FederationToken>>;
-	/** Verify a federation token from another KavachOS instance */
+	/** Verify a federation token from another TheAuth instance */
 	verifyFederationToken(token: string): Promise<Result<FederatedAgent>>;
 	/** Get this instance's identity (for the well-known endpoint) */
 	getInstanceIdentity(): Promise<InstanceIdentity>;

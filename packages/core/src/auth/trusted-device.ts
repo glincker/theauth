@@ -1,5 +1,5 @@
 /**
- * Trusted device windows for 2FA in KavachOS.
+ * Trusted device windows for 2FA in TheAuth.
  *
  * After a successful 2FA challenge, a device can be marked as trusted.
  * Subsequent logins from the same device skip 2FA until the trust window

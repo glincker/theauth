@@ -1,5 +1,5 @@
 {
-  "name": "@kavachos/example-migrate-from-better-auth-agent-plugin",
+  "name": "@theauth/example-migrate-from-better-auth-agent-plugin",
   "private": true,
   "type": "module",
   "version": "0.0.1",
@@ -12,7 +12,7 @@
   "dependencies": {
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.41.0",
-    "kavachos": "workspace:*"
+    "theauth": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

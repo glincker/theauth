@@ -4,7 +4,7 @@ description: "`oauth()` adds social sign-in via OAuth 2.0 with PKCE. Covers prov
 icon: lock
 ---
 
-The `oauth()` plugin adds social sign-in to KavachOS using OAuth 2.0 authorization code flow with PKCE. It handles token exchange, account linking, and session creation automatically.
+The `oauth()` plugin adds social sign-in to TheAuth using OAuth 2.0 authorization code flow with PKCE. It handles token exchange, account linking, and session creation automatically.
 
 ## Built-in providers
 
@@ -22,8 +22,8 @@ The `oauth()` plugin adds social sign-in to KavachOS using OAuth 2.0 authorizati
 ## Generic setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -51,16 +51,16 @@ https://auth.example.com/auth/oauth/{providerId}/callback
 
 ## The sign-in flow
 
-1. Your frontend redirects to `/auth/oauth/{providerId}/authorize`. KavachOS generates a state parameter and PKCE challenge, then redirects to the provider.
+1. Your frontend redirects to `/auth/oauth/{providerId}/authorize`. TheAuth generates a state parameter and PKCE challenge, then redirects to the provider.
 2. The provider redirects back with an authorization code.
-3. KavachOS exchanges the code for tokens, fetches the user profile, and creates or updates the user record.
+3. TheAuth exchanges the code for tokens, fetches the user profile, and creates or updates the user record.
 4. A session cookie is set and the user lands on your redirect destination.
 
 The user ID is stable: the same provider account always resolves to the same row in `kavach_users`.
 
 ## Account linking
 
-When a sign-in email matches an existing user, KavachOS links the OAuth identity to that account automatically. A single user can connect multiple providers.
+When a sign-in email matches an existing user, TheAuth links the OAuth identity to that account automatically. A single user can connect multiple providers.
 
 ```typescript
 // Check connected providers
@@ -111,9 +111,9 @@ oauth({
     OAuth 2.0 for GitHub with optional org and email scopes.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
   <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
-    Turn KavachOS itself into an OpenID Connect identity provider.
+    Turn TheAuth itself into an OpenID Connect identity provider.
   </Card>
 </CardGroup>

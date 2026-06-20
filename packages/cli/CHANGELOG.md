@@ -1,36 +1,36 @@
-# @kavachos/cli
+# @theauth/cli
 
 ## 0.1.4
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.4.2
-  - @kavachos/hono@3.0.2
+  - theauth@0.4.2
+  - @theauth/hono@3.0.2
 
 ## 0.1.3
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.4.1
-  - @kavachos/hono@3.0.1
+  - theauth@0.4.1
+  - @theauth/hono@3.0.1
 
 ## 0.1.2
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.4.0
-  - @kavachos/hono@3.0.0
+  - theauth@0.4.0
+  - @theauth/hono@3.0.0
 
 ## 0.1.1
 
 ### Patch Changes
 
 - Updated dependencies
-  - kavachos@0.3.0
-  - @kavachos/hono@2.0.0
+  - theauth@0.3.0
+  - @theauth/hono@2.0.0
 
 ## 0.1.0
 
@@ -48,5 +48,5 @@
 
 - Updated dependencies [94804ec]
 - Updated dependencies [94804ec]
-  - kavachos@0.1.0
-  - @kavachos/hono@1.0.0
+  - theauth@0.1.0
+  - @theauth/hono@1.0.0

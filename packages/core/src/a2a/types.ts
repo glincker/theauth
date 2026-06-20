@@ -1,5 +1,5 @@
 /**
- * A2A (Agent-to-Agent) protocol types for KavachOS.
+ * A2A (Agent-to-Agent) protocol types for TheAuth.
  *
  * Implements the Google Agent2Agent protocol specification for
  * agent interoperability. Covers Agent Cards, JSON-RPC methods,

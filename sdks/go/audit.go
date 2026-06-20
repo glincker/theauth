@@ -1,4 +1,4 @@
-package kavachos
+package theauth
 
 import (
 	"context"
@@ -35,14 +35,14 @@ func (r *AuditResource) QueryPaginated(ctx context.Context, filters *AuditFilter
 	if len(data) > 0 && data[0] == '[' {
 		var entries []AuditEntry
 		if err := json.Unmarshal(data, &entries); err != nil {
-			return nil, fmt.Errorf("kavachos: decode audit entries: %w", err)
+			return nil, fmt.Errorf("theauth: decode audit entries: %w", err)
 		}
 		return &PaginatedAuditLogs{Entries: entries}, nil
 	}
 
 	var paginated PaginatedAuditLogs
 	if err := json.Unmarshal(data, &paginated); err != nil {
-		return nil, fmt.Errorf("kavachos: decode paginated audit: %w", err)
+		return nil, fmt.Errorf("theauth: decode paginated audit: %w", err)
 	}
 	return &paginated, nil
 }

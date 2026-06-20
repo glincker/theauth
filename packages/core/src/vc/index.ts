@@ -6,9 +6,9 @@ export type {
 } from "./audit-export.js";
 export {
 	exportAuditAsVC,
-	KAVACHOS_AUDIT_CONTEXT,
-	KAVACHOS_AUDIT_CREDENTIAL,
 	listAuditRecords,
+	THEAUTH_AUDIT_CONTEXT,
+	THEAUTH_AUDIT_CREDENTIAL,
 } from "./audit-export.js";
 export type {
 	DelegationLink,

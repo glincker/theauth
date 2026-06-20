@@ -10,7 +10,7 @@ if (!rootEl) throw new Error("Root element #root not found");
 createRoot(rootEl).render(
 	<StrictMode>
 		<KavachDashboard
-			apiUrl={import.meta.env.VITE_KAVACHOS_API_URL ?? "http://localhost:3000"}
+			apiUrl={import.meta.env.VITE_THEAUTH_API_URL ?? "http://localhost:3000"}
 			theme="dark"
 		/>
 	</StrictMode>,

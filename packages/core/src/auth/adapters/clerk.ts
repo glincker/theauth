@@ -1,5 +1,5 @@
 /**
- * Clerk adapter for KavachOS.
+ * Clerk adapter for TheAuth.
  *
  * Clerk's SDK differs by runtime (Node.js, Edge, etc.) so this adapter is
  * injection-based: you provide `getUserIdFromRequest` (to verify the session
@@ -8,7 +8,7 @@
  *
  * @example Node.js + Express
  * ```typescript
- * import { clerkAdapter } from 'kavachos/auth';
+ * import { clerkAdapter } from 'theauth/auth';
  * import { clerkClient, clerkMiddleware, getAuth } from '@clerk/express';
  *
  * const kavach = await createKavach({
@@ -28,7 +28,7 @@
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
 /**
- * A Clerk user record – only the fields KavachOS reads.
+ * A Clerk user record – only the fields TheAuth reads.
  */
 export interface ClerkUser {
 	id: string;

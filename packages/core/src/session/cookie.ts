@@ -1,5 +1,5 @@
 /**
- * Cookie serialization and parsing utilities for KavachOS.
+ * Cookie serialization and parsing utilities for TheAuth.
  *
  * Pure functions that work with Web API `Request`/`Response` objects and
  * raw header strings. No framework dependencies.

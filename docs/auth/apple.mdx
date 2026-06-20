@@ -2,7 +2,7 @@
 icon: apple
 iconType: brands
 title: Apple
-description: Add Sign in with Apple to your KavachOS application. Covers credentials, client secret generation, iOS apps, and local development.
+description: Add Sign in with Apple to your TheAuth application. Covers credentials, client secret generation, iOS apps, and local development.
 ---
 
 Sign in with Apple uses OAuth 2.0 with a few Apple-specific requirements: the client secret is a short-lived JWT you generate from a private key, and Apple only returns the user's name on the very first authorization. Plan your data model to store it immediately.
@@ -61,8 +61,8 @@ The Services ID is your OAuth `client_id` for web and non-iOS flows.
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { oauth } from 'kavachos/auth';
+import { createKavach } from 'theauth';
+import { oauth } from 'theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -112,7 +112,7 @@ console.log(clientSecret); // paste into APPLE_CLIENT_SECRET
 Run this script locally once, copy the output JWT, and set it as your `APPLE_CLIENT_SECRET` environment variable. Re-run before the 6-month window closes.
 
 <Info>
-  The `jose` library is already a dependency of `kavachos/core`, so you do not need to install it separately.
+  The `jose` library is already a dependency of `theauth/core`, so you do not need to install it separately.
 </Info>
 
 ## Environment variables
@@ -146,7 +146,7 @@ Update both your Apple Services ID redirect URI and your `baseUrl` config to mat
 
 ## User data
 
-Apple embeds user claims in the `id_token` JWT returned from the token endpoint. KavachOS decodes this automatically.
+Apple embeds user claims in the `id_token` JWT returned from the token endpoint. TheAuth decodes this automatically.
 
 | Field | Notes |
 |-------|-------|
@@ -155,7 +155,7 @@ Apple embeds user claims in the `id_token` JWT returned from the token endpoint.
 | `name` | Only available on the first authorization, store it on your side immediately |
 
 <Warning>
-  Apple returns `name` only once, on the very first sign-in, via a `user` form-post field alongside the authorization code. On every subsequent sign-in the field is absent. KavachOS stores it after first auth, but make sure your `onUserCreated` hook persists it before returning.
+  Apple returns `name` only once, on the very first sign-in, via a `user` form-post field alongside the authorization code. On every subsequent sign-in the field is absent. TheAuth stores it after first auth, but make sure your `onUserCreated` hook persists it before returning.
 </Warning>
 
 ## Endpoints
@@ -180,6 +180,6 @@ Both endpoints are registered automatically when the `oauth` plugin is configure
     Sign in with Microsoft Entra ID for personal and work accounts.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in KavachOS.
+    All sign-in methods available in TheAuth.
   </Card>
 </CardGroup>

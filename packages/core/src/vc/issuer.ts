@@ -1,10 +1,10 @@
 /**
- * W3C Verifiable Credential issuance for KavachOS.
+ * W3C Verifiable Credential issuance for TheAuth.
  *
  * Issues VCs as JWT (compact JWS) or JSON-LD with embedded proof.
  * Credentials encode agent identity, permissions, and delegation chains
  * so agents can prove their capabilities to any verifier without
- * a network call back to KavachOS.
+ * a network call back to TheAuth.
  */
 
 import { importJWK, SignJWT } from "jose";

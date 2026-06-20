@@ -1,14 +1,14 @@
-# Releasing @kavachos/nextjs-auth
+# Releasing @theauth/nextjs-auth
 
 ## First-time publish (v0.1.0)
 
 ```bash
-cd kavachos/packages/adapters/nextjs-auth
+cd theauth/packages/adapters/nextjs-auth
 pnpm build
 pnpm publish --access public
 ```
 
-You'll need to be logged into npm with publish rights to the @kavachos org:
+You'll need to be logged into npm with publish rights to the @theauth org:
 
 ```bash
 npm login
@@ -20,8 +20,8 @@ npm whoami    # should show your npm user
 In glinr-me's `apps/web/package.json`, swap the file dep:
 
 ```diff
-- "@kavachos/nextjs-auth": "file:../../../kavachos/packages/adapters/nextjs-auth"
-+ "@kavachos/nextjs-auth": "^0.1.0"
+- "@theauth/nextjs-auth": "file:../../../theauth/packages/adapters/nextjs-auth"
++ "@theauth/nextjs-auth": "^0.1.0"
 ```
 
 Then `cd apps/web && pnpm install` and verify `npx tsc --noEmit` still passes.
@@ -29,7 +29,7 @@ Then `cd apps/web && pnpm install` and verify `npx tsc --noEmit` still passes.
 ## Tag the release
 
 ```bash
-git tag @kavachos/nextjs-auth@0.1.0
+git tag @theauth/nextjs-auth@0.1.0
 git push --tags
 ```
 

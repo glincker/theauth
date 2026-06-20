@@ -1,4 +1,4 @@
-// ─── Prisma model types mirroring the KavachOS schema ────────────────────────
+// ─── Prisma model types mirroring the TheAuth schema ────────────────────────
 // These are the plain object shapes returned from the adapter. They match
 // the Prisma model fields defined in schema.prisma.
 

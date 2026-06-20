@@ -1,5 +1,5 @@
 /**
- * SSO (SAML 2.0 + OIDC) authentication for KavachOS.
+ * SSO (SAML 2.0 + OIDC) authentication for TheAuth.
  *
  * Supports enterprise SSO via SAML 2.0 identity providers (Okta, Azure AD,
  * Google Workspace) and generic OIDC providers. Connections are linked to

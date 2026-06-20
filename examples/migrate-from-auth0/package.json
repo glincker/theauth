@@ -1,9 +1,9 @@
 {
-  "name": "@kavachos/example-migrate-from-auth0",
+  "name": "@theauth/example-migrate-from-auth0",
   "private": true,
   "type": "module",
   "version": "0.0.1",
-  "description": "Runnable companion to docs/migrate/from-auth0.mdx. Demonstrates the AFTER patterns: KavachOS instance, M2M-as-agent with scoped permissions, rotation, policy constraints.",
+  "description": "Runnable companion to docs/migrate/from-auth0.mdx. Demonstrates the AFTER patterns: TheAuth instance, M2M-as-agent with scoped permissions, rotation, policy constraints.",
   "scripts": {
     "start": "tsx src/index.ts",
     "test": "vitest run",
@@ -12,7 +12,7 @@
   "dependencies": {
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.41.0",
-    "kavachos": "workspace:*"
+    "theauth": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

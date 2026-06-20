@@ -1,13 +1,13 @@
 /**
- * Polar payment integration for KavachOS.
+ * Polar payment integration for TheAuth.
  *
- * Links Polar customers to KavachOS users, handles subscription lifecycle
+ * Links Polar customers to TheAuth users, handles subscription lifecycle
  * webhooks, and stores subscription status. Uses Polar's REST API directly
  * via fetch — no Polar SDK dependency.
  *
  * @example
  * ```typescript
- * import { createPolarModule } from 'kavachos/auth';
+ * import { createPolarModule } from 'theauth/auth';
  *
  * const polar = createPolarModule({
  *   accessToken: process.env.POLAR_ACCESS_TOKEN!,

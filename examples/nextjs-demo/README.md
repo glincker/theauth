@@ -1,6 +1,6 @@
-# KavachOS Next.js Demo
+# TheAuth Next.js Demo
 
-A working demo of KavachOS auth and agent features built with Next.js App Router.
+A working demo of TheAuth auth and agent features built with Next.js App Router.
 
 ## Run
 
@@ -21,7 +21,7 @@ Open http://localhost:3002
 - Authorization checks (allow/deny)
 - Audit trail
 - Token rotation
-- Session management via `@kavachos/react` hooks
+- Session management via `@theauth/react` hooks
 
 ## Structure
 
@@ -30,9 +30,9 @@ app/
   page.tsx                    # Sign in / sign up
   dashboard/page.tsx          # Authenticated dashboard
   auth/verify-email/page.tsx  # Email verification
-  api/kavach/[...kavach]/     # All KavachOS API routes
+  api/kavach/[...kavach]/     # All TheAuth API routes
 lib/
-  kavach.ts                   # Singleton KavachOS instance
+  kavach.ts                   # Singleton TheAuth instance
 ```
 
 ## Notes

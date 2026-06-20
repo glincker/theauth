@@ -1,6 +1,6 @@
 # Maintainers Guide
 
-This document defines maintainer responsibilities and release workflow for KavachOS OSS.
+This document defines maintainer responsibilities and release workflow for TheAuth OSS.
 
 Related docs:
 
@@ -29,7 +29,7 @@ Related docs:
 
 ## Release lanes
 
-KavachOS uses explicit release waves:
+TheAuth uses explicit release waves:
 
 1. Wave A: core + primary client-facing packages (`0.1.x` line)
 2. Wave B: adapters/plugins major alignment (`1.0.x` line)

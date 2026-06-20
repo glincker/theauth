@@ -98,7 +98,7 @@ function makeRequest(
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
-describe("KavachOS Gateway", () => {
+describe("TheAuth Gateway", () => {
 	let kavach: Kavach;
 	let gateway: Gateway;
 	let fetchSpy: ReturnType<typeof vi.spyOn>;
@@ -541,7 +541,7 @@ describe("KavachOS Gateway", () => {
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
 			expect(capturedHeaders["x-forwarded-host"]).toBeTruthy();
-			expect(capturedHeaders["x-gateway"]).toBe("kavachos");
+			expect(capturedHeaders["x-gateway"]).toBe("theauth");
 		});
 
 		it("strips Authorization header when stripAuthHeader is true", async () => {

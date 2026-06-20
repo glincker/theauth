@@ -4,14 +4,14 @@ description: Reject or warn on passwords found in known data breaches using the 
 icon: shield-halved
 ---
 
-KavachOS integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model, only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.
+TheAuth integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model, only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.
 
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'kavachos';
-import { emailPassword } from 'kavachos/auth';
-import { createHibpModule } from 'kavachos/modules/hibp'; // [!code highlight]
+import { createKavach } from 'theauth';
+import { emailPassword } from 'theauth/auth';
+import { createHibpModule } from 'theauth/modules/hibp'; // [!code highlight]
 
 const hibp = createHibpModule(); // [!code highlight]
 

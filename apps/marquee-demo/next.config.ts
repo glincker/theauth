@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	transpilePackages: ["kavachos"],
+	transpilePackages: ["theauth"],
 	webpack(config, { isServer }) {
 		// sql.js requires WASM and fs access, only run it server-side.
 		// Silence the warning about missing WASM binaries on the client bundle.

@@ -1,15 +1,15 @@
 /**
- * OIDC Provider module for KavachOS.
+ * OIDC Provider module for TheAuth.
  *
- * Turns KavachOS into a full OpenID Connect identity provider (IdP).
+ * Turns TheAuth into a full OpenID Connect identity provider (IdP).
  * External applications can register as OIDC clients and authenticate
- * their users against KavachOS using standard authorization code flow
+ * their users against TheAuth using standard authorization code flow
  * with PKCE, ID tokens, refresh tokens, discovery, and JWKS.
  *
  * @example
  * ```typescript
  * import { generateKeyPair } from 'jose';
- * import { createOidcProviderModule } from 'kavachos/auth';
+ * import { createOidcProviderModule } from 'theauth/auth';
  *
  * const { privateKey } = await generateKeyPair('RS256');
  * const oidc = createOidcProviderModule(
@@ -273,7 +273,7 @@ async function computeS256Challenge(codeVerifier: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 /**
- * Create an OIDC Provider module that turns KavachOS into an identity provider.
+ * Create an OIDC Provider module that turns TheAuth into an identity provider.
  *
  * @param config       Provider configuration (issuer, signing key, TTLs).
  * @param db           Drizzle database instance.

@@ -32,7 +32,7 @@ describe("cli smoke", () => {
 		const result = runCli(["version"]);
 
 		expect(result.status).toBe(0);
-		expect(result.stdout).toContain(`kavachos v${pkg.version}`);
+		expect(result.stdout).toContain(`theauth v${pkg.version}`);
 		expect(result.stderr).toBe("");
 	});
 
@@ -40,7 +40,7 @@ describe("cli smoke", () => {
 		const result = runCli(["--help"]);
 
 		expect(result.status).toBe(0);
-		expect(result.stdout).toContain("kavachos - The Auth OS for AI Agents");
+		expect(result.stdout).toContain("theauth - The Auth OS for AI Agents");
 		expect(result.stdout).toContain("Usage:");
 		expect(result.stdout).toContain("Commands:");
 	});

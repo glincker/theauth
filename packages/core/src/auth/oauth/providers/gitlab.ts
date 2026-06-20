@@ -11,7 +11,7 @@
  * - The `read_user` scope grants access to the `/api/v4/user` endpoint which
  *   returns the authenticated user's profile including email.
  * - GitLab user IDs are integers; they are converted to strings for the
- *   KavachOS normalized format.
+ *   TheAuth normalized format.
  * - For self-managed GitLab instances, override the URLs by providing a
  *   custom base URL and constructing the provider accordingly.
  *

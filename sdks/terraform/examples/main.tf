@@ -1,8 +1,8 @@
 terraform {
   required_version = ">= 1.5"
   required_providers {
-    kavachos = {
-      source  = "kavachos/kavachos"
+    theauth = {
+      source  = "theauth/theauth"
       version = "~> 0.1"
     }
   }
@@ -12,30 +12,30 @@ terraform {
 # Provider configuration
 # ---------------------------------------------------------------------------
 # Pass credentials via environment variables in CI:
-#   export KAVACHOS_BASE_URL=https://your-app.com/api/kavach
-#   export KAVACHOS_TOKEN=kv_live_...
+#   export THEAUTH_BASE_URL=https://your-app.com/api/kavach
+#   export THEAUTH_TOKEN=kv_live_...
 #
 # Or explicitly (use variables rather than hardcoding):
-provider "kavachos" {
-  base_url = var.kavachos_base_url
-  token    = var.kavachos_token
+provider "theauth" {
+  base_url = var.theauth_base_url
+  token    = var.theauth_token
 }
 
-variable "kavachos_base_url" {
+variable "theauth_base_url" {
   type        = string
-  description = "Base URL of the KavachOS deployment."
+  description = "Base URL of the TheAuth deployment."
 }
 
-variable "kavachos_token" {
+variable "theauth_token" {
   type        = string
   sensitive   = true
-  description = "API token for KavachOS."
+  description = "API token for TheAuth."
 }
 
 # ---------------------------------------------------------------------------
 # Organization
 # ---------------------------------------------------------------------------
-resource "kavachos_organization" "engineering" {
+resource "theauth_organization" "engineering" {
   name = "Engineering"
   slug = "engineering"
   plan = "pro"
@@ -44,12 +44,12 @@ resource "kavachos_organization" "engineering" {
 # ---------------------------------------------------------------------------
 # API keys
 # ---------------------------------------------------------------------------
-resource "kavachos_api_key" "ci_pipeline" {
+resource "theauth_api_key" "ci_pipeline" {
   name   = "ci-pipeline"
   scopes = ["agents:read", "agents:write", "audit:read"]
 }
 
-resource "kavachos_api_key" "readonly_monitor" {
+resource "theauth_api_key" "readonly_monitor" {
   name       = "monitoring-read"
   scopes     = ["agents:read", "audit:read"]
   expires_at = "2027-01-01T00:00:00Z"
@@ -58,14 +58,14 @@ resource "kavachos_api_key" "readonly_monitor" {
 # Store the raw key in an output so it can be injected into CI secrets.
 # In production, consider writing this to AWS Secrets Manager or Vault instead.
 output "ci_api_key" {
-  value     = kavachos_api_key.ci_pipeline.key
+  value     = theauth_api_key.ci_pipeline.key
   sensitive = true
 }
 
 # ---------------------------------------------------------------------------
 # GitHub reader agent — read-only access to GitHub MCP tools
 # ---------------------------------------------------------------------------
-resource "kavachos_agent" "github_reader" {
+resource "theauth_agent" "github_reader" {
   owner_id = "user-123"
   name     = "github-reader"
   type     = "autonomous"
@@ -87,7 +87,7 @@ resource "kavachos_agent" "github_reader" {
 # ---------------------------------------------------------------------------
 # Deploy agent — limited production access with rate limiting and approval
 # ---------------------------------------------------------------------------
-resource "kavachos_agent" "deploy_bot" {
+resource "theauth_agent" "deploy_bot" {
   owner_id   = "user-123"
   name       = "deploy-bot"
   type       = "autonomous"
@@ -115,7 +115,7 @@ resource "kavachos_agent" "deploy_bot" {
 # ---------------------------------------------------------------------------
 # Service account for internal tooling — no expiry, narrow scope
 # ---------------------------------------------------------------------------
-resource "kavachos_agent" "internal_analytics" {
+resource "theauth_agent" "internal_analytics" {
   owner_id = "user-123"
   name     = "internal-analytics"
   type     = "service"
@@ -134,32 +134,32 @@ resource "kavachos_agent" "internal_analytics" {
 # ---------------------------------------------------------------------------
 
 # Look up an agent that was not created by this config.
-data "kavachos_agent" "legacy_bot" {
+data "theauth_agent" "legacy_bot" {
   id = "agent-id-of-existing-bot"
 }
 
 output "legacy_bot_status" {
-  value = data.kavachos_agent.legacy_bot.status
+  value = data.theauth_agent.legacy_bot.status
 }
 
 # List all active autonomous agents owned by a specific user.
-data "kavachos_agents" "active_bots" {
+data "theauth_agents" "active_bots" {
   owner_id = "user-123"
   status   = "active"
   type     = "autonomous"
 }
 
 output "active_bot_count" {
-  value = length(data.kavachos_agents.active_bots.agents)
+  value = length(data.theauth_agents.active_bots.agents)
 }
 
 # ---------------------------------------------------------------------------
 # Standalone permission grant (cross-module pattern)
 # ---------------------------------------------------------------------------
-# Use kavachos_permission when one module creates the agent and another
+# Use theauth_permission when one module creates the agent and another
 # grants permissions. If you control both, use inline permission blocks instead.
-resource "kavachos_permission" "ops_deploy_access" {
-  agent_id           = kavachos_agent.deploy_bot.id
+resource "theauth_permission" "ops_deploy_access" {
+  agent_id           = theauth_agent.deploy_bot.id
   resource           = "mcp:ops:restart"
   actions            = ["execute"]
   require_approval   = true

@@ -1,12 +1,12 @@
 /**
- * Typed assertion helpers for KavachOS `ActionResult` values.
+ * Typed assertion helpers for TheAuth `ActionResult` values.
  *
  * These narrow the result type so subsequent code can access `.data` or
  * `.error` without an extra type guard.  They throw descriptive errors on
  * failure so test output is readable.
  */
 
-import type { ActionResult } from "@kavachos/react";
+import type { ActionResult } from "@theauth/react";
 
 // ─── Assertion helpers ────────────────────────────────────────────────────────
 

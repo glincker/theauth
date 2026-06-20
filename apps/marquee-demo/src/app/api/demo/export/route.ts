@@ -40,12 +40,9 @@ function buildSignedExport(
 	const now = new Date().toISOString();
 
 	return {
-		"@context": [
-			"https://www.w3.org/2018/credentials/v1",
-			"https://kavachos.com/contexts/audit/v1",
-		],
-		type: "KavachOSAuditCredential",
-		issuer: "https://kavachos.com",
+		"@context": ["https://www.w3.org/2018/credentials/v1", "https://theauth.com/contexts/audit/v1"],
+		type: "TheAuthAuditCredential",
+		issuer: "https://theauth.com",
 		issuanceDate: now,
 		credentialSubject: {
 			agentId,
@@ -56,7 +53,7 @@ function buildSignedExport(
 			exportedAt: now,
 		},
 		proof: {
-			type: "KavachOSSimulatedProof",
+			type: "TheAuthSimulatedProof",
 			created: now,
 			// TODO(v3): replace with real Ed25519Signature2020 from exportAuditAsVC
 			// once packages/core/src/vc/audit-export.ts lands in v3/vc-audit-export.
@@ -107,7 +104,7 @@ export async function POST(): Promise<NextResponse> {
 			status: 200,
 			headers: {
 				"Content-Type": "application/json",
-				"Content-Disposition": 'attachment; filename="kavachos-audit-export.json"',
+				"Content-Disposition": 'attachment; filename="theauth-audit-export.json"',
 			},
 		});
 	} catch (err) {

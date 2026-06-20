@@ -13,13 +13,13 @@ const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8")
 const VERSION = pkg.version;
 
 const HELP = `
-kavachos - The Auth OS for AI Agents
+theauth - The Auth OS for AI Agents
 
 Usage:
-  kavachos <command> [options]
+  theauth <command> [options]
 
 Commands:
-  init          Initialize KavachOS in your project
+  init          Initialize TheAuth in your project
   migrate       Run database migrations
   dashboard     Launch the admin dashboard
   version       Show version
@@ -29,15 +29,15 @@ Options:
   --version     Show version number
 
 Examples:
-  kavachos init
-  kavachos migrate
-  kavachos dashboard --port 3100
+  theauth init
+  theauth migrate
+  theauth dashboard --port 3100
 
-Documentation: https://kavachos.com/docs
+Documentation: https://theauth.com/docs
 `;
 
 function printVersion(): void {
-	stdout.write(`kavachos v${VERSION}\n`);
+	stdout.write(`theauth v${VERSION}\n`);
 }
 
 function printHelp(): void {
@@ -55,11 +55,11 @@ async function handleInit(): Promise<void> {
 }
 
 async function handleMigrate(): Promise<void> {
-	stdout.write("\nKavachOS Database Migration\n");
+	stdout.write("\nTheAuth Database Migration\n");
 	stdout.write("==========================\n\n");
 	stdout.write("Migration support coming in v0.1.0.\n");
 	stdout.write("For now, tables are auto-created on first run.\n\n");
-	stdout.write("See: https://kavachos.com/docs/quickstart\n\n");
+	stdout.write("See: https://theauth.com/docs/quickstart\n\n");
 }
 
 async function handleDashboard(): Promise<void> {

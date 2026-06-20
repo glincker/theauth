@@ -103,7 +103,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		const initSqlJs = (
 			await import("sql.js").catch(() => {
 				throw new Error(
-					'KavachOS: provider "sqlite" requires the "sql.js" package. ' +
+					'TheAuth: provider "sqlite" requires the "sql.js" package. ' +
 						"Install it with: npm install sql.js",
 				);
 			})
@@ -176,7 +176,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		const BetterSqlite3 = (
 			await import("better-sqlite3").catch(() => {
 				throw new Error(
-					'KavachOS: provider "sqlite-native" requires the "better-sqlite3" package. ' +
+					'TheAuth: provider "sqlite-native" requires the "better-sqlite3" package. ' +
 						"Install it with: npm install better-sqlite3",
 				);
 			})
@@ -193,7 +193,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		// Dynamic import keeps `pg` an optional peer dep.
 		const { Pool } = await import("pg").catch(() => {
 			throw new Error(
-				'KavachOS: provider "postgres" requires the "pg" package. ' +
+				'TheAuth: provider "postgres" requires the "pg" package. ' +
 					"Install it with: npm install pg",
 			);
 		});
@@ -209,7 +209,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		// Dynamic import keeps `mysql2` an optional peer dep.
 		const mysql2 = await import("mysql2/promise").catch(() => {
 			throw new Error(
-				'KavachOS: provider "mysql" requires the "mysql2" package. ' +
+				'TheAuth: provider "mysql" requires the "mysql2" package. ' +
 					"Install it with: npm install mysql2",
 			);
 		});
@@ -228,7 +228,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 	}
 
 	throw new Error(
-		`KavachOS: unsupported database provider "${(config as DatabaseConfig).provider}". ` +
+		`TheAuth: unsupported database provider "${(config as DatabaseConfig).provider}". ` +
 			'Valid values are "sqlite", "sqlite-native", "postgres", "mysql", "d1".',
 	);
 }
