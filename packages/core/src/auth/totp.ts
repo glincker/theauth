@@ -308,7 +308,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		const rows = await db.select().from(totpRecords).where(eq(totpRecords.userId, userId));
 
 		const record = rows[0];
-		if (!record || !record.enabled) {
+		if (!record?.enabled) {
 			return { valid: false };
 		}
 

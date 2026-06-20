@@ -248,7 +248,7 @@ function buildCacheKey(input: EvaluateInput): string {
 }
 
 function validateInput(input: EvaluateInput): { ok: true } | { ok: false; reason: string } {
-	if (!input || !input.subject || !input.action || !input.resource) {
+	if (!input?.subject || !input.action || !input.resource) {
 		return { ok: false, reason: POLICY_ERROR_CODES.INVALID_INPUT };
 	}
 	if (!input.subject.agentId && !input.subject.userId) {

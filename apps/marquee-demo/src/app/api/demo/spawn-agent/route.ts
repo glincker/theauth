@@ -16,7 +16,7 @@ export async function POST(): Promise<NextResponse> {
 		}
 
 		const session = getSession(sessionId);
-		if (!session || !session.passkeyRegistered) {
+		if (!session?.passkeyRegistered) {
 			return NextResponse.json({ error: "Complete step 1 first" }, { status: 400 });
 		}
 
