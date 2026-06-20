@@ -121,7 +121,7 @@ export function serializeCookieDeletion(
 export function parseCookies(header: string): Record<string, string> {
 	const result: Record<string, string> = {};
 
-	if (!header || !header.trim()) return result;
+	if (!header?.trim()) return result;
 
 	for (const pair of header.split(";")) {
 		const eqIndex = pair.indexOf("=");

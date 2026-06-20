@@ -120,9 +120,10 @@ export function EmptyState({ icon, title, description, action, steps, docsLink }
 					href={docsLink}
 					target="_blank"
 					rel="noopener noreferrer"
+					aria-label={`View ${title} documentation`}
 					className="inline-flex items-center gap-1 mt-4 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
 				>
-					Learn more
+					View documentation
 					<ExternalLink className="w-3 h-3" />
 				</a>
 			)}
