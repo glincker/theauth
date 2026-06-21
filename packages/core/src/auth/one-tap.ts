@@ -25,7 +25,7 @@
  * });
  *
  * // Use via plugin
- * import { oneTap } from 'theauth/auth';
+ * import { oneTap } from '@glinr/theauth/auth';
  * // plugins: [oneTap({ clientId: process.env.GOOGLE_CLIENT_ID })]
  *
  * // Or use the module directly

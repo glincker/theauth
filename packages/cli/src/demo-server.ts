@@ -5,12 +5,12 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, join, resolve } from "node:path";
 import { env, stdout } from "node:process";
+import type { Kavach, Permission } from "@glinr/theauth";
+import { createKavach, users } from "@glinr/theauth";
+import { kavachHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@theauth/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { Kavach, Permission } from "theauth";
-import { createKavach, users } from "theauth";
 
 export interface DemoServerOptions {
 	port: number;
@@ -35,7 +35,7 @@ const MIME: Record<string, string> = {
 function resolveDashboardDistDir(): string {
 	try {
 		const require = createRequire(import.meta.url);
-		const pkgPath = require.resolve("@theauth/dashboard/package.json");
+		const pkgPath = require.resolve("@glinr/theauth-dashboard/package.json");
 		const pkgDir = resolve(pkgPath, "..");
 		const distDir = join(pkgDir, "dist", "app");
 		if (existsSync(distDir)) return distDir;
@@ -55,7 +55,7 @@ function resolveDashboardDistDir(): string {
 	}
 
 	throw new Error(
-		"Cannot find @theauth/dashboard dist directory.\n" +
+		"Cannot find @glinr/theauth-dashboard dist directory.\n" +
 			"Build the dashboard first: cd packages/dashboard && pnpm build\n",
 	);
 }

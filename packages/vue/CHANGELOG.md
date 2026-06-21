@@ -1,4 +1,4 @@
-# @theauth/vue
+# @glinr/theauth-vue
 
 ## 0.1.0
 

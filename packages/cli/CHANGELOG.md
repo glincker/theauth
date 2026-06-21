@@ -1,4 +1,4 @@
-# @theauth/cli
+# @glinr/theauth-cli
 
 ## 0.1.4
 
@@ -6,7 +6,7 @@
 
 - Updated dependencies
   - theauth@0.4.2
-  - @theauth/hono@3.0.2
+  - @glinr/theauth-hono@3.0.2
 
 ## 0.1.3
 
@@ -14,7 +14,7 @@
 
 - Updated dependencies
   - theauth@0.4.1
-  - @theauth/hono@3.0.1
+  - @glinr/theauth-hono@3.0.1
 
 ## 0.1.2
 
@@ -22,7 +22,7 @@
 
 - Updated dependencies
   - theauth@0.4.0
-  - @theauth/hono@3.0.0
+  - @glinr/theauth-hono@3.0.0
 
 ## 0.1.1
 
@@ -30,7 +30,7 @@
 
 - Updated dependencies
   - theauth@0.3.0
-  - @theauth/hono@2.0.0
+  - @glinr/theauth-hono@2.0.0
 
 ## 0.1.0
 
@@ -49,4 +49,4 @@
 - Updated dependencies [94804ec]
 - Updated dependencies [94804ec]
   - theauth@0.1.0
-  - @theauth/hono@1.0.0
+  - @glinr/theauth-hono@1.0.0

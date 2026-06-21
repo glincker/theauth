@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AgentIdentity, AuditEntry, DelegationChain } from "theauth";
+import type { AgentIdentity, AuditEntry, DelegationChain } from "@glinr/theauth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TelemetrySpan } from "../src/exporter.js";
 import { createTelemetryModule } from "../src/exporter.js";

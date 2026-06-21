@@ -26,8 +26,8 @@ This page covers cookie sessions and JWT sessions. For ephemeral agent sessions 
 Pass `createCookieSessionManager` a config object and your `kavach.db` instance. The manager handles creation, validation, refresh, and revocation.
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { createCookieSessionManager } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { createCookieSessionManager } from '@glinr/theauth/auth'; // [!code highlight]
 
 export const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -155,7 +155,7 @@ export async function POST(req: Request): Promise<Response> {
 Use JWT sessions when cookies don't work: SPAs calling a separate API origin, mobile apps, server-to-server flows. Access tokens are short-lived and stateless. Refresh tokens are opaque random strings stored as SHA-256 hashes, and they rotate on every use.
 
 ```typescript title="lib/kavach.ts"
-import { createJwtSessionModule } from 'theauth/auth'; // [!code highlight]
+import { createJwtSessionModule } from '@glinr/theauth/auth'; // [!code highlight]
 
 export const jwtSessions = createJwtSessionModule({
   secret: process.env.SESSION_SECRET!, // HS256 by default // [!code highlight]
@@ -231,7 +231,7 @@ Some operations should require that the user authenticated recently, not just th
 `createSessionFreshnessModule` wraps this check. When a session is older than `freshAge` seconds, it returns a `403` response with code `SESSION_STALE`. Your handler returns it directly.
 
 ```typescript title="lib/freshness.ts"
-import { createSessionFreshnessModule } from 'theauth'; // [!code highlight]
+import { createSessionFreshnessModule } from '@glinr/theauth'; // [!code highlight]
 
 export const freshness = createSessionFreshnessModule({
   freshAge: 300, // 5 minutes // [!code highlight]
@@ -273,7 +273,7 @@ When the client receives `SESSION_STALE`, redirect them to a lightweight re-auth
 Cookie-based sessions are vulnerable to cross-site request forgery unless you add a second layer. TheAuth uses the double-submit cookie pattern: a random token is set in a separate readable cookie and must also appear in the request body or header. An attacker's page can trigger the cookie but cannot read it to reproduce the header value.
 
 ```typescript title="lib/csrf.ts"
-import { generateCsrfToken, validateCsrfToken, validateOrigin } from 'theauth'; // [!code highlight]
+import { generateCsrfToken, validateCsrfToken, validateOrigin } from '@glinr/theauth'; // [!code highlight]
 
 // On page load or sign-in response, set a CSRF cookie
 const csrfToken = generateCsrfToken(); // [!code highlight]

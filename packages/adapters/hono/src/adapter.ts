@@ -1,4 +1,3 @@
-import { Hono } from "hono";
 import type {
 	AgentFilter,
 	AuditFilter,
@@ -7,8 +6,9 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+} from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
+import { Hono } from "hono";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -152,8 +152,8 @@ function mcpNoStore<T>(data: T, status = 200) {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { kavachHono } from '@theauth/hono';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachHono } from '@glinr/theauth-hono';
  * import { serve } from '@hono/node-server';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
@@ -163,7 +163,7 @@ function mcpNoStore<T>(data: T, status = 200) {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const app = kavachHono(kavach, { mcp });
  * ```

@@ -24,11 +24,11 @@ When to wait:
 | Clerk | TheAuth |
 |---|---|
 | `clerkClient` (server) | instance from `createKavach({...})` |
-| `<ClerkProvider>` | `<KavachProvider>` from `@theauth/react` |
-| `useUser()` | `useUser()` from `@theauth/react` |
-| `useAuth()` | `useSession()` + `useSignOut()` from `@theauth/react` |
-| `useSession()` | `useSession()` from `@theauth/react` |
-| `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@theauth/react` |
+| `<ClerkProvider>` | `<KavachProvider>` from `@glinr/theauth-react` |
+| `useUser()` | `useUser()` from `@glinr/theauth-react` |
+| `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
+| `useSession()` | `useSession()` from `@glinr/theauth-react` |
+| `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@glinr/theauth-react` |
 | `auth()` in server components | `kavach.auth.getSession()` using the request cookies |
 | `currentUser()` | `kavach.auth.getUser()` using the request cookies |
 | `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
@@ -49,8 +49,8 @@ When to wait:
 
 ```ts
 // AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from 'theauth';
-import { organization } from 'theauth/plugins';
+import { createKavach } from '@glinr/theauth';
+import { organization } from '@glinr/theauth/plugins';
 
 let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
 
@@ -82,7 +82,7 @@ Clerk hides its route handling behind the middleware. TheAuth exposes an explici
 
 ```ts
 // AFTER: app/api/auth/[...kavach]/route.ts (TheAuth)
-import { kavachNextjs } from '@theauth/nextjs';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
 const { GET, POST } = kavachNextjs(getKavach);
@@ -160,7 +160,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ```tsx
 // AFTER: app/layout.tsx (TheAuth)
-import { KavachProvider } from '@theauth/react';
+import { KavachProvider } from '@glinr/theauth-react';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -194,7 +194,7 @@ function Profile() {
 
 ```tsx
 // AFTER (TheAuth)
-import { useUser, useSignOut } from '@theauth/react';
+import { useUser, useSignOut } from '@glinr/theauth-react';
 
 function Profile() {
   const { user, isLoading } = useUser();
@@ -227,7 +227,7 @@ export default function Page() {
 'use client';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSignIn } from '@theauth/react';
+import { useSignIn } from '@glinr/theauth-react';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -310,8 +310,8 @@ Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side
 
 ```ts
 // AFTER (TheAuth)
-import { createKavach } from 'theauth';
-import { oauth } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth } from '@glinr/theauth/auth';
 
 export const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -415,7 +415,7 @@ Clerk exports historical metadata, not live OAuth tokens. Users will re-authoris
 If you want password sign-in to keep working without a forced reset, accept Clerk bcrypt hashes during a transition window and rehash to PBKDF2 on successful sign-in. The shape of the hook:
 
 ```ts
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 import { compare as bcryptCompare } from 'bcrypt';
 
 export const kavach = await createKavach({

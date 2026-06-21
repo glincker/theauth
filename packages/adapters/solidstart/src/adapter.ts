@@ -1,5 +1,5 @@
-import type { Kavach } from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+import type { Kavach } from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachSolidStartOptions {
@@ -31,8 +31,8 @@ export interface KavachSolidStartHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { kavachSolidStart } from '@theauth/solidstart';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachSolidStart } from '@glinr/theauth-solidstart';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachSolidStart(kavach);
@@ -46,7 +46,7 @@ export interface KavachSolidStartHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachSolidStart(kavach, { mcp });
  * ```

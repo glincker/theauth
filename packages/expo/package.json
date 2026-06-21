@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/expo",
+  "name": "@glinr/theauth-expo",
   "version": "0.1.0",
   "description": "React Native / Expo client for TheAuth auth",
   "type": "module",

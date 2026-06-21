@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/client",
+  "name": "@glinr/theauth-client",
   "version": "0.1.0",
   "description": "TypeScript client for the TheAuth REST API",
   "license": "MIT",

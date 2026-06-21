@@ -15,7 +15,7 @@ The `twoFactor()` plugin adds TOTP (time-based one-time password) support compat
 ### Install
 
 ```bash
-pnpm add theauth
+pnpm add @glinr/theauth
 ```
 
 </Step>
@@ -25,9 +25,9 @@ pnpm add theauth
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { emailPassword } from 'theauth/auth';
-import { twoFactor } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { emailPassword } from '@glinr/theauth/auth';
+import { twoFactor } from '@glinr/theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

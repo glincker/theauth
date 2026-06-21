@@ -42,8 +42,8 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from 'theauth';
-import { organization, twoFactor } from 'theauth/plugins';
+import { createKavach } from '@glinr/theauth';
+import { organization, twoFactor } from '@glinr/theauth/plugins';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -64,7 +64,7 @@ export const { GET, POST } = toNextJsHandler(auth);
 
 ```ts
 // AFTER: app/api/kavach/[...kavach]/route.ts (TheAuth)
-import { kavachNextjs } from '@theauth/nextjs';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 import { kavach } from '@/lib/kavach';
 
 const handlers = kavachNextjs(kavach);
@@ -91,7 +91,7 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 ```ts
 // AFTER: src/index.ts (TheAuth)
 import { Hono } from 'hono';
-import { kavachHono } from '@theauth/hono';
+import { kavachHono } from '@glinr/theauth-hono';
 import { kavach } from './lib/kavach.js';
 
 const app = new Hono();
@@ -116,7 +116,7 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: TheAuth (Drizzle is built in, no separate adapter import)
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -142,7 +142,7 @@ const { data: session } = await authClient.useSession();
 
 ```ts
 // AFTER: TheAuth client
-import { createKavachClient } from '@theauth/client';
+import { createKavachClient } from '@glinr/theauth-client';
 
 export const client = createKavachClient({
   baseUrl: 'http://localhost:3000/api/kavach',
@@ -156,10 +156,10 @@ For React, swap the hook import:
 import { useSession } from 'better-auth/react'; // verify against current better-auth docs
 
 // AFTER (TheAuth React hooks)
-import { useSession } from '@theauth/react';
+import { useSession } from '@glinr/theauth-react';
 
 // Wrap your app:
-import { KavachProvider } from '@theauth/react';
+import { KavachProvider } from '@glinr/theauth-react';
 
 <KavachProvider basePath="/api/kavach">
   {children}
@@ -194,8 +194,8 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: TheAuth
-import { createKavach } from 'theauth';
-import { oauth } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth } from '@glinr/theauth/auth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -245,8 +245,8 @@ For a provider not in our first-class list, use the generic factory:
 better-auth and TheAuth use different token structures. An existing session token from better-auth will not be accepted by TheAuth and vice versa. To avoid signing everyone out on cutover day, use our `cookieAuth` adapter to accept both token formats during a transition window:
 
 ```ts
-import { createKavach } from 'theauth';
-import { cookieAuth } from 'theauth/adapters';
+import { createKavach } from '@glinr/theauth';
+import { cookieAuth } from '@glinr/theauth/adapters';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -376,7 +376,7 @@ Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validat
 No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
-Yes. Install `@theauth/prisma` and pass a `PrismaClient` as the database backend. See the [Prisma adapter docs](/docs/prisma) for the setup.
+Yes. Install `@glinr/theauth-prisma` and pass a `PrismaClient` as the database backend. See the [Prisma adapter docs](/docs/prisma) for the setup.
 
 **Do I need to install an MCP plugin?**
 No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createKavach` and enable it in your adapter.

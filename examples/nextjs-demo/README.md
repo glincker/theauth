@@ -21,7 +21,7 @@ Open http://localhost:3002
 - Authorization checks (allow/deny)
 - Audit trail
 - Token rotation
-- Session management via `@theauth/react` hooks
+- Session management via `@glinr/theauth-react` hooks
 
 ## Structure
 

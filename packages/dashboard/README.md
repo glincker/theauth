@@ -1,13 +1,13 @@
-# @theauth/dashboard
+# @glinr/theauth-dashboard
 
 Admin UI for managing agents, permissions, and audit logs.
 
-[![npm](https://img.shields.io/npm/v/@theauth/dashboard)](https://www.npmjs.com/package/@theauth/dashboard)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-dashboard)](https://www.npmjs.com/package/@glinr/theauth-dashboard)
 
 ## Install
 
 ```bash
-npm install @theauth/dashboard
+npm install @glinr/@glinr/theauth-dashboard
 ```
 
 Peer dependencies: React 19+
@@ -19,7 +19,7 @@ Peer dependencies: React 19+
 Mount the dashboard inside your existing React app:
 
 ```tsx
-import { KavachDashboard } from "@theauth/dashboard";
+import { KavachDashboard } from "@glinr/theauth-dashboard";
 
 export function AdminPage() {
   return (

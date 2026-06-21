@@ -28,8 +28,8 @@ Use webhooks when you need durable delivery to an external service. Use event st
 ## Setup
 
 ```typescript
-import { createKavach } from 'theauth';
-import { createEventStreamModule } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { createEventStreamModule } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

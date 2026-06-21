@@ -55,7 +55,7 @@ interface NodemailerModule {
  *
  * @example
  * ```ts
- * import { smtp } from "theauth/email";
+ * import { smtp } from "@glinr/theauth/email";
  * smtp({ host: "smtp.mailgun.org", auth: { user: "...", pass: "..." } })
  * ```
  */

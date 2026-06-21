@@ -119,8 +119,8 @@ export interface OAuthModuleConfig {
 	 *
 	 * @example
 	 * ```typescript
-	 * import { createGoogleProvider } from 'theauth/auth/oauth/providers/google';
-	 * import { createGithubProvider } from 'theauth/auth/oauth/providers/github';
+	 * import { createGoogleProvider } from '@glinr/theauth/auth/oauth/providers/google';
+	 * import { createGithubProvider } from '@glinr/theauth/auth/oauth/providers/github';
 	 *
 	 * providers: {
 	 *   google: createGoogleProvider({ clientId: '...', clientSecret: '...' }),

@@ -1,4 +1,4 @@
-# create-theauth-app
+# @glinr/create-theauth-app
 
 Scaffold a TheAuth app in one command.
 
@@ -9,7 +9,7 @@ pnpm create theauth-app
 # or
 yarn create theauth-app
 # or
-bunx create-theauth-app
+bunx @glinr/create-theauth-app
 ```
 
 You'll be asked for a project directory, a template, and a database driver. The CLI then writes the project, installs deps, and prints the next commands to run.

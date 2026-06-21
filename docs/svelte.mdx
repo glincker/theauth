@@ -4,12 +4,12 @@ description: Add TheAuth auth to Svelte and SvelteKit apps via createKavachClien
 icon: code
 ---
 
-`@theauth/svelte` provides reactive Svelte stores and a SvelteKit hooks integration. It works with Svelte 4+, SvelteKit, and plain Vite setups.
+`@glinr/theauth-svelte` provides reactive Svelte stores and a SvelteKit hooks integration. It works with Svelte 4+, SvelteKit, and plain Vite setups.
 
 ## Installation
 
 ```bash
-pnpm add @theauth/svelte
+pnpm add @glinr/@glinr/theauth-svelte
 ```
 
 ## Setup
@@ -17,7 +17,7 @@ pnpm add @theauth/svelte
 Create a client instance and export the stores from a shared module:
 
 ```typescript title="src/lib/kavach.ts"
-import { createKavachClient } from '@theauth/svelte'; // [!code highlight]
+import { createKavachClient } from '@glinr/theauth-svelte'; // [!code highlight]
 
 export const {
   session,
@@ -36,7 +36,7 @@ export const {
 In SvelteKit, expose the session on the server side via `hooks.server.ts` so the initial page load is never unauthenticated:
 
 ```typescript title="src/hooks.server.ts"
-import { createKavachHooks } from '@theauth/svelte/sveltekit'; // [!code highlight]
+import { createKavachHooks } from '@glinr/theauth-svelte/sveltekit'; // [!code highlight]
 
 export const { handle } = createKavachHooks({ // [!code highlight]
   basePath: '/api/kavach', // [!code highlight]
@@ -106,7 +106,7 @@ Manage agent identities in reactive Svelte stores:
 
 ```svelte
 <script lang="ts">
-  import { createAgentStore } from '@theauth/svelte';
+  import { createAgentStore } from '@glinr/theauth-svelte';
 
   const { agents, createAgent, revokeAgent, isLoading } = createAgentStore({
     basePath: '/api/kavach',

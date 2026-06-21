@@ -1,4 +1,4 @@
-# @theauth/electron
+# @glinr/theauth-electron
 
 ## 0.1.0
 

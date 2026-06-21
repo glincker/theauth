@@ -1,4 +1,4 @@
-import { kavachNextjs } from "@theauth/nextjs";
+import { kavachNextjs } from "@glinr/theauth-nextjs";
 import { getKavach } from "@/lib/kavach";
 
 const { GET, POST } = kavachNextjs(getKavach);

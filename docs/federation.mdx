@@ -44,7 +44,7 @@ const { publicKey, privateKey } = await generateKeyPair("EdDSA");
 ### Create the federation module
 
 ```typescript
-import { createFederationModule } from "theauth/auth";
+import { createFederationModule } from "@glinr/theauth/auth";
 
 const federation = createFederationModule({
   instanceId: "service-a",
@@ -169,7 +169,7 @@ Verification checks:
 You can attach a W3C Verifiable Credential to the federation token for offline verification. This is useful when the target instance needs cryptographic proof of the agent's capabilities that does not depend on the source instance's availability.
 
 ```typescript
-import { createVCIssuer } from "theauth/vc";
+import { createVCIssuer } from "@glinr/theauth/vc";
 
 // Issue a VC for the agent
 const vcResult = await vcIssuer.issueAgentCredential({
@@ -237,7 +237,7 @@ Two services federating agents:
 <Tabs>
 <Tab title="Service A (source)">
 ```typescript
-import { createFederationModule } from "theauth/auth";
+import { createFederationModule } from "@glinr/theauth/auth";
 import { generateKeyPair, exportJWK } from "jose";
 
 const { publicKey, privateKey } = await generateKeyPair("EdDSA");
@@ -273,7 +273,7 @@ app.post("/agents/:id/federate", async (req, res) => {
 </Tab>
 <Tab title="Service B (target)">
 ```typescript
-import { createFederationModule } from "theauth/auth";
+import { createFederationModule } from "@glinr/theauth/auth";
 import { generateKeyPair } from "jose";
 
 const { privateKey } = await generateKeyPair("EdDSA");

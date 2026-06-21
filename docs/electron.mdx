@@ -5,18 +5,18 @@ icon: code
 ---
 
 
-`@theauth/electron` provides secure auth for Electron desktop apps with encrypted token storage, OAuth popup windows, and IPC bridge for renderer-to-main communication.
+`@glinr/theauth-electron` provides secure auth for Electron desktop apps with encrypted token storage, OAuth popup windows, and IPC bridge for renderer-to-main communication.
 
 ## Install
 
 ```bash
-pnpm add @theauth/electron
+pnpm add @glinr/@glinr/theauth-electron
 ```
 
 ## Setup (main process)
 
 ```ts
-import { createKavachElectron } from '@theauth/electron';
+import { createKavachElectron } from '@glinr/theauth-electron';
 
 const kavach = createKavachElectron({
   baseUrl: 'https://api.myapp.com/api/kavach',
@@ -30,7 +30,7 @@ kavach.registerIpcHandlers(ipcMain);
 ## Usage (renderer)
 
 ```ts
-import { useKavachElectron } from '@theauth/electron/renderer';
+import { useKavachElectron } from '@glinr/theauth-electron/renderer';
 
 const { signIn, signOut, getSession, getUser } = useKavachElectron();
 

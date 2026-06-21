@@ -1,5 +1,5 @@
-import { createKavach } from 'theauth';
-import { emailPassword } from '@theauth/auth-email';
+import { createKavach } from '@glinr/theauth';
+import { emailPassword } from '@glinr/theauth-email';
 
 type KavachInstance = Awaited<ReturnType<typeof createKavach>>;
 

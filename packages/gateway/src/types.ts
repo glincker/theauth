@@ -1,4 +1,4 @@
-import type { Kavach } from "theauth";
+import type { Kavach } from "@glinr/theauth";
 
 // ─── Gateway Configuration ───────────────────────────────────────────────────
 

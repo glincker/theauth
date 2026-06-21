@@ -3,7 +3,7 @@
 // Next.js hot-reloads modules in dev, so we store the instance on `globalThis`
 // to avoid re-creating the database connection on every reload.
 
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 
 type KavachInstance = Awaited<ReturnType<typeof createKavach>>;
 

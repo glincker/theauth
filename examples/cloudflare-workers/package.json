@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/example-cloudflare-workers",
+  "name": "@glinr/theauth-example-cloudflare-workers",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "theauth": "workspace:*",
-    "@theauth/hono": "workspace:*",
+    "@glinr/theauth": "workspace:*",
+    "@glinr/theauth-hono": "workspace:*",
     "hono": "^4.12.14"
   },
   "devDependencies": {

@@ -8,15 +8,15 @@ The `additionalFields` plugin lets you attach typed custom data to users and ses
 
 ## Install
 
-Ships inside `theauth/auth`, no extra packages needed.
+Ships inside `@glinr/theauth/auth`, no extra packages needed.
 
 ## Setup
 
 Define a schema once when creating your TheAuth instance:
 
 ```typescript
-import { createKavach } from 'theauth';
-import { additionalFields } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { additionalFields } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -40,7 +40,7 @@ const kavach = await createKavach({
 ## Reading and writing user fields
 
 ```typescript
-import type { AdditionalFieldsModule } from 'theauth/auth';
+import type { AdditionalFieldsModule } from '@glinr/theauth/auth';
 
 const mod = kavach.plugins.getContext().additionalFields as AdditionalFieldsModule;
 

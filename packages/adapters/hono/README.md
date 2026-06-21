@@ -1,13 +1,13 @@
-# @theauth/hono
+# @glinr/theauth-hono
 
 Hono adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/hono)](https://www.npmjs.com/package/@theauth/hono)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-hono)](https://www.npmjs.com/package/@glinr/theauth-hono)
 
 ## Install
 
 ```bash
-pnpm add theauth @theauth/hono
+pnpm add theauth @glinr/@glinr/theauth-hono
 ```
 
 ## Usage
@@ -15,8 +15,8 @@ pnpm add theauth @theauth/hono
 ```typescript
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { createKavach } from 'theauth';
-import { kavachHono } from '@theauth/hono';
+import { createKavach } from '@glinr/theauth';
+import { kavachHono } from '@glinr/theauth-hono';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -35,8 +35,8 @@ This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, a
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'theauth/mcp';
-import { kavachHono } from '@theauth/hono';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { kavachHono } from '@glinr/theauth-hono';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -62,7 +62,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 |--------|------|-------------|
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
 
 ## Links
 

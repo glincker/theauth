@@ -6,14 +6,14 @@ icon: code
 
 ## How adapters work
 
-The `theauth` package has zero framework dependencies. It operates entirely on the Web platform `Request`/`Response` API. Adapter packages wrap the core and expose framework-idiomatic handlers for authentication, authorization, and MCP OAuth routes.
+The `@glinr/theauth` package has zero framework dependencies. It operates entirely on the Web platform `Request`/`Response` API. Adapter packages wrap the core and expose framework-idiomatic handlers for authentication, authorization, and MCP OAuth routes.
 
 Because the core uses only Web platform APIs, TheAuth runs on edge runtimes without modification: Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, Vercel Edge Functions, and Bun. The Hono and SvelteKit adapters are fully edge-compatible out of the box. The Next.js adapter works on edge when you use `export const runtime = 'edge'` in your route file.
 
 Each adapter follows the same pattern: accept a `kavach` instance, optionally accept a config object, and return something your framework knows how to mount.
 
 ```typescript
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -29,13 +29,13 @@ Pass `mcp` to the adapter to enable all MCP OAuth 2.1 endpoints under the same m
 
 | Package | Framework | Mount pattern |
 |---|---|---|
-| [`@theauth/hono`](/platform/adapters/hono) | Hono | `app.route('/api/kavach', kavachHono(kavach))` |
-| [`@theauth/express`](/platform/adapters/express) | Express | `app.use('/api/kavach', kavachExpress(kavach))` |
-| [`@theauth/nextjs`](/platform/adapters/nextjs) | Next.js App Router | catch-all route `app/api/kavach/[...kavach]/route.ts` |
-| [`@theauth/fastify`](/platform/adapters/fastify) | Fastify | `app.register(kavachFastify(kavach), { prefix: '/api/kavach' })` |
-| [`@theauth/nuxt`](/platform/adapters/nuxt) | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` |
-| [`@theauth/sveltekit`](/platform/adapters/sveltekit) | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` |
-| [`@theauth/astro`](/platform/adapters/astro) | Astro | catch-all page `src/pages/api/kavach/[...path].ts` |
+| [`@glinr/theauth-hono`](/platform/adapters/hono) | Hono | `app.route('/api/kavach', kavachHono(kavach))` |
+| [`@glinr/theauth-express`](/platform/adapters/express) | Express | `app.use('/api/kavach', kavachExpress(kavach))` |
+| [`@glinr/theauth-nextjs`](/platform/adapters/nextjs) | Next.js App Router | catch-all route `app/api/kavach/[...kavach]/route.ts` |
+| [`@glinr/theauth-fastify`](/platform/adapters/fastify) | Fastify | `app.register(kavachFastify(kavach), { prefix: '/api/kavach' })` |
+| [`@glinr/theauth-nuxt`](/platform/adapters/nuxt) | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` |
+| [`@glinr/theauth-sveltekit`](/platform/adapters/sveltekit) | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` |
+| [`@glinr/theauth-astro`](/platform/adapters/astro) | Astro | catch-all page `src/pages/api/kavach/[...path].ts` |
 
 ## Endpoints registered
 
@@ -68,7 +68,7 @@ When `mcp` is passed, additional endpoints are registered:
 If your framework is not listed, use the core handler directly. It works with any server that handles standard `Request` objects.
 
 ```typescript
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 const kavach = createKavach({ /* ... */ });
 const mcp = createMcpModule(kavach);

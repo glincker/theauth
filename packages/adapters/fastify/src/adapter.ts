@@ -1,4 +1,3 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type {
 	AgentFilter,
 	AuditFilter,
@@ -7,8 +6,9 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+} from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -213,8 +213,8 @@ export interface KavachFastifyOptions {
  * @example
  * ```typescript
  * import Fastify from 'fastify';
- * import { createKavach } from 'theauth';
- * import { kavachFastify } from '@theauth/fastify';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachFastify } from '@glinr/theauth-fastify';
  *
  * const app = Fastify();
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
@@ -225,7 +225,7 @@ export interface KavachFastifyOptions {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
  * ```

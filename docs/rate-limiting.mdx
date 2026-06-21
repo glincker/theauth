@@ -33,7 +33,7 @@ These limits apply automatically with no configuration required.
 Pass a `rateLimit` block to `createKavach` to override the defaults or enable Redis:
 
 ```typescript
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
@@ -108,7 +108,7 @@ if (!result.allowed) {
 Use `createRateLimiter` for custom rate limiting on your own endpoints, for example, an expensive AI inference route that should be capped per user.
 
 ```typescript
-import { createRateLimiter } from 'theauth';
+import { createRateLimiter } from '@glinr/theauth';
 
 const inferenceLimit = createRateLimiter({
   limit: 20,
@@ -130,7 +130,7 @@ const inferenceLimit = createRateLimiter({
 Wrap any handler with `withRateLimit` to apply a limiter without modifying the handler itself.
 
 ```typescript
-import { withRateLimit } from 'theauth';
+import { withRateLimit } from '@glinr/theauth';
 
 const inferenceLimit = createRateLimiter({
   limit: 20,

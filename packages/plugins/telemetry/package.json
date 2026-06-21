@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/plugin-telemetry",
+  "name": "@glinr/theauth-plugin-telemetry",
   "version": "3.0.2",
   "description": "OpenTelemetry integration plugin for TheAuth — converts auth events into OTel spans",
   "type": "module",
@@ -37,10 +37,10 @@
     "directory": "packages/plugins/telemetry"
   },
   "peerDependencies": {
-    "theauth": "workspace:*"
+    "@glinr/theauth": "workspace:*"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "better-sqlite3": "^12.9.0",

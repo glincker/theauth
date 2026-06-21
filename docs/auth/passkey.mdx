@@ -15,7 +15,7 @@ Passkeys use the WebAuthn standard (FIDO2) to authenticate users with device bio
 ### Install
 
 ```bash
-pnpm add theauth
+pnpm add @glinr/theauth
 ```
 
 </Step>
@@ -25,8 +25,8 @@ pnpm add theauth
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { passkey } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { passkey } from '@glinr/theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

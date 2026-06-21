@@ -9,7 +9,7 @@ icon: "/brand-icons/tanstack.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/tanstack
+pnpm add theauth @glinr/@glinr/theauth-tanstack
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add theauth @theauth/tanstack
 
 ```typescript
 // app/lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -40,7 +40,7 @@ Create `app/routes/api/kavach.$.ts`. The `$` splat segment catches every sub-pat
 
 ```typescript
 // app/routes/api/kavach.$.ts
-import { kavachTanStack } from '@theauth/tanstack';
+import { kavachTanStack } from '@glinr/theauth-tanstack';
 import { kavach, mcp } from '~/lib/kavach';
 
 const handlers = kavachTanStack(kavach, { mcp });
@@ -102,8 +102,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/routes/api/kavach.$.ts
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachTanStack } from '@theauth/tanstack';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachTanStack } from '@glinr/theauth-tanstack';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

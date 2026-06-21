@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "@theauth/react";
+import { useSession } from "@glinr/theauth-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 

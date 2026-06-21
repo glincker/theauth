@@ -6,8 +6,8 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { webhooks } from 'theauth/webhook';
+ * import { createKavach } from '@glinr/theauth';
+ * import { webhooks } from '@glinr/theauth/webhook';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

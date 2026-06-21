@@ -10,7 +10,7 @@
  *
  * Run:
  *   pnpm bench                   (from repo root)
- *   pnpm --filter theauth bench (package-scoped)
+ *   pnpm --filter @glinr/theauth bench (package-scoped)
  *
  * Targets are soft-enforced: misses print a warning on stderr, exit 0.
  * A hard CI gate (20% regression from main baseline) is a follow-up.

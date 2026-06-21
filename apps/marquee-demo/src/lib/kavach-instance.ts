@@ -3,8 +3,8 @@
  * Uses in-memory SQLite, state resets on cold start (acceptable for a demo).
  */
 
-import type { Kavach } from "theauth";
-import { createKavach } from "theauth";
+import type { Kavach } from "@glinr/theauth";
+import { createKavach } from "@glinr/theauth";
 
 let instance: Kavach | null = null;
 

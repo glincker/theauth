@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Core types for @theauth/nextjs-auth
+// Core types for @glinr/theauth-nextjs-auth
 // ---------------------------------------------------------------------------
 
 export interface DefaultUser {

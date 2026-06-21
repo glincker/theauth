@@ -9,7 +9,7 @@ icon: "/brand-icons/hono.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/hono hono @hono/node-server
+pnpm add theauth @glinr/@glinr/theauth-hono hono @hono/node-server
 ```
 
 ## Setup
@@ -21,7 +21,7 @@ Create this once and reuse it across your app (e.g. `lib/kavach.ts`):
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -42,7 +42,7 @@ export const mcp = createMcpModule(kavach);
 // src/index.ts
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { kavachHono } from '@theauth/hono';
+import { kavachHono } from '@glinr/theauth-hono';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = new Hono();
@@ -97,8 +97,8 @@ app.route('/api/kavach', kavachHono(kavach, { mcp }));
 ```typescript
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachHono } from '@theauth/hono';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachHono } from '@glinr/theauth-hono';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

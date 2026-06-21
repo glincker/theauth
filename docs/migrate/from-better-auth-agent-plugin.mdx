@@ -58,7 +58,7 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: lib/kavach.ts
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 export const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -186,8 +186,8 @@ if (score.level === 'untrusted' || score.level === 'limited') {
 If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. TheAuth mounts the MCP endpoints on the same adapter:
 
 ```ts
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachNextjs } from '@theauth/nextjs';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 
 const kavach = await createKavach({ /* ... */ });
 const mcp = createMcpModule(kavach);
@@ -246,8 +246,8 @@ Keep the better-auth agent plugin wired for at least one rotation cycle after th
 [`examples/migrate-from-better-auth-agent-plugin`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-better-auth-agent-plugin) runs the AFTER patterns end-to-end: AgentIdentity creation, multi-hop delegation with `maxDepth`, authorize-falls-back-to-chain semantics, and cascading chain revocation. The script uses the monorepo `workspace:*` version so it tracks the released package, and a vitest smoke suite runs it in CI.
 
 ```bash
-pnpm --filter @theauth/example-migrate-from-better-auth-agent-plugin start
-pnpm --filter @theauth/example-migrate-from-better-auth-agent-plugin test
+pnpm --filter @glinr/theauth-example-migrate-from-better-auth-agent-plugin start
+pnpm --filter @glinr/theauth-example-migrate-from-better-auth-agent-plugin test
 ```
 
 ## Next steps

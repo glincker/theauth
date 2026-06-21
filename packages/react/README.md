@@ -1,13 +1,13 @@
-# @theauth/react
+# @glinr/theauth-react
 
 React provider and hooks for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@theauth/react?style=flat-square)](https://www.npmjs.com/package/@theauth/react)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-react?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-react)
 
 ## Install
 
 ```bash
-npm install @theauth/react
+npm install @glinr/@glinr/theauth-react
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @theauth/react
 Wrap your app with `KavachProvider`, then use hooks anywhere in the tree.
 
 ```tsx
-import { KavachProvider, useSession, useUser, useSignIn, useSignOut } from '@theauth/react';
+import { KavachProvider, useSession, useUser, useSignIn, useSignOut } from '@glinr/theauth-react';
 
 function App() {
   return (
@@ -64,7 +64,7 @@ loop — proactive refresh, exponential-backoff retries, online/offline
 recovery, and reuse-detection callbacks all come along for the ride.
 
 ```tsx
-import { KavachProvider, useRotateSession } from "@theauth/react";
+import { KavachProvider, useRotateSession } from "@glinr/theauth-react";
 
 function App() {
   return (
@@ -145,7 +145,7 @@ The endpoint at `refreshPath` is expected to:
   `family_revoked`, `absolute_timeout`. Use `errorCodeMap` if your backend
   emits different strings.
 
-The `@theauth/core` package's `createSessionRefresher()` handler implements
+The `@glinr/theauth` package's `createSessionRefresher()` handler implements
 this contract verbatim.
 
 ### Migrating from a hand-rolled refresh loop

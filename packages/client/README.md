@@ -1,13 +1,13 @@
-# @theauth/client
+# @glinr/theauth-client
 
 Zero-dependency TypeScript REST client for the TheAuth API.
 
-[![npm](https://img.shields.io/npm/v/@theauth/client?style=flat-square)](https://www.npmjs.com/package/@theauth/client)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-client?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-client)
 
 ## Install
 
 ```bash
-npm install @theauth/client
+npm install @glinr/@glinr/theauth-client
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @theauth/client
 Works in Node.js, Cloudflare Workers, Deno, and the browser.
 
 ```ts
-import { createKavachClient, KavachApiError } from '@theauth/client';
+import { createKavachClient, KavachApiError } from '@glinr/theauth-client';
 
 const kavach = createKavachClient({
   apiUrl: 'https://auth.yourapp.com',

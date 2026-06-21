@@ -1,4 +1,4 @@
-# @theauth/test-utils
+# @glinr/theauth-test-utils
 
 ## 0.1.0
 

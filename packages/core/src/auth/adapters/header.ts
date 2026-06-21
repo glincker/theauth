@@ -7,7 +7,7 @@
  *
  * @example Default header (`X-User-Id`)
  * ```typescript
- * import { headerAuth } from 'theauth/auth';
+ * import { headerAuth } from '@glinr/theauth/auth';
  *
  * const adapter = headerAuth();
  * ```

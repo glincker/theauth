@@ -4,8 +4,8 @@
  *
  * @example Cloudflare Workers with D1
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { createHonoAdapter } from '@theauth/hono';
+ * import { createKavach } from '@glinr/theauth';
+ * import { createHonoAdapter } from '@glinr/theauth-hono';
  * import { Hono } from 'hono';
  *
  * type Env = { Bindings: { DB: D1Database; SESSION_SECRET: string } };

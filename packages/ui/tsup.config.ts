@@ -4,6 +4,6 @@ export default defineConfig({
 	entry: ["src/index.ts"],
 	format: ["esm"],
 	dts: true,
-	external: ["react", "@theauth/react"],
+	external: ["react", "@glinr/theauth-react"],
 	jsx: "automatic",
 });

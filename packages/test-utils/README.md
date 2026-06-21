@@ -1,9 +1,9 @@
-# @theauth/test-utils
+# @glinr/theauth-test-utils
 
 Test helpers for apps using TheAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
 
 ```bash
-npm install --save-dev @theauth/test-utils
+npm install --save-dev @glinr/@glinr/theauth-test-utils
 ```
 
 ## What's in the box
@@ -16,7 +16,7 @@ npm install --save-dev @theauth/test-utils
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { MockKavachProvider, makeUser } from "@theauth/test-utils";
+import { MockKavachProvider, makeUser } from "@glinr/theauth-test-utils";
 import { Dashboard } from "../src/dashboard.js";
 
 test("dashboard greets the signed-in user", () => {
@@ -32,7 +32,7 @@ test("dashboard greets the signed-in user", () => {
 
 ## Peer deps
 
-`react` and `@theauth/react` are optional peers. Install them only if you're testing React UI. Server-side helpers work without either.
+`react` and `@glinr/theauth-react` are optional peers. Install them only if you're testing React UI. Server-side helpers work without either.
 
 ## Links
 

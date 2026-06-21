@@ -1,30 +1,30 @@
 ---
 title: UI components
-description: Drop-in React components for sign-in, sign-up, password reset, 2FA, and OAuth buttons from @theauth/ui. Tailwind-based, wired to KavachProvider automatically.
+description: Drop-in React components for sign-in, sign-up, password reset, 2FA, and OAuth buttons from @glinr/theauth-ui. Tailwind-based, wired to KavachProvider automatically.
 icon: table-columns
 ---
 
 
-`@theauth/ui` provides drop-in React components for auth flows. Each component renders inside `KavachProvider` from `@theauth/react` and wires up to your TheAuth API route automatically, no manual fetch calls required.
+`@glinr/theauth-ui` provides drop-in React components for auth flows. Each component renders inside `KavachProvider` from `@glinr/theauth-react` and wires up to your TheAuth API route automatically, no manual fetch calls required.
 
 <Info>
-  Components require `@theauth/react` to be installed and a `KavachProvider` wrapping your app. See the [React hooks](/react) page for provider setup.
+  Components require `@glinr/theauth-react` to be installed and a `KavachProvider` wrapping your app. See the [React hooks](/react) page for provider setup.
 </Info>
 
 ## Installation
 
 ```bash
-pnpm add @theauth/ui
+pnpm add @glinr/@glinr/theauth-ui
 ```
 
-Components are unstyled by default and rely on Tailwind CSS for layout and spacing. Add `@theauth/ui` to your `tailwind.config.ts` content paths:
+Components are unstyled by default and rely on Tailwind CSS for layout and spacing. Add `@glinr/theauth-ui` to your `tailwind.config.ts` content paths:
 
 ```ts
 // tailwind.config.ts
 export default {
   content: [
     './src/**/*.{ts,tsx}',
-    './node_modules/@theauth/ui/src/**/*.{ts,tsx}',
+    './node_modules/@glinr/theauth-ui/src/**/*.{ts,tsx}',
   ],
 };
 ```
@@ -46,8 +46,8 @@ export default {
 Renders an email/password form. Pass `showMagicLink` to add a passwordless tab. Pass `providers` to show OAuth buttons above the form.
 
 ```tsx
-import { SignIn } from '@theauth/ui';
-import { OAUTH_PROVIDERS } from '@theauth/ui';
+import { SignIn } from '@glinr/theauth-ui';
+import { OAUTH_PROVIDERS } from '@glinr/theauth-ui';
 
 export default function LoginPage() {
   return (
@@ -73,7 +73,7 @@ export default function LoginPage() {
 ## SignUp
 
 ```tsx
-import { SignUp } from '@theauth/ui';
+import { SignUp } from '@glinr/theauth-ui';
 
 export default function RegisterPage() {
   return (
@@ -97,7 +97,7 @@ export default function RegisterPage() {
 Renders an avatar that opens a dropdown menu. Includes sign-out by default. Pass `menuItems` to add custom actions.
 
 ```tsx
-import { UserButton } from '@theauth/ui';
+import { UserButton } from '@glinr/theauth-ui';
 
 export default function Nav() {
   return (
@@ -118,7 +118,7 @@ export default function Nav() {
 Use standalone when you want social login without the full sign-in card.
 
 ```tsx
-import { OAuthButtons, OAUTH_PROVIDERS } from '@theauth/ui';
+import { OAuthButtons, OAUTH_PROVIDERS } from '@glinr/theauth-ui';
 
 <OAuthButtons
   providers={[
@@ -154,7 +154,7 @@ Every component accepts a `classNames` prop with keys for each sub-element. Pass
 Pass a `components` prop to replace any primitive (input, button, link, divider, error). Useful when you need to use your own design system components.
 
 ```tsx
-import { SignIn } from '@theauth/ui';
+import { SignIn } from '@glinr/theauth-ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -174,7 +174,7 @@ import { Input } from '@/components/ui/input';
 />
 ```
 
-The `cx` utility is exported from `@theauth/ui` for merging class names in your own slot components.
+The `cx` utility is exported from `@glinr/theauth-ui` for merging class names in your own slot components.
 
 ## Framework examples
 
@@ -182,7 +182,7 @@ The `cx` utility is exported from `@theauth/ui` for merging class names in your 
 
 ```tsx
 // app/(auth)/sign-in/page.tsx
-import { SignIn } from '@theauth/ui';
+import { SignIn } from '@glinr/theauth-ui';
 
 export default function SignInPage() {
   return (
@@ -205,7 +205,7 @@ export default function SignInPage() {
 ```tsx
 // src/pages/sign-in.tsx
 import { useNavigate } from 'react-router-dom';
-import { SignIn } from '@theauth/ui';
+import { SignIn } from '@glinr/theauth-ui';
 
 export function SignInPage() {
   const navigate = useNavigate();

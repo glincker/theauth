@@ -34,7 +34,7 @@ If you own the upstream service and can add the TheAuth SDK directly, that's mor
 The fastest path is the one-liner:
 
 ```bash
-npx @theauth/gateway --upstream http://localhost:8080
+npx @glinr/theauth-gateway --upstream http://localhost:8080
 ```
 
 This starts a gateway on port 3000 that proxies all traffic to `http://localhost:8080`. Requests without a valid TheAuth Bearer token are rejected with 401.
@@ -51,7 +51,7 @@ curl http://localhost:3000/_kavach/health
 ### CLI flags
 
 ```bash
-npx @theauth/gateway \
+npx @glinr/theauth-gateway \
   --upstream http://localhost:8080 \
   --port 4000 \
   --database ./kavach.db \
@@ -118,8 +118,8 @@ For more control, put your config in a JSON file and pass it with `--config`:
 Use the gateway inside your own Node.js application without starting a separate process:
 
 ```typescript
-import { createKavach } from 'theauth';
-import { createGateway } from '@theauth/gateway';
+import { createKavach } from '@glinr/theauth';
+import { createGateway } from '@glinr/theauth-gateway';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -231,7 +231,7 @@ The gateway works well in front of MCP tool servers. Agents that have been issue
 
 | | Standalone (CLI) | Embedded |
 |---|---|---|
-| Setup | `npx @theauth/gateway` | `createGateway(config)` |
+| Setup | `npx @glinr/theauth-gateway` | `createGateway(config)` |
 | Process | Separate process | In-process |
 | Framework | None required | Works with any framework |
 | Hot reload | Restart required | Your app's reload |
@@ -244,7 +244,7 @@ In Docker, the standalone mode works as a sidecar:
 CMD ["node", "server.js"]
 
 # Or start the gateway in front of it
-CMD ["npx", "@theauth/gateway", "--upstream", "http://localhost:8080", "--port", "3000", "--database", "/data/kavach.db"]
+CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--port", "3000", "--database", "/data/kavach.db"]
 ```
 
 ## Configuration reference

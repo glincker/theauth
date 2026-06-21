@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/nuxt",
+  "name": "@glinr/theauth-nuxt",
   "version": "3.0.2",
   "description": "Nuxt adapter for TheAuth - exposes agent auth as HTTP REST endpoints via H3",
   "type": "module",
@@ -36,12 +36,12 @@
     "directory": "packages/adapters/nuxt"
   },
   "peerDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "nuxt": ">=3.0.0",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "h3": "^1.15.11",
     "nuxt": "^3.16.0",
     "tsup": "^8.4.0",

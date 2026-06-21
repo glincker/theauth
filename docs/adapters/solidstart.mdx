@@ -9,7 +9,7 @@ icon: "/brand-icons/solid.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/solidstart
+pnpm add theauth @glinr/@glinr/theauth-solidstart
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add theauth @theauth/solidstart
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -40,7 +40,7 @@ Create `src/routes/api/kavach/[...kavach].ts`. The `[...kavach]` segment catches
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { kavachSolidStart } from '@theauth/solidstart';
+import { kavachSolidStart } from '@glinr/theauth-solidstart';
 import { kavach, mcp } from '~/lib/kavach';
 
 const handlers = kavachSolidStart(kavach, { mcp });
@@ -102,8 +102,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachSolidStart } from '@theauth/solidstart';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachSolidStart } from '@glinr/theauth-solidstart';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

@@ -7,9 +7,9 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { rateLimit } from 'theauth/auth';
- * import { kvStore } from 'theauth/auth/stores/kv';
+ * import { createKavach } from '@glinr/theauth';
+ * import { rateLimit } from '@glinr/theauth/auth';
+ * import { kvStore } from '@glinr/theauth/auth/stores/kv';
  *
  * const kavach = createKavach({
  *   plugins: [

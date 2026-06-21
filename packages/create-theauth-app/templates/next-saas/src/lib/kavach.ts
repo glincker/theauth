@@ -1,4 +1,4 @@
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 
 // Initialised lazily so Next.js doesn't try to open a DB connection at build
 // time. Import `getKavach()` from your server components or route handlers.

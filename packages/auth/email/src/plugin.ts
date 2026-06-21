@@ -1,5 +1,5 @@
-import type { KavachPlugin, PluginContext } from "theauth";
-import { createRateLimiter, withRateLimit } from "theauth/auth";
+import type { KavachPlugin, PluginContext } from "@glinr/theauth";
+import { createRateLimiter, withRateLimit } from "@glinr/theauth/auth";
 import { createEmailAuth } from "./email-auth.js";
 import { EmailAuthError, ErrorCodes } from "./errors.js";
 import type { EmailAuthConfig } from "./types.js";

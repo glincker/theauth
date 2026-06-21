@@ -9,7 +9,7 @@ icon: "/brand-icons/nextdotjs.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/nextjs
+pnpm add theauth @glinr/@glinr/theauth-nextjs
 ```
 
 ## Setup
@@ -21,7 +21,7 @@ Create this in a shared module so it is initialized once at server startup:
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -42,7 +42,7 @@ Create `app/api/kavach/[...kavach]/route.ts`. The `[...kavach]` segment catches 
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { kavachNextjs } from '@theauth/nextjs';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 import { kavach, mcp } from '@/lib/kavach';
 
 const handlers = kavachNextjs(kavach, { mcp });
@@ -104,8 +104,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachNextjs } from '@theauth/nextjs';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

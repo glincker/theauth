@@ -10,7 +10,7 @@ export interface OAuthProxyPluginConfig extends OAuthProxyConfig {
 	 *
 	 * @example
 	 * ```typescript
-	 * import { createGoogleProvider } from 'theauth/auth/oauth/providers/google';
+	 * import { createGoogleProvider } from '@glinr/theauth/auth/oauth/providers/google';
 	 *
 	 * oauthProxy({
 	 *   providers: {

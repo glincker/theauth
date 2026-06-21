@@ -1,5 +1,5 @@
-import type { Kavach } from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+import type { Kavach } from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachTanStackOptions {
@@ -31,8 +31,8 @@ export interface KavachTanStackHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { kavachTanStack } from '@theauth/tanstack';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachTanStack } from '@glinr/theauth-tanstack';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachTanStack(kavach);
@@ -46,7 +46,7 @@ export interface KavachTanStackHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachTanStack(kavach, { mcp });
  * ```

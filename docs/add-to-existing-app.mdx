@@ -28,17 +28,17 @@ TheAuth does not replace your human auth. It runs alongside it. This guide assum
 <Step title="Install">
 
 ```bash
-pnpm add theauth @theauth/nextjs
+pnpm add theauth @glinr/@glinr/theauth-nextjs
 ```
 
-Substitute the adapter for your framework: `@theauth/hono`, `@theauth/express`, `@theauth/fastify`, and so on. See [Framework adapters](/adapters).
+Substitute the adapter for your framework: `@glinr/theauth-hono`, `@glinr/theauth-express`, `@glinr/theauth-fastify`, and so on. See [Framework adapters](/adapters).
 
 </Step>
 
 <Step title="Create the Kavach instance">
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
 
@@ -63,7 +63,7 @@ The lazy pattern lets Next.js build without opening a DB connection.
 <Step title="Wire the route handler">
 
 ```ts title="app/api/kavach/[...kavach]/route.ts"
-import { kavachNextjs } from '@theauth/nextjs';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
 const { GET, POST } = kavachNextjs(getKavach);

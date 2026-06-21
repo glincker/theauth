@@ -7,7 +7,7 @@ icon: code
 
 ## Overview
 
-`@theauth/client` is a typed HTTP client for the TheAuth REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
+`@glinr/theauth-client` is a typed HTTP client for the TheAuth REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
 
 <Info>
   Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun, anywhere the Fetch API is available.
@@ -16,13 +16,13 @@ icon: code
 ## Installation
 
 ```bash
-npm install @theauth/client
+npm install @glinr/@glinr/theauth-client
 ```
 
 ## Creating a client
 
 ```typescript
-import { createKavachClient } from '@theauth/client';
+import { createKavachClient } from '@glinr/theauth-client';
 
 const client = createKavachClient({
   baseUrl: 'https://yourapp.com/api/kavach',
@@ -151,7 +151,7 @@ const json = await client.audit.export({ format: 'json' });
 All methods throw `KavachApiError` when the server returns a non-2xx response or the network call fails.
 
 ```typescript
-import { KavachApiError } from '@theauth/client';
+import { KavachApiError } from '@glinr/theauth-client';
 
 try {
   const agent = await client.agents.get('agt_nonexistent');

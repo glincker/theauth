@@ -110,7 +110,7 @@ export function currentTimestamp(): string {
  *
  * @example
  * ```typescript
- * import { verify } from 'theauth/webhook';
+ * import { verify } from '@glinr/theauth/webhook';
  *
  * const ok = await verify({
  *   secret: process.env.WEBHOOK_SECRET,

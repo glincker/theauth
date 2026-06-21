@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Install TheAuth, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with create-theauth-app in one command.
+description: Install TheAuth, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with @glinr/create-theauth-app in one command.
 icon: rocket
 ---
 
@@ -68,17 +68,17 @@ Prefer to wire up an existing app? Keep reading.
 <Tabs>
   <Tab title="pnpm">
     ```bash title="terminal"
-    pnpm add theauth
+    pnpm add @glinr/theauth
     ```
   </Tab>
   <Tab title="npm">
     ```bash title="terminal"
-    npm install theauth
+    npm install @glinr/theauth
     ```
   </Tab>
   <Tab title="yarn">
     ```bash title="terminal"
-    yarn add theauth
+    yarn add @glinr/theauth
     ```
   </Tab>
 </Tabs>
@@ -92,7 +92,7 @@ Prefer to wire up an existing app? Keep reading.
 Pass a database config to `createKavach`. Use SQLite for local development and Postgres in production.
 
 ```ts
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -249,7 +249,7 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: ':memory:' },
@@ -323,7 +323,7 @@ const csv = await kavach.audit.export({ format: 'csv' });
 TheAuth runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
 
 ```typescript
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 import { Hono } from 'hono';
 
 type Env = { KAVACH_DB: D1Database };

@@ -1,4 +1,4 @@
-import { useSignUp } from "@theauth/react";
+import { useSignUp } from "@glinr/theauth-react";
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useState } from "react";
 import type {

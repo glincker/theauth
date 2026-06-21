@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AgentIdentity, AuditEntry, DelegationChain } from "theauth";
+import type { AgentIdentity, AuditEntry, DelegationChain } from "@glinr/theauth";
 
 export interface TelemetrySpan {
 	traceId: string;
@@ -35,7 +35,7 @@ function generateId(): string {
  *
  * @example
  * ```typescript
- * import { createTelemetryModule } from '@theauth/plugin-telemetry';
+ * import { createTelemetryModule } from '@glinr/theauth-plugin-telemetry';
  *
  * const telemetry = createTelemetryModule({
  *   serviceName: 'my-agent-service',

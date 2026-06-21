@@ -9,7 +9,7 @@
  * @example
  * ```typescript
  * import { generateKeyPair } from 'jose';
- * import { createOidcProviderModule } from 'theauth/auth';
+ * import { createOidcProviderModule } from '@glinr/theauth/auth';
  *
  * const { privateKey } = await generateKeyPair('RS256');
  * const oidc = createOidcProviderModule(

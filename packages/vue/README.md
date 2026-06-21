@@ -1,13 +1,13 @@
-# @theauth/vue
+# @glinr/theauth-vue
 
 Vue plugin and composables for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@theauth/vue?style=flat-square)](https://www.npmjs.com/package/@theauth/vue)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-vue?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-vue)
 
 ## Install
 
 ```bash
-npm install @theauth/vue
+npm install @glinr/@glinr/theauth-vue
 ```
 
 ## Usage
@@ -17,7 +17,7 @@ Register the plugin in your Vue app, then use composables in any component.
 ```ts
 // main.ts
 import { createApp } from 'vue';
-import { createKavachPlugin } from '@theauth/vue';
+import { createKavachPlugin } from '@glinr/theauth-vue';
 import App from './App.vue';
 
 const app = createApp(App);
@@ -32,7 +32,7 @@ app.mount('#app');
 
 ```vue
 <script setup lang="ts">
-import { useSession, useUser, useSignIn, useSignOut } from '@theauth/vue';
+import { useSession, useUser, useSignIn, useSignOut } from '@glinr/theauth-vue';
 
 const { session, isLoading } = useSession();
 const { user } = useUser();

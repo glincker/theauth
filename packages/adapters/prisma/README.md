@@ -1,21 +1,21 @@
-# @theauth/prisma
+# @glinr/theauth-prisma
 
 Prisma database adapter for TheAuth. Use PrismaClient as your TheAuth database backend.
 
-[![npm](https://img.shields.io/npm/v/@theauth/prisma?style=flat-square)](https://www.npmjs.com/package/@theauth/prisma)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-prisma)
 
 ## Install
 
 ```bash
-npm install theauth @theauth/prisma @prisma/client
+npm install theauth @glinr/@glinr/theauth-prisma @prisma/client
 ```
 
 ## Usage
 
 ```typescript
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 import { PrismaClient } from "@prisma/client";
-import { kavachPrisma } from "@theauth/prisma";
+import { kavachPrisma } from "@glinr/theauth-prisma";
 
 const prisma = new PrismaClient();
 

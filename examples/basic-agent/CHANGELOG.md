@@ -1,4 +1,4 @@
-# @theauth/example-basic-agent
+# @glinr/theauth-example-basic-agent
 
 ## 0.0.6
 

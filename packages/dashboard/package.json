@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/dashboard",
+  "name": "@glinr/theauth-dashboard",
   "version": "0.1.3",
   "type": "module",
   "description": "TheAuth admin dashboard - React UI for managing agents, permissions, and audit logs",

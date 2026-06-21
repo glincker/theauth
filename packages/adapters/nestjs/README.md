@@ -1,13 +1,13 @@
-# @theauth/nestjs
+# @glinr/theauth-nestjs
 
 NestJS adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/nestjs?style=flat-square)](https://www.npmjs.com/package/@theauth/nestjs)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-nestjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nestjs)
 
 ## Install
 
 ```bash
-npm install theauth @theauth/nestjs
+npm install theauth @glinr/@glinr/theauth-nestjs
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ npm install theauth @theauth/nestjs
 
 ```typescript
 import { Module } from "@nestjs/common";
-import { KavachModule } from "@theauth/nestjs";
+import { KavachModule } from "@glinr/theauth-nestjs";
 
 @Module({
   imports: [
@@ -31,8 +31,8 @@ export class AppModule {}
 ### Middleware
 
 ```typescript
-import { createKavach } from "theauth";
-import { kavachMiddleware } from "@theauth/nestjs";
+import { createKavach } from "@glinr/theauth";
+import { kavachMiddleware } from "@glinr/theauth-nestjs";
 
 const kavach = createKavach({
   database: { provider: "postgres", url: process.env.DATABASE_URL },

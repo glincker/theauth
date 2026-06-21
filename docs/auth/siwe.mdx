@@ -17,8 +17,8 @@ It works with any wallet that supports personal_sign: MetaMask, WalletConnect, C
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { siwe } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { siwe } from '@glinr/theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -46,7 +46,7 @@ Out of the box, the plugin validates message structure and nonce integrity but d
   <Tab title="viem">
 ```typescript title="lib/kavach.ts"
 import { verifyMessage } from 'viem';
-import { siwe } from 'theauth/auth';
+import { siwe } from '@glinr/theauth/auth';
 
 siwe({
   domain: 'example.com',
@@ -61,7 +61,7 @@ siwe({
   <Tab title="ethers">
 ```typescript title="lib/kavach.ts"
 import { ethers } from 'ethers';
-import { siwe } from 'theauth/auth';
+import { siwe } from '@glinr/theauth/auth';
 
 siwe({
   domain: 'example.com',
@@ -110,7 +110,7 @@ const { nonce } = await res.json(); // [!code highlight]
 Construct the EIP-4361 message string from the user's address, the nonce, and your app metadata. Pass it to the wallet for signing.
 
 ```typescript
-import { createSiweModule } from 'theauth/auth';
+import { createSiweModule } from '@glinr/theauth/auth';
 
 // Build the message client-side using the same config as the server
 const siweModule = createSiweModule({

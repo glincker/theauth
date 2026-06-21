@@ -9,7 +9,7 @@ icon: "/brand-icons/fastify.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/fastify fastify
+pnpm add theauth @glinr/@glinr/theauth-fastify fastify
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add theauth @theauth/fastify fastify
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -39,7 +39,7 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // src/index.ts
 import Fastify from 'fastify';
-import { kavachFastify } from '@theauth/fastify';
+import { kavachFastify } from '@glinr/theauth-fastify';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = Fastify();
@@ -95,8 +95,8 @@ All MCP routes include CORS headers and respond to OPTIONS preflight requests.
 
 ```typescript
 import Fastify from 'fastify';
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachFastify } from '@theauth/fastify';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachFastify } from '@glinr/theauth-fastify';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

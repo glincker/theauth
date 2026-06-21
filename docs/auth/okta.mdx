@@ -29,8 +29,8 @@ From the app settings, copy the **Client ID** and **Client Secret**. Your domain
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { oauth, oktaProvider } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth, oktaProvider } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

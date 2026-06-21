@@ -9,9 +9,9 @@ TheAuth integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibe
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { emailPassword } from 'theauth/auth';
-import { createHibpModule } from 'theauth/modules/hibp'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { emailPassword } from '@glinr/theauth/auth';
+import { createHibpModule } from '@glinr/theauth/modules/hibp'; // [!code highlight]
 
 const hibp = createHibpModule(); // [!code highlight]
 

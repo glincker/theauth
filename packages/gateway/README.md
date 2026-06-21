@@ -1,13 +1,13 @@
-# @theauth/gateway
+# @glinr/theauth-gateway
 
 Standalone auth proxy that enforces TheAuth policies in front of any HTTP service.
 
-[![npm](https://img.shields.io/npm/v/@theauth/gateway?style=flat-square)](https://www.npmjs.com/package/@theauth/gateway)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway)
 
 ## Install
 
 ```bash
-npm install @theauth/gateway
+npm install @glinr/@glinr/theauth-gateway
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @theauth/gateway
 Create a gateway with route policies, then call `handle` on every incoming request.
 
 ```ts
-import { createGateway, loadConfigFile } from '@theauth/gateway';
+import { createGateway, loadConfigFile } from '@glinr/theauth-gateway';
 
 const gateway = createGateway({
   kavachApiUrl: 'https://auth.yourapp.com',

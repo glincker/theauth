@@ -1,6 +1,6 @@
+import type { Kavach } from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { APIRoute } from "astro";
-import type { Kavach } from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachAstroOptions {
@@ -33,8 +33,8 @@ export interface KavachAstroHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { kavachAstro } from '@theauth/astro';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachAstro } from '@glinr/theauth-astro';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachAstro(kavach);
@@ -53,7 +53,7 @@ export interface KavachAstroHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachAstro(kavach, { mcp });
  * ```

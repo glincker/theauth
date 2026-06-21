@@ -1,4 +1,4 @@
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 
 // Lazy singleton so imports do not open a DB connection before config is
 // loaded. createKavach auto-creates the auth tables on first boot, no

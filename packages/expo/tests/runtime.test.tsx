@@ -192,7 +192,7 @@ afterEach(() => {
 	latest = null;
 });
 
-describe("@theauth/expo runtime smoke", () => {
+describe("@glinr/theauth-expo runtime smoke", () => {
 	it("restores a stored session, authenticates agent requests, and loads agents", async () => {
 		await storage.setItem(SESSION_KEY, "stored-token");
 		agentsState = [

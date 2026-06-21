@@ -42,12 +42,12 @@ TheAuth is an open-source authentication and authorization platform built for ap
 ## Quick Start
 
 ```bash
-npm install theauth
+npm install @glinr/theauth
 ```
 
 ```typescript
-import { createKavach } from "theauth";
-import { emailPassword } from "theauth/auth";
+import { createKavach } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
 
 const kavach = createKavach({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
@@ -58,7 +58,7 @@ const kavach = createKavach({
 Use in React:
 
 ```tsx
-import { useSession, useSignIn } from "@theauth/react";
+import { useSession, useSignIn } from "@glinr/theauth-react";
 
 export function App() {
   const { user } = useSession();

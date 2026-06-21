@@ -21,9 +21,9 @@ https://your-app.com/api/kavach/auth/oauth/callback/line
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { oauth } from 'theauth/auth';
-import { lineProvider } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth } from '@glinr/theauth/auth';
+import { lineProvider } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

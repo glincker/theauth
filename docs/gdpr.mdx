@@ -13,8 +13,8 @@ TheAuth includes built-in tools for the three GDPR obligations that most commonl
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { gdpr } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { gdpr } from '@glinr/theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -84,7 +84,7 @@ gdpr({
 For cases where you need to retain audit records for compliance but cannot keep personal data, TheAuth can anonymize the audit log for a user without deleting it:
 
 ```typescript title="Anonymize audit log (server)"
-import { anonymizeAuditLog } from 'theauth/modules/gdpr';
+import { anonymizeAuditLog } from '@glinr/theauth/modules/gdpr';
 
 await anonymizeAuditLog(kavach, {
   userId: 'usr_abc123',

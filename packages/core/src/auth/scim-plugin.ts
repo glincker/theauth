@@ -18,8 +18,8 @@ export type { ScimConfig };
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { scim } from 'theauth/auth';
+ * import { createKavach } from '@glinr/theauth';
+ * import { scim } from '@glinr/theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

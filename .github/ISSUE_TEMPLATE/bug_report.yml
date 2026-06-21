@@ -22,15 +22,15 @@ body:
       label: Package
       options:
         - theauth (core)
-        - "@theauth/hono"
-        - "@theauth/express"
-        - "@theauth/nextjs"
-        - "@theauth/fastify"
-        - "@theauth/nuxt"
-        - "@theauth/sveltekit"
-        - "@theauth/astro"
-        - "@theauth/dashboard"
-        - "@theauth/cli"
+        - "@glinr/theauth-hono"
+        - "@glinr/theauth-express"
+        - "@glinr/theauth-nextjs"
+        - "@glinr/theauth-fastify"
+        - "@glinr/theauth-nuxt"
+        - "@glinr/theauth-sveltekit"
+        - "@glinr/theauth-astro"
+        - "@glinr/theauth-dashboard"
+        - "@glinr/theauth-cli"
     validations:
       required: true
 

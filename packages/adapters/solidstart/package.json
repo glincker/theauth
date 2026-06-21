@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/solidstart",
+  "name": "@glinr/theauth-solidstart",
   "version": "3.0.2",
   "description": "SolidStart adapter for TheAuth",
   "type": "module",
@@ -35,11 +35,11 @@
     "directory": "packages/adapters/solidstart"
   },
   "peerDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0",

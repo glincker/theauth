@@ -1,13 +1,13 @@
-# @theauth/nuxt
+# @glinr/theauth-nuxt
 
 Nuxt adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/nuxt)](https://www.npmjs.com/package/@theauth/nuxt)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-nuxt)](https://www.npmjs.com/package/@glinr/theauth-nuxt)
 
 ## Install
 
 ```bash
-pnpm add theauth @theauth/nuxt
+pnpm add theauth @glinr/@glinr/theauth-nuxt
 ```
 
 ## Usage
@@ -15,8 +15,8 @@ pnpm add theauth @theauth/nuxt
 Create `server/api/kavach/[...].ts`:
 
 ```typescript
-import { createKavach } from 'theauth';
-import { kavachNuxt } from '@theauth/nuxt';
+import { createKavach } from '@glinr/theauth';
+import { kavachNuxt } from '@glinr/theauth-nuxt';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -30,8 +30,8 @@ This handles the full TheAuth REST API under `/api/kavach`: agent CRUD, authoriz
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'theauth/mcp';
-import { kavachNuxt } from '@theauth/nuxt';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { kavachNuxt } from '@glinr/theauth-nuxt';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -58,7 +58,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 | `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/kavach` |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
 
 ## Links
 

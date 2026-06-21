@@ -44,8 +44,8 @@ From the app overview, copy the **Application (client) ID** and the **Directory 
 <Tabs>
   <Tab title="Personal + work accounts">
     ```typescript title="lib/kavach.ts"
-    import { createKavach } from 'theauth';
-    import { oauth } from 'theauth/auth';
+    import { createKavach } from '@glinr/theauth';
+    import { oauth } from '@glinr/theauth/auth';
 
     const kavach = await createKavach({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },

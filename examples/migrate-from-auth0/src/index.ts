@@ -14,7 +14,7 @@
  *   6. Inspect the audit trail for compliance
  */
 
-import { createKavach, users } from "theauth";
+import { createKavach, users } from "@glinr/theauth";
 
 const BANNER = "=".repeat(60);
 

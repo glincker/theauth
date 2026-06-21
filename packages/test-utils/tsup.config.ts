@@ -5,6 +5,6 @@ export default defineConfig({
 	format: ["esm"],
 	dts: true,
 	sourcemap: true,
-	external: ["react", "@theauth/react", "vitest"],
+	external: ["react", "@glinr/theauth-react", "vitest"],
 	target: "es2022",
 });

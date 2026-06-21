@@ -1,8 +1,8 @@
-# @theauth/cli
+# @glinr/theauth-cli
 
 Setup wizard and dev tools for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/cli)](https://www.npmjs.com/package/@theauth/cli)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-cli)](https://www.npmjs.com/package/@glinr/theauth-cli)
 
 ## Usage
 

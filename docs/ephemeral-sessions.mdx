@@ -22,11 +22,11 @@ Key differences from a regular agent:
 
 ## Setup
 
-No extra configuration is needed, ephemeral sessions are part of the `theauth` core package and share the same database as the rest of TheAuth.
+No extra configuration is needed, ephemeral sessions are part of the `@glinr/theauth` core package and share the same database as the rest of TheAuth.
 
 ```typescript
-import { createKavach } from 'theauth';
-import { createEphemeralSessionModule } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { createEphemeralSessionModule } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

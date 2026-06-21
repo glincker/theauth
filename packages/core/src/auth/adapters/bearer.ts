@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { bearerAuth } from 'theauth/auth';
+ * import { bearerAuth } from '@glinr/theauth/auth';
  *
  * const adapter = bearerAuth({
  *   secret: process.env.JWT_SECRET,

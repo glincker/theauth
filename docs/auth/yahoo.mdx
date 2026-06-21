@@ -32,8 +32,8 @@ After creating the app, copy the **Client ID (Consumer Key)** and **Client Secre
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { oauth, yahooProvider } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth, yahooProvider } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

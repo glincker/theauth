@@ -1,6 +1,6 @@
+import type { Kavach } from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { RequestHandler } from "@sveltejs/kit";
-import type { Kavach } from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
 export interface KavachSvelteKitOptions {
@@ -32,8 +32,8 @@ export interface KavachSvelteKitHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { kavachSvelteKit } from '@theauth/sveltekit';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachSvelteKit(kavach);
@@ -47,7 +47,7 @@ export interface KavachSvelteKitHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachSvelteKit(kavach, { mcp });
  * ```

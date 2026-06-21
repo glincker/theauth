@@ -1,5 +1,5 @@
 {
-  "name": "create-theauth-app",
+  "name": "@glinr/create-theauth-app",
   "version": "0.2.0",
   "description": "Scaffold a TheAuth-powered app in seconds",
   "type": "module",

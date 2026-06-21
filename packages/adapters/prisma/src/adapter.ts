@@ -87,7 +87,7 @@ interface PrismaClientLike {
  * @example
  * ```typescript
  * import { PrismaClient } from '@prisma/client';
- * import { createPrismaAdapter } from '@theauth/prisma';
+ * import { createPrismaAdapter } from '@glinr/theauth-prisma';
  *
  * const prisma = new PrismaClient();
  * const db = createPrismaAdapter(prisma);

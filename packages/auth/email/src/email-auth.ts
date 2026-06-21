@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { Database } from "theauth";
+import type { Database } from "@glinr/theauth";
 import { EmailAuthError, ErrorCodes } from "./errors.js";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "./password.js";
 import type {

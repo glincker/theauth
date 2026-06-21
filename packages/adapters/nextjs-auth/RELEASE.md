@@ -1,4 +1,4 @@
-# Releasing @theauth/nextjs-auth
+# Releasing @glinr/theauth-nextjs-auth
 
 ## First-time publish (v0.1.0)
 
@@ -20,8 +20,8 @@ npm whoami    # should show your npm user
 In glinr-me's `apps/web/package.json`, swap the file dep:
 
 ```diff
-- "@theauth/nextjs-auth": "file:../../../theauth/packages/adapters/nextjs-auth"
-+ "@theauth/nextjs-auth": "^0.1.0"
+- "@glinr/theauth-nextjs-auth": "file:../../../theauth/packages/adapters/nextjs-auth"
++ "@glinr/theauth-nextjs-auth": "^0.1.0"
 ```
 
 Then `cd apps/web && pnpm install` and verify `npx tsc --noEmit` still passes.
@@ -29,7 +29,7 @@ Then `cd apps/web && pnpm install` and verify `npx tsc --noEmit` still passes.
 ## Tag the release
 
 ```bash
-git tag @theauth/nextjs-auth@0.1.0
+git tag @glinr/theauth-nextjs-auth@0.1.0
 git push --tags
 ```
 

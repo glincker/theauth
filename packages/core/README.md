@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/v/theauth?style=flat-square&color=c9a84c" alt="npm" /></a>
-  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/dm/theauth?style=flat-square&color=c9a84c" alt="downloads" /></a>
+  <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/v/@glinr/theauth?style=flat-square&color=c9a84c" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/dm/@glinr/theauth?style=flat-square&color=c9a84c" alt="downloads" /></a>
   <a href="https://github.com/glincker/theauth/actions"><img src="https://img.shields.io/github/actions/workflow/status/glincker/theauth/ci.yml?style=flat-square&label=tests" alt="tests" /></a>
   <a href="https://github.com/glincker/theauth/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square" alt="TypeScript" /></a>
@@ -32,14 +32,14 @@
 Every auth library handles human login. None of them handle **AI agent identity**. TheAuth gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
-npm install theauth
+npm install @glinr/theauth
 ```
 
 ## Quick start
 
 ```typescript
-import { createKavach } from "theauth";
-import { emailPassword } from "theauth/auth";
+import { createKavach } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -137,22 +137,22 @@ Works with every major framework:
 
 | Framework | Package | Framework | Package |
 |-----------|---------|-----------|---------|
-| **Hono** | `@theauth/hono` | **Nuxt** | `@theauth/nuxt` |
-| **Express** | `@theauth/express` | **SvelteKit** | `@theauth/sveltekit` |
-| **Next.js** | `@theauth/nextjs` | **Astro** | `@theauth/astro` |
-| **Fastify** | `@theauth/fastify` | **NestJS** | `@theauth/nestjs` |
+| **Hono** | `@glinr/theauth-hono` | **Nuxt** | `@glinr/theauth-nuxt` |
+| **Express** | `@glinr/theauth-express` | **SvelteKit** | `@glinr/theauth-sveltekit` |
+| **Next.js** | `@glinr/theauth-nextjs` | **Astro** | `@glinr/theauth-astro` |
+| **Fastify** | `@glinr/theauth-fastify` | **NestJS** | `@glinr/theauth-nestjs` |
 
 ## Client libraries
 
 | Package | What |
 |---------|------|
-| `@theauth/react` | KavachProvider + hooks |
-| `@theauth/vue` | Vue 3 plugin + composables |
-| `@theauth/svelte` | Svelte stores |
-| `@theauth/ui` | 7 pre-built auth components (SignIn, SignUp, UserButton...) |
-| `@theauth/expo` | React Native / Expo |
-| `@theauth/electron` | Electron desktop |
-| `@theauth/client` | Zero-dep TypeScript REST client |
+| `@glinr/theauth-react` | KavachProvider + hooks |
+| `@glinr/theauth-vue` | Vue 3 plugin + composables |
+| `@glinr/theauth-svelte` | Svelte stores |
+| `@glinr/theauth-ui` | 7 pre-built auth components (SignIn, SignUp, UserButton...) |
+| `@glinr/theauth-expo` | React Native / Expo |
+| `@glinr/theauth-electron` | Electron desktop |
+| `@glinr/theauth-client` | Zero-dep TypeScript REST client |
 
 ## Databases
 
@@ -174,7 +174,7 @@ Auth methods are plugins. Enable what you need:
 import {
   emailPassword, magicLink, passkey, totp,
   organizations, sso, admin, apiKeys, webhooks,
-} from "theauth/auth";
+} from "@glinr/theauth/auth";
 
 createKavach({
   database: { provider: "sqlite", url: "kavach.db" },

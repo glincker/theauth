@@ -7,8 +7,8 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { bearerAuth } from 'theauth/auth';
+ * import { createKavach } from '@glinr/theauth';
+ * import { bearerAuth } from '@glinr/theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

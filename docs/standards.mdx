@@ -11,7 +11,7 @@ TheAuth tracks the two emerging IETF drafts for agent authorization: `draft-gosw
 Every claim name lives in `packages/core/src/standards/claims.ts` as `AGENTIC_JWT_CLAIMS`. Each constant has a JSDoc reference to the relevant draft section.
 
 ```ts
-import { AGENTIC_JWT_CLAIMS } from "theauth/standards";
+import { AGENTIC_JWT_CLAIMS } from "@glinr/theauth/standards";
 
 AGENTIC_JWT_CLAIMS.AGENT_ID;         // "agent_id"
 AGENTIC_JWT_CLAIMS.AGENT_TYPE;       // "agent_type"
@@ -30,7 +30,7 @@ AGENTIC_JWT_CLAIMS.OPERATION;        // "operation"
 Claim emission is off by default. Flip the `emitAgenticJwtClaims` flag on your Kavach config to start populating claims on issued JWTs:
 
 ```ts
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 
 const kavach = createKavach({
   database: { url: process.env.DATABASE_URL },

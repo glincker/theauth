@@ -66,7 +66,7 @@ function configTemplate(answers: InitAnswers): string {
 			? `  provider: "sqlite",\n  url: "${answers.dbUrl}",`
 			: `  provider: "postgres",\n  url: process.env.DATABASE_URL ?? "${answers.dbUrl}",`;
 
-	return `import { type KavachConfig } from "theauth";
+	return `import { type KavachConfig } from "@glinr/theauth";
 
 const config: KavachConfig = {
   database: {
@@ -85,10 +85,10 @@ export default config;
 
 function exampleTemplate(answers: InitAnswers): string {
 	const adapterPkg: Record<Framework, string> = {
-		hono: "@theauth/hono",
-		express: "@theauth/express",
-		nextjs: "@theauth/nextjs",
-		fastify: "@theauth/fastify",
+		hono: "@glinr/theauth-hono",
+		express: "@glinr/theauth-express",
+		nextjs: "@glinr/theauth-nextjs",
+		fastify: "@glinr/theauth-fastify",
 	};
 
 	const frameworkComment: Record<Framework, string> = {
@@ -103,7 +103,7 @@ function exampleTemplate(answers: InitAnswers): string {
 			? `  database: { provider: "sqlite", url: "kavach.db" },`
 			: `  database: { provider: "postgres", url: process.env.DATABASE_URL! },`;
 
-	return `import { createKavach } from "theauth";
+	return `import { createKavach } from "@glinr/theauth";
 ${frameworkComment[answers.framework]}
 // Adapter: npm install ${adapterPkg[answers.framework]}
 
@@ -231,16 +231,16 @@ export async function runInit(): Promise<InitResult | InitError> {
 		stdout.write("\nNext steps\n");
 		stdout.write("──────────\n");
 		stdout.write("  1. Install the core package:\n");
-		stdout.write("       npm install theauth\n");
+		stdout.write("       npm install @glinr/theauth\n");
 		if (framework !== "hono") {
 			const adapterPkg: Record<Exclude<Framework, "hono">, string> = {
-				express: "@theauth/express",
-				nextjs: "@theauth/nextjs",
-				fastify: "@theauth/fastify",
+				express: "@glinr/theauth-express",
+				nextjs: "@glinr/theauth-nextjs",
+				fastify: "@glinr/theauth-fastify",
 			};
 			stdout.write(`       npm install ${adapterPkg[framework]}\n`);
 		} else {
-			stdout.write("       npm install @theauth/hono\n");
+			stdout.write("       npm install @glinr/@glinr/theauth-hono\n");
 		}
 		if (database === "postgres") {
 			stdout.write("       npm install pg\n");

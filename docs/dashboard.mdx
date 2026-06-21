@@ -1,6 +1,6 @@
 ---
 title: Admin dashboard
-description: Embed `KavachDashboard` from `@theauth/dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
+description: Embed `KavachDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
 icon: table-columns
 ---
 
@@ -13,7 +13,7 @@ It is optional. You can use the SDK entirely through code without the dashboard.
 
 It ships in two forms:
 
-1. A React component (`@theauth/dashboard`) you embed in an existing app
+1. A React component (`@glinr/theauth-dashboard`) you embed in an existing app
 2. A standalone CLI server you run without any frontend code
 
 ## Quick start (demo mode)
@@ -45,13 +45,13 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     Install the package:
 
     ```bash
-    pnpm add @theauth/dashboard
+    pnpm add @glinr/@glinr/theauth-dashboard
     ```
 
     Render `KavachDashboard` inside a protected route in your app:
 
     ```tsx
-    import { KavachDashboard } from '@theauth/dashboard';
+    import { KavachDashboard } from '@glinr/theauth-dashboard';
 
     export default function AdminPage() {
       return (
@@ -78,8 +78,8 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       <Tab title="Next.js">
         ```typescript
         // app/api/kavach/[...path]/route.ts
-        import { createKavach } from 'theauth';
-        import { kavachNextjs } from '@theauth/nextjs';
+        import { createKavach } from '@glinr/theauth';
+        import { kavachNextjs } from '@glinr/theauth-nextjs';
 
         const kavach = await createKavach({
           database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -95,8 +95,8 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       <Tab title="Hono">
         ```typescript
         import { Hono } from 'hono';
-        import { createKavach } from 'theauth';
-        import { kavachHono } from '@theauth/hono';
+        import { createKavach } from '@glinr/theauth';
+        import { kavachHono } from '@glinr/theauth-hono';
 
         const kavach = await createKavach({
           database: { provider: 'sqlite', url: 'kavach.db' },
@@ -109,8 +109,8 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       <Tab title="Express">
         ```typescript
         import express from 'express';
-        import { createKavach } from 'theauth';
-        import { kavachExpress } from '@theauth/express';
+        import { createKavach } from '@glinr/theauth';
+        import { kavachExpress } from '@glinr/theauth-express';
 
         const kavach = await createKavach({
           database: { provider: 'sqlite', url: 'kavach.db' },
@@ -130,7 +130,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     // app/admin/page.tsx
     import { redirect } from 'next/navigation';
     import { getSession } from '@/lib/auth';
-    import { KavachDashboard } from '@theauth/dashboard';
+    import { KavachDashboard } from '@glinr/theauth-dashboard';
 
     export default async function AdminPage() {
       const session = await getSession();
