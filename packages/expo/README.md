@@ -1,13 +1,13 @@
-# @theauth/expo
+# @glinr/theauth-expo
 
 Expo / React Native provider and hooks for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@theauth/expo?style=flat-square)](https://www.npmjs.com/package/@theauth/expo)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-expo?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-expo)
 
 ## Install
 
 ```bash
-npm install @theauth/expo
+npm install @glinr/@glinr/theauth-expo
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @theauth/expo
 Wrap your Expo app with `KavachExpoProvider`. Tokens are persisted using the configured storage (defaults to `expo-secure-store`).
 
 ```tsx
-import { KavachExpoProvider, useSession, useUser, useSignIn } from '@theauth/expo';
+import { KavachExpoProvider, useSession, useUser, useSignIn } from '@glinr/theauth-expo';
 
 export default function App() {
   return (

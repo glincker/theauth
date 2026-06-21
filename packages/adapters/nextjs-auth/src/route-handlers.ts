@@ -15,7 +15,7 @@ import type { ResolvedAuthConfig } from "./types.js";
  *
  *     // app/auth/actions.ts
  *     "use server";
- *     import { createSignOutHandler } from "@theauth/nextjs-auth";
+ *     import { createSignOutHandler } from "@glinr/theauth-nextjs-auth";
  *     import { authConfig } from "@/lib/auth/config.server";
  *     export const signOut = createSignOutHandler(authConfig);
  *

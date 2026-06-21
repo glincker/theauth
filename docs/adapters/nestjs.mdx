@@ -9,7 +9,7 @@ icon: "/brand-icons/nestjs.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/nestjs
+pnpm add theauth @glinr/@glinr/theauth-nestjs
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add theauth @theauth/nestjs
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -39,7 +39,7 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
-import { KavachModule } from '@theauth/nestjs';
+import { KavachModule } from '@glinr/theauth-nestjs';
 import { kavach, mcp } from './lib/kavach.js';
 
 @Module({
@@ -95,7 +95,7 @@ If you prefer to mount routes imperatively in `main.ts` rather than importing a 
 // main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { kavachMiddleware } from '@theauth/nestjs';
+import { kavachMiddleware } from '@glinr/theauth-nestjs';
 import { kavach, mcp } from './lib/kavach.js';
 
 async function bootstrap() {

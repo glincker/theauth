@@ -9,7 +9,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /**
- * Minimal resolved user — matches `ResolvedUser` from `theauth/auth`
+ * Minimal resolved user — matches `ResolvedUser` from `@glinr/theauth/auth`
  * exactly.  Redefined here so this package has zero runtime deps.
  */
 export interface MockResolvedUser {
@@ -22,7 +22,7 @@ export interface MockResolvedUser {
 
 /**
  * Shape that mirrors the TheAuth `AuthAdapter` interface.
- * Assign this to any parameter typed `AuthAdapter` from `theauth`.
+ * Assign this to any parameter typed `AuthAdapter` from `@glinr/theauth`.
  */
 export interface MockAuthAdapter {
 	resolveUser(request: Request): Promise<MockResolvedUser | null>;

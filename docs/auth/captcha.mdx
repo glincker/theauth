@@ -18,8 +18,8 @@ The `captcha` plugin adds bot protection to any TheAuth endpoint. It validates a
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { captcha } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { captcha } from '@glinr/theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { createFederationModule } from 'theauth/auth';
+ * import { createFederationModule } from '@glinr/theauth/auth';
  * import { generateKeyPair, exportJWK } from 'jose';
  *
  * const { publicKey, privateKey } = await generateKeyPair('EdDSA');

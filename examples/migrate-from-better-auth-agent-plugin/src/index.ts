@@ -7,7 +7,7 @@
  * authorizeByToken against the delegated permission.
  */
 
-import { createKavach, users } from "theauth";
+import { createKavach, users } from "@glinr/theauth";
 
 const BANNER = "=".repeat(60);
 

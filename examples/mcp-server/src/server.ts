@@ -4,7 +4,7 @@
 //   1. An MCP OAuth 2.1 authorization server (issues tokens)
 //   2. An MCP resource server (protects tool endpoints with those tokens)
 //
-// Start: pnpm --filter @theauth/example-mcp-server start
+// Start: pnpm --filter @glinr/theauth-example-mcp-server start
 //
 // Flow:
 //   1. Client registers via POST /api/mcp/register
@@ -19,13 +19,18 @@
 //   # Use the returned token to call protected endpoints:
 //   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
+import type { Kavach } from "@glinr/theauth";
+import { createKavach, users } from "@glinr/theauth";
+import type {
+	McpAccessToken,
+	McpAuthModule,
+	McpAuthorizationCode,
+	McpClient,
+} from "@glinr/theauth/mcp";
+import { createMcpModule } from "@glinr/theauth/mcp";
+import { kavachHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@theauth/hono";
 import { Hono } from "hono";
-import type { Kavach } from "theauth";
-import { createKavach, users } from "theauth";
-import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "theauth/mcp";
-import { createMcpModule } from "theauth/mcp";
 
 const PORT = 3001;
 const BASE_URL = `http://localhost:${PORT}`;

@@ -1,7 +1,7 @@
+import type { Kavach } from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { Inject, Module } from "@nestjs/common";
-import type { Kavach } from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
 import { kavachMiddleware } from "./adapter.js";
 
 // ─── Injection Token ──────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ export interface KavachModuleOptions {
  * ```typescript
  * // app.module.ts
  * import { Module } from '@nestjs/common';
- * import { KavachModule } from '@theauth/nestjs';
+ * import { KavachModule } from '@glinr/theauth-nestjs';
  * import { kavach, mcp } from './lib/kavach.js';
  *
  * @Module({

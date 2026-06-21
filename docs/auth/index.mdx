@@ -12,8 +12,8 @@ If you already run Clerk, Auth.js, or better-auth, keep them and skip the plugin
 </div>
 
 ```ts
-import { createKavach } from 'theauth';
-import { emailPassword, oauth } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { emailPassword, oauth } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

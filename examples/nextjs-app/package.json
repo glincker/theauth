@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/example-nextjs-app",
+  "name": "@glinr/theauth-example-nextjs-app",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,9 +8,9 @@
     "start": "next start"
   },
   "dependencies": {
-    "theauth": "workspace:*",
-    "@theauth/nextjs": "workspace:*",
-    "@theauth/dashboard": "workspace:*",
+    "@glinr/theauth": "workspace:*",
+    "@glinr/theauth-nextjs": "workspace:*",
+    "@glinr/theauth-dashboard": "workspace:*",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

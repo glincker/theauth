@@ -110,7 +110,7 @@ export function createIpcStorage(): SecureStorage {
  *
  * ```ts
  * import { contextBridge, ipcRenderer } from "electron";
- * import { KAVACH_IPC_CHANNELS } from "@theauth/electron";
+ * import { KAVACH_IPC_CHANNELS } from "@glinr/theauth-electron";
  *
  * contextBridge.exposeInMainWorld("kavachStorage", {
  *   invoke: (channel: string, ...args: unknown[]) => {

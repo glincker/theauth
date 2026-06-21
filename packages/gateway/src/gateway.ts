@@ -1,4 +1,4 @@
-import type { Kavach } from "theauth";
+import type { Kavach } from "@glinr/theauth";
 import { buildCorsHeaders, isPreflight } from "./cors.js";
 import { matchPolicy } from "./policy-matcher.js";
 import { createGatewayRateLimiter } from "./rate-limiter.js";
@@ -157,8 +157,8 @@ async function recordAuditEntry(
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { createGateway } from '@theauth/gateway';
+ * import { createKavach } from '@glinr/theauth';
+ * import { createGateway } from '@glinr/theauth-gateway';
  *
  * const kavach = await createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  *

@@ -1,4 +1,4 @@
-import { KavachProvider } from "@theauth/react";
+import { KavachProvider } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 import "./globals.css";
 

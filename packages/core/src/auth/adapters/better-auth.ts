@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { betterAuthAdapter } from 'theauth/auth';
+ * import { betterAuthAdapter } from '@glinr/theauth/auth';
  * import { auth } from './lib/auth'; // your better-auth instance
  *
  * const kavach = await createKavach({

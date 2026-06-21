@@ -8,8 +8,13 @@
  * by default so you can assert call counts and return values in tests.
  */
 
-import type { ActionResult, KavachContextValue, KavachSession, KavachUser } from "@theauth/react";
-import { KavachContext } from "@theauth/react";
+import type {
+	ActionResult,
+	KavachContextValue,
+	KavachSession,
+	KavachUser,
+} from "@glinr/theauth-react";
+import { KavachContext } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 

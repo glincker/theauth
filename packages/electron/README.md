@@ -1,13 +1,13 @@
-# @theauth/electron
+# @glinr/theauth-electron
 
 Electron integration for TheAuth: secure storage, OAuth windows, and IPC bridge.
 
-[![npm](https://img.shields.io/npm/v/@theauth/electron?style=flat-square)](https://www.npmjs.com/package/@theauth/electron)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-electron?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-electron)
 
 ## Install
 
 ```bash
-npm install @theauth/electron
+npm install @glinr/@glinr/theauth-electron
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ Set up the IPC bridge in the main process, then use the provider in the renderer
 
 ```ts
 // main.ts (main process)
-import { setupKavachIpc, createElectronStorage } from '@theauth/electron';
+import { setupKavachIpc, createElectronStorage } from '@glinr/theauth-electron';
 
 const storage = createElectronStorage({ encryptionKey: process.env.STORAGE_KEY });
 setupKavachIpc({ storage });
@@ -24,7 +24,7 @@ setupKavachIpc({ storage });
 
 ```tsx
 // renderer.tsx
-import { ElectronKavachProvider, useElectronKavachContext } from '@theauth/electron';
+import { ElectronKavachProvider, useElectronKavachContext } from '@glinr/theauth-electron';
 
 function App() {
   return (
@@ -37,7 +37,7 @@ function App() {
 
 ```ts
 // OAuth login from renderer
-import { openOAuthWindow } from '@theauth/electron';
+import { openOAuthWindow } from '@glinr/theauth-electron';
 
 const result = await openOAuthWindow({ provider: 'google', redirectUri: 'kavach://oauth' });
 ```

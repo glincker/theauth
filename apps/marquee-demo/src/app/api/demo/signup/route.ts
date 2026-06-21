@@ -8,8 +8,8 @@
  * downstream steps use authentic data.
  */
 
+import { generateId } from "@glinr/theauth";
 import { NextResponse } from "next/server";
-import { generateId } from "theauth";
 import { makeSessionCookie } from "@/lib/cookie";
 import { getKavach } from "@/lib/kavach-instance";
 import { createFreshSession, setSession } from "@/lib/session-store";

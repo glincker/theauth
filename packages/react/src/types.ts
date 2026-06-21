@@ -52,7 +52,7 @@ export interface CreateAgentInput {
 /**
  * Canonical error codes returned by `rotateSession()` and surfaced to
  * `onAuthError`. Mirrors the server-side `RefreshError` enum from
- * `@theauth/core` plus three client-only categories: `network_error`,
+ * `@glinr/theauth` plus three client-only categories: `network_error`,
  * `server_error`, and `unknown`.
  */
 export type RotateErrorCode =

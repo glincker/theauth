@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/plugin-discovery",
+  "name": "@glinr/theauth-plugin-discovery",
   "version": "3.0.2",
   "description": "A2A agent capability card discovery plugin for TheAuth",
   "type": "module",
@@ -40,10 +40,10 @@
     "drizzle-orm": "^0.41.0"
   },
   "peerDependencies": {
-    "theauth": "workspace:*"
+    "@glinr/theauth": "workspace:*"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "better-sqlite3": "^12.9.0",

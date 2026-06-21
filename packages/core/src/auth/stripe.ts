@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { createStripeModule } from 'theauth/auth';
+ * import { createStripeModule } from '@glinr/theauth/auth';
  *
  * const stripe = createStripeModule({
  *   secretKey: process.env.STRIPE_SECRET_KEY!,

@@ -1,4 +1,4 @@
-# @theauth/ui
+# @glinr/theauth-ui
 
 ## 0.1.0
 

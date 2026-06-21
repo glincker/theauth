@@ -1,4 +1,4 @@
-# @theauth/svelte
+# @glinr/theauth-svelte
 
 ## 0.1.0
 

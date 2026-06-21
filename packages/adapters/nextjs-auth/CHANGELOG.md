@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@theauth/nextjs-auth` will be documented in this file.
+All notable changes to `@glinr/theauth-nextjs-auth` will be documented in this file.
 
 This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
@@ -17,7 +17,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 New package — initial release.
 
-**What it is:** A focused Next.js (14/15/16) adapter for projects whose auth backend lives elsewhere (Spring, Rails, Hono, Go, etc.). Distinct from `@theauth/nextjs` which bundles the agent-management runtime; this package covers the "I already have a backend, just give me cookie + session + refresh on the FE" case.
+**What it is:** A focused Next.js (14/15/16) adapter for projects whose auth backend lives elsewhere (Spring, Rails, Hono, Go, etc.). Distinct from `@glinr/theauth-nextjs` which bundles the agent-management runtime; this package covers the "I already have a backend, just give me cookie + session + refresh on the FE" case.
 
 **Server-side API (from main import):**
 

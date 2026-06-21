@@ -16,11 +16,11 @@
 //   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@theauth/hono";
+import { kavachHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
-import { users } from "theauth";
-import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "theauth/mcp";
-import { createMcpModule } from "theauth/mcp";
+import { users } from "@glinr/theauth";
+import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
+import { createMcpModule } from "@glinr/theauth/mcp";
 
 import { getKavach } from "./lib/kavach.js";
 import { MCP_TOOLS } from "./tools.js";

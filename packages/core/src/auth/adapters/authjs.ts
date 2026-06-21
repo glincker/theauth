@@ -7,7 +7,7 @@
  *
  * @example Next.js App Router (Auth.js v5)
  * ```typescript
- * import { authJsAdapter } from 'theauth/auth';
+ * import { authJsAdapter } from '@glinr/theauth/auth';
  * import { auth } from './auth'; // your Auth.js instance
  *
  * const kavach = await createKavach({
@@ -20,7 +20,7 @@
  *
  * @example SvelteKit (Auth.js v5)
  * ```typescript
- * import { authJsAdapter } from 'theauth/auth';
+ * import { authJsAdapter } from '@glinr/theauth/auth';
  * import { SvelteKitAuth } from '@auth/sveltekit';
  *
  * // Wrap the SvelteKit event resolver into a standard Request-based function.

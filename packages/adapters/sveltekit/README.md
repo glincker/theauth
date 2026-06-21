@@ -1,13 +1,13 @@
-# @theauth/sveltekit
+# @glinr/theauth-sveltekit
 
 SvelteKit adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/sveltekit)](https://www.npmjs.com/package/@theauth/sveltekit)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-sveltekit)](https://www.npmjs.com/package/@glinr/theauth-sveltekit)
 
 ## Install
 
 ```bash
-pnpm add theauth @theauth/sveltekit
+pnpm add theauth @glinr/@glinr/theauth-sveltekit
 ```
 
 ## Usage
@@ -15,8 +15,8 @@ pnpm add theauth @theauth/sveltekit
 Create `src/routes/api/kavach/[...path]/+server.ts`:
 
 ```typescript
-import { createKavach } from 'theauth';
-import { kavachSvelteKit } from '@theauth/sveltekit';
+import { createKavach } from '@glinr/theauth';
+import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -36,8 +36,8 @@ This handles the full TheAuth REST API under `/api/kavach`: agent CRUD, authoriz
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'theauth/mcp';
-import { kavachSvelteKit } from '@theauth/sveltekit';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -64,7 +64,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 | `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/kavach` |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
 
 ## Links
 

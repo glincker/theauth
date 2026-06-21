@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { createOpenApiModule } from 'theauth/auth';
+ * import { createOpenApiModule } from '@glinr/theauth/auth';
  *
  * const openapi = createOpenApiModule();
  * const spec = openapi.generateSpec({

@@ -1,4 +1,4 @@
-# @theauth/react
+# @glinr/theauth-react
 
 ## 0.2.0
 

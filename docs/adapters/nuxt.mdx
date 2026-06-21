@@ -9,7 +9,7 @@ icon: "/brand-icons/nuxt.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/nuxt
+pnpm add theauth @glinr/@glinr/theauth-nuxt
 ```
 
 ## Setup
@@ -21,7 +21,7 @@ Create this outside the event handler so it is initialized once at server startu
 
 ```typescript
 // server/utils/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -42,7 +42,7 @@ In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-
 
 ```typescript
 // server/api/kavach/[...].ts
-import { kavachNuxt } from '@theauth/nuxt';
+import { kavachNuxt } from '@glinr/theauth-nuxt';
 import { kavach, mcp } from '../utils/kavach';
 
 export default kavachNuxt(kavach, { mcp });
@@ -98,8 +98,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // server/api/kavach/[...].ts
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachNuxt } from '@theauth/nuxt';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachNuxt } from '@glinr/theauth-nuxt';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

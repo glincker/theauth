@@ -6,7 +6,7 @@
  * failure so test output is readable.
  */
 
-import type { ActionResult } from "@theauth/react";
+import type { ActionResult } from "@glinr/theauth-react";
 
 // ─── Assertion helpers ────────────────────────────────────────────────────────
 

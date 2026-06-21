@@ -8,7 +8,7 @@
  *
  * @example Node.js + Express
  * ```typescript
- * import { clerkAdapter } from 'theauth/auth';
+ * import { clerkAdapter } from '@glinr/theauth/auth';
  * import { clerkClient, clerkMiddleware, getAuth } from '@clerk/express';
  *
  * const kavach = await createKavach({

@@ -1,16 +1,16 @@
 ---
 title: "Test utilities"
-description: Test auth-dependent code without a database using @theauth/test-utils. Provides entity factories, in-memory mock auth server, and per-request user overrides.
+description: Test auth-dependent code without a database using @glinr/theauth-test-utils. Provides entity factories, in-memory mock auth server, and per-request user overrides.
 icon: code
 ---
 
 
-`@theauth/test-utils` provides factories, mock servers, and assertion helpers so you can test auth-dependent code without a real database or network.
+`@glinr/theauth-test-utils` provides factories, mock servers, and assertion helpers so you can test auth-dependent code without a real database or network.
 
 ## Install
 
 ```bash
-pnpm add -D @theauth/test-utils
+pnpm add -D @glinr/@glinr/theauth-test-utils
 ```
 
 ## Factories
@@ -23,7 +23,7 @@ import {
   createMockSession,
   createMockAgent,
   createMockPermission,
-} from '@theauth/test-utils';
+} from '@glinr/theauth-test-utils';
 
 const user = createMockUser({ email: 'alice@example.com' });
 const session = createMockSession({ user });
@@ -38,7 +38,7 @@ Each call generates unique IDs, so you can create multiple entities in the same 
 `createMockAuthServer` returns an in-memory `AuthAdapter` implementation with zero network or database calls. Use it in server-side unit tests that exercise code paths calling `resolveUser`, `getUser`, or `syncUser`.
 
 ```ts
-import { createMockAuthServer, createMockUser } from '@theauth/test-utils';
+import { createMockAuthServer, createMockUser } from '@glinr/theauth-test-utils';
 
 const server = createMockAuthServer();
 const user = createMockUser();
@@ -55,7 +55,7 @@ const resolved = await server.resolveUser(new Request('https://example.com'));
 Set the `x-mock-kavach-user-id` header on a `Request` to override the active user for that specific request only, without calling `setActiveUser`:
 
 ```ts
-import { MOCK_USER_ID_HEADER } from '@theauth/test-utils';
+import { MOCK_USER_ID_HEADER } from '@glinr/theauth-test-utils';
 
 const req = new Request('https://example.com', {
   headers: { [MOCK_USER_ID_HEADER]: user.id },
@@ -79,7 +79,7 @@ import {
   expectAuthenticated,
   expectUnauthenticated,
   expectPermissionDenied,
-} from '@theauth/test-utils';
+} from '@glinr/theauth-test-utils';
 
 // Passes only when result.success === true
 expectAuthenticated(result);

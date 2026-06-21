@@ -11,8 +11,8 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { additionalFields } from 'theauth/auth';
+ * import { createKavach } from '@glinr/theauth';
+ * import { additionalFields } from '@glinr/theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

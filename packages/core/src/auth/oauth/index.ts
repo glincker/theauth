@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { createOAuthModule, createGoogleProvider, createGithubProvider, createDiscordProvider } from 'theauth/auth/oauth';
+ * import { createOAuthModule, createGoogleProvider, createGithubProvider, createDiscordProvider } from '@glinr/theauth/auth/oauth';
  *
  * const oauth = createOAuthModule(db, {
  *   providers: {

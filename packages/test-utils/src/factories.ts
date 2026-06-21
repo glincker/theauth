@@ -5,7 +5,12 @@
  * the fields relevant to the behaviour under test.
  */
 
-import type { KavachAgent, KavachPermission, KavachSession, KavachUser } from "@theauth/react";
+import type {
+	KavachAgent,
+	KavachPermission,
+	KavachSession,
+	KavachUser,
+} from "@glinr/theauth-react";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 

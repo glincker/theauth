@@ -1,11 +1,11 @@
 ---
 title: Prisma adapter
-description: Query every TheAuth table through an existing PrismaClient via @theauth/prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
+description: Query every TheAuth table through an existing PrismaClient via @glinr/theauth-prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
 icon: database
 ---
 
 
-TheAuth ships a Drizzle-based database layer by default. If your project already uses [Prisma](https://www.prisma.io), the `@theauth/prisma` adapter lets you query every TheAuth table through your existing `PrismaClient`, no Drizzle installation required.
+TheAuth ships a Drizzle-based database layer by default. If your project already uses [Prisma](https://www.prisma.io), the `@glinr/theauth-prisma` adapter lets you query every TheAuth table through your existing `PrismaClient`, no Drizzle installation required.
 
 <Info>
   The Prisma adapter is a standalone query layer. It does not replace or wrap
@@ -25,10 +25,10 @@ The adapter covers agents, users, sessions, audit logs, permissions, delegation 
 ## Installation
 
 ```bash
-pnpm add @theauth/prisma @prisma/client
+pnpm add @glinr/@glinr/theauth-prisma @prisma/client
 ```
 
-The adapter has no runtime dependency on `theauth` itself, `@prisma/client` is the only peer dep.
+The adapter has no runtime dependency on `@glinr/theauth` itself, `@prisma/client` is the only peer dep.
 
 ## Setup
 
@@ -37,7 +37,7 @@ The adapter has no runtime dependency on `theauth` itself, `@prisma/client` is t
 
 ### Add the TheAuth models to your Prisma schema
 
-Copy the models from `node_modules/@theauth/prisma/src/schema.prisma` into your `prisma/schema.prisma`, or use it as a reference to add only the tables you need.
+Copy the models from `node_modules/@glinr/theauth-prisma/src/schema.prisma` into your `prisma/schema.prisma`, or use it as a reference to add only the tables you need.
 
 The schema targets Postgres by default. Switch the `datasource` provider to `sqlite` or `mysql` as appropriate.
 
@@ -61,7 +61,7 @@ model KavachUser {
   banned             Boolean   @default(false)
   createdAt          DateTime  @map("created_at")
   updatedAt          DateTime  @map("updated_at")
-  // ... (see full schema in @theauth/prisma/src/schema.prisma)
+  // ... (see full schema in @glinr/theauth-prisma/src/schema.prisma)
 
   @@map("kavach_users")
 }
@@ -106,7 +106,7 @@ npx prisma db push
 
 ```typescript
 import { PrismaClient } from '@prisma/client';
-import { createPrismaAdapter } from '@theauth/prisma';
+import { createPrismaAdapter } from '@glinr/theauth-prisma';
 
 const prisma = new PrismaClient();
 export const kavachDb = createPrismaAdapter(prisma);
@@ -247,7 +247,7 @@ The adapter wraps Prisma's `$transaction` to let you compose TheAuth operations 
 
 ```typescript
 import { PrismaClient } from '@prisma/client';
-import { createPrismaAdapter } from '@theauth/prisma';
+import { createPrismaAdapter } from '@glinr/theauth-prisma';
 
 const prisma = new PrismaClient();
 const kavachDb = createPrismaAdapter(prisma);
@@ -323,13 +323,13 @@ const db = createPrismaAdapter(prisma);
 <Warning>
   The core TheAuth instance (`createKavach`) still uses Drizzle internally
   for agent creation, authorization, MCP flows, and other built-in features.
-  `@theauth/prisma` gives you a Prisma-native way to read and write the same
+  `@glinr/theauth-prisma` gives you a Prisma-native way to read and write the same
   tables, it does not replace `createKavach`.
 </Warning>
 
 ## Reference schema
 
-The full reference schema is in `node_modules/@theauth/prisma/src/schema.prisma`. It includes all 30+ TheAuth models with correct column mappings, indexes, and default values.
+The full reference schema is in `node_modules/@glinr/theauth-prisma/src/schema.prisma`. It includes all 30+ TheAuth models with correct column mappings, indexes, and default values.
 
 Every model name follows `KavachPascalCase` and maps to a `kavach_snake_case` table, keeping your Prisma namespace clean and your SQL tables clearly scoped.
 

@@ -22,8 +22,12 @@
     "href": "https://theauth.com"
   },
   "fonts": {
-    "heading": { "family": "Inter" },
-    "body": { "family": "Inter" }
+    "heading": {
+      "family": "Inter"
+    },
+    "body": {
+      "family": "Inter"
+    }
   },
   "appearance": {
     "default": "dark",
@@ -61,12 +65,20 @@
   },
   "navbar": {
     "links": [
-      { "label": "Changelog", "icon": "clock-rotate-left", "href": "https://github.com/glincker/theauth/releases" },
-      { "label": "GitHub", "icon": "github", "href": "https://github.com/glincker/theauth" }
+      {
+        "label": "Changelog",
+        "icon": "clock-rotate-left",
+        "href": "https://github.com/glincker/theauth/releases"
+      },
+      {
+        "label": "GitHub",
+        "icon": "github",
+        "href": "https://github.com/glincker/theauth"
+      }
     ],
     "primary": {
       "type": "button",
-      "label": "npm i theauth",
+      "label": "npm i @glinr/theauth",
       "href": "/quickstart"
     }
   },
@@ -100,17 +112,30 @@
           {
             "group": "Start here",
             "icon": "flag",
-            "pages": ["index", "concepts", "quickstart"]
+            "pages": [
+              "index",
+              "concepts",
+              "quickstart"
+            ]
           },
           {
             "group": "Setup",
             "icon": "wrench",
-            "pages": ["add-to-existing-app", "configuration", "database"]
+            "pages": [
+              "add-to-existing-app",
+              "configuration",
+              "database"
+            ]
           },
           {
             "group": "Sessions",
             "icon": "stopwatch",
-            "pages": ["sessions", "jwt-sessions", "cookies", "one-time-tokens"]
+            "pages": [
+              "sessions",
+              "jwt-sessions",
+              "cookies",
+              "one-time-tokens"
+            ]
           }
         ]
       },
@@ -121,7 +146,10 @@
           {
             "group": "Overview",
             "icon": "circle-info",
-            "pages": ["auth/index", "last-login"]
+            "pages": [
+              "auth/index",
+              "last-login"
+            ]
           },
           {
             "group": "Methods",
@@ -130,7 +158,10 @@
               {
                 "group": "Password",
                 "icon": "key",
-                "pages": ["auth/email-password", "auth/username"]
+                "pages": [
+                  "auth/email-password",
+                  "auth/username"
+                ]
               },
               {
                 "group": "Passwordless",
@@ -147,12 +178,19 @@
               {
                 "group": "MFA and anti-abuse",
                 "icon": "shield-check",
-                "pages": ["auth/two-factor", "auth/captcha"]
+                "pages": [
+                  "auth/two-factor",
+                  "auth/captcha"
+                ]
               },
               {
                 "group": "Other",
                 "icon": "ellipsis",
-                "pages": ["auth/anonymous", "auth/one-tap", "auth/oauth-proxy"]
+                "pages": [
+                  "auth/anonymous",
+                  "auth/one-tap",
+                  "auth/oauth-proxy"
+                ]
               }
             ]
           },
@@ -260,17 +298,31 @@
           {
             "group": "Identity",
             "icon": "fingerprint",
-            "pages": ["agents", "ephemeral-sessions", "delegation"]
+            "pages": [
+              "agents",
+              "ephemeral-sessions",
+              "delegation"
+            ]
           },
           {
             "group": "Authorization",
             "icon": "shield-halved",
-            "pages": ["permissions", "policy-engine", "rebac", "policies/templates"]
+            "pages": [
+              "permissions",
+              "policy-engine",
+              "rebac",
+              "policies/templates"
+            ]
           },
           {
             "group": "Observability",
             "icon": "chart-line",
-            "pages": ["audit", "analyzer", "trust", "anomaly"]
+            "pages": [
+              "audit",
+              "analyzer",
+              "trust",
+              "anomaly"
+            ]
           },
           {
             "group": "Controls",
@@ -291,7 +343,10 @@
           {
             "group": "MCP and gateway",
             "icon": "network-wired",
-            "pages": ["mcp", "gateway"]
+            "pages": [
+              "mcp",
+              "gateway"
+            ]
           },
           {
             "group": "Framework adapters",
@@ -339,7 +394,10 @@
           {
             "group": "Infra",
             "icon": "server",
-            "pages": ["terraform", "prisma"]
+            "pages": [
+              "terraform",
+              "prisma"
+            ]
           }
         ]
       },
@@ -350,7 +408,13 @@
           {
             "group": "Compliance and security",
             "icon": "scale-balanced",
-            "pages": ["compliance", "gdpr", "hibp", "trusted-device", "multi-session"]
+            "pages": [
+              "compliance",
+              "gdpr",
+              "hibp",
+              "trusted-device",
+              "multi-session"
+            ]
           },
           {
             "group": "Lifecycle",
@@ -368,12 +432,19 @@
           {
             "group": "Identity primitives",
             "icon": "user-shield",
-            "pages": ["did", "verifiable-credentials", "federation", "multi-tenant"]
+            "pages": [
+              "did",
+              "verifiable-credentials",
+              "federation",
+              "multi-tenant"
+            ]
           },
           {
             "group": "Standards",
             "icon": "book-open",
-            "pages": ["standards"]
+            "pages": [
+              "standards"
+            ]
           }
         ]
       },
@@ -399,7 +470,12 @@
           {
             "group": "API",
             "icon": "code-branch",
-            "pages": ["api", "errors", "test-utils", "a2a"]
+            "pages": [
+              "api",
+              "errors",
+              "test-utils",
+              "a2a"
+            ]
           }
         ]
       },

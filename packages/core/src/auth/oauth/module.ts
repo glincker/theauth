@@ -43,8 +43,8 @@ const DEFAULT_STATE_TTL_SECONDS = 600; // 10 minutes
  *
  * @example
  * ```typescript
- * import { createOAuthModule } from 'theauth/auth/oauth';
- * import { createGoogleProvider } from 'theauth/auth/oauth/providers/google';
+ * import { createOAuthModule } from '@glinr/theauth/auth/oauth';
+ * import { createGoogleProvider } from '@glinr/theauth/auth/oauth/providers/google';
  *
  * const oauth = createOAuthModule(db, {
  *   providers: {

@@ -1,13 +1,13 @@
-# @theauth/ui
+# @glinr/theauth-ui
 
 Headless, slot-based auth UI components for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/ui?style=flat-square)](https://www.npmjs.com/package/@theauth/ui)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-ui?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-ui)
 
 ## Install
 
 ```bash
-npm install @theauth/ui
+npm install @glinr/@glinr/theauth-ui
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @theauth/ui
 Drop pre-built components into any React app. All components accept `classNames` for slot-level style overrides.
 
 ```tsx
-import { AuthCard, SignIn, OAuthButtons } from '@theauth/ui';
+import { AuthCard, SignIn, OAuthButtons } from '@glinr/theauth-ui';
 
 function LoginPage() {
   return (

@@ -22,7 +22,7 @@ TheAuth implements the full MCP auth stack:
 ### Setting up
 
 ```typescript
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -156,8 +156,8 @@ The `withMcpAuth` middleware extracts the bearer token from the `Authorization` 
 
 ```typescript
 // Hono example. See the adapters doc for other frameworks.
-import { kavachHono } from '@theauth/hono';
-import { createMcpModule } from 'theauth';
+import { kavachHono } from '@glinr/theauth-hono';
+import { createMcpModule } from '@glinr/theauth';
 
 const mcp = createMcpModule(kavach);
 const { withMcpAuth } = kavachHono(kavach, { mcp });
@@ -175,7 +175,7 @@ app.get('/mcp/tools/list', (c) => {
 When writing custom handlers, use `buildUnauthorizedResponse` to produce a well-formed 401 with a `WWW-Authenticate` header pointing to your auth server:
 
 ```typescript
-import { buildUnauthorizedResponse } from 'theauth';
+import { buildUnauthorizedResponse } from '@glinr/theauth';
 
 return buildUnauthorizedResponse({
   issuer: 'https://auth.yourapp.com',

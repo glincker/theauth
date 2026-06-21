@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
-    "@theauth/hono": "^3.0.0",
+    "@glinr/theauth-hono": "^3.0.0",
     "__DB_DRIVER__": "__DB_DRIVER_VERSION__",
     "hono": "^4.12.0",
-    "theauth": "^0.4.0"
+    "@glinr/theauth": "^0.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

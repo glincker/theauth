@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { createPolarModule } from 'theauth/auth';
+ * import { createPolarModule } from '@glinr/theauth/auth';
  *
  * const polar = createPolarModule({
  *   accessToken: process.env.POLAR_ACCESS_TOKEN!,

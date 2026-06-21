@@ -9,9 +9,9 @@ The trusted device module lets users mark a device as trusted after completing t
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { twoFactor } from 'theauth/auth';
-import { createTrustedDeviceModule } from 'theauth/modules/trusted-device'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { twoFactor } from '@glinr/theauth/auth';
+import { createTrustedDeviceModule } from '@glinr/theauth/modules/trusted-device'; // [!code highlight]
 
 const trustedDevice = createTrustedDeviceModule({ // [!code highlight]
   secret: process.env.TRUSTED_DEVICE_SECRET!, // separate from KAVACH_SECRET // [!code highlight]

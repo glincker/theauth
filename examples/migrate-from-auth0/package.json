@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/example-migrate-from-auth0",
+  "name": "@glinr/theauth-example-migrate-from-auth0",
   "private": true,
   "type": "module",
   "version": "0.0.1",
@@ -12,7 +12,7 @@
   "dependencies": {
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.41.0",
-    "theauth": "workspace:*"
+    "@glinr/theauth": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

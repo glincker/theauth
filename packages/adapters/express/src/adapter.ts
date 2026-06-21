@@ -1,5 +1,3 @@
-import type { Request, Response } from "express";
-import { Router } from "express";
 import type {
 	AgentFilter,
 	AuditFilter,
@@ -8,8 +6,10 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+} from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { Request, Response } from "express";
+import { Router } from "express";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -197,8 +197,8 @@ function buildWebRequest(req: Request): globalThis.Request {
  * @example
  * ```typescript
  * import express from 'express';
- * import { createKavach } from 'theauth';
- * import { kavachExpress } from '@theauth/express';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachExpress } from '@glinr/theauth-express';
  *
  * const app = express();
  * app.use(express.json());
@@ -212,7 +212,7 @@ function buildWebRequest(req: Request): globalThis.Request {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * app.use('/auth', kavachExpress(kavach, { mcp }));
  * ```

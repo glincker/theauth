@@ -29,7 +29,7 @@ TheAuth implements A2A with built-in authentication, so every agent interaction 
 ### Install
 
 ```bash
-pnpm add theauth
+pnpm add @glinr/theauth
 ```
 
 ### Create an A2A server
@@ -37,8 +37,8 @@ pnpm add theauth
 The A2A server exposes your agent as a JSON-RPC endpoint that other agents can call.
 
 ```typescript
-import { createKavach } from 'theauth';
-import { createAgentCard, createA2AServer } from 'theauth/a2a';
+import { createKavach } from '@glinr/theauth';
+import { createAgentCard, createA2AServer } from '@glinr/theauth/a2a';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -130,7 +130,7 @@ An Agent Card is a JSON document that describes what an agent can do, how to aut
 ### Creating a card
 
 ```typescript
-import { createAgentCard } from 'theauth/a2a';
+import { createAgentCard } from '@glinr/theauth/a2a';
 
 const card = createAgentCard({
   agent: { id: 'agent-1', name: 'Translator', type: 'service' },
@@ -155,7 +155,7 @@ const card = createAgentCard({
 ### Validating a card
 
 ```typescript
-import { validateAgentCard } from 'theauth/a2a';
+import { validateAgentCard } from '@glinr/theauth/a2a';
 
 const result = validateAgentCard(incomingJson);
 if (!result.success) {
@@ -169,7 +169,7 @@ Agent Cards can be signed with a private key so that consumers can verify the ca
 
 ```typescript
 import { generateKeyPair } from 'jose';
-import { signAgentCard, verifyAgentCard } from 'theauth/a2a';
+import { signAgentCard, verifyAgentCard } from '@glinr/theauth/a2a';
 
 const { publicKey, privateKey } = await generateKeyPair('ES256');
 
@@ -189,7 +189,7 @@ console.log('Valid:', verified.data.valid); // true
 The A2A client discovers remote agents and sends them tasks.
 
 ```typescript
-import { createA2AClient } from 'theauth/a2a';
+import { createA2AClient } from '@glinr/theauth/a2a';
 
 const client = createA2AClient({
   agent: 'https://remote-agent.example.com',

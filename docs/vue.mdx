@@ -4,12 +4,12 @@ description: Register TheAuth auth in Vue 3 via createKavachPlugin. Provides use
 icon: code
 ---
 
-`@theauth/vue` provides Vue 3 composables and an app plugin for building auth UIs. It works with Vite, Nuxt, and any Vue 3 setup.
+`@glinr/theauth-vue` provides Vue 3 composables and an app plugin for building auth UIs. It works with Vite, Nuxt, and any Vue 3 setup.
 
 ## Installation
 
 ```bash
-pnpm add @theauth/vue
+pnpm add @glinr/@glinr/theauth-vue
 ```
 
 ## Setup
@@ -18,7 +18,7 @@ Register the plugin in your Vue app:
 
 ```typescript title="main.ts"
 import { createApp } from 'vue';
-import { createKavachPlugin } from '@theauth/vue'; // [!code highlight]
+import { createKavachPlugin } from '@glinr/theauth-vue'; // [!code highlight]
 import App from './App.vue';
 
 const app = createApp(App);
@@ -35,7 +35,7 @@ app.mount('#app');
 In Nuxt, create a plugin file:
 
 ```typescript title="plugins/kavach.client.ts"
-import { createKavachPlugin } from '@theauth/vue';
+import { createKavachPlugin } from '@glinr/theauth-vue';
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.use(createKavachPlugin({
@@ -50,7 +50,7 @@ Returns the current session state. Reactive, updates when the user signs in or o
 
 ```vue title="components/NavBar.vue"
 <script setup lang="ts">
-import { useSession } from '@theauth/vue';
+import { useSession } from '@glinr/theauth-vue';
 
 const { session, isLoading } = useSession();
 </script>
@@ -70,7 +70,7 @@ Returns the current user object, or `null` if signed out.
 
 ```vue
 <script setup lang="ts">
-import { useUser } from '@theauth/vue';
+import { useUser } from '@glinr/theauth-vue';
 
 const { user } = useUser();
 </script>
@@ -80,7 +80,7 @@ const { user } = useUser();
 
 ```vue title="pages/sign-in.vue"
 <script setup lang="ts">
-import { useSignIn } from '@theauth/vue';
+import { useSignIn } from '@glinr/theauth-vue';
 
 const { signIn, isLoading, error } = useSignIn();
 
@@ -92,14 +92,14 @@ async function handleSubmit(email: string, password: string) {
 ```
 
 ```typescript title="Sign up"
-import { useSignUp } from '@theauth/vue';
+import { useSignUp } from '@glinr/theauth-vue';
 
 const { signUp, isLoading, error } = useSignUp();
 await signUp({ email, password, name });
 ```
 
 ```typescript title="Sign out"
-import { useSignOut } from '@theauth/vue';
+import { useSignOut } from '@glinr/theauth-vue';
 
 const { signOut } = useSignOut();
 await signOut();
@@ -110,7 +110,7 @@ await signOut();
 Lists and manages agent identities for the current user.
 
 ```typescript
-import { useAgents } from '@theauth/vue';
+import { useAgents } from '@glinr/theauth-vue';
 
 const { agents, createAgent, revokeAgent, isLoading } = useAgents();
 

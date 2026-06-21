@@ -24,7 +24,7 @@ When to wait:
 | Auth0 | TheAuth |
 |---|---|
 | Tenant | A `createKavach` instance. One per deployment. |
-| Application (Regular Web, SPA, Native) | `@theauth/react`, `@theauth/vue`, etc., plus the adapter for your framework. |
+| Application (Regular Web, SPA, Native) | `@glinr/theauth-react`, `@glinr/theauth-vue`, etc., plus the adapter for your framework. |
 | API (resource server) | The HTTP handler mounted via an adapter. Audience is bound via the `mcp` config. |
 | Machine-to-Machine client | `AgentIdentity` with `type: 'service'`. Scoped permissions, rotatable token, revocable. |
 | Connection (database, social, enterprise) | OAuth provider in the `oauth` plugin config, or the built-in email/password flow. |
@@ -51,8 +51,8 @@ When to wait:
 
 ```ts
 // AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from 'theauth';
-import { organization, rbac, mcp } from 'theauth/plugins';
+import { createKavach } from '@glinr/theauth';
+import { organization, rbac, mcp } from '@glinr/theauth/plugins';
 
 export const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -84,7 +84,7 @@ export const GET = handleAuth();
 ```ts
 // AFTER (TheAuth + Next.js)
 // app/api/kavach/[...kavach]/route.ts
-import { kavachNextjs } from '@theauth/nextjs';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 import { kavach } from '@/lib/kavach';
 
 const handlers = kavachNextjs(kavach);
@@ -110,8 +110,8 @@ export function Nav() {
 ```
 
 ```tsx
-// AFTER (@theauth/react)
-import { useUser, useSignOut } from '@theauth/react';
+// AFTER (@glinr/theauth-react)
+import { useUser, useSignOut } from '@glinr/theauth-react';
 
 export function Nav() {
   const { user, isLoading } = useUser();
@@ -141,7 +141,7 @@ exports.onExecutePostLogin = async (event, api) => {
 
 ```ts
 // AFTER: TheAuth lifecycle hook
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 export const kavach = await createKavach({
   database: { /* ... */ },
@@ -268,17 +268,17 @@ Keep the Auth0 tenant active for at least one full session-refresh cycle after t
 - Hosted Universal Login. TheAuth ships React, Vue, and Svelte components you host yourself.
 - Guardian push-MFA mobile app. TOTP and passkeys are supported, push MFA is not.
 - Attack Protection suite (bot detection, breached-password detection on their edge). TheAuth has HIBP integration and IP rate limiting, but no managed bot detection.
-- A hosted B2B customer-admin console. TheAuth has an embeddable `@theauth/dashboard` React component for operators, not a hosted SaaS console.
+- A hosted B2B customer-admin console. TheAuth has an embeddable `@glinr/theauth-dashboard` React component for operators, not a hosted SaaS console.
 
 If any of those are hard requirements, keep Auth0 on the books and read the [competitor notes](/docs/compare) before you commit to a switch.
 
 ## Runnable example
 
-A minimal, in-memory version of the AFTER patterns lives at [`examples/migrate-from-auth0`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0). It pulls `theauth` via the monorepo `workspace:*` protocol so the script stays pinned to the same version the docs describe, and the smoke test runs in CI on every push.
+A minimal, in-memory version of the AFTER patterns lives at [`examples/migrate-from-auth0`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0). It pulls `@glinr/theauth` via the monorepo `workspace:*` protocol so the script stays pinned to the same version the docs describe, and the smoke test runs in CI on every push.
 
 ```bash
-pnpm --filter @theauth/example-migrate-from-auth0 start
-pnpm --filter @theauth/example-migrate-from-auth0 test
+pnpm --filter @glinr/theauth-example-migrate-from-auth0 start
+pnpm --filter @glinr/theauth-example-migrate-from-auth0 test
 ```
 
 ## Next steps

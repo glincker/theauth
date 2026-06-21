@@ -40,10 +40,10 @@ function getMimeType(filePath: string): string {
 // ─── Dist Dir Resolution ──────────────────────────────────────────────────────
 
 function resolveDashboardDistDir(): string {
-	// Try resolving from the @theauth/dashboard package first
+	// Try resolving from the @glinr/theauth-dashboard package first
 	try {
 		const require = createRequire(import.meta.url);
-		const pkgPath = require.resolve("@theauth/dashboard/package.json");
+		const pkgPath = require.resolve("@glinr/theauth-dashboard/package.json");
 		const pkgDir = resolve(pkgPath, "..");
 		const distDir = join(pkgDir, "dist", "app");
 		if (existsSync(distDir)) {
@@ -68,7 +68,7 @@ function resolveDashboardDistDir(): string {
 	}
 
 	throw new Error(
-		"Cannot find @theauth/dashboard dist directory.\n" +
+		"Cannot find @glinr/theauth-dashboard dist directory.\n" +
 			"Make sure the dashboard package is built first:\n\n" +
 			"  cd packages/dashboard && npm run build\n",
 	);

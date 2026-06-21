@@ -9,8 +9,8 @@ The `phoneAuth` plugin registers and authenticates users with a phone number and
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { phoneAuth } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { phoneAuth } from '@glinr/theauth/auth'; // [!code highlight]
 import { Twilio } from 'twilio';
 
 const twilio = new Twilio(process.env.TWILIO_SID!, process.env.TWILIO_TOKEN!);

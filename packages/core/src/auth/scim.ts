@@ -9,7 +9,7 @@
  *
  * @example
  * ```typescript
- * import { createScimModule } from 'theauth/auth';
+ * import { createScimModule } from '@glinr/theauth/auth';
  *
  * const scim = createScimModule({
  *   bearerToken: process.env.SCIM_TOKEN,

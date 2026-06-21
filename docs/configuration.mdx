@@ -8,7 +8,7 @@ icon: gear
 `createKavach()` accepts a `KavachConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
 
 ```typescript
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -20,8 +20,8 @@ const kavach = await createKavach({
 A minimal config for local development with email/password auth and no email sending:
 
 ```typescript
-import { createKavach } from 'theauth';
-import { emailPassword } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { emailPassword } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: './kavach.db' },
@@ -209,17 +209,17 @@ TheAuth features are composable. Enable what you need:
 
 | Plugin | Import | What it does |
 |--------|--------|--------------|
-| `emailPassword` | `theauth/auth` | Email + password with verification and reset |
-| `passkey` | `theauth/auth` | WebAuthn/FIDO2 biometric auth |
-| `magicLink` | `theauth/auth` | Passwordless email links |
-| `emailOtp` | `theauth/auth` | One-time password codes via email |
-| `twoFactor` | `theauth/auth` | TOTP 2FA with backup codes |
-| `multiSession` | `theauth/auth` | Session limits and device management |
-| `organization` | `theauth/auth` | Organizations with RBAC |
-| `apiKeys` | `theauth/auth` | Static API key management |
-| `admin` | `theauth/auth` | User management, banning, impersonation |
-| `stripe` | `theauth/auth` | Stripe billing integration |
-| `polar` | `theauth/auth` | Polar payment integration |
+| `emailPassword` | `@glinr/theauth/auth` | Email + password with verification and reset |
+| `passkey` | `@glinr/theauth/auth` | WebAuthn/FIDO2 biometric auth |
+| `magicLink` | `@glinr/theauth/auth` | Passwordless email links |
+| `emailOtp` | `@glinr/theauth/auth` | One-time password codes via email |
+| `twoFactor` | `@glinr/theauth/auth` | TOTP 2FA with backup codes |
+| `multiSession` | `@glinr/theauth/auth` | Session limits and device management |
+| `organization` | `@glinr/theauth/auth` | Organizations with RBAC |
+| `apiKeys` | `@glinr/theauth/auth` | Static API key management |
+| `admin` | `@glinr/theauth/auth` | User management, banning, impersonation |
+| `stripe` | `@glinr/theauth/auth` | Stripe billing integration |
+| `polar` | `@glinr/theauth/auth` | Polar payment integration |
 
 ## Anomaly config
 

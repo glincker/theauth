@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/tanstack",
+  "name": "@glinr/theauth-tanstack",
   "version": "3.0.2",
   "description": "TanStack Start adapter for TheAuth",
   "type": "module",
@@ -36,11 +36,11 @@
     "directory": "packages/adapters/tanstack"
   },
   "peerDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.9.0",
     "tsup": "^8.4.0",

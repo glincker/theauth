@@ -61,8 +61,8 @@ The Services ID is your OAuth `client_id` for web and non-iOS flows.
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { oauth } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -112,7 +112,7 @@ console.log(clientSecret); // paste into APPLE_CLIENT_SECRET
 Run this script locally once, copy the output JWT, and set it as your `APPLE_CLIENT_SECRET` environment variable. Re-run before the 6-month window closes.
 
 <Info>
-  The `jose` library is already a dependency of `theauth/core`, so you do not need to install it separately.
+  The `jose` library is already a dependency of `@glinr/theauth/core`, so you do not need to install it separately.
 </Info>
 
 ## Environment variables

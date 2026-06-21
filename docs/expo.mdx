@@ -1,18 +1,18 @@
 ---
 title: Expo / React Native
-description: Wire TheAuth auth into React Native and Expo apps with @theauth/expo. Stores tokens in AsyncStorage or SecureStore and authenticates via Authorization header.
+description: Wire TheAuth auth into React Native and Expo apps with @glinr/theauth-expo. Stores tokens in AsyncStorage or SecureStore and authenticates via Authorization header.
 icon: "/brand-icons/expo.svg"
 ---
 
 
-`@theauth/expo` brings TheAuth auth to React Native and Expo apps. It stores session tokens in any storage adapter you choose. AsyncStorage, SecureStore, or your own, and sends them via `Authorization` header rather than cookies.
+`@glinr/theauth-expo` brings TheAuth auth to React Native and Expo apps. It stores session tokens in any storage adapter you choose. AsyncStorage, SecureStore, or your own, and sends them via `Authorization` header rather than cookies.
 
 ## Installation
 
 ```bash
-npm install @theauth/expo
+npm install @glinr/@glinr/theauth-expo
 # or
-pnpm add @theauth/expo
+pnpm add @glinr/@glinr/theauth-expo
 ```
 
 You also need a storage library. The most common choices:
@@ -31,7 +31,7 @@ npx expo install expo-secure-store
 
 ```tsx
 // app/_layout.tsx (Expo Router) or App.tsx
-import { KavachExpoProvider } from '@theauth/expo';
+import { KavachExpoProvider } from '@glinr/theauth-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
@@ -55,7 +55,7 @@ The `storage` prop accepts any object with `getItem`, `setItem`, and `removeItem
 ### Use the hooks
 
 ```tsx
-import { useSignIn, useUser } from '@theauth/expo';
+import { useSignIn, useUser } from '@glinr/theauth-expo';
 
 export function LoginScreen() {
   const { signIn, isLoading, error } = useSignIn();
@@ -84,7 +84,7 @@ For production apps, use `expo-secure-store` to encrypt the session token at res
 
 ```tsx
 import * as SecureStore from 'expo-secure-store';
-import { KavachExpoProvider } from '@theauth/expo';
+import { KavachExpoProvider } from '@glinr/theauth-expo';
 
 const secureStorage = {
   getItem: (key: string) => SecureStore.getItemAsync(key),

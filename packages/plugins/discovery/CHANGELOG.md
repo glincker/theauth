@@ -1,4 +1,4 @@
-# @theauth/plugin-discovery
+# @glinr/theauth-plugin-discovery
 
 ## 3.0.2
 
@@ -42,7 +42,7 @@
   Operator notes:
 
   - Publish this wave separately from the core/client 0.1.0 wave.
-  - Keep `@theauth/dashboard` on its independent track.
+  - Keep `@glinr/theauth-dashboard` on its independent track.
 
 ### Patch Changes
 

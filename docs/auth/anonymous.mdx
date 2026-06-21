@@ -9,8 +9,8 @@ The `anonymousAuth` plugin creates a lightweight guest identity on demand. The g
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { anonymousAuth } from 'theauth/auth'; // [!code highlight]
+import { createKavach } from '@glinr/theauth';
+import { anonymousAuth } from '@glinr/theauth/auth'; // [!code highlight]
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -79,7 +79,7 @@ After upgrade, `user.isAnonymous` becomes `false` and the account is treated the
 Expired anonymous accounts can accumulate. Schedule regular cleanup with the built-in helper:
 
 ```typescript title="Scheduled cleanup"
-import { cleanupAnonymousUsers } from 'theauth/auth';
+import { cleanupAnonymousUsers } from '@glinr/theauth/auth';
 
 // Run daily via cron, queue worker, etc.
 await cleanupAnonymousUsers(kavach, {

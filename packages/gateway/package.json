@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/gateway",
+  "name": "@glinr/theauth-gateway",
   "version": "3.0.2",
   "description": "Standalone auth proxy for TheAuth - enforces auth, authorization, and audit in front of any API or MCP server",
   "type": "module",
@@ -43,11 +43,11 @@
     "micromatch": "^4.0.8"
   },
   "peerDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "@types/micromatch": "^4.0.9",
     "@types/node": "^25.6.0",
     "tsup": "^8.4.0",

@@ -1,13 +1,13 @@
-# @theauth/svelte
+# @glinr/theauth-svelte
 
 Svelte stores for TheAuth authentication.
 
-[![npm](https://img.shields.io/npm/v/@theauth/svelte?style=flat-square)](https://www.npmjs.com/package/@theauth/svelte)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-svelte?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-svelte)
 
 ## Install
 
 ```bash
-npm install @theauth/svelte
+npm install @glinr/@glinr/theauth-svelte
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ Create a client and stores at the top of your app, then subscribe in any compone
 
 ```ts
 // lib/kavach.ts
-import { createKavachClient, createAgentStore } from '@theauth/svelte';
+import { createKavachClient, createAgentStore } from '@glinr/theauth-svelte';
 
 export const kavach = createKavachClient({
   apiUrl: 'https://auth.yourapp.com',

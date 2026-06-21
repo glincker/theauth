@@ -28,7 +28,7 @@ Store the private key securely. The corresponding public key is exposed at the J
 
 ```typescript title="lib/kavach.ts"
 import { generateKeyPair } from 'jose';
-import { createOidcProviderModule } from 'theauth/auth';
+import { createOidcProviderModule } from '@glinr/theauth/auth';
 
 const { privateKey } = await generateKeyPair('RS256');
 

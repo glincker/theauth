@@ -1,13 +1,13 @@
-# @theauth/nextjs
+# @glinr/theauth-nextjs
 
 Next.js adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/nextjs)](https://www.npmjs.com/package/@theauth/nextjs)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs)](https://www.npmjs.com/package/@glinr/theauth-nextjs)
 
 ## Install
 
 ```bash
-pnpm add theauth @theauth/nextjs
+pnpm add theauth @glinr/@glinr/theauth-nextjs
 ```
 
 ## Usage
@@ -15,8 +15,8 @@ pnpm add theauth @theauth/nextjs
 Create `app/api/kavach/[...kavach]/route.ts`:
 
 ```typescript
-import { createKavach } from 'theauth';
-import { kavachNextjs } from '@theauth/nextjs';
+import { createKavach } from '@glinr/theauth';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 
 const kavach = createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -36,8 +36,8 @@ This handles the full TheAuth REST API under `/api/kavach`: agent CRUD, authoriz
 ### With MCP OAuth 2.1
 
 ```typescript
-import { createMcpModule } from 'theauth/mcp';
-import { kavachNextjs } from '@theauth/nextjs';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { kavachNextjs } from '@glinr/theauth-nextjs';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
@@ -64,7 +64,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
 | `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/kavach` |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [theauth](https://www.npmjs.com/package/theauth) package.
+For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
 
 ## Links
 

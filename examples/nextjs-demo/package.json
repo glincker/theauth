@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/demo-nextjs",
+  "name": "@glinr/theauth-demo-nextjs",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,10 +8,10 @@
     "start": "next start -p 3002"
   },
   "dependencies": {
-    "theauth": "workspace:*",
-    "@theauth/nextjs": "workspace:*",
-    "@theauth/react": "workspace:*",
-    "@theauth/auth-email": "workspace:*",
+    "@glinr/theauth": "workspace:*",
+    "@glinr/theauth-nextjs": "workspace:*",
+    "@glinr/theauth-react": "workspace:*",
+    "@glinr/theauth-email": "workspace:*",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -6,8 +6,8 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+} from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
@@ -745,8 +745,8 @@ export interface KavachNextjsHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { kavachNextjs } from '@theauth/nextjs';
+ * import { createKavach } from '@glinr/theauth';
+ * import { kavachNextjs } from '@glinr/theauth-nextjs';
  *
  * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachNextjs(kavach);
@@ -760,7 +760,7 @@ export interface KavachNextjsHandlers {
  *
  * With MCP OAuth 2.1:
  * ```typescript
- * import { createMcpModule } from 'theauth/mcp';
+ * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
  * const handlers = kavachNextjs(kavach, { mcp });
  * ```

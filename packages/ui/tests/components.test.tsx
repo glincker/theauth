@@ -1,5 +1,5 @@
 /**
- * Tests for @theauth/ui components.
+ * Tests for @glinr/theauth-ui components.
  *
  * Covers:
  * - cx() utility: string, function, and undefined overrides
@@ -18,12 +18,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
-// Must be defined before imports that depend on @theauth/react
+// Must be defined before imports that depend on @glinr/theauth-react
 const mockSignIn = vi.fn();
 const mockSignUp = vi.fn();
 const mockSignOut = vi.fn();
 
-vi.mock("@theauth/react", () => ({
+vi.mock("@glinr/theauth-react", () => ({
 	useSignIn: () => ({
 		signIn: mockSignIn,
 		isLoading: false,

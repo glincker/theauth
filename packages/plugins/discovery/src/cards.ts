@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Database } from "theauth";
-import { agentCards, and, eq, like } from "theauth";
+import type { Database } from "@glinr/theauth";
+import { agentCards, and, eq, like } from "@glinr/theauth";
 
 export interface AgentCapability {
 	name: string;
@@ -50,8 +50,8 @@ function rowToCard(row: typeof agentCards.$inferSelect): AgentCard {
  *
  * @example
  * ```typescript
- * import { createKavach } from 'theauth';
- * import { createDiscoveryModule } from '@theauth/plugin-discovery';
+ * import { createKavach } from '@glinr/theauth';
+ * import { createDiscoveryModule } from '@glinr/theauth-plugin-discovery';
  *
  * const kavach = await createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const discovery = createDiscoveryModule(kavach.db);

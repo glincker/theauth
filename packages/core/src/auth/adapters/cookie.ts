@@ -8,7 +8,7 @@
  *
  * @example
  * ```typescript
- * import { cookieAuth } from 'theauth/auth';
+ * import { cookieAuth } from '@glinr/theauth/auth';
  *
  * const adapter = cookieAuth({
  *   secret: process.env.JWT_SECRET,

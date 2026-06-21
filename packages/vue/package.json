@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/vue",
+  "name": "@glinr/theauth-vue",
   "version": "0.1.0",
   "description": "Vue 3 composables for TheAuth auth",
   "type": "module",

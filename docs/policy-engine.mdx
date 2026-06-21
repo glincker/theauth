@@ -12,8 +12,8 @@ Use the policy engine when you need to make authorization decisions that depend 
 ## Quick start
 
 ```typescript
-import { createPolicyEngine } from 'theauth/policy';
-import { createDatabase } from 'theauth/db';
+import { createPolicyEngine } from '@glinr/theauth/policy';
+import { createDatabase } from '@glinr/theauth/db';
 
 const db = await createDatabase({ provider: 'sqlite', url: 'kavach.db' });
 
@@ -238,7 +238,7 @@ Targets measured on a single M-series core:
 The benchmark suite lives at `packages/core/bench/policy-engine.bench.ts` and uses `tinybench`. Run it locally:
 
 ```bash
-pnpm --filter @theauth/core bench
+pnpm --filter @glinr/theauth bench
 ```
 
 CI captures the output as a JSON artifact. A regression of more than 20% from the previous main run fails the build.

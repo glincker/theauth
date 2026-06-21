@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { apiKeyAdapter } from 'theauth/auth';
+ * import { apiKeyAdapter } from '@glinr/theauth/auth';
  *
  * const kavach = await createKavach({
  *   database: { provider: 'sqlite', url: 'kavach.db' },

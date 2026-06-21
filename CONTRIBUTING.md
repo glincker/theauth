@@ -38,8 +38,8 @@ pnpm lint
 Run commands for one package:
 
 ```bash
-pnpm --filter theauth test
-pnpm --filter @theauth/cli test
+pnpm --filter @glinr/theauth test
+pnpm --filter @glinr/theauth-cli test
 ```
 
 ## Style and quality

@@ -36,8 +36,8 @@ After saving, click **Manage** on the app. Copy the **Client ID**. Click **New S
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { oauth } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },

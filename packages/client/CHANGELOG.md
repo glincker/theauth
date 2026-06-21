@@ -1,4 +1,4 @@
-# @theauth/client
+# @glinr/theauth-client
 
 ## 0.1.0
 

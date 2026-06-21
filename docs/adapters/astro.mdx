@@ -9,7 +9,7 @@ icon: "/brand-icons/astro.svg"
 ## Install
 
 ```bash
-pnpm add theauth @theauth/astro
+pnpm add theauth @glinr/@glinr/theauth-astro
 ```
 
 ## Setup
@@ -19,7 +19,7 @@ pnpm add theauth @theauth/astro
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from 'theauth';
+import { createKavach, createMcpModule } from '@glinr/theauth';
 
 export const kavach = createKavach({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
@@ -40,7 +40,7 @@ Create `src/pages/api/kavach/[...path].ts`. The `[...path]` spread catches every
 
 ```typescript
 // src/pages/api/kavach/[...path].ts
-import { kavachAstro } from '@theauth/astro';
+import { kavachAstro } from '@glinr/theauth-astro';
 import { kavach, mcp } from '@/lib/kavach';
 
 const handlers = kavachAstro(kavach, { mcp });
@@ -108,8 +108,8 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/pages/api/kavach/[...path].ts
-import { createKavach, createMcpModule } from 'theauth';
-import { kavachAstro } from '@theauth/astro';
+import { createKavach, createMcpModule } from '@glinr/theauth';
+import { kavachAstro } from '@glinr/theauth-astro';
 
 const kavach = createKavach({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },

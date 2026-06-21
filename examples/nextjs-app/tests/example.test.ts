@@ -9,7 +9,7 @@ vi.mock("@/lib/kavach", () => ({
 	getKavach: async () => state.kavach,
 }));
 
-vi.mock("@theauth/nextjs", async () => {
+vi.mock("@glinr/theauth-nextjs", async () => {
 	return import("../../../packages/adapters/nextjs/src/adapter.ts");
 });
 

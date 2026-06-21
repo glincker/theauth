@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/electron",
+  "name": "@glinr/theauth-electron",
   "version": "0.1.0",
   "description": "TheAuth auth client for Electron desktop apps",
   "type": "module",

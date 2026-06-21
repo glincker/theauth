@@ -11,12 +11,12 @@ icon: book-open
     Agent in five minutes.
   </Card>
   <Card title="npm install" icon="terminal" href="/quickstart">
-    `npm i theauth`
+    `npm i @glinr/theauth`
   </Card>
 </CardGroup>
 
 ```ts
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

@@ -13,8 +13,8 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/v/theauth?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/theauth"><img src="https://img.shields.io/npm/dm/theauth?style=flat&colorA=000000&colorB=000000&label=downloads" alt="monthly downloads" /></a>
+  <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/v/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/dm/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=downloads" alt="monthly downloads" /></a>
   <a href="https://github.com/glincker/theauth/stargazers"><img src="https://img.shields.io/github/stars/glincker/theauth?style=flat&colorA=000000&colorB=000000&label=stars" alt="GitHub stars" /></a>
 </p>
 
@@ -86,15 +86,15 @@ The policy engine hits 2.6M warm-cache evals/sec with a p99 of 500ns. Cold paths
 ## Install
 
 ```bash
-npm install theauth
+npm install @glinr/theauth
 ```
 
 ## Quick start
 
 ```typescript
-import { createKavach } from "theauth";
-import { emailPassword } from "theauth/auth";
-import { createHonoAdapter } from "@theauth/hono";
+import { createKavach } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
+import { createHonoAdapter } from "@glinr/theauth-hono";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },
@@ -132,7 +132,7 @@ const result = await kavach.authorize(agent.id, {
 <summary><strong>Cloudflare Workers + D1 example</strong></summary>
 
 ```typescript
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 import { Hono } from "hono";
 
 type Env = { KAVACH_DB: D1Database };
@@ -166,39 +166,39 @@ export default app;
 
 | Package | What it does | |
 | --- | --- | --- |
-| [`theauth`](https://www.npmjs.com/package/theauth) | Core SDK: agents, permissions, delegation, audit, auth plugins | [![npm](https://img.shields.io/npm/v/theauth?style=flat-square&color=c9a84c)](https://www.npmjs.com/package/theauth) |
-| [`@theauth/client`](https://www.npmjs.com/package/@theauth/client) | TypeScript REST client, no dependencies | [![npm](https://img.shields.io/npm/v/@theauth/client?style=flat-square)](https://www.npmjs.com/package/@theauth/client) |
-| [`@theauth/cli`](https://www.npmjs.com/package/@theauth/cli) | `kavach init`, `kavach migrate`, `kavach dashboard` | [![npm](https://img.shields.io/npm/v/@theauth/cli?style=flat-square)](https://www.npmjs.com/package/@theauth/cli) |
-| [`@theauth/dashboard`](https://www.npmjs.com/package/@theauth/dashboard) | Embeddable React admin UI | [![npm](https://img.shields.io/npm/v/@theauth/dashboard?style=flat-square)](https://www.npmjs.com/package/@theauth/dashboard) |
-| [`@theauth/gateway`](https://www.npmjs.com/package/@theauth/gateway) | Auth proxy with rate limiting | [![npm](https://img.shields.io/npm/v/@theauth/gateway?style=flat-square)](https://www.npmjs.com/package/@theauth/gateway) |
+| [`@glinr/theauth`](https://www.npmjs.com/package/@glinr/theauth) | Core SDK: agents, permissions, delegation, audit, auth plugins | [![npm](https://img.shields.io/npm/v/@glinr/theauth?style=flat-square&color=c9a84c)](https://www.npmjs.com/package/@glinr/theauth) |
+| [`@glinr/theauth-client`](https://www.npmjs.com/package/@glinr/theauth-client) | TypeScript REST client, no dependencies | [![npm](https://img.shields.io/npm/v/@glinr/theauth-client?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-client) |
+| [`@glinr/theauth-cli`](https://www.npmjs.com/package/@glinr/theauth-cli) | `kavach init`, `kavach migrate`, `kavach dashboard` | [![npm](https://img.shields.io/npm/v/@glinr/theauth-cli?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-cli) |
+| [`@glinr/theauth-dashboard`](https://www.npmjs.com/package/@glinr/theauth-dashboard) | Embeddable React admin UI | [![npm](https://img.shields.io/npm/v/@glinr/theauth-dashboard?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-dashboard) |
+| [`@glinr/theauth-gateway`](https://www.npmjs.com/package/@glinr/theauth-gateway) | Auth proxy with rate limiting | [![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway) |
 
 ### Client libraries
 
 | Package | What it does | |
 | --- | --- | --- |
-| [`@theauth/react`](https://www.npmjs.com/package/@theauth/react) | `KavachProvider` + hooks | [![npm](https://img.shields.io/npm/v/@theauth/react?style=flat-square)](https://www.npmjs.com/package/@theauth/react) |
-| [`@theauth/vue`](https://www.npmjs.com/package/@theauth/vue) | Vue 3 plugin + composables | [![npm](https://img.shields.io/npm/v/@theauth/vue?style=flat-square)](https://www.npmjs.com/package/@theauth/vue) |
-| [`@theauth/svelte`](https://www.npmjs.com/package/@theauth/svelte) | Svelte stores | [![npm](https://img.shields.io/npm/v/@theauth/svelte?style=flat-square)](https://www.npmjs.com/package/@theauth/svelte) |
-| [`@theauth/ui`](https://www.npmjs.com/package/@theauth/ui) | Sign-in, sign-up, user button components | [![npm](https://img.shields.io/npm/v/@theauth/ui?style=flat-square)](https://www.npmjs.com/package/@theauth/ui) |
-| [`@theauth/expo`](https://www.npmjs.com/package/@theauth/expo) | React Native / Expo with SecureStore | [![npm](https://img.shields.io/npm/v/@theauth/expo?style=flat-square)](https://www.npmjs.com/package/@theauth/expo) |
-| [`@theauth/electron`](https://www.npmjs.com/package/@theauth/electron) | Electron with safeStorage + OAuth popup | [![npm](https://img.shields.io/npm/v/@theauth/electron?style=flat-square)](https://www.npmjs.com/package/@theauth/electron) |
-| [`@theauth/test-utils`](https://www.npmjs.com/package/@theauth/test-utils) | Mocks, factories, test assertions | [![npm](https://img.shields.io/npm/v/@theauth/test-utils?style=flat-square)](https://www.npmjs.com/package/@theauth/test-utils) |
+| [`@glinr/theauth-react`](https://www.npmjs.com/package/@glinr/theauth-react) | `KavachProvider` + hooks | [![npm](https://img.shields.io/npm/v/@glinr/theauth-react?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-react) |
+| [`@glinr/theauth-vue`](https://www.npmjs.com/package/@glinr/theauth-vue) | Vue 3 plugin + composables | [![npm](https://img.shields.io/npm/v/@glinr/theauth-vue?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-vue) |
+| [`@glinr/theauth-svelte`](https://www.npmjs.com/package/@glinr/theauth-svelte) | Svelte stores | [![npm](https://img.shields.io/npm/v/@glinr/theauth-svelte?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-svelte) |
+| [`@glinr/theauth-ui`](https://www.npmjs.com/package/@glinr/theauth-ui) | Sign-in, sign-up, user button components | [![npm](https://img.shields.io/npm/v/@glinr/theauth-ui?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-ui) |
+| [`@glinr/theauth-expo`](https://www.npmjs.com/package/@glinr/theauth-expo) | React Native / Expo with SecureStore | [![npm](https://img.shields.io/npm/v/@glinr/theauth-expo?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-expo) |
+| [`@glinr/theauth-electron`](https://www.npmjs.com/package/@glinr/theauth-electron) | Electron with safeStorage + OAuth popup | [![npm](https://img.shields.io/npm/v/@glinr/theauth-electron?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-electron) |
+| [`@glinr/theauth-test-utils`](https://www.npmjs.com/package/@glinr/theauth-test-utils) | Mocks, factories, test assertions | [![npm](https://img.shields.io/npm/v/@glinr/theauth-test-utils?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-test-utils) |
 
 ### Framework adapters
 
 | Package | Framework | |
 | --- | --- | --- |
-| [`@theauth/hono`](https://www.npmjs.com/package/@theauth/hono) | Hono | [![npm](https://img.shields.io/npm/v/@theauth/hono?style=flat-square)](https://www.npmjs.com/package/@theauth/hono) |
-| [`@theauth/express`](https://www.npmjs.com/package/@theauth/express) | Express | [![npm](https://img.shields.io/npm/v/@theauth/express?style=flat-square)](https://www.npmjs.com/package/@theauth/express) |
-| [`@theauth/nextjs`](https://www.npmjs.com/package/@theauth/nextjs) | Next.js (App Router) — bundles the agent-management runtime | [![npm](https://img.shields.io/npm/v/@theauth/nextjs?style=flat-square)](https://www.npmjs.com/package/@theauth/nextjs) |
-| [`@theauth/nextjs-auth`](https://www.npmjs.com/package/@theauth/nextjs-auth) | Next.js adapter for external auth backends — getServerSession, withAuth middleware, cookie + CSRF + token rotation | [![npm](https://img.shields.io/npm/v/@theauth/nextjs-auth?style=flat-square)](https://www.npmjs.com/package/@theauth/nextjs-auth) |
-| [`@theauth/fastify`](https://www.npmjs.com/package/@theauth/fastify) | Fastify | [![npm](https://img.shields.io/npm/v/@theauth/fastify?style=flat-square)](https://www.npmjs.com/package/@theauth/fastify) |
-| [`@theauth/nuxt`](https://www.npmjs.com/package/@theauth/nuxt) | Nuxt | [![npm](https://img.shields.io/npm/v/@theauth/nuxt?style=flat-square)](https://www.npmjs.com/package/@theauth/nuxt) |
-| [`@theauth/sveltekit`](https://www.npmjs.com/package/@theauth/sveltekit) | SvelteKit | [![npm](https://img.shields.io/npm/v/@theauth/sveltekit?style=flat-square)](https://www.npmjs.com/package/@theauth/sveltekit) |
-| [`@theauth/astro`](https://www.npmjs.com/package/@theauth/astro) | Astro | [![npm](https://img.shields.io/npm/v/@theauth/astro?style=flat-square)](https://www.npmjs.com/package/@theauth/astro) |
-| [`@theauth/nestjs`](https://www.npmjs.com/package/@theauth/nestjs) | NestJS | [![npm](https://img.shields.io/npm/v/@theauth/nestjs?style=flat-square)](https://www.npmjs.com/package/@theauth/nestjs) |
-| [`@theauth/solidstart`](https://www.npmjs.com/package/@theauth/solidstart) | SolidStart | [![npm](https://img.shields.io/npm/v/@theauth/solidstart?style=flat-square)](https://www.npmjs.com/package/@theauth/solidstart) |
-| [`@theauth/tanstack`](https://www.npmjs.com/package/@theauth/tanstack) | TanStack Start | [![npm](https://img.shields.io/npm/v/@theauth/tanstack?style=flat-square)](https://www.npmjs.com/package/@theauth/tanstack) |
+| [`@glinr/theauth-hono`](https://www.npmjs.com/package/@glinr/theauth-hono) | Hono | [![npm](https://img.shields.io/npm/v/@glinr/theauth-hono?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-hono) |
+| [`@glinr/theauth-express`](https://www.npmjs.com/package/@glinr/theauth-express) | Express | [![npm](https://img.shields.io/npm/v/@glinr/theauth-express?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-express) |
+| [`@glinr/theauth-nextjs`](https://www.npmjs.com/package/@glinr/theauth-nextjs) | Next.js (App Router) — bundles the agent-management runtime | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nextjs) |
+| [`@glinr/theauth-nextjs-auth`](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) | Next.js adapter for external auth backends — getServerSession, withAuth middleware, cookie + CSRF + token rotation | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs-auth?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) |
+| [`@glinr/theauth-fastify`](https://www.npmjs.com/package/@glinr/theauth-fastify) | Fastify | [![npm](https://img.shields.io/npm/v/@glinr/theauth-fastify?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-fastify) |
+| [`@glinr/theauth-nuxt`](https://www.npmjs.com/package/@glinr/theauth-nuxt) | Nuxt | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nuxt?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nuxt) |
+| [`@glinr/theauth-sveltekit`](https://www.npmjs.com/package/@glinr/theauth-sveltekit) | SvelteKit | [![npm](https://img.shields.io/npm/v/@glinr/theauth-sveltekit?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-sveltekit) |
+| [`@glinr/theauth-astro`](https://www.npmjs.com/package/@glinr/theauth-astro) | Astro | [![npm](https://img.shields.io/npm/v/@glinr/theauth-astro?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-astro) |
+| [`@glinr/theauth-nestjs`](https://www.npmjs.com/package/@glinr/theauth-nestjs) | NestJS | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nestjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nestjs) |
+| [`@glinr/theauth-solidstart`](https://www.npmjs.com/package/@glinr/theauth-solidstart) | SolidStart | [![npm](https://img.shields.io/npm/v/@glinr/theauth-solidstart?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-solidstart) |
+| [`@glinr/theauth-tanstack`](https://www.npmjs.com/package/@glinr/theauth-tanstack) | TanStack Start | [![npm](https://img.shields.io/npm/v/@glinr/theauth-tanstack?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-tanstack) |
 
 ### Database adapters
 
@@ -206,16 +206,16 @@ Core ships with SQLite, Postgres, MySQL, and Cloudflare D1 providers built in. U
 
 | Package | What it does | |
 | --- | --- | --- |
-| [`@theauth/prisma`](https://www.npmjs.com/package/@theauth/prisma) | Prisma adapter, pass a PrismaClient as the TheAuth database | [![npm](https://img.shields.io/npm/v/@theauth/prisma?style=flat-square)](https://www.npmjs.com/package/@theauth/prisma) |
+| [`@glinr/theauth-prisma`](https://www.npmjs.com/package/@glinr/theauth-prisma) | Prisma adapter, pass a PrismaClient as the TheAuth database | [![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-prisma) |
 
 ---
 
 ## UI components
 
-If you want ready-made forms, `@theauth/ui` has them. Override styling with `classNames`, swap sub-components, or skip the package entirely and use hooks from `@theauth/react`.
+If you want ready-made forms, `@glinr/theauth-ui` has them. Override styling with `classNames`, swap sub-components, or skip the package entirely and use hooks from `@glinr/theauth-react`.
 
 ```tsx
-import { SignIn, OAUTH_PROVIDERS } from "@theauth/ui";
+import { SignIn, OAUTH_PROVIDERS } from "@glinr/theauth-ui";
 
 <SignIn
   providers={[OAUTH_PROVIDERS.google, OAUTH_PROVIDERS.github]}
@@ -233,7 +233,7 @@ import { SignIn, OAUTH_PROVIDERS } from "@theauth/ui";
 Everything is a plugin. Auth methods, security features, integrations. Turn on what you need:
 
 ```typescript
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 import {
   emailPassword,
   magicLink,
@@ -244,7 +244,7 @@ import {
   admin,
   apiKeys,
   jwtSession,
-} from "theauth/auth";
+} from "@glinr/theauth/auth";
 
 const kavach = createKavach({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
@@ -331,4 +331,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-> **Rebranded from `kavachos` in June 2026.** If you're arriving from the old `kavachos` / `@kavachos/*` npm packages, the API surface is unchanged — only the package names and import paths have moved. See [MIGRATION.md](docs/migrate/index.mdx) or just swap `@kavachos/` → `@theauth/` in your imports.
+> **Rebranded from `kavachos` in June 2026, then moved to the `@glinr/` npm scope shortly after.** If you're arriving from the old `kavachos` / `@kavachos/*` packages, swap `@kavachos/` for `@glinr/theauth-` in your imports. If you're coming from a brief `@theauth/*` window, swap `@theauth/` for `@glinr/theauth-`. The API surface is unchanged. See [MIGRATION.md](docs/migrate/index.mdx).

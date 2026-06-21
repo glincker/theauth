@@ -1,5 +1,5 @@
 /**
- * Tests for @theauth/test-utils
+ * Tests for @glinr/theauth-test-utils
  *
  * Covers:
  *   - factories: createMockUser, createMockSession, createMockAgent, createMockPermission
@@ -8,7 +8,7 @@
  *   - assertions: expectAuthenticated, expectUnauthenticated, expectPermissionDenied
  */
 
-import type { ActionResult } from "@theauth/react";
+import type { ActionResult } from "@glinr/theauth-react";
 import { describe, expect, it } from "vitest";
 import {
 	expectAuthenticated,

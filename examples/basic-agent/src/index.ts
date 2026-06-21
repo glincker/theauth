@@ -10,10 +10,10 @@
  *   6. Token-based authorization (stateless bearer token flow)
  *   7. Agent-to-agent delegation chains
  *
- * Run with:  pnpm --filter @theauth/example-basic-agent start
+ * Run with:  pnpm --filter @glinr/theauth-example-basic-agent start
  */
 
-import { createKavach, users } from "theauth";
+import { createKavach, users } from "@glinr/theauth";
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 

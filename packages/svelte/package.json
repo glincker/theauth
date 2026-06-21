@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/svelte",
+  "name": "@glinr/theauth-svelte",
   "version": "0.1.0",
   "description": "Svelte stores for TheAuth auth",
   "type": "module",

@@ -17,9 +17,9 @@
  *   wrangler d1 execute theauth-db --file=./migrations/0001_initial.sql
  */
 
-import { kavachHono } from "@theauth/hono";
+import { createKavach } from "@glinr/theauth";
+import { kavachHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
-import { createKavach } from "theauth";
 
 // Cloudflare Workers env bindings
 type Env = {

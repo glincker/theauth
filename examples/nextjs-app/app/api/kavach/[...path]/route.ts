@@ -17,7 +17,7 @@
 //   GET             /api/kavach/dashboard/agents
 //   GET             /api/kavach/dashboard/audit
 
-import { kavachNextjs } from "@theauth/nextjs";
+import { kavachNextjs } from "@glinr/theauth-nextjs";
 import { getKavach } from "@/lib/kavach";
 
 // Build handlers lazily so the singleton is created on first request, not at

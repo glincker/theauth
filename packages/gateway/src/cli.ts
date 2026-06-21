@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI stdout/stderr is intentional here
 import { parseArgs } from "node:util";
-import { createKavach } from "theauth";
+import { createKavach } from "@glinr/theauth";
 import { loadConfigFile } from "./config-loader.js";
 import { createGateway } from "./gateway.js";
 import type { GatewayConfig } from "./types.js";
@@ -91,7 +91,7 @@ function printHelp(): void {
 TheAuth Gateway - auth proxy for any API or MCP server
 
 Usage:
-  npx @theauth/gateway --upstream <url> [options]
+  npx @glinr/theauth-gateway --upstream <url> [options]
 
 Options:
   -u, --upstream <url>    Upstream service URL (required)
@@ -103,9 +103,9 @@ Options:
   -h, --help              Show this help
 
 Examples:
-  npx @theauth/gateway --upstream http://localhost:8080
-  npx @theauth/gateway --upstream http://localhost:8080 --config gateway.json
-  npx @theauth/gateway --upstream http://localhost:8080 --port 4000 --strip-auth
+  npx @glinr/theauth-gateway --upstream http://localhost:8080
+  npx @glinr/theauth-gateway --upstream http://localhost:8080 --config gateway.json
+  npx @glinr/theauth-gateway --upstream http://localhost:8080 --port 4000 --strip-auth
 `);
 }
 

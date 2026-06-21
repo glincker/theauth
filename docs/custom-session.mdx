@@ -8,13 +8,13 @@ The `customSession` plugin lets you store application-specific data inside every
 
 ## Install
 
-The plugin ships inside `theauth/auth`, no extra packages needed.
+The plugin ships inside `@glinr/theauth/auth`, no extra packages needed.
 
 ## Setup
 
 ```typescript
-import { createKavach } from 'theauth';
-import { customSession } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { customSession } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -40,7 +40,7 @@ const kavach = await createKavach({
 After setup, access the module through the plugin context:
 
 ```typescript
-import type { CustomSessionModule } from 'theauth/auth';
+import type { CustomSessionModule } from '@glinr/theauth/auth';
 
 const mod = kavach.plugins.getContext().customSession as CustomSessionModule;
 

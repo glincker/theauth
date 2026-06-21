@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Deprecate the old kavachos npm packages after publishing the new @theauth/* scope.
+# Deprecate the old kavachos npm packages after publishing the new @glinr scope.
 #
 # Run AFTER:
-#   1. Publishing @theauth/* packages to npm (e.g. `pnpm publish -r --access public`)
+#   1. Publishing @glinr/theauth* packages to npm (e.g. `pnpm publish -r --access public`)
 #   2. Verifying the new packages install cleanly in a fresh project
 #
 # Requires:
 #   - npm login as the owner of the kavachos / @kavachos scope
-#   - The new @theauth/* (or @glincker/*) packages already published
+#   - The new @glinr/theauth* packages already published
 #
 # Usage:
 #   bash scripts/deprecate-old.sh
@@ -21,8 +21,8 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   echo "[dry-run] no commands will be executed"
 fi
 
-# Update the right-hand side if you publish to @glincker instead of @theauth
-NEW_SCOPE="@theauth"
+# All new packages live under the @glinr scope.
+NEW_SCOPE="@glinr"
 
 # Old package names that need deprecating. Edit if the actual published set differs.
 OLD_PACKAGES=(
@@ -60,11 +60,13 @@ OLD_PACKAGES=(
 for pkg in "${OLD_PACKAGES[@]}"; do
   # Determine the new package name
   if [[ "$pkg" == "kavachos" ]]; then
-    new_name="theauth"
+    new_name="@glinr/theauth"
   elif [[ "$pkg" == "create-kavachos-app" ]]; then
-    new_name="create-theauth-app"
+    new_name="@glinr/create-theauth-app"
   else
-    new_name="${pkg/@kavachos/$NEW_SCOPE}"
+    # @kavachos/<x> -> @glinr/theauth-<x>
+    suffix="${pkg#@kavachos/}"
+    new_name="$NEW_SCOPE/theauth-$suffix"
   fi
 
   msg="This package has been renamed to ${new_name}. Please migrate. See https://github.com/glincker/theauth"

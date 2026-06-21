@@ -1,20 +1,20 @@
-# @theauth/solidstart
+# @glinr/theauth-solidstart
 
 SolidStart adapter for TheAuth.
 
-[![npm](https://img.shields.io/npm/v/@theauth/solidstart?style=flat-square)](https://www.npmjs.com/package/@theauth/solidstart)
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-solidstart?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-solidstart)
 
 ## Install
 
 ```bash
-npm install theauth @theauth/solidstart
+npm install theauth @glinr/@glinr/theauth-solidstart
 ```
 
 ## Usage
 
 ```typescript
-import { createKavach } from "theauth";
-import { kavachSolidStart } from "@theauth/solidstart";
+import { createKavach } from "@glinr/theauth";
+import { kavachSolidStart } from "@glinr/theauth-solidstart";
 
 const kavach = createKavach({
   database: { provider: "sqlite", url: "kavach.db" },

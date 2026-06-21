@@ -1,5 +1,5 @@
 {
-  "name": "theauth",
+  "name": "@glinr/theauth",
   "version": "0.4.2",
   "description": "The auth OS for AI agents - identity, permissions, delegation, and audit for the agentic era",
   "type": "module",

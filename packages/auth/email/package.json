@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/auth-email",
+  "name": "@glinr/theauth-email",
   "version": "3.0.2",
   "description": "Email and password authentication for TheAuth",
   "type": "module",
@@ -20,10 +20,10 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "theauth": "workspace:*"
+    "@glinr/theauth": "workspace:*"
   },
   "devDependencies": {
-    "theauth": "workspace:*",
+    "@glinr/theauth": "workspace:*",
     "better-sqlite3": "^12.9.0",
     "@types/better-sqlite3": "^7.0.0",
     "@types/node": "^22.0.0",

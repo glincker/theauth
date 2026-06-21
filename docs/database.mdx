@@ -19,10 +19,10 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 
 <Tabs>
   <Tab title="SQLite">
-    SQLite is the default for development. No peer dependencies beyond `better-sqlite3`, which ships with `theauth`.
+    SQLite is the default for development. No peer dependencies beyond `better-sqlite3`, which ships with `@glinr/theauth`.
 
     ```typescript
-    import { createKavach } from 'theauth';
+    import { createKavach } from '@glinr/theauth';
 
     const kavach = await createKavach({
       database: {
@@ -58,7 +58,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```
 
     ```typescript
-    import { createKavach } from 'theauth';
+    import { createKavach } from '@glinr/theauth';
 
     const kavach = await createKavach({
       database: {
@@ -79,7 +79,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```
 
     ```typescript
-    import { createKavach } from 'theauth';
+    import { createKavach } from '@glinr/theauth';
 
     const kavach = await createKavach({
       database: {
@@ -157,7 +157,7 @@ Install it with: npm install pg
 Use `:memory:` for fast, isolated tests that need no setup or teardown:
 
 ```typescript
-import { createKavach } from 'theauth';
+import { createKavach } from '@glinr/theauth';
 import { describe, beforeEach, it } from 'vitest';
 
 let kavach: Awaited<ReturnType<typeof createKavach>>;

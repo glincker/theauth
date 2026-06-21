@@ -1,6 +1,6 @@
 // TheAuth Hono Server Example
 //
-// Start: pnpm --filter @theauth/example-hono-server start
+// Start: pnpm --filter @glinr/theauth-example-hono-server start
 //
 // Try:
 //   curl http://localhost:3000/api/agents -X POST -H "Content-Type: application/json" \
@@ -9,11 +9,11 @@
 //   curl http://localhost:3000/api/agents
 //   curl http://localhost:3000/api/audit
 
+import { createKavach, users } from "@glinr/theauth";
+import { kavachHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@theauth/hono";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { createKavach, users } from "theauth";
 
 const PORT = 3000;
 

@@ -7,7 +7,7 @@
  *
  * @example Clerk session cookie
  * ```typescript
- * import { customAuth } from 'theauth/auth';
+ * import { customAuth } from '@glinr/theauth/auth';
  * import { clerkClient } from '@clerk/clerk-sdk-node';
  *
  * const adapter = customAuth(async (request) => {
@@ -25,7 +25,7 @@
  *
  * @example better-auth
  * ```typescript
- * import { customAuth } from 'theauth/auth';
+ * import { customAuth } from '@glinr/theauth/auth';
  * import { auth } from './lib/auth';   // your better-auth instance
  *
  * const adapter = customAuth(async (request) => {

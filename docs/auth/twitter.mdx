@@ -24,9 +24,9 @@ Set the app type to **Web App** and enable **Read** permissions at minimum.
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from 'theauth';
-import { oauth } from 'theauth/auth';
-import { createTwitterProvider } from 'theauth/auth';
+import { createKavach } from '@glinr/theauth';
+import { oauth } from '@glinr/theauth/auth';
+import { createTwitterProvider } from '@glinr/theauth/auth';
 
 const kavach = await createKavach({
   database: { provider: 'sqlite', url: 'kavach.db' },

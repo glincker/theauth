@@ -1,5 +1,5 @@
 {
-  "name": "@theauth/root",
+  "name": "@glinr/theauth-root",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.6.5",
@@ -24,7 +24,7 @@
     "test": "turbo test",
     "test:watch": "turbo test:watch",
     "coverage": "turbo coverage",
-    "bench": "pnpm --filter theauth bench",
+    "bench": "pnpm --filter @glinr/theauth bench",
     "lint:deps": "knip --strict",
     "prepare": "simple-git-hooks",
     "changeset": "changeset",
@@ -43,7 +43,7 @@
     "vitest": "^3.0.0"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint && pnpm --filter theauth typecheck",
+    "pre-commit": "pnpm lint && pnpm --filter @glinr/theauth typecheck",
     "pre-push": "pnpm typecheck && pnpm test"
   },
   "pnpm": {

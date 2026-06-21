@@ -1,5 +1,3 @@
-import type { NextFunction, Request, Response } from "express";
-import { Router } from "express";
 import type {
 	AgentFilter,
 	AuditFilter,
@@ -8,8 +6,10 @@ import type {
 	Kavach,
 	Permission,
 	UpdateAgentInput,
-} from "theauth";
-import type { McpAuthModule } from "theauth/mcp";
+} from "@glinr/theauth";
+import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { NextFunction, Request, Response } from "express";
+import { Router } from "express";
 import { z } from "zod";
 
 // ─── Zod Validation Schemas ──────────────────────────────────────────────────
