@@ -1,0 +1,7 @@
+/* TheAuth custom theme overrides */
+:root {
+  --md-primary-fg-color: #C9A84C;
+  --md-primary-fg-color--light: #E0C56A;
+  --md-primary-fg-color--dark: #8B6914;
+  --md-accent-fg-color: #C9A84C;
+}
