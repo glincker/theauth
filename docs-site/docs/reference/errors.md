@@ -1,0 +1,97 @@
+---
+title: Error Codes
+description: KavachError carries a code, message, and optional details. All SDK functions return a Result union instead of throwing, with matching HTTP status codes on REST.
+---
+
+# Error Codes
+
+TheAuth returns structured errors in the following shape:
+
+```typescript
+interface KavachError {
+  code: string;    // machine-readable error code
+  message: string; // human-readable description
+  details?: Record<string, unknown>; // additional context
+}
+```
+
+All SDK functions that can fail return a `Result<T>` discriminated union rather than throwing:
+
+```typescript
+const result = await kavach.authorize(agentId, { action: 'write', resource: 'mcp:github:*' });
+
+if (!result.allowed) {
+  console.log(result.reason); // e.g. "RATE_LIMITED"
+}
+```
+
+For REST API calls, errors are returned as JSON with the corresponding HTTP status code:
+
+```json
+{
+  "code": "AGENT_NOT_FOUND",
+  "message": "Agent agt_01abc does not exist or has been revoked."
+}
+```
+
+## Agent errors
+
+| Code | HTTP | Description |
+|---|---|---|
+| `AGENT_NOT_FOUND` | 404 | No agent with the given ID exists. |
+| `AGENT_LIMIT_EXCEEDED` | 422 | The user has reached their `maxPerUser` agent limit. |
+| `AGENT_REVOKED` | 403 | The agent has been explicitly revoked and cannot be used. |
+| `AGENT_EXPIRED` | 403 | The agent's `expiresAt` is in the past. |
+
+## Permission errors
+
+| Code | HTTP | Description |
+|---|---|---|
+| `PERMISSION_DENIED` | 403 | The agent does not have a permission matching the requested resource and action. |
+| `RATE_LIMITED` | 429 | The agent has exceeded its `maxCallsPerHour` constraint for this resource. |
+| `OUTSIDE_TIME_WINDOW` | 403 | The current time falls outside the permission's `timeWindow` constraint. |
+| `IP_NOT_ALLOWED` | 403 | The request IP is not in the permission's `ipAllowlist`. |
+| `REQUIRES_APPROVAL` | 202 | The action requires human approval (`requireApproval: true`). An approval request has been created. |
+
+## Token errors
+
+| Code | HTTP | Description |
+|---|---|---|
+| `INVALID_TOKEN` | 401 | The token cannot be verified (bad signature, malformed, or unknown). |
+| `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
+
+## Delegation errors
+
+| Code | HTTP | Description |
+|---|---|---|
+| `DELEGATION_DEPTH_EXCEEDED` | 422 | The delegation would exceed the `maxDepth` limit. |
+| `INSUFFICIENT_PERMISSIONS` | 403 | The delegating agent is attempting to grant permissions it does not hold. |
+| `DELEGATION_NOT_FOUND` | 404 | No delegation with the given ID exists. |
+| `DELEGATION_EXPIRED` | 403 | The delegation chain's `expiresAt` is in the past. |
+
+## MCP and OAuth errors
+
+| Code | HTTP | Description |
+|---|---|---|
+| `MCP_CLIENT_NOT_FOUND` | 401 | The OAuth `client_id` is not registered. |
+| `MCP_INVALID_GRANT` | 400 | The authorization code or refresh token is invalid, expired, or already consumed. |
+| `MCP_INVALID_REDIRECT_URI` | 400 | The `redirect_uri` does not match the registered client. |
+| `MCP_PKCE_FAILED` | 400 | The `code_verifier` does not match the stored `code_challenge`. |
+| `MCP_SCOPE_INSUFFICIENT` | 403 | The token does not carry the required scopes for this endpoint. |
+| `MCP_CLIENT_DISABLED` | 403 | The OAuth client has been disabled by an administrator. |
+
+## General errors
+
+| Code | HTTP | Description |
+|---|---|---|
+| `BAD_REQUEST` | 400 | The request body or parameters failed validation. |
+| `UNAUTHORIZED` | 401 | No valid credential was provided. |
+| `FORBIDDEN` | 403 | The credential is valid but does not have access to this resource. |
+| `NOT_FOUND` | 404 | The requested resource does not exist. |
+| `INTERNAL_ERROR` | 500 | An unexpected error occurred. Check server logs for details. |
+
+## Related pages
+
+- [Agent Identity](../concepts/agents.md)
+- [Permission Engine](../guides/permissions.md)
+- [Test Utilities](test-utils.md)
