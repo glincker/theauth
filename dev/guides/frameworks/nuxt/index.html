@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Mount TheAuth auth routes in Nuxt with kavachNuxt(kavach). Returns an H3 EventHandler for a catch-all server route.">
+        <meta name="description" content="Mount TheAuth auth routes in Nuxt with authNuxt(kavach). Returns an H3 EventHandler for a catch-all server route.">
       
       
       
@@ -2831,7 +2831,7 @@
 
 
 <h1 id="nuxt">Nuxt<a class="headerlink" href="#nuxt" title="Permanent link">&para;</a></h1>
-<p><code>kavachNuxt(kavach, options?)</code> returns an H3 <code>EventHandler</code>. Mount it in a catch-all server route so all TheAuth paths are handled.</p>
+<p><code>authNuxt(kavach, options?)</code> returns an H3 <code>EventHandler</code>. Mount it in a catch-all server route so all TheAuth paths are handled.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pnpm<span class="w"> </span>add<span class="w"> </span>@glinr/theauth<span class="w"> </span>@glinr/theauth-nuxt
 </span></code></pre></div>
@@ -2839,9 +2839,9 @@
 <h3 id="1-create-the-kavach-instance">1. Create the kavach instance<a class="headerlink" href="#1-create-the-kavach-instance" title="Permanent link">&para;</a></h3>
 <p>Create this outside the event handler so it is initialized once at server startup:</p>
 <div class="language-typescript highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// server/utils/kavach.ts</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">createKavach</span><span class="p">,</span><span class="w"> </span><span class="nx">createMcpModule</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;@glinr/theauth&#39;</span><span class="p">;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">createAuth</span><span class="p">,</span><span class="w"> </span><span class="nx">createMcpModule</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;@glinr/theauth&#39;</span><span class="p">;</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">kavach</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">createKavach</span><span class="p">({</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">kavach</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">createAuth</span><span class="p">({</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nx">database</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">provider</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;postgres&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">process.env.DATABASE_URL</span><span class="o">!</span><span class="w"> </span><span class="p">},</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nx">baseUrl</span><span class="o">:</span><span class="w"> </span><span class="kt">process.env.AUTH_BASE_URL</span><span class="o">!</span><span class="p">,</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nx">mcp</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
@@ -2854,10 +2854,10 @@
 </span></code></pre></div>
 <h3 id="2-create-the-catch-all-route">2. Create the catch-all route<a class="headerlink" href="#2-create-the-catch-all-route" title="Permanent link">&para;</a></h3>
 <div class="language-typescript highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// server/api/kavach/[...].ts</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kavachNuxt</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;@glinr/theauth-nuxt&#39;</span><span class="p">;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">authNuxt</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;@glinr/theauth-nuxt&#39;</span><span class="p">;</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kavach</span><span class="p">,</span><span class="w"> </span><span class="nx">mcp</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;~/server/utils/kavach&#39;</span><span class="p">;</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">export</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="nx">kavachNuxt</span><span class="p">(</span><span class="nx">kavach</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">mcp</span><span class="w"> </span><span class="p">});</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">export</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="nx">authNuxt</span><span class="p">(</span><span class="nx">kavach</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">mcp</span><span class="w"> </span><span class="p">});</span>
 </span></code></pre></div>
 <h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">&para;</a></h2>
 <ul>

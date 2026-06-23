@@ -2957,7 +2957,7 @@
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="anomaly-detection">Anomaly detection<a class="headerlink" href="#anomaly-detection" title="Permanent link">&para;</a></h2>
-<p>TheAuth can flag agents that exhibit unusual patterns. Configure thresholds in <code>createKavach</code>:</p>
+<p>TheAuth can flag agents that exhibit unusual patterns. Configure thresholds in <code>createAuth</code>:</p>
 <div class="language-typescript highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">anomaly</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nx">highFrequencyThreshold</span><span class="o">:</span><span class="w"> </span><span class="kt">200</span><span class="p">,</span><span class="w">       </span><span class="c1">// calls per agent per hour</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nx">highDenialRateThreshold</span><span class="o">:</span><span class="w"> </span><span class="kt">30</span><span class="p">,</span><span class="w">       </span><span class="c1">// denial rate percentage</span>
