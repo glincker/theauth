@@ -95,7 +95,7 @@ The TheAuth organization contains multiple repositories:
 
 ## Documentation
 
-Learn more and get started at https://docs.theauth.com
+Learn more and get started at https://docs.theauth.dev
 
 See the main [theauth repository](https://github.com/glincker/theauth) for implementation details, API reference, and examples.
 

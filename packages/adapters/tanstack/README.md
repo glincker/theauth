@@ -26,7 +26,7 @@ export const { GET, POST } = kavachTanStack(kavach);
 
 ## Docs
 
-[docs.theauth.com/docs/adapters/tanstack](https://docs.theauth.com/docs/adapters/tanstack)
+[docs.theauth.dev/docs/adapters/tanstack](https://docs.theauth.dev/docs/adapters/tanstack)
 
 ## License
 

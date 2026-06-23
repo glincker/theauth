@@ -30,7 +30,7 @@ Use this adapter if your app already uses Prisma and you want TheAuth to share t
 
 ## Docs
 
-[docs.theauth.com/docs/adapters/prisma](https://docs.theauth.com/docs/adapters/prisma)
+[docs.theauth.dev/docs/adapters/prisma](https://docs.theauth.dev/docs/adapters/prisma)
 
 ## License
 

@@ -1,6 +1,6 @@
 # __APP_NAME__
 
-A Next.js SaaS starter with [TheAuth](https://theauth.com) auth built in.
+A Next.js SaaS starter with [TheAuth](https://theauth.dev) auth built in.
 
 ## What's included
 
