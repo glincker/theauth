@@ -1,6 +1,6 @@
 "use client";
-import { KavachDashboard } from "@glinr/theauth-dashboard";
+import { AuthDashboard } from "@glinr/theauth-dashboard";
 
 export default function AdminPage() {
-	return <KavachDashboard apiUrl="/api/kavach" theme="dark" />;
+	return <AuthDashboard apiUrl="/api/kavach" theme="dark" />;
 }

@@ -3,43 +3,54 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { createMemoryStorage } from "./storage.js";
 import type {
 	ActionResult,
-	KavachContextValue,
-	KavachExpoConfig,
-	KavachSession,
-	KavachStorage,
-	KavachUser,
+	AuthContextValue,
+	AuthExpoConfig,
+	AuthSession,
+	AuthStorage,
+	AuthUser,
 } from "./types.js";
 
 const SESSION_KEY = "theauth_session";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const KavachExpoContext = createContext<KavachContextValue | null>(null);
+export const AuthExpoContext = createContext<AuthContextValue | null>(null);
 
-export function useKavachContext(): KavachContextValue {
-	const ctx = useContext(KavachExpoContext);
+/** @deprecated Use {@link AuthExpoContext} instead. Will be removed in v3.0. */
+export const KavachExpoContext = AuthExpoContext;
+
+export function useAuthContext(): AuthContextValue {
+	const ctx = useContext(AuthExpoContext);
 	if (!ctx) {
-		throw new Error("useKavachContext must be used inside <KavachExpoProvider>");
+		throw new Error("useAuthContext must be used inside <AuthExpoProvider>");
 	}
 	return ctx;
 }
 
+/** @deprecated Use {@link useAuthContext} instead. Will be removed in v3.0. */
+export function useKavachContext(): AuthContextValue {
+	return useAuthContext();
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export interface KavachExpoProviderProps {
-	config: KavachExpoConfig;
+export interface AuthExpoProviderProps {
+	config: AuthExpoConfig;
 	children: ReactNode;
 }
 
-export function KavachExpoProvider({ config, children }: KavachExpoProviderProps): ReactNode {
-	const [session, setSession] = useState<KavachSession | null>(null);
+/** @deprecated Use {@link AuthExpoProviderProps} instead. Will be removed in v3.0. */
+export type KavachExpoProviderProps = AuthExpoProviderProps;
+
+export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): ReactNode {
+	const [session, setSession] = useState<AuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
 	// Strip trailing slash from basePath once
 	const base = config.basePath.replace(/\/$/, "");
 
 	// Storage adapter — stable ref so callbacks don't re-create on each render
-	const storageRef = useRef<KavachStorage>(config.storage ?? createMemoryStorage());
+	const storageRef = useRef<AuthStorage>(config.storage ?? createMemoryStorage());
 
 	// Keep storage ref in sync when config changes
 	useEffect(() => {
@@ -60,7 +71,7 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 				headers: { Authorization: `Bearer ${token}` },
 			});
 			if (res.ok) {
-				const json = (await res.json()) as { data?: KavachSession };
+				const json = (await res.json()) as { data?: AuthSession };
 				setSession(json.data ?? null);
 				if (!json.data) {
 					await storageRef.current.removeItem(SESSION_KEY);
@@ -98,7 +109,7 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 				});
 
 				const json = (await res.json()) as
-					| { data: KavachSession }
+					| { data: AuthSession }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -109,7 +120,7 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 					};
 				}
 
-				const okBody = json as { data: KavachSession };
+				const okBody = json as { data: AuthSession };
 				await storageRef.current.setItem(SESSION_KEY, okBody.data.token);
 				setSession(okBody.data);
 				return { success: true, data: undefined };
@@ -135,7 +146,7 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 				});
 
 				const json = (await res.json()) as
-					| { data: KavachSession }
+					| { data: AuthSession }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -146,7 +157,7 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 					};
 				}
 
-				const okBody = json as { data: KavachSession };
+				const okBody = json as { data: AuthSession };
 				await storageRef.current.setItem(SESSION_KEY, okBody.data.token);
 				setSession(okBody.data);
 				return { success: true, data: undefined };
@@ -177,9 +188,9 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 		}
 	}, [base]);
 
-	const user: KavachUser | null = session?.user ?? null;
+	const user: AuthUser | null = session?.user ?? null;
 
-	const value: KavachContextValue = {
+	const value: AuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -190,5 +201,8 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 		refresh,
 	};
 
-	return <KavachExpoContext.Provider value={value}>{children}</KavachExpoContext.Provider>;
+	return <AuthExpoContext.Provider value={value}>{children}</AuthExpoContext.Provider>;
 }
+
+/** @deprecated Use {@link AuthExpoProvider} instead. Will be removed in v3.0. */
+export const KavachExpoProvider = AuthExpoProvider;

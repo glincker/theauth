@@ -1,11 +1,11 @@
 ---
 title: Astro
-description: Mount TheAuth auth routes in an Astro app with kavachAstro(kavach). Returns named handlers for a catch-all API page.
+description: Mount TheAuth auth routes in an Astro app with authAstro(kavach). Returns named handlers for a catch-all API page.
 ---
 
 # Astro
 
-`kavachAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled.
+`authAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled.
 
 ## Install
 
@@ -19,9 +19,9 @@ pnpm add @glinr/theauth @glinr/theauth-astro
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = createAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
   mcp: {
@@ -40,10 +40,10 @@ Create `src/pages/api/kavach/[...path].ts`. The `[...path]` spread catches every
 ```typescript
 // src/pages/api/kavach/[...path].ts
 import type { APIRoute } from 'astro';
-import { kavachAstro } from '@glinr/theauth-astro';
+import { authAstro } from '@glinr/theauth-astro';
 import { kavach, mcp } from '../../../lib/kavach';
 
-const handlers = kavachAstro(kavach, { mcp });
+const handlers = authAstro(kavach, { mcp });
 
 export const GET: APIRoute = handlers.GET;
 export const POST: APIRoute = handlers.POST;

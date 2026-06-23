@@ -1,16 +1,16 @@
 ---
 title: Configuration
-description: Reference for every createKavach() option in KavachConfig. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
+description: Reference for every createAuth() option in AuthConfig. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
 ---
 
 # Configuration
 
-`createKavach()` accepts a `KavachConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
+`createAuth()` accepts a `AuthConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 ```
@@ -20,10 +20,10 @@ const kavach = await createKavach({
 A minimal config for local development with email/password auth and no email sending:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: './kavach.db' },
   plugins: [
     emailPassword({
@@ -48,7 +48,7 @@ const kavach = await createKavach({
 | `approval` | `ApprovalConfig` | CIBA async approval flow config. |
 | `trust` | `TrustConfig` | Graduated autonomy trust scoring. |
 | `telemetry` | `TelemetryConfig` | OpenTelemetry integration via hooks. |
-| `hooks` | `KavachHooks` | Lifecycle hooks for sandboxing and custom validation. |
+| `hooks` | `AuthHooks` | Lifecycle hooks for sandboxing and custom validation. |
 | `baseUrl` | `string` | Base URL for the auth server (e.g. `https://auth.example.com`). |
 | `secret` | `string` | Secret key used to sign tokens. Min 32 characters. |
 | `emitAgenticJwtClaims` | `boolean` | Emit IETF draft agentic JWT claims on issued tokens. |
@@ -210,7 +210,7 @@ anomaly: {
 Never hardcode secrets in config. Pass them through environment variables:
 
 ```typescript
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: {
     provider: 'postgres',
     url: process.env.DATABASE_URL!,
@@ -230,7 +230,7 @@ const kavach = await createKavach({
 // config/kavach.ts
 const isDev = process.env.NODE_ENV !== 'production';
 
-export const kavach = await createKavach({
+export const kavach = await createAuth({
   database: isDev
     ? { provider: 'sqlite', url: './kavach-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },

@@ -23,7 +23,7 @@ TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js
 ## Overriding
 
 ```ts
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',

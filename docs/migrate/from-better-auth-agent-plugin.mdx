@@ -27,7 +27,7 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 
 | `@better-auth/agent-auth` | TheAuth |
 |---|---|
-| `agentPlugin()` added to `betterAuth` | Built into `createKavach`. No plugin needed for the core agent surface. |
+| `agentPlugin()` added to `betterAuth` | Built into `createAuth`. No plugin needed for the core agent surface. |
 | `auth.api.createAgent({ userId, scopes })` | `kavach.agent.create({ ownerId, name, type, permissions })` |
 | `agent.accessToken` | `agent.token` (prefix `kv_`, returned once, SHA-256 hashed at rest) |
 | `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
@@ -58,9 +58,9 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: lib/kavach.ts
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 
-export const kavach = await createKavach({
+export const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -186,13 +186,13 @@ if (score.level === 'untrusted' || score.level === 'limited') {
 If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. TheAuth mounts the MCP endpoints on the same adapter:
 
 ```ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { createAuth, createMcpModule } from '@glinr/theauth';
+import { authNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = await createKavach({ /* ... */ });
+const kavach = await createAuth({ /* ... */ });
 const mcp = createMcpModule(kavach);
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = kavachNextjs(kavach, { mcp });
+export const { GET, POST, PATCH, DELETE, OPTIONS } = authNextjs(kavach, { mcp });
 ```
 
 The `.well-known` documents, dynamic client registration, authorize endpoint, and token endpoint all come up under the same mount path.

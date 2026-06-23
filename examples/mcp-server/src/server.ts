@@ -20,7 +20,7 @@
 //   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
 import type { Kavach } from "@glinr/theauth";
-import { createKavach, users } from "@glinr/theauth";
+import { createAuth, users } from "@glinr/theauth";
 import type {
 	McpAccessToken,
 	McpAuthModule,
@@ -184,7 +184,7 @@ curl ${BASE_URL}/api/audit</code>
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	const kavach = await createKavach({
+	const kavach = await createAuth({
 		database: { provider: "sqlite", url: "mcp-server.db" },
 		agents: {
 			enabled: true,
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
 		},
 	});
 
-	// Tables are auto-created by createKavach. Just seed the demo user.
+	// Tables are auto-created by createAuth. Just seed the demo user.
 	seedUser(kavach);
 
 	// Create the MCP OAuth 2.1 authorization server module

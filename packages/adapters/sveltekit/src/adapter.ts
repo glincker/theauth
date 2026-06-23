@@ -3,7 +3,7 @@ import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { RequestHandler } from "@sveltejs/kit";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachSvelteKitOptions {
+export interface AuthSvelteKitOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -12,18 +12,24 @@ export interface KavachSvelteKitOptions {
 	 * The URL path prefix before the `[...path]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachSvelteKitHandlers {
+/** @deprecated Use {@link AuthSvelteKitOptions} instead. Will be removed in v3.0. */
+export type KavachSvelteKitOptions = AuthSvelteKitOptions;
+
+export interface AuthSvelteKitHandlers {
 	GET: RequestHandler;
 	POST: RequestHandler;
 	PATCH: RequestHandler;
 	DELETE: RequestHandler;
 	OPTIONS: RequestHandler;
 }
+
+/** @deprecated Use {@link AuthSvelteKitHandlers} instead. Will be removed in v3.0. */
+export type KavachSvelteKitHandlers = AuthSvelteKitHandlers;
 
 /**
  * Create SvelteKit route handlers for all TheAuth REST API routes.
@@ -52,10 +58,10 @@ export interface KavachSvelteKitHandlers {
  * const handlers = kavachSvelteKit(kavach, { mcp });
  * ```
  */
-export function kavachSvelteKit(
+export function authSvelteKit(
 	kavach: Kavach,
-	options?: KavachSvelteKitOptions,
-): KavachSvelteKitHandlers {
+	options?: AuthSvelteKitOptions,
+): AuthSvelteKitHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -71,3 +77,6 @@ export function kavachSvelteKit(
 		OPTIONS: handler,
 	};
 }
+
+/** @deprecated Use {@link authSvelteKit} instead. Will be removed in v3.0. */
+export const kavachSvelteKit = authSvelteKit;

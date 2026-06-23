@@ -1,6 +1,6 @@
 ---
 title: Error Codes
-description: KavachError carries a code, message, and optional details. All SDK functions return a Result union instead of throwing, with matching HTTP status codes on REST.
+description: AuthError carries a code, message, and optional details. All SDK functions return a Result union instead of throwing, with matching HTTP status codes on REST.
 ---
 
 # Error Codes
@@ -8,7 +8,7 @@ description: KavachError carries a code, message, and optional details. All SDK 
 TheAuth returns structured errors in the following shape:
 
 ```typescript
-interface KavachError {
+interface AuthError {
   code: string;    // machine-readable error code
   message: string; // human-readable description
   details?: Record<string, unknown>; // additional context

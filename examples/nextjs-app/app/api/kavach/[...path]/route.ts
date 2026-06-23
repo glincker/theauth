@@ -1,7 +1,7 @@
 // TheAuth Next.js App Router catch-all route.
 //
 // Mounts at /api/kavach/[...path] and forwards every request to the
-// kavachNextjs adapter, which handles all TheAuth REST routes.
+// authNextjs adapter, which handles all TheAuth REST routes.
 //
 // Routes handled:
 //   GET/POST        /api/kavach/agents
@@ -17,14 +17,14 @@
 //   GET             /api/kavach/dashboard/agents
 //   GET             /api/kavach/dashboard/audit
 
-import { kavachNextjs } from "@glinr/theauth-nextjs";
+import { authNextjs } from "@glinr/theauth-nextjs";
 import { getKavach } from "@/lib/kavach";
 
 // Build handlers lazily so the singleton is created on first request, not at
 // module evaluation time (which would run during the build step).
 async function getHandlers() {
 	const kavach = await getKavach();
-	return kavachNextjs(kavach, { basePath: "/api/kavach" });
+	return authNextjs(kavach, { basePath: "/api/kavach" });
 }
 
 export async function GET(request: Request): Promise<Response> {

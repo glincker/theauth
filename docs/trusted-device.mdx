@@ -9,7 +9,7 @@ The trusted device module lets users mark a device as trusted after completing t
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { twoFactor } from '@glinr/theauth/auth';
 import { createTrustedDeviceModule } from '@glinr/theauth/modules/trusted-device'; // [!code highlight]
 
@@ -18,7 +18,7 @@ const trustedDevice = createTrustedDeviceModule({ // [!code highlight]
   trustDuration: 30 * 24 * 60 * 60, // 30 days in seconds // [!code highlight]
 }); // [!code highlight]
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

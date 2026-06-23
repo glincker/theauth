@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../packages/core/src/db/schema.js";
 import type { Kavach } from "../../../packages/core/src/kavach.js";
-import { createKavach } from "../../../packages/core/src/kavach.js";
+import { createAuth } from "../../../packages/core/src/kavach.js";
 
 const state = vi.hoisted(() => ({ kavach: null as Kavach | null }));
 
@@ -20,7 +20,7 @@ async function loadRouteModule() {
 
 describe("nextjs-app example", () => {
 	beforeEach(async () => {
-		const kavach = await createKavach({
+		const kavach = await createAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			agents: {
 				enabled: true,

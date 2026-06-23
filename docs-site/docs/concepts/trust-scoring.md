@@ -76,7 +76,7 @@ if (score.level === 'untrusted' || score.level === 'limited') {
 
 ## Anomaly detection
 
-TheAuth can flag agents that exhibit unusual patterns. Configure thresholds in `createKavach`:
+TheAuth can flag agents that exhibit unusual patterns. Configure thresholds in `createAuth`:
 
 ```typescript
 anomaly: {

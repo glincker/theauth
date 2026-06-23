@@ -716,27 +716,33 @@ async function dispatch(
 
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
-export interface KavachNextjsOptions {
+export interface AuthNextjsOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
 	mcp?: McpAuthModule;
 	/**
-	 * The URL path prefix before the `[...kavach]` catch-all segment.
+	 * The URL path prefix before the `[...auth]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachNextjsHandlers {
+/** @deprecated Use {@link AuthNextjsOptions} instead. Will be removed in v3.0. */
+export type KavachNextjsOptions = AuthNextjsOptions;
+
+export interface AuthNextjsHandlers {
 	GET: (request: Request) => Promise<Response>;
 	POST: (request: Request) => Promise<Response>;
 	PATCH: (request: Request) => Promise<Response>;
 	DELETE: (request: Request) => Promise<Response>;
 	OPTIONS: (request: Request) => Promise<Response>;
 }
+
+/** @deprecated Use {@link AuthNextjsHandlers} instead. Will be removed in v3.0. */
+export type KavachNextjsHandlers = AuthNextjsHandlers;
 
 /**
  * Create Next.js App Router route handlers for all TheAuth REST API routes.
@@ -765,7 +771,7 @@ export interface KavachNextjsHandlers {
  * const handlers = kavachNextjs(kavach, { mcp });
  * ```
  */
-export function kavachNextjs(kavach: Kavach, options?: KavachNextjsOptions): KavachNextjsHandlers {
+export function authNextjs(kavach: Kavach, options?: AuthNextjsOptions): AuthNextjsHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -779,3 +785,6 @@ export function kavachNextjs(kavach: Kavach, options?: KavachNextjsOptions): Kav
 		OPTIONS: handler,
 	};
 }
+
+/** @deprecated Use {@link authNextjs} instead. Will be removed in v3.0. */
+export const kavachNextjs = authNextjs;

@@ -36,9 +36,9 @@ AGENTIC_JWT_CLAIMS.OPERATION;        // "operation"
 Claim emission is off by default. Flip the `emitAgenticJwtClaims` flag on your config to start populating claims on issued JWTs:
 
 ```ts
-import { createKavach } from "@glinr/theauth";
+import { createAuth } from "@glinr/theauth";
 
-const kavach = createKavach({
+const kavach = createAuth({
   database: { url: process.env.DATABASE_URL },
   secret: process.env.THEAUTH_SECRET,
   emitAgenticJwtClaims: true,

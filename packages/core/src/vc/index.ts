@@ -33,6 +33,9 @@ export type {
 	VerifiedPresentation,
 } from "./types.js";
 export {
+	AUTH_AGENT_CREDENTIAL,
+	AUTH_DELEGATION_CREDENTIAL,
+	AUTH_PERMISSION_CREDENTIAL,
 	CredentialStatusSchema,
 	CredentialSubjectSchema,
 	KAVACH_AGENT_CREDENTIAL,

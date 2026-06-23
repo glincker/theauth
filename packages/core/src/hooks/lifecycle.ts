@@ -1,6 +1,6 @@
 import type { AgentIdentity, CreateAgentInput } from "../types.js";
 
-export interface KavachHooks {
+export interface AuthHooks {
 	/**
 	 * Fires before authorize() — can block the request by returning
 	 * `{ allow: false, reason: '...' }`. Return `void` or `{ allow: true }`
@@ -48,6 +48,9 @@ export interface KavachHooks {
 		reason: string;
 	}) => Promise<void>;
 }
+
+/** @deprecated Use {@link AuthHooks} instead. Will be removed in v3.0. */
+export type KavachHooks = AuthHooks;
 
 export type ViolationType =
 	| "permission_denied"

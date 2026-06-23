@@ -9,13 +9,13 @@ TheAuth integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibe
 ## Setup
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 import { createHibpModule } from '@glinr/theauth/modules/hibp'; // [!code highlight]
 
 const hibp = createHibpModule(); // [!code highlight]
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',
@@ -42,7 +42,7 @@ if (result.breached) {
   console.warn(`Password seen ${result.count} times in breaches`);
 }
 
-// Throws KavachError with code PASSWORD_BREACHED if compromised
+// Throws AuthError with code PASSWORD_BREACHED if compromised
 await hibp.enforce('user-entered-password');
 ```
 

@@ -42,7 +42,7 @@ for (const finding of report.findings) {
 ## Configuration
 
 ```ts
-const kavach = await createKavach({
+const kavach = await createAuth({
   analyzer: {
     unusedThresholdDays: 30,  // flag permissions unused for 30+ days
     maxRecommendedDepth: 3,   // flag delegation chains deeper than 3

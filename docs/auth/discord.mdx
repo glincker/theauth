@@ -42,10 +42,10 @@ From **OAuth2 > General**, copy the **Client ID** and **Client Secret**.
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

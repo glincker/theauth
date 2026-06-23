@@ -10,10 +10,10 @@ TheAuth includes built-in OAuth provider configurations. Add one or more via the
 ## Setup
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

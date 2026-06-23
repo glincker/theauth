@@ -23,8 +23,8 @@ When to wait:
 
 | Clerk | TheAuth |
 |---|---|
-| `clerkClient` (server) | instance from `createKavach({...})` |
-| `<ClerkProvider>` | `<KavachProvider>` from `@glinr/theauth-react` |
+| `clerkClient` (server) | instance from `createAuth({...})` |
+| `<ClerkProvider>` | `<AuthProvider>` from `@glinr/theauth-react` |
 | `useUser()` | `useUser()` from `@glinr/theauth-react` |
 | `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
 | `useSession()` | `useSession()` from `@glinr/theauth-react` |
@@ -49,14 +49,14 @@ When to wait:
 
 ```ts
 // AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { organization } from '@glinr/theauth/plugins';
 
-let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
+let instance: Awaited<ReturnType<typeof createAuth>> | null = null;
 
 export async function getKavach() {
   if (!instance) {
-    instance = await createKavach({
+    instance = await createAuth({
       database: {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
@@ -82,10 +82,10 @@ Clerk hides its route handling behind the middleware. TheAuth exposes an explici
 
 ```ts
 // AFTER: app/api/auth/[...kavach]/route.ts (TheAuth)
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { authNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
-const { GET, POST } = kavachNextjs(getKavach);
+const { GET, POST } = authNextjs(getKavach);
 
 export { GET, POST };
 ```
@@ -160,15 +160,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ```tsx
 // AFTER: app/layout.tsx (TheAuth)
-import { KavachProvider } from '@glinr/theauth-react';
+import { AuthProvider } from '@glinr/theauth-react';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <KavachProvider basePath="/api/auth">
+    <AuthProvider basePath="/api/auth">
       <html lang="en">
         <body>{children}</body>
       </html>
-    </KavachProvider>
+    </AuthProvider>
   );
 }
 ```
@@ -310,10 +310,10 @@ Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side
 
 ```ts
 // AFTER (TheAuth)
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-export const kavach = await createKavach({
+export const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -415,10 +415,10 @@ Clerk exports historical metadata, not live OAuth tokens. Users will re-authoris
 If you want password sign-in to keep working without a forced reset, accept Clerk bcrypt hashes during a transition window and rehash to PBKDF2 on successful sign-in. The shape of the hook:
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { compare as bcryptCompare } from 'bcrypt';
 
-export const kavach = await createKavach({
+export const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,

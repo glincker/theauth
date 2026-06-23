@@ -38,13 +38,13 @@ import { z } from "zod";
 import { generateId, randomBytesHex, sha256, sha256Raw } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { oidcAuthCodes, oidcClients, oidcRefreshTokens } from "../db/schema.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { KavachError, Result };
+export type { AuthError, KavachError, Result };
 
 // ---------------------------------------------------------------------------
 // Public types

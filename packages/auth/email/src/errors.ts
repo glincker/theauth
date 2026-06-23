@@ -1,8 +1,11 @@
-export interface KavachEmailError {
+export interface AuthEmailError {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
 }
+
+/** @deprecated Use {@link AuthEmailError} instead. Will be removed in v3.0. */
+export type KavachEmailError = AuthEmailError;
 
 export class EmailAuthError extends Error {
 	readonly code: string;

@@ -14,10 +14,10 @@ Cost attribution gives you per-agent, per-tool, and per-delegation-chain cost re
 ## Setup
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { createCostAttributionModule } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 
@@ -300,7 +300,7 @@ All methods return a `Result<T>` union:
 ```typescript
 type Result<T> =
   | { success: true; data: T }
-  | { success: false; error: KavachError };
+  | { success: false; error: AuthError };
 ```
 
 Check `result.success` before accessing `result.data`. Error codes:

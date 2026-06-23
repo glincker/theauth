@@ -11,7 +11,7 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 
 | better-auth | TheAuth |
 |---|---|
-| `auth = betterAuth({...})` | `kavach = createKavach({...})` |
+| `auth = betterAuth({...})` | `kavach = createAuth({...})` |
 | `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
 | `Session` | `Session` + `AgentSession` + `EphemeralAgentSession` |
 | `organization` plugin | `organization` plugin (same name, similar shape) |
@@ -49,10 +49,10 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 === "After (TheAuth)"
     ```ts
     // lib/kavach.ts
-    import { createKavach } from '@glinr/theauth';
+    import { createAuth } from '@glinr/theauth';
     import { organization, twoFactor } from '@glinr/theauth/plugins';
 
-    export const kavach = createKavach({
+    export const kavach = createAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
       secret: process.env.KAVACH_SECRET!,
       baseUrl: process.env.AUTH_BASE_URL!,
@@ -63,10 +63,10 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 
     ```ts
     // app/api/kavach/[...kavach]/route.ts
-    import { kavachNextjs } from '@glinr/theauth-nextjs';
+    import { authNextjs } from '@glinr/theauth-nextjs';
     import { kavach } from '@/lib/kavach';
 
-    const handlers = kavachNextjs(kavach);
+    const handlers = authNextjs(kavach);
 
     export const GET = handlers.GET;
     export const POST = handlers.POST;
@@ -194,7 +194,7 @@ No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, D
 Yes. Install `@glinr/theauth-prisma` and pass a `PrismaClient` as the database backend.
 
 **Do I need to install an MCP plugin?**
-No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createKavach`.
+No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createAuth`.
 
 **Will my users have to sign in again?**
 With the `cookieAuth` adapter, no. TheAuth will accept existing better-auth sessions. Without the adapter, existing tokens will be rejected.

@@ -1,32 +1,41 @@
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-export interface KavachUser {
+export interface AuthUser {
 	id: string;
 	email?: string;
 	name?: string;
 	image?: string;
 }
 
-export interface KavachSession {
+/** @deprecated Use {@link AuthUser} instead. Will be removed in v3.0. */
+export type KavachUser = AuthUser;
+
+export interface AuthSession {
 	token: string;
-	user: KavachUser;
+	user: AuthUser;
 	expiresAt?: string;
 }
 
-export interface KavachAgent {
+/** @deprecated Use {@link AuthSession} instead. Will be removed in v3.0. */
+export type KavachSession = AuthSession;
+
+export interface AuthAgent {
 	id: string;
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
 	token: string;
-	permissions: KavachPermission[];
+	permissions: AuthPermission[];
 	status: "active" | "revoked" | "expired";
 	expiresAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
-export interface KavachPermission {
+/** @deprecated Use {@link AuthAgent} instead. Will be removed in v3.0. */
+export type KavachAgent = AuthAgent;
+
+export interface AuthPermission {
 	resource: string;
 	actions: string[];
 	constraints?: {
@@ -38,11 +47,14 @@ export interface KavachPermission {
 	};
 }
 
+/** @deprecated Use {@link AuthPermission} instead. Will be removed in v3.0. */
+export type KavachPermission = AuthPermission;
+
 export interface CreateAgentInput {
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
-	permissions: KavachPermission[];
+	permissions: AuthPermission[];
 	expiresAt?: string;
 	metadata?: Record<string, unknown>;
 }
@@ -114,10 +126,10 @@ export interface ExternalAuthConfig {
 	/** HTTP method for logout. Defaults to "POST". */
 	logoutMethod?: "POST" | "DELETE";
 	/**
-	 * Map the external API's user response to a KavachUser.
-	 * By default handles: { user_id, id, sub } → id, { email, name, avatar, image }.
+	 * Map the external API's user response to an AuthUser.
+	 * By default handles: { user_id, id, sub } to id, { email, name, avatar, image }.
 	 */
-	mapUser?: (data: Record<string, unknown>) => KavachUser;
+	mapUser?: (data: Record<string, unknown>) => AuthUser;
 	/** Callback after logout completes (e.g. redirect to login page). */
 	onLogout?: () => void;
 
@@ -184,9 +196,9 @@ export type ActionResult<T = void> = { success: true; data: T } | { success: fal
 
 // ─── Context value ────────────────────────────────────────────────────────────
 
-export interface KavachContextValue {
-	session: KavachSession | null;
-	user: KavachUser | null;
+export interface AuthContextValue {
+	session: AuthSession | null;
+	user: AuthUser | null;
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
@@ -209,3 +221,6 @@ export interface KavachContextValue {
 	/** Reflects `navigator.onLine` plus the in-process `online`/`offline` events. */
 	isOnline: boolean;
 }
+
+/** @deprecated Use {@link AuthContextValue} instead. Will be removed in v3.0. */
+export type KavachContextValue = AuthContextValue;

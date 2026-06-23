@@ -22,9 +22,9 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     SQLite is the default for development. No peer dependencies beyond `better-sqlite3`, which ships with `@glinr/theauth`.
 
     ```typescript
-    import { createKavach } from '@glinr/theauth';
+    import { createAuth } from '@glinr/theauth';
 
-    const kavach = await createKavach({
+    const kavach = await createAuth({
       database: {
         provider: 'sqlite',
         url: './kavach.db',
@@ -35,7 +35,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     For in-memory SQLite (tests and CI), use `:memory:` as the URL:
 
     ```typescript
-    const kavach = await createKavach({
+    const kavach = await createAuth({
       database: {
         provider: 'sqlite',
         url: ':memory:',
@@ -58,9 +58,9 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```
 
     ```typescript
-    import { createKavach } from '@glinr/theauth';
+    import { createAuth } from '@glinr/theauth';
 
-    const kavach = await createKavach({
+    const kavach = await createAuth({
       database: {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
@@ -79,9 +79,9 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```
 
     ```typescript
-    import { createKavach } from '@glinr/theauth';
+    import { createAuth } from '@glinr/theauth';
 
-    const kavach = await createKavach({
+    const kavach = await createAuth({
       database: {
         provider: 'mysql',
         url: process.env.DATABASE_URL!,
@@ -157,13 +157,13 @@ Install it with: npm install pg
 Use `:memory:` for fast, isolated tests that need no setup or teardown:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { describe, beforeEach, it } from 'vitest';
 
-let kavach: Awaited<ReturnType<typeof createKavach>>;
+let kavach: Awaited<ReturnType<typeof createAuth>>;
 
 beforeEach(async () => {
-  kavach = await createKavach({
+  kavach = await createAuth({
     database: { provider: 'sqlite', url: ':memory:' },
     agents: { enabled: true },
   });
@@ -181,7 +181,7 @@ it('creates an agent', async () => {
 });
 ```
 
-Each `createKavach()` call with `:memory:` gets a completely isolated database, so tests never share state.
+Each `createAuth()` call with `:memory:` gets a completely isolated database, so tests never share state.
 
 ## Related
 
@@ -190,7 +190,7 @@ Each `createKavach()` call with `:memory:` gets a completely isolated database, 
     Query TheAuth tables through an existing PrismaClient.
   </Card>
   <Card title="Configuration" href="/configuration" icon="sliders">
-    Full createKavach() options including database and secrets.
+    Full createAuth() options including database and secrets.
   </Card>
   <Card title="Test utilities" href="/test-utils" icon="code">
     In-memory mock server and factories for auth-dependent tests.

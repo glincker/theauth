@@ -17,9 +17,9 @@ import type { UsernameAuthConfig } from "./auth/username.js";
 import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
 import type { DidWebConfig } from "./did/types.js";
-import type { KavachHooks } from "./hooks/lifecycle.js";
+import type { AuthHooks } from "./hooks/lifecycle.js";
 import type { McpConfig } from "./mcp/types.js";
-import type { KavachPlugin } from "./plugin/types.js";
+import type { AuthPlugin } from "./plugin/types.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
 import type { SessionFreshnessConfig } from "./session/freshness.js";
@@ -30,7 +30,7 @@ export type { DatabaseConfig };
 /**
  * Main configuration for TheAuth
  */
-export interface KavachConfig {
+export interface AuthConfig {
 	/** Database connection - Drizzle instance or connection config */
 	database: DatabaseConfig;
 
@@ -64,7 +64,7 @@ export interface KavachConfig {
 	approval?: ApprovalConfig;
 
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
-	hooks?: KavachHooks;
+	hooks?: AuthHooks;
 
 	/** W3C DID (Decentralized Identifiers) configuration */
 	did?: {
@@ -73,7 +73,7 @@ export interface KavachConfig {
 	};
 
 	/** Auth plugins (email, OAuth, 2FA, org, etc.) */
-	plugins?: KavachPlugin[];
+	plugins?: AuthPlugin[];
 
 	/** Base URL for the auth server */
 	baseUrl?: string;
@@ -244,10 +244,13 @@ export interface KavachConfig {
 	emitAgenticJwtClaims?: boolean;
 }
 
+/** @deprecated Use {@link AuthConfig} instead. Will be removed in v3.0. */
+export type KavachConfig = AuthConfig;
+
 /**
- * The main TheAuth instance returned by createKavach()
+ * The main TheAuth instance returned by createAuth()
  */
-export interface KavachInstance {
+export interface AuthInstance {
 	/** Agent identity management */
 	agent: AgentModule;
 	/** Authorization engine */
@@ -259,6 +262,9 @@ export interface KavachInstance {
 	/** MCP authorization server */
 	mcp: McpModule;
 }
+
+/** @deprecated Use {@link AuthInstance} instead. Will be removed in v3.0. */
+export type KavachInstance = AuthInstance;
 
 export interface AgentModule {
 	create: (input: CreateAgentInput) => Promise<AgentIdentity>;

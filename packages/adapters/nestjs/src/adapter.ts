@@ -189,21 +189,24 @@ function buildWebRequest(req: Request): globalThis.Request {
 
 // ─── TheAuth NestJS Options ─────────────────────────────────────────────────
 
-export interface KavachNestjsOptions {
-	/** The Kavach instance */
+export interface AuthNestjsOptions {
+	/** The Auth instance */
 	kavach: Kavach;
 	/** Optional MCP OAuth 2.1 module */
 	mcp?: McpAuthModule;
 }
 
+/** @deprecated Use {@link AuthNestjsOptions} instead. Will be removed in v3.0. */
+export type KavachNestjsOptions = AuthNestjsOptions;
+
 // ─── Express Router Builder ──────────────────────────────────────────────────
 
 /**
  * Build the Express Router with all TheAuth routes.
- * Used internally by `KavachModule` and can also be used directly in
+ * Used internally by `AuthModule` and can also be used directly in
  * Express-backed NestJS apps via `app.use`.
  */
-export function buildKavachRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
+export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 	const router = Router();
 
 	// ── Agent REST API ──────────────────────────────────────────────
@@ -770,13 +773,19 @@ export function buildKavachRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
  * ```typescript
  * // main.ts
  * const app = await NestFactory.create(AppModule);
- * app.use('/api/kavach', kavachMiddleware({ kavach, mcp }));
+ * app.use('/api/kavach', authMiddleware({ kavach, mcp }));
  * await app.listen(3000);
  * ```
  */
-export function kavachMiddleware(options: KavachNestjsOptions) {
-	const router = buildKavachRouter(options.kavach, options.mcp);
+export function authMiddleware(options: AuthNestjsOptions) {
+	const router = buildAuthRouter(options.kavach, options.mcp);
 	return (req: Request, res: Response, next: NextFunction) => {
 		router(req, res, next);
 	};
 }
+
+/** @deprecated Use {@link buildAuthRouter} instead. Will be removed in v3.0. */
+export const buildKavachRouter = buildAuthRouter;
+
+/** @deprecated Use {@link authMiddleware} instead. Will be removed in v3.0. */
+export const kavachMiddleware = authMiddleware;

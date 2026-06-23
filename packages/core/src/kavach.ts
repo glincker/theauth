@@ -59,11 +59,11 @@ import { createTrustModule } from "./trust/scoring.js";
 import type {
 	AuditExportOptions,
 	AuditFilter,
+	AuthConfig,
 	AuthorizeRequest,
 	AuthorizeResult,
 	DelegateInput,
 	DelegationChain,
-	KavachConfig,
 	McpServer,
 	McpServerInput,
 	RequestContext,
@@ -91,23 +91,23 @@ function classifyViolation(reason: string | undefined): ViolationType {
  *
  * @example SQLite (simplest)
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createAuth } from '@glinr/theauth';
  *
- * const kavach = await createKavach({
+ * const auth = await createAuth({
  *   database: { provider: 'sqlite', url: 'kavach.db' },
  * });
  * ```
  *
  * @example Postgres
  * ```typescript
- * const kavach = await createKavach({
+ * const auth = await createAuth({
  *   database: { provider: 'postgres', url: process.env.DATABASE_URL },
  * });
  * ```
  *
- * @example MySQL – skip auto-migration (tables managed externally)
+ * @example MySQL - skip auto-migration (tables managed externally)
  * ```typescript
- * const kavach = await createKavach({
+ * const auth = await createAuth({
  *   database: {
  *     provider: 'mysql',
  *     url: process.env.DATABASE_URL,
@@ -116,7 +116,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
  * });
  * ```
  */
-export async function createKavach(config: KavachConfig) {
+export async function createAuth(config: AuthConfig) {
 	const authAdapter = config.auth?.adapter ?? null;
 
 	const db = await createDatabase(config.database);
@@ -994,4 +994,10 @@ export async function createKavach(config: KavachConfig) {
 	};
 }
 
-export type Kavach = Awaited<ReturnType<typeof createKavach>>;
+export type Auth = Awaited<ReturnType<typeof createAuth>>;
+
+/** @deprecated Use {@link createAuth} instead. Will be removed in v3.0. */
+export const createKavach = createAuth;
+
+/** @deprecated Use {@link Auth} instead. Will be removed in v3.0. */
+export type Kavach = Auth;

@@ -1,4 +1,4 @@
-import { KavachApiError } from "./error.js";
+import { AuthApiError } from "./error.js";
 import type {
 	Agent,
 	AgentFilters,
@@ -18,7 +18,7 @@ import type {
 
 // ─── Client config ────────────────────────────────────────────────────────────
 
-export interface KavachClientOptions {
+export interface AuthClientOptions {
 	baseUrl: string;
 	/** Bearer token sent as `Authorization: Bearer <token>` on every request. */
 	token?: string;
@@ -34,9 +34,12 @@ export interface AuthorizeRequest {
 	arguments?: Record<string, unknown>;
 }
 
+/** @deprecated Use {@link AuthClientOptions} instead. Will be removed in v3.0. */
+export type KavachClientOptions = AuthClientOptions;
+
 // ─── Client interface ─────────────────────────────────────────────────────────
 
-export interface KavachClient {
+export interface AuthClient {
 	agents: {
 		create: (input: CreateAgentInput) => Promise<Agent>;
 		list: (filters?: AgentFilters) => Promise<Agent[]>;
@@ -83,9 +86,12 @@ function buildQuery(params: Record<string, string | number | string[] | undefine
 	return parts.length > 0 ? `?${parts.join("&")}` : "";
 }
 
+/** @deprecated Use {@link AuthClient} instead. Will be removed in v3.0. */
+export type KavachClient = AuthClient;
+
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export function createKavachClient(options: KavachClientOptions): KavachClient {
+export function createAuthClient(options: AuthClientOptions): AuthClient {
 	const base = options.baseUrl.replace(/\/$/, "");
 
 	function buildHeaders(overrides?: Record<string, string>): Record<string, string> {
@@ -113,7 +119,7 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 			response = await fetch(`${base}${path}`, { ...fetchInit, headers });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Network request failed";
-			throw new KavachApiError({ code: "NETWORK_ERROR", message }, 0);
+			throw new AuthApiError({ code: "NETWORK_ERROR", message }, 0);
 		}
 
 		// 204 No Content — nothing to parse
@@ -141,9 +147,9 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 				const code = typeof inner.code === "string" ? inner.code : "API_ERROR";
 				const message =
 					typeof inner.message === "string" ? inner.message : `HTTP ${response.status}`;
-				throw new KavachApiError({ code, message }, response.status);
+				throw new AuthApiError({ code, message }, response.status);
 			}
-			throw new KavachApiError(
+			throw new AuthApiError(
 				{ code: "API_ERROR", message: `HTTP ${response.status}` },
 				response.status,
 			);
@@ -163,7 +169,7 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 		try {
 			return await fetchJson<T>(path, init);
 		} catch (err) {
-			if (err instanceof KavachApiError && err.status === 404) {
+			if (err instanceof AuthApiError && err.status === 404) {
 				return null;
 			}
 			throw err;
@@ -177,7 +183,7 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 			response = await fetch(`${base}${path}`, { ...init, headers });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Network request failed";
-			throw new KavachApiError({ code: "NETWORK_ERROR", message }, 0);
+			throw new AuthApiError({ code: "NETWORK_ERROR", message }, 0);
 		}
 
 		if (!response.ok) {
@@ -185,7 +191,7 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 			try {
 				body = await response.json();
 			} catch {
-				throw new KavachApiError(
+				throw new AuthApiError(
 					{ code: "API_ERROR", message: `HTTP ${response.status}` },
 					response.status,
 				);
@@ -197,7 +203,7 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 					: errBody;
 			const code = typeof inner.code === "string" ? inner.code : "API_ERROR";
 			const message = typeof inner.message === "string" ? inner.message : `HTTP ${response.status}`;
-			throw new KavachApiError({ code, message }, response.status);
+			throw new AuthApiError({ code, message }, response.status);
 		}
 
 		return response.text();
@@ -341,3 +347,6 @@ export function createKavachClient(options: KavachClientOptions): KavachClient {
 		},
 	};
 }
+
+/** @deprecated Use {@link createAuthClient} instead. Will be removed in v3.0. */
+export const createKavachClient = createAuthClient;

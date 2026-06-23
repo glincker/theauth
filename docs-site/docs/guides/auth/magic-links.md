@@ -10,10 +10,10 @@ Magic links let users sign in by clicking a link sent to their email. No passwor
 ## Setup
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { magicLink } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

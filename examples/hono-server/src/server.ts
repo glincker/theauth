@@ -9,7 +9,7 @@
 //   curl http://localhost:3000/api/agents
 //   curl http://localhost:3000/api/audit
 
-import { createKavach, users } from "@glinr/theauth";
+import { createAuth, users } from "@glinr/theauth";
 import { kavachHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { sql } from "drizzle-orm";
@@ -19,7 +19,7 @@ const PORT = 3000;
 
 // ─── Database setup ───────────────────────────────────────────────────────────
 
-function createTables(kavach: Awaited<ReturnType<typeof createKavach>>): void {
+function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 	kavach.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_users (
 			id TEXT PRIMARY KEY,
@@ -104,7 +104,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createKavach>>): void {
 	`);
 }
 
-function seedUser(kavach: Awaited<ReturnType<typeof createKavach>>): void {
+function seedUser(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 	kavach.db
 		.insert(users)
 		.values({
@@ -306,7 +306,7 @@ curl http://localhost:${PORT}/api/audit</code>
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	const kavach = await createKavach({
+	const kavach = await createAuth({
 		database: { provider: "sqlite", url: "kavach.db" },
 		agents: {
 			enabled: true,

@@ -5,12 +5,7 @@
  * the fields relevant to the behaviour under test.
  */
 
-import type {
-	KavachAgent,
-	KavachPermission,
-	KavachSession,
-	KavachUser,
-} from "@glinr/theauth-react";
+import type { AuthAgent, AuthPermission, AuthSession, AuthUser } from "@glinr/theauth-react";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -31,12 +26,12 @@ function nextCount(): number {
 // ─── User factory ─────────────────────────────────────────────────────────────
 
 /**
- * Creates a mock `KavachUser` with realistic defaults.
+ * Creates a mock `AuthUser` with realistic defaults.
  *
  * @example
  * const user = createMockUser({ email: "alice@example.com" });
  */
-export function createMockUser(overrides?: Partial<KavachUser>): KavachUser {
+export function createMockUser(overrides?: Partial<AuthUser>): AuthUser {
 	const n = nextCount();
 	return {
 		id: makeId("usr"),
@@ -50,13 +45,13 @@ export function createMockUser(overrides?: Partial<KavachUser>): KavachUser {
 // ─── Session factory ──────────────────────────────────────────────────────────
 
 /**
- * Creates a mock `KavachSession`. Generates a user automatically unless
+ * Creates a mock `AuthSession`. Generates a user automatically unless
  * `user` is provided in `overrides`.
  *
  * @example
  * const session = createMockSession({ user: createMockUser({ name: "Alice" }) });
  */
-export function createMockSession(overrides?: Partial<KavachSession>): KavachSession {
+export function createMockSession(overrides?: Partial<AuthSession>): AuthSession {
 	const expiresAt = new Date(Date.now() + 3_600_000).toISOString();
 	return {
 		token: makeId("tok"),
@@ -69,12 +64,12 @@ export function createMockSession(overrides?: Partial<KavachSession>): KavachSes
 // ─── Permission factory ───────────────────────────────────────────────────────
 
 /**
- * Creates a mock `KavachPermission`.
+ * Creates a mock `AuthPermission`.
  *
  * @example
  * const perm = createMockPermission({ resource: "files", actions: ["read"] });
  */
-export function createMockPermission(overrides?: Partial<KavachPermission>): KavachPermission {
+export function createMockPermission(overrides?: Partial<AuthPermission>): AuthPermission {
 	return {
 		resource: "resource:default",
 		actions: ["read"],
@@ -85,12 +80,12 @@ export function createMockPermission(overrides?: Partial<KavachPermission>): Kav
 // ─── Agent factory ────────────────────────────────────────────────────────────
 
 /**
- * Creates a mock `KavachAgent` with sensible defaults.
+ * Creates a mock `AuthAgent` with sensible defaults.
  *
  * @example
  * const agent = createMockAgent({ type: "service", permissions: [] });
  */
-export function createMockAgent(overrides?: Partial<KavachAgent>): KavachAgent {
+export function createMockAgent(overrides?: Partial<AuthAgent>): AuthAgent {
 	const now = new Date().toISOString();
 	const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
 	return {

@@ -2,6 +2,7 @@ export { createPrismaAdapter } from "./adapter.js";
 export type {
 	AgentFilter,
 	AuditLogFilter,
+	AuthPrismaAdapter,
 	CreateAgentInput,
 	CreateAuditLogInput,
 	CreatePermissionInput,

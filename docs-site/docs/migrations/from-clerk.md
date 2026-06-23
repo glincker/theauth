@@ -23,8 +23,8 @@ When to wait:
 
 | Clerk | TheAuth |
 |---|---|
-| `clerkClient` (server) | instance from `createKavach({...})` |
-| `<ClerkProvider>` | `<KavachProvider>` from `@glinr/theauth-react` |
+| `clerkClient` (server) | instance from `createAuth({...})` |
+| `<ClerkProvider>` | `<AuthProvider>` from `@glinr/theauth-react` |
 | `useUser()` | `useUser()` from `@glinr/theauth-react` |
 | `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
 | `useSession()` | `useSession()` from `@glinr/theauth-react` |
@@ -115,10 +115,10 @@ for (const clerkUser of allUsers) {
 If users have passwords in Clerk, they use bcrypt. Configure TheAuth to accept them during a transition period:
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { compare as bcryptCompare } from 'bcrypt';
 
-export const kavach = await createKavach({
+export const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,

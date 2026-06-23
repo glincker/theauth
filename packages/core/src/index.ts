@@ -64,8 +64,8 @@ export type {
 export { createEmailTemplates } from "./email/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
-export type { Kavach } from "./kavach.js";
-export { createKavach } from "./kavach.js";
+export type { Auth, Kavach } from "./kavach.js";
+export { createAuth, createKavach } from "./kavach.js";
 export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
@@ -77,6 +77,8 @@ export * from "./trust/index.js";
 export type {
 	AgentFilter,
 	AgentIdentity,
+	AuthConfig,
+	AuthInstance,
 	AuthorizeRequest,
 	AuthorizeResult,
 	CreateAgentInput,

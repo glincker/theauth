@@ -39,7 +39,7 @@ Four things shipped together.
 Two adapter additions and a schema defaults change.
 
 - **`cookieAuth()` adapter.** Validates a JWT from an httpOnly cookie set by a non-Node backend (Go, Python, Rust). Use this when the canonical session already exists upstream and theauth is the read side.
-- **`KavachProvider` external mode.** The React provider can now delegate auth to any external API. Same session semantics, different source of truth.
+- **`AuthProvider` external mode.** The React provider can now delegate auth to any external API. Same session semantics, different source of truth.
 - **Feature-gated table creation.** The migrator only creates tables for features you turn on. Projects that do not use passkeys no longer get passkey tables.
 
 ### v0.2.x

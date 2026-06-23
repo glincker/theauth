@@ -1,13 +1,13 @@
 import { useCallback, useContext, useState } from "react";
-import { KavachContext } from "./context.js";
-import type { ActionResult, CreateAgentInput, KavachAgent } from "./types.js";
+import { AuthContext } from "./context.js";
+import type { ActionResult, AuthAgent, CreateAgentInput } from "./types.js";
 
 // ─── Guards ────────────────────────────────────────────────────────────────────
 
 function useRequiredContext(hookName: string) {
-	const ctx = useContext(KavachContext);
+	const ctx = useContext(AuthContext);
 	if (!ctx) {
-		throw new Error(`${hookName} must be used inside <KavachProvider>`);
+		throw new Error(`${hookName} must be used inside <AuthProvider>`);
 	}
 	return ctx;
 }
@@ -124,11 +124,11 @@ export function useRotateSession() {
 // ─── useAgents ────────────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
-	data: KavachAgent[];
+	data: AuthAgent[];
 }
 
 interface AgentSingleApiResponse {
-	data: KavachAgent;
+	data: AuthAgent;
 }
 
 interface ApiErrorResponse {
@@ -163,7 +163,7 @@ export function useAgents(basePath = "/api/kavach") {
 	const { user } = useRequiredContext("useAgents");
 	const base = basePath.replace(/\/$/, "");
 
-	const [agents, setAgents] = useState<KavachAgent[]>([]);
+	const [agents, setAgents] = useState<AuthAgent[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -204,7 +204,7 @@ export function useAgents(basePath = "/api/kavach") {
 	}
 
 	const create = useCallback(
-		async (input: CreateAgentInput): Promise<ActionResult<KavachAgent>> => {
+		async (input: CreateAgentInput): Promise<ActionResult<AuthAgent>> => {
 			try {
 				const res = await fetch(`${base}/agents`, {
 					method: "POST",
@@ -259,7 +259,7 @@ export function useAgents(basePath = "/api/kavach") {
 	);
 
 	const rotate = useCallback(
-		async (agentId: string): Promise<ActionResult<KavachAgent>> => {
+		async (agentId: string): Promise<ActionResult<AuthAgent>> => {
 			try {
 				const res = await fetch(`${base}/agents/${encodeURIComponent(agentId)}/rotate`, {
 					method: "POST",

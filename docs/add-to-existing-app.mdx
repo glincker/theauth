@@ -38,13 +38,13 @@ Substitute the adapter for your framework: `@glinr/theauth-hono`, `@glinr/theaut
 <Step title="Create the Kavach instance">
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 
-let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
+let instance: Awaited<ReturnType<typeof createAuth>> | null = null;
 
 export async function getKavach() {
   if (!instance) {
-    instance = await createKavach({
+    instance = await createAuth({
       database: {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
@@ -63,10 +63,10 @@ The lazy pattern lets Next.js build without opening a DB connection.
 <Step title="Wire the route handler">
 
 ```ts title="app/api/kavach/[...kavach]/route.ts"
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { authNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
-const { GET, POST } = kavachNextjs(getKavach);
+const { GET, POST } = authNextjs(getKavach);
 
 export { GET, POST };
 ```
@@ -217,7 +217,7 @@ export async function POST() {
 
 <AccordionGroup>
 <Accordion title="Do I need to run Kavach migrations manually?" icon="database">
-No by default. Kavach runs its own migrations on first boot. Set `skipMigrations: true` in `createKavach` if you want to run them yourself via `kavach-cli migrate`.
+No by default. Kavach runs its own migrations on first boot. Set `skipMigrations: true` in `createAuth` if you want to run them yourself via `kavach-cli migrate`.
 </Accordion>
 <Accordion title="Can I share the session cookie with my existing auth?" icon="cookie-bite">
 Not directly. Kavach issues its own cookie for sessions created via its plugins. If you never use Kavach's human-auth plugins (because you have Clerk / Auth.js / better-auth), you never see that cookie and there is nothing to share.

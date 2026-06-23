@@ -149,17 +149,26 @@ export interface McpServer {
 
 // ─── Result / Error types ─────────────────────────────────────────────────────
 
-export interface KavachError {
+export interface AuthError {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
 }
 
-export interface KavachApiErrorBody {
+/** @deprecated Use {@link AuthError} instead. Will be removed in v3.0. */
+export type KavachError = AuthError;
+
+export interface AuthApiErrorBody {
 	error: {
 		code: string;
 		message: string;
 	};
 }
 
-export type KavachResult<T> = { success: true; data: T } | { success: false; error: KavachError };
+/** @deprecated Use {@link AuthApiErrorBody} instead. Will be removed in v3.0. */
+export type KavachApiErrorBody = AuthApiErrorBody;
+
+export type AuthResult<T> = { success: true; data: T } | { success: false; error: AuthError };
+
+/** @deprecated Use {@link AuthResult} instead. Will be removed in v3.0. */
+export type KavachResult<T> = AuthResult<T>;

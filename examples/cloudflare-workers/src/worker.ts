@@ -17,7 +17,7 @@
  *   wrangler d1 execute theauth-db --file=./migrations/0001_initial.sql
  */
 
-import { createKavach } from "@glinr/theauth";
+import { createAuth } from "@glinr/theauth";
 import { kavachHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
 
@@ -35,7 +35,7 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 // All TheAuth routes under /api
 // kavach is created per-request so it picks up the correct D1 binding
 app.all("/api/*", async (c) => {
-	const kavach = await createKavach({
+	const kavach = await createAuth({
 		database: {
 			provider: "d1",
 			binding: c.env.DB,
