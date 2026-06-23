@@ -3,7 +3,7 @@ import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { APIRoute } from "astro";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachAstroOptions {
+export interface AuthAstroOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -12,12 +12,15 @@ export interface KavachAstroOptions {
 	 * The URL path prefix before the `[...path]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachAstroHandlers {
+/** @deprecated Use {@link AuthAstroOptions} instead. Will be removed in v3.0. */
+export type KavachAstroOptions = AuthAstroOptions;
+
+export interface AuthAstroHandlers {
 	GET: APIRoute;
 	POST: APIRoute;
 	PATCH: APIRoute;
@@ -25,6 +28,9 @@ export interface KavachAstroHandlers {
 	OPTIONS: APIRoute;
 	ALL: APIRoute;
 }
+
+/** @deprecated Use {@link AuthAstroHandlers} instead. Will be removed in v3.0. */
+export type KavachAstroHandlers = AuthAstroHandlers;
 
 /**
  * Create Astro API route handlers for all TheAuth REST API routes.
@@ -58,7 +64,7 @@ export interface KavachAstroHandlers {
  * const handlers = kavachAstro(kavach, { mcp });
  * ```
  */
-export function kavachAstro(kavach: Kavach, options?: KavachAstroOptions): KavachAstroHandlers {
+export function authAstro(kavach: Kavach, options?: AuthAstroOptions): AuthAstroHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -75,3 +81,6 @@ export function kavachAstro(kavach: Kavach, options?: KavachAstroOptions): Kavac
 		ALL: handler,
 	};
 }
+
+/** @deprecated Use {@link authAstro} instead. Will be removed in v3.0. */
+export const kavachAstro = authAstro;

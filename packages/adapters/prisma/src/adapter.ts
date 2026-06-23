@@ -1,12 +1,12 @@
 import type {
 	AgentFilter,
 	AuditLogFilter,
+	AuthPrismaAdapter,
 	CreateAgentInput,
 	CreateAuditLogInput,
 	CreatePermissionInput,
 	CreateSessionInput,
 	CreateUserInput,
-	KavachPrismaAdapter,
 	PrismaAgent,
 	PrismaApiKey,
 	PrismaApprovalRequest,
@@ -98,7 +98,7 @@ interface PrismaClientLike {
  * // Or pass to theauth via a custom integration layer
  * ```
  */
-export function createPrismaAdapter(prisma: PrismaClientLike): KavachPrismaAdapter {
+export function createPrismaAdapter(prisma: PrismaClientLike): AuthPrismaAdapter {
 	// ── Users ──────────────────────────────────────────────────────────────────
 
 	async function findUserById(id: string): Promise<PrismaUser | null> {
@@ -503,7 +503,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): KavachPrismaAdapt
 
 	// ── Transactions ───────────────────────────────────────────────────────────
 
-	async function transaction<T>(fn: (adapter: KavachPrismaAdapter) => Promise<T>): Promise<T> {
+	async function transaction<T>(fn: (adapter: AuthPrismaAdapter) => Promise<T>): Promise<T> {
 		return prisma.$transaction((tx) => fn(createPrismaAdapter(tx as PrismaClientLike)));
 	}
 

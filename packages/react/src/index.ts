@@ -1,7 +1,14 @@
 // Provider + context
 
-export type { KavachProviderProps } from "./context.js";
-export { KavachContext, KavachProvider, useKavachContext } from "./context.js";
+export type { AuthProviderProps, KavachProviderProps } from "./context.js";
+export {
+	AuthContext,
+	AuthProvider,
+	KavachContext,
+	KavachProvider,
+	useAuthContext,
+	useKavachContext,
+} from "./context.js";
 
 // Hooks
 export {
@@ -17,6 +24,11 @@ export {
 // Types
 export type {
 	ActionResult,
+	AuthAgent,
+	AuthContextValue,
+	AuthPermission,
+	AuthSession,
+	AuthUser,
 	CreateAgentInput,
 	ExternalAuthConfig,
 	KavachAgent,

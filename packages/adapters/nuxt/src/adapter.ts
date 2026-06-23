@@ -4,7 +4,7 @@ import type { EventHandler, H3Event } from "h3";
 import { defineEventHandler, getRequestURL, readBody, setHeader, setResponseStatus } from "h3";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachNuxtOptions {
+export interface AuthNuxtOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -13,10 +13,13 @@ export interface KavachNuxtOptions {
 	 * The URL path prefix before the catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
+
+/** @deprecated Use {@link AuthNuxtOptions} instead. Will be removed in v3.0. */
+export type KavachNuxtOptions = AuthNuxtOptions;
 
 /**
  * Create a Nuxt/H3 event handler for all TheAuth REST API routes.
@@ -39,7 +42,7 @@ export interface KavachNuxtOptions {
  * export default kavachNuxt(kavach, { mcp });
  * ```
  */
-export function kavachNuxt(kavach: Kavach, options?: KavachNuxtOptions): EventHandler {
+export function authNuxt(kavach: Kavach, options?: AuthNuxtOptions): EventHandler {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -88,3 +91,6 @@ export function kavachNuxt(kavach: Kavach, options?: KavachNuxtOptions): EventHa
 		return response.text();
 	});
 }
+
+/** @deprecated Use {@link authNuxt} instead. Will be removed in v3.0. */
+export const kavachNuxt = authNuxt;

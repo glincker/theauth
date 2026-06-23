@@ -308,7 +308,7 @@ export interface CreateSessionInput {
 
 // ─── Main adapter interface ───────────────────────────────────────────────────
 
-export interface KavachPrismaAdapter {
+export interface AuthPrismaAdapter {
 	// Users
 	findUserById(id: string): Promise<PrismaUser | null>;
 	findUserByEmail(email: string): Promise<PrismaUser | null>;
@@ -440,5 +440,8 @@ export interface KavachPrismaAdapter {
 	): Promise<PrismaApprovalRequest>;
 
 	// Transactions
-	transaction<T>(fn: (adapter: KavachPrismaAdapter) => Promise<T>): Promise<T>;
+	transaction<T>(fn: (adapter: AuthPrismaAdapter) => Promise<T>): Promise<T>;
 }
+
+/** @deprecated Use {@link AuthPrismaAdapter} instead. Will be removed in v3.0. */
+export type KavachPrismaAdapter = AuthPrismaAdapter;

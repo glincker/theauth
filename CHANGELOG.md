@@ -6,6 +6,35 @@ For the full raw record see [GitHub Releases](https://github.com/glincker/theaut
 
 ## Timeline
 
+### v0.5.0 (upcoming), June 2026 -- Kavach* to Auth* rename
+
+No breaking change. All `Kavach*` exported identifiers now have `Auth*` canonical equivalents. The old names are still exported as `@deprecated` aliases and will continue to work until v3.0, when they will be removed.
+
+New canonical names added across all packages:
+
+- `createAuth` / `Auth` / `AuthConfig` / `AuthInstance` (core)
+- `AuthError` / `AuthHooks` / `AuthPlugin` (core internals)
+- `AUTH_AGENT_CREDENTIAL`, `AUTH_PERMISSION_CREDENTIAL`, `AUTH_DELEGATION_CREDENTIAL` (core VC)
+- `AuthApiError` / `AuthClientOptions` / `AuthClient` / `createAuthClient` (client)
+- `AuthUser`, `AuthSession`, `AuthAgent`, `AuthPermission`, `AuthContextValue`, `AuthContext`, `AuthProvider`, `useAuthContext` (react)
+- `AUTH_KEY`, `AuthPluginOptions`, `createAuthPlugin` (vue)
+- `AuthStorage`, `AuthExpoConfig`, `AuthExpoProvider`, `useAuthContext` (expo)
+- `AuthSettings`, `AuthApiClient`, `AuthDashboard` (dashboard)
+- `AuthEmailError` (email auth)
+- `AuthNextjsOptions`, `AuthNextjsHandlers`, `authNextjs` (nextjs adapter)
+- `AuthNestjsOptions`, `buildAuthRouter`, `authMiddleware`, `AuthModuleOptions`, `AuthModule` (nestjs adapter)
+- `AuthTanStackOptions`, `AuthTanStackHandlers`, `authTanStack` (tanstack adapter)
+- `AuthSvelteKitOptions`, `AuthSvelteKitHandlers`, `authSvelteKit` (sveltekit adapter)
+- `AuthAstroOptions`, `AuthAstroHandlers`, `authAstro` (astro adapter)
+- `AuthNuxtOptions`, `authNuxt` (nuxt adapter)
+- `AuthFastifyOptions`, `authFastify` (fastify adapter)
+- `AuthSolidStartOptions`, `AuthSolidStartHandlers`, `authSolidStart` (solidstart adapter)
+- `AuthPrismaAdapter` (prisma adapter)
+
+See `RENAME-MAP.md` for the full one-to-one mapping table and a migration guide.
+
+Removal timeline: deprecated `Kavach*` names will be removed in v3.0.
+
 ### @glinr/theauth-nextjs-auth v0.1.0, May 2, 2026
 
 New package. A focused Next.js (14/15/16) adapter for apps whose auth backend lives outside Next.js (Spring, Rails, Hono, Go, etc.). Distinct from `@glinr/theauth-nextjs` which bundles the agent-management runtime — this is the "I have a backend already, just give me session + cookies + refresh on the FE" path.

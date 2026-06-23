@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emailPassword } from "../../../packages/auth/email/src/index.js";
 import type { Kavach } from "../../../packages/core/src/kavach.js";
-import { createKavach } from "../../../packages/core/src/kavach.js";
+import { createAuth } from "../../../packages/core/src/kavach.js";
 
 const state = vi.hoisted(() => ({ kavach: null as Kavach | null }));
 
@@ -34,7 +34,7 @@ function getField<T>(body: Record<string, unknown>, key: string): T | undefined 
 
 describe("nextjs-demo example", () => {
 	beforeEach(async () => {
-		state.kavach = await createKavach({
+		state.kavach = await createAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			agents: {
 				enabled: true,

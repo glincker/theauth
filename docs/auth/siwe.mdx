@@ -17,10 +17,10 @@ It works with any wallet that supports personal_sign: MetaMask, WalletConnect, C
 ### Add the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { siwe } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

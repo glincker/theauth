@@ -10,10 +10,10 @@ import {
 } from "react";
 import type {
 	ActionResult,
+	AuthContextValue,
+	AuthSession,
+	AuthUser,
 	ExternalAuthConfig,
-	KavachContextValue,
-	KavachSession,
-	KavachUser,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,
@@ -22,33 +22,41 @@ import type {
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const KavachContext = createContext<KavachContextValue | null>(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function useKavachContext(): KavachContextValue {
-	const ctx = useContext(KavachContext);
+/** @deprecated Use {@link AuthContext} instead. Will be removed in v3.0. */
+export const KavachContext = AuthContext;
+
+export function useAuthContext(): AuthContextValue {
+	const ctx = useContext(AuthContext);
 	if (!ctx) {
-		throw new Error("useKavachContext must be used inside <KavachProvider>");
+		throw new Error("useAuthContext must be used inside <AuthProvider>");
 	}
 	return ctx;
 }
 
+/** @deprecated Use {@link useAuthContext} instead. Will be removed in v3.0. */
+export function useKavachContext(): AuthContextValue {
+	return useAuthContext();
+}
+
 // ─── Provider props ───────────────────────────────────────────────────────────
 
-export interface KavachProviderProps {
+export interface AuthProviderProps {
 	children: ReactNode;
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 	/**
-	 * External auth mode — delegates authentication to an external API.
+	 * External auth mode - delegates authentication to an external API.
 	 * When set, TheAuth acts as a thin client:
 	 * - User is fetched from `external.apiUrl + external.mePath`
 	 * - Login redirects to `external.apiUrl + external.loginPath`
 	 * - Logout calls `external.apiUrl + external.logoutPath`
-	 * - No localStorage sessions — the external API manages auth via httpOnly cookies
+	 * - No localStorage sessions - the external API manages auth via httpOnly cookies
 	 *
 	 * @example
 	 * ```tsx
-	 * <KavachProvider external={{
+	 * <AuthProvider external={{
 	 *   apiUrl: "http://localhost:8080",
 	 *   loginPath: "/auth/github",
 	 *   mePath: "/api/auth/me",
@@ -71,6 +79,9 @@ export interface KavachProviderProps {
 	debug?: boolean;
 }
 
+/** @deprecated Use {@link AuthProviderProps} instead. Will be removed in v3.0. */
+export type KavachProviderProps = AuthProviderProps;
+
 // ─── Debug helper ─────────────────────────────────────────────────────────────
 
 function resolveDebug(propDebug?: boolean): boolean {
@@ -91,12 +102,12 @@ function makeLogger(enabled: boolean) {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function KavachProvider({
+export function AuthProvider({
 	children,
 	basePath = "/api/kavach",
 	external,
 	debug,
-}: KavachProviderProps): ReactNode {
+}: AuthProviderProps): ReactNode {
 	const debugEnabled = resolveDebug(debug);
 	if (external) {
 		return (
@@ -111,6 +122,9 @@ export function KavachProvider({
 		</ManagedProvider>
 	);
 }
+
+/** @deprecated Use {@link AuthProvider} instead. Will be removed in v3.0. */
+export const KavachProvider = AuthProvider;
 
 // ─── Rotation defaults ────────────────────────────────────────────────────────
 
@@ -166,7 +180,7 @@ function ExternalProvider({
 }): ReactNode {
 	// Stable identity across renders so useCallback deps don't churn.
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [user, setUser] = useState<KavachUser | null>(null);
+	const [user, setUser] = useState<AuthUser | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [rotationStatus, setRotationStatus] = useState<RotationStatus>("idle");
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -564,9 +578,9 @@ function ExternalProvider({
 		return { success: true, data: undefined };
 	}, [apiUrl, loginPath]);
 
-	const session: KavachSession | null = user ? { token: "__external__", user } : null;
+	const session: AuthSession | null = user ? { token: "__external__", user } : null;
 
-	const value: KavachContextValue = {
+	const value: AuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -585,7 +599,7 @@ function ExternalProvider({
 
 // ─── Default user mapper ──────────────────────────────────────────────────────
 
-function defaultMapUser(data: Record<string, unknown>): KavachUser {
+function defaultMapUser(data: Record<string, unknown>): AuthUser {
 	return {
 		id: (data.user_id as string) ?? (data.id as string) ?? (data.sub as string) ?? "unknown",
 		email: data.email as string | undefined,
@@ -606,7 +620,7 @@ function ManagedProvider({
 	debug?: boolean;
 }): ReactNode {
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [session, setSession] = useState<KavachSession | null>(null);
+	const [session, setSession] = useState<AuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
 		typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -622,7 +636,7 @@ function ManagedProvider({
 		try {
 			const raw = window.localStorage.getItem(STORAGE_KEY);
 			if (raw) {
-				const stored = JSON.parse(raw) as KavachSession;
+				const stored = JSON.parse(raw) as AuthSession;
 				setSession(stored);
 			} else {
 				setSession(null);
@@ -671,7 +685,7 @@ function ManagedProvider({
 					body: JSON.stringify({ email, password }),
 				});
 				const json = (await res.json()) as
-					| { user: KavachUser; session: { token: string; expiresAt: string } }
+					| { user: AuthUser; session: { token: string; expiresAt: string } }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -682,8 +696,8 @@ function ManagedProvider({
 					};
 				}
 
-				const okBody = json as { user: KavachUser; session: { token: string; expiresAt: string } };
-				const sessionData: KavachSession = {
+				const okBody = json as { user: AuthUser; session: { token: string; expiresAt: string } };
+				const sessionData: AuthSession = {
 					token: okBody.session.token,
 					user: okBody.user,
 					expiresAt: okBody.session.expiresAt,
@@ -715,7 +729,7 @@ function ManagedProvider({
 					body: JSON.stringify({ email, password, name }),
 				});
 				const json = (await res.json()) as
-					| { user: KavachUser; token: string }
+					| { user: AuthUser; token: string }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -726,8 +740,8 @@ function ManagedProvider({
 					};
 				}
 
-				const okBody = json as { user: KavachUser; token: string };
-				const sessionData: KavachSession = {
+				const okBody = json as { user: AuthUser; token: string };
+				const sessionData: AuthSession = {
 					token: okBody.token,
 					user: okBody.user,
 				};
@@ -754,14 +768,14 @@ function ManagedProvider({
 		}
 	}, [log]);
 
-	const user: KavachUser | null = session?.user ?? null;
+	const user: AuthUser | null = session?.user ?? null;
 
 	const rotateSession = useCallback(
 		makeNoopRotation("rotateSession is only available in external mode with refreshPath set"),
 		[],
 	);
 
-	const value: KavachContextValue = {
+	const value: AuthContextValue = {
 		session,
 		user,
 		isLoading,

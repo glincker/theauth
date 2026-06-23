@@ -1,10 +1,10 @@
 ---
 title: SolidStart
-description: Mount TheAuth auth routes in SolidStart with `kavachSolidStart(kavach)`. Returns named route handlers using Web-standard Request, with no conversion layer needed.
+description: Mount TheAuth auth routes in SolidStart with `authSolidStart(kavach)`. Returns named route handlers using Web-standard Request, with no conversion layer needed.
 icon: "/brand-icons/solid.svg"
 ---
 
-`kavachSolidStart(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all API route file so all TheAuth paths are handled.
+`authSolidStart(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all API route file so all TheAuth paths are handled.
 
 ## Install
 
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-solidstart
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -40,10 +40,10 @@ Create `src/routes/api/kavach/[...kavach].ts`. The `[...kavach]` segment catches
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { kavachSolidStart } from '@glinr/theauth-solidstart';
+import { authSolidStart } from '@glinr/theauth-solidstart';
 import { kavach, mcp } from '~/lib/kavach';
 
-const handlers = kavachSolidStart(kavach, { mcp });
+const handlers = authSolidStart(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -62,7 +62,7 @@ export const OPTIONS = handlers.OPTIONS;
 ## Options
 
 ```typescript
-interface KavachSolidStartOptions {
+interface AuthSolidStartOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
   basePath?: string;       // defaults to '/api/kavach'
 }
@@ -102,10 +102,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
-import { kavachSolidStart } from '@glinr/theauth-solidstart';
+import { createAuth, createMcpModule } from '@glinr/theauth';
+import { authSolidStart } from '@glinr/theauth-solidstart';
 
-const kavach = createKavach({
+const kavach = createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -116,7 +116,7 @@ const kavach = createKavach({
 
 const mcp = createMcpModule(kavach);
 
-const handlers = kavachSolidStart(kavach, { mcp });
+const handlers = authSolidStart(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

@@ -1,32 +1,41 @@
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-export interface KavachUser {
+export interface AuthUser {
 	id: string;
 	email?: string;
 	name?: string;
 	image?: string;
 }
 
-export interface KavachSession {
+/** @deprecated Use {@link AuthUser} instead. Will be removed in v3.0. */
+export type KavachUser = AuthUser;
+
+export interface AuthSession {
 	token: string;
-	user: KavachUser;
+	user: AuthUser;
 	expiresAt?: string;
 }
 
-export interface KavachAgent {
+/** @deprecated Use {@link AuthSession} instead. Will be removed in v3.0. */
+export type KavachSession = AuthSession;
+
+export interface AuthAgent {
 	id: string;
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
 	token: string;
-	permissions: KavachPermission[];
+	permissions: AuthPermission[];
 	status: "active" | "revoked" | "expired";
 	expiresAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
-export interface KavachPermission {
+/** @deprecated Use {@link AuthAgent} instead. Will be removed in v3.0. */
+export type KavachAgent = AuthAgent;
+
+export interface AuthPermission {
 	resource: string;
 	actions: string[];
 	constraints?: {
@@ -38,11 +47,14 @@ export interface KavachPermission {
 	};
 }
 
+/** @deprecated Use {@link AuthPermission} instead. Will be removed in v3.0. */
+export type KavachPermission = AuthPermission;
+
 export interface CreateAgentInput {
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
-	permissions: KavachPermission[];
+	permissions: AuthPermission[];
 	expiresAt?: string;
 	metadata?: Record<string, unknown>;
 }
@@ -53,9 +65,9 @@ export type ActionResult<T = void> = { success: true; data: T } | { success: fal
 
 // ─── Context value ────────────────────────────────────────────────────────────
 
-export interface KavachContextValue {
-	session: KavachSession | null;
-	user: KavachUser | null;
+export interface AuthContextValue {
+	session: AuthSession | null;
+	user: AuthUser | null;
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	basePath: string;
@@ -64,3 +76,6 @@ export interface KavachContextValue {
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 }
+
+/** @deprecated Use {@link AuthContextValue} instead. Will be removed in v3.0. */
+export type KavachContextValue = AuthContextValue;

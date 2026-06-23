@@ -17,9 +17,16 @@ export const VC_TYPE_CREDENTIAL = "VerifiableCredential";
 export const VC_TYPE_PRESENTATION = "VerifiablePresentation";
 
 // TheAuth-specific credential types
-export const KAVACH_AGENT_CREDENTIAL = "KavachAgentCredential";
-export const KAVACH_PERMISSION_CREDENTIAL = "KavachPermissionCredential";
-export const KAVACH_DELEGATION_CREDENTIAL = "KavachDelegationCredential";
+export const AUTH_AGENT_CREDENTIAL = "AuthAgentCredential";
+export const AUTH_PERMISSION_CREDENTIAL = "AuthPermissionCredential";
+export const AUTH_DELEGATION_CREDENTIAL = "AuthDelegationCredential";
+
+/** @deprecated Use {@link AUTH_AGENT_CREDENTIAL} instead. Will be removed in v3.0. */
+export const KAVACH_AGENT_CREDENTIAL = AUTH_AGENT_CREDENTIAL;
+/** @deprecated Use {@link AUTH_PERMISSION_CREDENTIAL} instead. Will be removed in v3.0. */
+export const KAVACH_PERMISSION_CREDENTIAL = AUTH_PERMISSION_CREDENTIAL;
+/** @deprecated Use {@link AUTH_DELEGATION_CREDENTIAL} instead. Will be removed in v3.0. */
+export const KAVACH_DELEGATION_CREDENTIAL = AUTH_DELEGATION_CREDENTIAL;
 
 // ─── Proof Types ─────────────────────────────────────────────────────────────
 

@@ -9,12 +9,23 @@ export {
 	useSignUp,
 	useUser,
 } from "./composables.js";
-export type { KavachPluginOptions } from "./plugin.js";
-export { createKavachPlugin, KAVACH_KEY, useRequiredContext } from "./plugin.js";
+export type { AuthPluginOptions, KavachPluginOptions } from "./plugin.js";
+export {
+	AUTH_KEY,
+	createAuthPlugin,
+	createKavachPlugin,
+	KAVACH_KEY,
+	useRequiredContext,
+} from "./plugin.js";
 
 // Types
 export type {
 	ActionResult,
+	AuthAgent,
+	AuthContextValue,
+	AuthPermission,
+	AuthSession,
+	AuthUser,
 	CreateAgentInput,
 	KavachAgent,
 	KavachContextValue,

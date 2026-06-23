@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useRequiredContext } from "./plugin.js";
-import type { ActionResult, CreateAgentInput, KavachAgent } from "./types.js";
+import type { ActionResult, AuthAgent, CreateAgentInput } from "./types.js";
 
 // ─── useSession ───────────────────────────────────────────────────────────────
 
@@ -101,11 +101,11 @@ export function useSignOut() {
 // ─── useAgents ────────────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
-	data: KavachAgent[];
+	data: AuthAgent[];
 }
 
 interface AgentSingleApiResponse {
-	data: KavachAgent;
+	data: AuthAgent;
 }
 
 interface ApiErrorResponse {
@@ -140,7 +140,7 @@ export function useAgents() {
 	const ctx = useRequiredContext("useAgents");
 	const base = ctx.basePath;
 
-	const agents = ref<KavachAgent[]>([]);
+	const agents = ref<AuthAgent[]>([]);
 	const isLoading = ref(false);
 	const error = ref<string | null>(null);
 
@@ -173,7 +173,7 @@ export function useAgents() {
 		void load();
 	}
 
-	async function create(input: CreateAgentInput): Promise<ActionResult<KavachAgent>> {
+	async function create(input: CreateAgentInput): Promise<ActionResult<AuthAgent>> {
 		try {
 			const res = await fetch(`${base}/agents`, {
 				method: "POST",
@@ -222,7 +222,7 @@ export function useAgents() {
 		}
 	}
 
-	async function rotate(agentId: string): Promise<ActionResult<KavachAgent>> {
+	async function rotate(agentId: string): Promise<ActionResult<AuthAgent>> {
 		try {
 			const res = await fetch(`${base}/agents/${encodeURIComponent(agentId)}/rotate`, {
 				method: "POST",

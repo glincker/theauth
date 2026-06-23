@@ -2,13 +2,16 @@ import { z } from "zod";
 
 // ─── Result Type ────────────────────────────────────────────────────────────
 
-export interface KavachError {
+export interface AuthError {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
 }
 
-export type Result<T> = { success: true; data: T } | { success: false; error: KavachError };
+/** @deprecated Use {@link AuthError} instead. Will be removed in v3.0. */
+export type KavachError = AuthError;
+
+export type Result<T> = { success: true; data: T } | { success: false; error: AuthError };
 
 // ─── MCP Module Configuration ───────────────────────────────────────────────
 

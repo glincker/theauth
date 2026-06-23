@@ -10,11 +10,11 @@ The `twoFactor()` plugin adds TOTP (time-based one-time password) support compat
 ## Setup
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 import { twoFactor } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

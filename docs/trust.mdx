@@ -55,7 +55,7 @@ An agent with 200 successful calls, no denials, and 40 days of history scores: `
 The default thresholds can be overridden at init:
 
 ```typescript
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   // Override specific thresholds while keeping others at their defaults
 });

@@ -1,21 +1,15 @@
 import type { Readable } from "svelte/store";
 import { derived, writable } from "svelte/store";
-import type {
-	ActionResult,
-	CreateAgentInput,
-	KavachAgent,
-	KavachSession,
-	KavachUser,
-} from "./types.js";
+import type { ActionResult, AuthAgent, AuthSession, AuthUser, CreateAgentInput } from "./types.js";
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
-	data: KavachAgent[];
+	data: AuthAgent[];
 }
 
 interface AgentSingleApiResponse {
-	data: KavachAgent;
+	data: AuthAgent;
 }
 
 interface ApiErrorResponse {
@@ -40,15 +34,18 @@ function extractError(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-// ─── createKavachClient ───────────────────────────────────────────────────────
+// ─── createAuthClient ─────────────────────────────────────────────────────────
 
-export interface KavachClientOptions {
+export interface AuthClientOptions {
 	basePath?: string;
 }
 
-export interface KavachClient {
-	session: Readable<KavachSession | null>;
-	user: Readable<KavachUser | null>;
+/** @deprecated Use {@link AuthClientOptions} instead. Will be removed in v3.0. */
+export type KavachClientOptions = AuthClientOptions;
+
+export interface AuthClient {
+	session: Readable<AuthSession | null>;
+	user: Readable<AuthUser | null>;
 	isAuthenticated: Readable<boolean>;
 	isLoading: Readable<boolean>;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
@@ -57,16 +54,19 @@ export interface KavachClient {
 	refresh: () => Promise<void>;
 }
 
+/** @deprecated Use {@link AuthClient} instead. Will be removed in v3.0. */
+export type KavachClient = AuthClient;
+
 /**
  * Creates a self-contained auth client backed by Svelte stores.
  *
  * Call this once (e.g. in a module or Svelte context) and spread or
  * pass the returned object to whatever components need it.
  */
-export function createKavachClient(options?: KavachClientOptions): KavachClient {
+export function createAuthClient(options?: AuthClientOptions): AuthClient {
 	const basePath = options?.basePath ?? "/api/kavach";
 
-	const session = writable<KavachSession | null>(null);
+	const session = writable<AuthSession | null>(null);
 	const isLoading = writable(true);
 
 	const user = derived(session, ($session) => $session?.user ?? null);
@@ -83,7 +83,7 @@ export function createKavachClient(options?: KavachClientOptions): KavachClient 
 			}
 			const raw = window.localStorage.getItem(STORAGE_KEY);
 			if (raw) {
-				session.set(JSON.parse(raw) as KavachSession);
+				session.set(JSON.parse(raw) as AuthSession);
 			} else {
 				session.set(null);
 			}
@@ -106,8 +106,8 @@ export function createKavachClient(options?: KavachClientOptions): KavachClient 
 			if (!res.ok) {
 				return { success: false, error: extractError(json, `Sign-in failed (${res.status})`) };
 			}
-			const okBody = json as { user: KavachUser; session: { token: string; expiresAt: string } };
-			const sessionData: KavachSession = {
+			const okBody = json as { user: AuthUser; session: { token: string; expiresAt: string } };
+			const sessionData: AuthSession = {
 				token: okBody.session.token,
 				user: okBody.user,
 				expiresAt: okBody.session.expiresAt,
@@ -137,8 +137,8 @@ export function createKavachClient(options?: KavachClientOptions): KavachClient 
 			if (!res.ok) {
 				return { success: false, error: extractError(json, `Sign-up failed (${res.status})`) };
 			}
-			const okBody = json as { user: KavachUser; token: string };
-			const sessionData: KavachSession = {
+			const okBody = json as { user: AuthUser; token: string };
+			const sessionData: AuthSession = {
 				token: okBody.token,
 				user: okBody.user,
 			};
@@ -170,8 +170,8 @@ export function createKavachClient(options?: KavachClientOptions): KavachClient 
 	}
 
 	return {
-		session: { subscribe: session.subscribe } as Readable<KavachSession | null>,
-		user: user as Readable<KavachUser | null>,
+		session: { subscribe: session.subscribe } as Readable<AuthSession | null>,
+		user: user as Readable<AuthUser | null>,
 		isAuthenticated: isAuthenticated as Readable<boolean>,
 		isLoading: { subscribe: isLoading.subscribe } as Readable<boolean>,
 		signIn,
@@ -181,22 +181,25 @@ export function createKavachClient(options?: KavachClientOptions): KavachClient 
 	};
 }
 
+/** @deprecated Use {@link createAuthClient} instead. Will be removed in v3.0. */
+export const createKavachClient = createAuthClient;
+
 // ─── createAgentStore ─────────────────────────────────────────────────────────
 
 export interface AgentStoreOptions {
 	basePath?: string;
-	/** Pass the user store from a KavachClient to enable auto-load. */
-	user?: Readable<KavachUser | null>;
+	/** Pass the user store from an AuthClient to enable auto-load. */
+	user?: Readable<AuthUser | null>;
 }
 
 export interface AgentStore {
-	agents: Readable<KavachAgent[]>;
+	agents: Readable<AuthAgent[]>;
 	isLoading: Readable<boolean>;
 	error: Readable<string | null>;
 	load: (userId: string) => Promise<void>;
-	create: (input: CreateAgentInput) => Promise<ActionResult<KavachAgent>>;
+	create: (input: CreateAgentInput) => Promise<ActionResult<AuthAgent>>;
 	revoke: (agentId: string) => Promise<ActionResult>;
-	rotate: (agentId: string) => Promise<ActionResult<KavachAgent>>;
+	rotate: (agentId: string) => Promise<ActionResult<AuthAgent>>;
 }
 
 /**
@@ -208,7 +211,7 @@ export interface AgentStore {
 export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 	const basePath = options?.basePath ?? "/api/kavach";
 
-	const agents = writable<KavachAgent[]>([]);
+	const agents = writable<AuthAgent[]>([]);
 	const isLoading = writable(false);
 	const error = writable<string | null>(null);
 
@@ -232,7 +235,7 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		}
 	}
 
-	async function create(input: CreateAgentInput): Promise<ActionResult<KavachAgent>> {
+	async function create(input: CreateAgentInput): Promise<ActionResult<AuthAgent>> {
 		try {
 			const res = await fetch(`${basePath}/agents`, {
 				method: "POST",
@@ -283,7 +286,7 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		}
 	}
 
-	async function rotate(agentId: string): Promise<ActionResult<KavachAgent>> {
+	async function rotate(agentId: string): Promise<ActionResult<AuthAgent>> {
 		try {
 			const res = await fetch(`${basePath}/agents/${encodeURIComponent(agentId)}/rotate`, {
 				method: "POST",
@@ -324,7 +327,7 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 	}
 
 	return {
-		agents: { subscribe: agents.subscribe } as Readable<KavachAgent[]>,
+		agents: { subscribe: agents.subscribe } as Readable<AuthAgent[]>,
 		isLoading: { subscribe: isLoading.subscribe } as Readable<boolean>,
 		error: { subscribe: error.subscribe } as Readable<string | null>,
 		load,

@@ -7,7 +7,7 @@
  * authorizeByToken against the delegated permission.
  */
 
-import { createKavach, users } from "@glinr/theauth";
+import { createAuth, users } from "@glinr/theauth";
 
 const BANNER = "=".repeat(60);
 
@@ -24,9 +24,9 @@ function denied(label: string, reason: string): void {
 }
 
 async function main(): Promise<void> {
-	section("Step 1: createKavach (core, no agent plugin)");
+	section("Step 1: createAuth (core, no agent plugin)");
 
-	const kavach = await createKavach({
+	const kavach = await createAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,

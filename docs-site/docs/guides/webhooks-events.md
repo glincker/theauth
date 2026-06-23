@@ -10,9 +10,9 @@ Webhooks push signed HTTP POST requests to a URL you control whenever a TheAuth 
 ## Setup
 
 ```typescript
-import { createKavach, createWebhookModule } from '@glinr/theauth';
+import { createAuth, createWebhookModule } from '@glinr/theauth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     createWebhookModule({

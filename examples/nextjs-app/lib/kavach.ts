@@ -3,9 +3,9 @@
 // Next.js hot-reloads modules in dev, so we store the instance on `globalThis`
 // to avoid re-creating the database connection on every reload.
 
-import { createKavach } from "@glinr/theauth";
+import { createAuth } from "@glinr/theauth";
 
-type KavachInstance = Awaited<ReturnType<typeof createKavach>>;
+type KavachInstance = Awaited<ReturnType<typeof createAuth>>;
 
 declare global {
 	// eslint-disable-next-line no-var
@@ -20,7 +20,7 @@ export function getKavach(): Promise<KavachInstance> {
 	}
 
 	if (!kavachPromise) {
-		kavachPromise = createKavach({
+		kavachPromise = createAuth({
 			database: {
 				provider: "sqlite",
 				url: process.env.KAVACH_DB_URL ?? "kavach.db",

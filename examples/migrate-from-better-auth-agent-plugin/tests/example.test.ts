@@ -15,7 +15,7 @@ describe("migrate-from-better-auth-agent-plugin example", () => {
 		});
 
 		const output = `${stdout}\n${stderr}`;
-		expect(output).toContain("Step 1: createKavach");
+		expect(output).toContain("Step 1: createAuth");
 		expect(output).toContain("orchestrator created");
 		expect(output).toContain("delegated child created");
 		expect(output).toContain("delegation created");

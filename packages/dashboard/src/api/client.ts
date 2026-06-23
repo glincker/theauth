@@ -3,12 +3,12 @@ import type {
 	AgentPermission,
 	ApiResult,
 	AuditLogFilters,
+	AuthSettings,
 	CreateAgentInput,
 	CreateAgentResponse,
 	CreatePermissionTemplateInput,
 	DashboardStats,
 	DelegationChain,
-	KavachSettings,
 	McpServerInfo,
 	PaginatedAuditLogs,
 	PermissionTemplate,
@@ -18,7 +18,7 @@ import type {
 
 // ─── Client Factory ───────────────────────────────────────────────────────────
 
-export interface KavachApiClient {
+export interface AuthApiClient {
 	getStats: () => Promise<ApiResult<DashboardStats>>;
 
 	getAgents: () => Promise<ApiResult<Agent[]>>;
@@ -51,10 +51,10 @@ export interface KavachApiClient {
 	getMcpServers: () => Promise<ApiResult<McpServerInfo[]>>;
 	registerMcpServer: (input: RegisterMcpServerInput) => Promise<ApiResult<McpServerInfo>>;
 
-	getSettings: () => Promise<ApiResult<KavachSettings>>;
+	getSettings: () => Promise<ApiResult<AuthSettings>>;
 	updateSettings: (
-		settings: Partial<Omit<KavachSettings, "database">>,
-	) => Promise<ApiResult<KavachSettings>>;
+		settings: Partial<Omit<AuthSettings, "database">>,
+	) => Promise<ApiResult<AuthSettings>>;
 }
 
 // ─── Internal Fetch Helper ────────────────────────────────────────────────────
@@ -105,7 +105,10 @@ async function apiFetch<T>(
 
 // ─── Client Constructor ───────────────────────────────────────────────────────
 
-export function createApiClient(apiUrl: string): KavachApiClient {
+/** @deprecated Use {@link AuthApiClient} instead. Will be removed in v3.0. */
+export type KavachApiClient = AuthApiClient;
+
+export function createApiClient(apiUrl: string): AuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
 
 	return {
@@ -204,10 +207,10 @@ export function createApiClient(apiUrl: string): KavachApiClient {
 			}),
 
 		// Settings
-		getSettings: () => fetch<KavachSettings>("/api/settings"),
+		getSettings: () => fetch<AuthSettings>("/api/settings"),
 
 		updateSettings: (settings) =>
-			fetch<KavachSettings>("/api/settings", {
+			fetch<AuthSettings>("/api/settings", {
 				method: "PATCH",
 				body: JSON.stringify(settings),
 			}),

@@ -118,10 +118,10 @@ For more control, put your config in a JSON file and pass it with `--config`:
 Use the gateway inside your own Node.js application without starting a separate process:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { createGateway } from '@glinr/theauth-gateway';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 
@@ -251,7 +251,7 @@ CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--
 
 <ParamField path="upstream" type="string">URL of the upstream service to proxy to</ParamField>
 <ParamField path="basePath" type="string" default="&quot;/&quot;">Base path prefix. Default: "/"</ParamField>
-<ParamField path="kavach" type="Kavach">TheAuth instance created with createKavach()</ParamField>
+<ParamField path="kavach" type="Kavach">TheAuth instance created with createAuth()</ParamField>
 <ParamField path="policies" type="GatewayPolicy[]">Array of path-based access policies</ParamField>
 <ParamField path="cors" type="CorsConfig">CORS configuration</ParamField>
 <ParamField path="rateLimit" type="{ windowMs: number; max: number }">Global rate limit applied to all requests</ParamField>

@@ -24,10 +24,10 @@ TheAuth will handle the path `/api/kavach/auth/oauth/callback/wechat`.
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     oauth({

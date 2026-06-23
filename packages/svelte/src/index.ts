@@ -1,11 +1,22 @@
 // Stores
 
-export type { AgentStore, AgentStoreOptions, KavachClient, KavachClientOptions } from "./stores.js";
-export { createAgentStore, createKavachClient } from "./stores.js";
+export type {
+	AgentStore,
+	AgentStoreOptions,
+	AuthClient,
+	AuthClientOptions,
+	KavachClient,
+	KavachClientOptions,
+} from "./stores.js";
+export { createAgentStore, createAuthClient, createKavachClient } from "./stores.js";
 
 // Types
 export type {
 	ActionResult,
+	AuthAgent,
+	AuthPermission,
+	AuthSession,
+	AuthUser,
 	CreateAgentInput,
 	KavachAgent,
 	KavachPermission,

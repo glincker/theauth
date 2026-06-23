@@ -2,7 +2,7 @@ import type { Kavach } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachTanStackOptions {
+export interface AuthTanStackOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -16,7 +16,7 @@ export interface KavachTanStackOptions {
 	basePath?: string;
 }
 
-export interface KavachTanStackHandlers {
+export interface AuthTanStackHandlers {
 	GET: (request: Request) => Promise<Response>;
 	POST: (request: Request) => Promise<Response>;
 	PATCH: (request: Request) => Promise<Response>;
@@ -24,18 +24,24 @@ export interface KavachTanStackHandlers {
 	OPTIONS: (request: Request) => Promise<Response>;
 }
 
+/** @deprecated Use {@link AuthTanStackOptions} instead. Will be removed in v3.0. */
+export type KavachTanStackOptions = AuthTanStackOptions;
+
+/** @deprecated Use {@link AuthTanStackHandlers} instead. Will be removed in v3.0. */
+export type KavachTanStackHandlers = AuthTanStackHandlers;
+
 /**
  * Create TanStack Start API route handlers for all TheAuth REST API routes.
  *
- * Mount in `app/routes/api/kavach.$.ts`:
+ * Mount in `app/routes/api/auth.$.ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
- * import { kavachTanStack } from '@glinr/theauth-tanstack';
+ * import { createAuth } from '@glinr/theauth';
+ * import { authTanStack } from '@glinr/theauth-tanstack';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = kavachTanStack(kavach);
+ * const auth = createAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const handlers = authTanStack(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -48,13 +54,10 @@ export interface KavachTanStackHandlers {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = kavachTanStack(kavach, { mcp });
+ * const handlers = authTanStack(auth, { mcp });
  * ```
  */
-export function kavachTanStack(
-	kavach: Kavach,
-	options?: KavachTanStackOptions,
-): KavachTanStackHandlers {
+export function authTanStack(kavach: Kavach, options?: AuthTanStackOptions): AuthTanStackHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -70,3 +73,6 @@ export function kavachTanStack(
 		OPTIONS: handler,
 	};
 }
+
+/** @deprecated Use {@link authTanStack} instead. Will be removed in v3.0. */
+export const kavachTanStack = authTanStack;

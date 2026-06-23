@@ -142,7 +142,7 @@ await kavach.agent.revoke(agentId);
 The default is 10 active agents per user. Raise at initialization:
 
 ```ts
-const kavach = createKavach({
+const kavach = createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   agents: {
     maxPerUser: 50,

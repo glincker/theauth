@@ -2,21 +2,24 @@ import type { Kavach } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachSolidStartOptions {
+export interface AuthSolidStartOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
 	mcp?: McpAuthModule;
 	/**
-	 * The URL path prefix before the `[...kavach]` catch-all segment.
+	 * The URL path prefix before the `[...auth]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachSolidStartHandlers {
+/** @deprecated Use {@link AuthSolidStartOptions} instead. Will be removed in v3.0. */
+export type KavachSolidStartOptions = AuthSolidStartOptions;
+
+export interface AuthSolidStartHandlers {
 	GET: (request: Request) => Promise<Response>;
 	POST: (request: Request) => Promise<Response>;
 	PATCH: (request: Request) => Promise<Response>;
@@ -24,18 +27,21 @@ export interface KavachSolidStartHandlers {
 	OPTIONS: (request: Request) => Promise<Response>;
 }
 
+/** @deprecated Use {@link AuthSolidStartHandlers} instead. Will be removed in v3.0. */
+export type KavachSolidStartHandlers = AuthSolidStartHandlers;
+
 /**
  * Create SolidStart API route handlers for all TheAuth REST API routes.
  *
- * Mount in `src/routes/api/kavach/[...kavach].ts`:
+ * Mount in `src/routes/api/auth/[...auth].ts`:
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
- * import { kavachSolidStart } from '@glinr/theauth-solidstart';
+ * import { createAuth } from '@glinr/theauth';
+ * import { authSolidStart } from '@glinr/theauth-solidstart';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = kavachSolidStart(kavach);
+ * const auth = createAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const handlers = authSolidStart(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -48,13 +54,13 @@ export interface KavachSolidStartHandlers {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = kavachSolidStart(kavach, { mcp });
+ * const handlers = authSolidStart(auth, { mcp });
  * ```
  */
-export function kavachSolidStart(
+export function authSolidStart(
 	kavach: Kavach,
-	options?: KavachSolidStartOptions,
-): KavachSolidStartHandlers {
+	options?: AuthSolidStartOptions,
+): AuthSolidStartHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -70,3 +76,6 @@ export function kavachSolidStart(
 		OPTIONS: handler,
 	};
 }
+
+/** @deprecated Use {@link authSolidStart} instead. Will be removed in v3.0. */
+export const kavachSolidStart = authSolidStart;

@@ -1,2 +1,2 @@
-export type { KavachNuxtOptions } from "./adapter.js";
-export { kavachNuxt } from "./adapter.js";
+export type { AuthNuxtOptions, KavachNuxtOptions } from "./adapter.js";
+export { authNuxt, kavachNuxt } from "./adapter.js";

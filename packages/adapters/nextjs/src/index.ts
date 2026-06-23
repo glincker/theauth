@@ -1,2 +1,7 @@
-export type { KavachNextjsHandlers, KavachNextjsOptions } from "./adapter.js";
-export { kavachNextjs } from "./adapter.js";
+export type {
+	AuthNextjsHandlers,
+	AuthNextjsOptions,
+	KavachNextjsHandlers,
+	KavachNextjsOptions,
+} from "./adapter.js";
+export { authNextjs, kavachNextjs } from "./adapter.js";

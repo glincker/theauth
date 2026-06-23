@@ -1,7 +1,7 @@
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth-email';
 
-type KavachInstance = Awaited<ReturnType<typeof createKavach>>;
+type KavachInstance = Awaited<ReturnType<typeof createAuth>>;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -16,7 +16,7 @@ export function getKavach(): Promise<KavachInstance> {
   }
 
   if (!kavachPromise) {
-    kavachPromise = createKavach({
+    kavachPromise = createAuth({
       database: { provider: 'sqlite', url: './kavach-demo.db' },
       agents: {
         enabled: true,

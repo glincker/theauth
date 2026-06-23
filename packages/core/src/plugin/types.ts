@@ -1,12 +1,12 @@
 import type { ResolvedUser } from "../auth/types.js";
 import type { Database } from "../db/database.js";
 import type { Session, SessionManager } from "../session/session.js";
-import type { KavachConfig } from "../types.js";
+import type { AuthConfig } from "../types.js";
 
 /** Context passed to plugin init */
 export interface PluginContext {
 	db: Database;
-	config: KavachConfig;
+	config: AuthConfig;
 	/** Register an API endpoint that adapters will mount */
 	addEndpoint: (endpoint: PluginEndpoint) => void;
 	/** Register a DB migration (CREATE TABLE statement) */
@@ -44,7 +44,7 @@ export interface EndpointContext {
 }
 
 /** Plugin definition */
-export interface KavachPlugin {
+export interface AuthPlugin {
 	/** Unique plugin identifier */
 	id: string;
 
@@ -68,6 +68,9 @@ export interface KavachPlugin {
 }
 
 export interface PluginInitResult {
-	/** Additional properties to merge into the kavach instance */
+	/** Additional properties to merge into the auth instance */
 	context?: Record<string, unknown>;
 }
+
+/** @deprecated Use {@link AuthPlugin} instead. Will be removed in v3.0. */
+export type KavachPlugin = AuthPlugin;

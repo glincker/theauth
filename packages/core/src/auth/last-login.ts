@@ -30,13 +30,13 @@ import { and, desc, eq, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../db/database.js";
 import { loginHistory } from "../db/schema.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types for callers that import from this module
 // ---------------------------------------------------------------------------
 
-export type { KavachError, Result };
+export type { AuthError, KavachError, Result };
 
 // ---------------------------------------------------------------------------
 // Public types

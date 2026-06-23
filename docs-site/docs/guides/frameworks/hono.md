@@ -19,9 +19,9 @@ pnpm add @glinr/theauth @glinr/theauth-hono hono @hono/node-server
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -53,7 +53,7 @@ export default app;
 Pass a D1 binding from the Worker environment:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { kavachHono } from '@glinr/theauth-hono';
 import { Hono } from 'hono';
 
@@ -62,7 +62,7 @@ type Env = { KAVACH_DB: D1Database };
 const app = new Hono<{ Bindings: Env }>();
 
 app.use('/api/kavach/*', async (c, next) => {
-  const kavach = createKavach({
+  const kavach = createAuth({
     database: { provider: 'd1', binding: c.env.KAVACH_DB },
     baseUrl: 'https://auth.example.com',
   });

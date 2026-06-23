@@ -15,10 +15,10 @@ Ships inside `@glinr/theauth/auth`, no extra packages needed.
 Define a schema once when creating your TheAuth instance:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createAuth } from '@glinr/theauth';
 import { additionalFields } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     additionalFields({

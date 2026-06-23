@@ -24,10 +24,10 @@ Copy the **Client ID** and **Client Secret** from the app overview.
 ### Configure
 
 ```ts
-import { createKavach, oauth } from '@glinr/theauth';
+import { createAuth, oauth } from '@glinr/theauth';
 import { spotifyProvider } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createKavach({
+const kavach = await createAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     oauth({

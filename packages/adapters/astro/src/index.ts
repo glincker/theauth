@@ -1,2 +1,7 @@
-export type { KavachAstroHandlers, KavachAstroOptions } from "./adapter.js";
-export { kavachAstro } from "./adapter.js";
+export type {
+	AuthAstroHandlers,
+	AuthAstroOptions,
+	KavachAstroHandlers,
+	KavachAstroOptions,
+} from "./adapter.js";
+export { authAstro, kavachAstro } from "./adapter.js";

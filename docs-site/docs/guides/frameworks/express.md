@@ -18,10 +18,10 @@ pnpm add -D @types/express
 
 ```typescript
 import express from 'express';
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createAuth, createMcpModule } from '@glinr/theauth';
 import { kavachExpress } from '@glinr/theauth-express';
 
-const kavach = createKavach({
+const kavach = createAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
 });

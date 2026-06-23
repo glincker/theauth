@@ -191,7 +191,7 @@ function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 
 // ─── Adapter Options ─────────────────────────────────────────────────────────
 
-export interface KavachFastifyOptions {
+export interface AuthFastifyOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -204,6 +204,9 @@ export interface KavachFastifyOptions {
 	 * `fastify.register(plugin, { prefix: '/api/kavach' })`
 	 */
 }
+
+/** @deprecated Use {@link AuthFastifyOptions} instead. Will be removed in v3.0. */
+export type KavachFastifyOptions = AuthFastifyOptions;
 
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
@@ -230,7 +233,7 @@ export interface KavachFastifyOptions {
  * await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
  * ```
  */
-export function kavachFastify(kavach: Kavach, options?: KavachFastifyOptions) {
+export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 	const mcp = options?.mcp;
 
 	return async function plugin(fastify: FastifyInstance): Promise<void> {
@@ -731,3 +734,6 @@ export function kavachFastify(kavach: Kavach, options?: KavachFastifyOptions) {
 		});
 	};
 }
+
+/** @deprecated Use {@link authFastify} instead. Will be removed in v3.0. */
+export const kavachFastify = authFastify;

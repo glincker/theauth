@@ -6,7 +6,7 @@
  * the documented examples cannot drift from the real API surface.
  *
  * Step list mirrors the guide:
- *   1. createKavach instance (replaces the Auth0 tenant)
+ *   1. createAuth instance (replaces the Auth0 tenant)
  *   2. Seed a human owner (replaces Auth0 user export import)
  *   3. Create an M2M-equivalent service agent with scoped permissions
  *   4. Authorize staging (allowed) and production (approval-gated)
@@ -14,7 +14,7 @@
  *   6. Inspect the audit trail for compliance
  */
 
-import { createKavach, users } from "@glinr/theauth";
+import { createAuth, users } from "@glinr/theauth";
 
 const BANNER = "=".repeat(60);
 
@@ -31,9 +31,9 @@ function denied(label: string, reason: string): void {
 }
 
 async function main(): Promise<void> {
-	section("Step 1: createKavach (replaces Auth0 tenant)");
+	section("Step 1: createAuth (replaces Auth0 tenant)");
 
-	const kavach = await createKavach({
+	const kavach = await createAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
