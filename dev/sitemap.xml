@@ -1,211 +1,211 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://docs.theauth.com/dev/</loc>
+         <loc>https://docs.theauth.dev/dev/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/changelog/</loc>
+         <loc>https://docs.theauth.dev/dev/changelog/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/compare/overview/</loc>
+         <loc>https://docs.theauth.dev/dev/compare/overview/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/compare/vs-better-auth/</loc>
+         <loc>https://docs.theauth.dev/dev/compare/vs-better-auth/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/compare/vs-casdoor/</loc>
+         <loc>https://docs.theauth.dev/dev/compare/vs-casdoor/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/compare/vs-hanko/</loc>
+         <loc>https://docs.theauth.dev/dev/compare/vs-hanko/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/compare/vs-paid/</loc>
+         <loc>https://docs.theauth.dev/dev/compare/vs-paid/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/agents/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/agents/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/core-concepts/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/core-concepts/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/delegation/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/delegation/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/mcp-authorization/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/mcp-authorization/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/sessions/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/sessions/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/standards/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/standards/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/concepts/trust-scoring/</loc>
+         <loc>https://docs.theauth.dev/dev/concepts/trust-scoring/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/getting-started/choosing-an-adapter/</loc>
+         <loc>https://docs.theauth.dev/dev/getting-started/choosing-an-adapter/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/getting-started/installation/</loc>
+         <loc>https://docs.theauth.dev/dev/getting-started/installation/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/getting-started/overview/</loc>
+         <loc>https://docs.theauth.dev/dev/getting-started/overview/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/getting-started/quick-start/</loc>
+         <loc>https://docs.theauth.dev/dev/getting-started/quick-start/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/database/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/database/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/permissions/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/permissions/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/policy-templates/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/policy-templates/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/webhooks-events/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/webhooks-events/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/auth/email-password/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/auth/email-password/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/auth/magic-links/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/auth/magic-links/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/auth/multi-factor-auth/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/auth/multi-factor-auth/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/auth/oauth-providers/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/auth/oauth-providers/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/auth/passkeys/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/auth/passkeys/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/clients/electron/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/clients/electron/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/clients/expo/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/clients/expo/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/clients/react/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/clients/react/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/astro/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/astro/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/express/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/express/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/fastify/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/fastify/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/hono/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/hono/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/nestjs/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/nestjs/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/nextjs/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/nextjs/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/nuxt/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/nuxt/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/guides/frameworks/sveltekit/</loc>
+         <loc>https://docs.theauth.dev/dev/guides/frameworks/sveltekit/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/migrations/from-auth0/</loc>
+         <loc>https://docs.theauth.dev/dev/migrations/from-auth0/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/migrations/from-better-auth-agent-plugin/</loc>
+         <loc>https://docs.theauth.dev/dev/migrations/from-better-auth-agent-plugin/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/migrations/from-better-auth/</loc>
+         <loc>https://docs.theauth.dev/dev/migrations/from-better-auth/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/migrations/from-clerk/</loc>
+         <loc>https://docs.theauth.dev/dev/migrations/from-clerk/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/migrations/overview/</loc>
+         <loc>https://docs.theauth.dev/dev/migrations/overview/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/reference/adapters/</loc>
+         <loc>https://docs.theauth.dev/dev/reference/adapters/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/reference/api/</loc>
+         <loc>https://docs.theauth.dev/dev/reference/api/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/reference/audit-events/</loc>
+         <loc>https://docs.theauth.dev/dev/reference/audit-events/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/reference/configuration/</loc>
+         <loc>https://docs.theauth.dev/dev/reference/configuration/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/reference/errors/</loc>
+         <loc>https://docs.theauth.dev/dev/reference/errors/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/reference/test-utils/</loc>
+         <loc>https://docs.theauth.dev/dev/reference/test-utils/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/security/compliance/</loc>
+         <loc>https://docs.theauth.dev/dev/security/compliance/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/security/gdpr/</loc>
+         <loc>https://docs.theauth.dev/dev/security/gdpr/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theauth.com/dev/security/soc2-iso42001/</loc>
+         <loc>https://docs.theauth.dev/dev/security/soc2-iso42001/</loc>
          <lastmod>2026-06-23</lastmod>
     </url>
 </urlset>
