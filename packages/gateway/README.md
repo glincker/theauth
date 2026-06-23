@@ -50,7 +50,7 @@ const gateway = createGateway(config);
 
 ## Docs
 
-[https://docs.theauth.com/gateway](https://docs.theauth.com/gateway)
+[https://docs.theauth.dev/gateway](https://docs.theauth.dev/gateway)
 
 ## License
 

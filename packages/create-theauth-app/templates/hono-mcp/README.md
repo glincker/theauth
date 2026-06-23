@@ -1,6 +1,6 @@
 # __APP_NAME__
 
-A Hono server scaffolded with [TheAuth](https://theauth.com). Runs as an MCP OAuth 2.1 authorization server and a resource server in one process.
+A Hono server scaffolded with [TheAuth](https://theauth.dev). Runs as an MCP OAuth 2.1 authorization server and a resource server in one process.
 
 ## What's included
 

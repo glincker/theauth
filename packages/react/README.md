@@ -159,7 +159,7 @@ If you have a bespoke refresher (e.g. `token-refresh-service.ts`):
 
 ## Docs
 
-[https://docs.theauth.com](https://docs.theauth.com)
+[https://docs.theauth.dev](https://docs.theauth.dev)
 
 ## License
 

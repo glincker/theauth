@@ -52,7 +52,7 @@ const result = await openOAuthWindow({ provider: 'google', redirectUri: 'kavach:
 
 ## Docs
 
-[https://docs.theauth.com](https://docs.theauth.com)
+[https://docs.theauth.dev](https://docs.theauth.dev)
 
 ## License
 

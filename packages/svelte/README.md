@@ -48,7 +48,7 @@ export const agents = createAgentStore({ client: kavach });
 
 ## Docs
 
-[https://docs.theauth.com](https://docs.theauth.com)
+[https://docs.theauth.dev](https://docs.theauth.dev)
 
 ## License
 

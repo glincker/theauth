@@ -26,7 +26,7 @@ export const { GET, POST } = kavachSolidStart(kavach);
 
 ## Docs
 
-[docs.theauth.com/docs/adapters/solidstart](https://docs.theauth.com/docs/adapters/solidstart)
+[docs.theauth.dev/docs/adapters/solidstart](https://docs.theauth.dev/docs/adapters/solidstart)
 
 ## License
 

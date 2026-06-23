@@ -26,11 +26,11 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.theauth.com/docs/quickstart"><strong>Quickstart</strong></a> &middot;
-  <a href="https://docs.theauth.com/docs"><strong>Docs</strong></a> &middot;
+  <a href="https://docs.theauth.dev/docs/quickstart"><strong>Quickstart</strong></a> &middot;
+  <a href="https://docs.theauth.dev/docs"><strong>Docs</strong></a> &middot;
   <a href="https://github.com/glincker/theauth/tree/main/examples"><strong>Examples</strong></a> &middot;
   <a href="https://github.com/glincker/theauth/discussions"><strong>Discussions</strong></a> &middot;
-  <a href="https://app.theauth.com"><strong>TheAuth Cloud</strong></a>
+  <a href="https://app.theauth.dev"><strong>TheAuth Cloud</strong></a>
 </p>
 
 ---
@@ -321,17 +321,17 @@ See [`examples/hono-server`](https://github.com/glincker/theauth/tree/main/examp
 
 ## Documentation
 
-**Primary docs:** [docs.theauth.com](https://docs.theauth.com/docs)
+**Primary docs:** [docs.theauth.dev](https://docs.theauth.dev/docs)
 
 | Section | Link | What you will find |
 |---|---|---|
-| Getting Started | [docs.theauth.com/docs/quickstart](https://docs.theauth.com/docs/quickstart) | Installation, first auth flow |
-| Authentication | [docs.theauth.com/docs/auth](https://docs.theauth.com/docs/auth) | All auth methods and plugins |
-| Agent Identity | [docs.theauth.com/docs/agents](https://docs.theauth.com/docs/agents) | Agent tokens, delegation, policies |
-| Permissions | [docs.theauth.com/docs/permissions](https://docs.theauth.com/docs/permissions) | RBAC, wildcard matching, ReBAC |
-| MCP OAuth 2.1 | [docs.theauth.com/docs/mcp](https://docs.theauth.com/docs/mcp) | MCP auth server setup |
-| Framework Adapters | [docs.theauth.com/docs/adapters](https://docs.theauth.com/docs/adapters) | Next.js, Hono, SvelteKit, etc. |
-| API Reference | [docs.theauth.com/docs/api](https://docs.theauth.com/docs/api) | Config, types, errors |
+| Getting Started | [docs.theauth.dev/docs/quickstart](https://docs.theauth.dev/docs/quickstart) | Installation, first auth flow |
+| Authentication | [docs.theauth.dev/docs/auth](https://docs.theauth.dev/docs/auth) | All auth methods and plugins |
+| Agent Identity | [docs.theauth.dev/docs/agents](https://docs.theauth.dev/docs/agents) | Agent tokens, delegation, policies |
+| Permissions | [docs.theauth.dev/docs/permissions](https://docs.theauth.dev/docs/permissions) | RBAC, wildcard matching, ReBAC |
+| MCP OAuth 2.1 | [docs.theauth.dev/docs/mcp](https://docs.theauth.dev/docs/mcp) | MCP auth server setup |
+| Framework Adapters | [docs.theauth.dev/docs/adapters](https://docs.theauth.dev/docs/adapters) | Next.js, Hono, SvelteKit, etc. |
+| API Reference | [docs.theauth.dev/docs/api](https://docs.theauth.dev/docs/api) | Config, types, errors |
 | Security | [SECURITY.md](SECURITY.md) | Threat model, disclosure policy |
 
 ---
@@ -386,7 +386,7 @@ SQLite, PostgreSQL, MySQL, and Cloudflare D1 are built into the core package. Us
 
 ## TheAuth Cloud
 
-Hosted version with dashboard, billing, and zero infrastructure. [app.theauth.com](https://app.theauth.com)
+Hosted version with dashboard, billing, and zero infrastructure. [app.theauth.dev](https://app.theauth.dev)
 
 | Plan | MAU | Price |
 |---|---|---|

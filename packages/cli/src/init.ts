@@ -250,7 +250,7 @@ export async function runInit(): Promise<InitResult | InitError> {
 		stdout.write(
 			"  4. Open kavach.example.ts to see how to create agents and authorize requests.\n",
 		);
-		stdout.write("\n  Docs: https://theauth.com/docs\n\n");
+		stdout.write("\n  Docs: https://theauth.dev/docs\n\n");
 
 		return { success: true, configPath, examplePath };
 	} catch (err: unknown) {

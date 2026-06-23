@@ -1,6 +1,6 @@
 site_name: TheAuth
 site_description: Auth OS for AI agents. Identity, permissions, delegation, audit, and MCP OAuth in one TypeScript SDK.
-site_url: https://docs.theauth.com
+site_url: https://docs.theauth.dev
 repo_url: https://github.com/glincker/theauth
 repo_name: glincker/theauth
 edit_uri: edit/main/docs-site/docs/
@@ -52,7 +52,7 @@ extra:
     - icon: fontawesome/brands/x-twitter
       link: https://x.com/thegdsks
     - icon: material/web
-      link: https://theauth.com
+      link: https://theauth.dev
   version:
     provider: mike
     default: stable

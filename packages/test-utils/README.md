@@ -37,7 +37,7 @@ test("dashboard greets the signed-in user", () => {
 ## Links
 
 - TheAuth repo: <https://github.com/glincker/theauth>
-- Docs: <https://docs.theauth.com>
+- Docs: <https://docs.theauth.dev>
 
 ## License
 

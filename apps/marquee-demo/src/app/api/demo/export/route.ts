@@ -40,9 +40,9 @@ function buildSignedExport(
 	const now = new Date().toISOString();
 
 	return {
-		"@context": ["https://www.w3.org/2018/credentials/v1", "https://theauth.com/contexts/audit/v1"],
+		"@context": ["https://www.w3.org/2018/credentials/v1", "https://theauth.dev/contexts/audit/v1"],
 		type: "TheAuthAuditCredential",
-		issuer: "https://theauth.com",
+		issuer: "https://theauth.dev",
 		issuanceDate: now,
 		credentialSubject: {
 			agentId,

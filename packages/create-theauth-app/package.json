@@ -9,7 +9,7 @@
     "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/create-theauth-app"
   },
-  "homepage": "https://theauth.com",
+  "homepage": "https://theauth.dev",
   "keywords": [
     "theauth",
     "auth",
