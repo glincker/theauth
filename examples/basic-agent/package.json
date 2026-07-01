@@ -13,8 +13,8 @@
     "@glinr/theauth": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "tsx": "^4.19.2",
+    "@types/node": "^26.0.1",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }
 }

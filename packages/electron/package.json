@@ -31,7 +31,7 @@
     "react": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.0.1",
     "@types/react": "^19.0.0",
     "electron": "^33.0.0",
     "react": "^19.0.0",

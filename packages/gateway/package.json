@@ -49,7 +49,7 @@
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
     "@types/micromatch": "^4.0.9",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.0.1",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0",
