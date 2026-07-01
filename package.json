@@ -40,7 +40,7 @@
     "simple-git-hooks": "^2.11.0",
     "turbo": "^2.5.0",
     "typescript": "^6.0.3",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.9"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint && pnpm --filter @glinr/theauth typecheck",
