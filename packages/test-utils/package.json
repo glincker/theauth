@@ -41,8 +41,8 @@
   "devDependencies": {
     "@glinr/theauth-react": "workspace:*",
     "@testing-library/react": "^16.0.0",
-    "@types/react": "^19.0.0",
-    "react": "^19.0.0",
+    "@types/react": "^19.2.17",
+    "react": "^19.2.7",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0"
