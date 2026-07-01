@@ -10,7 +10,7 @@
   "dependencies": {
     "@glinr/theauth": "workspace:*",
     "@glinr/theauth-hono": "workspace:*",
-    "hono": "^4.12.14"
+    "hono": "^4.12.27"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260418.1",
