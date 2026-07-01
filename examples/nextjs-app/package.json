@@ -11,7 +11,7 @@
     "@glinr/theauth": "workspace:*",
     "@glinr/theauth-nextjs": "workspace:*",
     "@glinr/theauth-dashboard": "workspace:*",
-    "next": "^15.0.0",
+    "next": "^16.2.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "better-sqlite3": "^12.9.0",
