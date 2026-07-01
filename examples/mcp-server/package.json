@@ -9,7 +9,7 @@
   "dependencies": {
     "@glinr/theauth": "workspace:*",
     "@glinr/theauth-hono": "workspace:*",
-    "hono": "^4.12.14",
+    "hono": "^4.12.27",
     "@hono/node-server": "^1.13.0",
     "drizzle-orm": "^0.41.0",
     "better-sqlite3": "^12.9.0"

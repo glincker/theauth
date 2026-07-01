@@ -113,8 +113,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       hono:
-        specifier: ^4.12.14
-        version: 4.12.14
+        specifier: ^4.12.27
+        version: 4.12.27
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260418.1
@@ -136,7 +136,7 @@ importers:
         version: link:../../packages/adapters/hono
       '@hono/node-server':
         specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.14)
+        version: 1.19.11(hono@4.12.27)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -144,8 +144,8 @@ importers:
         specifier: ^0.41.0
         version: 0.41.0(@cloudflare/workers-types@4.20260418.1)(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@prisma/client@7.5.0(typescript@6.0.3))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(@types/sql.js@1.4.11)(better-sqlite3@12.9.0)(mysql2@3.20.0(@types/node@25.9.4))(pg@8.20.0)(sql.js@1.14.1)
       hono:
-        specifier: ^4.12.14
-        version: 4.12.14
+        specifier: ^4.12.27
+        version: 4.12.27
     devDependencies:
       tsx:
         specifier: ^4.19.2
@@ -164,7 +164,7 @@ importers:
         version: link:../../packages/adapters/hono
       '@hono/node-server':
         specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.14)
+        version: 1.19.11(hono@4.12.27)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -172,8 +172,8 @@ importers:
         specifier: ^0.41.0
         version: 0.41.0(@cloudflare/workers-types@4.20260418.1)(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@prisma/client@7.5.0(typescript@6.0.3))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(@types/sql.js@1.4.11)(better-sqlite3@12.9.0)(mysql2@3.20.0(@types/node@25.9.4))(pg@8.20.0)(sql.js@1.14.1)
       hono:
-        specifier: ^4.12.14
-        version: 4.12.14
+        specifier: ^4.12.27
+        version: 4.12.27
     devDependencies:
       tsx:
         specifier: ^4.19.2
@@ -393,8 +393,8 @@ importers:
         specifier: workspace:*
         version: link:../../core
       hono:
-        specifier: ^4.12.14
-        version: 4.12.14
+        specifier: ^4.12.27
+        version: 4.12.27
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.10)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.3)
@@ -641,10 +641,10 @@ importers:
         version: link:../adapters/hono
       '@hono/node-server':
         specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.14)
+        version: 1.19.11(hono@4.12.27)
       hono:
-        specifier: ^4.12.14
-        version: 4.12.14
+        specifier: ^4.12.27
+        version: 4.12.27
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -6052,8 +6052,8 @@ packages:
   hermes-parser@0.33.3:
     resolution: {integrity: sha512-Yg3HgaG4CqgyowtYjX/FsnPAuZdHOqSMtnbpylbptsQ9nwwSKsy6uRWcGO5RK0EqiX12q8HvDWKgeAVajRO5DA==}
 
-  hono@4.12.14:
-    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
+  hono@4.12.27:
+    resolution: {integrity: sha512-1yrb/+w6HWQJrUCLkJ2IF5jNIPvvFkblV5RNOYl6bV+OA6p9GLcMpHFFGTosSvHvcAUibuUukRqhlYI4z32C7Q==}
     engines: {node: '>=16.9.0'}
 
   hookable@5.5.3:
@@ -10527,9 +10527,9 @@ snapshots:
       '@fastify/forwarded': 3.0.1
       ipaddr.js: 2.3.0
 
-  '@hono/node-server@1.19.11(hono@4.12.14)':
+  '@hono/node-server@1.19.11(hono@4.12.27)':
     dependencies:
-      hono: 4.12.14
+      hono: 4.12.27
 
   '@img/colour@1.1.0': {}
 
@@ -14586,7 +14586,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.33.3
 
-  hono@4.12.14: {}
+  hono@4.12.27: {}
 
   hookable@5.5.3: {}
 
