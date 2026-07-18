@@ -75,7 +75,7 @@ export interface KavachExpoConfig {
 
 // ─── Context value ────────────────────────────────────────────────────────────
 
-export interface KavachContextValue {
+export interface TheAuthContextValue {
 	session: KavachSession | null;
 	user: KavachUser | null;
 	isLoading: boolean;
@@ -85,3 +85,9 @@ export interface KavachContextValue {
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 }
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version. */
+export type KavachContextValue = TheAuthContextValue;

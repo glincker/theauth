@@ -15,35 +15,35 @@ npm install @glinr/@glinr/theauth-svelte
 Create a client and stores at the top of your app, then subscribe in any component.
 
 ```ts
-// lib/kavach.ts
-import { createKavachClient, createAgentStore } from '@glinr/theauth-svelte';
+// lib/theauth.ts
+import { createTheAuthClient, createAgentStore } from '@glinr/theauth-svelte';
 
-export const kavach = createKavachClient({
+export const auth = createTheAuthClient({
   apiUrl: 'https://auth.yourapp.com',
   tenantId: 'your-tenant-id',
 });
 
-export const agents = createAgentStore({ client: kavach });
+export const agents = createAgentStore({ client: auth });
 ```
 
 ```svelte
 <script>
-  import { kavach, agents } from '$lib/kavach';
+  import { auth, agents } from '$lib/theauth';
 
-  const { session, user } = kavach;
+  const { session, user } = auth;
 </script>
 
 {#if $session}
   <p>Welcome, {$user?.email}</p>
-  <button on:click={() => kavach.signOut()}>Sign out</button>
+  <button on:click={() => auth.signOut()}>Sign out</button>
 {:else}
-  <button on:click={() => kavach.signIn({ email, password })}>Sign in</button>
+  <button on:click={() => auth.signIn({ email, password })}>Sign in</button>
 {/if}
 ```
 
 ## Exports
 
-- `createKavachClient`: creates a reactive Svelte store client
+- `createTheAuthClient`: creates a reactive Svelte store client (formerly `createKavachClient`, still exported as a deprecated alias)
 - `createAgentStore`: creates a store for managing AI agents
 
 ## Docs

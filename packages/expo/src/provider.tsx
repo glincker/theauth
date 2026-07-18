@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { createMemoryStorage } from "./storage.js";
 import type {
 	ActionResult,
-	KavachContextValue,
+	TheAuthContextValue,
 	KavachExpoConfig,
 	KavachSession,
 	KavachStorage,
@@ -14,24 +14,33 @@ const SESSION_KEY = "theauth_session";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const KavachExpoContext = createContext<KavachContextValue | null>(null);
+export const TheAuthExpoContext = createContext<TheAuthContextValue | null>(null);
 
-export function useKavachContext(): KavachContextValue {
-	const ctx = useContext(KavachExpoContext);
+/** @deprecated Use `TheAuthExpoContext` instead. Will be removed in a future major version. */
+export const KavachExpoContext = TheAuthExpoContext;
+
+export function useTheAuthContext(): TheAuthContextValue {
+	const ctx = useContext(TheAuthExpoContext);
 	if (!ctx) {
-		throw new Error("useKavachContext must be used inside <KavachExpoProvider>");
+		throw new Error("useTheAuthContext must be used inside <TheAuthExpoProvider>");
 	}
 	return ctx;
 }
 
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useKavachContext = useTheAuthContext;
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export interface KavachExpoProviderProps {
+export interface TheAuthExpoProviderProps {
 	config: KavachExpoConfig;
 	children: ReactNode;
 }
 
-export function KavachExpoProvider({ config, children }: KavachExpoProviderProps): ReactNode {
+/** @deprecated Use `TheAuthExpoProviderProps` instead. Will be removed in a future major version. */
+export type KavachExpoProviderProps = TheAuthExpoProviderProps;
+
+export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderProps): ReactNode {
 	const [session, setSession] = useState<KavachSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
@@ -179,7 +188,7 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 
 	const user: KavachUser | null = session?.user ?? null;
 
-	const value: KavachContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -190,5 +199,11 @@ export function KavachExpoProvider({ config, children }: KavachExpoProviderProps
 		refresh,
 	};
 
-	return <KavachExpoContext.Provider value={value}>{children}</KavachExpoContext.Provider>;
+	return <TheAuthExpoContext.Provider value={value}>{children}</TheAuthExpoContext.Provider>;
 }
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthExpoProvider` instead. Will be removed in a future major version. */
+export const KavachExpoProvider = TheAuthExpoProvider;

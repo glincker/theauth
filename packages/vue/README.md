@@ -17,12 +17,12 @@ Register the plugin in your Vue app, then use composables in any component.
 ```ts
 // main.ts
 import { createApp } from 'vue';
-import { createKavachPlugin } from '@glinr/theauth-vue';
+import { createTheAuthPlugin } from '@glinr/theauth-vue';
 import App from './App.vue';
 
 const app = createApp(App);
 
-app.use(createKavachPlugin({
+app.use(createTheAuthPlugin({
   apiUrl: 'https://auth.yourapp.com',
   tenantId: 'your-tenant-id',
 }));
@@ -50,7 +50,7 @@ const { signOut } = useSignOut();
 
 ## Exports
 
-- `createKavachPlugin`: Vue plugin factory
+- `createTheAuthPlugin`: Vue plugin factory (formerly `createKavachPlugin`, still exported as a deprecated alias)
 - `useSession`: current session and loading state
 - `useUser`: authenticated user object
 - `useSignIn`: sign-in composable

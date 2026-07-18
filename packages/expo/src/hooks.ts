@@ -1,13 +1,13 @@
 import { useCallback, useContext, useState } from "react";
-import { KavachExpoContext } from "./provider.js";
+import { TheAuthExpoContext } from "./provider.js";
 import type { ActionResult, CreateAgentInput, KavachAgent } from "./types.js";
 
 // ─── Guards ────────────────────────────────────────────────────────────────────
 
 function useRequiredContext(hookName: string) {
-	const ctx = useContext(KavachExpoContext);
+	const ctx = useContext(TheAuthExpoContext);
 	if (!ctx) {
-		throw new Error(`${hookName} must be used inside <KavachExpoProvider>`);
+		throw new Error(`${hookName} must be used inside <TheAuthExpoProvider>`);
 	}
 	return ctx;
 }

@@ -9,8 +9,15 @@ export {
 	useSignUp,
 	useUser,
 } from "./hooks.js";
-export type { KavachExpoProviderProps } from "./provider.js";
-export { KavachExpoContext, KavachExpoProvider, useKavachContext } from "./provider.js";
+export type { KavachExpoProviderProps, TheAuthExpoProviderProps } from "./provider.js";
+export {
+	KavachExpoContext,
+	KavachExpoProvider,
+	TheAuthExpoContext,
+	TheAuthExpoProvider,
+	useKavachContext,
+	useTheAuthContext,
+} from "./provider.js";
 
 // Types
 export type {
@@ -23,4 +30,5 @@ export type {
 	KavachSession,
 	KavachStorage,
 	KavachUser,
+	TheAuthContextValue,
 } from "./types.js";

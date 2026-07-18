@@ -1,18 +1,21 @@
 import type { App, InjectionKey, Ref } from "vue";
 import { inject, ref } from "vue";
-import type { ActionResult, KavachContextValue, KavachSession, KavachUser } from "./types.js";
+import type { ActionResult, TheAuthContextValue, KavachSession, KavachUser } from "./types.js";
 
 // ─── Injection key ────────────────────────────────────────────────────────────
 
-export const KAVACH_KEY: InjectionKey<KavachContextValue> = Symbol("kavach");
+export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
+
+/** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
+export const KAVACH_KEY = THEAUTH_KEY;
 
 // ─── useRequiredContext ───────────────────────────────────────────────────────
 
-export function useRequiredContext(composableName: string): KavachContextValue {
-	const ctx = inject(KAVACH_KEY);
+export function useRequiredContext(composableName: string): TheAuthContextValue {
+	const ctx = inject(THEAUTH_KEY);
 	if (!ctx) {
 		throw new Error(
-			`${composableName} must be used inside a component wrapped by createKavachPlugin`,
+			`${composableName} must be used inside a component wrapped by createTheAuthPlugin`,
 		);
 	}
 	return ctx;
@@ -20,12 +23,15 @@ export function useRequiredContext(composableName: string): KavachContextValue {
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
-export interface KavachPluginOptions {
+export interface TheAuthPluginOptions {
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 }
 
-export function createKavachPlugin(options: KavachPluginOptions = {}) {
+/** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
+export type KavachPluginOptions = TheAuthPluginOptions;
+
+export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 	return {
 		install(app: App) {
 			const base = (options.basePath ?? "/api/kavach").replace(/\/$/, "");
@@ -148,7 +154,7 @@ export function createKavachPlugin(options: KavachPluginOptions = {}) {
 				isLoading.value = false;
 			});
 
-			const context: KavachContextValue = {
+			const context: TheAuthContextValue = {
 				get session() {
 					return session.value;
 				},
@@ -168,7 +174,13 @@ export function createKavachPlugin(options: KavachPluginOptions = {}) {
 				refresh,
 			};
 
-			app.provide(KAVACH_KEY, context);
+			app.provide(THEAUTH_KEY, context);
 		},
 	};
 }
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
+export const createKavachPlugin = createTheAuthPlugin;

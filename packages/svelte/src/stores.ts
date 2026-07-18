@@ -40,13 +40,13 @@ function extractError(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-// ─── createKavachClient ───────────────────────────────────────────────────────
+// ─── createTheAuthClient ──────────────────────────────────────────────────────
 
-export interface KavachClientOptions {
+export interface TheAuthClientOptions {
 	basePath?: string;
 }
 
-export interface KavachClient {
+export interface TheAuthClient {
 	session: Readable<KavachSession | null>;
 	user: Readable<KavachUser | null>;
 	isAuthenticated: Readable<boolean>;
@@ -63,7 +63,7 @@ export interface KavachClient {
  * Call this once (e.g. in a module or Svelte context) and spread or
  * pass the returned object to whatever components need it.
  */
-export function createKavachClient(options?: KavachClientOptions): KavachClient {
+export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClient {
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	const session = writable<KavachSession | null>(null);
@@ -185,7 +185,7 @@ export function createKavachClient(options?: KavachClientOptions): KavachClient 
 
 export interface AgentStoreOptions {
 	basePath?: string;
-	/** Pass the user store from a KavachClient to enable auto-load. */
+	/** Pass the user store from a TheAuthClient to enable auto-load. */
 	user?: Readable<KavachUser | null>;
 }
 
@@ -202,7 +202,7 @@ export interface AgentStore {
 /**
  * Creates a store for managing agent identity records.
  *
- * Pass `user` from a `KavachClient` to have the store load automatically
+ * Pass `user` from a `TheAuthClient` to have the store load automatically
  * whenever a user is present. Otherwise call `load(userId)` manually.
  */
 export function createAgentStore(options?: AgentStoreOptions): AgentStore {
@@ -333,3 +333,15 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		rotate,
 	};
 }
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
+export type KavachClientOptions = TheAuthClientOptions;
+
+/** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
+export type KavachClient = TheAuthClient;
+
+/** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
+export const createKavachClient = createTheAuthClient;
