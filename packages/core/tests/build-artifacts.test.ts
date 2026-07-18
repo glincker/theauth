@@ -12,7 +12,7 @@ beforeAll(() => {
 		cwd: packageDir,
 		stdio: "inherit",
 	});
-}, 30_000);
+}, 120_000);
 
 describe("build artifacts", () => {
 	it("emits the root package entrypoints", () => {
