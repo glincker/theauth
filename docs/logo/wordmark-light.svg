@@ -1,20 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 40" width="240" height="40">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 40" width="150" height="40">
   <defs>
-    <linearGradient id="kavach-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="theauth-gold" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#F0D87A"/>
       <stop offset="50%" stop-color="#C9A84C"/>
       <stop offset="100%" stop-color="#8B6914"/>
     </linearGradient>
-    <linearGradient id="kavach-gold-text" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="theauth-gold-text" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#C9A84C"/>
       <stop offset="100%" stop-color="#8B6914"/>
     </linearGradient>
   </defs>
   <g transform="translate(4, 4)">
-    <rect x="0" y="0" width="32" height="32" rx="2" stroke="url(#kavach-gold)" stroke-width="2.5" fill="none"/>
-    <rect x="6" y="6" width="20" height="20" rx="1" stroke="url(#kavach-gold)" stroke-width="2" fill="none" opacity="0.6"/>
-    <circle cx="16" cy="16" r="3" fill="url(#kavach-gold)"/>
+    <rect x="0" y="0" width="32" height="32" rx="2" stroke="url(#theauth-gold)" stroke-width="2.5" fill="none"/>
+    <rect x="6" y="6" width="20" height="20" rx="1" stroke="url(#theauth-gold)" stroke-width="2" fill="none" opacity="0.6"/>
+    <circle cx="16" cy="16" r="3" fill="url(#theauth-gold)"/>
   </g>
-  <text x="48" y="27" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="20" font-weight="700" letter-spacing="-0.02em" fill="#0a0a0a">kavach</text>
-  <text x="140" y="27" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="20" font-weight="700" letter-spacing="-0.02em" fill="url(#kavach-gold-text)">OS</text>
+  <text x="48" y="27" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="20" font-weight="700" letter-spacing="-0.02em" fill="#0a0a0a">the<tspan fill="url(#theauth-gold-text)">AUTH</tspan></text>
 </svg>
