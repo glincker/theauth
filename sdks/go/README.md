@@ -220,7 +220,7 @@ if err != nil {
 }
 ```
 
-All error types embed `KavachError` which exposes `.Code`, `.Message`, `.StatusCode`, and `.Details`.
+All error types embed `TheAuthError` which exposes `.Code`, `.Message`, `.StatusCode`, and `.Details`.
 
 ## Types reference
 

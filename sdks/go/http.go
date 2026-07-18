@@ -50,7 +50,7 @@ func (t *transport) doJSONWithHeaders(ctx context.Context, method, path string, 
 
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, reqBody)
 	if err != nil {
-		return &ErrNetwork{KavachError{Code: "NETWORK_ERROR", Message: err.Error()}}
+		return &ErrNetwork{TheAuthError{Code: "NETWORK_ERROR", Message: err.Error()}}
 	}
 
 	// Set headers
@@ -68,7 +68,7 @@ func (t *transport) doJSONWithHeaders(ctx context.Context, method, path string, 
 
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
-		return &ErrNetwork{KavachError{Code: "NETWORK_ERROR", Message: err.Error()}}
+		return &ErrNetwork{TheAuthError{Code: "NETWORK_ERROR", Message: err.Error()}}
 	}
 	defer resp.Body.Close()
 
@@ -108,7 +108,7 @@ func (t *transport) doRaw(ctx context.Context, method, path string, params map[s
 
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
 	if err != nil {
-		return "", &ErrNetwork{KavachError{Code: "NETWORK_ERROR", Message: err.Error()}}
+		return "", &ErrNetwork{TheAuthError{Code: "NETWORK_ERROR", Message: err.Error()}}
 	}
 
 	req.Header.Set("Accept", "text/plain, application/json")
@@ -121,7 +121,7 @@ func (t *transport) doRaw(ctx context.Context, method, path string, params map[s
 
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
-		return "", &ErrNetwork{KavachError{Code: "NETWORK_ERROR", Message: err.Error()}}
+		return "", &ErrNetwork{TheAuthError{Code: "NETWORK_ERROR", Message: err.Error()}}
 	}
 	defer resp.Body.Close()
 
@@ -136,7 +136,7 @@ func (t *transport) doRaw(ctx context.Context, method, path string, params map[s
 	return string(data), nil
 }
 
-// parseErrorResponse maps an HTTP error response to a typed KavachError.
+// parseErrorResponse maps an HTTP error response to a typed TheAuthError.
 func parseErrorResponse(resp *http.Response) error {
 	var apiErr struct {
 		Code    string                 `json:"code"`
@@ -176,7 +176,7 @@ func parseErrorResponse(resp *http.Response) error {
 		message = fmt.Sprintf("HTTP %d", resp.StatusCode)
 	}
 
-	base := KavachError{
+	base := TheAuthError{
 		Code:       code,
 		Message:    message,
 		StatusCode: resp.StatusCode,
@@ -191,7 +191,7 @@ func parseErrorResponse(resp *http.Response) error {
 	case http.StatusNotFound:
 		return &ErrNotFound{base}
 	case http.StatusTooManyRequests:
-		e := &ErrRateLimit{KavachError: base}
+		e := &ErrRateLimit{TheAuthError: base}
 		if raw := resp.Header.Get("Retry-After"); raw != "" {
 			if n, err := strconv.Atoi(raw); err == nil {
 				e.RetryAfter = &n
