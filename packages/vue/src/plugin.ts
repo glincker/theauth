@@ -1,6 +1,6 @@
 import type { App, InjectionKey, Ref } from "vue";
 import { inject, ref } from "vue";
-import type { ActionResult, TheAuthContextValue, KavachSession, KavachUser } from "./types.js";
+import type { ActionResult, KavachSession, KavachUser, TheAuthContextValue } from "./types.js";
 
 // ─── Injection key ────────────────────────────────────────────────────────────
 
