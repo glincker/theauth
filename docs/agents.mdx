@@ -168,7 +168,7 @@ Revocation is permanent. There is no un-revoke. To restore access, create a new 
 The default is 10 active agents per user. Raise at initialization:
 
 ```ts
-const kavach = createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   agents: {
     maxPerUser: 50,

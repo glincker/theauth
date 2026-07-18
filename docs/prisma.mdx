@@ -25,7 +25,7 @@ The adapter covers agents, users, sessions, audit logs, permissions, delegation 
 ## Installation
 
 ```bash
-pnpm add @glinr/@glinr/theauth-prisma @prisma/client
+pnpm add @glinr/theauth-prisma @prisma/client
 ```
 
 The adapter has no runtime dependency on `@glinr/theauth` itself, `@prisma/client` is the only peer dep.
@@ -305,10 +305,10 @@ If you started with the built-in Drizzle backend and want to switch to Prisma:
 1. Keep the same table names, all TheAuth tables use the `kavach_` prefix and the same column names in both Drizzle and Prisma.
 2. Run `npx prisma introspect` against your existing database to generate a Prisma schema from the Drizzle-created tables.
 3. Replace calls to the Drizzle `db` directly with `createPrismaAdapter(prisma)`.
-4. Set `database.skipMigrations: true` in `createKavach(...)` if the core TheAuth instance is still used for other features (agents, MCP, etc.), so Drizzle does not conflict with Prisma.
+4. Set `database.skipMigrations: true` in `createTheAuth(...)` if the core TheAuth instance is still used for other features (agents, MCP, etc.), so Drizzle does not conflict with Prisma.
 
 ```typescript
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: {
     provider: 'postgres',
     url: process.env.DATABASE_URL,
@@ -321,10 +321,10 @@ const db = createPrismaAdapter(prisma);
 ```
 
 <Warning>
-  The core TheAuth instance (`createKavach`) still uses Drizzle internally
+  The core TheAuth instance (`createTheAuth`) still uses Drizzle internally
   for agent creation, authorization, MCP flows, and other built-in features.
   `@glinr/theauth-prisma` gives you a Prisma-native way to read and write the same
-  tables, it does not replace `createKavach`.
+  tables, it does not replace `createTheAuth`.
 </Warning>
 
 ## Reference schema
@@ -340,7 +340,7 @@ Every model name follows `KavachPascalCase` and maps to a `kavach_snake_case` ta
     Core Drizzle-based database configuration and provider options.
   </Card>
   <Card title="Configuration" href="/configuration" icon="sliders">
-    Full createKavach() options including database connection setup.
+    Full createTheAuth() options including database connection setup.
   </Card>
   <Card title="Test utilities" href="/test-utils" icon="code">
     Test auth-dependent code with in-memory mock factories.

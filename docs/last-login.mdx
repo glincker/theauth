@@ -10,10 +10,10 @@ The last login module records every successful authentication event per user. Yo
 ## Setup
 
 ```ts
-import { createKavach } from '@glinr/theauth';
-import { createLastLoginModule } from '@glinr/theauth/auth/last-login';
+import { createTheAuth } from '@glinr/theauth';
+import { createLastLoginModule } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({ /* ... */ });
+const kavach = await createTheAuth({ /* ... */ });
 
 const loginHistory = createLastLoginModule(
   { maxHistoryPerUser: 20 },
@@ -86,7 +86,7 @@ Events are returned newest first. The optional `limit` parameter overrides the m
 
 ## Result type
 
-All methods return `Result<T>`, either `{ success: true; data: T }` or `{ success: false; error: KavachError }`. No exceptions are thrown.
+All methods return `Result<T>`, either `{ success: true; data: T }` or `{ success: false; error: TheAuthError }`. No exceptions are thrown.
 
 ```ts
 const result = await loginHistory.getLastLogin(userId);

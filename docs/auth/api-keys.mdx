@@ -7,9 +7,9 @@ icon: key
 ## Setup
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   apiKeys: { // [!code highlight]
     prefix: 'kos_',          // default // [!code highlight]

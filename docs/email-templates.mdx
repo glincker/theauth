@@ -64,11 +64,11 @@ Auth plugins expose callbacks like `onSendVerification` and `onSendMagicLink`. P
 <Tabs>
   <Tab title="Magic link">
 ```typescript
-import { createKavach, magicLinkPlugin, createEmailTemplates } from '@glinr/theauth';
+import { createTheAuth, magicLinkPlugin, createEmailTemplates } from '@glinr/theauth';
 
 const templates = createEmailTemplates({ appName: 'MyApp', appUrl: 'https://myapp.com' });
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     magicLinkPlugin({

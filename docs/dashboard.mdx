@@ -45,7 +45,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     Install the package:
 
     ```bash
-    pnpm add @glinr/@glinr/theauth-dashboard
+    pnpm add @glinr/theauth-dashboard
     ```
 
     Render `KavachDashboard` inside a protected route in your app:
@@ -78,10 +78,10 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       <Tab title="Next.js">
         ```typescript
         // app/api/kavach/[...path]/route.ts
-        import { createKavach } from '@glinr/theauth';
+        import { createTheAuth } from '@glinr/theauth';
         import { kavachNextjs } from '@glinr/theauth-nextjs';
 
-        const kavach = await createKavach({
+        const kavach = await createTheAuth({
           database: { provider: 'postgres', url: process.env.DATABASE_URL! },
         });
 
@@ -95,10 +95,10 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       <Tab title="Hono">
         ```typescript
         import { Hono } from 'hono';
-        import { createKavach } from '@glinr/theauth';
+        import { createTheAuth } from '@glinr/theauth';
         import { kavachHono } from '@glinr/theauth-hono';
 
-        const kavach = await createKavach({
+        const kavach = await createTheAuth({
           database: { provider: 'sqlite', url: 'kavach.db' },
         });
 
@@ -109,10 +109,10 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       <Tab title="Express">
         ```typescript
         import express from 'express';
-        import { createKavach } from '@glinr/theauth';
+        import { createTheAuth } from '@glinr/theauth';
         import { kavachExpress } from '@glinr/theauth-express';
 
-        const kavach = await createKavach({
+        const kavach = await createTheAuth({
           database: { provider: 'sqlite', url: 'kavach.db' },
         });
 

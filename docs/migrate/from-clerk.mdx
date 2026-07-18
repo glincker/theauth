@@ -23,8 +23,8 @@ When to wait:
 
 | Clerk | TheAuth |
 |---|---|
-| `clerkClient` (server) | instance from `createKavach({...})` |
-| `<ClerkProvider>` | `<KavachProvider>` from `@glinr/theauth-react` |
+| `clerkClient` (server) | instance from `createTheAuth({...})` |
+| `<ClerkProvider>` | `<TheAuthProvider>` from `@glinr/theauth-react` |
 | `useUser()` | `useUser()` from `@glinr/theauth-react` |
 | `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
 | `useSession()` | `useSession()` from `@glinr/theauth-react` |
@@ -49,21 +49,22 @@ When to wait:
 
 ```ts
 // AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from '@glinr/theauth';
-import { organization } from '@glinr/theauth/plugins';
+import { createTheAuth } from '@glinr/theauth';
+import { organization } from '@glinr/theauth/auth';
 
-let instance: Awaited<ReturnType<typeof createKavach>> | null = null;
+let instance: Awaited<ReturnType<typeof createTheAuth>> | null = null;
 
 export async function getKavach() {
   if (!instance) {
-    instance = await createKavach({
+    instance = await createTheAuth({
       database: {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
       },
       secret: process.env.THEAUTH_SECRET!,
       baseUrl: process.env.AUTH_BASE_URL!,
-      emailAndPassword: { enabled: true },
+      auth: { session: { secret: process.env.SESSION_SECRET! } },
+      username: { password: { minLength: 8 } }, // TheAuth's password auth is username-based, see /auth/username
       plugins: [organization()],
     });
   }
@@ -160,15 +161,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ```tsx
 // AFTER: app/layout.tsx (TheAuth)
-import { KavachProvider } from '@glinr/theauth-react';
+import { TheAuthProvider } from '@glinr/theauth-react';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <KavachProvider basePath="/api/auth">
+    <TheAuthProvider basePath="/api/auth">
       <html lang="en">
         <body>{children}</body>
       </html>
-    </KavachProvider>
+    </TheAuthProvider>
   );
 }
 ```
@@ -310,10 +311,10 @@ Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side
 
 ```ts
 // AFTER (TheAuth)
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-export const kavach = await createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -412,27 +413,31 @@ Clerk exports historical metadata, not live OAuth tokens. Users will re-authoris
 
 ### Next sign-in rehash
 
-If you want password sign-in to keep working without a forced reset, accept Clerk bcrypt hashes during a transition window and rehash to PBKDF2 on successful sign-in. The shape of the hook:
+<Warning>
+  TheAuth's [username module](/auth/username) has no legacy-hash bridging hook, `verifyLegacyHash` and similar options do not exist. If you want password sign-in to keep working without a forced reset, you have to check the Clerk hash yourself in front of TheAuth.
+</Warning>
+
+Verify the legacy bcrypt hash in your own sign-in handler, and only fall through to TheAuth's `username.signUp` (which hashes with PBKDF2) to write a fresh credential once the legacy check passes:
 
 ```ts
-import { createKavach } from '@glinr/theauth';
 import { compare as bcryptCompare } from 'bcrypt';
 
-export const kavach = await createKavach({
-  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: process.env.AUTH_BASE_URL!,
-  emailAndPassword: {
-    enabled: true,
-    verifyLegacyHash: async ({ storedHash, password }) => {
-      if (!storedHash.startsWith('$2')) return false;
-      return bcryptCompare(password, storedHash);
-    },
-  },
-});
+async function signInWithLegacyBridge(usernameInput: string, password: string) {
+  const legacy = await db.query.legacyClerkHashes.findFirst({ where: eq(legacyClerkHashes.username, usernameInput) });
+
+  if (legacy && await bcryptCompare(password, legacy.bcryptHash)) {
+    // Legacy hash verified — create (or update) the TheAuth credential with a fresh PBKDF2 hash
+    await kavach.username?.signUp({ username: usernameInput, password }).catch(() => {
+      // already migrated, fall through to a normal sign-in
+    });
+    await db.delete(legacyClerkHashes).where(eq(legacyClerkHashes.username, usernameInput));
+  }
+
+  return kavach.username?.signIn({ username: usernameInput, password });
+}
 ```
 
-On a successful legacy verify, Kavach rehashes the password with PBKDF2 and overwrites the stored value. After 30 to 60 days, drop the `verifyLegacyHash` hook and force password reset for any stragglers.
+After 30 to 60 days, drop the `legacyClerkHashes` table and force a password reset for any stragglers.
 
 ## Session cookies
 

@@ -30,12 +30,12 @@ These limits apply automatically with no configuration required.
 
 ## Configuring auth limits
 
-Pass a `rateLimit` block to `createKavach` to override the defaults or enable Redis:
+Pass a `rateLimit` block to `createTheAuth` to override the defaults or enable Redis:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   rateLimit: {
     store: 'memory',        // or 'redis'

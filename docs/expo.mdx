@@ -10,9 +10,9 @@ icon: "/brand-icons/expo.svg"
 ## Installation
 
 ```bash
-npm install @glinr/@glinr/theauth-expo
+npm install @glinr/theauth-expo
 # or
-pnpm add @glinr/@glinr/theauth-expo
+pnpm add @glinr/theauth-expo
 ```
 
 You also need a storage library. The most common choices:
@@ -31,19 +31,19 @@ npx expo install expo-secure-store
 
 ```tsx
 // app/_layout.tsx (Expo Router) or App.tsx
-import { KavachExpoProvider } from '@glinr/theauth-expo';
+import { TheAuthExpoProvider } from '@glinr/theauth-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
   return (
-    <KavachExpoProvider
+    <TheAuthExpoProvider
       config={{
         basePath: 'https://api.myapp.com/api/kavach',
         storage: AsyncStorage,
       }}
     >
       <Stack />
-    </KavachExpoProvider>
+    </TheAuthExpoProvider>
   );
 }
 ```
@@ -84,7 +84,7 @@ For production apps, use `expo-secure-store` to encrypt the session token at res
 
 ```tsx
 import * as SecureStore from 'expo-secure-store';
-import { KavachExpoProvider } from '@glinr/theauth-expo';
+import { TheAuthExpoProvider } from '@glinr/theauth-expo';
 
 const secureStorage = {
   getItem: (key: string) => SecureStore.getItemAsync(key),
@@ -92,9 +92,9 @@ const secureStorage = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-<KavachExpoProvider config={{ basePath: '...', storage: secureStorage }}>
+<TheAuthExpoProvider config={{ basePath: '...', storage: secureStorage }}>
   {children}
-</KavachExpoProvider>
+</TheAuthExpoProvider>
 ```
 
 ## OAuth (deep link redirect)

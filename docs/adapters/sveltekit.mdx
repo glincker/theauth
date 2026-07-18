@@ -9,7 +9,7 @@ icon: "/brand-icons/svelte.svg"
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-sveltekit
+pnpm add @glinr/theauth @glinr/theauth-sveltekit
 ```
 
 ## Setup
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-sveltekit
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -102,10 +102,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/routes/api/kavach/[...path]/+server.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
 
-const kavach = createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {

@@ -20,10 +20,10 @@ Go to the [Google Cloud Console](https://console.cloud.google.com/), create an O
 ### Configure the plugin
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { oneTap } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     oneTap({ clientId: process.env.GOOGLE_CLIENT_ID }),

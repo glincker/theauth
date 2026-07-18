@@ -10,7 +10,7 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 
 | better-auth | TheAuth |
 |---|---|
-| `auth = betterAuth({...})` | `kavach = createKavach({...})` |
+| `auth = betterAuth({...})` | `kavach = await createTheAuth({...})` |
 | `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
 | `Session` | `Session` + `AgentSession` + `EphemeralAgentSession` |
 | `organization` plugin | `organization` plugin (same name, similar shape) |
@@ -41,18 +41,23 @@ export const auth = betterAuth({
 ```
 
 ```ts
-// AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from '@glinr/theauth';
-import { organization, twoFactor } from '@glinr/theauth/plugins';
+// AFTER: lib/theauth.ts (TheAuth)
+import { createTheAuth } from '@glinr/theauth';
+import { organization, twoFactor } from '@glinr/theauth/auth';
 
-export const kavach = createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
-  emailAndPassword: { enabled: true },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  username: { password: { minLength: 8 } }, // TheAuth's password auth is username-based, see /auth/username
   plugins: [organization(), twoFactor()],
 });
 ```
+
+<Info>
+  TheAuth has no `emailAndPassword` config key. Its built-in password module authenticates by username, see [Username and password](/auth/username) for the real shape and how to pair it with email verification if you need an email-first flow.
+</Info>
 
 ```ts
 // BEFORE: app/api/auth/[...all]/route.ts (better-auth)
@@ -116,9 +121,9 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: TheAuth (Drizzle is built in, no separate adapter import)
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
 });
 ```
@@ -142,9 +147,9 @@ const { data: session } = await authClient.useSession();
 
 ```ts
 // AFTER: TheAuth client
-import { createKavachClient } from '@glinr/theauth-client';
+import { createTheAuthClient } from '@glinr/theauth-client';
 
-export const client = createKavachClient({
+export const client = createTheAuthClient({
   baseUrl: 'http://localhost:3000/api/kavach',
 });
 ```
@@ -159,11 +164,11 @@ import { useSession } from 'better-auth/react'; // verify against current better
 import { useSession } from '@glinr/theauth-react';
 
 // Wrap your app:
-import { KavachProvider } from '@glinr/theauth-react';
+import { TheAuthProvider } from '@glinr/theauth-react';
 
-<KavachProvider basePath="/api/kavach">
+<TheAuthProvider basePath="/api/kavach">
   {children}
-</KavachProvider>
+</TheAuthProvider>
 ```
 
 ## OAuth providers
@@ -194,10 +199,10 @@ export const auth = betterAuth({
 
 ```ts
 // AFTER: TheAuth
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-export const kavach = createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -242,27 +247,28 @@ For a provider not in our first-class list, use the generic factory:
 
 ### Session tokens
 
-better-auth and TheAuth use different token structures. An existing session token from better-auth will not be accepted by TheAuth and vice versa. To avoid signing everyone out on cutover day, use our `cookieAuth` adapter to accept both token formats during a transition window:
+better-auth and TheAuth use different token structures. An existing session token from better-auth will not be accepted by TheAuth and vice versa. `auth.adapter` only accepts a single adapter, there is no built-in multi-adapter "accept both" mode, so bridge the transition window yourself with `customAuth`, checking your TheAuth session first, then falling back to a manual read of the old better-auth cookie:
 
 ```ts
-import { createKavach } from '@glinr/theauth';
-import { cookieAuth } from '@glinr/theauth/adapters';
+import { createTheAuth } from '@glinr/theauth';
+import { customAuth } from '@glinr/theauth/auth';
+import { auth as legacyAuth } from './lib/better-auth-legacy'; // your old better-auth instance, kept around during cutover
 
-export const kavach = createKavach({
+const legacyAdapter = customAuth(async (request) => {
+  const session = await legacyAuth.api.getSession({ headers: request.headers });
+  if (!session?.user) return null;
+  return { id: session.user.id, email: session.user.email, name: session.user.name };
+});
+
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
-  externalAuth: [
-    cookieAuth({
-      // Accept better-auth sessions signed with the old secret
-      secret: process.env.BETTER_AUTH_SECRET!,
-      cookieName: 'better-auth.session_token', // verify against your better-auth cookie config
-    }),
-  ],
+  auth: { adapter: legacyAdapter },
 });
 ```
 
-Run both token paths for 30 days. Once traffic drops to near-zero on the old tokens, remove the `cookieAuth` adapter.
+Run both token paths for as long as you need, TheAuth's built-in session (`auth.session`) will take over new sign-ins while `legacyAdapter` keeps resolving pre-cutover better-auth sessions. Once traffic drops to near-zero on the old cookie, drop the adapter and switch to `auth.session` only.
 
 ### Cookie defaults
 
@@ -379,7 +385,7 @@ No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, D
 Yes. Install `@glinr/theauth-prisma` and pass a `PrismaClient` as the database backend. See the [Prisma adapter docs](/docs/prisma) for the setup.
 
 **Do I need to install an MCP plugin?**
-No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createKavach` and enable it in your adapter.
+No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createTheAuth` and enable it in your adapter.
 
 **Can I run better-auth and TheAuth side by side?**
 Yes. Use the `cookieAuth` adapter to accept better-auth sessions inside TheAuth, and route traffic with a feature flag as shown above.

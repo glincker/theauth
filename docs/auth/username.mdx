@@ -1,39 +1,49 @@
 ---
 title: Username and password
-description: Authenticate users with a unique username and password via `usernamePassword`. Covers length limits, pattern validation, and uniqueness enforcement at sign-up.
+description: Authenticate users with a unique username and password via the `username` module. Covers length limits, pattern validation, and uniqueness enforcement at sign-up.
 icon: key
 ---
 
-The `usernamePassword` plugin lets users pick a username at registration and sign in with it. It is a drop-in alternative to the email-password plugin for apps where email addresses are not the primary identity.
+TheAuth's built-in password auth is username-based: users register with a username (not an email address) and a password. Passwords are hashed with PBKDF2 before storage so a database breach does not expose credentials. It is a headless module, you mount it yourself by forwarding requests to `kavach.username.handleRequest`.
+
+<Info>
+  There is no separate email-based password plugin. For email-first sign-in, pair this module with [email verification](/mcp) and [email OTP](/auth/email-otp), or use [magic link](/auth/magic-link) for a fully passwordless flow.
+</Info>
 
 ## Setup
 
-```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
-import { usernamePassword } from '@glinr/theauth/auth'; // [!code highlight]
+```typescript title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
-  baseUrl: 'https://auth.example.com',
-  plugins: [
-    usernamePassword({ // [!code highlight]
-      minUsernameLength: 3, // [!code highlight]
-      maxUsernameLength: 32, // [!code highlight]
-      allowedPattern: /^[a-z0-9_-]+$/i, // [!code highlight]
-    }), // [!code highlight]
-  ],
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // required — signUp/signIn issue sessions
+  username: {
+    minUsernameLength: 3,
+    maxUsernameLength: 32,
+    allowedPattern: /^[a-z0-9_-]+$/i,
+    caseSensitive: false,
+    password: { minLength: 8, maxLength: 128 },
+  },
 });
 ```
 
-Mount the handler the same way as any other plugin, see [adapters](/adapters).
+Forward matching requests to the module from your framework adapter (or call it directly from a catch-all route):
+
+```typescript title="Mount the handler"
+async function handleAuth(request: Request): Promise<Response> {
+  const response = await kavach.username?.handleRequest(request);
+  if (response) return response;
+  return new Response('Not Found', { status: 404 });
+}
+```
 
 ## Sign up
 
-`POST /auth/sign-up`
+`POST /auth/username/sign-up`
 
 ```typescript title="Sign up (client)"
-const res = await fetch('/auth/sign-up', {
+const res = await fetch('/auth/username/sign-up', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -43,23 +53,19 @@ const res = await fetch('/auth/sign-up', {
   }),
 });
 
-const { user, token } = await res.json();
+// 201: { user: { id, username, name }, session: { token, expiresAt } }
+// 400: { error: "Username already taken" | "Username must be at least N characters" | ... }
+const { user, session } = await res.json();
 ```
 
-**Error codes**
-
-| Code | Status | Meaning |
-|------|--------|---------|
-| `USERNAME_TAKEN` | 409 | Username is already registered |
-| `USERNAME_INVALID` | 422 | Does not match `allowedPattern` |
-| `USERNAME_TOO_SHORT` | 422 | Below `minUsernameLength` |
+Sign-up throws (returned as a `400` with a plain-text `error` message, not a machine-readable code) when the username fails validation or is already taken, or when the password fails length validation.
 
 ## Sign in
 
-`POST /auth/sign-in`
+`POST /auth/username/sign-in`
 
 ```typescript title="Sign in (client)"
-const res = await fetch('/auth/sign-in', {
+const res = await fetch('/auth/username/sign-in', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
@@ -69,41 +75,76 @@ const res = await fetch('/auth/sign-in', {
   }),
 });
 
-const { user, session } = await res.json();
+if (res.status === 403) {
+  const { error } = await res.json();
+  // error.code === 'PASSWORD_RESET_REQUIRED'
+} else if (!res.ok) {
+  // 401: { error: "Invalid username or password" } — generic, does not reveal which field was wrong
+} else {
+  const { user, session } = await res.json();
+}
 ```
 
-Returns `401` with code `INVALID_CREDENTIALS` for any bad username/password combination. The response never reveals whether the username exists.
+## Change password
 
-## Change username
+`POST /auth/username/change-password`
 
-`POST /auth/change-username`
+Requires the caller to know the current password. The module does not read the session for you, pass the authenticated `userId` from your own session lookup.
 
-Requires an active session. Usernames must still be unique after the change.
-
-```typescript title="Change username (client)"
-const res = await fetch('/auth/change-username', {
+```typescript title="Change password (client)"
+const res = await fetch('/auth/username/change-password', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    newUsername: 'ada_v2', // [!code highlight]
-    password: 'correct horse battery', // current password required // [!code highlight]
+    userId: user.id, // [!code highlight]
+    current: 'correct horse battery', // [!code highlight]
+    newPassword: 'new-stronger-password', // [!code highlight]
   }),
 });
+```
+
+## Change username
+
+`POST /auth/username/change-username`
+
+```typescript title="Change username (client)"
+const res = await fetch('/auth/username/change-username', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    userId: user.id, // [!code highlight]
+    newUsername: 'ada_v2', // [!code highlight]
+  }),
+});
+```
+
+Usernames must still be unique after the change, sign-up validation rules (`allowedPattern`, length) apply here too.
+
+## Using the module directly
+
+`kavach.username` exposes typed methods in addition to `handleRequest`, useful when you want to call sign-up/sign-in from server code (e.g. an admin invite flow) instead of going through HTTP:
+
+```typescript
+const result = await kavach.username?.signUp({ username: 'ada_lovelace', password: 'correct horse battery' });
+const signedIn = await kavach.username?.signIn({ username: 'ada_lovelace', password: 'correct horse battery' });
 ```
 
 ## Configuration reference
 
 <ParamField path="minUsernameLength" type="number" default={3}>Minimum username length.</ParamField>
 <ParamField path="maxUsernameLength" type="number" default={32}>Maximum username length.</ParamField>
-<ParamField path="allowedPattern" type="RegExp" default="/^[a-z0-9_-]+$/i">Regex that the username must match. Applied after length validation.</ParamField>
-<ParamField path="caseSensitive" type="boolean" default="false">Whether usernames are case-sensitive during lookup.</ParamField>
+<ParamField path="allowedPattern" type="RegExp" default="/^[a-zA-Z0-9_-]+$/">Regex the username must match.</ParamField>
+<ParamField path="caseSensitive" type="boolean" default="false">Whether usernames are normalized to lowercase before storage and lookup.</ParamField>
+<ParamField path="password.minLength" type="number" default={8}>Minimum password length.</ParamField>
+<ParamField path="password.maxLength" type="number" default={128}>Maximum password length.</ParamField>
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Email and password" href="/auth/email-password" icon="envelope">
-    Sibling method that uses email instead of a username as the identifier.
+  <Card title="Magic link" href="/auth/magic-link" icon="link">
+    Passwordless, email-based alternative when you don't want a password field at all.
   </Card>
   <Card title="Two-factor auth" href="/auth/two-factor" icon="mobile-screen">
     Add TOTP as a second factor on top of username/password sign-in.

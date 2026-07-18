@@ -9,9 +9,9 @@ icon: gear
 Pass `adminUserIds` when creating your TheAuth instance:
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   admin: { // [!code highlight]
     adminUserIds: [process.env.ADMIN_USER_ID], // [!code highlight]

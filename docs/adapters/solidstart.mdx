@@ -9,7 +9,7 @@ icon: "/brand-icons/solid.svg"
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-solidstart
+pnpm add @glinr/theauth @glinr/theauth-solidstart
 ```
 
 ## Setup
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-solidstart
 
 ```typescript
 // src/lib/kavach.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -102,10 +102,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/routes/api/kavach/[...kavach].ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { kavachSolidStart } from '@glinr/theauth-solidstart';
 
-const kavach = createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {

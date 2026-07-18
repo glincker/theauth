@@ -37,10 +37,10 @@ pnpm add @glinr/theauth
 The A2A server exposes your agent as a JSON-RPC endpoint that other agents can call.
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { createAgentCard, createA2AServer } from '@glinr/theauth/a2a';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

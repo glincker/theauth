@@ -1,20 +1,20 @@
 ---
 title: UI components
-description: Drop-in React components for sign-in, sign-up, password reset, 2FA, and OAuth buttons from @glinr/theauth-ui. Tailwind-based, wired to KavachProvider automatically.
+description: Drop-in React components for sign-in, sign-up, password reset, 2FA, and OAuth buttons from @glinr/theauth-ui. Tailwind-based, wired to TheAuthProvider automatically.
 icon: table-columns
 ---
 
 
-`@glinr/theauth-ui` provides drop-in React components for auth flows. Each component renders inside `KavachProvider` from `@glinr/theauth-react` and wires up to your TheAuth API route automatically, no manual fetch calls required.
+`@glinr/theauth-ui` provides drop-in React components for auth flows. Each component renders inside `TheAuthProvider` from `@glinr/theauth-react` and wires up to your TheAuth API route automatically, no manual fetch calls required.
 
 <Info>
-  Components require `@glinr/theauth-react` to be installed and a `KavachProvider` wrapping your app. See the [React hooks](/react) page for provider setup.
+  Components require `@glinr/theauth-react` to be installed and a `TheAuthProvider` wrapping your app. See the [React hooks](/react) page for provider setup.
 </Info>
 
 ## Installation
 
 ```bash
-pnpm add @glinr/@glinr/theauth-ui
+pnpm add @glinr/theauth-ui
 ```
 
 Components are unstyled by default and rely on Tailwind CSS for layout and spacing. Add `@glinr/theauth-ui` to your `tailwind.config.ts` content paths:

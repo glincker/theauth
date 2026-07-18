@@ -32,10 +32,10 @@ After saving, expand the consumer to see the **Key** (client ID) and **Secret** 
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { oauth, bitbucketProvider } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://your-app.com',

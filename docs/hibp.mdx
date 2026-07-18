@@ -1,31 +1,35 @@
 ---
 title: Password breach checking
-description: Reject or warn on passwords found in known data breaches using the HaveIBeenPwned API.
+description: Reject or warn on passwords found in known data breaches using the HaveIBeenPwned Pwned Passwords API and TheAuth's createHibpModule.
 icon: shield-halved
 ---
 
 TheAuth integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model, only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.
 
+`createHibpModule` is standalone, it does not hook automatically into the [username](/auth/username) module or any other password flow. Call `check()` or `enforce()` yourself wherever you accept a new password.
+
 ## Setup
 
-```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
-import { emailPassword } from '@glinr/theauth/auth';
-import { createHibpModule } from '@glinr/theauth/modules/hibp'; // [!code highlight]
+```typescript title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
+import { createHibpModule } from '@glinr/theauth/auth'; // [!code highlight]
 
-const hibp = createHibpModule(); // [!code highlight]
+const hibp = createHibpModule({ threshold: 0 }); // reject any breach count above 0 // [!code highlight]
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
-  baseUrl: 'https://auth.example.com',
-  plugins: [
-    emailPassword({
-      appUrl: 'https://app.example.com',
-      onPasswordValidate: hibp.enforce, // [!code highlight]
-    }),
-  ],
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  username: { password: { minLength: 8 } },
 });
+```
+
+Call `hibp.enforce()` before delegating to the username module's `signUp`:
+
+```typescript title="Sign-up handler"
+async function handleSignUp(username: string, password: string) {
+  await hibp.enforce(password); // throws HibpBreachedError if compromised // [!code highlight]
+  return kavach.username?.signUp({ username, password });
+}
 ```
 
 ## check() and enforce()
@@ -35,18 +39,32 @@ The module exposes two methods with different failure modes:
 ```typescript title="Manual usage"
 const hibp = createHibpModule();
 
-// Returns { breached: true, count: 4830 } or { breached: false, count: 0 }
-const result = await hibp.check('user-entered-password');
+// Returns the breach count as a number. 0 means clean (or the API was
+// unreachable and onError is 'allow', the default).
+const count = await hibp.check('user-entered-password');
 
-if (result.breached) {
-  console.warn(`Password seen ${result.count} times in breaches`);
+if (count > 0) {
+  console.warn(`Password seen ${count} times in breaches`);
 }
 
-// Throws KavachError with code PASSWORD_BREACHED if compromised
+// Throws HibpBreachedError if count exceeds the configured threshold
 await hibp.enforce('user-entered-password');
 ```
 
-`check()` is useful when you want to warn the user without blocking them. `enforce()` integrates directly into the password validation lifecycle and blocks the request.
+`check()` is useful when you want to warn the user without blocking them. `enforce()` throws a typed `HibpBreachedError` (with a `count` property) so you can catch it and return a friendly message:
+
+```typescript
+import { HibpBreachedError } from '@glinr/theauth/auth';
+
+try {
+  await hibp.enforce(password);
+} catch (err) {
+  if (err instanceof HibpBreachedError) {
+    return { error: `This password has appeared in ${err.count} known breaches. Choose another.` };
+  }
+  throw err;
+}
+```
 
 ## How k-anonymity works
 
@@ -60,27 +78,29 @@ await hibp.enforce('user-entered-password');
 
 The full password hash is never transmitted. The API response contains partial hashes from other users' passwords, so the provider cannot determine which password you were checking.
 
-## Custom API key
+## Configuration
 
-The HIBP Passwords API is free and does not require authentication, but a paid key removes rate limits:
+The Pwned Passwords API is free and does not require an API key. Point `apiUrl` at a self-hosted mirror if you run one:
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 const hibp = createHibpModule({
-  apiKey: process.env.HIBP_API_KEY, // optional // [!code highlight]
-  timeout: 3000, // ms before the check is skipped, not failed // [!code highlight]
+  threshold: 0, // reject any breach count greater than this // [!code highlight]
+  apiUrl: 'https://api.pwnedpasswords.com', // default, override for a self-hosted mirror // [!code highlight]
+  timeoutMs: 5000, // ms before the check is abandoned // [!code highlight]
+  onError: 'allow', // 'allow' | 'block' — behavior when the API is unreachable // [!code highlight]
 });
 ```
 
 <Info>
-  If the HIBP API is unreachable, `check()` returns `{ breached: false }` and `enforce()` passes through. The default behavior is fail-open so a slow network does not block your users from registering. Set `failClosed: true` to change this.
+  If the HIBP API is unreachable and `onError` is `'allow'` (the default), `check()` returns `0` and `enforce()` passes through, a slow network does not block your users from registering. Set `onError: 'block'` to fail closed instead, `check()` throws `HibpApiError` and `enforce()` propagates it.
 </Info>
 
 ## Configuration reference
 
-<ParamField path="apiKey" type="string">Optional HIBP API key for higher rate limits.</ParamField>
-<ParamField path="timeout" type="number" default="3000">Milliseconds to wait for the HIBP API before giving up.</ParamField>
-<ParamField path="failClosed" type="boolean" default="false">Reject the password if HIBP is unreachable instead of passing through.</ParamField>
-<ParamField path="minBreachCount" type="number" default="1">Minimum breach count before a password is considered compromised.</ParamField>
+<ParamField path="threshold" type="number" default={0}>Reject passwords seen in more than this many breaches. Default 0 rejects any breach at all.</ParamField>
+<ParamField path="apiUrl" type="string" default="https://api.pwnedpasswords.com">Base URL for the Pwned Passwords range API.</ParamField>
+<ParamField path="timeoutMs" type="number" default={5000}>Milliseconds to wait for the HIBP API before giving up.</ParamField>
+<ParamField path="onError" type="'allow' | 'block'" default="'allow'">Behavior when the HIBP API is unreachable or returns an error.</ParamField>
 
 ## Related
 
@@ -91,8 +111,8 @@ const hibp = createHibpModule({
   <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
     Skip 2FA on devices verified after a successful sign-in.
   </Card>
-  <Card title="Email and password" href="/auth/email-password" icon="envelope">
-    The primary auth plugin that integrates with HIBP enforcement.
+  <Card title="Username and password" href="/auth/username" icon="key">
+    TheAuth's built-in password module that HIBP enforcement typically guards.
   </Card>
   <Card title="Compliance" href="/compliance" icon="file-lines">
     Broader security posture including audit and anomaly detection.

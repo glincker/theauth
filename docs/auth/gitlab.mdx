@@ -18,7 +18,7 @@ For **gitlab.com**: Go to [gitlab.com/-/profile/applications](https://gitlab.com
 For a **self-hosted instance**: Go to your instance URL, then **User Settings > Applications**.
 
 - **Name**: your app name
-- **Redirect URI**: `https://auth.example.com/auth/oauth/gitlab/callback`
+- **Redirect URI**: `https://auth.example.com/auth/oauth/callback/gitlab`
 - **Scopes**: check `read_user` and `email`
 
 </Step>
@@ -38,10 +38,10 @@ After saving, copy the **Application ID** and **Secret**.
 <Tabs>
   <Tab title="gitlab.com">
     ```typescript title="lib/kavach.ts"
-    import { createKavach } from '@glinr/theauth';
+    import { createTheAuth } from '@glinr/theauth';
     import { oauth } from '@glinr/theauth/auth';
 
-    const kavach = await createKavach({
+    const kavach = await createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
       secret: process.env.KAVACH_SECRET!,
       baseUrl: 'https://auth.example.com',

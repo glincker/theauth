@@ -19,10 +19,10 @@ From your [Polar dashboard](https://polar.sh), go to **Settings → API** and cr
 ### Configure the plugin
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { polar } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   plugins: [
     polar({

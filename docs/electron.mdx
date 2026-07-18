@@ -1,55 +1,97 @@
 ---
 title: Electron
-description: Add auth to Electron apps via `createKavachElectron`. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and automatic token refresh.
+description: Add auth to Electron apps via `ElectronTheAuthProvider`. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and session persistence.
 icon: code
 ---
 
 
-`@glinr/theauth-electron` provides secure auth for Electron desktop apps with encrypted token storage, OAuth popup windows, and IPC bridge for renderer-to-main communication.
+`@glinr/theauth-electron` provides secure auth for Electron desktop apps with encrypted token storage, OAuth popup windows, and an IPC bridge for renderer-to-main communication.
 
 ## Install
 
 ```bash
-pnpm add @glinr/@glinr/theauth-electron
+pnpm add @glinr/theauth-electron
 ```
 
 ## Setup (main process)
 
+Create a storage adapter backed by Electron's `safeStorage` API, then expose it to the renderer over IPC:
+
 ```ts
-import { createKavachElectron } from '@glinr/theauth-electron';
+import { app, ipcMain } from 'electron';
+import { createElectronStorage, setupTheAuthIpc } from '@glinr/theauth-electron';
 
-const kavach = createKavachElectron({
-  baseUrl: 'https://api.myapp.com/api/kavach',
-  appName: 'MyApp',
+const storage = createElectronStorage({ fileName: 'theauth-session.json' });
+setupTheAuthIpc(storage);
+```
+
+Open the OAuth popup window from a main-process IPC handler:
+
+```ts
+import { ipcMain } from 'electron';
+import { openOAuthWindow } from '@glinr/theauth-electron';
+
+ipcMain.handle('theauth:sign-in-oauth', async (_event, providerId: string) => {
+  return openOAuthWindow(providerId, { basePath: 'https://api.myapp.com/api/kavach' });
 });
-
-// Register IPC handlers
-kavach.registerIpcHandlers(ipcMain);
 ```
 
 ## Usage (renderer)
 
-```ts
-import { useKavachElectron } from '@glinr/theauth-electron/renderer';
+Wrap your renderer's React tree in `ElectronTheAuthProvider`. Pass a `SecureStorage` adapter, either `createIpcStorage()` (delegates to the main process over IPC, recommended with `contextIsolation`) or `createElectronStorage()` directly if Node integration is enabled:
 
-const { signIn, signOut, getSession, getUser } = useKavachElectron();
+```tsx
+import { ElectronTheAuthProvider, createIpcStorage } from '@glinr/theauth-electron';
 
-const session = await getSession();
-if (!session) {
-  await signIn('google'); // Opens OAuth popup window
+const storage = createIpcStorage();
+
+export function App() {
+  return (
+    <ElectronTheAuthProvider basePath="/api/kavach" storage={storage}>
+      <SignedInView />
+    </ElectronTheAuthProvider>
+  );
 }
 ```
+
+Read session state and call auth actions with `useElectronTheAuthContext`:
+
+```tsx
+import { useElectronTheAuthContext } from '@glinr/theauth-electron';
+
+function SignedInView() {
+  const { session, user, isLoading, isAuthenticated, signIn, signOut, refresh } =
+    useElectronTheAuthContext();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!isAuthenticated) {
+    return (
+      <button onClick={() => signIn('alice@example.com', 'password')}>
+        Sign in
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <p>Signed in as {user?.email}</p>
+      <button onClick={signOut}>Sign out</button>
+    </div>
+  );
+}
+```
+
+`signIn` and `signUp` authenticate against the email/password endpoints on your TheAuth API. For OAuth providers, trigger `openOAuthWindow` from the main process (see above), then call `refresh()` from the renderer once the window resolves to pick up the new session.
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
-| Secure storage | Tokens encrypted via Electron's safeStorage API |
-| OAuth popup | Opens provider auth in a new BrowserWindow |
-| IPC bridge | Secure main/renderer communication |
-| Auto-refresh | Background token refresh |
-| Deep links | Handle `myapp://` callback URLs |
+| Secure storage | Tokens encrypted via Electron's `safeStorage` API |
+| OAuth popup | Opens provider auth in a new `BrowserWindow` |
+| IPC bridge | Secure main/renderer communication via `setupTheAuthIpc` / `createIpcStorage` |
+| Session persistence | `ElectronTheAuthProvider` restores and re-verifies sessions on launch |
 
 <Info>
-Token storage uses Electron's `safeStorage.encryptString()` which uses the OS keychain (Keychain on macOS, DPAPI on Windows, Secret Service on Linux).
+Token storage uses Electron's `safeStorage.encryptString()` which uses the OS keychain (Keychain on macOS, DPAPI on Windows, Secret Service on Linux). If encryption is unavailable, `createElectronStorage` falls back to plaintext and logs a warning.
 </Info>

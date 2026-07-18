@@ -12,10 +12,10 @@ If you already run Clerk, Auth.js, or better-auth, keep them and skip the plugin
 </div>
 
 ```ts
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { emailPassword, oauth } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',
@@ -151,7 +151,7 @@ Don't see your provider? The [generic OAuth factory](/auth/oauth) wires any auth
 
 ## How plugins fit
 
-Every plugin registers routes, tables, and session logic at `createKavach()` time. The resulting instance carries `auth.*` methods you call from your handlers.
+Every plugin registers routes, tables, and session logic at `createTheAuth()` time. The resulting instance carries `auth.*` methods you call from your handlers.
 
 ```ts title="resolving a user from a request"
 const user = await kavach.auth.resolveUser(request);

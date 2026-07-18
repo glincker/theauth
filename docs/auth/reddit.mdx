@@ -16,7 +16,7 @@ description: Authenticate users via Reddit OAuth 2.0. Register a web app in Redd
 Go to [Reddit App Preferences](https://www.reddit.com/prefs/apps) and scroll to the bottom. Click **Create another app...**. Select **web app** as the type and add your redirect URI:
 
 ```
-https://auth.example.com/auth/oauth/reddit/callback
+https://auth.example.com/auth/oauth/callback/reddit
 ```
 
 </Step>
@@ -34,10 +34,10 @@ After saving, the **client ID** appears directly under the app name (a short str
 ## Configuration
 
 ```typescript title="lib/kavach.ts"
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

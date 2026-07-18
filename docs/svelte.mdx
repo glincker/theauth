@@ -1,6 +1,6 @@
 ---
 title: Svelte
-description: Add TheAuth auth to Svelte and SvelteKit apps via createKavachClient and createKavachHooks. Session state is reactive and server-populated on first page load.
+description: Add TheAuth auth to Svelte and SvelteKit apps via createTheAuthClient and createKavachHooks. Session state is reactive and server-populated on first page load.
 icon: code
 ---
 
@@ -9,7 +9,7 @@ icon: code
 ## Installation
 
 ```bash
-pnpm add @glinr/@glinr/theauth-svelte
+pnpm add @glinr/theauth-svelte
 ```
 
 ## Setup
@@ -17,7 +17,7 @@ pnpm add @glinr/@glinr/theauth-svelte
 Create a client instance and export the stores from a shared module:
 
 ```typescript title="src/lib/kavach.ts"
-import { createKavachClient } from '@glinr/theauth-svelte'; // [!code highlight]
+import { createTheAuthClient } from '@glinr/theauth-svelte'; // [!code highlight]
 
 export const {
   session,
@@ -26,7 +26,7 @@ export const {
   signOut,
   signUp,
   agents,
-} = createKavachClient({ // [!code highlight]
+} = createTheAuthClient({ // [!code highlight]
   basePath: '/api/kavach', // [!code highlight]
 }); // [!code highlight]
 ```

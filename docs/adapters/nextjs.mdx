@@ -9,7 +9,7 @@ icon: "/brand-icons/nextdotjs.svg"
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-nextjs
+pnpm add @glinr/theauth @glinr/theauth-nextjs
 ```
 
 ## Setup
@@ -21,9 +21,9 @@ Create this in a shared module so it is initialized once at server startup:
 
 ```typescript
 // lib/kavach.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -104,10 +104,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { createKavach, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { kavachNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = createKavach({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -128,7 +128,7 @@ export const OPTIONS = handlers.OPTIONS;
 ```
 
 <Warning>
-  Do not define `createKavach` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
+  Do not define `createTheAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
 </Warning>
 
 ## Related

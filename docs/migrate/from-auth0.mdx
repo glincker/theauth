@@ -23,12 +23,12 @@ When to wait:
 
 | Auth0 | TheAuth |
 |---|---|
-| Tenant | A `createKavach` instance. One per deployment. |
+| Tenant | A `createTheAuth` instance. One per deployment. |
 | Application (Regular Web, SPA, Native) | `@glinr/theauth-react`, `@glinr/theauth-vue`, etc., plus the adapter for your framework. |
 | API (resource server) | The HTTP handler mounted via an adapter. Audience is bound via the `mcp` config. |
 | Machine-to-Machine client | `AgentIdentity` with `type: 'service'`. Scoped permissions, rotatable token, revocable. |
 | Connection (database, social, enterprise) | OAuth provider in the `oauth` plugin config, or the built-in email/password flow. |
-| Rule | Deprecated in Auth0 as well. Replace with a lifecycle hook on `createKavach` or a policy. |
+| Rule | Deprecated in Auth0 as well. Replace with a lifecycle hook on `createTheAuth` or a policy. |
 | Action (`onExecutePostLogin`, etc.) | Lifecycle hooks: `onSignIn`, `onSignUp`, `beforeSession`, `afterSession`. |
 | Post-login trigger on agent tokens | Policy middleware, evaluated per `authorize()` call. |
 | Organizations | `organization` plugin (same conceptual model). |
@@ -38,7 +38,7 @@ When to wait:
 | Management API | Server-side instance methods directly, no separate API. |
 | Refresh token rotation | On by default with the `jwtSession` and `refresh` plugins. |
 | Tenant logs | Audit trail via `kavach.audit.query()` and the audit export. |
-| Custom domain, cookie domain | Set `baseUrl` and the cookie config on `createKavach`. |
+| Custom domain, cookie domain | Set `baseUrl` and the cookie config on `createTheAuth`. |
 | Hooks (Pre-User Registration, Post-User Registration, Send Phone Message) | Lifecycle hooks on the relevant plugins. |
 
 ## Server setup
@@ -50,25 +50,28 @@ When to wait:
 ```
 
 ```ts
-// AFTER: lib/kavach.ts (TheAuth)
-import { createKavach } from '@glinr/theauth';
-import { organization, rbac, mcp } from '@glinr/theauth/plugins';
+// AFTER: lib/theauth.ts (TheAuth)
+import { createTheAuth } from '@glinr/theauth';
+import { organization } from '@glinr/theauth/auth';
 
-export const kavach = await createKavach({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!, // e.g. https://auth.example.com
-  emailAndPassword: { enabled: true },
-  plugins: [
-    organization(),
-    rbac(),
-    mcp({
-      issuer: process.env.AUTH_BASE_URL!,
-      audience: process.env.API_BASE_URL!, // the resource server URL
-    }),
-  ],
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  username: { password: { minLength: 8 } }, // TheAuth's password auth is username-based, see /auth/username
+  mcp: {
+    enabled: true,
+    issuer: process.env.AUTH_BASE_URL!,
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // >= 32 chars
+  },
+  plugins: [organization()],
 });
 ```
+
+<Info>
+  Role-based access is handled by the built-in policy engine (`kavach.policy.evaluate`), there is no separate `rbac` plugin to opt into, see [Policy engine](/policy-engine). MCP OAuth 2.1 is a top-level `mcp` config key, not a `plugins: [...]` entry, see [MCP](/mcp).
+</Info>
 
 ## Mounting the handler
 
@@ -123,7 +126,7 @@ export function Nav() {
 }
 ```
 
-Wrap the root in `<KavachProvider>`, then the hooks work the same way they do in the Auth0 SDK.
+Wrap the root in `<TheAuthProvider>`, then the hooks work the same way they do in the Auth0 SDK.
 
 ## Rules and Actions
 
@@ -141,9 +144,9 @@ exports.onExecutePostLogin = async (event, api) => {
 
 ```ts
 // AFTER: TheAuth lifecycle hook
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-export const kavach = await createKavach({
+export const kavach = await createTheAuth({
   database: { /* ... */ },
   hooks: {
     beforeSession: async ({ user, session }) => {

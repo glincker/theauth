@@ -17,7 +17,7 @@ Go to [github.com/settings/applications/new](https://github.com/settings/applica
 
 - **Application name**: your app name
 - **Homepage URL**: `https://example.com`
-- **Authorization callback URL**: `https://auth.example.com/auth/oauth/github/callback`
+- **Authorization callback URL**: `https://auth.example.com/auth/oauth/callback/github`
 
 </Step>
 
@@ -40,10 +40,10 @@ After creating the app, copy the **Client ID**. Click **Generate a new client se
 <Tabs>
   <Tab title="Basic">
     ```typescript title="lib/kavach.ts"
-    import { createKavach } from '@glinr/theauth';
+    import { createTheAuth } from '@glinr/theauth';
     import { oauth } from '@glinr/theauth/auth';
 
-    const kavach = await createKavach({
+    const kavach = await createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
       secret: process.env.KAVACH_SECRET!,
       baseUrl: 'https://auth.example.com',
