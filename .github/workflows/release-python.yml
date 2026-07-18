@@ -92,7 +92,7 @@ jobs:
             ```
 
             ### What's included
-            - Async client (`KavachClient`) and sync client (`KavachSyncClient`)
+            - Async client (`TheAuthClient`) and sync client (`TheAuthSyncClient`)
             - Agent management, auth, audit, delegation modules
             - Full type hints (mypy strict compatible)
         env:
