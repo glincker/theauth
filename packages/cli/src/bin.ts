@@ -33,7 +33,7 @@ Examples:
   theauth migrate
   theauth dashboard --port 3100
 
-Documentation: https://theauth.com/docs
+Documentation: https://theauth.dev/docs
 `;
 
 function printVersion(): void {
@@ -59,7 +59,7 @@ async function handleMigrate(): Promise<void> {
 	stdout.write("==========================\n\n");
 	stdout.write("Migration support coming in v0.1.0.\n");
 	stdout.write("For now, tables are auto-created on first run.\n\n");
-	stdout.write("See: https://theauth.com/docs/quickstart\n\n");
+	stdout.write("See: https://theauth.dev/docs/quickstart\n\n");
 }
 
 async function handleDashboard(): Promise<void> {

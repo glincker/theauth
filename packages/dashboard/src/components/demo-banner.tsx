@@ -24,7 +24,7 @@ export function DemoBanner() {
 				<span className="inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
 				Running in demo mode with sample data.{" "}
 				<a
-					href="https://theauth.com/docs"
+					href="https://theauth.dev/docs"
 					target="_blank"
 					rel="noopener noreferrer"
 					className="underline underline-offset-2 hover:text-amber-200 transition-colors"

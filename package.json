@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/glincker/theauth.git"
   },
-  "homepage": "https://theauth.com",
+  "homepage": "https://theauth.dev",
   "bugs": "https://github.com/glincker/theauth/issues",
   "engines": {
     "node": ">=20.0.0"

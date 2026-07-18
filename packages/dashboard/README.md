@@ -61,7 +61,7 @@ This starts a Hono server that serves the dashboard UI and proxies API requests 
 
 ## Docs and support
 
-- Documentation: [theauth.com/docs](https://theauth.com/docs)
+- Documentation: [theauth.dev/docs](https://theauth.dev/docs)
 - GitHub: [github.com/glincker/theauth](https://github.com/glincker/theauth)
 
 ## License

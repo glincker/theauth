@@ -36,9 +36,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://theauth.com"
+Homepage = "https://theauth.dev"
 Repository = "https://github.com/glincker/theauth"
-Documentation = "https://theauth.com/docs"
+Documentation = "https://theauth.dev/docs"
 Issues = "https://github.com/glincker/theauth/issues"
 
 [tool.hatch.build.targets.wheel]

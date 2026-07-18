@@ -44,7 +44,7 @@ app.use("/api/kavach", kavachMiddleware(kavach));
 
 ## Docs
 
-[docs.theauth.com/docs/adapters/nestjs](https://docs.theauth.com/docs/adapters/nestjs)
+[docs.theauth.dev/docs/adapters/nestjs](https://docs.theauth.dev/docs/adapters/nestjs)
 
 ## License
 

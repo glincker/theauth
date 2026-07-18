@@ -48,7 +48,7 @@ All provider icons are exported individually (`GoogleIcon`, `GitHubIcon`, `Micro
 
 ## Docs
 
-[https://docs.theauth.com/ui](https://docs.theauth.com/ui)
+[https://docs.theauth.dev/ui](https://docs.theauth.dev/ui)
 
 ## License
 

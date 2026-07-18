@@ -684,7 +684,7 @@ export function AgentsPage({ client }: AgentsPageProps) {
 											Create Agent
 										</Button>
 									}
-									docsLink="https://theauth.com/docs/quickstart"
+									docsLink="https://theauth.dev/docs/quickstart"
 								/>
 							</td>
 						</tr>

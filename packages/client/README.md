@@ -52,7 +52,7 @@ try {
 
 ## Docs
 
-[https://docs.theauth.com/client](https://docs.theauth.com/client)
+[https://docs.theauth.dev/client](https://docs.theauth.dev/client)
 
 ## License
 
