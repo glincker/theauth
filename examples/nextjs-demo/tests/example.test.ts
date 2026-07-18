@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emailPassword } from "../../../packages/auth/email/src/index.js";
-import type { Kavach } from "../../../packages/core/src/kavach.js";
-import { createKavach } from "../../../packages/core/src/kavach.js";
+import type { TheAuth } from "../../../packages/core/src/kavach.js";
+import { createTheAuth } from "../../../packages/core/src/kavach.js";
 
-const state = vi.hoisted(() => ({ kavach: null as Kavach | null }));
+const state = vi.hoisted(() => ({ kavach: null as TheAuth | null }));
 
 vi.mock("@/lib/kavach", () => ({
 	getKavach: async () => state.kavach,
@@ -15,7 +15,7 @@ vi.mock("@glinr/theauth-nextjs", async () => {
 
 async function loadRouteModule() {
 	vi.resetModules();
-	return import("../app/api/kavach/[...kavach]/route.ts");
+	return import("../app/api/theauth/[...theauth]/route.ts");
 }
 
 function getField<T>(body: Record<string, unknown>, key: string): T | undefined {
@@ -34,7 +34,7 @@ function getField<T>(body: Record<string, unknown>, key: string): T | undefined 
 
 describe("nextjs-demo example", () => {
 	beforeEach(async () => {
-		state.kavach = await createKavach({
+		state.kavach = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			agents: {
 				enabled: true,
@@ -54,11 +54,11 @@ describe("nextjs-demo example", () => {
 		});
 	});
 
-	it("serves the auth flow and agent routes under /api/kavach", async () => {
+	it("serves the auth flow and agent routes under /api/theauth", async () => {
 		const route = await loadRouteModule();
 
 		const signUpRes = await route.POST(
-			new Request("http://localhost/api/kavach/auth/sign-up", {
+			new Request("http://localhost/api/theauth/auth/sign-up", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -74,7 +74,7 @@ describe("nextjs-demo example", () => {
 		expect(signedUpUser?.email).toBe("demo@example.com");
 
 		const signInRes = await route.POST(
-			new Request("http://localhost/api/kavach/auth/sign-in", {
+			new Request("http://localhost/api/theauth/auth/sign-in", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -92,7 +92,7 @@ describe("nextjs-demo example", () => {
 		expect(signedInUser?.email).toBe("demo@example.com");
 
 		const createAgentRes = await route.POST(
-			new Request("http://localhost/api/kavach/agents", {
+			new Request("http://localhost/api/theauth/agents", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -109,7 +109,7 @@ describe("nextjs-demo example", () => {
 		};
 
 		const authorizeRes = await route.POST(
-			new Request("http://localhost/api/kavach/authorize/token", {
+			new Request("http://localhost/api/theauth/authorize/token", {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${createdAgent.data.token}`,

@@ -1,4 +1,4 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
@@ -31,10 +31,10 @@ export interface KavachTanStackHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachTanStack } from '@glinr/theauth-tanstack';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachTanStack(kavach);
  *
  * export const GET = handlers.GET;
@@ -52,7 +52,7 @@ export interface KavachTanStackHandlers {
  * ```
  */
 export function kavachTanStack(
-	kavach: Kavach,
+	kavach: TheAuth,
 	options?: KavachTanStackOptions,
 ): KavachTanStackHandlers {
 	const mcp = options?.mcp;

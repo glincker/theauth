@@ -1,4 +1,4 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { Inject, Module } from "@nestjs/common";
@@ -11,8 +11,8 @@ const KAVACH_OPTIONS = Symbol("KAVACH_OPTIONS");
 // ─── Module Options ───────────────────────────────────────────────────────────
 
 export interface KavachModuleOptions {
-	/** The Kavach instance created with `createKavach()` */
-	kavach: Kavach;
+	/** The TheAuth instance created with `createTheAuth()` */
+	kavach: TheAuth;
 	/** Optional MCP OAuth 2.1 module created with `createMcpModule()` */
 	mcp?: McpAuthModule;
 	/**

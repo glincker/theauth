@@ -13,7 +13,7 @@
  * Run with:  pnpm --filter @glinr/theauth-example-basic-agent start
  */
 
-import { createKavach, users } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 	//
 	header("Step 1 — Initialize TheAuth");
 
-	const kavach = await createKavach({
+	const kavach = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -61,11 +61,11 @@ async function main(): Promise<void> {
 
 	// ── Step 2: Tables are auto-created ─────────────────────────────────────────
 	//
-	// createKavach() automatically runs CREATE TABLE IF NOT EXISTS for all
+	// createTheAuth() automatically runs CREATE TABLE IF NOT EXISTS for all
 	// 10 tables on startup. No manual migration needed for development.
 	//
 	header("Step 2 — Create database tables");
-	ok("tables auto-created", "10 tables (handled by createKavach)");
+	ok("tables auto-created", "10 tables (handled by createTheAuth)");
 
 	// ── Step 3: Create a user ───────────────────────────────────────────────────
 	//

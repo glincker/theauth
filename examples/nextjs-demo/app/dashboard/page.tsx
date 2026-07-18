@@ -54,7 +54,7 @@ export default function Dashboard() {
   const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem('kavach_session');
+    const raw = localStorage.getItem('theauth_session');
     if (!raw) {
       router.push('/');
       return;
@@ -66,7 +66,7 @@ export default function Dashboard() {
     setAgentsLoading(true);
     setAgentsError('');
     try {
-      const res = await fetch(`/api/kavach/agents?userId=${encodeURIComponent(userId)}`);
+      const res = await fetch(`/api/theauth/agents?userId=${encodeURIComponent(userId)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json() as { data: Agent[] };
       setAgents(json.data ?? []);
@@ -82,7 +82,7 @@ export default function Dashboard() {
     try {
       const params = new URLSearchParams({ limit: '10' });
       if (agentId) params.set('agentId', agentId);
-      const res = await fetch(`/api/kavach/audit?${params.toString()}`);
+      const res = await fetch(`/api/theauth/audit?${params.toString()}`);
       if (res.ok) {
         const json = await res.json() as { data: AuditEntry[] };
         setAuditEntries(json.data ?? []);
@@ -106,7 +106,7 @@ export default function Dashboard() {
     setLastCreatedToken('');
 
     try {
-      const res = await fetch('/api/kavach/agents', {
+      const res = await fetch('/api/theauth/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -133,7 +133,7 @@ export default function Dashboard() {
   async function handleRevoke(agentId: string) {
     if (!session) return;
     try {
-      const res = await fetch(`/api/kavach/agents/${agentId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/theauth/agents/${agentId}`, { method: 'DELETE' });
       if (!res.ok) {
         const json = await res.json() as { error?: { message: string } };
         alert(`Failed to revoke: ${json.error?.message ?? res.status}`);
@@ -148,7 +148,7 @@ export default function Dashboard() {
   async function handleRotate(agentId: string) {
     if (!session) return;
     try {
-      const res = await fetch(`/api/kavach/agents/${agentId}/rotate`, { method: 'POST' });
+      const res = await fetch(`/api/theauth/agents/${agentId}/rotate`, { method: 'POST' });
       const json = await res.json() as { success: boolean; data?: { token: string }; error?: { message: string } };
       if (json.success && json.data) {
         setLastCreatedToken(json.data.token);
@@ -167,7 +167,7 @@ export default function Dashboard() {
     setAuthResult(null);
     setAuthLoading(true);
     try {
-      const res = await fetch('/api/kavach/authorize', {
+      const res = await fetch('/api/theauth/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: authAgentId, action: authAction, resource: authResource }),
@@ -183,7 +183,7 @@ export default function Dashboard() {
   }
 
   function handleSignOut() {
-    localStorage.removeItem('kavach_session');
+    localStorage.removeItem('theauth_session');
     router.push('/');
   }
 

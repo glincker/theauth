@@ -9,7 +9,7 @@
 //   curl http://localhost:3000/api/agents
 //   curl http://localhost:3000/api/audit
 
-import { createKavach, users } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 import { kavachHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { sql } from "drizzle-orm";
@@ -19,7 +19,7 @@ const PORT = 3000;
 
 // ─── Database setup ───────────────────────────────────────────────────────────
 
-function createTables(kavach: Awaited<ReturnType<typeof createKavach>>): void {
+function createTables(kavach: Awaited<ReturnType<typeof createTheAuth>>): void {
 	kavach.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_users (
 			id TEXT PRIMARY KEY,
@@ -104,7 +104,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createKavach>>): void {
 	`);
 }
 
-function seedUser(kavach: Awaited<ReturnType<typeof createKavach>>): void {
+function seedUser(kavach: Awaited<ReturnType<typeof createTheAuth>>): void {
 	kavach.db
 		.insert(users)
 		.values({
@@ -306,8 +306,8 @@ curl http://localhost:${PORT}/api/audit</code>
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	const kavach = await createKavach({
-		database: { provider: "sqlite", url: "kavach.db" },
+	const kavach = await createTheAuth({
+		database: { provider: "sqlite", url: "theauth.db" },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,
@@ -352,7 +352,7 @@ Endpoints (all prefixed /api):
   GET    /api/dashboard/audit
 
 Seed user: user-1  (demo@theauth.dev)
-Database:  kavach.db
+Database:  theauth.db
 
 `);
 	});

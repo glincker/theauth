@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -167,7 +167,7 @@ async function parseJsonBody(
 
 // ─── Route Handlers ──────────────────────────────────────────────────────────
 
-async function handleAgentList(request: Request, kavach: Kavach): Promise<Response> {
+async function handleAgentList(request: Request, kavach: TheAuth): Promise<Response> {
 	const url = new URL(request.url);
 	const userId = getSearchParam(url, "userId");
 	const statusRaw = getSearchParam(url, "status");
@@ -191,7 +191,7 @@ async function handleAgentList(request: Request, kavach: Kavach): Promise<Respon
 	}
 }
 
-async function handleAgentCreate(request: Request, kavach: Kavach): Promise<Response> {
+async function handleAgentCreate(request: Request, kavach: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -211,7 +211,7 @@ async function handleAgentCreate(request: Request, kavach: Kavach): Promise<Resp
 	}
 }
 
-async function handleAgentGet(id: string, kavach: Kavach): Promise<Response> {
+async function handleAgentGet(id: string, kavach: TheAuth): Promise<Response> {
 	try {
 		const agent = await kavach.agent.get(id);
 		if (!agent) return notFound(`Agent "${id}" not found`);
@@ -222,7 +222,7 @@ async function handleAgentGet(id: string, kavach: Kavach): Promise<Response> {
 	}
 }
 
-async function handleAgentUpdate(id: string, request: Request, kavach: Kavach): Promise<Response> {
+async function handleAgentUpdate(id: string, request: Request, kavach: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -243,7 +243,7 @@ async function handleAgentUpdate(id: string, request: Request, kavach: Kavach): 
 	}
 }
 
-async function handleAgentRevoke(id: string, kavach: Kavach): Promise<Response> {
+async function handleAgentRevoke(id: string, kavach: TheAuth): Promise<Response> {
 	try {
 		await kavach.agent.revoke(id);
 		return new Response(null, { status: 204 });
@@ -254,7 +254,7 @@ async function handleAgentRevoke(id: string, kavach: Kavach): Promise<Response> 
 	}
 }
 
-async function handleAgentRotate(id: string, kavach: Kavach): Promise<Response> {
+async function handleAgentRotate(id: string, kavach: TheAuth): Promise<Response> {
 	try {
 		const agent = await kavach.agent.rotate(id);
 		return ok(agent);
@@ -274,7 +274,7 @@ function extractRequestContext(request: Request): { ip?: string; userAgent?: str
 	return { ip, userAgent };
 }
 
-async function handleAuthorize(request: Request, kavach: Kavach): Promise<Response> {
+async function handleAuthorize(request: Request, kavach: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -303,7 +303,7 @@ async function handleAuthorize(request: Request, kavach: Kavach): Promise<Respon
 	}
 }
 
-async function handleAuthorizeByToken(request: Request, kavach: Kavach): Promise<Response> {
+async function handleAuthorizeByToken(request: Request, kavach: TheAuth): Promise<Response> {
 	const authHeader = request.headers.get("Authorization");
 	if (!authHeader?.startsWith("Bearer ")) {
 		return unauthorized("Missing or invalid Authorization header");
@@ -338,7 +338,7 @@ async function handleAuthorizeByToken(request: Request, kavach: Kavach): Promise
 	}
 }
 
-async function handleDelegationCreate(request: Request, kavach: Kavach): Promise<Response> {
+async function handleDelegationCreate(request: Request, kavach: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -360,7 +360,7 @@ async function handleDelegationCreate(request: Request, kavach: Kavach): Promise
 	}
 }
 
-async function handleDelegationRevoke(id: string, kavach: Kavach): Promise<Response> {
+async function handleDelegationRevoke(id: string, kavach: TheAuth): Promise<Response> {
 	try {
 		await kavach.delegation.revoke(id);
 		return new Response(null, { status: 204 });
@@ -371,7 +371,7 @@ async function handleDelegationRevoke(id: string, kavach: Kavach): Promise<Respo
 	}
 }
 
-async function handleDelegationList(agentId: string, kavach: Kavach): Promise<Response> {
+async function handleDelegationList(agentId: string, kavach: TheAuth): Promise<Response> {
 	try {
 		const chains = await kavach.delegation.listChains(agentId);
 		return ok(chains);
@@ -419,7 +419,7 @@ function buildAuditFilter(url: URL): AuditFilter {
 	return filter;
 }
 
-async function handleAuditQuery(request: Request, kavach: Kavach): Promise<Response> {
+async function handleAuditQuery(request: Request, kavach: TheAuth): Promise<Response> {
 	const url = new URL(request.url);
 	const filter = buildAuditFilter(url);
 
@@ -432,7 +432,7 @@ async function handleAuditQuery(request: Request, kavach: Kavach): Promise<Respo
 	}
 }
 
-async function handleAuditExport(request: Request, kavach: Kavach): Promise<Response> {
+async function handleAuditExport(request: Request, kavach: TheAuth): Promise<Response> {
 	const url = new URL(request.url);
 	const format = getSearchParam(url, "format") ?? "json";
 	if (format !== "json" && format !== "csv") {
@@ -468,7 +468,7 @@ async function handleAuditExport(request: Request, kavach: Kavach): Promise<Resp
 	}
 }
 
-async function handleDashboardStats(kavach: Kavach): Promise<Response> {
+async function handleDashboardStats(kavach: TheAuth): Promise<Response> {
 	try {
 		const [agents, recentAudit] = await Promise.all([
 			kavach.agent.list(),
@@ -518,7 +518,7 @@ async function handleDashboardStats(kavach: Kavach): Promise<Response> {
  */
 async function dispatch(
 	request: Request,
-	kavach: Kavach,
+	kavach: TheAuth,
 	mcp: McpAuthModule | undefined,
 	basePath: string,
 ): Promise<Response> {
@@ -745,10 +745,10 @@ export interface KavachNextjsHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachNextjs } from '@glinr/theauth-nextjs';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachNextjs(kavach);
  *
  * export const GET = handlers.GET;
@@ -765,7 +765,7 @@ export interface KavachNextjsHandlers {
  * const handlers = kavachNextjs(kavach, { mcp });
  * ```
  */
-export function kavachNextjs(kavach: Kavach, options?: KavachNextjsOptions): KavachNextjsHandlers {
+export function kavachNextjs(kavach: TheAuth, options?: KavachNextjsOptions): KavachNextjsHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 

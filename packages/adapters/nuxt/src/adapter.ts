@@ -1,4 +1,4 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { EventHandler, H3Event } from "h3";
 import { defineEventHandler, getRequestURL, readBody, setHeader, setResponseStatus } from "h3";
@@ -25,10 +25,10 @@ export interface KavachNuxtOptions {
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachNuxt } from '@glinr/theauth-nuxt';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * export default kavachNuxt(kavach);
  * ```
  *
@@ -39,7 +39,7 @@ export interface KavachNuxtOptions {
  * export default kavachNuxt(kavach, { mcp });
  * ```
  */
-export function kavachNuxt(kavach: Kavach, options?: KavachNuxtOptions): EventHandler {
+export function kavachNuxt(kavach: TheAuth, options?: KavachNuxtOptions): EventHandler {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 

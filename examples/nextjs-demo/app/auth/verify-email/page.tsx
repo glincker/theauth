@@ -21,7 +21,7 @@ function VerifyContent() {
       return;
     }
 
-    fetch('/api/kavach/auth/verify-email', {
+    fetch('/api/theauth/auth/verify-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),

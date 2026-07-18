@@ -15,10 +15,10 @@ pnpm add theauth @glinr/@glinr/theauth-nextjs
 Create `app/api/kavach/[...kavach]/route.ts`:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

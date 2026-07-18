@@ -4,7 +4,7 @@
  *
  * @example Cloudflare Workers with D1
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { createHonoAdapter } from '@glinr/theauth-hono';
  * import { Hono } from 'hono';
  *
@@ -13,7 +13,7 @@
  * const app = new Hono<Env>();
  *
  * app.all('/auth/*', async (c) => {
- *   const kavach = await createKavach({
+ *   const kavach = await createTheAuth({
  *     database: { provider: 'd1', binding: c.env.DB },
  *     auth: { session: { secret: c.env.SESSION_SECRET } },
  *   });

@@ -31,10 +31,10 @@ export class AppModule {}
 ### Middleware
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { kavachMiddleware } from "@glinr/theauth-nestjs";
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
 });
 

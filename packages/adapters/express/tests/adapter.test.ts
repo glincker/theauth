@@ -3,14 +3,14 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { Kavach } from "../../../core/src/kavach.js";
-import { createKavach } from "../../../core/src/kavach.js";
+import type { TheAuth } from "../../../core/src/kavach.js";
+import { createTheAuth } from "../../../core/src/kavach.js";
 import { kavachExpress } from "../src/adapter.js";
 
 // ─── Test Setup ──────────────────────────────────────────────────────────────
 
-async function createTestApp(): Promise<{ app: Express; kavach: Kavach }> {
-	const kavach = await createKavach({
+async function createTestApp(): Promise<{ app: Express; kavach: TheAuth }> {
+	const kavach = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -70,7 +70,7 @@ async function createTestAgent(
 
 describe("Express adapter", () => {
 	let app: Express;
-	let kavach: Kavach;
+	let kavach: TheAuth;
 
 	beforeEach(async () => {
 		({ app, kavach } = await createTestApp());

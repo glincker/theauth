@@ -15,10 +15,10 @@ pnpm add theauth @glinr/@glinr/theauth-nuxt
 Create `server/api/kavach/[...].ts`:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachNuxt } from '@glinr/theauth-nuxt';
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

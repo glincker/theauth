@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { Kavach } from "../../../core/src/kavach.js";
-import { createKavach } from "../../../core/src/kavach.js";
+import type { TheAuth } from "../../../core/src/kavach.js";
+import { createTheAuth } from "../../../core/src/kavach.js";
 import { kavachSvelteKit } from "../src/adapter.js";
 
 const BASE_URL = "http://localhost/api/auth/kavach";
@@ -9,8 +9,8 @@ const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
 type Handlers = ReturnType<typeof kavachSvelteKit>;
 
-async function createTestHandlers(): Promise<{ handlers: Handlers; kavach: Kavach }> {
-	const kavach = await createKavach({
+async function createTestHandlers(): Promise<{ handlers: Handlers; kavach: TheAuth }> {
+	const kavach = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,

@@ -56,7 +56,7 @@ async function startExample(): Promise<RunningExample> {
 		env: {
 			...process.env,
 			PORT: String(port),
-			KAVACH_DB_PATH: dbPath,
+			THEAUTH_DB_PATH: dbPath,
 		},
 		stdio: ["ignore", "pipe", "pipe"],
 	});

@@ -15,10 +15,10 @@ pnpm add theauth @glinr/@glinr/theauth-sveltekit
 Create `src/routes/api/kavach/[...path]/+server.ts`:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

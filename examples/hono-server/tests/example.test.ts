@@ -49,14 +49,14 @@ async function waitForServer(baseUrl: string): Promise<void> {
 async function startExample(): Promise<RunningExample> {
 	const port = await getFreePort();
 	const dir = await mkdtemp(join(tmpdir(), "theauth-hono-example-"));
-	const dbPath = join(dir, "kavach-example.db");
+	const dbPath = join(dir, "theauth-example.db");
 	const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 	const child = spawn(pnpmCmd, ["start"], {
 		cwd: process.cwd(),
 		env: {
 			...process.env,
 			PORT: String(port),
-			KAVACH_DB_PATH: dbPath,
+			THEAUTH_DB_PATH: dbPath,
 		},
 		stdio: ["ignore", "pipe", "pipe"],
 	});

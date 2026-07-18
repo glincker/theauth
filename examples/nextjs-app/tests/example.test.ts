@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../packages/core/src/db/schema.js";
-import type { Kavach } from "../../../packages/core/src/kavach.js";
-import { createKavach } from "../../../packages/core/src/kavach.js";
+import type { TheAuth } from "../../../packages/core/src/kavach.js";
+import { createTheAuth } from "../../../packages/core/src/kavach.js";
 
-const state = vi.hoisted(() => ({ kavach: null as Kavach | null }));
+const state = vi.hoisted(() => ({ kavach: null as TheAuth | null }));
 
 vi.mock("@/lib/kavach", () => ({
 	getKavach: async () => state.kavach,
@@ -15,12 +15,12 @@ vi.mock("@glinr/theauth-nextjs", async () => {
 
 async function loadRouteModule() {
 	vi.resetModules();
-	return import("../app/api/kavach/[...path]/route.ts");
+	return import("../app/api/theauth/[...path]/route.ts");
 }
 
 describe("nextjs-app example", () => {
 	beforeEach(async () => {
-		const kavach = await createKavach({
+		const kavach = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			agents: {
 				enabled: true,
@@ -45,17 +45,17 @@ describe("nextjs-app example", () => {
 		state.kavach = kavach;
 	});
 
-	it("mounts the catch-all route and serves the Kavach API under /api/kavach", async () => {
+	it("mounts the catch-all route and serves the TheAuth API under /api/theauth", async () => {
 		const route = await loadRouteModule();
 
 		const emptyListRes = await route.GET(
-			new Request("http://localhost/api/kavach/agents?userId=user-1"),
+			new Request("http://localhost/api/theauth/agents?userId=user-1"),
 		);
 		expect(emptyListRes.status).toBe(200);
 		expect(((await emptyListRes.json()) as { data: unknown[] }).data).toHaveLength(0);
 
 		const createRes = await route.POST(
-			new Request("http://localhost/api/kavach/agents", {
+			new Request("http://localhost/api/theauth/agents", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -73,13 +73,13 @@ describe("nextjs-app example", () => {
 		expect(created.data.name).toBe("next-app-agent");
 		expect(created.data.token).toMatch(/^kv_/);
 
-		const statsRes = await route.GET(new Request("http://localhost/api/kavach/dashboard/stats"));
+		const statsRes = await route.GET(new Request("http://localhost/api/theauth/dashboard/stats"));
 		expect(statsRes.status).toBe(200);
 		const stats = (await statsRes.json()) as { data: { agents: { total: number } } };
 		expect(stats.data.agents.total).toBe(1);
 
 		const deleteRes = await route.DELETE(
-			new Request(`http://localhost/api/kavach/agents/${created.data.id}`, {
+			new Request(`http://localhost/api/theauth/agents/${created.data.id}`, {
 				method: "DELETE",
 			}),
 		);

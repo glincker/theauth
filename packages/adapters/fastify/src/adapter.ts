@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -213,11 +213,11 @@ export interface KavachFastifyOptions {
  * @example
  * ```typescript
  * import Fastify from 'fastify';
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachFastify } from '@glinr/theauth-fastify';
  *
  * const app = Fastify();
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  *
  * await app.register(kavachFastify(kavach), { prefix: '/api/kavach' });
  * await app.listen({ port: 3000 });
@@ -230,7 +230,7 @@ export interface KavachFastifyOptions {
  * await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
  * ```
  */
-export function kavachFastify(kavach: Kavach, options?: KavachFastifyOptions) {
+export function kavachFastify(kavach: TheAuth, options?: KavachFastifyOptions) {
 	const mcp = options?.mcp;
 
 	return async function plugin(fastify: FastifyInstance): Promise<void> {

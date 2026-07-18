@@ -1,4 +1,4 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { RequestHandler } from "@sveltejs/kit";
 import { dispatch } from "./dispatch.js";
@@ -32,10 +32,10 @@ export interface KavachSvelteKitHandlers {
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const handlers = kavachSvelteKit(kavach);
  *
  * export const GET = handlers.GET;
@@ -53,7 +53,7 @@ export interface KavachSvelteKitHandlers {
  * ```
  */
 export function kavachSvelteKit(
-	kavach: Kavach,
+	kavach: TheAuth,
 	options?: KavachSvelteKitOptions,
 ): KavachSvelteKitHandlers {
 	const mcp = options?.mcp;

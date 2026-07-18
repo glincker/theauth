@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -190,8 +190,8 @@ function buildWebRequest(req: Request): globalThis.Request {
 // ─── TheAuth NestJS Options ─────────────────────────────────────────────────
 
 export interface KavachNestjsOptions {
-	/** The Kavach instance */
-	kavach: Kavach;
+	/** The TheAuth instance */
+	kavach: TheAuth;
 	/** Optional MCP OAuth 2.1 module */
 	mcp?: McpAuthModule;
 }
@@ -203,7 +203,7 @@ export interface KavachNestjsOptions {
  * Used internally by `KavachModule` and can also be used directly in
  * Express-backed NestJS apps via `app.use`.
  */
-export function buildKavachRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
+export function buildKavachRouter(kavach: TheAuth, mcp?: McpAuthModule): Router {
 	const router = Router();
 
 	// ── Agent REST API ──────────────────────────────────────────────

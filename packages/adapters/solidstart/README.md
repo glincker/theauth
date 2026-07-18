@@ -13,10 +13,10 @@ npm install theauth @glinr/@glinr/theauth-solidstart
 ## Usage
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { kavachSolidStart } from "@glinr/theauth-solidstart";
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: "sqlite", url: "kavach.db" },
 });
 

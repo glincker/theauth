@@ -1,14 +1,14 @@
 import Fastify from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { Kavach } from "../../../core/src/kavach.js";
-import { createKavach } from "../../../core/src/kavach.js";
+import type { TheAuth } from "../../../core/src/kavach.js";
+import { createTheAuth } from "../../../core/src/kavach.js";
 import { kavachFastify } from "../src/adapter.js";
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
-async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; kavach: Kavach }> {
-	const kavach = await createKavach({
+async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; kavach: TheAuth }> {
+	const kavach = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
