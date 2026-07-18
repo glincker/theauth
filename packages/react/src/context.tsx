@@ -11,30 +11,30 @@ import {
 import type {
 	ActionResult,
 	ExternalAuthConfig,
-	KavachContextValue,
 	KavachSession,
 	KavachUser,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,
 	RotationStatus,
+	TheAuthContextValue,
 } from "./types.js";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const KavachContext = createContext<KavachContextValue | null>(null);
+export const TheAuthContext = createContext<TheAuthContextValue | null>(null);
 
-export function useKavachContext(): KavachContextValue {
-	const ctx = useContext(KavachContext);
+export function useTheAuthContext(): TheAuthContextValue {
+	const ctx = useContext(TheAuthContext);
 	if (!ctx) {
-		throw new Error("useKavachContext must be used inside <KavachProvider>");
+		throw new Error("useTheAuthContext must be used inside <TheAuthProvider>");
 	}
 	return ctx;
 }
 
 // ─── Provider props ───────────────────────────────────────────────────────────
 
-export interface KavachProviderProps {
+export interface TheAuthProviderProps {
 	children: ReactNode;
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
@@ -48,7 +48,7 @@ export interface KavachProviderProps {
 	 *
 	 * @example
 	 * ```tsx
-	 * <KavachProvider external={{
+	 * <TheAuthProvider external={{
 	 *   apiUrl: "http://localhost:8080",
 	 *   loginPath: "/auth/github",
 	 *   mePath: "/api/auth/me",
@@ -91,12 +91,12 @@ function makeLogger(enabled: boolean) {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function KavachProvider({
+export function TheAuthProvider({
 	children,
 	basePath = "/api/kavach",
 	external,
 	debug,
-}: KavachProviderProps): ReactNode {
+}: TheAuthProviderProps): ReactNode {
 	const debugEnabled = resolveDebug(debug);
 	if (external) {
 		return (
@@ -566,7 +566,7 @@ function ExternalProvider({
 
 	const session: KavachSession | null = user ? { token: "__external__", user } : null;
 
-	const value: KavachContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -580,7 +580,7 @@ function ExternalProvider({
 		isOnline,
 	};
 
-	return <KavachContext.Provider value={value}>{children}</KavachContext.Provider>;
+	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
 
 // ─── Default user mapper ──────────────────────────────────────────────────────
@@ -761,7 +761,7 @@ function ManagedProvider({
 		[],
 	);
 
-	const value: KavachContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -775,5 +775,21 @@ function ManagedProvider({
 		isOnline,
 	};
 
-	return <KavachContext.Provider value={value}>{children}</KavachContext.Provider>;
+	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
+
+// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
+export const KavachContext = TheAuthContext;
+
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useKavachContext = useTheAuthContext;
+
+/** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
+export const KavachProvider = TheAuthProvider;
+
+/** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
+export type KavachProviderProps = TheAuthProviderProps;

@@ -1,7 +1,14 @@
 // Provider + context
 
-export type { KavachProviderProps } from "./context.js";
-export { KavachContext, KavachProvider, useKavachContext } from "./context.js";
+export type { KavachProviderProps, TheAuthProviderProps } from "./context.js";
+export {
+	KavachContext,
+	KavachProvider,
+	TheAuthContext,
+	TheAuthProvider,
+	useKavachContext,
+	useTheAuthContext,
+} from "./context.js";
 
 // Hooks
 export {
@@ -28,4 +35,5 @@ export type {
 	RotateResult,
 	RotateRetryConfig,
 	RotationStatus,
+	TheAuthContextValue,
 } from "./types.js";

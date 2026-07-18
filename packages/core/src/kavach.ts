@@ -91,23 +91,23 @@ function classifyViolation(reason: string | undefined): ViolationType {
  *
  * @example SQLite (simplest)
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const auth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  * });
  * ```
  *
  * @example Postgres
  * ```typescript
- * const kavach = await createKavach({
+ * const auth = await createTheAuth({
  *   database: { provider: 'postgres', url: process.env.DATABASE_URL },
  * });
  * ```
  *
  * @example MySQL – skip auto-migration (tables managed externally)
  * ```typescript
- * const kavach = await createKavach({
+ * const auth = await createTheAuth({
  *   database: {
  *     provider: 'mysql',
  *     url: process.env.DATABASE_URL,
@@ -116,7 +116,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
  * });
  * ```
  */
-export async function createKavach(config: KavachConfig) {
+export async function createTheAuth(config: KavachConfig) {
 	const authAdapter = config.auth?.adapter ?? null;
 
 	const db = await createDatabase(config.database);
@@ -611,7 +611,7 @@ export async function createKavach(config: KavachConfig) {
 		 * `resolveUser` extracts the authenticated human from an inbound HTTP
 		 * request via the configured adapter.  `session` is a full session
 		 * manager (create / validate / revoke) when `auth.session` was passed
-		 * to `createKavach()`.
+		 * to `createTheAuth()`.
 		 *
 		 * @example
 		 * ```typescript
@@ -994,4 +994,14 @@ export async function createKavach(config: KavachConfig) {
 	};
 }
 
-export type Kavach = Awaited<ReturnType<typeof createKavach>>;
+export type TheAuth = Awaited<ReturnType<typeof createTheAuth>>;
+
+/**
+ * @deprecated Use `createTheAuth` instead. Will be removed in a future major version.
+ */
+export const createKavach = createTheAuth;
+
+/**
+ * @deprecated Use `TheAuth` instead. Will be removed in a future major version.
+ */
+export type Kavach = TheAuth;

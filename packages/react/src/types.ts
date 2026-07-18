@@ -99,7 +99,7 @@ export type RotationStatus = "idle" | "rotating" | "error";
 
 /**
  * Configuration for external API auth mode.
- * When passed to `<KavachProvider external={...}>`, TheAuth delegates all
+ * When passed to `<TheAuthProvider external={...}>`, TheAuth delegates all
  * auth to the specified API instead of managing sessions locally.
  */
 export interface ExternalAuthConfig {
@@ -184,7 +184,7 @@ export type ActionResult<T = void> = { success: true; data: T } | { success: fal
 
 // ─── Context value ────────────────────────────────────────────────────────────
 
-export interface KavachContextValue {
+export interface TheAuthContextValue {
 	session: KavachSession | null;
 	user: KavachUser | null;
 	isLoading: boolean;
@@ -209,3 +209,8 @@ export interface KavachContextValue {
 	/** Reflects `navigator.onLine` plus the in-process `online`/`offline` events. */
 	isOnline: boolean;
 }
+
+/**
+ * @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version.
+ */
+export type KavachContextValue = TheAuthContextValue;

@@ -1,6 +1,12 @@
-export type { AuthorizeRequest, KavachClient, KavachClientOptions } from "./client.js";
-export { createKavachClient } from "./client.js";
-export { KavachApiError } from "./error.js";
+export type {
+	AuthorizeRequest,
+	KavachClient,
+	KavachClientOptions,
+	TheAuthClient,
+	TheAuthClientOptions,
+} from "./client.js";
+export { createKavachClient, createTheAuthClient } from "./client.js";
+export { KavachApiError, TheAuthApiError } from "./error.js";
 export type {
 	Agent,
 	AgentFilters,
@@ -20,5 +26,8 @@ export type {
 	Permission,
 	PermissionConstraints,
 	RegisterMcpServerInput,
+	TheAuthApiErrorBody,
+	TheAuthError,
+	TheAuthResult,
 	UpdateAgentInput,
 } from "./types.js";

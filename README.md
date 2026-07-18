@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://theauth.com/logo.svg" height="64" alt="TheAuth" />
+  <img src="https://theauth.dev/logo.svg" height="64" alt="TheAuth" />
 </p>
 
 <h1 align="center">TheAuth</h1>
@@ -19,16 +19,16 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.theauth.com/docs/quickstart">Quickstart</a> ·
-  <a href="https://docs.theauth.com/docs">Documentation</a> ·
+  <a href="https://docs.theauth.dev/docs/quickstart">Quickstart</a> ·
+  <a href="https://docs.theauth.dev/docs">Documentation</a> ·
   <a href="https://github.com/glincker/theauth/tree/main/examples">Examples</a> ·
   <a href="https://github.com/glincker/theauth/discussions">Discussions</a> ·
-  <a href="https://app.theauth.com">TheAuth Cloud</a>
+  <a href="https://app.theauth.dev">TheAuth Cloud</a>
 </p>
 
 <p align="center">
-  <a href="https://theauth.com">
-    <img src="https://theauth.com/theauth-og-img.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
+  <a href="https://theauth.dev">
+    <img src="https://theauth.dev/theauth-og-img.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
   </a>
 </p>
 
@@ -135,12 +135,12 @@ const result = await kavach.authorize(agent.id, {
 import { createKavach } from "@glinr/theauth";
 import { Hono } from "hono";
 
-type Env = { KAVACH_DB: D1Database };
+type Env = { THEAUTH_DB: D1Database };
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/health", async (c) => {
   const kavach = await createKavach({
-    database: { provider: "d1", binding: c.env.KAVACH_DB },
+    database: { provider: "d1", binding: c.env.THEAUTH_DB },
   });
 
   const agent = await kavach.agent.create({
@@ -276,15 +276,15 @@ const kavach = createKavach({
 
 ## Docs
 
-[docs.theauth.com](https://docs.theauth.com/docs)
+[docs.theauth.dev](https://docs.theauth.dev/docs)
 
-- [Getting started](https://docs.theauth.com/docs/quickstart)
-- [Authentication](https://docs.theauth.com/docs/auth)
-- [Agent identity](https://docs.theauth.com/docs/agents)
-- [Permissions and delegation](https://docs.theauth.com/docs/permissions)
-- [MCP OAuth 2.1](https://docs.theauth.com/docs/mcp)
-- [Framework adapters](https://docs.theauth.com/docs/adapters)
-- [API reference](https://docs.theauth.com/docs/api)
+- [Getting started](https://docs.theauth.dev/docs/quickstart)
+- [Authentication](https://docs.theauth.dev/docs/auth)
+- [Agent identity](https://docs.theauth.dev/docs/agents)
+- [Permissions and delegation](https://docs.theauth.dev/docs/permissions)
+- [MCP OAuth 2.1](https://docs.theauth.dev/docs/mcp)
+- [Framework adapters](https://docs.theauth.dev/docs/adapters)
+- [API reference](https://docs.theauth.dev/docs/api)
 
 ---
 
@@ -300,9 +300,9 @@ TheAuth Cloud is the hosted version. Dashboard, billing, no infrastructure.
 All plans include MCP OAuth 2.1, agent identity, delegation, trust scoring, and compliance reports.
 
 <p align="center">
-  <a href="https://app.theauth.com/sign-up"><strong>Start free</strong></a> ·
-  <a href="https://theauth.com/pricing">Pricing</a> ·
-  <a href="https://docs.theauth.com/docs/quickstart">Self-host instead</a>
+  <a href="https://app.theauth.dev/sign-up"><strong>Start free</strong></a> ·
+  <a href="https://theauth.dev/pricing">Pricing</a> ·
+  <a href="https://docs.theauth.dev/docs/quickstart">Self-host instead</a>
 </p>
 
 ---

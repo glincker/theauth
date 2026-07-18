@@ -64,8 +64,8 @@ export type {
 export { createEmailTemplates } from "./email/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
-export type { Kavach } from "./kavach.js";
-export { createKavach } from "./kavach.js";
+export type { Kavach, TheAuth } from "./kavach.js";
+export { createKavach, createTheAuth } from "./kavach.js";
 export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";

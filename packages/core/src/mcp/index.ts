@@ -50,6 +50,7 @@ export type {
 	McpTokenRequestParsed,
 	McpTokenResponse,
 	Result,
+	TheAuthError,
 } from "./types.js";
 // Zod schemas
 export {

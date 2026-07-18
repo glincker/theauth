@@ -149,17 +149,30 @@ export interface McpServer {
 
 // ─── Result / Error types ─────────────────────────────────────────────────────
 
-export interface KavachError {
+export interface TheAuthError {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
 }
 
-export interface KavachApiErrorBody {
+export interface TheAuthApiErrorBody {
 	error: {
 		code: string;
 		message: string;
 	};
 }
 
-export type KavachResult<T> = { success: true; data: T } | { success: false; error: KavachError };
+export type TheAuthResult<T> = { success: true; data: T } | { success: false; error: TheAuthError };
+
+// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthError` instead. Will be removed in a future major version. */
+export type KavachError = TheAuthError;
+
+/** @deprecated Use `TheAuthApiErrorBody` instead. Will be removed in a future major version. */
+export type KavachApiErrorBody = TheAuthApiErrorBody;
+
+/** @deprecated Use `TheAuthResult` instead. Will be removed in a future major version. */
+export type KavachResult<T> = TheAuthResult<T>;
