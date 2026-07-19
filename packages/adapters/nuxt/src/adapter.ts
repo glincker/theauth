@@ -1,10 +1,10 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { EventHandler, H3Event } from "h3";
 import { defineEventHandler, getRequestURL, readBody, setHeader, setResponseStatus } from "h3";
 import { dispatch } from "./dispatch.js";
 
-export interface AuthNuxtOptions {
+export interface TheAuthNuxtOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -18,8 +18,11 @@ export interface AuthNuxtOptions {
 	basePath?: string;
 }
 
-/** @deprecated Use {@link AuthNuxtOptions} instead. Will be removed in v3.0. */
-export type KavachNuxtOptions = AuthNuxtOptions;
+/** @deprecated Use `TheAuthNuxtOptions` instead. Will be removed in a future major version. */
+export type AuthNuxtOptions = TheAuthNuxtOptions;
+
+/** @deprecated Use `TheAuthNuxtOptions` instead. Will be removed in a future major version. */
+export type KavachNuxtOptions = TheAuthNuxtOptions;
 
 /**
  * Create a Nuxt/H3 event handler for all TheAuth REST API routes.
@@ -28,21 +31,21 @@ export type KavachNuxtOptions = AuthNuxtOptions;
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
- * import { kavachNuxt } from '@glinr/theauth-nuxt';
+ * import { createTheAuth } from '@glinr/theauth';
+ * import { theAuthNuxt } from '@glinr/theauth-nuxt';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * export default kavachNuxt(kavach);
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * export default theAuthNuxt(auth);
  * ```
  *
  * With MCP OAuth 2.1:
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * export default kavachNuxt(kavach, { mcp });
+ * export default theAuthNuxt(auth, { mcp });
  * ```
  */
-export function authNuxt(kavach: Kavach, options?: AuthNuxtOptions): EventHandler {
+export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventHandler {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
@@ -75,7 +78,7 @@ export function authNuxt(kavach: Kavach, options?: AuthNuxtOptions): EventHandle
 		}
 
 		const request = new Request(url.toString(), { method, headers, body });
-		const response = await dispatch(request, kavach, mcp, basePath);
+		const response = await dispatch(request, auth, mcp, basePath);
 
 		// Write the Response back through H3
 		setResponseStatus(event, response.status);
@@ -92,5 +95,8 @@ export function authNuxt(kavach: Kavach, options?: AuthNuxtOptions): EventHandle
 	});
 }
 
-/** @deprecated Use {@link authNuxt} instead. Will be removed in v3.0. */
-export const kavachNuxt = authNuxt;
+/** @deprecated Use `theAuthNuxt` instead. Will be removed in a future major version. */
+export const authNuxt = theAuthNuxt;
+
+/** @deprecated Use `theAuthNuxt` instead. Will be removed in a future major version. */
+export const kavachNuxt = theAuthNuxt;

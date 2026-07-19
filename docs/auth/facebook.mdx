@@ -24,10 +24,10 @@ Copy the **App ID** and **App Secret** from the app dashboard.
 ### Configure
 
 ```ts
-import { createAuth, oauth } from '@glinr/theauth';
+import { createTheAuth, oauth } from '@glinr/theauth';
 import { facebookProvider } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     oauth({

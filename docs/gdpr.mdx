@@ -12,93 +12,91 @@ TheAuth includes built-in tools for the three GDPR obligations that most commonl
 
 ## Setup
 
+The `gdpr` plugin takes no options. It registers three self-service endpoints scoped to the authenticated user:
+
 ```typescript title="lib/kavach.ts"
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { gdpr } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
-  baseUrl: 'https://auth.example.com',
+  agents: { enabled: true },
   plugins: [
-    gdpr({ // [!code highlight]
-      requireDeletionConfirmation: true, // [!code highlight]
-    }), // [!code highlight]
+    gdpr(), // [!code highlight]
   ],
 });
 ```
 
 ## Export user data
 
-`POST /auth/gdpr/export`
+`GET /auth/gdpr/export`
 
-Returns a JSON bundle of all data TheAuth holds for the authenticated user: profile, sessions, audit events, and any plugin-specific records.
+Returns a JSON bundle of all data TheAuth holds for the authenticated user: profile, agents, sessions, audit events, delegations, organizations, and API keys (GDPR Article 20).
 
 ```typescript title="Request export (client)"
 const res = await fetch('/auth/gdpr/export', {
-  method: 'POST',
+  method: 'GET',
   credentials: 'include',
 });
 
-const { data } = await res.json();
-// data.user, data.sessions, data.auditLog, data.agents, ...
+const data = await res.json();
+// data.user, data.agents, data.sessions, data.auditLogs, data.delegations, data.organizations, data.apiKeys, data.exportedAt
 ```
-
-The export runs synchronously for small datasets. For accounts with large audit logs, the response includes a `downloadUrl` that expires after 24 hours instead of embedding the full payload.
 
 ## Delete account
 
-`POST /auth/gdpr/delete`
+`DELETE /auth/gdpr/delete`
 
-Permanently deletes the user account and all associated data. Sessions are revoked immediately. If `requireDeletionConfirmation` is `true`, the user must provide their password (or a confirmation token sent by email):
+Permanently deletes the user account and all associated data (GDPR Article 17). Requires an explicit confirmation string in the request body:
 
 ```typescript title="Delete account (client)"
 const res = await fetch('/auth/gdpr/delete', {
-  method: 'POST',
+  method: 'DELETE',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    confirmation: 'DELETE', // literal string // [!code highlight]
-    password: 'correct horse battery', // if requireDeletionConfirmation is true // [!code highlight]
+    confirm: 'delete my account', // literal string, required // [!code highlight]
+    keepAuditLogs: true, // default: true, anonymizes rather than deletes audit rows // [!code highlight]
+    deleteOrganizations: false, // default: false, leaves owned orgs intact // [!code highlight]
   }),
 });
+
+const { success, deletedAgents, deletedSessions, deletedDelegations, deletedApiKeys, anonymizedAuditLogs } =
+  await res.json();
 ```
 
 <Warning>
-  Deletion is irreversible. Any app data you store outside TheAuth that references the user ID will become orphaned. Use the `onBeforeDelete` hook to cascade deletes in your own tables first.
+  Deletion is irreversible. Any app data you store outside TheAuth that references the user ID will become orphaned, the plugin has no `onBeforeDelete` hook, cascade those deletes yourself before calling this endpoint.
 </Warning>
 
-### onBeforeDelete hook
+## Anonymize account
 
-```typescript title="lib/kavach.ts"
-gdpr({
-  onBeforeDelete: async (userId) => { // [!code highlight]
-    await db.delete(posts).where(eq(posts.authorId, userId)); // [!code highlight]
-    await db.delete(comments).where(eq(comments.userId, userId)); // [!code highlight]
-  }, // [!code highlight]
-}),
-```
+`POST /auth/gdpr/anonymize`
 
-## Anonymize audit log
+Replaces PII (email, name) with deterministic anonymous values while keeping the account, agents, and audit history intact. Use this instead of deletion when org membership or audit referential integrity must be preserved.
 
-For cases where you need to retain audit records for compliance but cannot keep personal data, TheAuth can anonymize the audit log for a user without deleting it:
-
-```typescript title="Anonymize audit log (server)"
-import { anonymizeAuditLog } from '@glinr/theauth/modules/gdpr';
-
-await anonymizeAuditLog(kavach, {
-  userId: 'usr_abc123',
-  replacement: '[deleted]', // replaces email, name, IP in log entries
+```typescript title="Anonymize account (client)"
+const res = await fetch('/auth/gdpr/anonymize', {
+  method: 'POST',
+  credentials: 'include',
 });
+
+const { success } = await res.json();
 ```
 
-The audit events remain in place with timestamps and action types intact. Personal identifiers are overwritten with the replacement string.
+## Using the module directly
 
-## Configuration reference
+The plugin wraps `createGdprModule`, which you can also call directly (for background jobs, admin tooling, or CLI scripts) without going through the HTTP endpoints:
 
-<ParamField path="requireDeletionConfirmation" type="boolean" default="true">Require the user's password before processing a deletion request.</ParamField>
-<ParamField path="onBeforeDelete" type={`(userId: string) => Promise<void>`}>Async callback invoked before the user record is deleted. Use this to clean up app-level data.</ParamField>
-<ParamField path="exportFormat" type="'json' | 'url'" default="'json'">Format for the data export response. 'json' returns inline data, 'url' returns a signed download URL.</ParamField>
+```typescript
+import { createGdprModule } from '@glinr/theauth/auth';
+
+const gdprModule = createGdprModule(kavach.db);
+
+const exportData = await gdprModule.exportUserData(userId);
+const result = await gdprModule.deleteUser(userId, { keepAuditLogs: true });
+await gdprModule.anonymizeUser(userId);
+```
 
 ## Related
 

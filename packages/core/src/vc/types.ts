@@ -17,16 +17,23 @@ export const VC_TYPE_CREDENTIAL = "VerifiableCredential";
 export const VC_TYPE_PRESENTATION = "VerifiablePresentation";
 
 // TheAuth-specific credential types
-export const AUTH_AGENT_CREDENTIAL = "AuthAgentCredential";
-export const AUTH_PERMISSION_CREDENTIAL = "AuthPermissionCredential";
-export const AUTH_DELEGATION_CREDENTIAL = "AuthDelegationCredential";
+export const THEAUTH_AGENT_CREDENTIAL = "TheAuthAgentCredential";
+export const THEAUTH_PERMISSION_CREDENTIAL = "TheAuthPermissionCredential";
+export const THEAUTH_DELEGATION_CREDENTIAL = "TheAuthDelegationCredential";
 
-/** @deprecated Use {@link AUTH_AGENT_CREDENTIAL} instead. Will be removed in v3.0. */
-export const KAVACH_AGENT_CREDENTIAL = AUTH_AGENT_CREDENTIAL;
-/** @deprecated Use {@link AUTH_PERMISSION_CREDENTIAL} instead. Will be removed in v3.0. */
-export const KAVACH_PERMISSION_CREDENTIAL = AUTH_PERMISSION_CREDENTIAL;
-/** @deprecated Use {@link AUTH_DELEGATION_CREDENTIAL} instead. Will be removed in v3.0. */
-export const KAVACH_DELEGATION_CREDENTIAL = AUTH_DELEGATION_CREDENTIAL;
+/** @deprecated Use `THEAUTH_AGENT_CREDENTIAL` instead. Will be removed in a future major version. */
+export const AUTH_AGENT_CREDENTIAL = THEAUTH_AGENT_CREDENTIAL;
+/** @deprecated Use `THEAUTH_PERMISSION_CREDENTIAL` instead. Will be removed in a future major version. */
+export const AUTH_PERMISSION_CREDENTIAL = THEAUTH_PERMISSION_CREDENTIAL;
+/** @deprecated Use `THEAUTH_DELEGATION_CREDENTIAL` instead. Will be removed in a future major version. */
+export const AUTH_DELEGATION_CREDENTIAL = THEAUTH_DELEGATION_CREDENTIAL;
+
+/** @deprecated Use `THEAUTH_AGENT_CREDENTIAL` instead. Will be removed in a future major version. */
+export const KAVACH_AGENT_CREDENTIAL = THEAUTH_AGENT_CREDENTIAL;
+/** @deprecated Use `THEAUTH_PERMISSION_CREDENTIAL` instead. Will be removed in a future major version. */
+export const KAVACH_PERMISSION_CREDENTIAL = THEAUTH_PERMISSION_CREDENTIAL;
+/** @deprecated Use `THEAUTH_DELEGATION_CREDENTIAL` instead. Will be removed in a future major version. */
+export const KAVACH_DELEGATION_CREDENTIAL = THEAUTH_DELEGATION_CREDENTIAL;
 
 // ─── Proof Types ─────────────────────────────────────────────────────────────
 

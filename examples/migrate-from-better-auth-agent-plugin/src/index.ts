@@ -7,7 +7,7 @@
  * authorizeByToken against the delegated permission.
  */
 
-import { createAuth, users } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 
 const BANNER = "=".repeat(60);
 
@@ -24,9 +24,9 @@ function denied(label: string, reason: string): void {
 }
 
 async function main(): Promise<void> {
-	section("Step 1: createAuth (core, no agent plugin)");
+	section("Step 1: createTheAuth (core, no agent plugin)");
 
-	const kavach = await createAuth({
+	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
 	ok("instance ready", "agent identity is core, no plugin needed");
 
-	kavach.db
+	auth.db
 		.insert(users)
 		.values({
 			id: "user-operator",
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
 
 	section("Step 2: AgentIdentity replaces the agent plugin's Agent");
 
-	const parent = await kavach.agent.create({
+	const parent = await auth.agent.create({
 		ownerId: "user-operator",
 		name: "orchestrator",
 		type: "autonomous",
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
 		`id=${parent.id.slice(0, 12)}... token=${parent.token.slice(0, 10)}...`,
 	);
 
-	const child = await kavach.agent.create({
+	const child = await auth.agent.create({
 		ownerId: "user-operator",
 		name: "issue-responder",
 		type: "delegated",
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
 
 	section("Step 3: Multi-hop delegation with depth + expiry");
 
-	const chain = await kavach.delegate({
+	const chain = await auth.delegate({
 		fromAgent: parent.id,
 		toAgent: child.id,
 		permissions: [{ resource: "mcp:github:issues", actions: ["read"] }],
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
 
 	ok("delegation created", `chain=${chain.id.slice(0, 12)}... depth=${chain.depth} max=2`);
 
-	const effective = await kavach.delegation.getEffectivePermissions(child.id);
+	const effective = await auth.delegation.getEffectivePermissions(child.id);
 	ok("child effective perms", `${effective.length} via chain`);
 
 	section("Step 4: Authorize the delegated child, reject out-of-scope");
@@ -103,12 +103,12 @@ async function main(): Promise<void> {
 	// authorize() falls back to delegation-chain permissions when the agent's
 	// own direct permissions deny. That is what the migration guide calls
 	// "the child reads through the chain."
-	const delegatedPerms = await kavach.delegation.getEffectivePermissions(child.id);
+	const delegatedPerms = await auth.delegation.getEffectivePermissions(child.id);
 	for (const p of delegatedPerms) {
 		ok("child delegated perm", `${p.resource} actions=[${p.actions.join(",")}]`);
 	}
 
-	const delegatedAuthorize = await kavach.authorize(child.id, {
+	const delegatedAuthorize = await auth.authorize(child.id, {
 		action: "read",
 		resource: "mcp:github:issues",
 	});
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
 		);
 	}
 
-	const outOfScope = await kavach.authorize(child.id, {
+	const outOfScope = await auth.authorize(child.id, {
 		action: "read",
 		resource: "mcp:github:repos",
 	});
@@ -129,13 +129,13 @@ async function main(): Promise<void> {
 
 	section("Step 5: Revoking the chain drops effective perms");
 
-	const childBefore = await kavach.delegation.getEffectivePermissions(child.id);
+	const childBefore = await auth.delegation.getEffectivePermissions(child.id);
 	ok("child effective before revoke", `${childBefore.length} perm(s) via chain`);
 
-	await kavach.delegation.revoke(chain.id);
+	await auth.delegation.revoke(chain.id);
 
-	const childAfter = await kavach.delegation.getEffectivePermissions(child.id);
-	const authorizeAfter = await kavach.authorize(child.id, {
+	const childAfter = await auth.delegation.getEffectivePermissions(child.id);
+	const authorizeAfter = await auth.authorize(child.id, {
 		action: "read",
 		resource: "mcp:github:issues",
 	});

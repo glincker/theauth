@@ -13,7 +13,7 @@
  * Run with:  pnpm --filter @glinr/theauth-example-basic-agent start
  */
 
-import { createAuth, users } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 	//
 	header("Step 1 — Initialize TheAuth");
 
-	const kavach = await createAuth({
+	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -61,11 +61,11 @@ async function main(): Promise<void> {
 
 	// ── Step 2: Tables are auto-created ─────────────────────────────────────────
 	//
-	// createAuth() automatically runs CREATE TABLE IF NOT EXISTS for all
+	// createTheAuth() automatically runs CREATE TABLE IF NOT EXISTS for all
 	// 10 tables on startup. No manual migration needed for development.
 	//
 	header("Step 2 — Create database tables");
-	ok("tables auto-created", "10 tables (handled by createAuth)");
+	ok("tables auto-created", "10 tables (handled by createTheAuth)");
 
 	// ── Step 3: Create a user ───────────────────────────────────────────────────
 	//
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
 	//
 	header("Step 3 — Create a user");
 
-	kavach.db
+	auth.db
 		.insert(users)
 		.values({
 			id: "user-demo",
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
 	header("Step 4 — Create agents");
 
 	// A read-only agent for the GitHub MCP server
-	const githubAgent = await kavach.agent.create({
+	const githubAgent = await auth.agent.create({
 		ownerId: "user-demo",
 		name: "github-reader",
 		type: "autonomous",
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
 	info(`token: ${githubAgent.token.slice(0, 12)}… (prefix: ${githubAgent.token.slice(0, 10)})`);
 
 	// A deployment agent with human-in-the-loop approval required
-	const deployAgent = await kavach.agent.create({
+	const deployAgent = await auth.agent.create({
 		ownerId: "user-demo",
 		name: "deploy-bot",
 		type: "autonomous",
@@ -139,7 +139,7 @@ async function main(): Promise<void> {
 	ok("agent created", `${deployAgent.name}  (id: ${deployAgent.id.slice(0, 16)}…)`);
 
 	// A sub-agent that will receive delegated permissions later
-	const subAgent = await kavach.agent.create({
+	const subAgent = await auth.agent.create({
 		ownerId: "user-demo",
 		name: "sub-reader",
 		type: "delegated",
@@ -150,7 +150,7 @@ async function main(): Promise<void> {
 
 	// ── Step 5: Authorize actions ───────────────────────────────────────────────
 	//
-	// kavach.authorize(agentId, { action, resource }) checks:
+	// auth.authorize(agentId, { action, resource }) checks:
 	//   1. Is the agent active?
 	//   2. Does any permission match the resource (with wildcard support)?
 	//   3. Does the permission grant the requested action?
@@ -161,7 +161,7 @@ async function main(): Promise<void> {
 	header("Step 5 — Authorize actions");
 
 	// Should be ALLOWED: github-reader has read on mcp:github:*
-	const r1 = await kavach.authorize(githubAgent.id, {
+	const r1 = await auth.authorize(githubAgent.id, {
 		action: "read",
 		resource: "mcp:github:repos",
 	});
@@ -170,7 +170,7 @@ async function main(): Promise<void> {
 	}
 
 	// Should be ALLOWED: wildcard matches mcp:github:pull_requests
-	const r2 = await kavach.authorize(githubAgent.id, {
+	const r2 = await auth.authorize(githubAgent.id, {
 		action: "read",
 		resource: "mcp:github:pull_requests",
 	});
@@ -179,7 +179,7 @@ async function main(): Promise<void> {
 	}
 
 	// Should be DENIED: github-reader does not have "write" on any resource
-	const r3 = await kavach.authorize(githubAgent.id, {
+	const r3 = await auth.authorize(githubAgent.id, {
 		action: "write",
 		resource: "mcp:github:repos",
 	});
@@ -188,7 +188,7 @@ async function main(): Promise<void> {
 	}
 
 	// Should be DENIED: deploy-bot requires human approval on production
-	const r4 = await kavach.authorize(deployAgent.id, {
+	const r4 = await auth.authorize(deployAgent.id, {
 		action: "execute",
 		resource: "mcp:deploy:production",
 	});
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
 	}
 
 	// Should be ALLOWED: staging has no requireApproval constraint
-	const r5 = await kavach.authorize(deployAgent.id, {
+	const r5 = await auth.authorize(deployAgent.id, {
 		action: "execute",
 		resource: "mcp:deploy:staging",
 	});
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
 	}
 
 	// Should be DENIED: unknown agent ID
-	const r6 = await kavach.authorize("agent-does-not-exist", {
+	const r6 = await auth.authorize("agent-does-not-exist", {
 		action: "read",
 		resource: "anything",
 	});
@@ -222,17 +222,17 @@ async function main(): Promise<void> {
 	//
 	header("Step 6 — Query the audit trail");
 
-	const allLogs = await kavach.audit.query({ agentId: githubAgent.id });
+	const allLogs = await auth.audit.query({ agentId: githubAgent.id });
 	info(`${allLogs.length} audit entries for github-reader`);
 
-	const deniedLogs = await kavach.audit.query({
+	const deniedLogs = await auth.audit.query({
 		agentId: githubAgent.id,
 		result: "denied",
 	});
 	info(`${deniedLogs.length} denied  |  ${allLogs.length - deniedLogs.length} allowed`);
 
 	// Export as CSV (useful for compliance: EU AI Act Article 12, SOC 2, ISO 42001)
-	const csv = await kavach.audit.export({ format: "csv" });
+	const csv = await auth.audit.export({ format: "csv" });
 	const csvLines = csv.trim().split("\n");
 	ok("CSV export", `${csvLines.length - 1} rows  (first col: ${csvLines[0]?.split(",")[0] ?? ""})`);
 
@@ -242,12 +242,12 @@ async function main(): Promise<void> {
 	// Token validation is fast: it hashes the incoming token and does a single
 	// DB lookup. No JWTs, no network round-trips.
 	//
-	// Use kavach.authorizeByToken() when the caller only has the raw token
+	// Use auth.authorizeByToken() when the caller only has the raw token
 	// (e.g., incoming HTTP request with Authorization: Bearer <token>).
 	//
 	header("Step 7 — Token-based authorization");
 
-	const tokenResult = await kavach.authorizeByToken(githubAgent.token, {
+	const tokenResult = await auth.authorizeByToken(githubAgent.token, {
 		action: "read",
 		resource: "mcp:github:repos",
 	});
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
 	}
 
 	// Demonstrate that an invalid token is rejected
-	const badTokenResult = await kavach.authorizeByToken("kv_totally_fake_token_1234567890", {
+	const badTokenResult = await auth.authorizeByToken("kv_totally_fake_token_1234567890", {
 		action: "read",
 		resource: "mcp:github:repos",
 	});
@@ -267,8 +267,8 @@ async function main(): Promise<void> {
 	}
 
 	// Demonstrate token rotation — the old token is immediately invalidated
-	const rotated = await kavach.agent.rotate(githubAgent.id);
-	const oldTokenResult = await kavach.authorizeByToken(githubAgent.token, {
+	const rotated = await auth.agent.rotate(githubAgent.id);
+	const oldTokenResult = await auth.authorizeByToken(githubAgent.token, {
 		action: "read",
 		resource: "mcp:github:repos",
 	});
@@ -293,7 +293,7 @@ async function main(): Promise<void> {
 
 	// Re-create github-reader (the original was rotated so its token changed,
 	// but the agent object is still active).
-	const chain = await kavach.delegate({
+	const chain = await auth.delegate({
 		fromAgent: githubAgent.id, // orchestrator (has mcp:github:* read)
 		toAgent: subAgent.id, // sub-agent (starts with no permissions)
 		permissions: [
@@ -308,7 +308,7 @@ async function main(): Promise<void> {
 	info(`depth: ${chain.depth}  |  expires: ${chain.expiresAt.toISOString()}`);
 
 	// Verify the effective permissions of the sub-agent include the delegated ones
-	const effectivePerms = await kavach.delegation.getEffectivePermissions(subAgent.id);
+	const effectivePerms = await auth.delegation.getEffectivePermissions(subAgent.id);
 	ok("effective permissions", `${effectivePerms.length} permission(s) via delegation`);
 	for (const p of effectivePerms) {
 		info(`  resource: ${p.resource}  actions: [${p.actions.join(", ")}]`);

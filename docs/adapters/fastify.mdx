@@ -1,15 +1,15 @@
 ---
 title: Fastify
-description: Register TheAuth auth routes on Fastify with `authFastify(kavach)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
+description: Register TheAuth auth routes on Fastify with `theAuthFastify(kavach)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
 icon: "/brand-icons/fastify.svg"
 ---
 
-`authFastify(kavach, options?)` returns an async Fastify plugin. Register it with `fastify.register` and use Fastify's built-in `prefix` option to control the mount path.
+`theAuthFastify(kavach, options?)` returns an async Fastify plugin. Register it with `fastify.register` and use Fastify's built-in `prefix` option to control the mount path.
 
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-fastify fastify
+pnpm add @glinr/theauth @glinr/theauth-fastify fastify
 ```
 
 ## Setup
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-fastify fastify
 
 ```typescript
 // lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -39,13 +39,13 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // src/index.ts
 import Fastify from 'fastify';
-import { authFastify } from '@glinr/theauth-fastify';
+import { theAuthFastify } from '@glinr/theauth-fastify';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = Fastify();
 
 // Use Fastify's prefix option to set the mount path
-await app.register(authFastify(kavach, { mcp }), {
+await app.register(theAuthFastify(kavach, { mcp }), {
   prefix: '/api/kavach',
 });
 
@@ -95,10 +95,10 @@ All MCP routes include CORS headers and respond to OPTIONS preflight requests.
 
 ```typescript
 import Fastify from 'fastify';
-import { createAuth, createMcpModule } from '@glinr/theauth';
-import { authFastify } from '@glinr/theauth-fastify';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { theAuthFastify } from '@glinr/theauth-fastify';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -111,7 +111,7 @@ const mcp = createMcpModule(kavach);
 
 const app = Fastify({ logger: true });
 
-await app.register(authFastify(kavach, { mcp }), {
+await app.register(theAuthFastify(kavach, { mcp }), {
   prefix: '/api/kavach',
 });
 

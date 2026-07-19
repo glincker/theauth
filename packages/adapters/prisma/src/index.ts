@@ -27,4 +27,5 @@ export type {
 	PrismaSession,
 	PrismaTrustScore,
 	PrismaUser,
+	TheAuthPrismaAdapter,
 } from "./types.js";

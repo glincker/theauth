@@ -1,6 +1,6 @@
 import type { AgentIdentity, CreateAgentInput } from "../types.js";
 
-export interface AuthHooks {
+export interface TheAuthHooks {
 	/**
 	 * Fires before authorize() — can block the request by returning
 	 * `{ allow: false, reason: '...' }`. Return `void` or `{ allow: true }`
@@ -49,8 +49,11 @@ export interface AuthHooks {
 	}) => Promise<void>;
 }
 
-/** @deprecated Use {@link AuthHooks} instead. Will be removed in v3.0. */
-export type KavachHooks = AuthHooks;
+/** @deprecated Use `TheAuthHooks` instead. Will be removed in a future major version. */
+export type AuthHooks = TheAuthHooks;
+
+/** @deprecated Use `TheAuthHooks` instead. Will be removed in a future major version. */
+export type KavachHooks = TheAuthHooks;
 
 export type ViolationType =
 	| "permission_denied"

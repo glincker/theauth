@@ -1,6 +1,6 @@
 ---
 title: Vue
-description: Register TheAuth auth in Vue 3 via createAuthPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
+description: Register TheAuth auth in Vue 3 via createTheAuthPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
 icon: code
 ---
 
@@ -9,7 +9,7 @@ icon: code
 ## Installation
 
 ```bash
-pnpm add @glinr/@glinr/theauth-vue
+pnpm add @glinr/theauth-vue
 ```
 
 ## Setup
@@ -18,12 +18,12 @@ Register the plugin in your Vue app:
 
 ```typescript title="main.ts"
 import { createApp } from 'vue';
-import { createAuthPlugin } from '@glinr/theauth-vue'; // [!code highlight]
+import { createTheAuthPlugin } from '@glinr/theauth-vue'; // [!code highlight]
 import App from './App.vue';
 
 const app = createApp(App);
 
-app.use(createAuthPlugin({ // [!code highlight]
+app.use(createTheAuthPlugin({ // [!code highlight]
   basePath: '/api/kavach', // [!code highlight]
 })); // [!code highlight]
 
@@ -35,10 +35,10 @@ app.mount('#app');
 In Nuxt, create a plugin file:
 
 ```typescript title="plugins/kavach.client.ts"
-import { createAuthPlugin } from '@glinr/theauth-vue';
+import { createTheAuthPlugin } from '@glinr/theauth-vue';
 
 export default defineNuxtPlugin((nuxtApp) => {
-  nuxtApp.vueApp.use(createAuthPlugin({
+  nuxtApp.vueApp.use(createTheAuthPlugin({
     basePath: '/api/kavach',
   }));
 });

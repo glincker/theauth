@@ -6,12 +6,12 @@ typed Python interface.
 Quickstart (async)::
 
     import asyncio
-    from theauth import KavachClient
+    from theauth import TheAuthClient
     from theauth.types import CreateAgentInput
     from theauth.permissions import read
 
     async def main():
-        async with KavachClient(
+        async with TheAuthClient(
             base_url="https://your-app.com/api/kavach",
             token="kv_...",
         ) as client:
@@ -29,11 +29,11 @@ Quickstart (async)::
 
 Quickstart (sync)::
 
-    from theauth import KavachSyncClient
+    from theauth import TheAuthSyncClient
     from theauth.types import CreateAgentInput
     from theauth.permissions import read
 
-    with KavachSyncClient(
+    with TheAuthSyncClient(
         base_url="https://your-app.com/api/kavach",
         token="kv_...",
     ) as client:
@@ -48,7 +48,12 @@ Quickstart (sync)::
         print(agent.id)
 """
 
-from theauth.client import KavachClient, KavachSyncClient
+from theauth.client import (
+    KavachClient,
+    KavachSyncClient,
+    TheAuthClient,
+    TheAuthSyncClient,
+)
 from theauth.errors import (
     AuthenticationError,
     KavachError,
@@ -57,6 +62,7 @@ from theauth.errors import (
     PermissionError,
     RateLimitError,
     ServerError,
+    TheAuthError,
 )
 from theauth.types import (
     Agent,
@@ -81,9 +87,14 @@ from theauth.types import (
 
 __all__ = [
     # Clients
+    "TheAuthClient",
+    "TheAuthSyncClient",
+    # Clients (deprecated aliases, use TheAuthClient / TheAuthSyncClient instead)
     "KavachClient",
     "KavachSyncClient",
     # Errors
+    "TheAuthError",
+    # Errors (deprecated alias, use TheAuthError instead)
     "KavachError",
     "AuthenticationError",
     "PermissionError",

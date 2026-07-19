@@ -36,12 +36,12 @@ The `onViolation` hook receives a typed `type` field so you can route each categ
 
 ## Registering hooks
 
-Pass a `hooks` object to `createAuth`:
+Pass a `hooks` object to `createTheAuth`:
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   hooks: {
     async beforeAuthorize({ agentId, action, resource }) {
@@ -68,7 +68,7 @@ const kavach = await createAuth({
 ## Logging every denial
 
 ```typescript
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   hooks: {
     async afterAuthorize({ agentId, action, resource, result }) {
@@ -91,7 +91,7 @@ The `result.auditId` links this log line to the immutable audit entry. You can u
 ## Enforcing a sandbox check
 
 ```typescript
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   hooks: {
     async beforeAgentCreate(input) {
@@ -107,14 +107,14 @@ const kavach = await createAuth({
 });
 ```
 
-Returning `{ allow: false }` from `beforeAgentCreate` causes the `kavach.agent.create()` call to throw a `AuthError` with the reason you provided.
+Returning `{ allow: false }` from `beforeAgentCreate` causes the `kavach.agent.create()` call to throw a `TheAuthError` with the reason you provided.
 
 ## Reacting to violations
 
 The `onViolation` hook fires for any denial that fits a known violation category. Use it to send alerts or update your observability platform.
 
 ```typescript
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   hooks: {
     async onViolation({ type, agentId, action, resource, reason }) {
@@ -137,7 +137,7 @@ const kavach = await createAuth({
 ## Cleaning up after revocation
 
 ```typescript
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   hooks: {
     async onAgentRevoke(agentId) {

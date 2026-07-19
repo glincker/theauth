@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -197,14 +197,14 @@ function buildWebRequest(req: Request): globalThis.Request {
  * @example
  * ```typescript
  * import express from 'express';
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachExpress } from '@glinr/theauth-express';
  *
  * const app = express();
  * app.use(express.json());
  * app.use(express.urlencoded({ extended: true }));
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * app.use('/auth', kavachExpress(kavach));
  *
  * app.listen(3000);
@@ -217,7 +217,7 @@ function buildWebRequest(req: Request): globalThis.Request {
  * app.use('/auth', kavachExpress(kavach, { mcp }));
  * ```
  */
-export function kavachExpress(kavach: Kavach, options?: { mcp?: McpAuthModule }): Router {
+export function kavachExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Router {
 	const router = Router();
 	const mcp = options?.mcp;
 

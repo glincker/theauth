@@ -1,12 +1,5 @@
 <p align="center">
-<pre>
-████████╗██╗  ██╗███████╗ █████╗ ██╗   ██╗████████╗██╗  ██╗
-╚══██╔══╝██║  ██║██╔════╝██╔══██╗██║   ██║╚══██╔══╝██║  ██║
-   ██║   ███████║█████╗  ███████║██║   ██║   ██║   ███████║
-   ██║   ██╔══██║██╔══╝  ██╔══██║██║   ██║   ██║   ██╔══██║
-   ██║   ██║  ██║███████╗██║  ██║╚██████╔╝   ██║   ██║  ██║
-   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚═╝  ╚═╝
-</pre>
+  <img src="https://theauth.dev/logo.svg" height="64" alt="TheAuth" />
 </p>
 
 <h2 align="center"><em>Type-safe authentication for TypeScript. OAuth 2.1, MCP, passkeys, agents.</em></h2>
@@ -33,6 +26,61 @@
   <a href="https://app.theauth.dev"><strong>TheAuth Cloud</strong></a>
 </p>
 
+<p align="center">
+  <a href="https://theauth.dev">
+    <img src="https://theauth.dev/theauth-og-img.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
+  </a>
+</p>
+
+---
+
+## Why TheAuth
+
+Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. TheAuth handles both in one place.
+
+### How it differs
+
+Ask yourself about the auth library you're using or evaluating:
+
+- Does it model AI agents as first-class identities, with their own scoped permissions and an audit trail you can export, not just human users with API keys?
+- Does it ship an MCP OAuth 2.1 authorization server that complies with the published RFC stack (9728, 8707, 8414, 7591), so your agents can talk to MCP servers without you writing the spec?
+- Does it run on Cloudflare Workers, Bun, and Deno without Node-only APIs in the core?
+- Does it give you delegation chains with depth limits, budget policies per agent, and CIBA-style approval flows for sensitive tool calls?
+
+If any of those is a no, that gap is why theauth exists.
+
+### Agent identity
+
+Cryptographic bearer tokens (`kv_...`), wildcard permission matching, delegation chains with depth limits, budget policies, anomaly detection, and CIBA approval flows.
+
+### Human auth
+
+14 methods: email/password, magic link, email OTP, phone SMS, passkey/WebAuthn, TOTP 2FA, anonymous, Google One-tap, Sign In With Ethereum, device authorization, username/password, captcha, password reset, session freshness.
+
+### OAuth
+
+17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Plus a generic OIDC factory for anything else.
+
+### MCP OAuth 2.1
+
+Authorization server for the Model Context Protocol. PKCE S256, RFC 9728 / 8707 / 8414 / 7591.
+
+### Enterprise
+
+Organizations with RBAC, SAML 2.0 and OIDC SSO, admin controls (ban/impersonate), API key management, SCIM directory sync, multi-tenant isolation, GDPR export/delete/anonymize, compliance reports for EU AI Act, NIST, SOC 2, ISO 42001.
+
+### Runs on the edge
+
+Works on Cloudflare Workers, Deno, and Bun without code changes. Three runtime dependencies: `drizzle-orm`, `jose`, `zod`.
+
+### Security
+
+Rate limiting per agent and per IP, HIBP password breach checking, CSRF protection, httpOnly secure cookies, email enumeration prevention, trusted device windows, signed expiring reset tokens, session freshness enforcement.
+
+### Performance
+
+The policy engine hits 2.6M warm-cache evals/sec with a p99 of 500ns. Cold paths stay under 0.3ms p99 on direct permissions, RBAC role expansion, and ReBAC graph lookups. Numbers from `pnpm bench` on the `policy-engine` suite in `packages/core/bench/`, reproducible locally.
+
 ---
 
 ## Install
@@ -46,27 +94,27 @@ yarn add @glinr/theauth
 ```
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword, passkey } from "@glinr/theauth/auth";
 import { createHonoAdapter } from "@glinr/theauth-hono";
 
-const kavach = createKavach({
+const auth = await createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
   plugins: [emailPassword(), passkey()],
 });
 
 const app = new Hono();
-app.route("/api/auth", createHonoAdapter(kavach));
+app.route("/api/auth", createHonoAdapter(auth));
 
 // Create an AI agent with scoped MCP permissions
-const agent = await kavach.agent.create({
+const agent = await auth.agent.create({
   ownerId: "user-123",
   name: "github-reader",
   type: "autonomous",
   permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 });
 
-const result = await kavach.authorize(agent.id, {
+const result = await auth.authorize(agent.id, {
   action: "read",
   resource: "mcp:github:repos",
 });
@@ -75,11 +123,9 @@ const result = await kavach.authorize(agent.id, {
 
 ---
 
-## Why theauth
+## How TheAuth compares
 
-Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. theauth handles both in one place.
-
-| Capability | Auth0 | Clerk | Better-Auth | NextAuth | Lucia | **theauth** |
+| Capability | Auth0 | Clerk | Better-Auth | NextAuth | Lucia | **TheAuth** |
 |---|---|---|---|---|---|---|
 | License | Proprietary | Proprietary | MIT | ISC | MIT | **MIT** |
 | Self-hosted | Partial | No | Yes | Yes | Yes | **Yes** |
@@ -198,16 +244,16 @@ npm install @glinr/theauth @glinr/theauth-nextjs
 
 ```typescript
 // app/api/auth/[...theauth]/route.ts
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword } from "@glinr/theauth/auth";
 import { createNextAuthHandler } from "@glinr/theauth-nextjs";
 
-const kavach = createKavach({
+const auth = await createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
   plugins: [emailPassword()],
 });
 
-const handler = createNextAuthHandler(kavach);
+const handler = createNextAuthHandler(auth);
 export { handler as GET, handler as POST };
 ```
 
@@ -235,16 +281,16 @@ npm install @glinr/theauth @glinr/theauth-sveltekit
 
 ```typescript
 // src/hooks.server.ts
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword } from "@glinr/theauth/auth";
 import { createSvelteKitHandler } from "@glinr/theauth-sveltekit";
 
-const kavach = createKavach({
-  database: { provider: "sqlite", url: "kavach.db" },
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
   plugins: [emailPassword()],
 });
 
-export const handle = createSvelteKitHandler(kavach);
+export const handle = createSvelteKitHandler(auth);
 ```
 
 ```typescript
@@ -268,10 +314,10 @@ npm install @glinr/theauth @glinr/theauth-nuxt
 
 ```typescript
 // server/plugins/theauth.ts
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword } from "@glinr/theauth/auth";
 
-export const kavach = createKavach({
+export const auth = await createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
   plugins: [emailPassword()],
 });
@@ -295,7 +341,7 @@ npm install @glinr/theauth @glinr/theauth-hono
 
 ```typescript
 import { Hono } from "hono";
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword } from "@glinr/theauth/auth";
 import { createHonoAdapter } from "@glinr/theauth-hono";
 
@@ -303,11 +349,11 @@ type Env = { DATABASE_URL: string };
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("/api/auth/*", async (c, next) => {
-  const kavach = createKavach({
+  const auth = await createTheAuth({
     database: { provider: "postgres", url: c.env.DATABASE_URL },
     plugins: [emailPassword()],
   });
-  return createHonoAdapter(kavach)(c, next);
+  return createHonoAdapter(auth)(c, next);
 });
 
 export default app;
@@ -395,6 +441,14 @@ Hosted version with dashboard, billing, and zero infrastructure. [app.theauth.de
 | Growth | 50,000 | $79/mo |
 | Scale | 200,000 | $199/mo |
 | Enterprise | Custom | Custom |
+
+---
+
+<p align="center">
+  <a href="https://app.theauth.dev/sign-up"><strong>Start free</strong></a> ·
+  <a href="https://theauth.dev/pricing">Pricing</a> ·
+  <a href="https://docs.theauth.dev/docs/quickstart">Self-host instead</a>
+</p>
 
 ---
 

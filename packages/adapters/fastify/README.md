@@ -14,12 +14,12 @@ pnpm add theauth @glinr/@glinr/theauth-fastify
 
 ```typescript
 import Fastify from 'fastify';
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachFastify } from '@glinr/theauth-fastify';
 
 const app = Fastify();
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

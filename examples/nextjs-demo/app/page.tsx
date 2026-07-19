@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const API = "/api/kavach";
+const API = "/api/theauth";
 
 export default function Home() {
 	const router = useRouter();
@@ -51,7 +51,7 @@ export default function Home() {
 			} else {
 				// Store session token and redirect
 				if (data.session?.token) {
-					localStorage.setItem("kavach_session", data.session.token);
+					localStorage.setItem("theauth_session", data.session.token);
 				}
 				router.push("/dashboard");
 			}

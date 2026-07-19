@@ -21,10 +21,10 @@ https://your-app.com/api/kavach/auth/oauth/callback/roblox
 ### Configure
 
 ```ts title="lib/kavach.ts"
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     oauth({

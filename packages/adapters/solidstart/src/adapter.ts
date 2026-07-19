@@ -1,8 +1,8 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
-export interface AuthSolidStartOptions {
+export interface TheAuthSolidStartOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -16,10 +16,13 @@ export interface AuthSolidStartOptions {
 	basePath?: string;
 }
 
-/** @deprecated Use {@link AuthSolidStartOptions} instead. Will be removed in v3.0. */
-export type KavachSolidStartOptions = AuthSolidStartOptions;
+/** @deprecated Use `TheAuthSolidStartOptions` instead. Will be removed in a future major version. */
+export type AuthSolidStartOptions = TheAuthSolidStartOptions;
 
-export interface AuthSolidStartHandlers {
+/** @deprecated Use `TheAuthSolidStartOptions` instead. Will be removed in a future major version. */
+export type KavachSolidStartOptions = TheAuthSolidStartOptions;
+
+export interface TheAuthSolidStartHandlers {
 	GET: (request: Request) => Promise<Response>;
 	POST: (request: Request) => Promise<Response>;
 	PATCH: (request: Request) => Promise<Response>;
@@ -27,8 +30,11 @@ export interface AuthSolidStartHandlers {
 	OPTIONS: (request: Request) => Promise<Response>;
 }
 
-/** @deprecated Use {@link AuthSolidStartHandlers} instead. Will be removed in v3.0. */
-export type KavachSolidStartHandlers = AuthSolidStartHandlers;
+/** @deprecated Use `TheAuthSolidStartHandlers` instead. Will be removed in a future major version. */
+export type AuthSolidStartHandlers = TheAuthSolidStartHandlers;
+
+/** @deprecated Use `TheAuthSolidStartHandlers` instead. Will be removed in a future major version. */
+export type KavachSolidStartHandlers = TheAuthSolidStartHandlers;
 
 /**
  * Create SolidStart API route handlers for all TheAuth REST API routes.
@@ -37,11 +43,11 @@ export type KavachSolidStartHandlers = AuthSolidStartHandlers;
  *
  * @example
  * ```typescript
- * import { createAuth } from '@glinr/theauth';
- * import { authSolidStart } from '@glinr/theauth-solidstart';
+ * import { createTheAuth } from '@glinr/theauth';
+ * import { theAuthSolidStart } from '@glinr/theauth-solidstart';
  *
- * const auth = createAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = authSolidStart(auth);
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const handlers = theAuthSolidStart(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -54,19 +60,19 @@ export type KavachSolidStartHandlers = AuthSolidStartHandlers;
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = authSolidStart(auth, { mcp });
+ * const handlers = theAuthSolidStart(auth, { mcp });
  * ```
  */
-export function authSolidStart(
-	kavach: Kavach,
-	options?: AuthSolidStartOptions,
-): AuthSolidStartHandlers {
+export function theAuthSolidStart(
+	auth: TheAuth,
+	options?: TheAuthSolidStartOptions,
+): TheAuthSolidStartHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	// SolidStart API routes receive a standard Web API Request, so we can pass
 	// it directly to the TheAuth dispatcher without any conversion.
-	const handler = (request: Request): Promise<Response> => dispatch(request, kavach, mcp, basePath);
+	const handler = (request: Request): Promise<Response> => dispatch(request, auth, mcp, basePath);
 
 	return {
 		GET: handler,
@@ -77,5 +83,8 @@ export function authSolidStart(
 	};
 }
 
-/** @deprecated Use {@link authSolidStart} instead. Will be removed in v3.0. */
-export const kavachSolidStart = authSolidStart;
+/** @deprecated Use `theAuthSolidStart` instead. Will be removed in a future major version. */
+export const authSolidStart = theAuthSolidStart;
+
+/** @deprecated Use `theAuthSolidStart` instead. Will be removed in a future major version. */
+export const kavachSolidStart = theAuthSolidStart;

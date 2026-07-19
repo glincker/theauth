@@ -12,19 +12,19 @@ npm install @glinr/@glinr/theauth-expo
 
 ## Usage
 
-Wrap your Expo app with `KavachExpoProvider`. Tokens are persisted using the configured storage (defaults to `expo-secure-store`).
+Wrap your Expo app with `TheAuthExpoProvider`. Tokens are persisted using the configured storage (defaults to `expo-secure-store`).
 
 ```tsx
-import { KavachExpoProvider, useSession, useUser, useSignIn } from '@glinr/theauth-expo';
+import { TheAuthExpoProvider, useSession, useUser, useSignIn } from '@glinr/theauth-expo';
 
 export default function App() {
   return (
-    <KavachExpoProvider
+    <TheAuthExpoProvider
       apiUrl="https://auth.yourapp.com"
       tenantId="your-tenant-id"
     >
       <RootNavigator />
-    </KavachExpoProvider>
+    </TheAuthExpoProvider>
   );
 }
 
@@ -41,12 +41,12 @@ function HomeScreen() {
 
 ## Exports
 
-- `KavachExpoProvider`: context provider with secure storage support
+- `TheAuthExpoProvider`: context provider with secure storage support (formerly `KavachExpoProvider`, still exported as a deprecated alias)
 - `useSession`: current session and loading state
 - `useUser`: authenticated user object
 - `useSignIn` / `useSignOut` / `useSignUp`: auth actions
 - `useAgents`: manage AI agents for the current user
-- `useKavachContext`: raw context access
+- `useTheAuthContext`: raw context access (formerly `useKavachContext`, still exported as a deprecated alias)
 
 ## Docs
 

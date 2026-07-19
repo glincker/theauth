@@ -8,12 +8,12 @@ import httpx
 
 from theauth.errors import (
     AuthenticationError,
-    KavachError,
     NetworkError,
     NotFoundError,
     PermissionError,
     RateLimitError,
     ServerError,
+    TheAuthError,
 )
 
 T = TypeVar("T")
@@ -23,8 +23,8 @@ T = TypeVar("T")
 # ---------------------------------------------------------------------------
 
 
-def _parse_error(response: httpx.Response) -> KavachError:
-    """Parse an error response into the appropriate KavachError subclass."""
+def _parse_error(response: httpx.Response) -> TheAuthError:
+    """Parse an error response into the appropriate TheAuthError subclass."""
     retry_after: Optional[int] = None
 
     try:
@@ -64,7 +64,7 @@ def _parse_error(response: httpx.Response) -> KavachError:
     if status >= 500:
         return ServerError(message, code=code, status_code=status, details=details)
 
-    return KavachError(message, code=code, status_code=status, details=details)
+    return TheAuthError(message, code=code, status_code=status, details=details)
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ class AsyncTransport:
     ) -> Any:
         """Perform an authenticated JSON request and return the parsed body.
 
-        Raises the appropriate :class:`~theauth.errors.KavachError` subclass
+        Raises the appropriate :class:`~theauth.errors.TheAuthError` subclass
         on any non-2xx response.
         """
         url = f"{self._base}{path}"

@@ -2,48 +2,52 @@ package theauth
 
 import "fmt"
 
-// KavachError is the base error type for all TheAuth API errors.
-type KavachError struct {
+// TheAuthError is the base error type for all TheAuth API errors.
+type TheAuthError struct {
 	Code       string                 `json:"code"`
 	Message    string                 `json:"message"`
 	StatusCode int                    `json:"statusCode,omitempty"`
 	Details    map[string]interface{} `json:"details,omitempty"`
 }
 
-func (e *KavachError) Error() string {
+func (e *TheAuthError) Error() string {
 	return fmt.Sprintf("theauth: [%s] %s", e.Code, e.Message)
 }
 
+// KavachError is a deprecated alias for TheAuthError. Will be removed in a
+// future major version.
+type KavachError = TheAuthError
+
 // ErrAuthentication is returned when the request lacks valid credentials (HTTP 401).
 type ErrAuthentication struct {
-	KavachError
+	TheAuthError
 }
 
 // ErrPermission is returned when the caller lacks permission for the action (HTTP 403).
 type ErrPermission struct {
-	KavachError
+	TheAuthError
 }
 
 // ErrNotFound is returned when the requested resource does not exist (HTTP 404).
 type ErrNotFound struct {
-	KavachError
+	TheAuthError
 }
 
 // ErrRateLimit is returned when the rate limit is exceeded (HTTP 429).
 // RetryAfter holds the suggested wait time in seconds if provided by the server.
 type ErrRateLimit struct {
-	KavachError
+	TheAuthError
 	RetryAfter *int
 }
 
 // ErrServer is returned for unexpected server-side errors (HTTP 5xx).
 type ErrServer struct {
-	KavachError
+	TheAuthError
 }
 
 // ErrNetwork is returned when the HTTP request fails at the transport layer.
 type ErrNetwork struct {
-	KavachError
+	TheAuthError
 }
 
 // IsNotFound reports whether err is an ErrNotFound.

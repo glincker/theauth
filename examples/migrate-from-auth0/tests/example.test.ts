@@ -15,7 +15,7 @@ describe("migrate-from-auth0 example", () => {
 		});
 
 		const output = `${stdout}\n${stderr}`;
-		expect(output).toContain("Step 1: createAuth");
+		expect(output).toContain("Step 1: createTheAuth");
 		expect(output).toContain("Step 3: Service agent");
 		expect(output).toContain("read mcp:stripe:charges");
 		expect(output).toContain("execute mcp:stripe:refund");

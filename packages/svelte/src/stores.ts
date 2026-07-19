@@ -1,15 +1,21 @@
 import type { Readable } from "svelte/store";
 import { derived, writable } from "svelte/store";
-import type { ActionResult, AuthAgent, AuthSession, AuthUser, CreateAgentInput } from "./types.js";
+import type {
+	ActionResult,
+	CreateAgentInput,
+	TheAuthAgent,
+	TheAuthSession,
+	TheAuthUser,
+} from "./types.js";
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
-	data: AuthAgent[];
+	data: TheAuthAgent[];
 }
 
 interface AgentSingleApiResponse {
-	data: AuthAgent;
+	data: TheAuthAgent;
 }
 
 interface ApiErrorResponse {
@@ -34,18 +40,15 @@ function extractError(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-// ─── createAuthClient ─────────────────────────────────────────────────────────
+// ─── createTheAuthClient ──────────────────────────────────────────────────────
 
-export interface AuthClientOptions {
+export interface TheAuthClientOptions {
 	basePath?: string;
 }
 
-/** @deprecated Use {@link AuthClientOptions} instead. Will be removed in v3.0. */
-export type KavachClientOptions = AuthClientOptions;
-
-export interface AuthClient {
-	session: Readable<AuthSession | null>;
-	user: Readable<AuthUser | null>;
+export interface TheAuthClient {
+	session: Readable<TheAuthSession | null>;
+	user: Readable<TheAuthUser | null>;
 	isAuthenticated: Readable<boolean>;
 	isLoading: Readable<boolean>;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
@@ -54,19 +57,16 @@ export interface AuthClient {
 	refresh: () => Promise<void>;
 }
 
-/** @deprecated Use {@link AuthClient} instead. Will be removed in v3.0. */
-export type KavachClient = AuthClient;
-
 /**
  * Creates a self-contained auth client backed by Svelte stores.
  *
  * Call this once (e.g. in a module or Svelte context) and spread or
  * pass the returned object to whatever components need it.
  */
-export function createAuthClient(options?: AuthClientOptions): AuthClient {
+export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClient {
 	const basePath = options?.basePath ?? "/api/kavach";
 
-	const session = writable<AuthSession | null>(null);
+	const session = writable<TheAuthSession | null>(null);
 	const isLoading = writable(true);
 
 	const user = derived(session, ($session) => $session?.user ?? null);
@@ -83,7 +83,7 @@ export function createAuthClient(options?: AuthClientOptions): AuthClient {
 			}
 			const raw = window.localStorage.getItem(STORAGE_KEY);
 			if (raw) {
-				session.set(JSON.parse(raw) as AuthSession);
+				session.set(JSON.parse(raw) as TheAuthSession);
 			} else {
 				session.set(null);
 			}
@@ -106,8 +106,8 @@ export function createAuthClient(options?: AuthClientOptions): AuthClient {
 			if (!res.ok) {
 				return { success: false, error: extractError(json, `Sign-in failed (${res.status})`) };
 			}
-			const okBody = json as { user: AuthUser; session: { token: string; expiresAt: string } };
-			const sessionData: AuthSession = {
+			const okBody = json as { user: TheAuthUser; session: { token: string; expiresAt: string } };
+			const sessionData: TheAuthSession = {
 				token: okBody.session.token,
 				user: okBody.user,
 				expiresAt: okBody.session.expiresAt,
@@ -137,8 +137,8 @@ export function createAuthClient(options?: AuthClientOptions): AuthClient {
 			if (!res.ok) {
 				return { success: false, error: extractError(json, `Sign-up failed (${res.status})`) };
 			}
-			const okBody = json as { user: AuthUser; token: string };
-			const sessionData: AuthSession = {
+			const okBody = json as { user: TheAuthUser; token: string };
+			const sessionData: TheAuthSession = {
 				token: okBody.token,
 				user: okBody.user,
 			};
@@ -170,8 +170,8 @@ export function createAuthClient(options?: AuthClientOptions): AuthClient {
 	}
 
 	return {
-		session: { subscribe: session.subscribe } as Readable<AuthSession | null>,
-		user: user as Readable<AuthUser | null>,
+		session: { subscribe: session.subscribe } as Readable<TheAuthSession | null>,
+		user: user as Readable<TheAuthUser | null>,
 		isAuthenticated: isAuthenticated as Readable<boolean>,
 		isLoading: { subscribe: isLoading.subscribe } as Readable<boolean>,
 		signIn,
@@ -181,37 +181,34 @@ export function createAuthClient(options?: AuthClientOptions): AuthClient {
 	};
 }
 
-/** @deprecated Use {@link createAuthClient} instead. Will be removed in v3.0. */
-export const createKavachClient = createAuthClient;
-
 // ─── createAgentStore ─────────────────────────────────────────────────────────
 
 export interface AgentStoreOptions {
 	basePath?: string;
-	/** Pass the user store from an AuthClient to enable auto-load. */
-	user?: Readable<AuthUser | null>;
+	/** Pass the user store from a TheAuthClient to enable auto-load. */
+	user?: Readable<TheAuthUser | null>;
 }
 
 export interface AgentStore {
-	agents: Readable<AuthAgent[]>;
+	agents: Readable<TheAuthAgent[]>;
 	isLoading: Readable<boolean>;
 	error: Readable<string | null>;
 	load: (userId: string) => Promise<void>;
-	create: (input: CreateAgentInput) => Promise<ActionResult<AuthAgent>>;
+	create: (input: CreateAgentInput) => Promise<ActionResult<TheAuthAgent>>;
 	revoke: (agentId: string) => Promise<ActionResult>;
-	rotate: (agentId: string) => Promise<ActionResult<AuthAgent>>;
+	rotate: (agentId: string) => Promise<ActionResult<TheAuthAgent>>;
 }
 
 /**
  * Creates a store for managing agent identity records.
  *
- * Pass `user` from a `KavachClient` to have the store load automatically
+ * Pass `user` from a `TheAuthClient` to have the store load automatically
  * whenever a user is present. Otherwise call `load(userId)` manually.
  */
 export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 	const basePath = options?.basePath ?? "/api/kavach";
 
-	const agents = writable<AuthAgent[]>([]);
+	const agents = writable<TheAuthAgent[]>([]);
 	const isLoading = writable(false);
 	const error = writable<string | null>(null);
 
@@ -235,7 +232,7 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		}
 	}
 
-	async function create(input: CreateAgentInput): Promise<ActionResult<AuthAgent>> {
+	async function create(input: CreateAgentInput): Promise<ActionResult<TheAuthAgent>> {
 		try {
 			const res = await fetch(`${basePath}/agents`, {
 				method: "POST",
@@ -286,7 +283,7 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		}
 	}
 
-	async function rotate(agentId: string): Promise<ActionResult<AuthAgent>> {
+	async function rotate(agentId: string): Promise<ActionResult<TheAuthAgent>> {
 		try {
 			const res = await fetch(`${basePath}/agents/${encodeURIComponent(agentId)}/rotate`, {
 				method: "POST",
@@ -327,7 +324,7 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 	}
 
 	return {
-		agents: { subscribe: agents.subscribe } as Readable<AuthAgent[]>,
+		agents: { subscribe: agents.subscribe } as Readable<TheAuthAgent[]>,
 		isLoading: { subscribe: isLoading.subscribe } as Readable<boolean>,
 		error: { subscribe: error.subscribe } as Readable<string | null>,
 		load,
@@ -336,3 +333,24 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		rotate,
 	};
 }
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
+export type AuthClientOptions = TheAuthClientOptions;
+
+/** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
+export type KavachClientOptions = TheAuthClientOptions;
+
+/** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
+export type AuthClient = TheAuthClient;
+
+/** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
+export type KavachClient = TheAuthClient;
+
+/** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
+export const createAuthClient = createTheAuthClient;
+
+/** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
+export const createKavachClient = createTheAuthClient;

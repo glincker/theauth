@@ -30,7 +30,7 @@ interface KavachContextValue {
 	refresh: () => Promise<void>;
 }
 
-export interface ElectronKavachProviderProps {
+export interface ElectronTheAuthProviderProps {
 	children: ReactNode;
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
@@ -40,21 +40,30 @@ export interface ElectronKavachProviderProps {
 	persistSession?: boolean;
 }
 
+/** @deprecated Use `ElectronTheAuthProviderProps` instead. Will be removed in a future major version. */
+export type ElectronKavachProviderProps = ElectronTheAuthProviderProps;
+
 // ─── Storage key ──────────────────────────────────────────────────────────────
 
 const SESSION_STORAGE_KEY = "kavach:session";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const ElectronKavachContext = createContext<KavachContextValue | null>(null);
+export const ElectronTheAuthContext = createContext<KavachContextValue | null>(null);
 
-export function useElectronKavachContext(): KavachContextValue {
-	const ctx = useContext(ElectronKavachContext);
+/** @deprecated Use `ElectronTheAuthContext` instead. Will be removed in a future major version. */
+export const ElectronKavachContext = ElectronTheAuthContext;
+
+export function useElectronTheAuthContext(): KavachContextValue {
+	const ctx = useContext(ElectronTheAuthContext);
 	if (!ctx) {
-		throw new Error("useElectronKavachContext must be used inside <ElectronKavachProvider>");
+		throw new Error("useElectronTheAuthContext must be used inside <ElectronTheAuthProvider>");
 	}
 	return ctx;
 }
+
+/** @deprecated Use `useElectronTheAuthContext` instead. Will be removed in a future major version. */
+export const useElectronKavachContext = useElectronTheAuthContext;
 
 // ─── JSON fetch helpers ───────────────────────────────────────────────────────
 
@@ -78,7 +87,7 @@ function extractErrorMessage(body: unknown, fallback: string): string {
 /**
  * Wraps your Electron renderer with TheAuth auth state.
  *
- * Extends the base KavachProvider behaviour with:
+ * Extends the base TheAuthProvider behaviour with:
  * - Session persistence to Electron's safeStorage on sign-in
  * - Session restoration from storage on app launch
  * - Storage cleared on sign-out
@@ -86,12 +95,12 @@ function extractErrorMessage(body: unknown, fallback: string): string {
  * Pass a SecureStorage created by createElectronStorage() or createIpcStorage()
  * depending on whether your renderer runs with Node integration or via IPC.
  */
-export function ElectronKavachProvider({
+export function ElectronTheAuthProvider({
 	children,
 	basePath = "/api/kavach",
 	storage,
 	persistSession = true,
-}: ElectronKavachProviderProps): ReactNode {
+}: ElectronTheAuthProviderProps): ReactNode {
 	const [session, setSession] = useState<KavachSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
@@ -266,5 +275,13 @@ export function ElectronKavachProvider({
 		refresh,
 	};
 
-	return <ElectronKavachContext.Provider value={value}>{children}</ElectronKavachContext.Provider>;
+	return (
+		<ElectronTheAuthContext.Provider value={value}>{children}</ElectronTheAuthContext.Provider>
+	);
 }
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `ElectronTheAuthProvider` instead. Will be removed in a future major version. */
+export const ElectronKavachProvider = ElectronTheAuthProvider;

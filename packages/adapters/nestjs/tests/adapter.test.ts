@@ -3,15 +3,15 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { Kavach } from "../../../core/src/kavach.js";
-import { createKavach } from "../../../core/src/kavach.js";
+import type { TheAuth } from "../../../core/src/kavach.js";
+import { createTheAuth } from "../../../core/src/kavach.js";
 import { buildKavachRouter, kavachMiddleware } from "../src/adapter.js";
 import { KavachModule } from "../src/module.js";
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
-async function createTestKavach(): Promise<Kavach> {
-	const kavach = await createKavach({
+async function createTestKavach(): Promise<TheAuth> {
+	const kavach = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -36,7 +36,7 @@ async function createTestKavach(): Promise<Kavach> {
 	return kavach;
 }
 
-async function createRouterApp(): Promise<{ app: Express; kavach: Kavach }> {
+async function createRouterApp(): Promise<{ app: Express; kavach: TheAuth }> {
 	const kavach = await createTestKavach();
 	const app = express();
 	app.use(express.json());
@@ -44,7 +44,7 @@ async function createRouterApp(): Promise<{ app: Express; kavach: Kavach }> {
 	return { app, kavach };
 }
 
-async function createMiddlewareApp(): Promise<{ app: Express; kavach: Kavach }> {
+async function createMiddlewareApp(): Promise<{ app: Express; kavach: TheAuth }> {
 	const kavach = await createTestKavach();
 	const app = express();
 	app.use(express.json());
@@ -66,7 +66,7 @@ async function createTestAgent(app: Express): Promise<{ id: string; token: strin
 describe("NestJS adapter", () => {
 	let routerApp: Express;
 	let middlewareApp: Express;
-	let kavach: Kavach;
+	let kavach: TheAuth;
 
 	beforeEach(async () => {
 		({ app: routerApp, kavach } = await createRouterApp());
@@ -120,7 +120,7 @@ describe("NestJS adapter", () => {
 
 		expect(module.module).toBe(KavachModule);
 		expect(module.providers).toHaveLength(1);
-		const provider = module.providers?.[0] as { useValue: { basePath: string; kavach: Kavach } };
+		const provider = module.providers?.[0] as { useValue: { basePath: string; kavach: TheAuth } };
 		expect(provider.useValue.basePath).toBe("/api/auth/kavach");
 		expect(provider.useValue.kavach).toBe(kavach);
 	});

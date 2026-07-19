@@ -1,8 +1,8 @@
-import { authNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
-const kavach = await getKavach();
-const handlers = authNextjs(kavach);
+const auth = await getKavach();
+const handlers = theAuthNextjs(auth, { basePath: '/api/theauth' });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

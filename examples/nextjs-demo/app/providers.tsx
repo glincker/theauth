@@ -1,10 +1,10 @@
 "use client";
 
-import { AuthProvider } from "@glinr/theauth-react";
+import { TheAuthProvider } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 
 export function Providers({ children }: { children: ReactNode }) {
 	return (
-		<AuthProvider basePath="/api/kavach">{children}</AuthProvider>
+		<TheAuthProvider basePath="/api/theauth">{children}</TheAuthProvider>
 	);
 }

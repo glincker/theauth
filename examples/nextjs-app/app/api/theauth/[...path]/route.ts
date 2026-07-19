@@ -1,30 +1,30 @@
 // TheAuth Next.js App Router catch-all route.
 //
-// Mounts at /api/kavach/[...path] and forwards every request to the
-// authNextjs adapter, which handles all TheAuth REST routes.
+// Mounts at /api/theauth/[...path] and forwards every request to the
+// theAuthNextjs adapter, which handles all TheAuth REST routes.
 //
 // Routes handled:
-//   GET/POST        /api/kavach/agents
-//   GET/PATCH/DELETE /api/kavach/agents/:id
-//   POST            /api/kavach/agents/:id/rotate
-//   POST            /api/kavach/authorize
-//   POST            /api/kavach/authorize/token
-//   POST            /api/kavach/delegations
-//   GET/DELETE      /api/kavach/delegations/:id
-//   GET             /api/kavach/audit
-//   GET             /api/kavach/audit/export
-//   GET             /api/kavach/dashboard/stats
-//   GET             /api/kavach/dashboard/agents
-//   GET             /api/kavach/dashboard/audit
+//   GET/POST        /api/theauth/agents
+//   GET/PATCH/DELETE /api/theauth/agents/:id
+//   POST            /api/theauth/agents/:id/rotate
+//   POST            /api/theauth/authorize
+//   POST            /api/theauth/authorize/token
+//   POST            /api/theauth/delegations
+//   GET/DELETE      /api/theauth/delegations/:id
+//   GET             /api/theauth/audit
+//   GET             /api/theauth/audit/export
+//   GET             /api/theauth/dashboard/stats
+//   GET             /api/theauth/dashboard/agents
+//   GET             /api/theauth/dashboard/audit
 
-import { authNextjs } from "@glinr/theauth-nextjs";
+import { theAuthNextjs } from "@glinr/theauth-nextjs";
 import { getKavach } from "@/lib/kavach";
 
 // Build handlers lazily so the singleton is created on first request, not at
 // module evaluation time (which would run during the build step).
 async function getHandlers() {
-	const kavach = await getKavach();
-	return authNextjs(kavach, { basePath: "/api/kavach" });
+	const auth = await getKavach();
+	return theAuthNextjs(auth, { basePath: "/api/theauth" });
 }
 
 export async function GET(request: Request): Promise<Response> {

@@ -1,15 +1,15 @@
 ---
 title: Astro
-description: Mount TheAuth auth routes in an Astro app with `authAstro(kavach)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
+description: Mount TheAuth auth routes in an Astro app with `theAuthAstro(kavach)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
 icon: "/brand-icons/astro.svg"
 ---
 
-`authAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled. Use individual named exports or the `ALL` catch-all handler.
+`theAuthAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled. Use individual named exports or the `ALL` catch-all handler.
 
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-astro
+pnpm add @glinr/theauth @glinr/theauth-astro
 ```
 
 ## Setup
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-astro
 
 ```typescript
 // src/lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
   mcp: {
@@ -40,10 +40,10 @@ Create `src/pages/api/kavach/[...path].ts`. The `[...path]` spread catches every
 
 ```typescript
 // src/pages/api/kavach/[...path].ts
-import { authAstro } from '@glinr/theauth-astro';
+import { theAuthAstro } from '@glinr/theauth-astro';
 import { kavach, mcp } from '@/lib/kavach';
 
-const handlers = authAstro(kavach, { mcp });
+const handlers = theAuthAstro(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -108,10 +108,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // src/pages/api/kavach/[...path].ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
-import { authAstro } from '@glinr/theauth-astro';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { theAuthAstro } from '@glinr/theauth-astro';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
   mcp: {
@@ -122,7 +122,7 @@ const kavach = createAuth({
 
 const mcp = createMcpModule(kavach);
 
-const handlers = authAstro(kavach, { mcp });
+const handlers = theAuthAstro(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

@@ -3,5 +3,7 @@ export type {
 	AuthSolidStartOptions,
 	KavachSolidStartHandlers,
 	KavachSolidStartOptions,
+	TheAuthSolidStartHandlers,
+	TheAuthSolidStartOptions,
 } from "./adapter.js";
-export { authSolidStart, kavachSolidStart } from "./adapter.js";
+export { authSolidStart, kavachSolidStart, theAuthSolidStart } from "./adapter.js";

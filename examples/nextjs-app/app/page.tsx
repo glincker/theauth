@@ -41,10 +41,10 @@ export default function HomePage() {
 					</li>
 					<li style={{ marginBottom: 12 }}>
 						<Link
-							href="/api/kavach/agents"
+							href="/api/theauth/agents"
 							style={{ color: "#C9A84C", textDecoration: "none", fontSize: "0.95rem" }}
 						>
-							/api/kavach/agents
+							/api/theauth/agents
 						</Link>
 						<span style={{ color: "#555", marginLeft: 12, fontSize: "0.82rem" }}>
 							list all agents (JSON)
@@ -52,10 +52,10 @@ export default function HomePage() {
 					</li>
 					<li style={{ marginBottom: 12 }}>
 						<Link
-							href="/api/kavach/audit"
+							href="/api/theauth/audit"
 							style={{ color: "#C9A84C", textDecoration: "none", fontSize: "0.95rem" }}
 						>
-							/api/kavach/audit
+							/api/theauth/audit
 						</Link>
 						<span style={{ color: "#555", marginLeft: 12, fontSize: "0.82rem" }}>
 							query audit logs (JSON)
@@ -63,10 +63,10 @@ export default function HomePage() {
 					</li>
 					<li style={{ marginBottom: 12 }}>
 						<Link
-							href="/api/kavach/dashboard/stats"
+							href="/api/theauth/dashboard/stats"
 							style={{ color: "#C9A84C", textDecoration: "none", fontSize: "0.95rem" }}
 						>
-							/api/kavach/dashboard/stats
+							/api/theauth/dashboard/stats
 						</Link>
 						<span style={{ color: "#555", marginLeft: 12, fontSize: "0.82rem" }}>
 							summary stats (JSON)

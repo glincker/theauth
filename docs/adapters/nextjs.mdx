@@ -1,15 +1,15 @@
 ---
 title: Next.js
-description: Mount TheAuth auth routes in Next.js with `authNextjs(kavach)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
+description: Mount TheAuth auth routes in Next.js with `theAuthNextjs(kavach)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
 icon: "/brand-icons/nextdotjs.svg"
 ---
 
-`authNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
+`theAuthNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
 
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-nextjs
+pnpm add @glinr/theauth @glinr/theauth-nextjs
 ```
 
 ## Setup
@@ -21,9 +21,9 @@ Create this in a shared module so it is initialized once at server startup:
 
 ```typescript
 // lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -42,10 +42,10 @@ Create `app/api/kavach/[...kavach]/route.ts`. The `[...kavach]` segment catches 
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { authNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { kavach, mcp } from '@/lib/kavach';
 
-const handlers = authNextjs(kavach, { mcp });
+const handlers = theAuthNextjs(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -104,10 +104,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
-import { authNextjs } from '@glinr/theauth-nextjs';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -118,7 +118,7 @@ const kavach = createAuth({
 
 const mcp = createMcpModule(kavach);
 
-const handlers = authNextjs(kavach, { mcp });
+const handlers = theAuthNextjs(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -128,7 +128,7 @@ export const OPTIONS = handlers.OPTIONS;
 ```
 
 <Warning>
-  Do not define `createAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
+  Do not define `createTheAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
 </Warning>
 
 ## Related

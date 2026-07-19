@@ -1,8 +1,8 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
-export interface AuthTanStackOptions {
+export interface TheAuthTanStackOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -16,7 +16,7 @@ export interface AuthTanStackOptions {
 	basePath?: string;
 }
 
-export interface AuthTanStackHandlers {
+export interface TheAuthTanStackHandlers {
 	GET: (request: Request) => Promise<Response>;
 	POST: (request: Request) => Promise<Response>;
 	PATCH: (request: Request) => Promise<Response>;
@@ -24,11 +24,17 @@ export interface AuthTanStackHandlers {
 	OPTIONS: (request: Request) => Promise<Response>;
 }
 
-/** @deprecated Use {@link AuthTanStackOptions} instead. Will be removed in v3.0. */
-export type KavachTanStackOptions = AuthTanStackOptions;
+/** @deprecated Use `TheAuthTanStackOptions` instead. Will be removed in a future major version. */
+export type AuthTanStackOptions = TheAuthTanStackOptions;
 
-/** @deprecated Use {@link AuthTanStackHandlers} instead. Will be removed in v3.0. */
-export type KavachTanStackHandlers = AuthTanStackHandlers;
+/** @deprecated Use `TheAuthTanStackOptions` instead. Will be removed in a future major version. */
+export type KavachTanStackOptions = TheAuthTanStackOptions;
+
+/** @deprecated Use `TheAuthTanStackHandlers` instead. Will be removed in a future major version. */
+export type AuthTanStackHandlers = TheAuthTanStackHandlers;
+
+/** @deprecated Use `TheAuthTanStackHandlers` instead. Will be removed in a future major version. */
+export type KavachTanStackHandlers = TheAuthTanStackHandlers;
 
 /**
  * Create TanStack Start API route handlers for all TheAuth REST API routes.
@@ -37,11 +43,11 @@ export type KavachTanStackHandlers = AuthTanStackHandlers;
  *
  * @example
  * ```typescript
- * import { createAuth } from '@glinr/theauth';
- * import { authTanStack } from '@glinr/theauth-tanstack';
+ * import { createTheAuth } from '@glinr/theauth';
+ * import { theAuthTanStack } from '@glinr/theauth-tanstack';
  *
- * const auth = createAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = authTanStack(auth);
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const handlers = theAuthTanStack(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -54,16 +60,19 @@ export type KavachTanStackHandlers = AuthTanStackHandlers;
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = authTanStack(auth, { mcp });
+ * const handlers = theAuthTanStack(auth, { mcp });
  * ```
  */
-export function authTanStack(kavach: Kavach, options?: AuthTanStackOptions): AuthTanStackHandlers {
+export function theAuthTanStack(
+	auth: TheAuth,
+	options?: TheAuthTanStackOptions,
+): TheAuthTanStackHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	// TanStack Start API routes receive a standard Web API Request, so we can
 	// pass it directly to the TheAuth dispatcher without any conversion.
-	const handler = (request: Request): Promise<Response> => dispatch(request, kavach, mcp, basePath);
+	const handler = (request: Request): Promise<Response> => dispatch(request, auth, mcp, basePath);
 
 	return {
 		GET: handler,
@@ -74,5 +83,8 @@ export function authTanStack(kavach: Kavach, options?: AuthTanStackOptions): Aut
 	};
 }
 
-/** @deprecated Use {@link authTanStack} instead. Will be removed in v3.0. */
-export const kavachTanStack = authTanStack;
+/** @deprecated Use `theAuthTanStack` instead. Will be removed in a future major version. */
+export const authTanStack = theAuthTanStack;
+
+/** @deprecated Use `theAuthTanStack` instead. Will be removed in a future major version. */
+export const kavachTanStack = theAuthTanStack;

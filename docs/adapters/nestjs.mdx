@@ -9,7 +9,7 @@ icon: "/brand-icons/nestjs.svg"
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-nestjs
+pnpm add @glinr/theauth @glinr/theauth-nestjs
 ```
 
 ## Setup
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-nestjs
 
 ```typescript
 // lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -89,18 +89,18 @@ All TheAuth routes will then be available under `/auth/*`.
 
 ## Without a module
 
-If you prefer to mount routes imperatively in `main.ts` rather than importing a module, use `authMiddleware` directly:
+If you prefer to mount routes imperatively in `main.ts` rather than importing a module, use `theAuthMiddleware` directly:
 
 ```typescript
 // main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { authMiddleware } from '@glinr/theauth-nestjs';
+import { theAuthMiddleware } from '@glinr/theauth-nestjs';
 import { kavach, mcp } from './lib/kavach.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.use('/api/kavach', authMiddleware({ kavach, mcp }));
+  app.use('/api/kavach', theAuthMiddleware({ kavach, mcp }));
   await app.listen(3000);
 }
 

@@ -12,7 +12,7 @@ pnpm dev
 
 ## Endpoints
 
-- `POST /api/kavach/sign-up` - Create account
-- `POST /api/kavach/sign-in` - Sign in
-- `GET /api/kavach/session` - Get current session
-- `POST /api/kavach/sign-out` - Sign out
+- `POST /api/theauth/sign-up` - Create account
+- `POST /api/theauth/sign-in` - Sign in
+- `GET /api/theauth/session` - Get current session
+- `POST /api/theauth/sign-out` - Sign out

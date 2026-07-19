@@ -30,13 +30,13 @@ app/
   page.tsx                    # Sign in / sign up
   dashboard/page.tsx          # Authenticated dashboard
   auth/verify-email/page.tsx  # Email verification
-  api/kavach/[...kavach]/     # All TheAuth API routes
+  api/theauth/[...theauth]/   # All TheAuth API routes
 lib/
   kavach.ts                   # Singleton TheAuth instance
 ```
 
 ## Notes
 
-- SQLite database written to `kavach-demo.db` in the project root
+- SQLite database written to `theauth-demo.db` in the project root
 - No `.env` required, everything runs out of the box
 - Verification and password reset links print to the terminal in dev

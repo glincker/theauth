@@ -1,41 +1,50 @@
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-export interface AuthUser {
+export interface TheAuthUser {
 	id: string;
 	email?: string;
 	name?: string;
 	image?: string;
 }
 
-/** @deprecated Use {@link AuthUser} instead. Will be removed in v3.0. */
-export type KavachUser = AuthUser;
+/** @deprecated Use `TheAuthUser` instead. Will be removed in a future major version. */
+export type AuthUser = TheAuthUser;
 
-export interface AuthSession {
+/** @deprecated Use `TheAuthUser` instead. Will be removed in a future major version. */
+export type KavachUser = TheAuthUser;
+
+export interface TheAuthSession {
 	token: string;
-	user: AuthUser;
+	user: TheAuthUser;
 	expiresAt?: string;
 }
 
-/** @deprecated Use {@link AuthSession} instead. Will be removed in v3.0. */
-export type KavachSession = AuthSession;
+/** @deprecated Use `TheAuthSession` instead. Will be removed in a future major version. */
+export type AuthSession = TheAuthSession;
 
-export interface AuthAgent {
+/** @deprecated Use `TheAuthSession` instead. Will be removed in a future major version. */
+export type KavachSession = TheAuthSession;
+
+export interface TheAuthAgent {
 	id: string;
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
 	token: string;
-	permissions: AuthPermission[];
+	permissions: TheAuthPermission[];
 	status: "active" | "revoked" | "expired";
 	expiresAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
-/** @deprecated Use {@link AuthAgent} instead. Will be removed in v3.0. */
-export type KavachAgent = AuthAgent;
+/** @deprecated Use `TheAuthAgent` instead. Will be removed in a future major version. */
+export type AuthAgent = TheAuthAgent;
 
-export interface AuthPermission {
+/** @deprecated Use `TheAuthAgent` instead. Will be removed in a future major version. */
+export type KavachAgent = TheAuthAgent;
+
+export interface TheAuthPermission {
 	resource: string;
 	actions: string[];
 	constraints?: {
@@ -47,14 +56,17 @@ export interface AuthPermission {
 	};
 }
 
-/** @deprecated Use {@link AuthPermission} instead. Will be removed in v3.0. */
-export type KavachPermission = AuthPermission;
+/** @deprecated Use `TheAuthPermission` instead. Will be removed in a future major version. */
+export type AuthPermission = TheAuthPermission;
+
+/** @deprecated Use `TheAuthPermission` instead. Will be removed in a future major version. */
+export type KavachPermission = TheAuthPermission;
 
 export interface CreateAgentInput {
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
-	permissions: AuthPermission[];
+	permissions: TheAuthPermission[];
 	expiresAt?: string;
 	metadata?: Record<string, unknown>;
 }
@@ -111,7 +123,7 @@ export type RotationStatus = "idle" | "rotating" | "error";
 
 /**
  * Configuration for external API auth mode.
- * When passed to `<KavachProvider external={...}>`, TheAuth delegates all
+ * When passed to `<TheAuthProvider external={...}>`, TheAuth delegates all
  * auth to the specified API instead of managing sessions locally.
  */
 export interface ExternalAuthConfig {
@@ -126,10 +138,10 @@ export interface ExternalAuthConfig {
 	/** HTTP method for logout. Defaults to "POST". */
 	logoutMethod?: "POST" | "DELETE";
 	/**
-	 * Map the external API's user response to an AuthUser.
+	 * Map the external API's user response to a TheAuthUser.
 	 * By default handles: { user_id, id, sub } to id, { email, name, avatar, image }.
 	 */
-	mapUser?: (data: Record<string, unknown>) => AuthUser;
+	mapUser?: (data: Record<string, unknown>) => TheAuthUser;
 	/** Callback after logout completes (e.g. redirect to login page). */
 	onLogout?: () => void;
 
@@ -196,9 +208,9 @@ export type ActionResult<T = void> = { success: true; data: T } | { success: fal
 
 // ─── Context value ────────────────────────────────────────────────────────────
 
-export interface AuthContextValue {
-	session: AuthSession | null;
-	user: AuthUser | null;
+export interface TheAuthContextValue {
+	session: TheAuthSession | null;
+	user: TheAuthUser | null;
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
@@ -222,5 +234,12 @@ export interface AuthContextValue {
 	isOnline: boolean;
 }
 
-/** @deprecated Use {@link AuthContextValue} instead. Will be removed in v3.0. */
-export type KavachContextValue = AuthContextValue;
+/**
+ * @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version.
+ */
+export type AuthContextValue = TheAuthContextValue;
+
+/**
+ * @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version.
+ */
+export type KavachContextValue = TheAuthContextValue;

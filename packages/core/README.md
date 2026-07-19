@@ -160,7 +160,7 @@ SQLite, PostgreSQL, MySQL, Cloudflare D1, libSQL (Turso). Tables are auto-create
 
 ```typescript
 // Cloudflare Workers + D1
-createKavach({ database: { provider: "d1", binding: env.KAVACH_DB } });
+createKavach({ database: { provider: "d1", binding: env.THEAUTH_DB } });
 
 // PostgreSQL
 createKavach({ database: { provider: "postgres", url: process.env.DATABASE_URL } });

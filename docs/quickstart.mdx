@@ -19,8 +19,9 @@ Two paths. Pick whichever fits your day.
 </div>
 
 ```bash
-pnpm create theauth-app my-app
-cd my-app && pnpm install && pnpm db:push && pnpm dev
+pnpm create @glinr/theauth-app
+# answer the 3 prompts, then:
+cd my-theauth-app && pnpm install && pnpm db:push && pnpm dev
 ```
 </Columns>
 
@@ -31,22 +32,22 @@ The fastest path is the scaffolder. One command, three prompts, a running Next.j
 <Tabs>
   <Tab title="pnpm">
     ```bash title="terminal"
-    pnpm create theauth-app
+    pnpm create @glinr/theauth-app
     ```
   </Tab>
   <Tab title="npm">
     ```bash title="terminal"
-    npm create theauth-app
+    npm create @glinr/theauth-app
     ```
   </Tab>
   <Tab title="yarn">
     ```bash title="terminal"
-    yarn create theauth-app
+    yarn create @glinr/theauth-app
     ```
   </Tab>
   <Tab title="bun">
     ```bash title="terminal"
-    bun create theauth-app
+    bun create @glinr/theauth-app
     ```
   </Tab>
 </Tabs>
@@ -89,12 +90,12 @@ Prefer to wire up an existing app? Keep reading.
 
 ### Create an instance
 
-Pass a database config to `createAuth`. Use SQLite for local development and Postgres in production.
+Pass a database config to `createTheAuth`. Use SQLite for local development and Postgres in production.
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   agents: {
     enabled: true,
@@ -249,9 +250,9 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
   agents: { enabled: true, maxPerUser: 10, auditAll: true, tokenExpiry: '24h' },
 });
@@ -323,7 +324,7 @@ const csv = await kavach.audit.export({ format: 'csv' });
 TheAuth runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { Hono } from 'hono';
 
 type Env = { KAVACH_DB: D1Database };
@@ -331,7 +332,7 @@ type Env = { KAVACH_DB: D1Database };
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/health', async (c) => {
-  const kavach = await createAuth({
+  const kavach = await createTheAuth({
     database: { provider: 'd1', binding: c.env.KAVACH_DB },
   });
 
@@ -360,7 +361,7 @@ database_id = "<your-database-id>"
 Run `npx wrangler d1 execute kavach --file=./kavach-schema.sql` to apply the schema, or set `skipMigrations: false` to let TheAuth run migrations on first boot.
 
 <Info>
-`createAuth` is async when using D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.
+`createTheAuth` is async when using D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.
 </Info>
 
 ## Troubleshooting
@@ -387,7 +388,7 @@ kavach.db.insert(users).values({
 
 ### Session not persisting after page reload
 
-The React hooks store sessions in `localStorage`. Make sure your app is wrapped in `<AuthProvider>`. If using SSR (Next.js), wrap the provider in a `"use client"` component.
+The React hooks store sessions in `localStorage`. Make sure your app is wrapped in `<TheAuthProvider>`. If using SSR (Next.js), wrap the provider in a `"use client"` component.
 
 ## Next steps
 
@@ -408,6 +409,6 @@ The React hooks store sessions in `localStorage`. Make sure your app is wrapped 
     Migration guides from better-auth and Clerk.
   </Card>
   <Card title="Configuration" icon="gear" href="/configuration">
-    All `createAuth()` options and environment patterns.
+    All `createTheAuth()` options and environment patterns.
   </Card>
 </CardGroup>

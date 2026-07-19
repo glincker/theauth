@@ -8,4 +8,5 @@ export type {
 	PluginContext,
 	PluginEndpoint,
 	PluginInitResult,
+	TheAuthPlugin,
 } from "./types.js";

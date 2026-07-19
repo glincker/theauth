@@ -14,14 +14,14 @@ pnpm add theauth @glinr/@glinr/theauth-express
 
 ```typescript
 import express from 'express';
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachExpress } from '@glinr/theauth-express';
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

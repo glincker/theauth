@@ -23,7 +23,10 @@ import { createWebhookModule } from "../src/auth/webhooks.js";
 // ---------------------------------------------------------------------------
 
 function waitForEmit(): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, 20));
+	// 100ms gives the fire-and-forget delivery enough headroom to flush even
+	// when the process is CPU-starved by other tests/builds running in parallel
+	// (this was observed to flake at 20ms under full monorepo `turbo test` load).
+	return new Promise((resolve) => setTimeout(resolve, 100));
 }
 
 describe("WebhookModule.emit", () => {

@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -191,7 +191,7 @@ function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 
 // ─── Adapter Options ─────────────────────────────────────────────────────────
 
-export interface AuthFastifyOptions {
+export interface TheAuthFastifyOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -205,8 +205,11 @@ export interface AuthFastifyOptions {
 	 */
 }
 
-/** @deprecated Use {@link AuthFastifyOptions} instead. Will be removed in v3.0. */
-export type KavachFastifyOptions = AuthFastifyOptions;
+/** @deprecated Use `TheAuthFastifyOptions` instead. Will be removed in a future major version. */
+export type AuthFastifyOptions = TheAuthFastifyOptions;
+
+/** @deprecated Use `TheAuthFastifyOptions` instead. Will be removed in a future major version. */
+export type KavachFastifyOptions = TheAuthFastifyOptions;
 
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
@@ -216,13 +219,13 @@ export type KavachFastifyOptions = AuthFastifyOptions;
  * @example
  * ```typescript
  * import Fastify from 'fastify';
- * import { createKavach } from '@glinr/theauth';
- * import { kavachFastify } from '@glinr/theauth-fastify';
+ * import { createTheAuth } from '@glinr/theauth';
+ * import { theAuthFastify } from '@glinr/theauth-fastify';
  *
  * const app = Fastify();
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  *
- * await app.register(kavachFastify(kavach), { prefix: '/api/kavach' });
+ * await app.register(theAuthFastify(auth), { prefix: '/api/kavach' });
  * await app.listen({ port: 3000 });
  * ```
  *
@@ -230,10 +233,10 @@ export type KavachFastifyOptions = AuthFastifyOptions;
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
+ * await app.register(theAuthFastify(auth, { mcp }), { prefix: '/api/kavach' });
  * ```
  */
-export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
+export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 	const mcp = options?.mcp;
 
 	return async function plugin(fastify: FastifyInstance): Promise<void> {
@@ -259,7 +262,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 					...parsed.data,
 					permissions: parsed.data.permissions as Permission[],
 				};
-				const agent = await kavach.agent.create(input);
+				const agent = await auth.agent.create(input);
 				return sendCreated(reply, agent);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to create agent";
@@ -283,7 +286,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 			}
 
 			try {
-				const agents = await kavach.agent.list(filter);
+				const agents = await auth.agent.list(filter);
 				return sendOk(reply, agents);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -295,7 +298,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.get<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
 			try {
-				const agent = await kavach.agent.get(id);
+				const agent = await auth.agent.get(id);
 				if (!agent) return sendNotFound(reply, `Agent "${id}" not found`);
 				return sendOk(reply, agent);
 			} catch (err) {
@@ -315,7 +318,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 					...parsed.data,
 					permissions: parsed.data.permissions as Permission[] | undefined,
 				};
-				const agent = await kavach.agent.update(id, input);
+				const agent = await auth.agent.update(id, input);
 				return sendOk(reply, agent);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to update agent";
@@ -328,7 +331,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.delete<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
 			try {
-				await kavach.agent.revoke(id);
+				await auth.agent.revoke(id);
 				return reply.status(204).send();
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to revoke agent";
@@ -341,7 +344,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.post<{ Params: { id: string } }>("/agents/:id/rotate", async (request, reply) => {
 			const { id } = request.params;
 			try {
-				const agent = await kavach.agent.rotate(id);
+				const agent = await auth.agent.rotate(id);
 				return sendOk(reply, agent);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to rotate agent token";
@@ -369,7 +372,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 					(Array.isArray(request.headers["user-agent"])
 						? request.headers["user-agent"][0]
 						: request.headers["user-agent"]) ?? undefined;
-				const result = await kavach.authorize(
+				const result = await auth.authorize(
 					parsed.data.agentId,
 					{
 						action: parsed.data.action,
@@ -412,7 +415,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 					(Array.isArray(request.headers["user-agent"])
 						? request.headers["user-agent"][0]
 						: request.headers["user-agent"]) ?? undefined;
-				const result = await kavach.authorizeByToken(
+				const result = await auth.authorizeByToken(
 					token,
 					{
 						action: parsed.data.action,
@@ -444,7 +447,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 					...parsed.data,
 					permissions: parsed.data.permissions as Permission[],
 				};
-				const chain = await kavach.delegate(input);
+				const chain = await auth.delegate(input);
 				return sendCreated(reply, chain);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to create delegation";
@@ -459,7 +462,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.delete<{ Params: { id: string } }>("/delegations/:id", async (request, reply) => {
 			const { id } = request.params;
 			try {
-				await kavach.delegation.revoke(id);
+				await auth.delegation.revoke(id);
 				return reply.status(204).send();
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to revoke delegation";
@@ -474,7 +477,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 			async (request, reply) => {
 				const { agentId } = request.params;
 				try {
-					const chains = await kavach.delegation.listChains(agentId);
+					const chains = await auth.delegation.listChains(agentId);
 					return sendOk(reply, chains);
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "Failed to list delegation chains";
@@ -504,7 +507,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 			}
 
 			try {
-				const exported = await kavach.audit.export(options);
+				const exported = await auth.audit.export(options);
 				const contentType = format === "csv" ? "text/csv" : "application/json";
 				return reply
 					.status(200)
@@ -521,7 +524,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.get("/audit", async (request, reply) => {
 			const filter = buildAuditFilter(request.query);
 			try {
-				const entries = await kavach.audit.query(filter);
+				const entries = await auth.audit.query(filter);
 				return sendOk(reply, entries);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to query audit logs";
@@ -535,8 +538,8 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.get("/dashboard/stats", async (_request, reply) => {
 			try {
 				const [agents, recentAudit] = await Promise.all([
-					kavach.agent.list(),
-					kavach.audit.query({
+					auth.agent.list(),
+					auth.audit.query({
 						since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 						limit: 1000,
 					}),
@@ -587,7 +590,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 			}
 
 			try {
-				const agents = await kavach.agent.list(filter);
+				const agents = await auth.agent.list(filter);
 				return sendOk(reply, agents);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -599,7 +602,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 		fastify.get("/dashboard/audit", async (request, reply) => {
 			const filter = buildAuditFilter(request.query);
 			try {
-				const entries = await kavach.audit.query(filter);
+				const entries = await auth.audit.query(filter);
 				return sendOk(reply, entries);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to query audit logs";
@@ -675,7 +678,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 
 		// ── Plugin Endpoints ─────────────────────────────────────────
 
-		for (const endpoint of kavach.plugins.getEndpoints()) {
+		for (const endpoint of auth.plugins.getEndpoints()) {
 			const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 			fastify[method](endpoint.path, async (request, reply) => {
 				const url = `${request.protocol}://${request.hostname}${request.url}`;
@@ -685,7 +688,7 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 					hasBody && request.body !== undefined ? JSON.stringify(request.body) : undefined;
 				const webReq = new Request(url, { method: request.method, headers, body });
 
-				const response = await kavach.plugins.handleRequest(webReq);
+				const response = await auth.plugins.handleRequest(webReq);
 				if (!response) {
 					return sendNotFound(reply, "Plugin endpoint not found");
 				}
@@ -735,5 +738,8 @@ export function authFastify(kavach: Kavach, options?: AuthFastifyOptions) {
 	};
 }
 
-/** @deprecated Use {@link authFastify} instead. Will be removed in v3.0. */
-export const kavachFastify = authFastify;
+/** @deprecated Use `theAuthFastify` instead. Will be removed in a future major version. */
+export const authFastify = theAuthFastify;
+
+/** @deprecated Use `theAuthFastify` instead. Will be removed in a future major version. */
+export const kavachFastify = theAuthFastify;

@@ -3,5 +3,7 @@ export type {
 	AuthTanStackOptions,
 	KavachTanStackHandlers,
 	KavachTanStackOptions,
+	TheAuthTanStackHandlers,
+	TheAuthTanStackOptions,
 } from "./adapter.js";
-export { authTanStack, kavachTanStack } from "./adapter.js";
+export { authTanStack, kavachTanStack, theAuthTanStack } from "./adapter.js";

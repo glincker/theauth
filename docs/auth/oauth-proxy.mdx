@@ -52,11 +52,10 @@ Mobile app                TheAuth                    Google
 ### Configure the plugin
 
 ```typescript title="lib/kavach.ts"
-import { createAuth } from '@glinr/theauth';
-import { oauthProxy } from '@glinr/theauth/auth'; // [!code highlight]
-import { createGoogleProvider } from '@glinr/theauth/auth/oauth/providers/google';
+import { createTheAuth } from '@glinr/theauth';
+import { oauthProxy, createGoogleProvider } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com', // must be set for proxy callback URL

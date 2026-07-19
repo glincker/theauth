@@ -3,7 +3,6 @@ import type {
 	AgentPermission,
 	ApiResult,
 	AuditLogFilters,
-	AuthSettings,
 	CreateAgentInput,
 	CreateAgentResponse,
 	CreatePermissionTemplateInput,
@@ -13,12 +12,13 @@ import type {
 	PaginatedAuditLogs,
 	PermissionTemplate,
 	RegisterMcpServerInput,
+	TheAuthSettings,
 	User,
 } from "./types.js";
 
 // ─── Client Factory ───────────────────────────────────────────────────────────
 
-export interface AuthApiClient {
+export interface TheAuthApiClient {
 	getStats: () => Promise<ApiResult<DashboardStats>>;
 
 	getAgents: () => Promise<ApiResult<Agent[]>>;
@@ -51,10 +51,10 @@ export interface AuthApiClient {
 	getMcpServers: () => Promise<ApiResult<McpServerInfo[]>>;
 	registerMcpServer: (input: RegisterMcpServerInput) => Promise<ApiResult<McpServerInfo>>;
 
-	getSettings: () => Promise<ApiResult<AuthSettings>>;
+	getSettings: () => Promise<ApiResult<TheAuthSettings>>;
 	updateSettings: (
-		settings: Partial<Omit<AuthSettings, "database">>,
-	) => Promise<ApiResult<AuthSettings>>;
+		settings: Partial<Omit<TheAuthSettings, "database">>,
+	) => Promise<ApiResult<TheAuthSettings>>;
 }
 
 // ─── Internal Fetch Helper ────────────────────────────────────────────────────
@@ -105,10 +105,13 @@ async function apiFetch<T>(
 
 // ─── Client Constructor ───────────────────────────────────────────────────────
 
-/** @deprecated Use {@link AuthApiClient} instead. Will be removed in v3.0. */
-export type KavachApiClient = AuthApiClient;
+/** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
+export type AuthApiClient = TheAuthApiClient;
 
-export function createApiClient(apiUrl: string): AuthApiClient {
+/** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
+export type KavachApiClient = TheAuthApiClient;
+
+export function createApiClient(apiUrl: string): TheAuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
 
 	return {
@@ -207,10 +210,10 @@ export function createApiClient(apiUrl: string): AuthApiClient {
 			}),
 
 		// Settings
-		getSettings: () => fetch<AuthSettings>("/api/settings"),
+		getSettings: () => fetch<TheAuthSettings>("/api/settings"),
 
 		updateSettings: (settings) =>
-			fetch<AuthSettings>("/api/settings", {
+			fetch<TheAuthSettings>("/api/settings", {
 				method: "PATCH",
 				body: JSON.stringify(settings),
 			}),

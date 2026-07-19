@@ -13,10 +13,10 @@ SCIM 2.0 lets Okta, Azure AD, and Google Workspace automatically provision and d
 ### Add the plugin
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { scim } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   plugins: [
     scim({

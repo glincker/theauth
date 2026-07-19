@@ -9,7 +9,7 @@
 //   curl http://localhost:3000/api/agents
 //   curl http://localhost:3000/api/audit
 
-import { createAuth, users } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 import { kavachHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { sql } from "drizzle-orm";
@@ -19,8 +19,8 @@ const PORT = 3000;
 
 // ─── Database setup ───────────────────────────────────────────────────────────
 
-function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
-	kavach.db.run(sql`
+function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
+	auth.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_users (
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
@@ -33,7 +33,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 		)
 	`);
 
-	kavach.db.run(sql`
+	auth.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_agents (
 			id TEXT PRIMARY KEY,
 			owner_id TEXT NOT NULL REFERENCES kavach_users(id),
@@ -50,7 +50,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 		)
 	`);
 
-	kavach.db.run(sql`
+	auth.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_permissions (
 			id TEXT PRIMARY KEY,
 			agent_id TEXT NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
@@ -61,7 +61,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 		)
 	`);
 
-	kavach.db.run(sql`
+	auth.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_audit_logs (
 			id TEXT PRIMARY KEY,
 			agent_id TEXT NOT NULL REFERENCES kavach_agents(id),
@@ -79,7 +79,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 		)
 	`);
 
-	kavach.db.run(sql`
+	auth.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_rate_limits (
 			id TEXT PRIMARY KEY,
 			agent_id TEXT NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
@@ -89,7 +89,7 @@ function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 		)
 	`);
 
-	kavach.db.run(sql`
+	auth.db.run(sql`
 		CREATE TABLE IF NOT EXISTS kavach_delegation_chains (
 			id TEXT PRIMARY KEY,
 			from_agent_id TEXT NOT NULL REFERENCES kavach_agents(id),
@@ -104,8 +104,8 @@ function createTables(kavach: Awaited<ReturnType<typeof createAuth>>): void {
 	`);
 }
 
-function seedUser(kavach: Awaited<ReturnType<typeof createAuth>>): void {
-	kavach.db
+function seedUser(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
+	auth.db
 		.insert(users)
 		.values({
 			id: "user-1",
@@ -306,8 +306,8 @@ curl http://localhost:${PORT}/api/audit</code>
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	const kavach = await createAuth({
-		database: { provider: "sqlite", url: "kavach.db" },
+	const auth = await createTheAuth({
+		database: { provider: "sqlite", url: "theauth.db" },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,
@@ -317,10 +317,10 @@ async function main(): Promise<void> {
 		},
 	});
 
-	createTables(kavach);
-	seedUser(kavach);
+	createTables(auth);
+	seedUser(auth);
 
-	const api = kavachHono(kavach);
+	const api = kavachHono(auth);
 
 	const app = new Hono();
 
@@ -352,7 +352,7 @@ Endpoints (all prefixed /api):
   GET    /api/dashboard/audit
 
 Seed user: user-1  (demo@theauth.dev)
-Database:  kavach.db
+Database:  theauth.db
 
 `);
 	});

@@ -15,10 +15,10 @@ pnpm add theauth @glinr/@glinr/theauth-hono
 ```typescript
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachHono } from '@glinr/theauth-hono';
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

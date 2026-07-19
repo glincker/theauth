@@ -1,21 +1,24 @@
 import type { App, InjectionKey, Ref } from "vue";
 import { inject, ref } from "vue";
-import type { ActionResult, AuthContextValue, AuthSession, AuthUser } from "./types.js";
+import type { ActionResult, TheAuthContextValue, TheAuthSession, TheAuthUser } from "./types.js";
 
 // ─── Injection key ────────────────────────────────────────────────────────────
 
-export const AUTH_KEY: InjectionKey<AuthContextValue> = Symbol("auth");
+export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
 
-/** @deprecated Use {@link AUTH_KEY} instead. Will be removed in v3.0. */
-export const KAVACH_KEY: InjectionKey<AuthContextValue> = AUTH_KEY;
+/** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
+export const AUTH_KEY = THEAUTH_KEY;
+
+/** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
+export const KAVACH_KEY = THEAUTH_KEY;
 
 // ─── useRequiredContext ───────────────────────────────────────────────────────
 
-export function useRequiredContext(composableName: string): AuthContextValue {
-	const ctx = inject(AUTH_KEY);
+export function useRequiredContext(composableName: string): TheAuthContextValue {
+	const ctx = inject(THEAUTH_KEY);
 	if (!ctx) {
 		throw new Error(
-			`${composableName} must be used inside a component wrapped by createAuthPlugin`,
+			`${composableName} must be used inside a component wrapped by createTheAuthPlugin`,
 		);
 	}
 	return ctx;
@@ -23,21 +26,24 @@ export function useRequiredContext(composableName: string): AuthContextValue {
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
-export interface AuthPluginOptions {
+export interface TheAuthPluginOptions {
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 }
 
-/** @deprecated Use {@link AuthPluginOptions} instead. Will be removed in v3.0. */
-export type KavachPluginOptions = AuthPluginOptions;
+/** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
+export type AuthPluginOptions = TheAuthPluginOptions;
 
-export function createAuthPlugin(options: AuthPluginOptions = {}) {
+/** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
+export type KavachPluginOptions = TheAuthPluginOptions;
+
+export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 	return {
 		install(app: App) {
 			const base = (options.basePath ?? "/api/kavach").replace(/\/$/, "");
 			const STORAGE_KEY = "kavach_session";
 
-			const session: Ref<AuthSession | null> = ref(null);
+			const session: Ref<TheAuthSession | null> = ref(null);
 			const isLoading: Ref<boolean> = ref(true);
 
 			async function fetchSession(): Promise<void> {
@@ -48,7 +54,7 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 				try {
 					const raw = window.localStorage.getItem(STORAGE_KEY);
 					if (raw) {
-						session.value = JSON.parse(raw) as AuthSession;
+						session.value = JSON.parse(raw) as TheAuthSession;
 					} else {
 						session.value = null;
 					}
@@ -70,7 +76,7 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 						body: JSON.stringify({ email, password }),
 					});
 					const json = (await res.json()) as
-						| { user: AuthUser; session: { token: string; expiresAt: string } }
+						| { user: TheAuthUser; session: { token: string; expiresAt: string } }
 						| { error: { code: string; message: string } };
 
 					if (!res.ok) {
@@ -82,10 +88,10 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 					}
 
 					const okBody = json as {
-						user: AuthUser;
+						user: TheAuthUser;
 						session: { token: string; expiresAt: string };
 					};
-					const sessionData: AuthSession = {
+					const sessionData: TheAuthSession = {
 						token: okBody.session.token,
 						user: okBody.user,
 						expiresAt: okBody.session.expiresAt,
@@ -112,7 +118,7 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 						body: JSON.stringify({ email, password, name }),
 					});
 					const json = (await res.json()) as
-						| { user: AuthUser; token: string }
+						| { user: TheAuthUser; token: string }
 						| { error: { code: string; message: string } };
 
 					if (!res.ok) {
@@ -123,8 +129,8 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 						};
 					}
 
-					const okBody = json as { user: AuthUser; token: string };
-					const sessionData: AuthSession = {
+					const okBody = json as { user: TheAuthUser; token: string };
+					const sessionData: TheAuthSession = {
 						token: okBody.token,
 						user: okBody.user,
 					};
@@ -154,11 +160,11 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 				isLoading.value = false;
 			});
 
-			const context: AuthContextValue = {
+			const context: TheAuthContextValue = {
 				get session() {
 					return session.value;
 				},
-				get user(): AuthUser | null {
+				get user(): TheAuthUser | null {
 					return session.value?.user ?? null;
 				},
 				get isLoading() {
@@ -174,10 +180,16 @@ export function createAuthPlugin(options: AuthPluginOptions = {}) {
 				refresh,
 			};
 
-			app.provide(AUTH_KEY, context);
+			app.provide(THEAUTH_KEY, context);
 		},
 	};
 }
 
-/** @deprecated Use {@link createAuthPlugin} instead. Will be removed in v3.0. */
-export const createKavachPlugin = createAuthPlugin;
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
+export const createAuthPlugin = createTheAuthPlugin;
+
+/** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
+export const createKavachPlugin = createTheAuthPlugin;

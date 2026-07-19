@@ -30,13 +30,13 @@ import { and, desc, eq, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../db/database.js";
 import { loginHistory } from "../db/schema.js";
-import type { AuthError, KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types for callers that import from this module
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result };
+export type { AuthError, KavachError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -151,7 +151,7 @@ const DEFAULT_MAX_HISTORY = 10;
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 

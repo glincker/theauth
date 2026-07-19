@@ -44,11 +44,11 @@ export interface EndpointContext {
 }
 
 /** Plugin definition */
-export interface AuthPlugin {
+export interface TheAuthPlugin {
 	/** Unique plugin identifier */
 	id: string;
 
-	/** Plugin initialization - runs during createKavach() */
+	/** Plugin initialization - runs during createTheAuth() */
 	init?: (ctx: PluginContext) => Promise<PluginInitResult | undefined>;
 
 	/** Database schema (Drizzle table definitions for type safety) */
@@ -72,5 +72,8 @@ export interface PluginInitResult {
 	context?: Record<string, unknown>;
 }
 
-/** @deprecated Use {@link AuthPlugin} instead. Will be removed in v3.0. */
-export type KavachPlugin = AuthPlugin;
+/** @deprecated Use `TheAuthPlugin` instead. Will be removed in a future major version. */
+export type AuthPlugin = TheAuthPlugin;
+
+/** @deprecated Use `TheAuthPlugin` instead. Will be removed in a future major version. */
+export type KavachPlugin = TheAuthPlugin;

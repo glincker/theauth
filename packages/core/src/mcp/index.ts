@@ -31,6 +31,7 @@ export { handleTokenExchange } from "./token.js";
 // Types
 export type {
 	ApproveConsentParams,
+	AuthError,
 	KavachError,
 	McpAccessToken,
 	McpAuthContext,
@@ -50,6 +51,7 @@ export type {
 	McpTokenRequestParsed,
 	McpTokenResponse,
 	Result,
+	TheAuthError,
 } from "./types.js";
 // Zod schemas
 export {

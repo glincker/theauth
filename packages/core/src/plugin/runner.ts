@@ -1,16 +1,16 @@
 import type { Database, DatabaseConfig } from "../db/database.js";
 import type { SessionManager } from "../session/session.js";
-import type { AuthConfig } from "../types.js";
-import type { AuthPlugin, PluginContext, PluginEndpoint } from "./types.js";
+import type { TheAuthConfig } from "../types.js";
+import type { PluginContext, PluginEndpoint, TheAuthPlugin } from "./types.js";
 
 export interface PluginRegistry {
 	endpoints: PluginEndpoint[];
 	migrations: string[];
 	hooks: {
-		onRequest: Array<NonNullable<AuthPlugin["hooks"]>["onRequest"]>;
-		onAuthenticate: Array<NonNullable<AuthPlugin["hooks"]>["onAuthenticate"]>;
-		onSessionCreate: Array<NonNullable<AuthPlugin["hooks"]>["onSessionCreate"]>;
-		onSessionRevoke: Array<NonNullable<AuthPlugin["hooks"]>["onSessionRevoke"]>;
+		onRequest: Array<NonNullable<TheAuthPlugin["hooks"]>["onRequest"]>;
+		onAuthenticate: Array<NonNullable<TheAuthPlugin["hooks"]>["onAuthenticate"]>;
+		onSessionCreate: Array<NonNullable<TheAuthPlugin["hooks"]>["onSessionCreate"]>;
+		onSessionRevoke: Array<NonNullable<TheAuthPlugin["hooks"]>["onSessionRevoke"]>;
 	};
 	pluginContext: Record<string, unknown>;
 }
@@ -87,9 +87,9 @@ async function runMigrations(
  * subsequent requests can immediately use plugin tables.
  */
 export async function initializePlugins(
-	plugins: AuthPlugin[],
+	plugins: TheAuthPlugin[],
 	db: Database,
-	config: AuthConfig,
+	config: TheAuthConfig,
 	sessionManager: SessionManager | null,
 ): Promise<PluginRegistry> {
 	const registry: PluginRegistry = {

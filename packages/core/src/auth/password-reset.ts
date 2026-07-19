@@ -16,8 +16,8 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const auth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   username: { password: { minLength: 8 } },
  *   passwordReset: {
@@ -44,7 +44,7 @@ import { eq } from "drizzle-orm";
 import { pbkdf2Hash } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
-import type { AuthError, KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
 import type { SessionManager } from "../session/session.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
@@ -52,7 +52,7 @@ import type { OneTimeTokenModule } from "./one-time-token.js";
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result };
+export type { AuthError, KavachError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -147,7 +147,7 @@ const TOKEN_PURPOSE = "password-reset" as const;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 

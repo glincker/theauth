@@ -64,8 +64,8 @@ export type {
 export { createEmailTemplates } from "./email/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
-export type { Auth, Kavach } from "./kavach.js";
-export { createAuth, createKavach } from "./kavach.js";
+export type { Auth, Kavach, TheAuth } from "./kavach.js";
+export { createAuth, createKavach, createTheAuth } from "./kavach.js";
 export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
@@ -90,6 +90,8 @@ export type {
 	McpMiddleware,
 	McpServer,
 	McpServerInput,
+	TheAuthConfig,
+	TheAuthInstance,
 	TokenValidationResult,
 	UpdateAgentInput,
 } from "./types.js";

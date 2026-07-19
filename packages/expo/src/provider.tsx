@@ -3,54 +3,61 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { createMemoryStorage } from "./storage.js";
 import type {
 	ActionResult,
-	AuthContextValue,
-	AuthExpoConfig,
-	AuthSession,
-	AuthStorage,
-	AuthUser,
+	TheAuthContextValue,
+	TheAuthExpoConfig,
+	TheAuthSession,
+	TheAuthStorage,
+	TheAuthUser,
 } from "./types.js";
 
 const SESSION_KEY = "theauth_session";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const AuthExpoContext = createContext<AuthContextValue | null>(null);
+export const TheAuthExpoContext = createContext<TheAuthContextValue | null>(null);
 
-/** @deprecated Use {@link AuthExpoContext} instead. Will be removed in v3.0. */
-export const KavachExpoContext = AuthExpoContext;
+/** @deprecated Use `TheAuthExpoContext` instead. Will be removed in a future major version. */
+export const AuthExpoContext = TheAuthExpoContext;
 
-export function useAuthContext(): AuthContextValue {
-	const ctx = useContext(AuthExpoContext);
+/** @deprecated Use `TheAuthExpoContext` instead. Will be removed in a future major version. */
+export const KavachExpoContext = TheAuthExpoContext;
+
+export function useTheAuthContext(): TheAuthContextValue {
+	const ctx = useContext(TheAuthExpoContext);
 	if (!ctx) {
-		throw new Error("useAuthContext must be used inside <AuthExpoProvider>");
+		throw new Error("useTheAuthContext must be used inside <TheAuthExpoProvider>");
 	}
 	return ctx;
 }
 
-/** @deprecated Use {@link useAuthContext} instead. Will be removed in v3.0. */
-export function useKavachContext(): AuthContextValue {
-	return useAuthContext();
-}
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useAuthContext = useTheAuthContext;
+
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useKavachContext = useTheAuthContext;
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export interface AuthExpoProviderProps {
-	config: AuthExpoConfig;
+export interface TheAuthExpoProviderProps {
+	config: TheAuthExpoConfig;
 	children: ReactNode;
 }
 
-/** @deprecated Use {@link AuthExpoProviderProps} instead. Will be removed in v3.0. */
-export type KavachExpoProviderProps = AuthExpoProviderProps;
+/** @deprecated Use `TheAuthExpoProviderProps` instead. Will be removed in a future major version. */
+export type AuthExpoProviderProps = TheAuthExpoProviderProps;
 
-export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): ReactNode {
-	const [session, setSession] = useState<AuthSession | null>(null);
+/** @deprecated Use `TheAuthExpoProviderProps` instead. Will be removed in a future major version. */
+export type KavachExpoProviderProps = TheAuthExpoProviderProps;
+
+export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderProps): ReactNode {
+	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
 	// Strip trailing slash from basePath once
 	const base = config.basePath.replace(/\/$/, "");
 
 	// Storage adapter — stable ref so callbacks don't re-create on each render
-	const storageRef = useRef<AuthStorage>(config.storage ?? createMemoryStorage());
+	const storageRef = useRef<TheAuthStorage>(config.storage ?? createMemoryStorage());
 
 	// Keep storage ref in sync when config changes
 	useEffect(() => {
@@ -71,7 +78,7 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 				headers: { Authorization: `Bearer ${token}` },
 			});
 			if (res.ok) {
-				const json = (await res.json()) as { data?: AuthSession };
+				const json = (await res.json()) as { data?: TheAuthSession };
 				setSession(json.data ?? null);
 				if (!json.data) {
 					await storageRef.current.removeItem(SESSION_KEY);
@@ -109,7 +116,7 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 				});
 
 				const json = (await res.json()) as
-					| { data: AuthSession }
+					| { data: TheAuthSession }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -120,7 +127,7 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 					};
 				}
 
-				const okBody = json as { data: AuthSession };
+				const okBody = json as { data: TheAuthSession };
 				await storageRef.current.setItem(SESSION_KEY, okBody.data.token);
 				setSession(okBody.data);
 				return { success: true, data: undefined };
@@ -146,7 +153,7 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 				});
 
 				const json = (await res.json()) as
-					| { data: AuthSession }
+					| { data: TheAuthSession }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -157,7 +164,7 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 					};
 				}
 
-				const okBody = json as { data: AuthSession };
+				const okBody = json as { data: TheAuthSession };
 				await storageRef.current.setItem(SESSION_KEY, okBody.data.token);
 				setSession(okBody.data);
 				return { success: true, data: undefined };
@@ -188,9 +195,9 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 		}
 	}, [base]);
 
-	const user: AuthUser | null = session?.user ?? null;
+	const user: TheAuthUser | null = session?.user ?? null;
 
-	const value: AuthContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -201,8 +208,15 @@ export function AuthExpoProvider({ config, children }: AuthExpoProviderProps): R
 		refresh,
 	};
 
-	return <AuthExpoContext.Provider value={value}>{children}</AuthExpoContext.Provider>;
+	return <TheAuthExpoContext.Provider value={value}>{children}</TheAuthExpoContext.Provider>;
 }
 
-/** @deprecated Use {@link AuthExpoProvider} instead. Will be removed in v3.0. */
-export const KavachExpoProvider = AuthExpoProvider;
+// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthExpoProvider` instead. Will be removed in a future major version. */
+export const AuthExpoProvider = TheAuthExpoProvider;
+
+/** @deprecated Use `TheAuthExpoProvider` instead. Will be removed in a future major version. */
+export const KavachExpoProvider = TheAuthExpoProvider;

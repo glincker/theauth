@@ -16,21 +16,21 @@ Set up the IPC bridge in the main process, then use the provider in the renderer
 
 ```ts
 // main.ts (main process)
-import { setupKavachIpc, createElectronStorage } from '@glinr/theauth-electron';
+import { setupTheAuthIpc, createElectronStorage } from '@glinr/theauth-electron';
 
 const storage = createElectronStorage({ encryptionKey: process.env.STORAGE_KEY });
-setupKavachIpc({ storage });
+setupTheAuthIpc({ storage });
 ```
 
 ```tsx
 // renderer.tsx
-import { ElectronKavachProvider, useElectronKavachContext } from '@glinr/theauth-electron';
+import { ElectronTheAuthProvider, useElectronTheAuthContext } from '@glinr/theauth-electron';
 
 function App() {
   return (
-    <ElectronKavachProvider apiUrl="https://auth.yourapp.com" tenantId="your-tenant-id">
+    <ElectronTheAuthProvider apiUrl="https://auth.yourapp.com" tenantId="your-tenant-id">
       <MainWindow />
-    </ElectronKavachProvider>
+    </ElectronTheAuthProvider>
   );
 }
 ```
@@ -44,10 +44,10 @@ const result = await openOAuthWindow({ provider: 'google', redirectUri: 'kavach:
 
 ## Exports
 
-- `ElectronKavachProvider` / `ElectronKavachContext` / `useElectronKavachContext`: renderer-side provider
+- `ElectronTheAuthProvider` / `ElectronTheAuthContext` / `useElectronTheAuthContext`: renderer-side provider (formerly `ElectronKavach*`, still exported as deprecated aliases)
 - `createElectronStorage`: encrypted keychain-backed storage
 - `createMemoryStorage`: in-memory storage for testing
-- `setupKavachIpc` / `createIpcStorage` / `KAVACH_IPC_CHANNELS`: main-process IPC setup
+- `setupTheAuthIpc` / `createIpcStorage` / `THEAUTH_IPC_CHANNELS`: main-process IPC setup (formerly `setupKavachIpc` / `KAVACH_IPC_CHANNELS`, still exported as deprecated aliases)
 - `openOAuthWindow`: opens a managed OAuth popup window
 
 ## Docs

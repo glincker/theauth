@@ -20,10 +20,10 @@ From [Stripe Dashboard](https://dashboard.stripe.com/apikeys), copy your **Secre
 ### Configure the plugin
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { stripe } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   plugins: [
     stripe({

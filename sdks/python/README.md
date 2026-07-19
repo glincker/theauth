@@ -24,12 +24,12 @@ Requires Python 3.9+ and `httpx`.
 
 ```python
 import asyncio
-from theauth import KavachClient
+from theauth import TheAuthClient
 from theauth.types import CreateAgentInput
 from theauth.permissions import read, with_approval, execute
 
 async def main():
-    async with KavachClient(
+    async with TheAuthClient(
         base_url="https://your-app.com/api/kavach",
         token="kv_...",
     ) as client:
@@ -59,11 +59,11 @@ asyncio.run(main())
 ### Sync
 
 ```python
-from theauth import KavachSyncClient
+from theauth import TheAuthSyncClient
 from theauth.types import CreateAgentInput
 from theauth.permissions import read
 
-with KavachSyncClient(
+with TheAuthSyncClient(
     base_url="https://your-app.com/api/kavach",
     token="kv_...",
 ) as client:
@@ -85,7 +85,7 @@ with KavachSyncClient(
 Sign in and sign up with email and password.
 
 ```python
-async with KavachClient(base_url="https://your-app.com/api/kavach") as client:
+async with TheAuthClient(base_url="https://your-app.com/api/kavach") as client:
     # Sign up
     auth = await client.auth.sign_up(
         email="user@example.com",
@@ -267,11 +267,11 @@ await client.delegation.revoke(chain.id)
 
 ## Error handling
 
-All exceptions inherit from `theauth.KavachError`.
+All exceptions inherit from `theauth.TheAuthError`.
 
 ```python
 from theauth.errors import (
-    KavachError,
+    TheAuthError,
     AuthenticationError,  # 401
     PermissionError,       # 403
     NotFoundError,         # 404
@@ -288,7 +288,7 @@ except RateLimitError as e:
     print(f"Rate limited. Retry after {e.retry_after}s")
 except AuthenticationError:
     print("Check your token")
-except KavachError as e:
+except TheAuthError as e:
     print(f"[{e.code}] {e.message} (HTTP {e.status_code})")
 ```
 
@@ -297,7 +297,7 @@ except KavachError as e:
 ## Configuration
 
 ```python
-KavachClient(
+TheAuthClient(
     base_url="https://your-app.com/api/kavach",  # required
     token="kv_...",                               # optional bearer token
     headers={"X-Tenant": "acme"},                # extra headers on every request

@@ -6,7 +6,7 @@
  * the documented examples cannot drift from the real API surface.
  *
  * Step list mirrors the guide:
- *   1. createAuth instance (replaces the Auth0 tenant)
+ *   1. createTheAuth instance (replaces the Auth0 tenant)
  *   2. Seed a human owner (replaces Auth0 user export import)
  *   3. Create an M2M-equivalent service agent with scoped permissions
  *   4. Authorize staging (allowed) and production (approval-gated)
@@ -14,7 +14,7 @@
  *   6. Inspect the audit trail for compliance
  */
 
-import { createAuth, users } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 
 const BANNER = "=".repeat(60);
 
@@ -31,9 +31,9 @@ function denied(label: string, reason: string): void {
 }
 
 async function main(): Promise<void> {
-	section("Step 1: createAuth (replaces Auth0 tenant)");
+	section("Step 1: createTheAuth (replaces Auth0 tenant)");
 
-	const kavach = await createAuth({
+	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
 
 	section("Step 2: Seed owner (replaces Auth0 user import)");
 
-	kavach.db
+	auth.db
 		.insert(users)
 		.values({
 			id: "user-ops",
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
 
 	section("Step 3: Service agent (replaces Auth0 M2M client)");
 
-	const billing = await kavach.agent.create({
+	const billing = await auth.agent.create({
 		ownerId: "user-ops",
 		name: "billing-pipeline",
 		type: "service",
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
 
 	section("Step 4: Authorize (staging allowed, production gated)");
 
-	const readResult = await kavach.authorize(billing.id, {
+	const readResult = await auth.authorize(billing.id, {
 		action: "read",
 		resource: "mcp:stripe:charges",
 	});
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
 		ok("read mcp:stripe:charges", `audit=${readResult.auditId.slice(0, 8)}...`);
 	}
 
-	const refundResult = await kavach.authorize(billing.id, {
+	const refundResult = await auth.authorize(billing.id, {
 		action: "execute",
 		resource: "mcp:stripe:refund",
 	});
@@ -105,10 +105,10 @@ async function main(): Promise<void> {
 	section("Step 5: Rotate token (old token dies atomically)");
 
 	const oldToken = billing.token;
-	const rotated = await kavach.agent.rotate(billing.id);
+	const rotated = await auth.agent.rotate(billing.id);
 	ok("new token", `${rotated.token.slice(0, 12)}...`);
 
-	const oldTokenResult = await kavach.authorizeByToken(oldToken, {
+	const oldTokenResult = await auth.authorizeByToken(oldToken, {
 		action: "read",
 		resource: "mcp:stripe:charges",
 	});
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
 		denied("old token after rotation", oldTokenResult.reason ?? "invalid");
 	}
 
-	const newTokenResult = await kavach.authorizeByToken(rotated.token, {
+	const newTokenResult = await auth.authorizeByToken(rotated.token, {
 		action: "read",
 		resource: "mcp:stripe:charges",
 	});
@@ -126,8 +126,8 @@ async function main(): Promise<void> {
 
 	section("Step 6: Audit trail (replaces Auth0 tenant logs)");
 
-	const allLogs = await kavach.audit.query({ agentId: billing.id });
-	const deniedLogs = await kavach.audit.query({
+	const allLogs = await auth.audit.query({ agentId: billing.id });
+	const deniedLogs = await auth.audit.query({
 		agentId: billing.id,
 		result: "denied",
 	});
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
 		`${allLogs.length} total, ${deniedLogs.length} denied, ${allLogs.length - deniedLogs.length} allowed`,
 	);
 
-	const csv = await kavach.audit.export({ format: "csv" });
+	const csv = await auth.audit.export({ format: "csv" });
 	const rows = csv.trim().split("\n");
 	ok("csv export", `${rows.length - 1} rows`);
 

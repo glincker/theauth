@@ -9,7 +9,7 @@ icon: "/brand-icons/express.svg"
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-express express
+pnpm add @glinr/theauth @glinr/theauth-express express
 pnpm add -D @types/express
 ```
 
@@ -20,9 +20,9 @@ pnpm add -D @types/express
 
 ```typescript
 // lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -98,10 +98,10 @@ app.use('/api/kavach', kavachExpress(kavach, { mcp }));
 
 ```typescript
 import express from 'express';
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { kavachExpress } from '@glinr/theauth-express';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {

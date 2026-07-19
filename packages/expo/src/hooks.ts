@@ -1,13 +1,13 @@
 import { useCallback, useContext, useState } from "react";
-import { AuthExpoContext } from "./provider.js";
-import type { ActionResult, AuthAgent, CreateAgentInput } from "./types.js";
+import { TheAuthExpoContext } from "./provider.js";
+import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
 
 // ─── Guards ────────────────────────────────────────────────────────────────────
 
 function useRequiredContext(hookName: string) {
-	const ctx = useContext(AuthExpoContext);
+	const ctx = useContext(TheAuthExpoContext);
 	if (!ctx) {
-		throw new Error(`${hookName} must be used inside <KavachExpoProvider>`);
+		throw new Error(`${hookName} must be used inside <TheAuthExpoProvider>`);
 	}
 	return ctx;
 }
@@ -99,11 +99,11 @@ export function useSignOut() {
 // ─── useAgents ────────────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
-	data: AuthAgent[];
+	data: TheAuthAgent[];
 }
 
 interface AgentSingleApiResponse {
-	data: AuthAgent;
+	data: TheAuthAgent;
 }
 
 interface ApiErrorResponse {
@@ -138,7 +138,7 @@ export function useAgents(basePath: string) {
 	const { user, session } = useRequiredContext("useAgents");
 	const base = basePath.replace(/\/$/, "");
 
-	const [agents, setAgents] = useState<AuthAgent[]>([]);
+	const [agents, setAgents] = useState<TheAuthAgent[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -187,7 +187,7 @@ export function useAgents(basePath: string) {
 	}
 
 	const create = useCallback(
-		async (input: CreateAgentInput): Promise<ActionResult<AuthAgent>> => {
+		async (input: CreateAgentInput): Promise<ActionResult<TheAuthAgent>> => {
 			try {
 				const res = await fetch(`${base}/agents`, {
 					method: "POST",
@@ -241,7 +241,7 @@ export function useAgents(basePath: string) {
 	);
 
 	const rotate = useCallback(
-		async (agentId: string): Promise<ActionResult<AuthAgent>> => {
+		async (agentId: string): Promise<ActionResult<TheAuthAgent>> => {
 			try {
 				const res = await fetch(`${base}/agents/${encodeURIComponent(agentId)}/rotate`, {
 					method: "POST",

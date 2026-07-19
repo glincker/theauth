@@ -1,6 +1,6 @@
 // Main component export
 
-export type { AuthApiClient, KavachApiClient } from "./api/client.js";
+export type { AuthApiClient, KavachApiClient, TheAuthApiClient } from "./api/client.js";
 export type {
 	Agent,
 	AgentPermission,
@@ -17,8 +17,9 @@ export type {
 	KavachSettings,
 	PaginatedAuditLogs,
 	PermissionTemplate,
+	TheAuthSettings,
 } from "./api/types.js";
 export { ToastProvider, useToast } from "./components/toast.js";
-export { AuthDashboard, KavachDashboard } from "./dashboard.js";
+export { AuthDashboard, KavachDashboard, TheAuthDashboard } from "./dashboard.js";
 // Type exports for consumers
 export type { DashboardProps, Page, Theme } from "./types.js";

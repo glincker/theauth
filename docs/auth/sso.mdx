@@ -11,9 +11,9 @@ Configure your identity providers when creating the TheAuth instance:
 <Tabs>
 <Tab title="SAML 2.0">
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   sso: { // [!code highlight]
     saml: [ // [!code highlight]
@@ -32,9 +32,9 @@ const kavach = await createAuth({
 </Tab>
 <Tab title="OIDC">
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   sso: { // [!code highlight]
     oidc: [ // [!code highlight]

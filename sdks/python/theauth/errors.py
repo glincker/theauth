@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 
-class KavachError(Exception):
+class TheAuthError(Exception):
     """Base exception for all TheAuth errors.
 
     Attributes:
@@ -39,7 +39,7 @@ class KavachError(Exception):
         )
 
 
-class AuthenticationError(KavachError):
+class AuthenticationError(TheAuthError):
     """Raised when the request lacks valid credentials (HTTP 401)."""
 
     def __init__(
@@ -52,7 +52,7 @@ class AuthenticationError(KavachError):
         super().__init__(message, code=code, status_code=401, details=details)
 
 
-class PermissionError(KavachError):
+class PermissionError(TheAuthError):
     """Raised when the caller lacks permission for the requested action (HTTP 403)."""
 
     def __init__(
@@ -65,7 +65,7 @@ class PermissionError(KavachError):
         super().__init__(message, code=code, status_code=403, details=details)
 
 
-class NotFoundError(KavachError):
+class NotFoundError(TheAuthError):
     """Raised when the requested resource does not exist (HTTP 404)."""
 
     def __init__(
@@ -78,7 +78,7 @@ class NotFoundError(KavachError):
         super().__init__(message, code=code, status_code=404, details=details)
 
 
-class RateLimitError(KavachError):
+class RateLimitError(TheAuthError):
     """Raised when the rate limit is exceeded (HTTP 429).
 
     Attributes:
@@ -98,7 +98,7 @@ class RateLimitError(KavachError):
         self.retry_after = retry_after
 
 
-class ServerError(KavachError):
+class ServerError(TheAuthError):
     """Raised for unexpected server-side errors (HTTP 5xx)."""
 
     def __init__(
@@ -112,7 +112,7 @@ class ServerError(KavachError):
         super().__init__(message, code=code, status_code=status_code, details=details)
 
 
-class NetworkError(KavachError):
+class NetworkError(TheAuthError):
     """Raised when the HTTP request fails at the transport layer."""
 
     def __init__(
@@ -122,3 +122,7 @@ class NetworkError(KavachError):
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(message, code="NETWORK_ERROR", status_code=0, details=details)
+
+
+# Deprecated: use TheAuthError instead. Will be removed in a future major version.
+KavachError = TheAuthError

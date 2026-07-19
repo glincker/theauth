@@ -217,7 +217,7 @@ describe("createKavachClient", () => {
 				expect(apiErr.status).toBe(403);
 				expect(apiErr.code).toBe("PERMISSION_DENIED");
 				expect(apiErr.message).toBe("Access denied");
-				expect(apiErr.name).toBe("AuthApiError");
+				expect(apiErr.name).toBe("TheAuthApiError");
 			}
 		});
 

@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -152,11 +152,11 @@ function mcpNoStore<T>(data: T, status = 200) {
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { kavachHono } from '@glinr/theauth-hono';
  * import { serve } from '@hono/node-server';
  *
- * const kavach = createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
  * const app = kavachHono(kavach);
  * serve({ fetch: app.fetch, port: 3000 });
  * ```
@@ -168,7 +168,7 @@ function mcpNoStore<T>(data: T, status = 200) {
  * const app = kavachHono(kavach, { mcp });
  * ```
  */
-export function kavachHono(kavach: Kavach, options?: { mcp?: McpAuthModule }): Hono {
+export function kavachHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Hono {
 	const app = new Hono();
 	const mcp = options?.mcp;
 

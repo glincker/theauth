@@ -36,7 +36,7 @@ interface StorageGetResponse {
  * Call this once from your main process entry point after creating your
  * SecureStorage instance via createElectronStorage().
  */
-export function setupKavachIpc(storage: SecureStorage): void {
+export function setupTheAuthIpc(storage: SecureStorage): void {
 	const { ipcMain } = getElectronApi();
 
 	// Remove any previously registered handlers to allow re-initialization.
@@ -110,11 +110,11 @@ export function createIpcStorage(): SecureStorage {
  *
  * ```ts
  * import { contextBridge, ipcRenderer } from "electron";
- * import { KAVACH_IPC_CHANNELS } from "@glinr/theauth-electron";
+ * import { THEAUTH_IPC_CHANNELS } from "@glinr/theauth-electron";
  *
- * contextBridge.exposeInMainWorld("kavachStorage", {
+ * contextBridge.exposeInMainWorld("theauthStorage", {
  *   invoke: (channel: string, ...args: unknown[]) => {
- *     if (!Object.values(KAVACH_IPC_CHANNELS).includes(channel)) {
+ *     if (!Object.values(THEAUTH_IPC_CHANNELS).includes(channel)) {
  *       throw new Error(`Blocked IPC channel: ${channel}`);
  *     }
  *     return ipcRenderer.invoke(channel, ...args);
@@ -122,9 +122,18 @@ export function createIpcStorage(): SecureStorage {
  * });
  * ```
  */
-export const KAVACH_IPC_CHANNELS = {
+export const THEAUTH_IPC_CHANNELS = {
 	GET: CHANNEL_GET,
 	SET: CHANNEL_SET,
 	REMOVE: CHANNEL_REMOVE,
 	CLEAR: CHANNEL_CLEAR,
 } as const;
+
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `setupTheAuthIpc` instead. Will be removed in a future major version. */
+export const setupKavachIpc = setupTheAuthIpc;
+
+/** @deprecated Use `THEAUTH_IPC_CHANNELS` instead. Will be removed in a future major version. */
+export const KAVACH_IPC_CHANNELS = THEAUTH_IPC_CHANNELS;

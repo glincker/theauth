@@ -1,15 +1,15 @@
 ---
 title: TanStack Start
-description: Mount TheAuth auth routes in TanStack Start with `authTanStack(kavach)`. Returns named handlers for a splat route using Web-standard Request.
+description: Mount TheAuth auth routes in TanStack Start with `theAuthTanStack(kavach)`. Returns named handlers for a splat route using Web-standard Request.
 icon: "/brand-icons/tanstack.svg"
 ---
 
-`authTanStack(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a splat API route file so all TheAuth paths are handled.
+`theAuthTanStack(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a splat API route file so all TheAuth paths are handled.
 
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-tanstack
+pnpm add @glinr/theauth @glinr/theauth-tanstack
 ```
 
 ## Setup
@@ -19,9 +19,9 @@ pnpm add theauth @glinr/@glinr/theauth-tanstack
 
 ```typescript
 // app/lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -40,10 +40,10 @@ Create `app/routes/api/kavach.$.ts`. The `$` splat segment catches every sub-pat
 
 ```typescript
 // app/routes/api/kavach.$.ts
-import { authTanStack } from '@glinr/theauth-tanstack';
+import { theAuthTanStack } from '@glinr/theauth-tanstack';
 import { kavach, mcp } from '~/lib/kavach';
 
-const handlers = authTanStack(kavach, { mcp });
+const handlers = theAuthTanStack(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -102,10 +102,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/routes/api/kavach.$.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
-import { authTanStack } from '@glinr/theauth-tanstack';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { theAuthTanStack } from '@glinr/theauth-tanstack';
 
-const kavach = createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -116,7 +116,7 @@ const kavach = createAuth({
 
 const mcp = createMcpModule(kavach);
 
-const handlers = authTanStack(kavach, { mcp });
+const handlers = theAuthTanStack(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

@@ -12,10 +12,10 @@ from theauth.delegation import AsyncDelegationResource, SyncDelegationResource
 from theauth.types import AuthorizeRequest, AuthorizeResult
 
 
-class KavachClient:
+class TheAuthClient:
     """Async TheAuth client.
 
-    All methods are coroutines and must be awaited. Use :class:`KavachSyncClient`
+    All methods are coroutines and must be awaited. Use :class:`TheAuthSyncClient`
     if you need a blocking interface.
 
     Args:
@@ -30,12 +30,12 @@ class KavachClient:
     Example::
 
         import asyncio
-        from theauth import KavachClient
+        from theauth import TheAuthClient
         from theauth.types import CreateAgentInput
         from theauth.permissions import read
 
         async def main():
-            async with KavachClient(
+            async with TheAuthClient(
                 base_url="https://my-app.com/api/kavach",
                 token="kv_...",
             ) as client:
@@ -92,17 +92,17 @@ class KavachClient:
         """Close the underlying HTTP connections."""
         await self._transport.close()
 
-    async def __aenter__(self) -> "KavachClient":
+    async def __aenter__(self) -> "TheAuthClient":
         return self
 
     async def __aexit__(self, *_: Any) -> None:
         await self.close()
 
 
-class KavachSyncClient:
+class TheAuthSyncClient:
     """Synchronous TheAuth client.
 
-    Wraps the same API surface as :class:`KavachClient` but uses blocking
+    Wraps the same API surface as :class:`TheAuthClient` but uses blocking
     :mod:`httpx` calls. Suitable for scripts, CLIs, and frameworks without an
     async event loop.
 
@@ -114,11 +114,11 @@ class KavachSyncClient:
 
     Example::
 
-        from theauth import KavachSyncClient
+        from theauth import TheAuthSyncClient
         from theauth.types import CreateAgentInput
         from theauth.permissions import read
 
-        with KavachSyncClient(
+        with TheAuthSyncClient(
             base_url="https://my-app.com/api/kavach",
             token="kv_...",
         ) as client:
@@ -163,8 +163,14 @@ class KavachSyncClient:
         """Close the underlying HTTP connections."""
         self._transport.close()
 
-    def __enter__(self) -> "KavachSyncClient":
+    def __enter__(self) -> "TheAuthSyncClient":
         return self
 
     def __exit__(self, *_: Any) -> None:
         self.close()
+
+
+# Deprecated: use TheAuthClient instead. Will be removed in a future major version.
+KavachClient = TheAuthClient
+# Deprecated: use TheAuthSyncClient instead. Will be removed in a future major version.
+KavachSyncClient = TheAuthSyncClient

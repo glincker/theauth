@@ -59,7 +59,6 @@ import { createTrustModule } from "./trust/scoring.js";
 import type {
 	AuditExportOptions,
 	AuditFilter,
-	AuthConfig,
 	AuthorizeRequest,
 	AuthorizeResult,
 	DelegateInput,
@@ -67,6 +66,7 @@ import type {
 	McpServer,
 	McpServerInput,
 	RequestContext,
+	TheAuthConfig,
 } from "./types.js";
 
 /**
@@ -91,23 +91,23 @@ function classifyViolation(reason: string | undefined): ViolationType {
  *
  * @example SQLite (simplest)
  * ```typescript
- * import { createAuth } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  *
- * const auth = await createAuth({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const auth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  * });
  * ```
  *
  * @example Postgres
  * ```typescript
- * const auth = await createAuth({
+ * const auth = await createTheAuth({
  *   database: { provider: 'postgres', url: process.env.DATABASE_URL },
  * });
  * ```
  *
  * @example MySQL - skip auto-migration (tables managed externally)
  * ```typescript
- * const auth = await createAuth({
+ * const auth = await createTheAuth({
  *   database: {
  *     provider: 'mysql',
  *     url: process.env.DATABASE_URL,
@@ -116,7 +116,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
  * });
  * ```
  */
-export async function createAuth(config: AuthConfig) {
+export async function createTheAuth(config: TheAuthConfig) {
 	const authAdapter = config.auth?.adapter ?? null;
 
 	const db = await createDatabase(config.database);
@@ -611,7 +611,7 @@ export async function createAuth(config: AuthConfig) {
 		 * `resolveUser` extracts the authenticated human from an inbound HTTP
 		 * request via the configured adapter.  `session` is a full session
 		 * manager (create / validate / revoke) when `auth.session` was passed
-		 * to `createKavach()`.
+		 * to `createTheAuth()`.
 		 *
 		 * @example
 		 * ```typescript
@@ -994,10 +994,24 @@ export async function createAuth(config: AuthConfig) {
 	};
 }
 
-export type Auth = Awaited<ReturnType<typeof createAuth>>;
+export type TheAuth = Awaited<ReturnType<typeof createTheAuth>>;
 
-/** @deprecated Use {@link createAuth} instead. Will be removed in v3.0. */
-export const createKavach = createAuth;
+/**
+ * @deprecated Use `createTheAuth` instead. Will be removed in a future major version.
+ */
+export const createAuth = createTheAuth;
 
-/** @deprecated Use {@link Auth} instead. Will be removed in v3.0. */
-export type Kavach = Auth;
+/**
+ * @deprecated Use `createTheAuth` instead. Will be removed in a future major version.
+ */
+export const createKavach = createTheAuth;
+
+/**
+ * @deprecated Use `TheAuth` instead. Will be removed in a future major version.
+ */
+export type Auth = TheAuth;
+
+/**
+ * @deprecated Use `TheAuth` instead. Will be removed in a future major version.
+ */
+export type Kavach = TheAuth;

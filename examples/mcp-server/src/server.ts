@@ -19,8 +19,8 @@
 //   # Use the returned token to call protected endpoints:
 //   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
-import type { Kavach } from "@glinr/theauth";
-import { createAuth, users } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 import type {
 	McpAccessToken,
 	McpAuthModule,
@@ -46,8 +46,8 @@ const refreshTokenIndex = new Map<string, string>(); // refreshToken -> accessTo
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
 
-function seedUser(kavach: Kavach): void {
-	kavach.db
+function seedUser(auth: TheAuth): void {
+	auth.db
 		.insert(users)
 		.values({
 			id: "user-1",
@@ -184,7 +184,7 @@ curl ${BASE_URL}/api/audit</code>
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	const kavach = await createAuth({
+	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: "mcp-server.db" },
 		agents: {
 			enabled: true,
@@ -195,8 +195,8 @@ async function main(): Promise<void> {
 		},
 	});
 
-	// Tables are auto-created by createAuth. Just seed the demo user.
-	seedUser(kavach);
+	// Tables are auto-created by createTheAuth. Just seed the demo user.
+	seedUser(auth);
 
 	// Create the MCP OAuth 2.1 authorization server module
 	const mcp: McpAuthModule = createMcpModule({
@@ -248,7 +248,7 @@ async function main(): Promise<void> {
 	});
 
 	// Mount all TheAuth routes (agents, audit, delegation, MCP OAuth)
-	const api = kavachHono(kavach, { mcp });
+	const api = kavachHono(auth, { mcp });
 
 	const app = new Hono();
 
@@ -271,7 +271,7 @@ async function main(): Promise<void> {
 
 		// Try agent token auth first (kv_ tokens)
 		if (token.startsWith("kv_")) {
-			const result = await kavach.authorizeByToken(token, {
+			const result = await auth.authorizeByToken(token, {
 				action: "read",
 				resource: "mcp:tools:list",
 			});
@@ -316,7 +316,7 @@ async function main(): Promise<void> {
 
 		// Authorize the tool call
 		if (token.startsWith("kv_")) {
-			const result = await kavach.authorizeByToken(token, {
+			const result = await auth.authorizeByToken(token, {
 				action: "execute",
 				resource: `mcp:tools:${toolName}`,
 				arguments: body.arguments,

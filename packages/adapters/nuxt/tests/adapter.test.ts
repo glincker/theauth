@@ -1,8 +1,8 @@
 import { createApp, toWebHandler, use } from "h3";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { Kavach } from "../../../core/src/kavach.js";
-import { createKavach } from "../../../core/src/kavach.js";
+import type { TheAuth } from "../../../core/src/kavach.js";
+import { createTheAuth } from "../../../core/src/kavach.js";
 import { kavachNuxt } from "../src/adapter.js";
 
 const BASE_URL = "http://localhost/api/auth/kavach";
@@ -10,8 +10,8 @@ const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
 type WebHandler = ReturnType<typeof toWebHandler>;
 
-async function createTestHandler(): Promise<{ handle: WebHandler; kavach: Kavach }> {
-	const kavach = await createKavach({
+async function createTestHandler(): Promise<{ handle: WebHandler; kavach: TheAuth }> {
+	const kavach = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,

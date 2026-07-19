@@ -10,39 +10,31 @@ import {
 } from "react";
 import type {
 	ActionResult,
-	AuthContextValue,
-	AuthSession,
-	AuthUser,
 	ExternalAuthConfig,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,
 	RotationStatus,
+	TheAuthContextValue,
+	TheAuthSession,
+	TheAuthUser,
 } from "./types.js";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const AuthContext = createContext<AuthContextValue | null>(null);
+export const TheAuthContext = createContext<TheAuthContextValue | null>(null);
 
-/** @deprecated Use {@link AuthContext} instead. Will be removed in v3.0. */
-export const KavachContext = AuthContext;
-
-export function useAuthContext(): AuthContextValue {
-	const ctx = useContext(AuthContext);
+export function useTheAuthContext(): TheAuthContextValue {
+	const ctx = useContext(TheAuthContext);
 	if (!ctx) {
-		throw new Error("useAuthContext must be used inside <AuthProvider>");
+		throw new Error("useTheAuthContext must be used inside <TheAuthProvider>");
 	}
 	return ctx;
 }
 
-/** @deprecated Use {@link useAuthContext} instead. Will be removed in v3.0. */
-export function useKavachContext(): AuthContextValue {
-	return useAuthContext();
-}
-
 // ─── Provider props ───────────────────────────────────────────────────────────
 
-export interface AuthProviderProps {
+export interface TheAuthProviderProps {
 	children: ReactNode;
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
@@ -56,7 +48,7 @@ export interface AuthProviderProps {
 	 *
 	 * @example
 	 * ```tsx
-	 * <AuthProvider external={{
+	 * <TheAuthProvider external={{
 	 *   apiUrl: "http://localhost:8080",
 	 *   loginPath: "/auth/github",
 	 *   mePath: "/api/auth/me",
@@ -79,9 +71,6 @@ export interface AuthProviderProps {
 	debug?: boolean;
 }
 
-/** @deprecated Use {@link AuthProviderProps} instead. Will be removed in v3.0. */
-export type KavachProviderProps = AuthProviderProps;
-
 // ─── Debug helper ─────────────────────────────────────────────────────────────
 
 function resolveDebug(propDebug?: boolean): boolean {
@@ -102,12 +91,12 @@ function makeLogger(enabled: boolean) {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function AuthProvider({
+export function TheAuthProvider({
 	children,
 	basePath = "/api/kavach",
 	external,
 	debug,
-}: AuthProviderProps): ReactNode {
+}: TheAuthProviderProps): ReactNode {
 	const debugEnabled = resolveDebug(debug);
 	if (external) {
 		return (
@@ -122,9 +111,6 @@ export function AuthProvider({
 		</ManagedProvider>
 	);
 }
-
-/** @deprecated Use {@link AuthProvider} instead. Will be removed in v3.0. */
-export const KavachProvider = AuthProvider;
 
 // ─── Rotation defaults ────────────────────────────────────────────────────────
 
@@ -180,7 +166,7 @@ function ExternalProvider({
 }): ReactNode {
 	// Stable identity across renders so useCallback deps don't churn.
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [user, setUser] = useState<AuthUser | null>(null);
+	const [user, setUser] = useState<TheAuthUser | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [rotationStatus, setRotationStatus] = useState<RotationStatus>("idle");
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -578,9 +564,9 @@ function ExternalProvider({
 		return { success: true, data: undefined };
 	}, [apiUrl, loginPath]);
 
-	const session: AuthSession | null = user ? { token: "__external__", user } : null;
+	const session: TheAuthSession | null = user ? { token: "__external__", user } : null;
 
-	const value: AuthContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -594,12 +580,12 @@ function ExternalProvider({
 		isOnline,
 	};
 
-	return <KavachContext.Provider value={value}>{children}</KavachContext.Provider>;
+	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
 
 // ─── Default user mapper ──────────────────────────────────────────────────────
 
-function defaultMapUser(data: Record<string, unknown>): AuthUser {
+function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 	return {
 		id: (data.user_id as string) ?? (data.id as string) ?? (data.sub as string) ?? "unknown",
 		email: data.email as string | undefined,
@@ -620,7 +606,7 @@ function ManagedProvider({
 	debug?: boolean;
 }): ReactNode {
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [session, setSession] = useState<AuthSession | null>(null);
+	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
 		typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -636,7 +622,7 @@ function ManagedProvider({
 		try {
 			const raw = window.localStorage.getItem(STORAGE_KEY);
 			if (raw) {
-				const stored = JSON.parse(raw) as AuthSession;
+				const stored = JSON.parse(raw) as TheAuthSession;
 				setSession(stored);
 			} else {
 				setSession(null);
@@ -685,7 +671,7 @@ function ManagedProvider({
 					body: JSON.stringify({ email, password }),
 				});
 				const json = (await res.json()) as
-					| { user: AuthUser; session: { token: string; expiresAt: string } }
+					| { user: TheAuthUser; session: { token: string; expiresAt: string } }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -696,8 +682,8 @@ function ManagedProvider({
 					};
 				}
 
-				const okBody = json as { user: AuthUser; session: { token: string; expiresAt: string } };
-				const sessionData: AuthSession = {
+				const okBody = json as { user: TheAuthUser; session: { token: string; expiresAt: string } };
+				const sessionData: TheAuthSession = {
 					token: okBody.session.token,
 					user: okBody.user,
 					expiresAt: okBody.session.expiresAt,
@@ -729,7 +715,7 @@ function ManagedProvider({
 					body: JSON.stringify({ email, password, name }),
 				});
 				const json = (await res.json()) as
-					| { user: AuthUser; token: string }
+					| { user: TheAuthUser; token: string }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -740,8 +726,8 @@ function ManagedProvider({
 					};
 				}
 
-				const okBody = json as { user: AuthUser; token: string };
-				const sessionData: AuthSession = {
+				const okBody = json as { user: TheAuthUser; token: string };
+				const sessionData: TheAuthSession = {
 					token: okBody.token,
 					user: okBody.user,
 				};
@@ -768,14 +754,14 @@ function ManagedProvider({
 		}
 	}, [log]);
 
-	const user: AuthUser | null = session?.user ?? null;
+	const user: TheAuthUser | null = session?.user ?? null;
 
 	const rotateSession = useCallback(
 		makeNoopRotation("rotateSession is only available in external mode with refreshPath set"),
 		[],
 	);
 
-	const value: AuthContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user,
 		isLoading,
@@ -789,5 +775,33 @@ function ManagedProvider({
 		isOnline,
 	};
 
-	return <KavachContext.Provider value={value}>{children}</KavachContext.Provider>;
+	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
+
+// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
+
+/** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
+export const AuthContext = TheAuthContext;
+
+/** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
+export const KavachContext = TheAuthContext;
+
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useAuthContext = useTheAuthContext;
+
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useKavachContext = useTheAuthContext;
+
+/** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
+export const AuthProvider = TheAuthProvider;
+
+/** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
+export const KavachProvider = TheAuthProvider;
+
+/** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
+export type AuthProviderProps = TheAuthProviderProps;
+
+/** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
+export type KavachProviderProps = TheAuthProviderProps;

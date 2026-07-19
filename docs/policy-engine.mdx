@@ -11,13 +11,18 @@ Use the policy engine when you need to make authorization decisions that depend 
 
 ## Quick start
 
+<Info>
+  `createPolicyEngine` is an internal factory, it is not part of the public API surface. Access the engine through `kavach.policy` on a constructed `TheAuth` instance instead, it is always available (zero-config uses safe defaults).
+</Info>
+
 ```typescript
-import { createPolicyEngine } from '@glinr/theauth/policy';
-import { createDatabase } from '@glinr/theauth/db';
+import { createTheAuth } from '@glinr/theauth';
 
-const db = await createDatabase({ provider: 'sqlite', url: 'kavach.db' });
+const kavach = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+});
 
-const engine = createPolicyEngine({ db });
+const engine = kavach.policy;
 
 const decision = await engine.evaluate({
   subject: { agentId: 'agt_abc123', orgId: 'org_acme' },
@@ -99,18 +104,20 @@ Configure via environment variables:
 | `KAVACH_POLICY_CACHE_MAX` | number | `10000` | Maximum number of cached entries. |
 | `KAVACH_POLICY_CACHE_TTL_MS` | number | `60000` | Time-to-live per entry in milliseconds. |
 
-Or pass config directly:
+Or pass config directly through `createTheAuth()`:
 
 ```typescript
-const engine = createPolicyEngine({
-  db,
-  config: {
+const kavach = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  policy: {
     cache: {
       maxEntries: 5000,
       ttlMs: 30_000,
     },
   },
 });
+
+const engine = kavach.policy;
 ```
 
 **What gets cached:** Decisions for purely RBAC and ReBAC paths are cached. A second `evaluate()` call with the same subject, action, resource, and IP returns in under 1ms with `cacheHit: true`.
@@ -168,9 +175,9 @@ To flip to permit-overrides (any PERMIT wins over DENYs), pass `combineStrategy:
 Every `evaluate()` call writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards.
 
 ```typescript
-const engine = createPolicyEngine({
-  db,
-  config: {
+const kavach = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  policy: {
     audit: true,           // default; set false to disable entirely
     auditSampleRate: 0.1,  // write audit rows for 10% of evaluations
   },
@@ -201,17 +208,16 @@ Full `PolicyEngineConfig` reference:
 If you want the full `PolicyDecision` (cache stats, matched relation, duration), call `evaluate()` directly:
 
 ```typescript
-// Before: using authorize()
-const result = await authorize(agent, {
-  action: 'read',
-  resource: 'mcp:github:repos',
-  ip: '203.0.113.42',
-});
-// result: { allowed: boolean; reason: string; auditId?: string }
+// Before: using kavach.authorize()
+const result = await kavach.authorize(
+  agent.id,
+  { action: 'read', resource: 'mcp:github:repos' },
+  { ip: '203.0.113.42' },
+);
+// result: { allowed: boolean; reason: string; auditId: string }
 
-// After: using evaluate() directly
-const engine = createPolicyEngine({ db });
-const decision = await engine.evaluate({
+// After: using kavach.policy.evaluate() directly
+const decision = await kavach.policy.evaluate({
   subject: { agentId: agent.id },
   action: 'read',
   resource: 'mcp:github:repos',

@@ -3,8 +3,8 @@ import type {
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
-	Kavach,
 	Permission,
+	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
@@ -189,24 +189,27 @@ function buildWebRequest(req: Request): globalThis.Request {
 
 // ─── TheAuth NestJS Options ─────────────────────────────────────────────────
 
-export interface AuthNestjsOptions {
-	/** The Auth instance */
-	kavach: Kavach;
+export interface TheAuthNestjsOptions {
+	/** The TheAuth instance */
+	kavach: TheAuth;
 	/** Optional MCP OAuth 2.1 module */
 	mcp?: McpAuthModule;
 }
 
-/** @deprecated Use {@link AuthNestjsOptions} instead. Will be removed in v3.0. */
-export type KavachNestjsOptions = AuthNestjsOptions;
+/** @deprecated Use `TheAuthNestjsOptions` instead. Will be removed in a future major version. */
+export type AuthNestjsOptions = TheAuthNestjsOptions;
+
+/** @deprecated Use `TheAuthNestjsOptions` instead. Will be removed in a future major version. */
+export type KavachNestjsOptions = TheAuthNestjsOptions;
 
 // ─── Express Router Builder ──────────────────────────────────────────────────
 
 /**
  * Build the Express Router with all TheAuth routes.
- * Used internally by `AuthModule` and can also be used directly in
+ * Used internally by `TheAuthModule` and can also be used directly in
  * Express-backed NestJS apps via `app.use`.
  */
-export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
+export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
 	const router = Router();
 
 	// ── Agent REST API ──────────────────────────────────────────────
@@ -221,7 +224,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		kavach.agent
+		auth.agent
 			.create(input)
 			.then((agent) => sendCreated(res, agent))
 			.catch((err: unknown) => {
@@ -240,7 +243,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 		if (typeof type === "string" && ["autonomous", "delegated", "service"].includes(type)) {
 			filter.type = type as AgentFilter["type"];
 		}
-		kavach.agent
+		auth.agent
 			.list(filter)
 			.then((agents) => sendOk(res, agents))
 			.catch((err: unknown) => {
@@ -251,7 +254,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	router.get("/agents/:id", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		kavach.agent
+		auth.agent
 			.get(id)
 			.then((agent) => {
 				if (!agent) {
@@ -277,7 +280,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[] | undefined,
 		};
-		kavach.agent
+		auth.agent
 			.update(id, input)
 			.then((agent) => sendOk(res, agent))
 			.catch((err: unknown) => {
@@ -292,7 +295,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	router.delete("/agents/:id", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		kavach.agent
+		auth.agent
 			.revoke(id)
 			.then(() => sendNoContent(res))
 			.catch((err: unknown) => {
@@ -307,7 +310,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	router.post("/agents/:id/rotate", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		kavach.agent
+		auth.agent
 			.rotate(id)
 			.then((agent) => sendOk(res, agent))
 			.catch((err: unknown) => {
@@ -337,7 +340,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			(Array.isArray(req.headers["user-agent"])
 				? req.headers["user-agent"][0]
 				: req.headers["user-agent"]) ?? undefined;
-		kavach
+		auth
 			.authorize(
 				parsed.data.agentId,
 				{
@@ -379,7 +382,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			(Array.isArray(req.headers["user-agent"])
 				? req.headers["user-agent"][0]
 				: req.headers["user-agent"]) ?? undefined;
-		kavach
+		auth
 			.authorizeByToken(
 				token,
 				{
@@ -411,7 +414,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		kavach
+		auth
 			.delegate(input)
 			.then((chain) => sendCreated(res, chain))
 			.catch((err: unknown) => {
@@ -430,7 +433,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	router.delete("/delegations/:id", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		kavach.delegation
+		auth.delegation
 			.revoke(id)
 			.then(() => sendNoContent(res))
 			.catch((err: unknown) => {
@@ -445,7 +448,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	router.get("/delegations/:agentId", (req: Request, res: Response) => {
 		const agentId = routeParam(req, "agentId");
-		kavach.delegation
+		auth.delegation
 			.listChains(agentId)
 			.then((chains) => sendOk(res, chains))
 			.catch((err: unknown) => {
@@ -485,7 +488,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
-		kavach.audit
+		auth.audit
 			.query(filter)
 			.then((entries) => sendOk(res, entries))
 			.catch((err: unknown) => {
@@ -512,7 +515,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			if (!Number.isNaN(d.getTime())) options.until = d;
 		}
 
-		kavach.audit
+		auth.audit
 			.export(options)
 			.then((exported) => {
 				const contentType = format === "csv" ? "text/csv" : "application/json";
@@ -530,8 +533,8 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
 		Promise.all([
-			kavach.agent.list(),
-			kavach.audit.query({
+			auth.agent.list(),
+			auth.audit.query({
 				since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 				limit: 1000,
 			}),
@@ -573,7 +576,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 		if (typeof type === "string" && ["autonomous", "delegated", "service"].includes(type)) {
 			filter.type = type as AgentFilter["type"];
 		}
-		kavach.agent
+		auth.agent
 			.list(filter)
 			.then((agents) => sendOk(res, agents))
 			.catch((err: unknown) => {
@@ -611,7 +614,7 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
-		kavach.audit
+		auth.audit
 			.query(filter)
 			.then((entries) => sendOk(res, entries))
 			.catch((err: unknown) => {
@@ -733,11 +736,11 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 
 	// ── Plugin Endpoints ────────────────────────────────────────────
 
-	for (const endpoint of kavach.plugins.getEndpoints()) {
+	for (const endpoint of auth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
-			kavach.plugins
+			auth.plugins
 				.handleRequest(webReq)
 				.then((response) => {
 					if (!response) {
@@ -767,25 +770,31 @@ export function buildAuthRouter(kavach: Kavach, mcp?: McpAuthModule): Router {
 /**
  * Returns an Express-compatible middleware function that mounts all TheAuth
  * routes. Use this with `app.use()` in your NestJS bootstrap, or register it
- * via `KavachModule.forRoot()`.
+ * via `TheAuthModule.forRoot()`.
  *
  * @example
  * ```typescript
  * // main.ts
  * const app = await NestFactory.create(AppModule);
- * app.use('/api/kavach', authMiddleware({ kavach, mcp }));
+ * app.use('/api/kavach', theAuthMiddleware({ kavach, mcp }));
  * await app.listen(3000);
  * ```
  */
-export function authMiddleware(options: AuthNestjsOptions) {
-	const router = buildAuthRouter(options.kavach, options.mcp);
+export function theAuthMiddleware(options: TheAuthNestjsOptions) {
+	const router = buildTheAuthRouter(options.kavach, options.mcp);
 	return (req: Request, res: Response, next: NextFunction) => {
 		router(req, res, next);
 	};
 }
 
-/** @deprecated Use {@link buildAuthRouter} instead. Will be removed in v3.0. */
-export const buildKavachRouter = buildAuthRouter;
+/** @deprecated Use `theAuthMiddleware` instead. Will be removed in a future major version. */
+export const authMiddleware = theAuthMiddleware;
 
-/** @deprecated Use {@link authMiddleware} instead. Will be removed in v3.0. */
-export const kavachMiddleware = authMiddleware;
+/** @deprecated Use `theAuthMiddleware` instead. Will be removed in a future major version. */
+export const kavachMiddleware = theAuthMiddleware;
+
+/** @deprecated Use `buildTheAuthRouter` instead. Will be removed in a future major version. */
+export const buildAuthRouter = buildTheAuthRouter;
+
+/** @deprecated Use `buildTheAuthRouter` instead. Will be removed in a future major version. */
+export const buildKavachRouter = buildTheAuthRouter;

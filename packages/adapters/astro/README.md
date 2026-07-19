@@ -15,10 +15,10 @@ pnpm add theauth @glinr/@glinr/theauth-astro
 Create `src/pages/api/kavach/[...path].ts`:
 
 ```typescript
-import { createKavach } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { kavachAstro } from '@glinr/theauth-astro';
 
-const kavach = createKavach({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

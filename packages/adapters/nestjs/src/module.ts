@@ -1,8 +1,8 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { Inject, Module } from "@nestjs/common";
-import { authMiddleware } from "./adapter.js";
+import { theAuthMiddleware } from "./adapter.js";
 
 // ─── Injection Token ──────────────────────────────────────────────────────────
 
@@ -10,9 +10,9 @@ const AUTH_OPTIONS = Symbol("AUTH_OPTIONS");
 
 // ─── Module Options ───────────────────────────────────────────────────────────
 
-export interface AuthModuleOptions {
-	/** The Auth instance created with `createAuth()` */
-	kavach: Kavach;
+export interface TheAuthModuleOptions {
+	/** The TheAuth instance created with `createTheAuth()` */
+	kavach: TheAuth;
 	/** Optional MCP OAuth 2.1 module created with `createMcpModule()` */
 	mcp?: McpAuthModule;
 	/**
@@ -22,10 +22,13 @@ export interface AuthModuleOptions {
 	basePath?: string;
 }
 
-/** @deprecated Use {@link AuthModuleOptions} instead. Will be removed in v3.0. */
-export type KavachModuleOptions = AuthModuleOptions;
+/** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
+export type AuthModuleOptions = TheAuthModuleOptions;
 
-// ─── AuthModule ────────────────────────────────────────────────────────────────
+/** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
+export type KavachModuleOptions = TheAuthModuleOptions;
+
+// ─── TheAuthModule ────────────────────────────────────────────────────────────
 
 /**
  * NestJS dynamic module that mounts all TheAuth REST routes as Express
@@ -35,29 +38,29 @@ export type KavachModuleOptions = AuthModuleOptions;
  * ```typescript
  * // app.module.ts
  * import { Module } from '@nestjs/common';
- * import { AuthModule } from '@glinr/theauth-nestjs';
+ * import { TheAuthModule } from '@glinr/theauth-nestjs';
  * import { auth, mcp } from './lib/auth.js';
  *
  * @Module({
  *   imports: [
- *     AuthModule.forRoot({ kavach: auth, mcp, basePath: '/api/kavach' }),
+ *     TheAuthModule.forRoot({ kavach: auth, mcp, basePath: '/api/kavach' }),
  *   ],
  * })
  * export class AppModule {}
  * ```
  */
 @Module({})
-export class AuthModule implements NestModule {
+export class TheAuthModule implements NestModule {
 	constructor(
 		@Inject(AUTH_OPTIONS)
-		private readonly options: AuthModuleOptions,
+		private readonly options: TheAuthModuleOptions,
 	) {}
 
 	configure(consumer: MiddlewareConsumer): void {
 		const basePath = this.options.basePath ?? "/api/kavach";
 		consumer
 			.apply(
-				authMiddleware({
+				theAuthMiddleware({
 					kavach: this.options.kavach,
 					mcp: this.options.mcp,
 				}),
@@ -65,9 +68,9 @@ export class AuthModule implements NestModule {
 			.forRoutes(`${basePath}/*path`);
 	}
 
-	static forRoot(options: AuthModuleOptions): DynamicModule {
+	static forRoot(options: TheAuthModuleOptions): DynamicModule {
 		return {
-			module: AuthModule,
+			module: TheAuthModule,
 			providers: [
 				{
 					provide: AUTH_OPTIONS,
@@ -78,5 +81,8 @@ export class AuthModule implements NestModule {
 	}
 }
 
-/** @deprecated Use {@link AuthModule} instead. Will be removed in v3.0. */
-export const KavachModule = AuthModule;
+/** @deprecated Use `TheAuthModule` instead. Will be removed in a future major version. */
+export const AuthModule = TheAuthModule;
+
+/** @deprecated Use `TheAuthModule` instead. Will be removed in a future major version. */
+export const KavachModule = TheAuthModule;

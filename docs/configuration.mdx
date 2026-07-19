@@ -1,16 +1,16 @@
 ---
 title: Configuration
-description: Reference for every `createAuth()` option in `AuthConfig`. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
+description: Reference for every `createTheAuth()` option in `TheAuthConfig`. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
 icon: gear
 ---
 
 
-`createAuth()` accepts a `AuthConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
+`createTheAuth()` accepts a `TheAuthConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 ```
@@ -20,10 +20,10 @@ const kavach = await createAuth({
 A minimal config for local development with email/password auth and no email sending:
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: './kavach.db' },
   plugins: [
     emailPassword({
@@ -59,7 +59,7 @@ const kavach = await createAuth({
 
 ```typescript
 // Cloudflare D1 (edge)
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: {
     provider: 'd1',
     binding: env.KAVACH_DB,  // D1Database from Worker env
@@ -67,12 +67,12 @@ const kavach = await createAuth({
 });
 
 // SQLite (Node.js)
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: './kavach.db' },
 });
 
 // PostgreSQL
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
 });
 
@@ -240,7 +240,7 @@ anomaly: {
 Never hardcode secrets in config. Pass them through environment variables:
 
 ```typescript
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: {
     provider: 'postgres',
     url: process.env.DATABASE_URL!,
@@ -260,7 +260,7 @@ const kavach = await createAuth({
 // config/kavach.ts
 const isDev = process.env.NODE_ENV !== 'production';
 
-export const kavach = await createAuth({
+export const kavach = await createTheAuth({
   database: isDev
     ? { provider: 'sqlite', url: './kavach-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },

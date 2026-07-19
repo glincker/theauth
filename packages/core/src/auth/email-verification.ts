@@ -15,8 +15,8 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const auth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   emailVerification: {
  *     sendVerificationEmail: async (email, token, verifyUrl) => {
@@ -42,14 +42,14 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
-import type { AuthError, KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result };
+export type { AuthError, KavachError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -132,7 +132,7 @@ const TOKEN_PURPOSE = "email-verify" as const;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 

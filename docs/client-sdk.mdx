@@ -1,6 +1,6 @@
 ---
 title: TypeScript client
-description: Issue HTTP calls to TheAuth from any runtime via `createAuthClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
+description: Issue HTTP calls to TheAuth from any runtime via `createTheAuthClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
 icon: code
 ---
 
@@ -16,15 +16,15 @@ icon: code
 ## Installation
 
 ```bash
-npm install @glinr/@glinr/theauth-client
+npm install @glinr/theauth-client
 ```
 
 ## Creating a client
 
 ```typescript
-import { createAuthClient } from '@glinr/theauth-client';
+import { createTheAuthClient } from '@glinr/theauth-client';
 
-const client = createAuthClient({
+const client = createTheAuthClient({
   baseUrl: 'https://yourapp.com/api/kavach',
   token: process.env.KAVACH_API_TOKEN,
 });
@@ -148,15 +148,15 @@ const json = await client.audit.export({ format: 'json' });
 
 ## Error handling
 
-All methods throw `AuthApiError` when the server returns a non-2xx response or the network call fails.
+All methods throw `TheAuthApiError` when the server returns a non-2xx response or the network call fails.
 
 ```typescript
-import { AuthApiError } from '@glinr/theauth-client';
+import { TheAuthApiError } from '@glinr/theauth-client';
 
 try {
   const agent = await client.agents.get('agt_nonexistent');
 } catch (err) {
-  if (err instanceof AuthApiError) {
+  if (err instanceof TheAuthApiError) {
     console.error(err.code);    // e.g. 'AGENT_NOT_FOUND'
     console.error(err.message); // human-readable message
     console.error(err.status);  // HTTP status code
@@ -164,10 +164,10 @@ try {
 }
 ```
 
-`AuthApiError` also covers network errors: if `fetch` itself throws, you get `code: 'NETWORK_ERROR'` and `status: 0`.
+`TheAuthApiError` also covers network errors: if `fetch` itself throws, you get `code: 'NETWORK_ERROR'` and `status: 0`.
 
 <Warning>
-  `client.agents.get` and `client.mcp.get` return `null` for 404 rather than throwing. All other methods throw `AuthApiError` on any error response.
+  `client.agents.get` and `client.mcp.get` return `null` for 404 rather than throwing. All other methods throw `TheAuthApiError` on any error response.
 </Warning>
 
 ## MCP servers

@@ -410,6 +410,7 @@
             "icon": "scale-balanced",
             "pages": [
               "compliance",
+              "compliance/verifiable-credentials",
               "gdpr",
               "hibp",
               "trusted-device",
@@ -458,7 +459,9 @@
             "pages": [
               "migrate/index",
               "migrate/from-better-auth",
-              "migrate/from-clerk"
+              "migrate/from-better-auth-agent-plugin",
+              "migrate/from-clerk",
+              "migrate/from-auth0"
             ]
           }
         ]

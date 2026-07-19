@@ -9,10 +9,10 @@ icon: users
 Add the `organization` plugin to your TheAuth instance:
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { organization } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   plugins: [
     organization({ // [!code highlight]

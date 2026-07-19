@@ -17,7 +17,7 @@
  *   wrangler d1 execute theauth-db --file=./migrations/0001_initial.sql
  */
 
-import { createAuth } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { kavachHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
 
@@ -33,9 +33,9 @@ const app = new Hono<{ Bindings: Env }>();
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 // All TheAuth routes under /api
-// kavach is created per-request so it picks up the correct D1 binding
+// auth is created per-request so it picks up the correct D1 binding
 app.all("/api/*", async (c) => {
-	const kavach = await createAuth({
+	const auth = await createTheAuth({
 		database: {
 			provider: "d1",
 			binding: c.env.DB,
@@ -57,7 +57,7 @@ app.all("/api/*", async (c) => {
 	});
 
 	// Mount kavachHono under the /api prefix by stripping it before dispatch
-	const api = kavachHono(kavach);
+	const api = kavachHono(auth);
 	const url = new URL(c.req.url);
 	const stripped = new Request(new URL(url.pathname.replace(/^\/api/, "") || "/", url), c.req.raw);
 	return api.fetch(stripped, c.env, c.executionCtx);

@@ -149,26 +149,39 @@ export interface McpServer {
 
 // ─── Result / Error types ─────────────────────────────────────────────────────
 
-export interface AuthError {
+export interface TheAuthError {
 	code: string;
 	message: string;
 	details?: Record<string, unknown>;
 }
 
-/** @deprecated Use {@link AuthError} instead. Will be removed in v3.0. */
-export type KavachError = AuthError;
-
-export interface AuthApiErrorBody {
+export interface TheAuthApiErrorBody {
 	error: {
 		code: string;
 		message: string;
 	};
 }
 
-/** @deprecated Use {@link AuthApiErrorBody} instead. Will be removed in v3.0. */
-export type KavachApiErrorBody = AuthApiErrorBody;
+export type TheAuthResult<T> = { success: true; data: T } | { success: false; error: TheAuthError };
 
-export type AuthResult<T> = { success: true; data: T } | { success: false; error: AuthError };
+// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// removed in a future major version.
 
-/** @deprecated Use {@link AuthResult} instead. Will be removed in v3.0. */
-export type KavachResult<T> = AuthResult<T>;
+/** @deprecated Use `TheAuthError` instead. Will be removed in a future major version. */
+export type AuthError = TheAuthError;
+
+/** @deprecated Use `TheAuthError` instead. Will be removed in a future major version. */
+export type KavachError = TheAuthError;
+
+/** @deprecated Use `TheAuthApiErrorBody` instead. Will be removed in a future major version. */
+export type AuthApiErrorBody = TheAuthApiErrorBody;
+
+/** @deprecated Use `TheAuthApiErrorBody` instead. Will be removed in a future major version. */
+export type KavachApiErrorBody = TheAuthApiErrorBody;
+
+/** @deprecated Use `TheAuthResult` instead. Will be removed in a future major version. */
+export type AuthResult<T> = TheAuthResult<T>;
+
+/** @deprecated Use `TheAuthResult` instead. Will be removed in a future major version. */
+export type KavachResult<T> = TheAuthResult<T>;
