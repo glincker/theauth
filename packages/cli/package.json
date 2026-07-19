@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "TheAuth CLI - setup wizard, dashboard launcher, and development tools",
   "type": "module",
   "bin": {

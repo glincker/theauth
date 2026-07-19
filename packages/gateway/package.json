@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-gateway",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Standalone auth proxy for TheAuth - enforces auth, authorization, and audit in front of any API or MCP server",
   "type": "module",
   "main": "dist/index.js",

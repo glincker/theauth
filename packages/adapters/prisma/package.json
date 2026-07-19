@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-prisma",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Prisma database adapter for TheAuth - use PrismaClient as your TheAuth database backend",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-nextjs",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Next.js App Router adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
