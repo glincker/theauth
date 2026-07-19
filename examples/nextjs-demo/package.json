@@ -13,12 +13,12 @@
     "@glinr/theauth-react": "workspace:*",
     "@glinr/theauth-email": "workspace:*",
     "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
     "typescript": "^6.0.3",
     "tailwindcss": "^4.0.0",
