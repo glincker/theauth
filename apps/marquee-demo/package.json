@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.0.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@types/sql.js": "^1.4.11",
