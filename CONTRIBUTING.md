@@ -1,57 +1,121 @@
-# Contributing to TheAuth
+# Contributing to theauth
 
-Thanks for contributing. This guide helps you ship changes quickly and safely.
+Thanks for contributing. This guide gets you set up and explains the conventions we follow.
 
-## Response times
+We respond to issues and PRs within 48 hours on weekdays. If you do not hear back, ping the thread or open a [Discussion](https://github.com/glincker/theauth/discussions). Threads move faster than email.
 
-We respond to issues and PRs within 48 hours on weekdays. If you don't hear back, ping the thread or open a discussion. Threads tend to move faster than email.
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Code of conduct
-
-By participating, you agree to [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+---
 
 ## Development setup
 
+Prerequisites: Node.js 20+, pnpm 9+.
+
 ```bash
+git clone https://github.com/glincker/theauth.git
+cd theauth
 pnpm install
 pnpm build
 pnpm test
 ```
 
-## Development workflow
+Turbo wires the build graph across packages. Running `pnpm build` at the root is enough. For hot-reloading during development:
 
-1. Fork and create a branch from `main`.
-2. Make a focused change (feature, fix, docs, or test).
-3. Add or update tests for behavior changes.
-4. Run lint, typecheck, and relevant package tests.
-5. Open a PR with context and verification steps.
+```bash
+pnpm dev
+```
+
+---
 
 ## Monorepo commands
 
-```bash
-pnpm build
-pnpm test
-pnpm typecheck
-pnpm lint
-```
+| Command | What it does |
+|---|---|
+| `pnpm build` | Build all packages (via Turbo) |
+| `pnpm test` | Run all test suites |
+| `pnpm typecheck` | TypeScript strict check across all packages |
+| `pnpm lint` | Biome lint |
+| `pnpm lint:fix` | Biome lint with auto-fix |
+| `pnpm format` | Biome format |
 
-Run commands for one package:
+Run a command for one package:
 
 ```bash
 pnpm --filter @glinr/theauth test
-pnpm --filter @glinr/theauth-cli test
+pnpm --filter @glinr/theauth-nextjs typecheck
 ```
 
-## Style and quality
+---
 
-Biome handles formatting and linting:
+## Development workflow
 
-```bash
-pnpm lint:fix
-pnpm format
+1. Fork the repo and create a branch from `main`.
+2. Name branches using the convention: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`.
+3. Make a focused change (one feature, fix, or refactor per PR).
+4. Add or update tests for any behavior change.
+5. Run the full check suite before pushing:
+
+   ```bash
+   pnpm typecheck && pnpm lint && pnpm test
+   ```
+
+6. Open a PR against `main`. Use the PR template.
+
+---
+
+## Branch naming
+
+| Prefix | When to use |
+|---|---|
+| `feat/` | New feature or capability |
+| `fix/` | Bug fix |
+| `docs/` | Documentation or examples only |
+| `refactor/` | No behavior change, code quality |
+| `perf/` | Performance improvement |
+| `test/` | Tests only |
+| `chore/` | Deps, CI, tooling |
+
+---
+
+## Commit message format
+
+```
+<type>: <short description>
 ```
 
-Pre-commit hooks run checks and block bad commits.
+Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`
+
+Examples:
+
+```
+feat: add CIBA approval flow for agent tool calls
+fix: prevent session fixation on token rotation
+docs: add SvelteKit quick start example
+```
+
+No em dashes. No en dashes. See the style rule below.
+
+---
+
+## Style and quality rules
+
+Biome handles formatting and linting. Pre-commit hooks run checks and block commits that fail.
+
+Additional rules enforced in review:
+
+- No `any` types. Define proper interfaces in shared types files.
+- No `@ts-nocheck`. Fix the types instead.
+- No `console.log` in production code. Use a logger or remove after debugging.
+- Max 500 lines per file. Split into composable hooks or modules.
+- No inline styles in UI components. Use Tailwind only.
+- No new icon sets. Use Lucide only.
+
+### Em-dash rule
+
+**Never use em dashes (--) or en dashes (-) anywhere**: code, comments, commit messages, docs, changelogs, PR descriptions, or issue text. Use commas, periods, parentheses, or colons instead. This is a project-wide convention.
+
+---
 
 ## Changesets and versioning
 
@@ -61,36 +125,48 @@ If your PR changes user-visible behavior, add a changeset:
 pnpm changeset
 ```
 
-Choose bump type carefully:
+Bump type guide:
 
-- `patch`: bugfixes with no API change
-- `minor`: backward-compatible features
-- `major`: breaking changes
+- `patch`: bug fixes with no API change
+- `minor`: backward-compatible features or new exports
+- `major`: breaking changes (removed or renamed exports, changed types)
 
-For coordinated release waves across multiple packages, open a discussion before bumping. The maintainer will help line up the changesets so the release graph stays clean.
+For changes that touch multiple packages at once, open a Discussion before bumping so the release graph stays consistent.
 
-## Pull request checklist
+---
 
-- `pnpm typecheck` passes
-- `pnpm lint` passes
-- Relevant tests pass
-- New features include tests
-- Breaking changes are documented
-- Secrets and `.env` files are not committed
+## Testing
 
-## Commit message format
+All new features must include tests. Use Vitest. Test files live next to their source:
 
-Use conventional commit style:
-
-```text
-<type>: <description>
+```
+packages/core/src/agent.ts
+packages/core/src/agent.test.ts
 ```
 
-Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`
+Run tests for one package:
 
-## Reporting issues and support
+```bash
+pnpm --filter @glinr/theauth test
+```
 
-- Bug reports and feature requests: GitHub issue templates
-- Questions: GitHub Discussions
-- Security issues: follow [SECURITY.md](SECURITY.md)
-- Support channels: [SUPPORT.md](SUPPORT.md)
+Run with coverage:
+
+```bash
+pnpm --filter @glinr/theauth test --coverage
+```
+
+---
+
+## Reporting issues and getting help
+
+- Bug reports: [bug report template](https://github.com/glincker/theauth/issues/new?template=bug_report.yml)
+- Feature requests: [feature request template](https://github.com/glincker/theauth/issues/new?template=feature_request.yml)
+- Questions: [GitHub Discussions](https://github.com/glincker/theauth/discussions)
+- Security vulnerabilities: follow [SECURITY.md](SECURITY.md), do not open a public issue
+
+---
+
+## Sign-off / DCO
+
+By submitting a pull request you certify that you have the right to contribute the code under the project's MIT license. No additional sign-off is required unless the maintainer requests one.

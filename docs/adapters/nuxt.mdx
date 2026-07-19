@@ -1,10 +1,10 @@
 ---
 title: Nuxt
-description: Mount TheAuth auth routes in Nuxt with `kavachNuxt(kavach)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
+description: Mount TheAuth auth routes in Nuxt with `theAuthNuxt(kavach)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
 icon: "/brand-icons/nuxt.svg"
 ---
 
-`kavachNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
+`theAuthNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
 
 ## Install
 
@@ -42,10 +42,10 @@ In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-
 
 ```typescript
 // server/api/kavach/[...].ts
-import { kavachNuxt } from '@glinr/theauth-nuxt';
+import { theAuthNuxt } from '@glinr/theauth-nuxt';
 import { kavach, mcp } from '../utils/kavach';
 
-export default kavachNuxt(kavach, { mcp });
+export default theAuthNuxt(kavach, { mcp });
 ```
 
 </Step>
@@ -58,7 +58,7 @@ export default kavachNuxt(kavach, { mcp });
 ## Options
 
 ```typescript
-interface KavachNuxtOptions {
+interface AuthNuxtOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
   basePath?: string;       // defaults to '/api/kavach'
 }
@@ -99,7 +99,7 @@ POST /api/kavach/mcp/token
 ```typescript
 // server/api/kavach/[...].ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachNuxt } from '@glinr/theauth-nuxt';
+import { theAuthNuxt } from '@glinr/theauth-nuxt';
 
 const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -112,7 +112,7 @@ const kavach = await createTheAuth({
 
 const mcp = createMcpModule(kavach);
 
-export default kavachNuxt(kavach, { mcp });
+export default theAuthNuxt(kavach, { mcp });
 ```
 
 All TheAuth routes are then available at `/api/kavach/...` within your Nuxt server.

@@ -1,6 +1,6 @@
 ---
 title: Admin dashboard
-description: Embed `KavachDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
+description: Embed `AuthDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
 icon: table-columns
 ---
 
@@ -48,14 +48,14 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     pnpm add @glinr/theauth-dashboard
     ```
 
-    Render `KavachDashboard` inside a protected route in your app:
+    Render `AuthDashboard` inside a protected route in your app:
 
     ```tsx
-    import { KavachDashboard } from '@glinr/theauth-dashboard';
+    import { AuthDashboard } from '@glinr/theauth-dashboard';
 
     export default function AdminPage() {
       return (
-        <KavachDashboard
+        <AuthDashboard
           apiUrl="/api/kavach"
           theme="system"
           demo={false}
@@ -79,13 +79,13 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
         ```typescript
         // app/api/kavach/[...path]/route.ts
         import { createTheAuth } from '@glinr/theauth';
-        import { kavachNextjs } from '@glinr/theauth-nextjs';
+        import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
         const kavach = await createTheAuth({
           database: { provider: 'postgres', url: process.env.DATABASE_URL! },
         });
 
-        const handler = kavachNextjs(kavach);
+        const handler = theAuthNextjs(kavach);
         export const GET = handler;
         export const POST = handler;
         export const DELETE = handler;
@@ -130,18 +130,18 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     // app/admin/page.tsx
     import { redirect } from 'next/navigation';
     import { getSession } from '@/lib/auth';
-    import { KavachDashboard } from '@glinr/theauth-dashboard';
+    import { AuthDashboard } from '@glinr/theauth-dashboard';
 
     export default async function AdminPage() {
       const session = await getSession();
       if (!session?.user.isAdmin) redirect('/');
 
-      return <KavachDashboard apiUrl="/api/kavach" theme="system" />;
+      return <AuthDashboard apiUrl="/api/kavach" theme="system" />;
     }
     ```
 
     <Warning>
-      Do not render `KavachDashboard` on a public route. It gives full read/write access to all agents, permissions, and audit data.
+      Do not render `AuthDashboard` on a public route. It gives full read/write access to all agents, permissions, and audit data.
     </Warning>
   </Tab>
 

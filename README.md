@@ -2,28 +2,28 @@
   <img src="https://theauth.dev/logo.svg" height="64" alt="TheAuth" />
 </p>
 
-<h1 align="center">TheAuth</h1>
+<h2 align="center"><em>Type-safe authentication for TypeScript. OAuth 2.1, MCP, passkeys, agents.</em></h2>
 
 <p align="center">
-  Auth for AI agents and humans. One library, both sides.
-</p>
-
-<p align="center">
-  by <a href="https://glincker.com"><strong>GLINR STUDIOS</strong></a> · a <a href="https://glincker.com">GLINCKER LLC</a> project
+  by <a href="https://glincker.com"><strong>GLINR STUDIOS</strong></a> &middot; a <a href="https://glincker.com">GLINCKER LLC</a> project
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/v/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/dm/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=downloads" alt="monthly downloads" /></a>
-  <a href="https://github.com/glincker/theauth/stargazers"><img src="https://img.shields.io/github/stars/glincker/theauth?style=flat&colorA=000000&colorB=000000&label=stars" alt="GitHub stars" /></a>
+  <a href="https://github.com/glincker/theauth/blob/main/LICENSE"><img src="https://img.shields.io/github/license/glincker/theauth?style=flat&colorA=000000&colorB=000000&label=license" alt="License" /></a>
+  <a href="https://github.com/glincker/theauth/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/glincker/theauth/ci.yml?branch=main&style=flat&colorA=000000&colorB=000000&label=CI" alt="CI status" /></a>
+  <a href="https://bundlephobia.com/package/@glinr/theauth"><img src="https://img.shields.io/bundlephobia/minzip/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=bundle" alt="bundle size" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat&colorA=000000&colorB=3178c6&logo=typescript&logoColor=white" alt="TypeScript strict" /></a>
+  <a href="https://github.com/glincker/theauth/discussions"><img src="https://img.shields.io/github/discussions/glincker/theauth?style=flat&colorA=000000&colorB=000000&label=discussions" alt="GitHub Discussions" /></a>
 </p>
 
 <p align="center">
-  <a href="https://docs.theauth.dev/docs/quickstart">Quickstart</a> ·
-  <a href="https://docs.theauth.dev/docs">Documentation</a> ·
-  <a href="https://github.com/glincker/theauth/tree/main/examples">Examples</a> ·
-  <a href="https://github.com/glincker/theauth/discussions">Discussions</a> ·
-  <a href="https://app.theauth.dev">TheAuth Cloud</a>
+  <a href="https://docs.theauth.dev/docs/quickstart"><strong>Quickstart</strong></a> &middot;
+  <a href="https://docs.theauth.dev/docs"><strong>Docs</strong></a> &middot;
+  <a href="https://github.com/glincker/theauth/tree/main/examples"><strong>Examples</strong></a> &middot;
+  <a href="https://github.com/glincker/theauth/discussions"><strong>Discussions</strong></a> &middot;
+  <a href="https://app.theauth.dev"><strong>TheAuth Cloud</strong></a>
 </p>
 
 <p align="center">
@@ -87,217 +87,362 @@ The policy engine hits 2.6M warm-cache evals/sec with a p99 of 500ns. Cold paths
 
 ```bash
 npm install @glinr/theauth
+# or
+pnpm add @glinr/theauth
+# or
+yarn add @glinr/theauth
 ```
 
-## Quick start
-
 ```typescript
-import { createKavach } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
+import { createTheAuth } from "@glinr/theauth";
+import { emailPassword, passkey } from "@glinr/theauth/auth";
 import { createHonoAdapter } from "@glinr/theauth-hono";
 
-const kavach = createKavach({
-  database: { provider: "sqlite", url: "kavach.db" },
-  plugins: [emailPassword()],
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  plugins: [emailPassword(), passkey()],
 });
 
-// Mount on any framework
 const app = new Hono();
-app.route("/api/kavach", createHonoAdapter(kavach));
+app.route("/api/auth", createHonoAdapter(auth));
 
-// Create an AI agent with scoped permissions
-const agent = await kavach.agent.create({
+// Create an AI agent with scoped MCP permissions
+const agent = await auth.agent.create({
   ownerId: "user-123",
   name: "github-reader",
   type: "autonomous",
-  permissions: [
-    { resource: "mcp:github:*", actions: ["read"] },
-    {
-      resource: "mcp:deploy:production",
-      actions: ["execute"],
-      constraints: { requireApproval: true },
-    },
-  ],
+  permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 });
 
-// Authorize and audit (< 1ms)
-const result = await kavach.authorize(agent.id, {
+const result = await auth.authorize(agent.id, {
   action: "read",
   resource: "mcp:github:repos",
 });
 // { allowed: true, auditId: "aud_..." }
 ```
 
+---
+
+## How TheAuth compares
+
+| Capability | Auth0 | Clerk | Better-Auth | NextAuth | Lucia | **TheAuth** |
+|---|---|---|---|---|---|---|
+| License | Proprietary | Proprietary | MIT | ISC | MIT | **MIT** |
+| Self-hosted | Partial | No | Yes | Yes | Yes | **Yes** |
+| OAuth 2.1 server | Yes | Yes | Partial | No | No | **Yes** |
+| MCP OAuth 2.1 | No | No | No | No | No | **Yes** |
+| Passkeys / WebAuthn | Yes | Yes | Plugin | Plugin | No | **Yes** |
+| Multi-tenant / orgs | Yes | Yes | Plugin | No | No | **Yes** |
+| Audit log | Yes (paid) | Yes (paid) | No | No | No | **Yes** |
+| AI agent identity | No | No | No | No | No | **Yes** |
+| Edge runtimes | Partial | No | Yes | Partial | Yes | **Yes** |
+
+---
+
+## Features
+
 <details>
-<summary><strong>Cloudflare Workers + D1 example</strong></summary>
+<summary><strong>Full feature checklist (click to expand)</strong></summary>
 
-```typescript
-import { createKavach } from "@glinr/theauth";
-import { Hono } from "hono";
+### Authentication
 
-type Env = { THEAUTH_DB: D1Database };
-const app = new Hono<{ Bindings: Env }>();
+- Email and password with HIBP breach checking
+- Magic link
+- Email OTP
+- Phone SMS OTP
+- Passkeys / WebAuthn
+- TOTP 2FA (authenticator apps)
+- SAML 2.0 and OIDC SSO
+- Anonymous sessions
+- Google One Tap
+- Sign In With Ethereum
+- Device Authorization (TV / CLI flows)
+- Username and password
+- Captcha integration
+- Session freshness enforcement
 
-app.get("/health", async (c) => {
-  const kavach = await createKavach({
-    database: { provider: "d1", binding: c.env.THEAUTH_DB },
-  });
+### OAuth 2.1
 
-  const agent = await kavach.agent.create({
-    ownerId: "user-1",
-    name: "my-agent",
-    type: "autonomous",
-    permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
-  });
+- Authorization Code + PKCE
+- Client Credentials
+- Device Authorization Grant
+- Refresh Token rotation
+- Token introspection
+- Dynamic Client Registration (RFC 7591)
+- Server metadata (RFC 8414)
+- Resource indicators (RFC 8707)
+- Authorization Server Issuer Identification (RFC 9728)
 
-  return c.json({ agent });
-});
+### MCP Support
 
-export default app;
-```
+- Full OAuth 2.1 authorization server for the Model Context Protocol
+- PKCE S256 mandatory
+- RFC 9728 / 8707 / 8414 / 7591 compliant
+- Agent token issuance and validation
+
+### AI Agent Identity
+
+- Cryptographic bearer tokens (`kv_...`)
+- Wildcard permission matching
+- Delegation chains with configurable depth limits
+- Budget policies per agent
+- Anomaly detection
+- CIBA-style approval flows for sensitive tool calls
+- Full audit trail per agent action
+
+### Framework Adapters
+
+- Next.js 15 (App Router, Route Handlers, Middleware)
+- SvelteKit
+- Nuxt / Vue
+- Hono (Cloudflare Workers, Bun, Deno)
+- Express
+- Fastify
+- Astro
+- NestJS
+- SolidStart
+- TanStack Start
+- React Native / Expo
+- Electron
+
+### Database Adapters
+
+Built-in: SQLite, PostgreSQL, MySQL, Cloudflare D1
+
+Plugin: Prisma (share an existing PrismaClient)
+
+### Enterprise
+
+- Organizations with RBAC
+- SCIM directory sync
+- Admin controls (ban, impersonate)
+- API key management
+- Multi-tenant isolation
+- GDPR: export, delete, anonymize
+- Compliance reports: EU AI Act, NIST, SOC 2, ISO 42001
+
+### Edge Runtimes
+
+- Cloudflare Workers (D1, KV)
+- Vercel Edge Functions
+- Deno Deploy
+- Bun
+- Three runtime dependencies: `drizzle-orm`, `jose`, `zod`
 
 </details>
 
 ---
 
-## Packages
+## Quick start by framework
 
-### Core
+<details>
+<summary><strong>Next.js (App Router)</strong></summary>
 
-| Package | What it does | |
-| --- | --- | --- |
-| [`@glinr/theauth`](https://www.npmjs.com/package/@glinr/theauth) | Core SDK: agents, permissions, delegation, audit, auth plugins | [![npm](https://img.shields.io/npm/v/@glinr/theauth?style=flat-square&color=c9a84c)](https://www.npmjs.com/package/@glinr/theauth) |
-| [`@glinr/theauth-client`](https://www.npmjs.com/package/@glinr/theauth-client) | TypeScript REST client, no dependencies | [![npm](https://img.shields.io/npm/v/@glinr/theauth-client?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-client) |
-| [`@glinr/theauth-cli`](https://www.npmjs.com/package/@glinr/theauth-cli) | `kavach init`, `kavach migrate`, `kavach dashboard` | [![npm](https://img.shields.io/npm/v/@glinr/theauth-cli?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-cli) |
-| [`@glinr/theauth-dashboard`](https://www.npmjs.com/package/@glinr/theauth-dashboard) | Embeddable React admin UI | [![npm](https://img.shields.io/npm/v/@glinr/theauth-dashboard?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-dashboard) |
-| [`@glinr/theauth-gateway`](https://www.npmjs.com/package/@glinr/theauth-gateway) | Auth proxy with rate limiting | [![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway) |
-
-### Client libraries
-
-| Package | What it does | |
-| --- | --- | --- |
-| [`@glinr/theauth-react`](https://www.npmjs.com/package/@glinr/theauth-react) | `KavachProvider` + hooks | [![npm](https://img.shields.io/npm/v/@glinr/theauth-react?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-react) |
-| [`@glinr/theauth-vue`](https://www.npmjs.com/package/@glinr/theauth-vue) | Vue 3 plugin + composables | [![npm](https://img.shields.io/npm/v/@glinr/theauth-vue?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-vue) |
-| [`@glinr/theauth-svelte`](https://www.npmjs.com/package/@glinr/theauth-svelte) | Svelte stores | [![npm](https://img.shields.io/npm/v/@glinr/theauth-svelte?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-svelte) |
-| [`@glinr/theauth-ui`](https://www.npmjs.com/package/@glinr/theauth-ui) | Sign-in, sign-up, user button components | [![npm](https://img.shields.io/npm/v/@glinr/theauth-ui?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-ui) |
-| [`@glinr/theauth-expo`](https://www.npmjs.com/package/@glinr/theauth-expo) | React Native / Expo with SecureStore | [![npm](https://img.shields.io/npm/v/@glinr/theauth-expo?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-expo) |
-| [`@glinr/theauth-electron`](https://www.npmjs.com/package/@glinr/theauth-electron) | Electron with safeStorage + OAuth popup | [![npm](https://img.shields.io/npm/v/@glinr/theauth-electron?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-electron) |
-| [`@glinr/theauth-test-utils`](https://www.npmjs.com/package/@glinr/theauth-test-utils) | Mocks, factories, test assertions | [![npm](https://img.shields.io/npm/v/@glinr/theauth-test-utils?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-test-utils) |
-
-### Framework adapters
-
-| Package | Framework | |
-| --- | --- | --- |
-| [`@glinr/theauth-hono`](https://www.npmjs.com/package/@glinr/theauth-hono) | Hono | [![npm](https://img.shields.io/npm/v/@glinr/theauth-hono?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-hono) |
-| [`@glinr/theauth-express`](https://www.npmjs.com/package/@glinr/theauth-express) | Express | [![npm](https://img.shields.io/npm/v/@glinr/theauth-express?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-express) |
-| [`@glinr/theauth-nextjs`](https://www.npmjs.com/package/@glinr/theauth-nextjs) | Next.js (App Router) — bundles the agent-management runtime | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nextjs) |
-| [`@glinr/theauth-nextjs-auth`](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) | Next.js adapter for external auth backends — getServerSession, withAuth middleware, cookie + CSRF + token rotation | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs-auth?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) |
-| [`@glinr/theauth-fastify`](https://www.npmjs.com/package/@glinr/theauth-fastify) | Fastify | [![npm](https://img.shields.io/npm/v/@glinr/theauth-fastify?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-fastify) |
-| [`@glinr/theauth-nuxt`](https://www.npmjs.com/package/@glinr/theauth-nuxt) | Nuxt | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nuxt?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nuxt) |
-| [`@glinr/theauth-sveltekit`](https://www.npmjs.com/package/@glinr/theauth-sveltekit) | SvelteKit | [![npm](https://img.shields.io/npm/v/@glinr/theauth-sveltekit?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-sveltekit) |
-| [`@glinr/theauth-astro`](https://www.npmjs.com/package/@glinr/theauth-astro) | Astro | [![npm](https://img.shields.io/npm/v/@glinr/theauth-astro?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-astro) |
-| [`@glinr/theauth-nestjs`](https://www.npmjs.com/package/@glinr/theauth-nestjs) | NestJS | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nestjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nestjs) |
-| [`@glinr/theauth-solidstart`](https://www.npmjs.com/package/@glinr/theauth-solidstart) | SolidStart | [![npm](https://img.shields.io/npm/v/@glinr/theauth-solidstart?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-solidstart) |
-| [`@glinr/theauth-tanstack`](https://www.npmjs.com/package/@glinr/theauth-tanstack) | TanStack Start | [![npm](https://img.shields.io/npm/v/@glinr/theauth-tanstack?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-tanstack) |
-
-### Database adapters
-
-Core ships with SQLite, Postgres, MySQL, and Cloudflare D1 providers built in. Use the Prisma adapter when your app already owns a PrismaClient and you want TheAuth to share the same connection.
-
-| Package | What it does | |
-| --- | --- | --- |
-| [`@glinr/theauth-prisma`](https://www.npmjs.com/package/@glinr/theauth-prisma) | Prisma adapter, pass a PrismaClient as the TheAuth database | [![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-prisma) |
-
----
-
-## UI components
-
-If you want ready-made forms, `@glinr/theauth-ui` has them. Override styling with `classNames`, swap sub-components, or skip the package entirely and use hooks from `@glinr/theauth-react`.
-
-```tsx
-import { SignIn, OAUTH_PROVIDERS } from "@glinr/theauth-ui";
-
-<SignIn
-  providers={[OAUTH_PROVIDERS.google, OAUTH_PROVIDERS.github]}
-  showMagicLink
-  signUpUrl="/sign-up"
-  forgotPasswordUrl="/forgot-password"
-  onSuccess={() => router.push("/dashboard")}
-/>;
+```bash
+npm install @glinr/theauth @glinr/theauth-nextjs
 ```
 
----
+```typescript
+// app/api/auth/[...theauth]/route.ts
+import { createTheAuth } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
+import { createNextAuthHandler } from "@glinr/theauth-nextjs";
 
-## Plugins
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  plugins: [emailPassword()],
+});
 
-Everything is a plugin. Auth methods, security features, integrations. Turn on what you need:
+const handler = createNextAuthHandler(auth);
+export { handler as GET, handler as POST };
+```
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
-import {
-  emailPassword,
-  magicLink,
-  passkey,
-  totp,
-  organizations,
-  sso,
-  admin,
-  apiKeys,
-  jwtSession,
-} from "@glinr/theauth/auth";
+// app/dashboard/page.tsx (Server Component)
+import { getServerSession } from "@glinr/theauth-nextjs";
 
-const kavach = createKavach({
+export default async function Dashboard() {
+  const session = await getServerSession();
+  if (!session) redirect("/sign-in");
+  return <h1>Hello, {session.user.email}</h1>;
+}
+```
+
+See [`examples/nextjs-app`](https://github.com/glincker/theauth/tree/main/examples/nextjs-app) for a full working example.
+
+</details>
+
+<details>
+<summary><strong>SvelteKit</strong></summary>
+
+```bash
+npm install @glinr/theauth @glinr/theauth-sveltekit
+```
+
+```typescript
+// src/hooks.server.ts
+import { createTheAuth } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
+import { createSvelteKitHandler } from "@glinr/theauth-sveltekit";
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  plugins: [emailPassword()],
+});
+
+export const handle = createSvelteKitHandler(auth);
+```
+
+```typescript
+// src/routes/+layout.server.ts
+import { getSession } from "@glinr/theauth-sveltekit";
+
+export async function load(event) {
+  const session = await getSession(event);
+  return { session };
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Vue / Nuxt</strong></summary>
+
+```bash
+npm install @glinr/theauth @glinr/theauth-nuxt
+```
+
+```typescript
+// server/plugins/theauth.ts
+import { createTheAuth } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
+
+export const auth = await createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
-  plugins: [
-    emailPassword({
-      passwordReset: {
-        sendResetEmail: async (email, url) => {
-          /* your email sender */
-        },
-      },
-    }),
-    magicLink({
-      sendMagicLink: async (email, url) => {
-        /* your email sender */
-      },
-    }),
-    passkey(),
-    totp(),
-    organizations(),
-    sso(),
-    admin(),
-    apiKeys(),
-    jwtSession({ secret: process.env.JWT_SECRET }),
-  ],
+  plugins: [emailPassword()],
 });
 ```
 
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ["@glinr/theauth-nuxt"],
+});
+```
+
+</details>
+
+<details>
+<summary><strong>Hono (Cloudflare Workers / Express / Bun)</strong></summary>
+
+```bash
+npm install @glinr/theauth @glinr/theauth-hono
+```
+
+```typescript
+import { Hono } from "hono";
+import { createTheAuth } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth/auth";
+import { createHonoAdapter } from "@glinr/theauth-hono";
+
+type Env = { DATABASE_URL: string };
+const app = new Hono<{ Bindings: Env }>();
+
+app.use("/api/auth/*", async (c, next) => {
+  const auth = await createTheAuth({
+    database: { provider: "postgres", url: c.env.DATABASE_URL },
+    plugins: [emailPassword()],
+  });
+  return createHonoAdapter(auth)(c, next);
+});
+
+export default app;
+```
+
+See [`examples/hono-server`](https://github.com/glincker/theauth/tree/main/examples/hono-server) and [`examples/cloudflare-workers`](https://github.com/glincker/theauth/tree/main/examples/cloudflare-workers).
+
+</details>
+
 ---
 
-## Docs
+## Documentation
 
-[docs.theauth.dev](https://docs.theauth.dev/docs)
+**Primary docs:** [docs.theauth.dev](https://docs.theauth.dev/docs)
 
-- [Getting started](https://docs.theauth.dev/docs/quickstart)
-- [Authentication](https://docs.theauth.dev/docs/auth)
-- [Agent identity](https://docs.theauth.dev/docs/agents)
-- [Permissions and delegation](https://docs.theauth.dev/docs/permissions)
-- [MCP OAuth 2.1](https://docs.theauth.dev/docs/mcp)
-- [Framework adapters](https://docs.theauth.dev/docs/adapters)
-- [API reference](https://docs.theauth.dev/docs/api)
+| Section | Link | What you will find |
+|---|---|---|
+| Getting Started | [docs.theauth.dev/docs/quickstart](https://docs.theauth.dev/docs/quickstart) | Installation, first auth flow |
+| Authentication | [docs.theauth.dev/docs/auth](https://docs.theauth.dev/docs/auth) | All auth methods and plugins |
+| Agent Identity | [docs.theauth.dev/docs/agents](https://docs.theauth.dev/docs/agents) | Agent tokens, delegation, policies |
+| Permissions | [docs.theauth.dev/docs/permissions](https://docs.theauth.dev/docs/permissions) | RBAC, wildcard matching, ReBAC |
+| MCP OAuth 2.1 | [docs.theauth.dev/docs/mcp](https://docs.theauth.dev/docs/mcp) | MCP auth server setup |
+| Framework Adapters | [docs.theauth.dev/docs/adapters](https://docs.theauth.dev/docs/adapters) | Next.js, Hono, SvelteKit, etc. |
+| API Reference | [docs.theauth.dev/docs/api](https://docs.theauth.dev/docs/api) | Config, types, errors |
+| Security | [SECURITY.md](SECURITY.md) | Threat model, disclosure policy |
+
+---
+
+## Framework adapters
+
+| Package | Framework | Directory |
+|---|---|---|
+| `@glinr/theauth-nextjs` | Next.js 15 (App Router) | [`packages/adapters/nextjs`](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs) |
+| `@glinr/theauth-nextjs-auth` | Next.js (external auth backend) | [`packages/adapters/nextjs-auth`](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth) |
+| `@glinr/theauth-hono` | Hono (Workers, Bun, Deno) | [`packages/adapters/hono`](https://github.com/glincker/theauth/tree/main/packages/adapters/hono) |
+| `@glinr/theauth-express` | Express | [`packages/adapters/express`](https://github.com/glincker/theauth/tree/main/packages/adapters/express) |
+| `@glinr/theauth-fastify` | Fastify | [`packages/adapters/fastify`](https://github.com/glincker/theauth/tree/main/packages/adapters/fastify) |
+| `@glinr/theauth-sveltekit` | SvelteKit | [`packages/adapters/sveltekit`](https://github.com/glincker/theauth/tree/main/packages/adapters/sveltekit) |
+| `@glinr/theauth-nuxt` | Nuxt / Vue 3 | [`packages/adapters/nuxt`](https://github.com/glincker/theauth/tree/main/packages/adapters/nuxt) |
+| `@glinr/theauth-astro` | Astro | [`packages/adapters/astro`](https://github.com/glincker/theauth/tree/main/packages/adapters/astro) |
+| `@glinr/theauth-nestjs` | NestJS | [`packages/adapters/nestjs`](https://github.com/glincker/theauth/tree/main/packages/adapters/nestjs) |
+| `@glinr/theauth-solidstart` | SolidStart | [`packages/adapters/solidstart`](https://github.com/glincker/theauth/tree/main/packages/adapters/solidstart) |
+| `@glinr/theauth-tanstack` | TanStack Start | [`packages/adapters/tanstack`](https://github.com/glincker/theauth/tree/main/packages/adapters/tanstack) |
+| `@glinr/theauth-expo` | React Native / Expo | [`packages/adapters/expo`](https://github.com/glincker/theauth/tree/main/packages/adapters/expo) |
+| `@glinr/theauth-electron` | Electron | [`packages/adapters/electron`](https://github.com/glincker/theauth/tree/main/packages/adapters/electron) |
+
+---
+
+## Database adapters
+
+SQLite, PostgreSQL, MySQL, and Cloudflare D1 are built into the core package. Use the Prisma adapter to share an existing PrismaClient.
+
+| Package | What it connects | Directory |
+|---|---|---|
+| Built-in SQLite | `better-sqlite3`, `bun:sqlite`, D1 | core |
+| Built-in PostgreSQL | `pg`, `postgres`, Neon, Supabase | core |
+| Built-in MySQL | `mysql2` | core |
+| `@glinr/theauth-prisma` | Prisma (share your PrismaClient) | [`packages/prisma`](https://github.com/glincker/theauth/tree/main/packages/prisma) |
+
+---
+
+## Example apps
+
+| Example | What it shows | Directory |
+|---|---|---|
+| `nextjs-app` | Full Next.js 15 App Router integration | [`examples/nextjs-app`](https://github.com/glincker/theauth/tree/main/examples/nextjs-app) |
+| `nextjs-demo` | UI components + sign-in flows | [`examples/nextjs-demo`](https://github.com/glincker/theauth/tree/main/examples/nextjs-demo) |
+| `hono-server` | Standalone Hono API with auth | [`examples/hono-server`](https://github.com/glincker/theauth/tree/main/examples/hono-server) |
+| `cloudflare-workers` | Workers + D1 database | [`examples/cloudflare-workers`](https://github.com/glincker/theauth/tree/main/examples/cloudflare-workers) |
+| `mcp-server` | MCP OAuth 2.1 authorization server | [`examples/mcp-server`](https://github.com/glincker/theauth/tree/main/examples/mcp-server) |
+| `basic-agent` | AI agent token issuance and policy | [`examples/basic-agent`](https://github.com/glincker/theauth/tree/main/examples/basic-agent) |
+| `migrate-from-auth0` | Step-by-step Auth0 migration | [`examples/migrate-from-auth0`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0) |
+| `migrate-from-better-auth-agent-plugin` | Migration from better-auth agent plugin | [`examples/migrate-from-better-auth-agent-plugin`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-better-auth-agent-plugin) |
 
 ---
 
 ## TheAuth Cloud
 
-TheAuth Cloud is the hosted version. Dashboard, billing, no infrastructure.
+Hosted version with dashboard, billing, and zero infrastructure. [app.theauth.dev](https://app.theauth.dev)
 
-|       | Free  | Starter | Growth | Scale   | Enterprise |
-| ----- | ----- | ------- | ------ | ------- | ---------- |
-| MAU   | 1,000 | 10,000  | 50,000 | 200,000 | Custom     |
-| Price | $0    | $29/mo  | $79/mo | $199/mo | Custom     |
+| Plan | MAU | Price |
+|---|---|---|
+| Free | 1,000 | $0 |
+| Starter | 10,000 | $29/mo |
+| Growth | 50,000 | $79/mo |
+| Scale | 200,000 | $199/mo |
+| Enterprise | Custom | Custom |
 
-All plans include MCP OAuth 2.1, agent identity, delegation, trust scoring, and compliance reports.
+---
 
 <p align="center">
   <a href="https://app.theauth.dev/sign-up"><strong>Start free</strong></a> ·
@@ -307,28 +452,34 @@ All plans include MCP OAuth 2.1, agent identity, delegation, trust scoring, and 
 
 ---
 
+## Security
+
+Responsible disclosure: see [SECURITY.md](SECURITY.md). Do not open a public issue for vulnerabilities.
+
+---
+
+## Roadmap
+
+Follow development on [GitHub Discussions](https://github.com/glincker/theauth/discussions) and the [changelog](CHANGELOG.md).
+
+---
+
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). First-time contributor? Look for issues labeled `good first issue`.
 
-<a href="https://github.com/glincker/theauth/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=glincker/theauth" alt="Contributors to the TheAuth repository" />
-</a>
+By contributing, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Support
-
-- [SUPPORT.md](SUPPORT.md) for help
-- [SECURITY.md](SECURITY.md) to report vulnerabilities
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+---
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) (c) GLINCKER LLC
 
 ---
 
-<p align="center">A <a href="https://glincker.com">GLINCKER LLC</a> open source project</p>
-
----
-
-> **Rebranded from `kavachos` in June 2026, then moved to the `@glinr/` npm scope shortly after.** If you're arriving from the old `kavachos` / `@kavachos/*` packages, swap `@kavachos/` for `@glinr/theauth-` in your imports. If you're coming from a brief `@theauth/*` window, swap `@theauth/` for `@glinr/theauth-`. The API surface is unchanged. See [MIGRATION.md](docs/migrate/index.mdx).
+<p align="center">
+  <em>Built by the founder of <a href="https://thesvg.org">theSVG.org</a>.</em>
+  <br />
+  <em>A Product of <strong>GLINR STUDIOS</strong> | <strong>A GLINCKER COMPANY</strong></em>
+</p>

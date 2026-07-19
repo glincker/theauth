@@ -169,10 +169,19 @@ export type TheAuthResult<T> = { success: true; data: T } | { success: false; er
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthError` instead. Will be removed in a future major version. */
+export type AuthError = TheAuthError;
+
+/** @deprecated Use `TheAuthError` instead. Will be removed in a future major version. */
 export type KavachError = TheAuthError;
 
 /** @deprecated Use `TheAuthApiErrorBody` instead. Will be removed in a future major version. */
+export type AuthApiErrorBody = TheAuthApiErrorBody;
+
+/** @deprecated Use `TheAuthApiErrorBody` instead. Will be removed in a future major version. */
 export type KavachApiErrorBody = TheAuthApiErrorBody;
+
+/** @deprecated Use `TheAuthResult` instead. Will be removed in a future major version. */
+export type AuthResult<T> = TheAuthResult<T>;
 
 /** @deprecated Use `TheAuthResult` instead. Will be removed in a future major version. */
 export type KavachResult<T> = TheAuthResult<T>;

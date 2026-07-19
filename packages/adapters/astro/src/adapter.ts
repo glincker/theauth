@@ -3,7 +3,7 @@ import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { APIRoute } from "astro";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachAstroOptions {
+export interface TheAuthAstroOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -12,12 +12,18 @@ export interface KavachAstroOptions {
 	 * The URL path prefix before the `[...path]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachAstroHandlers {
+/** @deprecated Use `TheAuthAstroOptions` instead. Will be removed in a future major version. */
+export type AuthAstroOptions = TheAuthAstroOptions;
+
+/** @deprecated Use `TheAuthAstroOptions` instead. Will be removed in a future major version. */
+export type KavachAstroOptions = TheAuthAstroOptions;
+
+export interface TheAuthAstroHandlers {
 	GET: APIRoute;
 	POST: APIRoute;
 	PATCH: APIRoute;
@@ -25,6 +31,12 @@ export interface KavachAstroHandlers {
 	OPTIONS: APIRoute;
 	ALL: APIRoute;
 }
+
+/** @deprecated Use `TheAuthAstroHandlers` instead. Will be removed in a future major version. */
+export type AuthAstroHandlers = TheAuthAstroHandlers;
+
+/** @deprecated Use `TheAuthAstroHandlers` instead. Will be removed in a future major version. */
+export type KavachAstroHandlers = TheAuthAstroHandlers;
 
 /**
  * Create Astro API route handlers for all TheAuth REST API routes.
@@ -34,10 +46,10 @@ export interface KavachAstroHandlers {
  * @example
  * ```typescript
  * import { createTheAuth } from '@glinr/theauth';
- * import { kavachAstro } from '@glinr/theauth-astro';
+ * import { theAuthAstro } from '@glinr/theauth-astro';
  *
- * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = kavachAstro(kavach);
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
+ * const handlers = theAuthAstro(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -55,16 +67,19 @@ export interface KavachAstroHandlers {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = kavachAstro(kavach, { mcp });
+ * const handlers = theAuthAstro(auth, { mcp });
  * ```
  */
-export function kavachAstro(kavach: TheAuth, options?: KavachAstroOptions): KavachAstroHandlers {
+export function theAuthAstro(
+	auth: TheAuth,
+	options?: TheAuthAstroOptions,
+): TheAuthAstroHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	// Astro APIRoute receives a context whose `request` property is a standard
 	// Web API Request, so we can pass it directly to dispatch.
-	const handler: APIRoute = ({ request }) => dispatch(request, kavach, mcp, basePath);
+	const handler: APIRoute = ({ request }) => dispatch(request, auth, mcp, basePath);
 
 	return {
 		GET: handler,
@@ -75,3 +90,9 @@ export function kavachAstro(kavach: TheAuth, options?: KavachAstroOptions): Kava
 		ALL: handler,
 	};
 }
+
+/** @deprecated Use `theAuthAstro` instead. Will be removed in a future major version. */
+export const authAstro = theAuthAstro;
+
+/** @deprecated Use `theAuthAstro` instead. Will be removed in a future major version. */
+export const kavachAstro = theAuthAstro;

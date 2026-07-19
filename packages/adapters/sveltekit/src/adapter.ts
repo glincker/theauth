@@ -3,7 +3,7 @@ import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { RequestHandler } from "@sveltejs/kit";
 import { dispatch } from "./dispatch.js";
 
-export interface KavachSvelteKitOptions {
+export interface TheAuthSvelteKitOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -12,18 +12,30 @@ export interface KavachSvelteKitOptions {
 	 * The URL path prefix before the `[...path]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachSvelteKitHandlers {
+/** @deprecated Use `TheAuthSvelteKitOptions` instead. Will be removed in a future major version. */
+export type AuthSvelteKitOptions = TheAuthSvelteKitOptions;
+
+/** @deprecated Use `TheAuthSvelteKitOptions` instead. Will be removed in a future major version. */
+export type KavachSvelteKitOptions = TheAuthSvelteKitOptions;
+
+export interface TheAuthSvelteKitHandlers {
 	GET: RequestHandler;
 	POST: RequestHandler;
 	PATCH: RequestHandler;
 	DELETE: RequestHandler;
 	OPTIONS: RequestHandler;
 }
+
+/** @deprecated Use `TheAuthSvelteKitHandlers` instead. Will be removed in a future major version. */
+export type AuthSvelteKitHandlers = TheAuthSvelteKitHandlers;
+
+/** @deprecated Use `TheAuthSvelteKitHandlers` instead. Will be removed in a future major version. */
+export type KavachSvelteKitHandlers = TheAuthSvelteKitHandlers;
 
 /**
  * Create SvelteKit route handlers for all TheAuth REST API routes.
@@ -33,10 +45,10 @@ export interface KavachSvelteKitHandlers {
  * @example
  * ```typescript
  * import { createTheAuth } from '@glinr/theauth';
- * import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
+ * import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
  *
- * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = kavachSvelteKit(kavach);
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const handlers = theAuthSvelteKit(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -49,19 +61,19 @@ export interface KavachSvelteKitHandlers {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = kavachSvelteKit(kavach, { mcp });
+ * const handlers = theAuthSvelteKit(auth, { mcp });
  * ```
  */
-export function kavachSvelteKit(
-	kavach: TheAuth,
-	options?: KavachSvelteKitOptions,
-): KavachSvelteKitHandlers {
+export function theAuthSvelteKit(
+	auth: TheAuth,
+	options?: TheAuthSvelteKitOptions,
+): TheAuthSvelteKitHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
 	// SvelteKit RequestHandler receives an event whose `request` property is a
 	// standard Web API Request, so we can pass it directly to dispatch.
-	const handler: RequestHandler = ({ request }) => dispatch(request, kavach, mcp, basePath);
+	const handler: RequestHandler = ({ request }) => dispatch(request, auth, mcp, basePath);
 
 	return {
 		GET: handler,
@@ -71,3 +83,9 @@ export function kavachSvelteKit(
 		OPTIONS: handler,
 	};
 }
+
+/** @deprecated Use `theAuthSvelteKit` instead. Will be removed in a future major version. */
+export const authSvelteKit = theAuthSvelteKit;
+
+/** @deprecated Use `theAuthSvelteKit` instead. Will be removed in a future major version. */
+export const kavachSvelteKit = theAuthSvelteKit;

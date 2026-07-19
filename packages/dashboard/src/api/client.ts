@@ -8,17 +8,17 @@ import type {
 	CreatePermissionTemplateInput,
 	DashboardStats,
 	DelegationChain,
-	KavachSettings,
 	McpServerInfo,
 	PaginatedAuditLogs,
 	PermissionTemplate,
 	RegisterMcpServerInput,
+	TheAuthSettings,
 	User,
 } from "./types.js";
 
 // ─── Client Factory ───────────────────────────────────────────────────────────
 
-export interface KavachApiClient {
+export interface TheAuthApiClient {
 	getStats: () => Promise<ApiResult<DashboardStats>>;
 
 	getAgents: () => Promise<ApiResult<Agent[]>>;
@@ -51,10 +51,10 @@ export interface KavachApiClient {
 	getMcpServers: () => Promise<ApiResult<McpServerInfo[]>>;
 	registerMcpServer: (input: RegisterMcpServerInput) => Promise<ApiResult<McpServerInfo>>;
 
-	getSettings: () => Promise<ApiResult<KavachSettings>>;
+	getSettings: () => Promise<ApiResult<TheAuthSettings>>;
 	updateSettings: (
-		settings: Partial<Omit<KavachSettings, "database">>,
-	) => Promise<ApiResult<KavachSettings>>;
+		settings: Partial<Omit<TheAuthSettings, "database">>,
+	) => Promise<ApiResult<TheAuthSettings>>;
 }
 
 // ─── Internal Fetch Helper ────────────────────────────────────────────────────
@@ -105,7 +105,13 @@ async function apiFetch<T>(
 
 // ─── Client Constructor ───────────────────────────────────────────────────────
 
-export function createApiClient(apiUrl: string): KavachApiClient {
+/** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
+export type AuthApiClient = TheAuthApiClient;
+
+/** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
+export type KavachApiClient = TheAuthApiClient;
+
+export function createApiClient(apiUrl: string): TheAuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
 
 	return {
@@ -204,10 +210,10 @@ export function createApiClient(apiUrl: string): KavachApiClient {
 			}),
 
 		// Settings
-		getSettings: () => fetch<KavachSettings>("/api/settings"),
+		getSettings: () => fetch<TheAuthSettings>("/api/settings"),
 
 		updateSettings: (settings) =>
-			fetch<KavachSettings>("/api/settings", {
+			fetch<TheAuthSettings>("/api/settings", {
 				method: "PATCH",
 				body: JSON.stringify(settings),
 			}),

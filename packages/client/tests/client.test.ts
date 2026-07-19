@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createKavachClient } from "../src/client.js";
-import { KavachApiError } from "../src/error.js";
+import { createAuthClient } from "../src/client.js";
+import { AuthApiError } from "../src/error.js";
 import type { Agent, CreateAgentInput } from "../src/types.js";
+
+// Renamed from Kavach* to Auth* -- use new names throughout
+const createKavachClient = createAuthClient;
+const KavachApiError = AuthApiError;
+type KavachApiError = AuthApiError;
 
 // ---------------------------------------------------------------------------
 // Mock helpers
@@ -207,8 +212,8 @@ describe("createKavachClient", () => {
 			try {
 				await client.agents.list();
 			} catch (err) {
-				expect(err).toBeInstanceOf(KavachApiError);
-				const apiErr = err as KavachApiError;
+				expect(err).toBeInstanceOf(AuthApiError);
+				const apiErr = err as AuthApiError;
 				expect(apiErr.status).toBe(403);
 				expect(apiErr.code).toBe("PERMISSION_DENIED");
 				expect(apiErr.message).toBe("Access denied");

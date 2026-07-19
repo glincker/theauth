@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState } from "react";
 import { TheAuthContext } from "./context.js";
-import type { ActionResult, CreateAgentInput, KavachAgent } from "./types.js";
+import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
 
 // ─── Guards ────────────────────────────────────────────────────────────────────
 
@@ -124,11 +124,11 @@ export function useRotateSession() {
 // ─── useAgents ────────────────────────────────────────────────────────────────
 
 interface AgentApiResponse {
-	data: KavachAgent[];
+	data: TheAuthAgent[];
 }
 
 interface AgentSingleApiResponse {
-	data: KavachAgent;
+	data: TheAuthAgent;
 }
 
 interface ApiErrorResponse {
@@ -163,7 +163,7 @@ export function useAgents(basePath = "/api/kavach") {
 	const { user } = useRequiredContext("useAgents");
 	const base = basePath.replace(/\/$/, "");
 
-	const [agents, setAgents] = useState<KavachAgent[]>([]);
+	const [agents, setAgents] = useState<TheAuthAgent[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -204,7 +204,7 @@ export function useAgents(basePath = "/api/kavach") {
 	}
 
 	const create = useCallback(
-		async (input: CreateAgentInput): Promise<ActionResult<KavachAgent>> => {
+		async (input: CreateAgentInput): Promise<ActionResult<TheAuthAgent>> => {
 			try {
 				const res = await fetch(`${base}/agents`, {
 					method: "POST",
@@ -259,7 +259,7 @@ export function useAgents(basePath = "/api/kavach") {
 	);
 
 	const rotate = useCallback(
-		async (agentId: string): Promise<ActionResult<KavachAgent>> => {
+		async (agentId: string): Promise<ActionResult<TheAuthAgent>> => {
 			try {
 				const res = await fetch(`${base}/agents/${encodeURIComponent(agentId)}/rotate`, {
 					method: "POST",

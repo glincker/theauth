@@ -6,7 +6,7 @@
  * all of them. Useful for compliance exports that must be
  * cryptographically verifiable (EU AI Act Article 12, SOC 2 CC7).
  *
- * Context URL: https://theauth.com/contexts/audit/v1.jsonld
+ * Context URL: https://theauth.dev/contexts/audit/v1.jsonld
  * This context is defined locally — the URL does not need to resolve at
  * runtime. It serves as a stable identifier for the credential schema.
  */
@@ -31,7 +31,7 @@ export const THEAUTH_AUDIT_CREDENTIAL = "TheAuthAuditCredential";
  * Context URL for TheAuthAuditCredential.
  * Defined locally — the URL does not need to resolve at runtime.
  */
-export const THEAUTH_AUDIT_CONTEXT = "https://theauth.com/contexts/audit/v1.jsonld";
+export const THEAUTH_AUDIT_CONTEXT = "https://theauth.dev/contexts/audit/v1.jsonld";
 
 const THEAUTH_VERSION = "0.3.0";
 const DEFAULT_TTL_SECONDS = 86400;

@@ -1,10 +1,10 @@
 ---
 title: Fastify
-description: Register TheAuth auth routes on Fastify with `kavachFastify(kavach)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
+description: Register TheAuth auth routes on Fastify with `theAuthFastify(kavach)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
 icon: "/brand-icons/fastify.svg"
 ---
 
-`kavachFastify(kavach, options?)` returns an async Fastify plugin. Register it with `fastify.register` and use Fastify's built-in `prefix` option to control the mount path.
+`theAuthFastify(kavach, options?)` returns an async Fastify plugin. Register it with `fastify.register` and use Fastify's built-in `prefix` option to control the mount path.
 
 ## Install
 
@@ -39,13 +39,13 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // src/index.ts
 import Fastify from 'fastify';
-import { kavachFastify } from '@glinr/theauth-fastify';
+import { theAuthFastify } from '@glinr/theauth-fastify';
 import { kavach, mcp } from './lib/kavach.js';
 
 const app = Fastify();
 
 // Use Fastify's prefix option to set the mount path
-await app.register(kavachFastify(kavach, { mcp }), {
+await app.register(theAuthFastify(kavach, { mcp }), {
   prefix: '/api/kavach',
 });
 
@@ -96,7 +96,7 @@ All MCP routes include CORS headers and respond to OPTIONS preflight requests.
 ```typescript
 import Fastify from 'fastify';
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachFastify } from '@glinr/theauth-fastify';
+import { theAuthFastify } from '@glinr/theauth-fastify';
 
 const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -111,7 +111,7 @@ const mcp = createMcpModule(kavach);
 
 const app = Fastify({ logger: true });
 
-await app.register(kavachFastify(kavach, { mcp }), {
+await app.register(theAuthFastify(kavach, { mcp }), {
   prefix: '/api/kavach',
 });
 

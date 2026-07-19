@@ -41,7 +41,7 @@ export const auth = betterAuth({
 ```
 
 ```ts
-// AFTER: lib/theauth.ts (TheAuth)
+// AFTER: lib/kavach.ts (TheAuth)
 import { createTheAuth } from '@glinr/theauth';
 import { organization, twoFactor } from '@glinr/theauth/auth';
 
@@ -69,10 +69,10 @@ export const { GET, POST } = toNextJsHandler(auth);
 
 ```ts
 // AFTER: app/api/kavach/[...kavach]/route.ts (TheAuth)
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { kavach } from '@/lib/kavach';
 
-const handlers = kavachNextjs(kavach);
+const handlers = theAuthNextjs(kavach);
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -374,7 +374,7 @@ function hashToPercent(str: string): number {
 export const config = { matcher: '/api/auth/:path*' };
 ```
 
-Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the TheAuth tables. The `cookieAuth` adapter described above keeps existing users signed in during the overlap.
+Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the TheAuth tables. The `customAuth`-based `legacyAdapter` described above keeps existing users signed in during the overlap.
 
 ## FAQ
 
@@ -388,10 +388,10 @@ Yes. Install `@glinr/theauth-prisma` and pass a `PrismaClient` as the database b
 No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createTheAuth` and enable it in your adapter.
 
 **Can I run better-auth and TheAuth side by side?**
-Yes. Use the `cookieAuth` adapter to accept better-auth sessions inside TheAuth, and route traffic with a feature flag as shown above.
+Yes. Use `customAuth` to wrap your existing better-auth instance's session check as a `legacyAdapter`, and route traffic with a feature flag as shown above.
 
 **Will my users have to sign in again?**
-With the `cookieAuth` adapter, no. TheAuth will accept existing better-auth sessions and issue new TheAuth tokens on the next request. Without the adapter, yes, existing tokens will be rejected.
+With the `legacyAdapter`, no. TheAuth will accept existing better-auth sessions and issue new TheAuth tokens on the next request. Without the adapter, yes, existing tokens will be rejected.
 
 ## Related
 

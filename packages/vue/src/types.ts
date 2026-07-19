@@ -1,32 +1,50 @@
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-export interface KavachUser {
+export interface TheAuthUser {
 	id: string;
 	email?: string;
 	name?: string;
 	image?: string;
 }
 
-export interface KavachSession {
+/** @deprecated Use `TheAuthUser` instead. Will be removed in a future major version. */
+export type AuthUser = TheAuthUser;
+
+/** @deprecated Use `TheAuthUser` instead. Will be removed in a future major version. */
+export type KavachUser = TheAuthUser;
+
+export interface TheAuthSession {
 	token: string;
-	user: KavachUser;
+	user: TheAuthUser;
 	expiresAt?: string;
 }
 
-export interface KavachAgent {
+/** @deprecated Use `TheAuthSession` instead. Will be removed in a future major version. */
+export type AuthSession = TheAuthSession;
+
+/** @deprecated Use `TheAuthSession` instead. Will be removed in a future major version. */
+export type KavachSession = TheAuthSession;
+
+export interface TheAuthAgent {
 	id: string;
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
 	token: string;
-	permissions: KavachPermission[];
+	permissions: TheAuthPermission[];
 	status: "active" | "revoked" | "expired";
 	expiresAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
-export interface KavachPermission {
+/** @deprecated Use `TheAuthAgent` instead. Will be removed in a future major version. */
+export type AuthAgent = TheAuthAgent;
+
+/** @deprecated Use `TheAuthAgent` instead. Will be removed in a future major version. */
+export type KavachAgent = TheAuthAgent;
+
+export interface TheAuthPermission {
 	resource: string;
 	actions: string[];
 	constraints?: {
@@ -38,11 +56,17 @@ export interface KavachPermission {
 	};
 }
 
+/** @deprecated Use `TheAuthPermission` instead. Will be removed in a future major version. */
+export type AuthPermission = TheAuthPermission;
+
+/** @deprecated Use `TheAuthPermission` instead. Will be removed in a future major version. */
+export type KavachPermission = TheAuthPermission;
+
 export interface CreateAgentInput {
 	ownerId: string;
 	name: string;
 	type: "autonomous" | "delegated" | "service";
-	permissions: KavachPermission[];
+	permissions: TheAuthPermission[];
 	expiresAt?: string;
 	metadata?: Record<string, unknown>;
 }
@@ -54,8 +78,8 @@ export type ActionResult<T = void> = { success: true; data: T } | { success: fal
 // ─── Context value ────────────────────────────────────────────────────────────
 
 export interface TheAuthContextValue {
-	session: KavachSession | null;
-	user: KavachUser | null;
+	session: AuthSession | null;
+	user: AuthUser | null;
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	basePath: string;
@@ -67,6 +91,9 @@ export interface TheAuthContextValue {
 
 // Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
 // removed in a future major version.
+
+/** @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version. */
+export type AuthContextValue = TheAuthContextValue;
 
 /** @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version. */
 export type KavachContextValue = TheAuthContextValue;

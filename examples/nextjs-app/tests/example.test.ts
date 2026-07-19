@@ -20,7 +20,7 @@ async function loadRouteModule() {
 
 describe("nextjs-app example", () => {
 	beforeEach(async () => {
-		const kavach = await createTheAuth({
+		const auth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			agents: {
 				enabled: true,
@@ -31,7 +31,7 @@ describe("nextjs-app example", () => {
 			},
 		});
 
-		kavach.db
+		auth.db
 			.insert(schema.users)
 			.values({
 				id: "user-1",
@@ -42,7 +42,7 @@ describe("nextjs-app example", () => {
 			})
 			.run();
 
-		state.kavach = kavach;
+		state.kavach = auth;
 	});
 
 	it("mounts the catch-all route and serves the TheAuth API under /api/theauth", async () => {

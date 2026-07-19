@@ -347,10 +347,19 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
+export type AuthClientOptions = TheAuthClientOptions;
+
+/** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
 export type KavachClientOptions = TheAuthClientOptions;
 
 /** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
+export type AuthClient = TheAuthClient;
+
+/** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
 export type KavachClient = TheAuthClient;
+
+/** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
+export const createAuthClient = createTheAuthClient;
 
 /** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
 export const createKavachClient = createTheAuthClient;

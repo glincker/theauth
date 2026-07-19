@@ -1,0 +1,154 @@
+site_name: TheAuth
+site_description: Auth OS for AI agents. Identity, permissions, delegation, audit, and MCP OAuth in one TypeScript SDK.
+site_url: https://docs.theauth.dev
+repo_url: https://github.com/glincker/theauth
+repo_name: glincker/theauth
+edit_uri: edit/main/docs-site/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  logo: assets/logo.svg
+  favicon: assets/favicon.png
+
+extra_css:
+  - assets/custom.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/glincker/theauth
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/thegdsks
+    - icon: material/web
+      link: https://theauth.dev
+  version:
+    provider: mike
+    default: stable
+
+plugins:
+  - search
+  - mike:
+      version_selector: true
+      css_dir: css
+      javascript_dir: js
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Overview: getting-started/overview.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Choosing an Adapter: getting-started/choosing-an-adapter.md
+  - Concepts:
+    - Core Concepts: concepts/core-concepts.md
+    - Agent Identity: concepts/agents.md
+    - MCP Authorization: concepts/mcp-authorization.md
+    - Sessions: concepts/sessions.md
+    - Delegation: concepts/delegation.md
+    - Trust Scoring: concepts/trust-scoring.md
+    - Standards Alignment: concepts/standards.md
+  - Guides:
+    - Auth Methods:
+      - Email and Password: guides/auth/email-password.md
+      - Passkeys (WebAuthn): guides/auth/passkeys.md
+      - Magic Links: guides/auth/magic-links.md
+      - Multi-Factor Auth: guides/auth/multi-factor-auth.md
+      - OAuth Providers: guides/auth/oauth-providers.md
+    - Frameworks:
+      - Next.js App Router: guides/frameworks/nextjs.md
+      - SvelteKit: guides/frameworks/sveltekit.md
+      - Hono: guides/frameworks/hono.md
+      - Express: guides/frameworks/express.md
+      - Fastify: guides/frameworks/fastify.md
+      - NestJS: guides/frameworks/nestjs.md
+      - Nuxt: guides/frameworks/nuxt.md
+      - Astro: guides/frameworks/astro.md
+    - Client SDKs:
+      - React: guides/clients/react.md
+      - Expo / React Native: guides/clients/expo.md
+      - Electron: guides/clients/electron.md
+    - Permission Engine: guides/permissions.md
+    - Policy Templates: guides/policy-templates.md
+    - Webhooks and Events: guides/webhooks-events.md
+    - Database Setup: guides/database.md
+  - Reference:
+    - Configuration: reference/configuration.md
+    - Adapters Catalog: reference/adapters.md
+    - Error Codes: reference/errors.md
+    - Audit Events: reference/audit-events.md
+    - API Endpoints: reference/api.md
+    - Test Utilities: reference/test-utils.md
+  - Security:
+    - Compliance Overview: security/compliance.md
+    - GDPR: security/gdpr.md
+    - SOC 2 and ISO 42001: security/soc2-iso42001.md
+  - Migrations:
+    - Overview: migrations/overview.md
+    - From better-auth: migrations/from-better-auth.md
+    - From better-auth agent plugin: migrations/from-better-auth-agent-plugin.md
+    - From Clerk: migrations/from-clerk.md
+    - From Auth0: migrations/from-auth0.md
+  - Compare:
+    - Overview: compare/overview.md
+    - vs better-auth: compare/vs-better-auth.md
+    - vs Hanko: compare/vs-hanko.md
+    - vs Casdoor: compare/vs-casdoor.md
+    - vs Clerk and Auth0: compare/vs-paid.md
+  - Changelog: changelog.md

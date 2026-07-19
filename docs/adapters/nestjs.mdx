@@ -1,10 +1,10 @@
 ---
 title: NestJS
-description: Wire TheAuth into NestJS with `KavachModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
+description: Wire TheAuth into NestJS with `AuthModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
 icon: "/brand-icons/nestjs.svg"
 ---
 
-`KavachModule.forRoot(options)` is a NestJS dynamic module that mounts all TheAuth routes as Express middleware. Import it once in your root `AppModule`.
+`AuthModule.forRoot(options)` is a NestJS dynamic module that mounts all TheAuth routes as Express middleware. Import it once in your root `AppModule`.
 
 ## Install
 
@@ -34,17 +34,17 @@ export const mcp = createMcpModule(kavach);
 ```
 
 </Step>
-<Step title="Import KavachModule">
+<Step title="Import AuthModule">
 
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
-import { KavachModule } from '@glinr/theauth-nestjs';
+import { AuthModule } from '@glinr/theauth-nestjs';
 import { kavach, mcp } from './lib/kavach.js';
 
 @Module({
   imports: [
-    KavachModule.forRoot({
+    AuthModule.forRoot({
       kavach,
       mcp,
       basePath: '/api/kavach', // default
@@ -82,25 +82,25 @@ bootstrap();
 The default mount path is `/api/kavach`. Change it with the `basePath` option:
 
 ```typescript
-KavachModule.forRoot({ kavach, basePath: '/auth' })
+AuthModule.forRoot({ kavach, basePath: '/auth' })
 ```
 
 All TheAuth routes will then be available under `/auth/*`.
 
 ## Without a module
 
-If you prefer to mount routes imperatively in `main.ts` rather than importing a module, use `kavachMiddleware` directly:
+If you prefer to mount routes imperatively in `main.ts` rather than importing a module, use `theAuthMiddleware` directly:
 
 ```typescript
 // main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { kavachMiddleware } from '@glinr/theauth-nestjs';
+import { theAuthMiddleware } from '@glinr/theauth-nestjs';
 import { kavach, mcp } from './lib/kavach.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.use('/api/kavach', kavachMiddleware({ kavach, mcp }));
+  app.use('/api/kavach', theAuthMiddleware({ kavach, mcp }));
   await app.listen(3000);
 }
 
@@ -112,7 +112,7 @@ bootstrap();
 Pass `mcp` to enable the MCP OAuth 2.1 authorization server:
 
 ```typescript
-KavachModule.forRoot({ kavach, mcp, basePath: '/api/kavach' })
+AuthModule.forRoot({ kavach, mcp, basePath: '/api/kavach' })
 // registers:
 // GET  /api/kavach/.well-known/oauth-authorization-server
 // GET  /api/kavach/.well-known/oauth-protected-resource

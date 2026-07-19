@@ -1,10 +1,13 @@
 import type { App, InjectionKey, Ref } from "vue";
 import { inject, ref } from "vue";
-import type { ActionResult, KavachSession, KavachUser, TheAuthContextValue } from "./types.js";
+import type { ActionResult, TheAuthContextValue, TheAuthSession, TheAuthUser } from "./types.js";
 
 // ─── Injection key ────────────────────────────────────────────────────────────
 
 export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
+
+/** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
+export const AUTH_KEY = THEAUTH_KEY;
 
 /** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
 export const KAVACH_KEY = THEAUTH_KEY;
@@ -29,6 +32,9 @@ export interface TheAuthPluginOptions {
 }
 
 /** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
+export type AuthPluginOptions = TheAuthPluginOptions;
+
+/** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
 export type KavachPluginOptions = TheAuthPluginOptions;
 
 export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
@@ -37,7 +43,7 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 			const base = (options.basePath ?? "/api/kavach").replace(/\/$/, "");
 			const STORAGE_KEY = "kavach_session";
 
-			const session: Ref<KavachSession | null> = ref(null);
+			const session: Ref<TheAuthSession | null> = ref(null);
 			const isLoading: Ref<boolean> = ref(true);
 
 			async function fetchSession(): Promise<void> {
@@ -48,7 +54,7 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 				try {
 					const raw = window.localStorage.getItem(STORAGE_KEY);
 					if (raw) {
-						session.value = JSON.parse(raw) as KavachSession;
+						session.value = JSON.parse(raw) as TheAuthSession;
 					} else {
 						session.value = null;
 					}
@@ -70,7 +76,7 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 						body: JSON.stringify({ email, password }),
 					});
 					const json = (await res.json()) as
-						| { user: KavachUser; session: { token: string; expiresAt: string } }
+						| { user: TheAuthUser; session: { token: string; expiresAt: string } }
 						| { error: { code: string; message: string } };
 
 					if (!res.ok) {
@@ -82,10 +88,10 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 					}
 
 					const okBody = json as {
-						user: KavachUser;
+						user: TheAuthUser;
 						session: { token: string; expiresAt: string };
 					};
-					const sessionData: KavachSession = {
+					const sessionData: TheAuthSession = {
 						token: okBody.session.token,
 						user: okBody.user,
 						expiresAt: okBody.session.expiresAt,
@@ -112,7 +118,7 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 						body: JSON.stringify({ email, password, name }),
 					});
 					const json = (await res.json()) as
-						| { user: KavachUser; token: string }
+						| { user: TheAuthUser; token: string }
 						| { error: { code: string; message: string } };
 
 					if (!res.ok) {
@@ -123,8 +129,8 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 						};
 					}
 
-					const okBody = json as { user: KavachUser; token: string };
-					const sessionData: KavachSession = {
+					const okBody = json as { user: TheAuthUser; token: string };
+					const sessionData: TheAuthSession = {
 						token: okBody.token,
 						user: okBody.user,
 					};
@@ -158,7 +164,7 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 				get session() {
 					return session.value;
 				},
-				get user(): KavachUser | null {
+				get user(): TheAuthUser | null {
 					return session.value?.user ?? null;
 				},
 				get isLoading() {
@@ -181,6 +187,9 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 
 // Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
 // removed in a future major version.
+
+/** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
+export const createAuthPlugin = createTheAuthPlugin;
 
 /** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
 export const createKavachPlugin = createTheAuthPlugin;

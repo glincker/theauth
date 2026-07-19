@@ -31,6 +31,7 @@ export { handleTokenExchange } from "./token.js";
 // Types
 export type {
 	ApproveConsentParams,
+	AuthError,
 	KavachError,
 	McpAccessToken,
 	McpAuthContext,

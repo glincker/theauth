@@ -251,7 +251,7 @@ CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--
 
 <ParamField path="upstream" type="string">URL of the upstream service to proxy to</ParamField>
 <ParamField path="basePath" type="string" default="&quot;/&quot;">Base path prefix. Default: "/"</ParamField>
-<ParamField path="kavach" type="Kavach">TheAuth instance created with createTheAuth()</ParamField>
+<ParamField path="kavach" type="TheAuth">TheAuth instance created with createTheAuth()</ParamField>
 <ParamField path="policies" type="GatewayPolicy[]">Array of path-based access policies</ParamField>
 <ParamField path="cors" type="CorsConfig">CORS configuration</ParamField>
 <ParamField path="rateLimit" type="{ windowMs: number; max: number }">Global rate limit applied to all requests</ParamField>

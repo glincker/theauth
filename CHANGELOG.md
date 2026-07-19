@@ -6,6 +6,36 @@ For the full raw record see [GitHub Releases](https://github.com/glincker/theaut
 
 ## Timeline
 
+### v0.5.0 (upcoming), June 2026 -- Kavach* to TheAuth* rename
+
+No breaking change. All `Kavach*` exported identifiers now have `TheAuth*` canonical equivalents. Along the way the project also considered `Auth*` as an intermediate name; that idea was dropped in favor of `TheAuth*`, so `Auth*` ships only as a second deprecated alias, never as the primary name. Both `Auth*` and `Kavach*` are still exported as `@deprecated` aliases and will continue to work until a future major version, when they will be removed.
+
+New canonical names added across all packages:
+
+- `createTheAuth` / `TheAuth` / `TheAuthConfig` / `TheAuthInstance` (core)
+- `TheAuthError` / `TheAuthHooks` / `TheAuthPlugin` (core internals)
+- `THEAUTH_AGENT_CREDENTIAL`, `THEAUTH_PERMISSION_CREDENTIAL`, `THEAUTH_DELEGATION_CREDENTIAL` (core VC)
+- `TheAuthApiError` / `TheAuthClientOptions` / `TheAuthClient` / `createTheAuthClient` (client)
+- `TheAuthUser`, `TheAuthSession`, `TheAuthAgent`, `TheAuthPermission`, `TheAuthContextValue`, `TheAuthContext`, `TheAuthProvider`, `useTheAuthContext` (react)
+- `THEAUTH_KEY`, `TheAuthPluginOptions`, `createTheAuthPlugin` (vue)
+- `TheAuthStorage`, `TheAuthExpoConfig`, `TheAuthExpoProvider`, `useTheAuthContext` (expo)
+- `TheAuthClient`, `createTheAuthClient` (svelte)
+- `TheAuthSettings`, `TheAuthApiClient`, `TheAuthDashboard` (dashboard)
+- `TheAuthEmailError` (email auth)
+- `TheAuthNextjsOptions`, `TheAuthNextjsHandlers`, `theAuthNextjs` (nextjs adapter)
+- `TheAuthNestjsOptions`, `buildTheAuthRouter`, `theAuthMiddleware`, `TheAuthModuleOptions`, `TheAuthModule` (nestjs adapter)
+- `TheAuthTanStackOptions`, `TheAuthTanStackHandlers`, `theAuthTanStack` (tanstack adapter)
+- `TheAuthSvelteKitOptions`, `TheAuthSvelteKitHandlers`, `theAuthSvelteKit` (sveltekit adapter)
+- `TheAuthAstroOptions`, `TheAuthAstroHandlers`, `theAuthAstro` (astro adapter)
+- `TheAuthNuxtOptions`, `theAuthNuxt` (nuxt adapter)
+- `TheAuthFastifyOptions`, `theAuthFastify` (fastify adapter)
+- `TheAuthSolidStartOptions`, `TheAuthSolidStartHandlers`, `theAuthSolidStart` (solidstart adapter)
+- `TheAuthPrismaAdapter` (prisma adapter)
+
+See `RENAME-MAP.md` for the full one-to-one mapping table and a migration guide.
+
+Removal timeline: deprecated `Auth*` and `Kavach*` names will be removed in a future major version.
+
 ### @glinr/theauth-nextjs-auth v0.1.0, May 2, 2026
 
 New package. A focused Next.js (14/15/16) adapter for apps whose auth backend lives outside Next.js (Spring, Rails, Hono, Go, etc.). Distinct from `@glinr/theauth-nextjs` which bundles the agent-management runtime — this is the "I have a backend already, just give me session + cookies + refresh on the FE" path.

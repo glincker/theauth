@@ -1,19 +1,24 @@
 export type {
+	AuthClient,
+	AuthClientOptions,
 	AuthorizeRequest,
 	KavachClient,
 	KavachClientOptions,
 	TheAuthClient,
 	TheAuthClientOptions,
 } from "./client.js";
-export { createKavachClient, createTheAuthClient } from "./client.js";
-export { KavachApiError, TheAuthApiError } from "./error.js";
+export { createAuthClient, createKavachClient, createTheAuthClient } from "./client.js";
+export { AuthApiError, KavachApiError, TheAuthApiError } from "./error.js";
 export type {
 	Agent,
 	AgentFilters,
 	AuditEntry,
 	AuditFilters,
+	AuthApiErrorBody,
+	AuthError,
 	AuthorizeByTokenInput,
 	AuthorizeResult,
+	AuthResult,
 	CreateAgentInput,
 	DelegateInput,
 	DelegationChain,

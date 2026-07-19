@@ -50,7 +50,7 @@ When to wait:
 ```
 
 ```ts
-// AFTER: lib/theauth.ts (TheAuth)
+// AFTER: lib/kavach.ts (TheAuth)
 import { createTheAuth } from '@glinr/theauth';
 import { organization } from '@glinr/theauth/auth';
 
@@ -87,10 +87,10 @@ export const GET = handleAuth();
 ```ts
 // AFTER (TheAuth + Next.js)
 // app/api/kavach/[...kavach]/route.ts
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { kavach } from '@/lib/kavach';
 
-const handlers = kavachNextjs(kavach);
+const handlers = theAuthNextjs(kavach);
 
 export const { GET, POST, PATCH, DELETE, OPTIONS } = handlers;
 ```

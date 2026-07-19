@@ -59,11 +59,11 @@ import { createTrustModule } from "./trust/scoring.js";
 import type {
 	AuditExportOptions,
 	AuditFilter,
+	AuthConfig,
 	AuthorizeRequest,
 	AuthorizeResult,
 	DelegateInput,
 	DelegationChain,
-	KavachConfig,
 	McpServer,
 	McpServerInput,
 	RequestContext,
@@ -105,7 +105,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
  * });
  * ```
  *
- * @example MySQL – skip auto-migration (tables managed externally)
+ * @example MySQL - skip auto-migration (tables managed externally)
  * ```typescript
  * const auth = await createTheAuth({
  *   database: {
@@ -116,7 +116,7 @@ function classifyViolation(reason: string | undefined): ViolationType {
  * });
  * ```
  */
-export async function createTheAuth(config: KavachConfig) {
+export async function createTheAuth(config: TheAuthConfig) {
 	const authAdapter = config.auth?.adapter ?? null;
 
 	const db = await createDatabase(config.database);
@@ -999,7 +999,17 @@ export type TheAuth = Awaited<ReturnType<typeof createTheAuth>>;
 /**
  * @deprecated Use `createTheAuth` instead. Will be removed in a future major version.
  */
+export const createAuth = createTheAuth;
+
+/**
+ * @deprecated Use `createTheAuth` instead. Will be removed in a future major version.
+ */
 export const createKavach = createTheAuth;
+
+/**
+ * @deprecated Use `TheAuth` instead. Will be removed in a future major version.
+ */
+export type Auth = TheAuth;
 
 /**
  * @deprecated Use `TheAuth` instead. Will be removed in a future major version.

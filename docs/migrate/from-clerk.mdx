@@ -32,11 +32,11 @@ When to wait:
 | `auth()` in server components | `kavach.auth.getSession()` using the request cookies |
 | `currentUser()` | `kavach.auth.getUser()` using the request cookies |
 | `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
-| `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the Kavach event hooks. |
+| `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the TheAuth event hooks. |
 | Hosted sign-in at `/sign-in` | Build your own page against `useSignIn()`. |
 | Hosted org switcher | Build your own against the `organization` plugin. |
 | JWT templates | `jwt` plugin with claim customisation. |
-| Clerk backend SDK `@clerk/backend` | Kavach server instance directly. |
+| Clerk backend SDK `@clerk/backend` | TheAuth server instance directly. |
 | `Organization`, `Membership` | `organization` plugin (same model, similar shape). |
 
 ## Server setup
@@ -83,10 +83,10 @@ Clerk hides its route handling behind the middleware. TheAuth exposes an explici
 
 ```ts
 // AFTER: app/api/auth/[...kavach]/route.ts (TheAuth)
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
-const { GET, POST } = kavachNextjs(getKavach);
+const { GET, POST } = theAuthNextjs(getKavach);
 
 export { GET, POST };
 ```
@@ -140,7 +140,7 @@ export const config = {
 };
 ```
 
-Note that Kavach's `getSession` returns a `Result` type (`{ success, data }` or `{ success: false, error }`), not a thrown exception. See the [configuration](/configuration) page for full signatures.
+Note that TheAuth's `getSession` returns a `Result` type (`{ success, data }` or `{ success: false, error }`), not a thrown exception. See the [configuration](/configuration) page for full signatures.
 
 ## Client SDK
 
@@ -264,7 +264,7 @@ If you were relying on Clerk's first-party passkey UI or phone OTP UI, you will 
 
 ## Organizations
 
-Clerk's Organizations model ports cleanly. The Kavach organization plugin uses the same three concepts: organization, membership, role.
+Clerk's Organizations model ports cleanly. The TheAuth organization plugin uses the same three concepts: organization, membership, role.
 
 ```ts
 // BEFORE (Clerk backend)
@@ -297,7 +297,7 @@ await kavach.organizations.addMember({
 });
 ```
 
-Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in Kavach. If you have code reading `orgMembership.role`, search for `org:` and strip the prefix.
+Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in TheAuth. If you have code reading `orgMembership.role`, search for `org:` and strip the prefix.
 
 ## OAuth providers
 
@@ -368,9 +368,9 @@ writeFileSync('./clerk-users.json', JSON.stringify(out, null, 2));
 console.log(`exported ${out.length} users`);
 ```
 
-### Step 2: import into the Kavach tables
+### Step 2: import into the TheAuth tables
 
-Kavach uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through password reset or their next sign-in (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth and passkey sign-ins work immediately.
+TheAuth uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through password reset or their next sign-in (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth and passkey sign-ins work immediately.
 
 ```sql
 -- Users. Run after you have loaded clerk-users.json into a staging table
@@ -426,7 +426,7 @@ async function signInWithLegacyBridge(usernameInput: string, password: string) {
   const legacy = await db.query.legacyClerkHashes.findFirst({ where: eq(legacyClerkHashes.username, usernameInput) });
 
   if (legacy && await bcryptCompare(password, legacy.bcryptHash)) {
-    // Legacy hash verified — create (or update) the TheAuth credential with a fresh PBKDF2 hash
+    // Legacy hash verified, create (or update) the TheAuth credential with a fresh PBKDF2 hash
     await kavach.username?.signUp({ username: usernameInput, password }).catch(() => {
       // already migrated, fall through to a normal sign-in
     });
@@ -495,7 +495,7 @@ Not hosted. The `organization` plugin has the same model (organization, membersh
 - Impersonation with TTL: the `admin` plugin ships this.
 
 **Will my Clerk webhooks still fire?**
-No. Clerk webhooks are driven by Clerk's internal events. TheAuth emits events from your own database via the event system (see [events](/events)). If you used Clerk webhooks to sync users to Stripe, port that to a Kavach event hook that runs in your process.
+No. Clerk webhooks are driven by Clerk's internal events. TheAuth emits events from your own database via the event system (see [events](/events)). If you used Clerk webhooks to sync users to Stripe, port that to a TheAuth event hook that runs in your process.
 
 **I use Clerk's JWT templates. What replaces them?**
 The `jwt` plugin exposes a `customClaims` callback that runs at token issuance. It receives the session and returns any extra claims you want in the JWT.

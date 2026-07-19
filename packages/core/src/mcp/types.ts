@@ -11,6 +11,11 @@ export interface TheAuthError {
 /**
  * @deprecated Use `TheAuthError` instead. Will be removed in a future major version.
  */
+export type AuthError = TheAuthError;
+
+/**
+ * @deprecated Use `TheAuthError` instead. Will be removed in a future major version.
+ */
 export type KavachError = TheAuthError;
 
 export type Result<T> = { success: true; data: T } | { success: false; error: TheAuthError };

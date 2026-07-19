@@ -1,12 +1,18 @@
 name: Feature request
-description: Suggest a feature or improvement
+description: Suggest a new feature or improvement to theauth
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. The more context you give, the easier it is to evaluate and prioritize.
+        Please search existing issues and discussions before opening a new one.
+
   - type: textarea
     id: problem
     attributes:
-      label: Problem
-      description: What are you trying to do that TheAuth doesn't support yet?
+      label: Problem or use case
+      description: What are you trying to do that theauth does not support yet? Be specific.
     validations:
       required: true
 
@@ -14,7 +20,8 @@ body:
     id: solution
     attributes:
       label: Proposed solution
-      description: How you think this should work. Code examples are welcome.
+      description: How you think this should work. TypeScript API examples are very welcome.
+      render: typescript
     validations:
       required: true
 
@@ -22,20 +29,46 @@ body:
     id: alternatives
     attributes:
       label: Alternatives considered
-      description: Other approaches you've thought about or workarounds you're using now
+      description: Other approaches you have explored, workarounds you are using now, or other libraries that do something similar
 
   - type: dropdown
     id: area
     attributes:
       label: Area
+      description: Which part of theauth does this touch?
       options:
-        - Agent identity
-        - Permission engine
-        - Delegation chains
-        - Audit trail
-        - MCP OAuth 2.1
-        - Framework adapters
-        - Dashboard
-        - CLI
-        - Documentation
-        - Other
+        - "Agent identity"
+        - "Permission engine"
+        - "Delegation chains"
+        - "Audit trail"
+        - "MCP OAuth 2.1"
+        - "OAuth providers"
+        - "Passkeys / WebAuthn"
+        - "TOTP / 2FA"
+        - "Organizations / multi-tenant"
+        - "SCIM / directory sync"
+        - "Framework adapters"
+        - "Database adapters"
+        - "UI components"
+        - "Dashboard"
+        - "CLI"
+        - "Edge runtimes"
+        - "Documentation"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority for you
+      options:
+        - "Nice to have"
+        - "Would unblock a real use case"
+        - "Blocking production"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links, prior art, RFCs, or anything else that helps frame the request

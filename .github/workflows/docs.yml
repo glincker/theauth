@@ -1,0 +1,87 @@
+name: Deploy docs
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # mike needs full history
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Install MkDocs Material and plugins
+        run: |
+          pip install mkdocs-material mike
+
+      - name: Build (strict)
+        working-directory: docs-site
+        run: mkdocs build --strict
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Install MkDocs Material and plugins
+        run: pip install mkdocs-material mike
+
+      - name: Deploy version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: docs-site
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          MAJOR_MINOR="${VERSION%.*}"
+          mike deploy --push --update-aliases "${MAJOR_MINOR}" stable
+          mike set-default --push stable
+
+      - name: Deploy latest from main
+        if: github.ref == 'refs/heads/main'
+        working-directory: docs-site
+        run: |
+          mike deploy --push --update-aliases dev latest
+
+      - name: Set custom domain
+        if: env.DOCS_CNAME != ''
+        run: |
+          git checkout gh-pages
+          echo "$DOCS_CNAME" > CNAME
+          git add CNAME
+          git commit -m "docs: set custom domain" || true
+          git push origin gh-pages
+        env:
+          DOCS_CNAME: ${{ secrets.DOCS_CNAME }}

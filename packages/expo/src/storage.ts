@@ -1,11 +1,11 @@
-import type { KavachStorage } from "./types.js";
+import type { TheAuthStorage } from "./types.js";
 
 /**
  * Minimal in-memory storage fallback used when no storage adapter is provided.
  * Tokens are lost when the JS runtime reloads. Pass a real adapter
- * (AsyncStorage, SecureStore) via KavachExpoConfig.storage.
+ * (AsyncStorage, SecureStore) via TheAuthExpoConfig.storage.
  */
-export function createMemoryStorage(): KavachStorage {
+export function createMemoryStorage(): TheAuthStorage {
 	const store = new Map<string, string>();
 	return {
 		async getItem(key: string): Promise<string | null> {

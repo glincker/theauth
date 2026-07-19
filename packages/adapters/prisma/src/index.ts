@@ -2,6 +2,7 @@ export { createPrismaAdapter } from "./adapter.js";
 export type {
 	AgentFilter,
 	AuditLogFilter,
+	AuthPrismaAdapter,
 	CreateAgentInput,
 	CreateAuditLogInput,
 	CreatePermissionInput,
@@ -26,4 +27,5 @@ export type {
 	PrismaSession,
 	PrismaTrustScore,
 	PrismaUser,
+	TheAuthPrismaAdapter,
 } from "./types.js";

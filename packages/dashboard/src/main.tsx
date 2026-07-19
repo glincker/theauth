@@ -2,14 +2,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
-import { KavachDashboard } from "./dashboard.js";
+import { TheAuthDashboard } from "./dashboard.js";
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found");
 
 createRoot(rootEl).render(
 	<StrictMode>
-		<KavachDashboard
+		<TheAuthDashboard
 			apiUrl={import.meta.env.VITE_THEAUTH_API_URL ?? "http://localhost:3000"}
 			theme="dark"
 		/>

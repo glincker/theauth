@@ -6,7 +6,6 @@ import type {
 	CreatePermissionInput,
 	CreateSessionInput,
 	CreateUserInput,
-	KavachPrismaAdapter,
 	PrismaAgent,
 	PrismaApiKey,
 	PrismaApprovalRequest,
@@ -25,6 +24,7 @@ import type {
 	PrismaSession,
 	PrismaTrustScore,
 	PrismaUser,
+	TheAuthPrismaAdapter,
 } from "./types.js";
 
 // ─── Minimal PrismaClient shape ───────────────────────────────────────────────
@@ -98,7 +98,7 @@ interface PrismaClientLike {
  * // Or pass to theauth via a custom integration layer
  * ```
  */
-export function createPrismaAdapter(prisma: PrismaClientLike): KavachPrismaAdapter {
+export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdapter {
 	// ── Users ──────────────────────────────────────────────────────────────────
 
 	async function findUserById(id: string): Promise<PrismaUser | null> {
@@ -503,7 +503,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): KavachPrismaAdapt
 
 	// ── Transactions ───────────────────────────────────────────────────────────
 
-	async function transaction<T>(fn: (adapter: KavachPrismaAdapter) => Promise<T>): Promise<T> {
+	async function transaction<T>(fn: (adapter: TheAuthPrismaAdapter) => Promise<T>): Promise<T> {
 		return prisma.$transaction((tx) => fn(createPrismaAdapter(tx as PrismaClientLike)));
 	}
 

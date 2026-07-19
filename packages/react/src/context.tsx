@@ -11,13 +11,13 @@ import {
 import type {
 	ActionResult,
 	ExternalAuthConfig,
-	KavachSession,
-	KavachUser,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,
 	RotationStatus,
 	TheAuthContextValue,
+	TheAuthSession,
+	TheAuthUser,
 } from "./types.js";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -39,12 +39,12 @@ export interface TheAuthProviderProps {
 	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
 	basePath?: string;
 	/**
-	 * External auth mode — delegates authentication to an external API.
+	 * External auth mode - delegates authentication to an external API.
 	 * When set, TheAuth acts as a thin client:
 	 * - User is fetched from `external.apiUrl + external.mePath`
 	 * - Login redirects to `external.apiUrl + external.loginPath`
 	 * - Logout calls `external.apiUrl + external.logoutPath`
-	 * - No localStorage sessions — the external API manages auth via httpOnly cookies
+	 * - No localStorage sessions - the external API manages auth via httpOnly cookies
 	 *
 	 * @example
 	 * ```tsx
@@ -166,7 +166,7 @@ function ExternalProvider({
 }): ReactNode {
 	// Stable identity across renders so useCallback deps don't churn.
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [user, setUser] = useState<KavachUser | null>(null);
+	const [user, setUser] = useState<TheAuthUser | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [rotationStatus, setRotationStatus] = useState<RotationStatus>("idle");
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -564,7 +564,7 @@ function ExternalProvider({
 		return { success: true, data: undefined };
 	}, [apiUrl, loginPath]);
 
-	const session: KavachSession | null = user ? { token: "__external__", user } : null;
+	const session: TheAuthSession | null = user ? { token: "__external__", user } : null;
 
 	const value: TheAuthContextValue = {
 		session,
@@ -585,7 +585,7 @@ function ExternalProvider({
 
 // ─── Default user mapper ──────────────────────────────────────────────────────
 
-function defaultMapUser(data: Record<string, unknown>): KavachUser {
+function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 	return {
 		id: (data.user_id as string) ?? (data.id as string) ?? (data.sub as string) ?? "unknown",
 		email: data.email as string | undefined,
@@ -606,7 +606,7 @@ function ManagedProvider({
 	debug?: boolean;
 }): ReactNode {
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [session, setSession] = useState<KavachSession | null>(null);
+	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
 		typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -622,7 +622,7 @@ function ManagedProvider({
 		try {
 			const raw = window.localStorage.getItem(STORAGE_KEY);
 			if (raw) {
-				const stored = JSON.parse(raw) as KavachSession;
+				const stored = JSON.parse(raw) as TheAuthSession;
 				setSession(stored);
 			} else {
 				setSession(null);
@@ -671,7 +671,7 @@ function ManagedProvider({
 					body: JSON.stringify({ email, password }),
 				});
 				const json = (await res.json()) as
-					| { user: KavachUser; session: { token: string; expiresAt: string } }
+					| { user: TheAuthUser; session: { token: string; expiresAt: string } }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -682,8 +682,8 @@ function ManagedProvider({
 					};
 				}
 
-				const okBody = json as { user: KavachUser; session: { token: string; expiresAt: string } };
-				const sessionData: KavachSession = {
+				const okBody = json as { user: TheAuthUser; session: { token: string; expiresAt: string } };
+				const sessionData: TheAuthSession = {
 					token: okBody.session.token,
 					user: okBody.user,
 					expiresAt: okBody.session.expiresAt,
@@ -715,7 +715,7 @@ function ManagedProvider({
 					body: JSON.stringify({ email, password, name }),
 				});
 				const json = (await res.json()) as
-					| { user: KavachUser; token: string }
+					| { user: TheAuthUser; token: string }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -726,8 +726,8 @@ function ManagedProvider({
 					};
 				}
 
-				const okBody = json as { user: KavachUser; token: string };
-				const sessionData: KavachSession = {
+				const okBody = json as { user: TheAuthUser; token: string };
+				const sessionData: TheAuthSession = {
 					token: okBody.token,
 					user: okBody.user,
 				};
@@ -754,7 +754,7 @@ function ManagedProvider({
 		}
 	}, [log]);
 
-	const user: KavachUser | null = session?.user ?? null;
+	const user: TheAuthUser | null = session?.user ?? null;
 
 	const rotateSession = useCallback(
 		makeNoopRotation("rotateSession is only available in external mode with refreshPath set"),
@@ -783,13 +783,25 @@ function ManagedProvider({
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
+export const AuthContext = TheAuthContext;
+
+/** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
 export const KavachContext = TheAuthContext;
+
+/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
+export const useAuthContext = useTheAuthContext;
 
 /** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
 export const useKavachContext = useTheAuthContext;
 
 /** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
+export const AuthProvider = TheAuthProvider;
+
+/** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
 export const KavachProvider = TheAuthProvider;
+
+/** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
+export type AuthProviderProps = TheAuthProviderProps;
 
 /** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
 export type KavachProviderProps = TheAuthProviderProps;

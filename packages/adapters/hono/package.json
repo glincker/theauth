@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
-    "hono": "^4.12.14",
+    "hono": "^4.12.27",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0",

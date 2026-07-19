@@ -1,16 +1,16 @@
 import type { Database, DatabaseConfig } from "../db/database.js";
 import type { SessionManager } from "../session/session.js";
-import type { KavachConfig } from "../types.js";
-import type { KavachPlugin, PluginContext, PluginEndpoint } from "./types.js";
+import type { AuthConfig } from "../types.js";
+import type { TheAuthPlugin, PluginContext, PluginEndpoint } from "./types.js";
 
 export interface PluginRegistry {
 	endpoints: PluginEndpoint[];
 	migrations: string[];
 	hooks: {
-		onRequest: Array<NonNullable<KavachPlugin["hooks"]>["onRequest"]>;
-		onAuthenticate: Array<NonNullable<KavachPlugin["hooks"]>["onAuthenticate"]>;
-		onSessionCreate: Array<NonNullable<KavachPlugin["hooks"]>["onSessionCreate"]>;
-		onSessionRevoke: Array<NonNullable<KavachPlugin["hooks"]>["onSessionRevoke"]>;
+		onRequest: Array<NonNullable<TheAuthPlugin["hooks"]>["onRequest"]>;
+		onAuthenticate: Array<NonNullable<TheAuthPlugin["hooks"]>["onAuthenticate"]>;
+		onSessionCreate: Array<NonNullable<TheAuthPlugin["hooks"]>["onSessionCreate"]>;
+		onSessionRevoke: Array<NonNullable<TheAuthPlugin["hooks"]>["onSessionRevoke"]>;
 	};
 	pluginContext: Record<string, unknown>;
 }
@@ -87,9 +87,9 @@ async function runMigrations(
  * subsequent requests can immediately use plugin tables.
  */
 export async function initializePlugins(
-	plugins: KavachPlugin[],
+	plugins: TheAuthPlugin[],
 	db: Database,
-	config: KavachConfig,
+	config: AuthConfig,
 	sessionManager: SessionManager | null,
 ): Promise<PluginRegistry> {
 	const registry: PluginRegistry = {

@@ -154,12 +154,12 @@ const { agents, create, revoke, rotate, isLoading, error } = useAgents(basePath)
 
 Manages agent identity records for the current user. Requires the full base URL (same as the provider config).
 
-## `KavachExpoConfig`
+## `AuthExpoConfig`
 
 | Field | Type | Description |
 |---|---|---|
 | `basePath` | `string` | Full URL to your TheAuth mount point |
-| `storage` | `KavachStorage?` | Token persistence adapter. Defaults to in-memory |
+| `storage` | `AuthStorage?` | Token persistence adapter. Defaults to in-memory |
 
 <Warning>
 The default in-memory storage loses the session when the app restarts. Always pass a real storage adapter in production.

@@ -1,0 +1,33 @@
+name: Security advisory
+description: Report a security vulnerability (redirects to private disclosure)
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Please do NOT open a public issue for security vulnerabilities
+
+        Disclosing a vulnerability publicly before a fix is available puts all theauth users at risk.
+
+        Instead, please report it privately:
+
+        1. Email **support@glincker.com** with the subject line: `[Security] theauth vulnerability`
+        2. Or use GitHub's built-in private vulnerability reporting: [Security tab](https://github.com/glincker/theauth/security/advisories/new)
+
+        Include:
+        - A clear description of the vulnerability
+        - Steps to reproduce
+        - The impact you believe it has
+        - Any suggested mitigations (optional)
+
+        We respond within 48 hours and will coordinate public disclosure with you.
+
+        See [SECURITY.md](https://github.com/glincker/theauth/blob/main/SECURITY.md) for the full policy.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirm
+      options:
+        - label: I understand this form is for guidance only. I will NOT include vulnerability details here. I will use email or GitHub private advisory instead.
+          required: true

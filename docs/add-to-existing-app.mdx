@@ -17,7 +17,7 @@ TheAuth does not replace your human auth. It runs alongside it. This guide assum
     Your existing auth must expose a stable string ID, anything from Clerk's `userId`, Auth.js's `session.user.id`, or a row id from your own users table.
   </Card>
   <Card title="A database" icon="database">
-    Postgres, MySQL, SQLite, or Cloudflare D1. Kavach creates its own tables, prefixed `kavach_`, alongside yours.
+    Postgres, MySQL, SQLite, or Cloudflare D1. TheAuth creates its own tables, prefixed `kavach_`, alongside yours.
   </Card>
 </CardGroup>
 
@@ -35,7 +35,7 @@ Substitute the adapter for your framework: `@glinr/theauth-hono`, `@glinr/theaut
 
 </Step>
 
-<Step title="Create the Kavach instance">
+<Step title="Create the TheAuth instance">
 
 ```ts title="lib/kavach.ts"
 import { createTheAuth } from '@glinr/theauth';
@@ -63,10 +63,10 @@ The lazy pattern lets Next.js build without opening a DB connection.
 <Step title="Wire the route handler">
 
 ```ts title="app/api/kavach/[...kavach]/route.ts"
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { getKavach } from '@/lib/kavach';
 
-const { GET, POST } = kavachNextjs(getKavach);
+const { GET, POST } = theAuthNextjs(getKavach);
 
 export { GET, POST };
 ```
@@ -216,16 +216,16 @@ export async function POST() {
 ## Common first-day questions
 
 <AccordionGroup>
-<Accordion title="Do I need to run Kavach migrations manually?" icon="database">
-No by default. Kavach runs its own migrations on first boot. Set `skipMigrations: true` in `createTheAuth` if you want to run them yourself via `kavach-cli migrate`.
+<Accordion title="Do I need to run TheAuth migrations manually?" icon="database">
+No by default. TheAuth runs its own migrations on first boot. Set `skipMigrations: true` in `createTheAuth` if you want to run them yourself via `kavach-cli migrate`.
 </Accordion>
 <Accordion title="Can I share the session cookie with my existing auth?" icon="cookie-bite">
-Not directly. Kavach issues its own cookie for sessions created via its plugins. If you never use Kavach's human-auth plugins (because you have Clerk / Auth.js / better-auth), you never see that cookie and there is nothing to share.
+Not directly. TheAuth issues its own cookie for sessions created via its plugins. If you never use TheAuth's human-auth plugins (because you have Clerk / Auth.js / better-auth), you never see that cookie and there is nothing to share.
 </Accordion>
 <Accordion title="What if my user IDs change shape later?" icon="arrows-rotate">
-Kavach stores `ownerId` as a string and never interprets it. Migrating from numeric IDs to UUIDs later means updating `kavach_agents.owner_id` in a single SQL update.
+TheAuth stores `ownerId` as a string and never interprets it. Migrating from numeric IDs to UUIDs later means updating `kavach_agents.owner_id` in a single SQL update.
 </Accordion>
-<Accordion title="Does Kavach emit events I can subscribe to?" icon="rss">
+<Accordion title="Does TheAuth emit events I can subscribe to?" icon="rss">
 Yes, via [event streaming](/event-streaming) and [webhooks](/webhooks). Wire them to your analytics or to Stripe / PostHog / Slack.
 </Accordion>
 </AccordionGroup>

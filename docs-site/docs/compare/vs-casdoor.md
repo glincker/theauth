@@ -1,0 +1,49 @@
+---
+title: TheAuth vs Casdoor
+description: TheAuth as an in-process TypeScript library versus Casdoor as a standalone Go IAM service. Compares MCP OAuth 2.1, agent identity, LDAP, RBAC, and deployment model.
+---
+
+# TheAuth vs Casdoor
+
+Casdoor is a deployed Go IAM service. You run it as a separate process alongside your app, and it handles SSO, LDAP, CAS, RADIUS, and a native MCP OAuth server. It is designed for organizations that need a standalone identity provider, especially in Go environments.
+
+TheAuth is a library, not a service. You import it into your TypeScript app and it runs in-process. Same MCP OAuth 2.1 spec, very different deployment model.
+
+## Feature matrix
+
+| Capability | TheAuth | Casdoor |
+|---|---|---|
+| Language | TypeScript library | Go service |
+| First-party TypeScript SDK | Yes | No (third-party only) |
+| Deployment model | In-process library | Standalone IAM server |
+| MCP OAuth 2.1 server | Built in with agent delegation | Built in |
+| Agent identity | First-class `AgentIdentity` entity with delegation and audit | Not shipped |
+| LDAP / CAS / RADIUS | Not shipped | Yes |
+| RBAC | Unified RBAC + ABAC + ReBAC | RBAC via Casbin |
+| Ephemeral agent sessions | Built in | Not shipped |
+| Cost attribution | Built in | Not shipped |
+| Trust scoring | 5-level built in | Not shipped |
+| Edge runtime | Web Crypto throughout | Go, not applicable |
+| Self-hostable | Yes | Yes |
+| License | MIT | Apache 2.0 |
+
+## Pick TheAuth if
+
+- You are building a TypeScript or edge-native app and want auth in-process, not as a sidecar.
+- You need first-class agent primitives: delegation, ephemeral sessions, trust scoring, and cost attribution.
+- Your MCP OAuth story needs to know which agent made which call, not just which client.
+
+## Pick Casdoor if
+
+- You want a deployed IAM service that your whole organization can log into, including non-TypeScript services.
+- You need LDAP, CAS, or RADIUS compatibility for employee SSO.
+- You are in a Go shop and want to own the full server.
+
+The clearest signal: if you are writing `import { createAuth }`, use TheAuth. If you are writing `docker run casdoor`, use Casdoor.
+
+## Related pages
+
+- [Compare overview](overview.md)
+- [vs better-auth](vs-better-auth.md)
+- [MCP Authorization](../concepts/mcp-authorization.md)
+- [Agent Identity](../concepts/agents.md)

@@ -33,13 +33,13 @@ import { z } from "zod";
 import { randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { oneTimeTokens } from "../db/schema.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types for callers that import from this module
 // ---------------------------------------------------------------------------
 
-export type { KavachError, Result };
+export type { AuthError, KavachError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -131,7 +131,7 @@ function generateRawToken(): string {
 	return randomBytesHex(TOKEN_BYTE_LENGTH);
 }
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 

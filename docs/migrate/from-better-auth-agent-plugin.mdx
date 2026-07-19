@@ -188,12 +188,12 @@ If you were running a separate MCP OAuth server alongside better-auth (because t
 
 ```ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
 const kavach = await createTheAuth({ /* ... */ });
 const mcp = createMcpModule(kavach);
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = kavachNextjs(kavach, { mcp });
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(kavach, { mcp });
 ```
 
 The `.well-known` documents, dynamic client registration, authorize endpoint, and token endpoint all come up under the same mount path.

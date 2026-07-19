@@ -24,10 +24,22 @@ export class TheAuthApiError extends Error {
 	/**
 	 * @deprecated Use `toTheAuthError` instead. Will be removed in a future major version.
 	 */
+	toAuthError(): TheAuthError {
+		return this.toTheAuthError();
+	}
+
+	/**
+	 * @deprecated Use `toTheAuthError` instead. Will be removed in a future major version.
+	 */
 	toKavachError(): TheAuthError {
 		return this.toTheAuthError();
 	}
 }
+
+/**
+ * @deprecated Use `TheAuthApiError` instead. Will be removed in a future major version.
+ */
+export const AuthApiError = TheAuthApiError;
 
 /**
  * @deprecated Use `TheAuthApiError` instead. Will be removed in a future major version.

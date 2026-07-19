@@ -14,7 +14,10 @@ TheAuth takes security seriously. If you discover a security vulnerability, plea
 
 ### How to report
 
-Email **support@glincker.com** with:
+**Option 1 (preferred):** Use GitHub's private vulnerability reporting:
+[github.com/glincker/theauth/security/advisories/new](https://github.com/glincker/theauth/security/advisories/new)
+
+**Option 2:** Email **support@glincker.com** with the subject `[Security] theauth vulnerability` and include:
 
 1. Description of the vulnerability
 2. Steps to reproduce
@@ -26,7 +29,7 @@ Email **support@glincker.com** with:
 - **Acknowledgment** within 48 hours
 - **Assessment** within 5 business days
 - **Fix timeline** communicated within 10 business days
-- **Public disclosure** within 90 days of confirmation, coordinated with the reporter. If we can't ship a fix in that window, we will still disclose so users can mitigate.
+- **Public disclosure** within 90 days of confirmation, coordinated with the reporter. If a fix cannot ship in that window, we will still disclose so users can mitigate.
 - **Credit** in the security advisory (unless you prefer anonymity)
 
 ### Scope

@@ -1,4 +1,11 @@
-export type { KavachNestjsOptions } from "./adapter.js";
-export { buildKavachRouter, kavachMiddleware } from "./adapter.js";
-export type { KavachModuleOptions } from "./module.js";
-export { KavachModule } from "./module.js";
+export type { AuthNestjsOptions, KavachNestjsOptions, TheAuthNestjsOptions } from "./adapter.js";
+export {
+	authMiddleware,
+	buildAuthRouter,
+	buildKavachRouter,
+	buildTheAuthRouter,
+	kavachMiddleware,
+	theAuthMiddleware,
+} from "./adapter.js";
+export type { AuthModuleOptions, KavachModuleOptions, TheAuthModuleOptions } from "./module.js";
+export { AuthModule, KavachModule, TheAuthModule } from "./module.js";

@@ -44,7 +44,7 @@ import { z } from "zod";
 import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { jwtRefreshTokens } from "../db/schema.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
 import type { AgentType, TrustTier } from "../standards/claims.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 
@@ -52,7 +52,7 @@ import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { KavachError, Result };
+export type { AuthError, KavachError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -188,7 +188,7 @@ const REFRESH_TOKEN_BYTES = 32;
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 

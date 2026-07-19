@@ -88,7 +88,7 @@ function resolveInitialTheme(defaultTheme: "light" | "dark"): "light" | "dark" {
 	return stored === "light" || stored === "dark" ? stored : defaultTheme;
 }
 
-export function KavachDashboard({ apiUrl, theme = "dark", demo }: DashboardProps) {
+export function TheAuthDashboard({ apiUrl, theme = "dark", demo }: DashboardProps) {
 	const [currentTheme, setCurrentTheme] = useState<"light" | "dark">(() =>
 		resolveInitialTheme(theme),
 	);
@@ -131,3 +131,9 @@ export function KavachDashboard({ apiUrl, theme = "dark", demo }: DashboardProps
 		</div>
 	);
 }
+
+/** @deprecated Use `TheAuthDashboard` instead. Will be removed in a future major version. */
+export const AuthDashboard = TheAuthDashboard;
+
+/** @deprecated Use `TheAuthDashboard` instead. Will be removed in a future major version. */
+export const KavachDashboard = TheAuthDashboard;

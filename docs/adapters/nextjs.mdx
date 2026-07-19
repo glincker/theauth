@@ -1,10 +1,10 @@
 ---
 title: Next.js
-description: Mount TheAuth auth routes in Next.js with `kavachNextjs(kavach)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
+description: Mount TheAuth auth routes in Next.js with `theAuthNextjs(kavach)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
 icon: "/brand-icons/nextdotjs.svg"
 ---
 
-`kavachNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
+`theAuthNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
 
 ## Install
 
@@ -42,10 +42,10 @@ Create `app/api/kavach/[...kavach]/route.ts`. The `[...kavach]` segment catches 
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { kavach, mcp } from '@/lib/kavach';
 
-const handlers = kavachNextjs(kavach, { mcp });
+const handlers = theAuthNextjs(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -64,7 +64,7 @@ export const OPTIONS = handlers.OPTIONS;
 ## Options
 
 ```typescript
-interface KavachNextjsOptions {
+interface AuthNextjsOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
   basePath?: string;       // defaults to '/api/kavach'
 }
@@ -105,7 +105,7 @@ POST /api/kavach/mcp/token
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
 const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -118,7 +118,7 @@ const kavach = await createTheAuth({
 
 const mcp = createMcpModule(kavach);
 
-const handlers = kavachNextjs(kavach, { mcp });
+const handlers = theAuthNextjs(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

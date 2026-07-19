@@ -716,27 +716,39 @@ async function dispatch(
 
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
-export interface KavachNextjsOptions {
+export interface TheAuthNextjsOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
 	mcp?: McpAuthModule;
 	/**
-	 * The URL path prefix before the `[...kavach]` catch-all segment.
+	 * The URL path prefix before the `[...auth]` catch-all segment.
 	 * Defaults to `/api/kavach`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth`
 	 */
 	basePath?: string;
 }
 
-export interface KavachNextjsHandlers {
+/** @deprecated Use `TheAuthNextjsOptions` instead. Will be removed in a future major version. */
+export type AuthNextjsOptions = TheAuthNextjsOptions;
+
+/** @deprecated Use `TheAuthNextjsOptions` instead. Will be removed in a future major version. */
+export type KavachNextjsOptions = TheAuthNextjsOptions;
+
+export interface TheAuthNextjsHandlers {
 	GET: (request: Request) => Promise<Response>;
 	POST: (request: Request) => Promise<Response>;
 	PATCH: (request: Request) => Promise<Response>;
 	DELETE: (request: Request) => Promise<Response>;
 	OPTIONS: (request: Request) => Promise<Response>;
 }
+
+/** @deprecated Use `TheAuthNextjsHandlers` instead. Will be removed in a future major version. */
+export type AuthNextjsHandlers = TheAuthNextjsHandlers;
+
+/** @deprecated Use `TheAuthNextjsHandlers` instead. Will be removed in a future major version. */
+export type KavachNextjsHandlers = TheAuthNextjsHandlers;
 
 /**
  * Create Next.js App Router route handlers for all TheAuth REST API routes.
@@ -746,10 +758,10 @@ export interface KavachNextjsHandlers {
  * @example
  * ```typescript
  * import { createTheAuth } from '@glinr/theauth';
- * import { kavachNextjs } from '@glinr/theauth-nextjs';
+ * import { theAuthNextjs } from '@glinr/theauth-nextjs';
  *
- * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const handlers = kavachNextjs(kavach);
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const handlers = theAuthNextjs(auth);
  *
  * export const GET = handlers.GET;
  * export const POST = handlers.POST;
@@ -762,14 +774,17 @@ export interface KavachNextjsHandlers {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const handlers = kavachNextjs(kavach, { mcp });
+ * const handlers = theAuthNextjs(auth, { mcp });
  * ```
  */
-export function kavachNextjs(kavach: TheAuth, options?: KavachNextjsOptions): KavachNextjsHandlers {
+export function theAuthNextjs(
+	auth: TheAuth,
+	options?: TheAuthNextjsOptions,
+): TheAuthNextjsHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 
-	const handler = (request: Request): Promise<Response> => dispatch(request, kavach, mcp, basePath);
+	const handler = (request: Request): Promise<Response> => dispatch(request, auth, mcp, basePath);
 
 	return {
 		GET: handler,
@@ -779,3 +794,9 @@ export function kavachNextjs(kavach: TheAuth, options?: KavachNextjsOptions): Ka
 		OPTIONS: handler,
 	};
 }
+
+/** @deprecated Use `theAuthNextjs` instead. Will be removed in a future major version. */
+export const authNextjs = theAuthNextjs;
+
+/** @deprecated Use `theAuthNextjs` instead. Will be removed in a future major version. */
+export const kavachNextjs = theAuthNextjs;

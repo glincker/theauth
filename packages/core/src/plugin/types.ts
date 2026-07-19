@@ -1,12 +1,12 @@
 import type { ResolvedUser } from "../auth/types.js";
 import type { Database } from "../db/database.js";
 import type { Session, SessionManager } from "../session/session.js";
-import type { KavachConfig } from "../types.js";
+import type { AuthConfig } from "../types.js";
 
 /** Context passed to plugin init */
 export interface PluginContext {
 	db: Database;
-	config: KavachConfig;
+	config: AuthConfig;
 	/** Register an API endpoint that adapters will mount */
 	addEndpoint: (endpoint: PluginEndpoint) => void;
 	/** Register a DB migration (CREATE TABLE statement) */
@@ -44,11 +44,11 @@ export interface EndpointContext {
 }
 
 /** Plugin definition */
-export interface KavachPlugin {
+export interface TheAuthPlugin {
 	/** Unique plugin identifier */
 	id: string;
 
-	/** Plugin initialization - runs during createKavach() */
+	/** Plugin initialization - runs during createTheAuth() */
 	init?: (ctx: PluginContext) => Promise<PluginInitResult | undefined>;
 
 	/** Database schema (Drizzle table definitions for type safety) */
@@ -68,6 +68,12 @@ export interface KavachPlugin {
 }
 
 export interface PluginInitResult {
-	/** Additional properties to merge into the kavach instance */
+	/** Additional properties to merge into the auth instance */
 	context?: Record<string, unknown>;
 }
+
+/** @deprecated Use `TheAuthPlugin` instead. Will be removed in a future major version. */
+export type AuthPlugin = TheAuthPlugin;
+
+/** @deprecated Use `TheAuthPlugin` instead. Will be removed in a future major version. */
+export type KavachPlugin = TheAuthPlugin;

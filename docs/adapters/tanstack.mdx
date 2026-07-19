@@ -1,10 +1,10 @@
 ---
 title: TanStack Start
-description: Mount TheAuth auth routes in TanStack Start with `kavachTanStack(kavach)`. Returns named handlers for a splat route using Web-standard Request.
+description: Mount TheAuth auth routes in TanStack Start with `theAuthTanStack(kavach)`. Returns named handlers for a splat route using Web-standard Request.
 icon: "/brand-icons/tanstack.svg"
 ---
 
-`kavachTanStack(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a splat API route file so all TheAuth paths are handled.
+`theAuthTanStack(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a splat API route file so all TheAuth paths are handled.
 
 ## Install
 
@@ -40,10 +40,10 @@ Create `app/routes/api/kavach.$.ts`. The `$` splat segment catches every sub-pat
 
 ```typescript
 // app/routes/api/kavach.$.ts
-import { kavachTanStack } from '@glinr/theauth-tanstack';
+import { theAuthTanStack } from '@glinr/theauth-tanstack';
 import { kavach, mcp } from '~/lib/kavach';
 
-const handlers = kavachTanStack(kavach, { mcp });
+const handlers = theAuthTanStack(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -62,7 +62,7 @@ export const OPTIONS = handlers.OPTIONS;
 ## Options
 
 ```typescript
-interface KavachTanStackOptions {
+interface AuthTanStackOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
   basePath?: string;       // defaults to '/api/kavach'
 }
@@ -103,7 +103,7 @@ POST /api/kavach/mcp/token
 ```typescript
 // app/routes/api/kavach.$.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachTanStack } from '@glinr/theauth-tanstack';
+import { theAuthTanStack } from '@glinr/theauth-tanstack';
 
 const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -116,7 +116,7 @@ const kavach = await createTheAuth({
 
 const mcp = createMcpModule(kavach);
 
-const handlers = kavachTanStack(kavach, { mcp });
+const handlers = theAuthTanStack(kavach, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

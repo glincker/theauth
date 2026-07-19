@@ -1,11 +1,11 @@
 ---
 title: Configuration
-description: Reference for every `createTheAuth()` option in `KavachConfig`. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
+description: Reference for every `createTheAuth()` option in `TheAuthConfig`. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
 icon: gear
 ---
 
 
-`createTheAuth()` accepts a `KavachConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
+`createTheAuth()` accepts a `TheAuthConfig` object. The only required field is `database`. Everything else is optional and enables features incrementally.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -46,7 +46,7 @@ const kavach = await createTheAuth({
 <ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config.</ParamField>
 <ParamField path="trust" type="TrustConfig">Graduated autonomy trust scoring.</ParamField>
 <ParamField path="telemetry" type="TelemetryConfig">OpenTelemetry integration via hooks.</ParamField>
-<ParamField path="hooks" type="KavachHooks">Lifecycle hooks for sandboxing and custom validation.</ParamField>
+<ParamField path="hooks" type="AuthHooks">Lifecycle hooks for sandboxing and custom validation.</ParamField>
 <ParamField path="baseUrl" type="string">Base URL for the auth server (e.g. https://auth.example.com).</ParamField>
 <ParamField path="secret" type="string">Secret key used to sign tokens. Min 32 characters.</ParamField>
 

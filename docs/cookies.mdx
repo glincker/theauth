@@ -4,7 +4,7 @@ description: How TheAuth sets session cookies, how to customize them, and the de
 icon: cookie-bite
 ---
 
-TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js, or better-auth runs your sign-in, Kavach is cookie-free, it authenticates agents with bearer tokens instead.
+TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js, or better-auth runs your sign-in, TheAuth is cookie-free, it authenticates agents with bearer tokens instead.
 
 ## Defaults
 
@@ -18,7 +18,7 @@ TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js
 | `Domain` | unset (host-only) |
 | `Max-Age` | 30 days, rolling |
 
-`Secure` is `true` whenever your `baseUrl` starts with `https://`. For local `http://localhost` it is `false` so the cookie survives a dev session. This is the most common source of "cookie missing in production" bug reports, so Kavach flips it automatically.
+`Secure` is `true` whenever your `baseUrl` starts with `https://`. For local `http://localhost` it is `false` so the cookie survives a dev session. This is the most common source of "cookie missing in production" bug reports, so TheAuth flips it automatically.
 
 ## Overriding
 
@@ -74,7 +74,7 @@ Absolute expiry pairs with high-trust-tier policies. See [Trust scoring](/trust)
 
 ## Reading the cookie yourself
 
-Most code never needs to. Use `kavach.auth.getSession({ request })` and let Kavach handle it. If you do want the raw string (for a custom route that bypasses the SDK), the cookie value is the opaque session token; hand it back to `kavach.auth.verifySession(token)` to get the user.
+Most code never needs to. Use `kavach.auth.getSession({ request })` and let TheAuth handle it. If you do want the raw string (for a custom route that bypasses the SDK), the cookie value is the opaque session token; hand it back to `kavach.auth.verifySession(token)` to get the user.
 
 ```ts
 import { getKavach } from '@/lib/kavach';
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
 
 <AccordionGroup>
 <Accordion title="Cookie missing in production, present in dev" icon="bug">
-Your `baseUrl` probably still points at `http://...` in production. Kavach sets `Secure: true` when the scheme is `https`, and browsers drop `Secure` cookies sent over plain HTTP. Set `baseUrl` to `https://your-domain.com`.
+Your `baseUrl` probably still points at `http://...` in production. TheAuth sets `Secure: true` when the scheme is `https`, and browsers drop `Secure` cookies sent over plain HTTP. Set `baseUrl` to `https://your-domain.com`.
 </Accordion>
 
 <Accordion title="Cookie missing on a subdomain" icon="bug">

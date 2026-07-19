@@ -102,7 +102,7 @@ export interface DatabaseInfo {
 	version: string;
 }
 
-export interface KavachSettings {
+export interface TheAuthSettings {
 	database: DatabaseInfo;
 	tokenExpirySeconds: number;
 	rateLimitRequestsPerMinute: number;
@@ -110,6 +110,12 @@ export interface KavachSettings {
 	auditRetentionDays: number;
 	maxAgentsPerTenant: number;
 }
+
+/** @deprecated Use `TheAuthSettings` instead. Will be removed in a future major version. */
+export type AuthSettings = TheAuthSettings;
+
+/** @deprecated Use `TheAuthSettings` instead. Will be removed in a future major version. */
+export type KavachSettings = TheAuthSettings;
 
 // ─── Dashboard Stats Types ────────────────────────────────────────────────────
 
