@@ -11,9 +11,9 @@ tags:
 **Auth for AI agents.** TheAuth gives every agent its own identity, checks permissions at call time, and writes an audit row for every decision. Plugs in after your human auth (Clerk, Auth.js, better-auth, or your own). Runs on Node, edge, Workers, Deno, and Bun.
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
 });
 

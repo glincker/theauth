@@ -28,7 +28,7 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 
 | `@better-auth/agent-auth` | TheAuth |
 |---|---|
-| `agentPlugin()` added to `betterAuth` | Built into `createAuth`. No plugin needed for the core agent surface. |
+| `agentPlugin()` added to `betterAuth` | Built into `createTheAuth`. No plugin needed for the core agent surface. |
 | `auth.api.createAgent({ userId, scopes })` | `kavach.agent.create({ ownerId, name, type, permissions })` |
 | `agent.accessToken` | `agent.token` (prefix `kv_`, returned once, SHA-256 hashed at rest) |
 | `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
@@ -60,10 +60,10 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 === "After (TheAuth)"
     ```ts
     // lib/kavach.ts
-    import { createAuth } from '@glinr/theauth';
+    import { createTheAuth } from '@glinr/theauth';
     import { emailPassword } from '@glinr/theauth/auth';
 
-    export const kavach = createAuth({
+    export const kavach = createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
       secret: process.env.KAVACH_SECRET!,
       baseUrl: process.env.AUTH_BASE_URL!,

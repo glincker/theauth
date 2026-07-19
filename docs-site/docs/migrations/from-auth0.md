@@ -24,12 +24,12 @@ When to wait:
 
 | Auth0 | TheAuth |
 |---|---|
-| Tenant | A `createAuth` instance. One per deployment. |
+| Tenant | A `createTheAuth` instance. One per deployment. |
 | Application (Regular Web, SPA, Native) | `@glinr/theauth-react`, `@glinr/theauth-vue`, etc., plus the framework adapter. |
 | API (resource server) | The HTTP handler mounted via an adapter. Audience bound via the `mcp` config. |
 | Machine-to-Machine client | `AgentIdentity` with `type: 'service'`. Scoped permissions, rotatable token, revocable. |
 | Connection (database, social, enterprise) | OAuth provider in the `oauth` plugin config, or the built-in email/password flow. |
-| Rule | Deprecated in Auth0 as well. Replace with a lifecycle hook on `createAuth` or a policy. |
+| Rule | Deprecated in Auth0 as well. Replace with a lifecycle hook on `createTheAuth` or a policy. |
 | Action (`onExecutePostLogin`, etc.) | Lifecycle hooks: `onSignIn`, `onSignUp`, `beforeSession`, `afterSession`. |
 | Organizations | `organization` plugin (same conceptual model). |
 | Roles, Permissions | `rbac` + resource-pattern matching on permissions. |
@@ -37,16 +37,16 @@ When to wait:
 | Management API | Server-side instance methods directly, no separate API. |
 | Refresh token rotation | On by default with the `jwtSession` and `refresh` plugins. |
 | Tenant logs | Audit trail via `kavach.audit.query()` and the audit export. |
-| Custom domain | Set `baseUrl` and the cookie config on `createAuth`. |
+| Custom domain | Set `baseUrl` and the cookie config on `createTheAuth`. |
 
 ## Server setup
 
 ```ts
 // lib/kavach.ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { organization, rbac } from '@glinr/theauth/plugins';
 
-export const kavach = await createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!, // e.g. https://auth.example.com
@@ -115,7 +115,7 @@ Auth0 Rules are JavaScript functions that run in the auth pipeline. TheAuth life
     ```
 === "After (TheAuth hook)"
     ```typescript
-    const kavach = await createAuth({
+    const kavach = await createTheAuth({
       // ...
       hooks: {
         onTokenIssue: async ({ userId, claims }) => {

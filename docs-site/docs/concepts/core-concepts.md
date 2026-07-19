@@ -94,7 +94,7 @@ Scores are computed from the audit log, not self-reported. An agent cannot give 
 
 TheAuth implements the full MCP auth stack: OAuth 2.1 with PKCE (S256), Protected Resource Metadata (RFC 9728), Authorization Server Metadata (RFC 8414), Resource Indicators (RFC 8707), and Dynamic Client Registration (RFC 7591).
 
-Enable it by passing `mcp: { enabled: true, issuer: '...' }` to `createAuth`.
+Enable it by passing `mcp: { enabled: true, issuer: '...' }` to `createTheAuth`.
 
 ## Related pages
 

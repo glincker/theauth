@@ -13,10 +13,10 @@ TheAuth includes built-in tools for the three GDPR obligations that most commonl
 ## Setup
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { gdpr } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

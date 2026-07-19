@@ -1,6 +1,6 @@
 ---
 title: Error Codes
-description: AuthError carries a code, message, and optional details. All SDK functions return a Result union instead of throwing, with matching HTTP status codes on REST.
+description: TheAuthError carries a code, message, and optional details. All SDK functions return a Result union instead of throwing, with matching HTTP status codes on REST.
 ---
 
 # Error Codes
@@ -8,7 +8,7 @@ description: AuthError carries a code, message, and optional details. All SDK fu
 TheAuth returns structured errors in the following shape:
 
 ```typescript
-interface AuthError {
+interface TheAuthError {
   code: string;    // machine-readable error code
   message: string; // human-readable description
   details?: Record<string, unknown>; // additional context

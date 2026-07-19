@@ -18,9 +18,9 @@ TheAuth implements the full MCP auth stack:
 ## Setup
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createAuth({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: {

@@ -39,7 +39,7 @@ TheAuth is a library, not a service. You import it into your TypeScript app and 
 - You need LDAP, CAS, or RADIUS compatibility for employee SSO.
 - You are in a Go shop and want to own the full server.
 
-The clearest signal: if you are writing `import { createAuth }`, use TheAuth. If you are writing `docker run casdoor`, use Casdoor.
+The clearest signal: if you are writing `import { createTheAuth }`, use TheAuth. If you are writing `docker run casdoor`, use Casdoor.
 
 ## Related pages
 
