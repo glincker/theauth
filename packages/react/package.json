@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-react",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "React hooks for TheAuth auth (with v0.5 session rotation)",
   "type": "module",
   "sideEffects": false,

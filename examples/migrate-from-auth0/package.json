@@ -2,7 +2,7 @@
   "name": "@glinr/theauth-example-migrate-from-auth0",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Runnable companion to docs/migrate/from-auth0.mdx. Demonstrates the AFTER patterns: TheAuth instance, M2M-as-agent with scoped permissions, rotation, policy constraints.",
   "scripts": {
     "start": "tsx src/index.ts",

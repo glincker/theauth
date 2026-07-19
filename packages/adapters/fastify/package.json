@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-fastify",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Fastify adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
