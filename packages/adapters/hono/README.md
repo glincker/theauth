@@ -16,7 +16,7 @@ pnpm add theauth @glinr/@glinr/theauth-hono
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { createTheAuth } from '@glinr/theauth';
-import { kavachHono } from '@glinr/theauth-hono';
+import { theAuthHono } from '@glinr/theauth-hono';
 
 const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
@@ -25,7 +25,7 @@ const kavach = createTheAuth({
 const app = new Hono();
 
 // Mount all TheAuth routes at /api/kavach
-app.route('/api/kavach', kavachHono(kavach));
+app.route('/api/kavach', theAuthHono(kavach));
 
 serve({ fetch: app.fetch, port: 3000 });
 ```
@@ -36,14 +36,14 @@ This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, a
 
 ```typescript
 import { createMcpModule } from '@glinr/theauth/mcp';
-import { kavachHono } from '@glinr/theauth-hono';
+import { theAuthHono } from '@glinr/theauth-hono';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
   // ...
 });
 
-app.route('/api/kavach', kavachHono(kavach, { mcp }));
+app.route('/api/kavach', theAuthHono(kavach, { mcp }));
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -56,7 +56,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`kavachHono(kavach, options?)` returns a `Hono` instance with all routes registered. Pass it to `app.route()` with your chosen prefix.
+`theAuthHono(kavach, options?)` returns a `Hono` instance with all routes registered. Pass it to `app.route()` with your chosen prefix.
 
 | Option | Type | Description |
 |--------|------|-------------|
