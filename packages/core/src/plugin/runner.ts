@@ -1,7 +1,7 @@
 import type { Database, DatabaseConfig } from "../db/database.js";
 import type { SessionManager } from "../session/session.js";
-import type { AuthConfig } from "../types.js";
-import type { TheAuthPlugin, PluginContext, PluginEndpoint } from "./types.js";
+import type { TheAuthConfig } from "../types.js";
+import type { PluginContext, PluginEndpoint, TheAuthPlugin } from "./types.js";
 
 export interface PluginRegistry {
 	endpoints: PluginEndpoint[];
@@ -89,7 +89,7 @@ async function runMigrations(
 export async function initializePlugins(
 	plugins: TheAuthPlugin[],
 	db: Database,
-	config: AuthConfig,
+	config: TheAuthConfig,
 	sessionManager: SessionManager | null,
 ): Promise<PluginRegistry> {
 	const registry: PluginRegistry = {

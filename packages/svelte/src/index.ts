@@ -10,7 +10,12 @@ export type {
 	TheAuthClient,
 	TheAuthClientOptions,
 } from "./stores.js";
-export { createAgentStore, createAuthClient, createKavachClient, createTheAuthClient } from "./stores.js";
+export {
+	createAgentStore,
+	createAuthClient,
+	createKavachClient,
+	createTheAuthClient,
+} from "./stores.js";
 
 // Types
 export type {

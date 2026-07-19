@@ -59,7 +59,6 @@ import { createTrustModule } from "./trust/scoring.js";
 import type {
 	AuditExportOptions,
 	AuditFilter,
-	AuthConfig,
 	AuthorizeRequest,
 	AuthorizeResult,
 	DelegateInput,
@@ -67,6 +66,7 @@ import type {
 	McpServer,
 	McpServerInput,
 	RequestContext,
+	TheAuthConfig,
 } from "./types.js";
 
 /**

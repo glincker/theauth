@@ -70,10 +70,7 @@ export type KavachAstroHandlers = TheAuthAstroHandlers;
  * const handlers = theAuthAstro(auth, { mcp });
  * ```
  */
-export function theAuthAstro(
-	auth: TheAuth,
-	options?: TheAuthAstroOptions,
-): TheAuthAstroHandlers {
+export function theAuthAstro(auth: TheAuth, options?: TheAuthAstroOptions): TheAuthAstroHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/kavach";
 

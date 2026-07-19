@@ -1,6 +1,12 @@
 import type { Readable } from "svelte/store";
 import { derived, writable } from "svelte/store";
-import type { ActionResult, CreateAgentInput, TheAuthAgent, TheAuthSession, TheAuthUser } from "./types.js";
+import type {
+	ActionResult,
+	CreateAgentInput,
+	TheAuthAgent,
+	TheAuthSession,
+	TheAuthUser,
+} from "./types.js";
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 

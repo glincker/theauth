@@ -5,7 +5,12 @@
  * the fields relevant to the behaviour under test.
  */
 
-import type { TheAuthAgent, TheAuthPermission, TheAuthSession, TheAuthUser } from "@glinr/theauth-react";
+import type {
+	TheAuthAgent,
+	TheAuthPermission,
+	TheAuthSession,
+	TheAuthUser,
+} from "@glinr/theauth-react";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
