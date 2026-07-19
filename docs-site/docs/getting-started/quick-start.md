@@ -52,12 +52,12 @@ Next steps are printed at the end: `cd`, install, `db:push`, `dev`.
 
 ### 2. Create an instance
 
-Pass a database config to `createAuth`. Use SQLite for local development and Postgres in production.
+Pass a database config to `createTheAuth`. Use SQLite for local development and Postgres in production.
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createAuth({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: 'kavach.db' },
   agents: {
     enabled: true,
@@ -187,7 +187,7 @@ const perms = await kavach.delegation.getEffectivePermissions(sub.id);
 TheAuth runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { Hono } from 'hono';
 
 type Env = { KAVACH_DB: D1Database };
@@ -195,7 +195,7 @@ type Env = { KAVACH_DB: D1Database };
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/health', async (c) => {
-  const kavach = await createAuth({
+  const kavach = await createTheAuth({
     database: { provider: 'd1', binding: c.env.KAVACH_DB },
   });
 
@@ -243,7 +243,7 @@ kavach.db.insert(users).values({
 
 ### Session not persisting after page reload
 
-The React hooks store sessions in `localStorage`. Make sure your app is wrapped in `<AuthProvider>`. If using SSR (Next.js), wrap the provider in a `"use client"` component.
+The React hooks store sessions in `localStorage`. Make sure your app is wrapped in `<TheAuthProvider>`. If using SSR (Next.js), wrap the provider in a `"use client"` component.
 
 ## Next steps
 
@@ -252,4 +252,4 @@ The React hooks store sessions in `localStorage`. Make sure your app is wrapped 
 - [MCP OAuth 2.1](../concepts/mcp-authorization.md) - Set up the authorization server for MCP tool servers.
 - [Framework adapters](../reference/adapters.md) - Drop-in middleware for ten frameworks.
 - [Migration guides](../migrations/overview.md) - Coming from another library.
-- [Configuration](../reference/configuration.md) - All `createAuth()` options.
+- [Configuration](../reference/configuration.md) - All `createTheAuth()` options.

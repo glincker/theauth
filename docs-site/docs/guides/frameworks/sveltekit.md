@@ -19,9 +19,9 @@ pnpm add @glinr/theauth @glinr/theauth-sveltekit
 
 ```typescript
 // src/lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {

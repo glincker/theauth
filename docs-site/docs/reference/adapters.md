@@ -15,7 +15,7 @@ The `@glinr/theauth` package has zero framework dependencies. It operates on the
 | `@glinr/theauth-hono` | Hono | `app.route('/api/kavach', kavachHono(kavach))` | [Hono](../guides/frameworks/hono.md) |
 | `@glinr/theauth-express` | Express | `app.use('/api/kavach', kavachExpress(kavach))` | [Express](../guides/frameworks/express.md) |
 | `@glinr/theauth-fastify` | Fastify | `app.register(authFastify(kavach), { prefix: '/api/kavach' })` | [Fastify](../guides/frameworks/fastify.md) |
-| `@glinr/theauth-nestjs` | NestJS | `AuthModule.forRoot({ kavach })` in `AppModule` | [NestJS](../guides/frameworks/nestjs.md) |
+| `@glinr/theauth-nestjs` | NestJS | `TheAuthModule.forRoot({ kavach })` in `AppModule` | [NestJS](../guides/frameworks/nestjs.md) |
 | `@glinr/theauth-nuxt` | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` | [Nuxt](../guides/frameworks/nuxt.md) |
 | `@glinr/theauth-sveltekit` | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` | [SvelteKit](../guides/frameworks/sveltekit.md) |
 | `@glinr/theauth-astro` | Astro | catch-all page `src/pages/api/kavach/[...path].ts` | [Astro](../guides/frameworks/astro.md) |
@@ -34,7 +34,7 @@ The `@glinr/theauth` package has zero framework dependencies. It operates on the
 
 | Package | Runtime | Notes |
 |---|---|---|
-| `@glinr/theauth-react` | Browser | React hooks and `AuthProvider` |
+| `@glinr/theauth-react` | Browser | React hooks and `TheAuthProvider` |
 | `@glinr/theauth-vue` | Browser | Vue composables and plugin |
 | `@glinr/theauth-svelte` | Browser | Svelte stores |
 | `@glinr/theauth-expo` | React Native / Expo | AsyncStorage or SecureStore token storage |
@@ -45,7 +45,7 @@ The `@glinr/theauth` package has zero framework dependencies. It operates on the
 
 | Package | Description |
 |---|---|
-| `@glinr/theauth/telemetry` (built-in) | OpenTelemetry hooks via `TelemetryConfig` in `createAuth` |
+| `@glinr/theauth/telemetry` (built-in) | OpenTelemetry hooks via `TelemetryConfig` in `createTheAuth` |
 
 !!! info "SIEM and OTLP streaming"
     A dedicated `@glinr/audit-otlp` package for streaming audit events to OTLP collectors (Datadog, Splunk, Grafana) is planned. Track the GitHub repository for status.

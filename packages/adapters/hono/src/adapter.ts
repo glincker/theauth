@@ -153,11 +153,11 @@ function mcpNoStore<T>(data: T, status = 200) {
  * @example
  * ```typescript
  * import { createTheAuth } from '@glinr/theauth';
- * import { kavachHono } from '@glinr/theauth-hono';
+ * import { theAuthHono } from '@glinr/theauth-hono';
  * import { serve } from '@hono/node-server';
  *
  * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const app = kavachHono(kavach);
+ * const app = theAuthHono(kavach);
  * serve({ fetch: app.fetch, port: 3000 });
  * ```
  *
@@ -165,10 +165,10 @@ function mcpNoStore<T>(data: T, status = 200) {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const app = kavachHono(kavach, { mcp });
+ * const app = theAuthHono(kavach, { mcp });
  * ```
  */
-export function kavachHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Hono {
+export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Hono {
 	const app = new Hono();
 	const mcp = options?.mcp;
 
@@ -890,3 +890,8 @@ export function kavachHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }): 
 
 	return app;
 }
+
+/** @deprecated Use `theAuthHono` instead. Will be removed in a future major version. */
+export const authHono = theAuthHono;
+/** @deprecated Use `theAuthHono` instead. Will be removed in a future major version. */
+export const kavachHono = theAuthHono;

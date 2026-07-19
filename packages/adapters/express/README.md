@@ -15,7 +15,7 @@ pnpm add theauth @glinr/@glinr/theauth-express
 ```typescript
 import express from 'express';
 import { createTheAuth } from '@glinr/theauth';
-import { kavachExpress } from '@glinr/theauth-express';
+import { theAuthExpress } from '@glinr/theauth-express';
 
 const app = express();
 app.use(express.json());
@@ -26,7 +26,7 @@ const kavach = createTheAuth({
 });
 
 // Mount all TheAuth routes at /auth
-app.use('/auth', kavachExpress(kavach));
+app.use('/auth', theAuthExpress(kavach));
 
 app.listen(3000);
 ```
@@ -37,14 +37,14 @@ This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, a
 
 ```typescript
 import { createMcpModule } from '@glinr/theauth/mcp';
-import { kavachExpress } from '@glinr/theauth-express';
+import { theAuthExpress } from '@glinr/theauth-express';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
   // ...
 });
 
-app.use('/auth', kavachExpress(kavach, { mcp }));
+app.use('/auth', theAuthExpress(kavach, { mcp }));
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -57,7 +57,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`kavachExpress(kavach, options?)` returns an Express `Router`. Pass it to `app.use()` with your chosen prefix.
+`theAuthExpress(kavach, options?)` returns an Express `Router`. Pass it to `app.use()` with your chosen prefix.
 
 | Option | Type | Description |
 |--------|------|-------------|

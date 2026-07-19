@@ -64,12 +64,12 @@ const req = new Request('https://example.com', {
 
 ## In-memory kavach instance
 
-For integration tests, use SQLite in-memory mode with `createAuth`:
+For integration tests, use SQLite in-memory mode with `createTheAuth`:
 
 ```ts
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createAuth({
+const kavach = createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
   agents: { enabled: true, auditAll: true },
 });

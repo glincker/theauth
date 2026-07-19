@@ -18,10 +18,10 @@ pnpm add @glinr/theauth
 ### 2. Add the plugin
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { passkey } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',

@@ -137,4 +137,4 @@ Minimum TypeScript version: **5.0**.
 
 - [Quick Start](quick-start.md) - Create an agent and run your first authorization check.
 - [Choosing an Adapter](choosing-an-adapter.md) - Pick the right framework adapter.
-- [Configuration](../reference/configuration.md) - All `createAuth()` options.
+- [Configuration](../reference/configuration.md) - All `createTheAuth()` options.

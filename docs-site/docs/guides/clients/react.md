@@ -1,6 +1,6 @@
 ---
 title: React
-description: Wire TheAuth into React 18 apps via AuthProvider and hooks from @glinr/theauth-react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
+description: Wire TheAuth into React 18 apps via TheAuthProvider and hooks from @glinr/theauth-react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
 ---
 
 # React
@@ -10,7 +10,7 @@ description: Wire TheAuth into React 18 apps via AuthProvider and hooks from @gl
 The package has no Node.js dependencies. It runs entirely in the browser and talks to your TheAuth API handler over standard `fetch`.
 
 !!! info
-    All hooks must be rendered inside `AuthProvider`. The provider talks to your TheAuth API route; no direct database access from the browser.
+    All hooks must be rendered inside `TheAuthProvider`. The provider talks to your TheAuth API route; no direct database access from the browser.
 
 ## Installation
 
@@ -20,18 +20,18 @@ pnpm add @glinr/theauth-react
 
 ## Provider setup
 
-Wrap your app with `AuthProvider`. In Next.js App Router, create a client component and import it from your root layout.
+Wrap your app with `TheAuthProvider`. In Next.js App Router, create a client component and import it from your root layout.
 
 ```tsx
 // app/providers.tsx
 'use client';
-import { AuthProvider } from '@glinr/theauth-react';
+import { TheAuthProvider } from '@glinr/theauth-react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider basePath="/api/kavach">
+    <TheAuthProvider basePath="/api/kavach">
       {children}
-    </AuthProvider>
+    </TheAuthProvider>
   );
 }
 ```

@@ -21,9 +21,9 @@ Create this outside the event handler so it is initialized once at server startu
 
 ```typescript
 // server/utils/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {

@@ -198,14 +198,14 @@ function buildWebRequest(req: Request): globalThis.Request {
  * ```typescript
  * import express from 'express';
  * import { createTheAuth } from '@glinr/theauth';
- * import { kavachExpress } from '@glinr/theauth-express';
+ * import { theAuthExpress } from '@glinr/theauth-express';
  *
  * const app = express();
  * app.use(express.json());
  * app.use(express.urlencoded({ extended: true }));
  *
  * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * app.use('/auth', kavachExpress(kavach));
+ * app.use('/auth', theAuthExpress(kavach));
  *
  * app.listen(3000);
  * ```
@@ -214,10 +214,10 @@ function buildWebRequest(req: Request): globalThis.Request {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * app.use('/auth', kavachExpress(kavach, { mcp }));
+ * app.use('/auth', theAuthExpress(kavach, { mcp }));
  * ```
  */
-export function kavachExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Router {
+export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Router {
 	const router = Router();
 	const mcp = options?.mcp;
 
@@ -801,3 +801,8 @@ export function kavachExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule }
 
 	return router;
 }
+
+/** @deprecated Use `theAuthExpress` instead. Will be removed in a future major version. */
+export const authExpress = theAuthExpress;
+/** @deprecated Use `theAuthExpress` instead. Will be removed in a future major version. */
+export const kavachExpress = theAuthExpress;

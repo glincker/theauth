@@ -21,9 +21,9 @@ Create this in a shared module so it is initialized once at server startup:
 
 ```typescript
 // lib/kavach.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createAuth({
+export const kavach = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -87,10 +87,10 @@ POST /api/kavach/mcp/token
 
 ```typescript
 // app/api/kavach/[...kavach]/route.ts
-import { createAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { authNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = createAuth({
+const kavach = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -111,7 +111,7 @@ export const OPTIONS = handlers.OPTIONS;
 ```
 
 !!! warning
-    Do not define `createAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
+    Do not define `createTheAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
 
 ## Related pages
 

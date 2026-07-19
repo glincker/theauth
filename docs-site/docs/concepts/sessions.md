@@ -20,10 +20,10 @@ This page covers cookie sessions and JWT sessions. Ephemeral agent sessions are 
 Pass `createCookieSessionManager` a config object and your `kavach.db` instance. The manager handles creation, validation, refresh, and revocation.
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { createCookieSessionManager } from '@glinr/theauth/auth';
 
-export const kavach = await createAuth({
+export const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   baseUrl: 'https://auth.example.com',
@@ -64,10 +64,10 @@ Cookie sessions include CSRF protection by default. Each session is issued with 
 For SPAs, mobile clients, and server-to-server flows where cookies are not practical.
 
 ```typescript
-import { createAuth } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 import { jwt } from '@glinr/theauth/auth';
 
-const kavach = await createAuth({
+const kavach = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.KAVACH_SECRET!,
   plugins: [

@@ -1,6 +1,7 @@
 /**
- * Alias for kavachHono — preferred name when using the adapter as a handler
- * rather than mounting routes directly.
+ * theAuthHono mounts all TheAuth REST API routes on a Hono app.
+ * createHonoAdapter is an alias, preferred when using the adapter as a
+ * handler rather than mounting routes directly.
  *
  * @example Cloudflare Workers with D1
  * ```typescript
@@ -24,4 +25,4 @@
  * export default app;
  * ```
  */
-export { kavachHono, kavachHono as createHonoAdapter } from "./adapter.js";
+export { authHono, kavachHono, theAuthHono, theAuthHono as createHonoAdapter } from "./adapter.js";
