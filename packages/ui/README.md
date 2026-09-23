@@ -50,6 +50,12 @@ All provider icons are exported individually (`GoogleIcon`, `GitHubIcon`, `Micro
 
 [https://docs.theauth.dev/ui](https://docs.theauth.dev/ui)
 
+## Community
+
+[![Discord](https://img.shields.io/discord/829168897080557579?style=flat-square&logo=discord&logoColor=white&label=discord&color=5865F2)](https://discord.gg/Ar5pcaZB99)
+
+Questions and help in the `#theauth` forum on the [GLINR Discord](https://discord.gg/Ar5pcaZB99).
+
 ## License
 
 MIT

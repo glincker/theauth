@@ -16,6 +16,7 @@
   <a href="https://bundlephobia.com/package/@glinr/theauth"><img src="https://img.shields.io/bundlephobia/minzip/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=bundle" alt="bundle size" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat&colorA=000000&colorB=3178c6&logo=typescript&logoColor=white" alt="TypeScript strict" /></a>
   <a href="https://github.com/glincker/theauth/discussions"><img src="https://img.shields.io/github/discussions/glincker/theauth?style=flat&colorA=000000&colorB=000000&label=discussions" alt="GitHub Discussions" /></a>
+  <a href="https://discord.gg/Ar5pcaZB99"><img src="https://img.shields.io/discord/829168897080557579?style=flat-square&logo=discord&logoColor=white&label=discord&color=5865F2" alt="Discord" /></a>
 </p>
 
 <p align="center">
@@ -461,6 +462,14 @@ Responsible disclosure: see [SECURITY.md](SECURITY.md). Do not open a public iss
 ## Roadmap
 
 Follow development on [GitHub Discussions](https://github.com/glincker/theauth/discussions) and the [changelog](CHANGELOG.md).
+
+---
+
+## Community
+
+Join the GLINR Discord and talk to us in the `#theauth` forum channel.
+
+<a href="https://discord.gg/Ar5pcaZB99"><img src="https://discord.com/api/guilds/829168897080557579/widget.png?style=banner2" alt="Join the GLINR Discord" /></a>
 
 ---
 

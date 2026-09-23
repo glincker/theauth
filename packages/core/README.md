@@ -197,6 +197,12 @@ Don't want to self-host? [TheAuth Cloud](https://app.theauth.dev) is the managed
 
 Full docs at **[docs.theauth.dev](https://docs.theauth.dev/docs)**
 
+## Community
+
+[![Discord](https://img.shields.io/discord/829168897080557579?style=flat-square&logo=discord&logoColor=white&label=discord&color=5865F2)](https://discord.gg/Ar5pcaZB99)
+
+Questions and help in the `#theauth` forum on the [GLINR Discord](https://discord.gg/Ar5pcaZB99).
+
 ## License
 
 [MIT](https://github.com/glincker/theauth/blob/main/LICENSE)
