@@ -49,6 +49,8 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/glincker/theauth
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/Ar5pcaZB99
     - icon: fontawesome/brands/x-twitter
       link: https://x.com/thegdsks
     - icon: material/web
