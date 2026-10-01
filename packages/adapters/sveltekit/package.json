@@ -43,7 +43,7 @@
     "@glinr/theauth": "workspace:*",
     "@sveltejs/kit": "^2.57.1",
     "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^3.0.0",
     "zod": "^3.24.0"
   }
