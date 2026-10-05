@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./query": {
+      "types": "./dist/query.d.ts",
+      "import": "./dist/query.js"
     }
   },
   "files": [
@@ -29,7 +33,8 @@
     "directory": "packages/react"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "@tanstack/react-query": ">=5.0.0"
   },
   "devDependencies": {
     "@types/react-dom": "^19.0.0",
@@ -39,6 +44,15 @@
     "@types/react": "^19.0.0",
     "vitest": "^3.0.0",
     "tsup": "^8.4.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "dependencies": {
+    "@glinr/theauth-client": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    }
   }
 }
