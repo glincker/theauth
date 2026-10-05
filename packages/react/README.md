@@ -77,12 +77,16 @@ function Login() {
 
 - `useSession()`: user or `null` (401 is not an error)
 - `useLogin()`, `useLogout()`
-- `usePasskeys()`: `list`, `register`, `remove`, `login`, `isSupported`
-- `useTotp()`: `enrollBegin`, `enrollFinish` (returns recovery codes), `verify`, `recovery`, `disable`
-- `useSessions()`: `current` and `revokeCurrent` (the server has no per-user session list yet)
+- `usePasskeys()`: `list`, `register`, `rename`, `remove`, `login`, `isSupported`
+- `useTotp()`: `enrollBegin`, `enrollFinish` (returns recovery codes), `verify`, `recovery`, `disable`, `regenerateRecoveryCodes`; `useTotpStatus()` for enrolled and codes remaining
+- `useSessions()`: `list`, `revoke(id)`, `revokeOthers`, plus `current` and `revokeCurrent`
+- `useStepUp()`: `verify({ method, ... })` and `passkey()`; run after a `auth.recent_auth_required` error, then retry
+- `useApiTokens({ all?, ownerId? })`: `list`, `mint` (raw secret is in the mint result only), `revoke`
+- `useDeviceApproval(userCode)`: `info` (idle until a code is set), `approve(abilities?)`, `deny` for a verification page
+- `useBootstrapStatus()`, `useSignup()` (accepts `setupToken`), `useChangePassword()`
 - `authKeys`: query key factory for manual invalidation
 
-Failures are `AuthQueryError` with a stable `code` (for example `RATE_LIMITED`, `PASSKEY_UNSUPPORTED`). Map codes to your own copy, the hooks return no prose.
+Failures are `AuthQueryError` with a stable `code` (for example `rate_limited`, `account_locked`, `auth.recent_auth_required`, `PASSKEY_UNSUPPORTED`); throttles also carry `retryAfter` seconds. Map codes to your own copy, the hooks return no prose.
 
 ## External mode with rotation (v0.5+)
 

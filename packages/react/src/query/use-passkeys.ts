@@ -20,10 +20,14 @@ export function usePasskeys() {
 		mutationFn: async (id) => unwrap(await client.passkeys.remove(id)),
 		onSuccess: refresh,
 	});
+	const rename = useMutation<null, Error, { id: string; name: string }>({
+		mutationFn: async ({ id, name }) => unwrap(await client.passkeys.rename(id, name)),
+		onSuccess: refresh,
+	});
 	const login = useMutation<{ ok: true }, Error, void>({
 		mutationFn: async () => unwrap(await client.passkeys.login()),
 		onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.session() }),
 	});
 
-	return { list, register, remove, login, isSupported: client.passkeys.isSupported() };
+	return { list, register, remove, rename, login, isSupported: client.passkeys.isSupported() };
 }

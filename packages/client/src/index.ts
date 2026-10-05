@@ -16,15 +16,39 @@ export {
 	GO_ERROR_PASSKEY_CANCELLED,
 	GO_ERROR_PASSKEY_UNSUPPORTED,
 } from "./go-client.js";
+export type { GoThrottleError } from "./go-errors.js";
+export {
+	GO_CODE_ACCOUNT_LOCKED,
+	GO_CODE_RATE_LIMITED,
+	GO_CODE_RECENT_AUTH_REQUIRED,
+	isRecentAuthRequired,
+	isThrottleError,
+} from "./go-errors.js";
 export type {
+	BootstrapStatus,
+	DeviceCode,
+	DeviceCodeInput,
+	DevicePollOptions,
+	DeviceRequestInfo,
+	DeviceToken,
+	GoApiToken,
 	GoAuthError,
 	GoAuthResult,
+	GoSession,
 	GoUser,
+	ListApiTokensOptions,
 	LoginResult,
+	MintApiTokenInput,
+	MintedApiToken,
 	PasskeyCredential,
+	SignupInput,
+	StepUpMethod,
+	StepUpProof,
+	StepUpResult,
 	TheAuthGoClient,
 	TheAuthGoClientOptions,
 	TotpEnrollment,
+	TotpStatus,
 } from "./go-types.js";
 export type {
 	Agent,

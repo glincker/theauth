@@ -1,4 +1,4 @@
-import type { GoUser, LoginResult } from "@glinr/theauth-client";
+import type { GoSession, GoUser, LoginResult, SignupInput } from "@glinr/theauth-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap, useTheAuthGoClient } from "./client-context.js";
 import { authKeys } from "./keys.js";
@@ -40,7 +40,43 @@ export function useLogout() {
 	});
 }
 
-/** The server exposes only the current session today; see MISSING.md in the client package. */
+/** The caller's own sessions, plus revoke one, revoke all others, and revoke the current one. */
 export function useSessions() {
-	return { current: useSession(), revokeCurrent: useLogout() };
+	const client = useTheAuthGoClient();
+	const qc = useQueryClient();
+	const refresh = () => qc.invalidateQueries({ queryKey: authKeys.sessions() });
+
+	const list = useQuery<GoSession[]>({
+		queryKey: authKeys.sessions(),
+		queryFn: async () => unwrap(await client.session.list()),
+	});
+	const revoke = useMutation<null, Error, string>({
+		mutationFn: async (id) => unwrap(await client.session.revoke(id)),
+		onSuccess: () =>
+			Promise.all([refresh(), qc.invalidateQueries({ queryKey: authKeys.session() })]),
+	});
+	const revokeOthers = useMutation<{ revoked: number }, Error, void>({
+		mutationFn: async () => unwrap(await client.session.revokeOthers()),
+		onSuccess: refresh,
+	});
+
+	return { list, revoke, revokeOthers, current: useSession(), revokeCurrent: useLogout() };
+}
+
+export function useSignup() {
+	const client = useTheAuthGoClient();
+	const qc = useQueryClient();
+	return useMutation<{ ok: true }, Error, SignupInput>({
+		mutationFn: async (input) => unwrap(await client.signup(input)),
+		onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.bootstrap() }),
+	});
+}
+
+export function useChangePassword() {
+	const client = useTheAuthGoClient();
+	const qc = useQueryClient();
+	return useMutation<null, Error, { currentPassword: string; newPassword: string }>({
+		mutationFn: async (input) => unwrap(await client.changePassword(input)),
+		onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.sessions() }),
+	});
 }

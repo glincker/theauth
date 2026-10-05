@@ -59,6 +59,29 @@ const { data: user } = await auth.session.get();
 
 Requests send `credentials: "include"` so the session cookie works cross-origin. Pass `fetch`, `headers` or `credentials` to override. Routes the server does not expose yet are listed in `MISSING.md`.
 
+Further namespaces: `session.list/revoke/revokeOthers`, `changePassword`, `stepUp.verify/passkey`, `apiTokens.list/mint/revoke`, `device.code/token/poll/info/approve/deny`, `bootstrap.status`, `totp.status/regenerateRecoveryCodes`, `passkeys.rename`, and `signup({ setupToken })` (sent as `X-Setup-Token`).
+
+```ts
+import { isRecentAuthRequired, isThrottleError } from "@glinr/theauth-client";
+
+const r = await auth.apiTokens.revoke(id);
+if (!r.success && isRecentAuthRequired(r.error)) {
+  await auth.stepUp.verify({ method: "password", password });
+}
+if (!r.success && isThrottleError(r.error)) {
+  wait(r.error.retryAfter); // rate_limited or account_locked, seconds from Retry-After
+}
+
+const dc = await auth.device.code({ clientName: "my-cli" });
+const token = await auth.device.poll({ deviceCode: dc.data.deviceCode, interval: dc.data.interval, expiresIn: dc.data.expiresIn });
+```
+
+`device.poll` waits `interval` seconds between attempts, adds 5 on `slow_down`, and stops on any other error (`access_denied`, `expired_token`). Device endpoints use the RFC 8628 `{ error, error_description }` body; the client maps it to the same `code` and `message` fields.
+
+### Route drift guard
+
+`routes.manifest.json` lists the Go routes the client targets, with the theauth-go commit it was curated from. `tests/route-drift.test.ts` fails when a client method hits a path or verb that is not in it. `tools/route-manifest` (repo root) is a standard-library Go program that scans a theauth-go checkout for chi registrations so the Go repo can regenerate the file in CI.
+
 ## Error handling
 
 ```ts
