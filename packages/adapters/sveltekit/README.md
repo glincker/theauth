@@ -7,7 +7,7 @@ SvelteKit adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/theauth-sveltekit
+pnpm add @glinr/theauth @glinr/theauth-sveltekit
 ```
 
 ## Usage
