@@ -1,9 +1,9 @@
 {
   "source": {
     "repo": "theauth-go",
-    "commit": "f420bcb4e30e9b7036801cdd4d3a7d18b26cda71",
+    "commit": "9f0bc16f25929d94e4fb6dc4ae634cd984493455",
     "mount": "/auth",
-    "curated": "by hand from handlers_sessions.go, apitoken_handlers.go, device_handlers.go, bootstrap.go, handlers.go and internal/{totp,webauthn,password}/handlers"
+    "curated": "by hand from handlers_sessions.go, apitoken_handlers.go, apitoken_self.go, internal/account/handlers.go, device_handlers.go, bootstrap.go, handlers.go and internal/{totp,webauthn,password}/handlers"
   },
   "routes": [
     { "method": "GET", "path": "/auth/bootstrap/status" },
@@ -21,7 +21,15 @@
     { "method": "POST", "path": "/auth/step-up/passkey/begin" },
     { "method": "GET", "path": "/auth/tokens/" },
     { "method": "POST", "path": "/auth/tokens/" },
+    { "method": "GET", "path": "/auth/tokens/current" },
+    { "method": "DELETE", "path": "/auth/tokens/current" },
     { "method": "DELETE", "path": "/auth/tokens/{id}" },
+    { "method": "GET", "path": "/auth/account/agents" },
+    { "method": "POST", "path": "/auth/account/agents" },
+    { "method": "DELETE", "path": "/auth/account/agents/{agentID}" },
+    { "method": "GET", "path": "/auth/account/delegations" },
+    { "method": "POST", "path": "/auth/account/delegations" },
+    { "method": "POST", "path": "/auth/account/delegations/{grantID}/revoke" },
     { "method": "POST", "path": "/auth/device/code" },
     { "method": "POST", "path": "/auth/device/token" },
     { "method": "POST", "path": "/auth/device/approve" },

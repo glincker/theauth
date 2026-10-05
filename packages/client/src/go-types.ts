@@ -99,6 +99,76 @@ export interface ListApiTokensOptions {
 	ownerId?: string;
 }
 
+/** Self-description of the bearer token that made the request. Never carries the secret. */
+export interface GoCurrentToken {
+	id: string;
+	name: string;
+	kind: ApiTokenKind | "";
+	agentName?: string;
+	abilities: string[];
+	ownerId: string;
+	ownerKind: string;
+	createdAt: string;
+	expiresAt?: string;
+	lastUsedAt?: string;
+}
+
+export interface GoAgent {
+	id: string;
+	ownerUserId?: string;
+	organizationId?: string;
+	name: string;
+	description?: string;
+	status: string;
+	clientId: string;
+	scope?: string[];
+	createdAt: string;
+	lastActiveAt?: string;
+}
+
+export interface GoAgentCredential {
+	agentId: string;
+	credentialId: string;
+	clientId: string;
+	/** The raw secret. The server returns it once; it cannot be fetched again. */
+	secret: string;
+	expiresAt?: string;
+}
+
+export interface RegisterAgentInput {
+	name: string;
+	description?: string;
+	scope?: string[];
+}
+
+export interface RegisteredAgent {
+	agent: GoAgent;
+	credential: GoAgentCredential;
+}
+
+export interface GoDelegation {
+	id: string;
+	userId: string;
+	agentId: string;
+	organizationId?: string;
+	scope: string[];
+	resource: string;
+	maxDurationSeconds: number;
+	createdAt: string;
+	expiresAt?: string;
+	revokedAt?: string;
+	revocationNote?: string;
+}
+
+export interface GrantDelegationInput {
+	agentId: string;
+	scope: string[];
+	resource: string;
+	maxDurationSeconds: number;
+	/** ISO 8601 timestamp. */
+	expiresAt?: string;
+}
+
 export interface DeviceCodeInput {
 	clientName?: string;
 	abilities?: string[];
@@ -169,6 +239,11 @@ export interface TheAuthGoClientOptions {
 	basePath?: string;
 	credentials?: RequestCredentials;
 	headers?: Record<string, string>;
+	/**
+	 * Bearer token source. A non-empty result sets Authorization and sends the
+	 * request with credentials "omit"; an empty one falls back to the cookie session.
+	 */
+	getToken?: () => string | null | undefined | Promise<string | null | undefined>;
 	fetch?: typeof fetch;
 }
 
@@ -188,6 +263,21 @@ export interface TheAuthGoClient {
 		list: (options?: ListApiTokensOptions) => Promise<GoAuthResult<GoApiToken[]>>;
 		mint: (input: MintApiTokenInput) => Promise<GoAuthResult<MintedApiToken>>;
 		revoke: (id: string) => Promise<GoAuthResult<null>>;
+		/** Bearer-only: needs `getToken`. A cookie session gets 403 `auth.bearer_required`. */
+		current: () => Promise<GoAuthResult<GoCurrentToken>>;
+		/** Bearer-only: revokes the token in use. */
+		revokeCurrent: () => Promise<GoAuthResult<null>>;
+	};
+	/** Signed-in user's own agents. Requires AccountUX on the server; session-gated. */
+	agents: {
+		list: () => Promise<GoAuthResult<GoAgent[]>>;
+		register: (input: RegisterAgentInput) => Promise<GoAuthResult<RegisteredAgent>>;
+		revoke: (id: string, reason?: string) => Promise<GoAuthResult<null>>;
+	};
+	delegations: {
+		list: () => Promise<GoAuthResult<GoDelegation[]>>;
+		grant: (input: GrantDelegationInput) => Promise<GoAuthResult<GoDelegation>>;
+		revoke: (id: string, reason?: string) => Promise<GoAuthResult<null>>;
 	};
 	device: {
 		code: (input?: DeviceCodeInput) => Promise<GoAuthResult<DeviceCode>>;

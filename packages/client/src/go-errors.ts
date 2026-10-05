@@ -1,6 +1,7 @@
 import type { GoAuthError } from "./go-types.js";
 
 export const GO_CODE_RECENT_AUTH_REQUIRED = "auth.recent_auth_required";
+export const GO_CODE_BEARER_REQUIRED = "auth.bearer_required";
 export const GO_CODE_RATE_LIMITED = "rate_limited";
 export const GO_CODE_ACCOUNT_LOCKED = "account_locked";
 
@@ -16,4 +17,9 @@ export function isRecentAuthRequired(error: GoAuthError): boolean {
 /** Narrows to a 429 throttle; `retryAfter` is seconds from the Retry-After header. */
 export function isThrottleError(error: GoAuthError): error is GoThrottleError {
 	return error.code === GO_CODE_RATE_LIMITED || error.code === GO_CODE_ACCOUNT_LOCKED;
+}
+
+/** True when a bearer-only route (`apiTokens.current`) was called with a cookie session. */
+export function isBearerRequired(error: GoAuthError): boolean {
+	return error.code === GO_CODE_BEARER_REQUIRED;
 }

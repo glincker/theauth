@@ -3,14 +3,18 @@ import type {
 	DeviceCode,
 	DeviceRequestInfo,
 	DeviceToken,
+	GoAgent,
 	GoApiToken,
 	GoAuthError,
 	GoAuthResult,
+	GoCurrentToken,
+	GoDelegation,
 	GoSession,
 	GoUser,
 	LoginResult,
 	MintedApiToken,
 	PasskeyCredential,
+	RegisteredAgent,
 	StepUpResult,
 	TheAuthGoClient,
 	TheAuthGoClientOptions,
@@ -95,12 +99,14 @@ export function createTheAuthGoClient(options: TheAuthGoClientOptions = {}): The
 		const doFetch = options.fetch ?? globalThis.fetch;
 		let res: Response;
 		try {
+			const token = await options.getToken?.();
 			res = await doFetch(`${prefix}${path}`, {
 				method,
-				credentials: options.credentials ?? "include",
+				credentials: token ? "omit" : (options.credentials ?? "include"),
 				headers: {
 					...(body === undefined ? {} : { "Content-Type": "application/json" }),
 					...options.headers,
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
 					...extraHeaders,
 				},
 				body: body === undefined ? undefined : JSON.stringify(body),
@@ -150,6 +156,8 @@ export function createTheAuthGoClient(options: TheAuthGoClientOptions = {}): The
 		}
 		return map(wire);
 	}
+
+	const reasonQuery = (reason?: string) => (reason ? `?reason=${encodeURIComponent(reason)}` : "");
 
 	const noContent = (): GoAuthResult<null> => ok(null);
 
@@ -265,6 +273,38 @@ export function createTheAuthGoClient(options: TheAuthGoClientOptions = {}): The
 					...(ownerId ? { owner_id: ownerId } : {}),
 				}),
 			revoke: (id) => call(`/tokens/${encodeURIComponent(id)}`, "DELETE", undefined, noContent),
+			current: () => call<GoCurrentToken>("/tokens/current", "GET"),
+			revokeCurrent: () => call("/tokens/current", "DELETE", undefined, noContent),
+		},
+		agents: {
+			list: () =>
+				call<GoAgent[]>("/account/agents", "GET", undefined, (w) => {
+					const list = field(w.body, "agents");
+					return ok(Array.isArray(list) ? (list as GoAgent[]) : []);
+				}),
+			register: (input) => call<RegisteredAgent>("/account/agents", "POST", input),
+			revoke: (id, reason) =>
+				call(
+					`/account/agents/${encodeURIComponent(id)}${reasonQuery(reason)}`,
+					"DELETE",
+					undefined,
+					noContent,
+				),
+		},
+		delegations: {
+			list: () =>
+				call<GoDelegation[]>("/account/delegations", "GET", undefined, (w) => {
+					const list = field(w.body, "delegations");
+					return ok(Array.isArray(list) ? (list as GoDelegation[]) : []);
+				}),
+			grant: (input) => call<GoDelegation>("/account/delegations", "POST", input),
+			revoke: (id, reason) =>
+				call(
+					`/account/delegations/${encodeURIComponent(id)}/revoke${reasonQuery(reason)}`,
+					"POST",
+					undefined,
+					noContent,
+				),
 		},
 		device: {
 			code: (input = {}) =>

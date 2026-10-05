@@ -59,7 +59,7 @@ const { data: user } = await auth.session.get();
 
 Requests send `credentials: "include"` so the session cookie works cross-origin. Pass `fetch`, `headers` or `credentials` to override. Routes the server does not expose yet are listed in `MISSING.md`.
 
-Further namespaces: `session.list/revoke/revokeOthers`, `changePassword`, `stepUp.verify/passkey`, `apiTokens.list/mint/revoke`, `device.code/token/poll/info/approve/deny`, `bootstrap.status`, `totp.status/regenerateRecoveryCodes`, `passkeys.rename`, and `signup({ setupToken })` (sent as `X-Setup-Token`).
+Further namespaces: `session.list/revoke/revokeOthers`, `changePassword`, `stepUp.verify/passkey`, `apiTokens.list/mint/revoke/current/revokeCurrent`, `agents.list/register/revoke`, `delegations.list/grant/revoke`, `device.code/token/poll/info/approve/deny`, `bootstrap.status`, `totp.status/regenerateRecoveryCodes`, `passkeys.rename`, and `signup({ setupToken })` (sent as `X-Setup-Token`).
 
 ```ts
 import { isRecentAuthRequired, isThrottleError } from "@glinr/theauth-client";
@@ -77,6 +77,19 @@ const token = await auth.device.poll({ deviceCode: dc.data.deviceCode, interval:
 ```
 
 `device.poll` waits `interval` seconds between attempts, adds 5 on `slow_down`, and stops on any other error (`access_denied`, `expired_token`). Device endpoints use the RFC 8628 `{ error, error_description }` body; the client maps it to the same `code` and `message` fields.
+
+### Bearer mode and agents
+
+```ts
+const auth = createTheAuthGoClient({ getToken: () => process.env.THEAUTH_TOKEN });
+const me = await auth.apiTokens.current(); // GET /auth/tokens/current, bearer-only
+if (!me.success && isBearerRequired(me.error)) {
+  // a cookie session called a bearer-only route (403 auth.bearer_required)
+}
+await auth.apiTokens.revokeCurrent();
+```
+
+`agents` and `delegations` call `/auth/account/*`, which the server mounts only with AccountUX enabled and a cookie session.
 
 ### Route drift guard
 
