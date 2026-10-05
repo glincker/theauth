@@ -54,6 +54,8 @@ export interface StepUpResult {
 	elevatedUntil: string;
 }
 
+export type ApiTokenKind = "personal" | "agent";
+
 export interface GoApiToken {
 	id: string;
 	ownerId: string;
@@ -61,6 +63,11 @@ export interface GoApiToken {
 	name: string;
 	abilities: string[];
 	hint: string;
+	/** Empty or absent means personal. */
+	kind?: ApiTokenKind | "";
+	agentName?: string;
+	/** The human whose abilities bound an agent token. */
+	delegatedBy?: string;
 	createdAt: string;
 	expiresAt?: string;
 	lastUsedAt?: string;
@@ -75,6 +82,9 @@ export interface MintedApiToken extends GoApiToken {
 export interface MintApiTokenInput {
 	name: string;
 	abilities: string[];
+	kind?: ApiTokenKind;
+	/** Names the agent or MCP client; used with kind "agent". */
+	agentName?: string;
 	/** Lifetime in seconds. */
 	expiresIn?: number;
 	/** Admin only: mint for a service account rather than the caller. */

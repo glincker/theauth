@@ -128,6 +128,25 @@ describe("api tokens", () => {
 		expect(sent(fetchFn).url).toBe("/auth/tokens/");
 		expect(r.success && r.data).toHaveLength(1);
 	});
+	it("mints an agent token with kind and agent_name", async () => {
+		const { api, fetchFn } = client({
+			status: 201,
+			body: { token: "raw", id: "t", kind: "agent" },
+		});
+		const r = await api.apiTokens.mint({
+			name: "n",
+			abilities: ["a"],
+			kind: "agent",
+			agentName: "claude-desktop",
+		});
+		expect(sent(fetchFn).body).toEqual({
+			name: "n",
+			abilities: ["a"],
+			kind: "agent",
+			agent_name: "claude-desktop",
+		});
+		expect(r.success && r.data.kind).toBe("agent");
+	});
 	it("mints with snake_case wire fields", async () => {
 		const { api, fetchFn } = client({ status: 201, body: { token: "raw", id: "t" } });
 		const r = await api.apiTokens.mint({

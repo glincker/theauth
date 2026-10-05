@@ -256,9 +256,10 @@ export function createTheAuthGoClient(options: TheAuthGoClientOptions = {}): The
 					),
 				);
 			},
-			mint: ({ expiresIn, serviceAccount, ownerId, ...rest }) =>
+			mint: ({ expiresIn, serviceAccount, ownerId, agentName, ...rest }) =>
 				call<MintedApiToken>("/tokens/", "POST", {
 					...rest,
+					...(agentName ? { agent_name: agentName } : {}),
 					...(expiresIn === undefined ? {} : { expires_in: expiresIn }),
 					...(serviceAccount ? { service_account: true } : {}),
 					...(ownerId ? { owner_id: ownerId } : {}),

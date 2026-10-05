@@ -1,7 +1,7 @@
 {
   "source": {
     "repo": "theauth-go",
-    "commit": "f6bfbb21abd14f556bd0c69622e86c6bf304600e",
+    "commit": "f420bcb4e30e9b7036801cdd4d3a7d18b26cda71",
     "mount": "/auth",
     "curated": "by hand from handlers_sessions.go, apitoken_handlers.go, device_handlers.go, bootstrap.go, handlers.go and internal/{totp,webauthn,password}/handlers"
   },

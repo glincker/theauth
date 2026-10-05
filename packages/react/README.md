@@ -81,7 +81,8 @@ function Login() {
 - `useTotp()`: `enrollBegin`, `enrollFinish` (returns recovery codes), `verify`, `recovery`, `disable`, `regenerateRecoveryCodes`; `useTotpStatus()` for enrolled and codes remaining
 - `useSessions()`: `list`, `revoke(id)`, `revokeOthers`, plus `current` and `revokeCurrent`
 - `useStepUp()`: `verify({ method, ... })` and `passkey()`; run after a `auth.recent_auth_required` error, then retry
-- `useApiTokens({ all?, ownerId? })`: `list`, `mint` (raw secret is in the mint result only), `revoke`
+- `useApiTokens({ all?, ownerId?, kind? })`: `list` (kind `personal` or `agent`, filtered client-side from one cached fetch), `mint` (raw secret is in the mint result only), `revoke`; tokens carry `kind`, `agentName`, `delegatedBy`
+- `useAgentTokens()`: agent-only `list`, `mint({ name, abilities, agentName, expiresIn? })`, `revoke`
 - `useDeviceApproval(userCode)`: `info` (idle until a code is set), `approve(abilities?)`, `deny` for a verification page
 - `useBootstrapStatus()`, `useSignup()` (accepts `setupToken`), `useChangePassword()`
 - `authKeys`: query key factory for manual invalidation

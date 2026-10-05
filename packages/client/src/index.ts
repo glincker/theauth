@@ -25,6 +25,7 @@ export {
 	isThrottleError,
 } from "./go-errors.js";
 export type {
+	ApiTokenKind,
 	BootstrapStatus,
 	DeviceCode,
 	DeviceCodeInput,

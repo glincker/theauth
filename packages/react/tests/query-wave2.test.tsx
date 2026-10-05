@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	authKeys,
 	TheAuthQueryProvider,
+	useAgentTokens,
 	useApiTokens,
 	useBootstrapStatus,
 	useChangePassword,
@@ -83,6 +84,7 @@ describe("useSessions", () => {
 		await act(async () => {
 			await result.current.revokeOthers.mutateAsync();
 		});
+		await flush();
 		expect(result.current.revokeOthers.data).toEqual({ revoked: 2 });
 	});
 });
@@ -241,5 +243,43 @@ describe("useChangePassword", () => {
 		});
 		await flush();
 		expect(calls(fetchFn).filter((c) => c === "GET /auth/sessions")).toHaveLength(2);
+	});
+});
+
+describe("agent tokens", () => {
+	const tokens = [
+		{ id: "p1", name: "ci" },
+		{ id: "a1", name: "bot", kind: "agent", agentName: "claude", delegatedBy: "u1" },
+	];
+	it("filters by kind from one shared fetch", async () => {
+		const fetchFn = route({ "GET /auth/tokens/": { status: 200, body: { tokens } } });
+		const { result } = await mount(() => useApiTokens({ kind: "agent" }), fetchFn);
+		await flush();
+		expect(result.current.list.data?.map((t) => t.id)).toEqual(["a1"]);
+		expect(calls(fetchFn)).toEqual(["GET /auth/tokens/"]);
+	});
+	it("mints with kind agent and invalidates the list", async () => {
+		const fetchFn = route({
+			"GET /auth/tokens/": { status: 200, body: { tokens } },
+			"POST /auth/tokens/": { status: 201, body: { token: "raw", id: "a2", kind: "agent" } },
+			"DELETE /auth/tokens/a1": { status: 204 },
+		});
+		const { result } = await mount(useAgentTokens, fetchFn);
+		await flush();
+		await act(async () => {
+			await result.current.mint.mutateAsync({ name: "n", abilities: ["a"], agentName: "claude" });
+		});
+		const post = fetchFn.mock.calls.find(([, i]) => i.method === "POST");
+		expect(JSON.parse(String(post?.[1].body))).toEqual({
+			name: "n",
+			abilities: ["a"],
+			agent_name: "claude",
+			kind: "agent",
+		});
+		await act(async () => {
+			await result.current.revoke.mutateAsync("a1");
+		});
+		await flush();
+		expect(calls(fetchFn).filter((c) => c === "GET /auth/tokens/").length).toBe(3);
 	});
 });

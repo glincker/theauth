@@ -6,7 +6,8 @@ export {
 	useTheAuthGoClient,
 } from "./client-context.js";
 export { authKeys } from "./keys.js";
-export { useApiTokens } from "./use-api-tokens.js";
+export type { MintAgentTokenInput, UseApiTokensOptions } from "./use-api-tokens.js";
+export { tokenKind, useAgentTokens, useApiTokens } from "./use-api-tokens.js";
 export { useBootstrapStatus } from "./use-bootstrap-status.js";
 export { useDeviceApproval } from "./use-device-approval.js";
 export { usePasskeys } from "./use-passkeys.js";
