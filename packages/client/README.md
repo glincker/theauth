@@ -38,6 +38,27 @@ const agents = await kavach.listAgents();
 await kavach.delegate({ agentId: agent.id, permissions: ['read:data'], expiresIn: '1h' });
 ```
 
+## theauth-go client
+
+A typed client for servers built on `theauth-go` (default mount `/auth`). Every call returns `{ success, data }` or `{ success: false, error: { code, message, status, retryAfter? } }` and never throws.
+
+```ts
+import { createTheAuthGoClient } from "@glinr/theauth-client";
+
+const auth = createTheAuthGoClient({ baseUrl: "https://api.example.com", basePath: "/auth" });
+
+const res = await auth.login({ email, password });
+if (res.success && res.data.status === "mfa_required") {
+  await auth.totp.verify(code);
+}
+
+await auth.passkeys.register("Work laptop");
+await auth.passkeys.login();
+const { data: user } = await auth.session.get();
+```
+
+Requests send `credentials: "include"` so the session cookie works cross-origin. Pass `fetch`, `headers` or `credentials` to override. Routes the server does not expose yet are listed in `MISSING.md`.
+
 ## Error handling
 
 ```ts

@@ -55,6 +55,35 @@ function Dashboard() {
 - `useRotateSession`: trigger / observe access-token rotation (v0.5+)
 - `useKavachContext`: raw context access
 
+## TanStack Query hooks (theauth-go)
+
+Import from `@glinr/theauth-react/query`. Requires `@tanstack/react-query` v5 (optional peer, not loaded by the main entry).
+
+```tsx
+import { createTheAuthGoClient } from "@glinr/theauth-client";
+import { TheAuthQueryProvider, useLogin, useSession } from "@glinr/theauth-react/query";
+
+const client = createTheAuthGoClient({ baseUrl: "https://api.example.com" });
+
+// <QueryClientProvider><TheAuthQueryProvider client={client}>...
+function Login() {
+  const login = useLogin();
+  const onSubmit = async () => {
+    const out = await login.mutateAsync({ email, password });
+    if (out.status === "mfa_required") showTotpStep();
+  };
+}
+```
+
+- `useSession()`: user or `null` (401 is not an error)
+- `useLogin()`, `useLogout()`
+- `usePasskeys()`: `list`, `register`, `remove`, `login`, `isSupported`
+- `useTotp()`: `enrollBegin`, `enrollFinish` (returns recovery codes), `verify`, `recovery`, `disable`
+- `useSessions()`: `current` and `revokeCurrent` (the server has no per-user session list yet)
+- `authKeys`: query key factory for manual invalidation
+
+Failures are `AuthQueryError` with a stable `code` (for example `RATE_LIMITED`, `PASSKEY_UNSUPPORTED`). Map codes to your own copy, the hooks return no prose.
+
 ## External mode with rotation (v0.5+)
 
 When TheAuth sits behind another auth API (Java/Go/Python), you can run the
