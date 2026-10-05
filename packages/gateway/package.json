@@ -54,5 +54,10 @@
     "typescript": "^6.0.3",
     "vitest": "^3.0.0",
     "zod": "^3.24.0"
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

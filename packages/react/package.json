@@ -54,5 +54,18 @@
     "@tanstack/react-query": {
       "optional": true
     }
-  }
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "theauth",
+    "auth",
+    "authentication",
+    "react",
+    "hooks",
+    "typescript"
+  ]
 }

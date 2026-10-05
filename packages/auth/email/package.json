@@ -30,5 +30,24 @@
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0"
-  }
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "license": "MIT",
+  "repository": {
+    "directory": "packages/auth/email",
+    "type": "git",
+    "url": "https://github.com/glincker/theauth.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "theauth",
+    "auth",
+    "email",
+    "password",
+    "authentication",
+    "typescript"
+  ]
 }

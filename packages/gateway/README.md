@@ -7,7 +7,7 @@ Standalone auth proxy that enforces TheAuth policies in front of any HTTP servic
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-gateway
+npm install @glinr/theauth-gateway
 ```
 
 ## Usage

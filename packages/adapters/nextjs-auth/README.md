@@ -18,7 +18,7 @@ vs **better-auth**: better-auth also runs in-process (or via a hosted service). 
 ## Quickstart
 
 ```bash
-pnpm add @glinr/@glinr/theauth-nextjs-auth
+pnpm add @glinr/theauth-nextjs-auth
 ```
 
 ### 1. Create your config

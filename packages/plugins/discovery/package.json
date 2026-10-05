@@ -55,5 +55,10 @@
     "better-sqlite3": {
       "optional": true
     }
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

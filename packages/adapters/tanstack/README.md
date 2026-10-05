@@ -7,7 +7,7 @@ TanStack Start adapter for TheAuth.
 ## Install
 
 ```bash
-npm install theauth @glinr/@glinr/theauth-tanstack
+npm install theauth @glinr/theauth-tanstack
 ```
 
 ## Usage

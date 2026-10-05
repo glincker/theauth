@@ -7,7 +7,7 @@ Svelte stores for TheAuth authentication.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-svelte
+npm install @glinr/theauth-svelte
 ```
 
 ## Usage

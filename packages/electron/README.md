@@ -7,7 +7,7 @@ Electron integration for TheAuth: secure storage, OAuth windows, and IPC bridge.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-electron
+npm install @glinr/theauth-electron
 ```
 
 ## Usage

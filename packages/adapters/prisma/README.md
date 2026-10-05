@@ -7,7 +7,7 @@ Prisma database adapter for TheAuth. Use PrismaClient as your TheAuth database b
 ## Install
 
 ```bash
-npm install theauth @glinr/@glinr/theauth-prisma @prisma/client
+npm install theauth @glinr/theauth-prisma @prisma/client
 ```
 
 ## Usage

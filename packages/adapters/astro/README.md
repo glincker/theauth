@@ -7,7 +7,7 @@ Astro adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-astro
+pnpm add theauth @glinr/theauth-astro
 ```
 
 ## Usage

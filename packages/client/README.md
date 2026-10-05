@@ -7,7 +7,7 @@ Zero-dependency TypeScript REST client for the TheAuth API.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-client
+npm install @glinr/theauth-client
 ```
 
 ## Usage

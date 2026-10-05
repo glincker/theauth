@@ -7,7 +7,7 @@ Express adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-express
+pnpm add theauth @glinr/theauth-express
 ```
 
 ## Usage

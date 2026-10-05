@@ -7,7 +7,7 @@ NestJS adapter for TheAuth.
 ## Install
 
 ```bash
-npm install theauth @glinr/@glinr/theauth-nestjs
+npm install theauth @glinr/theauth-nestjs
 ```
 
 ## Usage

@@ -7,7 +7,7 @@ Fastify adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-fastify
+pnpm add theauth @glinr/theauth-fastify
 ```
 
 ## Usage

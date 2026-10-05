@@ -7,7 +7,7 @@ Admin UI for managing agents, permissions, and audit logs.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-dashboard
+npm install @glinr/theauth-dashboard
 ```
 
 Peer dependencies: React 19+
