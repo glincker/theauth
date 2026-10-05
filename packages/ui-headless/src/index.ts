@@ -1,3 +1,7 @@
+export type { AgentListLabels, AgentListProps } from "./agent-list.js";
+export { AgentList } from "./agent-list.js";
+export type { AgentRegisterFormLabels, AgentRegisterFormProps } from "./agent-register-form.js";
+export { AgentRegisterForm, ERROR_AGENT_NAME_REQUIRED } from "./agent-register-form.js";
 export type { ApiTokenListLabels, ApiTokenListProps } from "./api-token-list.js";
 export { ApiTokenList } from "./api-token-list.js";
 export type { DeviceApprovalLabels, DeviceApprovalProps } from "./device-approval.js";

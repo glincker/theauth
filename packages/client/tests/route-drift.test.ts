@@ -11,7 +11,8 @@ interface Manifest {
 const manifest = JSON.parse(
 	readFileSync(new URL("../routes.manifest.json", import.meta.url), "utf8"),
 ) as Manifest;
-const known = new Set(manifest.routes.map((r) => `${r.method} ${r.path}`));
+const placeholders = (path: string) => path.replace(/\{[^}]+\}/g, "{id}");
+const known = new Set(manifest.routes.map((r) => `${r.method} ${placeholders(r.path)}`));
 
 const ID = "01HZZZZZZZZZZZZZZZZZZZZZZZ";
 type Call = (c: TheAuthGoClient) => Promise<unknown>;
@@ -28,6 +29,15 @@ const calls: Record<string, Call> = {
 	"apiTokens.list": (c) => c.apiTokens.list({ all: true, ownerId: ID }),
 	"apiTokens.mint": (c) => c.apiTokens.mint({ name: "n", abilities: [] }),
 	"apiTokens.revoke": (c) => c.apiTokens.revoke(ID),
+	"apiTokens.current": (c) => c.apiTokens.current(),
+	"apiTokens.revokeCurrent": (c) => c.apiTokens.revokeCurrent(),
+	"agents.list": (c) => c.agents.list(),
+	"agents.register": (c) => c.agents.register({ name: "n" }),
+	"agents.revoke": (c) => c.agents.revoke(ID, "r"),
+	"delegations.list": (c) => c.delegations.list(),
+	"delegations.grant": (c) =>
+		c.delegations.grant({ agentId: ID, scope: [], resource: "r", maxDurationSeconds: 1 }),
+	"delegations.revoke": (c) => c.delegations.revoke(ID),
 	"device.code": (c) => c.device.code(),
 	"device.token": (c) => c.device.token("dc"),
 	"device.info": (c) => c.device.info("U-1"),
