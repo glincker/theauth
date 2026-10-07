@@ -7,15 +7,15 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   username: {
  *     password: { minLength: 8 },
  *   },
  * });
  *
- * const response = await kavach.username?.handleRequest(request);
+ * const response = await theauth.username?.handleRequest(request);
  * if (response) return response;
  * ```
  */

@@ -2,7 +2,7 @@
  * OpenAPI 3.1 spec generation plugin for TheAuth.
  *
  * Generates a complete OpenAPI document from TheAuth's registered auth
- * endpoints. Useful for serving at `/api/kavach/openapi.json` or wiring
+ * endpoints. Useful for serving at `/api/theauth/openapi.json` or wiring
  * into Swagger UI / Scalar.
  *
  * @example
@@ -46,7 +46,7 @@ export interface OpenApiConfig {
 	description?: string;
 	/** Server base URL. Default: "/" */
 	serverUrl?: string;
-	/** Path prefix for all TheAuth endpoints. Default: "/api/kavach" */
+	/** Path prefix for all TheAuth endpoints. Default: "/api/theauth" */
 	basePath?: string;
 	/**
 	 * Limit which endpoint groups are included in the spec.
@@ -169,7 +169,7 @@ export interface OpenApiModule {
 const DEFAULT_TITLE = "TheAuth API";
 const DEFAULT_VERSION = "0.0.1";
 const DEFAULT_SERVER_URL = "/";
-const DEFAULT_BASE_PATH = "/api/kavach";
+const DEFAULT_BASE_PATH = "/api/theauth";
 
 // ---------------------------------------------------------------------------
 // Shared schema fragments

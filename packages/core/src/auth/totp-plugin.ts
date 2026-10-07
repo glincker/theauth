@@ -1,4 +1,4 @@
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { TotpConfig } from "./totp.js";
 import { createTotpModule } from "./totp.js";
 
@@ -31,9 +31,9 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function twoFactor(config?: TwoFactorConfig): KavachPlugin {
+export function twoFactor(config?: TwoFactorConfig): TheAuthPlugin {
 	return {
-		id: "kavach-2fa",
+		id: "theauth-2fa",
 
 		async init(ctx): Promise<undefined> {
 			const module = createTotpModule(config ?? {}, ctx.db);

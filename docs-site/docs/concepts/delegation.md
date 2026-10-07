@@ -15,7 +15,7 @@ This pattern is most useful when an orchestrator spins up sub-agents for specifi
 ## Creating a delegation
 
 ```typescript
-const chain = await kavach.delegate({
+const chain = await theauth.delegate({
   fromAgent: orchestrator.id,
   toAgent: subAgent.id,
   permissions: [
@@ -66,7 +66,7 @@ Invalid delegations (rejected):
 ## Revoking a delegation
 
 ```typescript
-await kavach.delegation.revoke(chain.id);
+await theauth.delegation.revoke(chain.id);
 // Immediate effect: subAgent.authorize() returns allowed: false
 ```
 
@@ -80,7 +80,7 @@ Revocation cascades. If the chain is `orchestrator -> sub -> subSub`, revoking `
 To see the full set of permissions an agent has at a given moment, including those received through active chains:
 
 ```typescript
-const effective = await kavach.delegation.getEffectivePermissions(subAgent.id);
+const effective = await theauth.delegation.getEffectivePermissions(subAgent.id);
 // Returns Permission[] combining own permissions and all active delegations
 ```
 
@@ -90,10 +90,10 @@ The authorization engine calls this internally on every `authorize()` request. Y
 
 ```typescript
 // All chains where subAgent is the receiver
-const incoming = await kavach.delegation.listChains({ toAgent: subAgent.id });
+const incoming = await theauth.delegation.listChains({ toAgent: subAgent.id });
 
 // All chains originating from the orchestrator
-const outbound = await kavach.delegation.listChains({ fromAgent: orchestrator.id });
+const outbound = await theauth.delegation.listChains({ fromAgent: orchestrator.id });
 ```
 
 ## DelegationChain type
@@ -115,7 +115,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
 **Step 1.** Create the orchestrator with the full permission set it needs.
 
 ```typescript
-const orchestrator = await kavach.agent.create({
+const orchestrator = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'planner',
   type: 'autonomous',
@@ -129,7 +129,7 @@ const orchestrator = await kavach.agent.create({
 **Step 2.** Create the sub-agent with no direct permissions.
 
 ```typescript
-const codeReviewer = await kavach.agent.create({
+const codeReviewer = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'code-reviewer',
   type: 'delegated',
@@ -140,7 +140,7 @@ const codeReviewer = await kavach.agent.create({
 **Step 3.** Delegate only what the sub-agent needs, with a short expiry and `maxDepth: 1` to prevent further delegation.
 
 ```typescript
-await kavach.delegate({
+await theauth.delegate({
   fromAgent: orchestrator.id,
   toAgent: codeReviewer.id,
   permissions: [

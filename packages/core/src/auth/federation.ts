@@ -8,7 +8,7 @@
  *
  * Federation tokens are short-lived JWTs signed by the source instance.
  * The target instance verifies them by fetching the source's public key
- * from `/.well-known/kavach-federation.json`. Optionally, a Verifiable
+ * from `/.well-known/theauth-federation.json`. Optionally, a Verifiable
  * Credential can be embedded for offline verification.
  *
  * @example
@@ -32,13 +32,13 @@
 import * as jose from "jose";
 import { z } from "zod";
 import { generateId } from "../crypto/web-crypto.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { Result, TheAuthError } from "../mcp/types.js";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const DEFAULT_TOKEN_TTL_SECONDS = 300;
-const WELL_KNOWN_PATH = "/.well-known/kavach-federation.json";
-const FEDERATION_TOKEN_TYPE = "kavach-federation+jwt";
+const WELL_KNOWN_PATH = "/.well-known/theauth-federation.json";
+const FEDERATION_TOKEN_TYPE = "theauth-federation+jwt";
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
@@ -147,7 +147,7 @@ export interface IssueFederationTokenInput {
 	credential?: string;
 }
 
-/** The well-known document served at /.well-known/kavach-federation.json */
+/** The well-known document served at /.well-known/theauth-federation.json */
 export interface FederationWellKnown {
 	instanceId: string;
 	instanceUrl: string;
@@ -180,9 +180,9 @@ export interface FederationModule {
 
 interface FederationJwtPayload {
 	/** Source instance ID */
-	kavach_instance: string;
+	theauth_instance: string;
 	/** Source instance URL */
-	kavach_instance_url: string;
+	theauth_instance_url: string;
 	/** Agent permissions */
 	permissions: string[];
 	/** Agent trust score */
@@ -195,7 +195,7 @@ interface FederationJwtPayload {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 
@@ -278,8 +278,8 @@ export function createFederationModule(config: FederationConfig): FederationModu
 			const exp = now + tokenTtlSeconds;
 
 			const payload: FederationJwtPayload = {
-				kavach_instance: instanceId,
-				kavach_instance_url: instanceUrl,
+				theauth_instance: instanceId,
+				theauth_instance_url: instanceUrl,
 				permissions,
 				trust_score: trustScore,
 				delegation_scope: delegationScope,
@@ -443,7 +443,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 				data: {
 					agentId,
 					sourceInstance: sourceInstanceId,
-					sourceInstanceUrl: claims.kavach_instance_url ?? "",
+					sourceInstanceUrl: claims.theauth_instance_url ?? "",
 					permissions,
 					trustScore: effectiveTrustScore,
 					delegationScope,

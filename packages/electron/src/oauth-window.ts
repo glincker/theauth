@@ -8,7 +8,7 @@ export interface OAuthWindowConfig {
 	width?: number;
 	/** Window height in pixels. Defaults to 700. */
 	height?: number;
-	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */
 	basePath?: string;
 }
 
@@ -19,7 +19,7 @@ export interface OAuthWindowResult {
 
 // ─── Session cookie extraction ────────────────────────────────────────────────
 
-const SESSION_COOKIE_NAMES = ["kavach-session", "better-auth.session_token", "__session"];
+const SESSION_COOKIE_NAMES = ["theauth-session", "better-auth.session_token", "__session"];
 
 async function extractSessionCookie(
 	win: BrowserWindowInstance,
@@ -68,7 +68,7 @@ export async function openOAuthWindow(
 	providerId: string,
 	config: OAuthWindowConfig = {},
 ): Promise<OAuthWindowResult> {
-	const { width = 500, height = 700, basePath = "/api/kavach" } = config;
+	const { width = 500, height = 700, basePath = "/api/theauth" } = config;
 	const base = basePath.replace(/\/$/, "");
 
 	const { BrowserWindow } = getElectronApi();

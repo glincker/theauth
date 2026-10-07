@@ -119,9 +119,9 @@ function initTables(db: Database): void {
 	execRaw(
 		db,
 		`
-CREATE TABLE IF NOT EXISTS kavach_email_accounts (
+CREATE TABLE IF NOT EXISTS theauth_email_accounts (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES kavach_users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   password_hash TEXT NOT NULL,
   email_verified INTEGER NOT NULL DEFAULT 0,
   verification_token TEXT,
@@ -133,14 +133,14 @@ CREATE TABLE IF NOT EXISTS kavach_email_accounts (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_accounts_user_id
-  ON kavach_email_accounts(user_id);
+  ON theauth_email_accounts(user_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_accounts_verification_token
-  ON kavach_email_accounts(verification_token)
+  ON theauth_email_accounts(verification_token)
   WHERE verification_token IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_accounts_reset_token
-  ON kavach_email_accounts(reset_token)
+  ON theauth_email_accounts(reset_token)
   WHERE reset_token IS NOT NULL;
 `,
 	);
@@ -218,8 +218,8 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			        a.verification_token, a.verification_expires,
 			        a.reset_token, a.reset_expires,
 			        a.created_at as account_created_at, a.updated_at as account_updated_at
-			 FROM kavach_users u
-			 INNER JOIN kavach_email_accounts a ON a.user_id = u.id
+			 FROM theauth_users u
+			 INNER JOIN theauth_email_accounts a ON a.user_id = u.id
 			 WHERE u.email = ?`,
 			[email],
 		) as Array<Record<string, unknown>>;
@@ -257,8 +257,8 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			        a.verification_token, a.verification_expires,
 			        a.reset_token, a.reset_expires,
 			        a.created_at as account_created_at, a.updated_at as account_updated_at
-			 FROM kavach_users u
-			 INNER JOIN kavach_email_accounts a ON a.user_id = u.id
+			 FROM theauth_users u
+			 INNER JOIN theauth_email_accounts a ON a.user_id = u.id
 			 WHERE u.id = ?`,
 			[userId],
 		) as Array<Record<string, unknown>>;
@@ -288,7 +288,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { user, account };
 	}
 
-	// ── createSession helper (simple bearer token stored in kavach_sessions) ─
+	// ── createSession helper (simple bearer token stored in theauth_sessions) ─
 
 	function createSessionRecord(userId: string): { token: string; expiresAt: Date } {
 		const sessionId = randomUUID();
@@ -297,7 +297,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 		runRaw(
 			db,
-			`INSERT INTO kavach_sessions (id, user_id, expires_at, metadata, created_at)
+			`INSERT INTO theauth_sessions (id, user_id, expires_at, metadata, created_at)
 			 VALUES (?, ?, ?, NULL, ?)`,
 			[sessionId, userId, expiresAt.getTime(), now.getTime()],
 		);
@@ -306,7 +306,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 	}
 
 	function revokeAllSessions(userId: string): void {
-		runRaw(db, `DELETE FROM kavach_sessions WHERE user_id = ?`, [userId]);
+		runRaw(db, `DELETE FROM theauth_sessions WHERE user_id = ?`, [userId]);
 	}
 
 	// ── signUp ────────────────────────────────────────────────────────────────
@@ -341,7 +341,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		// Insert user
 		runRaw(
 			db,
-			`INSERT INTO kavach_users (id, email, name, created_at, updated_at)
+			`INSERT INTO theauth_users (id, email, name, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?)`,
 			[userId, input.email, input.name ?? null, now, now],
 		);
@@ -353,7 +353,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		// Insert email account
 		runRaw(
 			db,
-			`INSERT INTO kavach_email_accounts
+			`INSERT INTO theauth_email_accounts
 			   (id, user_id, password_hash, email_verified, verification_token, verification_expires, created_at, updated_at)
 			 VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
 			[accountId, userId, passwordHash, verificationToken, verificationExpires, now, now],
@@ -415,7 +415,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		const rows = queryRaw(
 			db,
 			`SELECT id, user_id, verification_expires
-			 FROM kavach_email_accounts
+			 FROM theauth_email_accounts
 			 WHERE verification_token = ?`,
 			[token],
 		) as Array<Record<string, unknown>>;
@@ -433,7 +433,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		const now = Date.now();
 		runRaw(
 			db,
-			`UPDATE kavach_email_accounts
+			`UPDATE theauth_email_accounts
 			 SET email_verified = 1, verification_token = NULL, verification_expires = NULL, updated_at = ?
 			 WHERE id = ?`,
 			[now, row.id as string],
@@ -457,7 +457,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 		runRaw(
 			db,
-			`UPDATE kavach_email_accounts
+			`UPDATE theauth_email_accounts
 			 SET reset_token = ?, reset_expires = ?, updated_at = ?
 			 WHERE user_id = ?`,
 			[resetToken, resetExpires, now, result.user.id],
@@ -473,7 +473,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		const rows = queryRaw(
 			db,
 			`SELECT id, user_id, reset_expires
-			 FROM kavach_email_accounts
+			 FROM theauth_email_accounts
 			 WHERE reset_token = ?`,
 			[token],
 		) as Array<Record<string, unknown>>;
@@ -502,7 +502,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 		runRaw(
 			db,
-			`UPDATE kavach_email_accounts
+			`UPDATE theauth_email_accounts
 			 SET password_hash = ?, reset_token = NULL, reset_expires = NULL, updated_at = ?
 			 WHERE id = ?`,
 			[passwordHash, now, row.id as string],
@@ -546,7 +546,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 		runRaw(
 			db,
-			`UPDATE kavach_email_accounts
+			`UPDATE theauth_email_accounts
 			 SET password_hash = ?, updated_at = ?
 			 WHERE user_id = ?`,
 			[passwordHash, now, userId],

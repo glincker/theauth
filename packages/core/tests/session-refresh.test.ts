@@ -482,7 +482,7 @@ describe("SessionRefresher.handleRequest — success", () => {
 
 		const request = new Request("https://example.com/auth/refresh", {
 			method: "POST",
-			headers: { Cookie: `kavach_refresh=${refreshToken}` },
+			headers: { Cookie: `theauth_refresh=${refreshToken}` },
 		});
 
 		const { response, result } = await refresher.handleRequest(request);
@@ -497,8 +497,8 @@ describe("SessionRefresher.handleRequest — success", () => {
 		const setCookies = response.headers.getSetCookie
 			? response.headers.getSetCookie()
 			: [response.headers.get("set-cookie") ?? ""];
-		expect(setCookies.some((c) => c.startsWith("kavach_access="))).toBe(true);
-		expect(setCookies.some((c) => c.startsWith("kavach_refresh="))).toBe(true);
+		expect(setCookies.some((c) => c.startsWith("theauth_access="))).toBe(true);
+		expect(setCookies.some((c) => c.startsWith("theauth_refresh="))).toBe(true);
 	});
 
 	it("accepts refresh token from JSON body when no cookie", async () => {
@@ -535,7 +535,7 @@ describe("SessionRefresher.handleRequest — failure paths", () => {
 	it("returns 401 for an unknown refresh token", async () => {
 		const request = new Request("https://example.com/auth/refresh", {
 			method: "POST",
-			headers: { Cookie: "kavach_refresh=not-a-real-token" },
+			headers: { Cookie: "theauth_refresh=not-a-real-token" },
 		});
 
 		const { response, error } = await refresher.handleRequest(request);
@@ -551,20 +551,20 @@ describe("SessionRefresher.handleRequest — failure paths", () => {
 		await refresher.issueInitial(TEST_USER_ID); // create a second family to keep user in DB
 		const req1 = new Request("https://example.com/auth/refresh", {
 			method: "POST",
-			headers: { Cookie: `kavach_refresh=${refreshToken}` },
+			headers: { Cookie: `theauth_refresh=${refreshToken}` },
 		});
 		await refresher.handleRequest(req1);
 
 		// Re-use the old token.
 		const req2 = new Request("https://example.com/auth/refresh", {
 			method: "POST",
-			headers: { Cookie: `kavach_refresh=${refreshToken}` },
+			headers: { Cookie: `theauth_refresh=${refreshToken}` },
 		});
 		const { response } = await refresher.handleRequest(req2);
 
 		expect(response.status).toBe(401);
 		// The response should clear the cookie.
 		const setCookie = response.headers.get("set-cookie") ?? "";
-		expect(setCookie).toMatch(/kavach_refresh=;/);
+		expect(setCookie).toMatch(/theauth_refresh=;/);
 	});
 });

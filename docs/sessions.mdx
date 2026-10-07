@@ -23,20 +23,20 @@ This page covers cookie sessions and JWT sessions. For ephemeral agent sessions 
 
 ### Configure the session manager
 
-Pass `createCookieSessionManager` a config object and your `kavach.db` instance. The manager handles creation, validation, refresh, and revocation.
+Pass `createCookieSessionManager` a config object and your `theauth.db` instance. The manager handles creation, validation, refresh, and revocation.
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { createCookieSessionManager } from '@glinr/theauth/auth'; // [!code highlight]
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
 });
 
 export const sessions = createCookieSessionManager({ // [!code highlight]
-  sessionName: 'kavach_session', // [!code highlight]
+  sessionName: 'theauth_session', // [!code highlight]
   maxAge: 7 * 24 * 60 * 60, // 7 days in seconds // [!code highlight]
   autoRefresh: true, // [!code highlight]
   cookie: {
@@ -45,7 +45,7 @@ export const sessions = createCookieSessionManager({ // [!code highlight]
     sameSite: 'lax', // [!code highlight]
     path: '/',
   },
-}, kavach.db);
+}, theauth.db);
 ```
 
 </Step>
@@ -57,7 +57,7 @@ export const sessions = createCookieSessionManager({ // [!code highlight]
 Call `createSession` with a user ID after your authentication logic succeeds. The response includes the cookie header to send back to the browser.
 
 ```typescript title="routes/sign-in.ts"
-import { sessions } from '@/lib/kavach';
+import { sessions } from '@/lib/theauth';
 
 export async function POST(req: Request): Promise<Response> {
   // ... validate credentials, look up user
@@ -92,7 +92,7 @@ export async function POST(req: Request): Promise<Response> {
 Read the cookie from the incoming request and validate it. If valid, the session data is returned. If expired or revoked, `success` is `false`.
 
 ```typescript title="middleware.ts"
-import { sessions } from '@/lib/kavach';
+import { sessions } from '@/lib/theauth';
 
 export async function middleware(req: Request): Promise<Response | null> {
   const cookieHeader = req.headers.get('cookie') ?? '';
@@ -127,7 +127,7 @@ if (result.success && result.data.refreshedCookieHeader) {
 Revoking a session removes it from the database immediately. Any subsequent validation attempt returns `SESSION_REVOKED`.
 
 ```typescript title="routes/sign-out.ts"
-import { sessions } from '@/lib/kavach';
+import { sessions } from '@/lib/theauth';
 
 export async function POST(req: Request): Promise<Response> {
   const cookieHeader = req.headers.get('cookie') ?? '';
@@ -154,7 +154,7 @@ export async function POST(req: Request): Promise<Response> {
 
 Use JWT sessions when cookies don't work: SPAs calling a separate API origin, mobile apps, server-to-server flows. Access tokens are short-lived and stateless. Refresh tokens are opaque random strings stored as SHA-256 hashes, and they rotate on every use.
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createJwtSessionModule } from '@glinr/theauth/auth'; // [!code highlight]
 
 export const jwtSessions = createJwtSessionModule({
@@ -164,7 +164,7 @@ export const jwtSessions = createJwtSessionModule({
   accessTokenTtl: 900, // 15 minutes // [!code highlight]
   refreshTokenTtl: 604_800, // 7 days // [!code highlight]
   customClaims: (user) => ({ role: user.role, orgId: user.orgId }), // [!code highlight]
-}, kavach.db);
+}, theauth.db);
 ```
 
 ### Create a session
@@ -241,7 +241,7 @@ export const freshness = createSessionFreshnessModule({
 Use it in any endpoint that needs re-authentication assurance:
 
 ```typescript title="routes/change-password.ts"
-import { sessions } from '@/lib/kavach';
+import { sessions } from '@/lib/theauth';
 import { freshness } from '@/lib/freshness';
 
 export async function POST(req: Request): Promise<Response> {
@@ -282,7 +282,7 @@ const csrfToken = generateCsrfToken(); // [!code highlight]
 
 // On each mutating request (POST, PUT, DELETE, PATCH)
 const headerToken = req.headers.get('x-csrf-token') ?? '';
-const cookieToken = parseCookies(req.headers.get('cookie') ?? '')['kavach_csrf'] ?? '';
+const cookieToken = parseCookies(req.headers.get('cookie') ?? '')['theauth_csrf'] ?? '';
 
 const valid = validateCsrfToken(headerToken, cookieToken); // [!code highlight]
 if (!valid) {
@@ -408,7 +408,7 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 
 ### CookieSessionConfig
 
-<ParamField path="sessionName" type="string" default="'kavach_session'">Name of the session cookie.</ParamField>
+<ParamField path="sessionName" type="string" default="'theauth_session'">Name of the session cookie.</ParamField>
 <ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds. After this period the session is considered expired even if it has been used recently.</ParamField>
 <ParamField path="autoRefresh" type="boolean" default="true">Automatically extend the session when validation is called and more than half the lifetime has elapsed.</ParamField>
 <ParamField path="cookie.httpOnly" type="boolean" default="true">Prevents client-side JavaScript from accessing the cookie. Always set this to true for session cookies.</ParamField>
@@ -440,7 +440,7 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 </Warning>
 
 <Warning>
-  Rotate `KAVACH_SECRET` periodically. All existing sessions signed with the old secret become invalid when you rotate. Plan for a brief period where some users need to sign in again, or run with two active secrets during the transition window.
+  Rotate `THEAUTH_SECRET` periodically. All existing sessions signed with the old secret become invalid when you rotate. Plan for a brief period where some users need to sign in again, or run with two active secrets during the transition window.
 </Warning>
 
 <Info>

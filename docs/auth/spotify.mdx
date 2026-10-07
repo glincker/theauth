@@ -14,7 +14,7 @@ description: Authenticate users with Spotify via `spotifyProvider`. Configures O
 Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app. Under **Edit Settings**, add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/spotify
+https://your-app.com/api/theauth/auth/oauth/callback/spotify
 ```
 
 Copy the **Client ID** and **Client Secret** from the app overview.
@@ -27,8 +27,8 @@ Copy the **Client ID** and **Client Secret** from the app overview.
 import { createTheAuth, oauth } from '@glinr/theauth';
 import { spotifyProvider } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

@@ -15,7 +15,7 @@ Go to the [Auth0 dashboard](https://manage.auth0.com) and create a **Regular Web
 Set the **Allowed Callback URL** to:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/auth0
+https://your-app.com/api/theauth/auth/oauth/callback/auth0
 ```
 </Step>
 
@@ -30,13 +30,13 @@ Your domain looks like `your-tenant.auth0.com`.
 
 ## Configuration
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth, auth0Provider } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com',
   plugins: [
     oauth({

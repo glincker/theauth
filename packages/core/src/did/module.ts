@@ -24,7 +24,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 	/**
 	 * Generate a did:key identity for an agent.
 	 *
-	 * Stores the public key and DID document in `kavach_agent_dids`.
+	 * Stores the public key and DID document in `theauth_agent_dids`.
 	 * Returns the private key to the caller — it is not persisted.
 	 */
 	async function generateKey(
@@ -59,7 +59,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 	 * Generate a did:web identity for an agent.
 	 *
 	 * Requires `config.web` to be set with a domain.
-	 * Stores the public key and DID document in `kavach_agent_dids`.
+	 * Stores the public key and DID document in `theauth_agent_dids`.
 	 */
 	async function generateWeb(
 		agentId: string,

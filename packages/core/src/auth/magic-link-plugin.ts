@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { MagicLinkConfig } from "./magic-link.js";
 import { createMagicLinkModule } from "./magic-link.js";
 import { withRateLimit } from "./rate-limit-middleware.js";
@@ -12,14 +12,14 @@ export type { MagicLinkConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function magicLink(config: MagicLinkConfig): KavachPlugin {
+export function magicLink(config: MagicLinkConfig): TheAuthPlugin {
 	return {
-		id: "kavach-magic-link",
+		id: "theauth-magic-link",
 
 		async init(ctx): Promise<undefined> {
 			if (!ctx.sessionManager) {
 				throw new Error(
-					"kavach-magic-link plugin requires auth.session to be configured so that sessions can be issued on successful verification.",
+					"theauth-magic-link plugin requires auth.session to be configured so that sessions can be issued on successful verification.",
 				);
 			}
 

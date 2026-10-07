@@ -1,11 +1,11 @@
 ---
 title: Next.js App Router
-description: Mount TheAuth auth routes in Next.js with authNextjs(kavach). Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
+description: Mount TheAuth auth routes in Next.js with authNextjs(theauth). Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
 ---
 
 # Next.js App Router
 
-`authNextjs(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
+`authNextjs(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }` for the Next.js App Router. Mount them in a catch-all route file so all TheAuth paths are handled.
 
 ## Install
 
@@ -15,15 +15,15 @@ pnpm add @glinr/theauth @glinr/theauth-nextjs
 
 ## Setup
 
-### 1. Create the kavach instance
+### 1. Create the theauth instance
 
 Create this in a shared module so it is initialized once at server startup:
 
 ```typescript
-// lib/kavach.ts
+// lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createTheAuth({
+export const theauth = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -32,19 +32,19 @@ export const kavach = createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 ### 2. Create the catch-all route
 
-Create `app/api/kavach/[...kavach]/route.ts`. The `[...kavach]` segment catches every sub-path under `/api/kavach/`.
+Create `app/api/theauth/[...theauth]/route.ts`. The `[...theauth]` segment catches every sub-path under `/api/theauth/`.
 
 ```typescript
-// app/api/kavach/[...kavach]/route.ts
+// app/api/theauth/[...theauth]/route.ts
 import { authNextjs } from '@glinr/theauth-nextjs';
-import { kavach, mcp } from '@/lib/kavach';
+import { theauth, mcp } from '@/lib/theauth';
 
-const handlers = authNextjs(kavach, { mcp });
+const handlers = authNextjs(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -58,11 +58,11 @@ export const OPTIONS = handlers.OPTIONS;
 When `mcp` is passed, the following endpoints are available:
 
 ```
-GET  /api/kavach/.well-known/oauth-authorization-server
-GET  /api/kavach/.well-known/oauth-protected-resource
-POST /api/kavach/mcp/register
-GET  /api/kavach/mcp/authorize
-POST /api/kavach/mcp/token
+GET  /api/theauth/.well-known/oauth-authorization-server
+GET  /api/theauth/.well-known/oauth-protected-resource
+POST /api/theauth/mcp/register
+GET  /api/theauth/mcp/authorize
+POST /api/theauth/mcp/token
 ```
 
 ## Endpoint reference
@@ -86,11 +86,11 @@ POST /api/kavach/mcp/token
 ## Full example
 
 ```typescript
-// app/api/kavach/[...kavach]/route.ts
+// app/api/theauth/[...theauth]/route.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { authNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = createTheAuth({
+const theauth = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -99,9 +99,9 @@ const kavach = createTheAuth({
   },
 });
 
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule(theauth);
 
-const handlers = authNextjs(kavach, { mcp });
+const handlers = authNextjs(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -111,7 +111,7 @@ export const OPTIONS = handlers.OPTIONS;
 ```
 
 !!! warning
-    Do not define `createTheAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/kavach.ts` and import it where needed to avoid creating multiple instances.
+    Do not define `createTheAuth` inside the route file if you need the instance elsewhere in your app. Export it from `lib/theauth.ts` and import it where needed to avoid creating multiple instances.
 
 ## Related pages
 

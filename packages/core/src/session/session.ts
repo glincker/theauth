@@ -1,7 +1,7 @@
 /**
  * Session management for TheAuth.
  *
- * Provides signed JWT session tokens backed by a `kavach_sessions` database
+ * Provides signed JWT session tokens backed by a `theauth_sessions` database
  * table.  Each token carries the session ID as its `sub` claim; the full
  * session record (including metadata and expiry) lives in the database so
  * it can be revoked server-side at any time.
@@ -11,12 +11,12 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({ ... });
- * const sessions = kavach.auth.session;
+ * const theauth = await createTheAuth({ ... });
+ * const sessions = theauth.auth.session;
  *
  * // On login
  * const { token } = await sessions.create(user.id, { role: 'admin' });
- * setCookie('kavach_session', token, { httpOnly: true, sameSite: 'lax' });
+ * setCookie('theauth_session', token, { httpOnly: true, sameSite: 'lax' });
  *
  * // On each request
  * const session = await sessions.validate(token);
@@ -47,7 +47,7 @@ export interface SessionConfig {
 	maxAge?: number;
 	/**
 	 * Name of the cookie used to transport the session token.
-	 * Defaults to `kavach_session`.
+	 * Defaults to `theauth_session`.
 	 */
 	cookieName?: string;
 }
@@ -64,7 +64,7 @@ export interface SessionManager {
 	/**
 	 * Create a new session for the given user.
 	 *
-	 * Persists the session to `kavach_sessions` and returns both the
+	 * Persists the session to `theauth_sessions` and returns both the
 	 * session record and a signed JWT that the client should store (e.g. in a
 	 * `Set-Cookie` header).
 	 */
@@ -111,7 +111,7 @@ const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 // ---------------------------------------------------------------------------
 
 /**
- * Create a `SessionManager` backed by the `kavach_sessions` database table.
+ * Create a `SessionManager` backed by the `theauth_sessions` database table.
  *
  * @param config Session configuration (secret, maxAge, cookieName).
  * @param db     The Drizzle database instance from `createDatabase()`.

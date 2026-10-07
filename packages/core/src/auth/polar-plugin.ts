@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { PolarConfig } from "./polar.js";
 import { createPolarModule } from "./polar.js";
 
@@ -9,9 +9,9 @@ export type { PolarConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function polar(config: PolarConfig): KavachPlugin {
+export function polar(config: PolarConfig): TheAuthPlugin {
 	return {
-		id: "kavach-polar",
+		id: "theauth-polar",
 
 		async init(ctx): Promise<undefined> {
 			const module = createPolarModule(config, ctx.db);

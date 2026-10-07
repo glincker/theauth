@@ -29,19 +29,19 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 | `@better-auth/agent-auth` | TheAuth |
 |---|---|
 | `agentPlugin()` added to `betterAuth` | Built into `createTheAuth`. No plugin needed for the core agent surface. |
-| `auth.api.createAgent({ userId, scopes })` | `kavach.agent.create({ ownerId, name, type, permissions })` |
+| `auth.api.createAgent({ userId, scopes })` | `theauth.agent.create({ ownerId, name, type, permissions })` |
 | `agent.accessToken` | `agent.token` (prefix `kv_`, returned once, SHA-256 hashed at rest) |
 | `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
 | `agent.kind: 'service' \| 'user-agent'` | `agent.type: 'autonomous' \| 'delegated' \| 'service'` |
-| `auth.api.verifyAgentToken(token)` | `kavach.agent.verifyToken(token)` or `kavach.authorizeByToken(token, req)` |
-| Single-hop delegation via second `createAgent` call | `kavach.delegation.create({ fromAgent, toAgent, permissions, maxDepth })` |
+| `auth.api.verifyAgentToken(token)` | `theauth.agent.verifyToken(token)` or `theauth.authorizeByToken(token, req)` |
+| Single-hop delegation via second `createAgent` call | `theauth.delegation.create({ fromAgent, toAgent, permissions, maxDepth })` |
 | No cascading revocation | Revoking a parent cascades down the chain. Immediate. |
-| No audit module (relies on generic logs) | `kavach.audit.query()` + structured CSV and JSON export |
-| No trust score | `kavach.trust.computeScore(agentId)` |
+| No audit module (relies on generic logs) | `theauth.audit.query()` + structured CSV and JSON export |
+| No trust score | `theauth.trust.computeScore(agentId)` |
 | No MCP server | Built-in OAuth 2.1 authorization server, PKCE S256, RFC 9728 / 8707 / 8414 / 7591 |
 | No per-agent rate cap | Permission constraint: `maxCallsPerHour` |
 | No approval gate | Permission constraint: `requireApproval: true`, surfaces a CIBA-style approval flow |
-| No ephemeral sessions | `kavach.ephemeral.create({ agentId, ttlMs })` |
+| No ephemeral sessions | `theauth.ephemeral.create({ agentId, ttlMs })` |
 
 ## Server setup
 
@@ -59,13 +59,13 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
     ```
 === "After (TheAuth)"
     ```ts
-    // lib/kavach.ts
+    // lib/theauth.ts
     import { createTheAuth } from '@glinr/theauth';
     import { emailPassword } from '@glinr/theauth/auth';
 
-    export const kavach = createTheAuth({
+    export const theauth = createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      secret: process.env.KAVACH_SECRET!,
+      secret: process.env.THEAUTH_SECRET!,
       baseUrl: process.env.AUTH_BASE_URL!,
       agents: { enabled: true, auditAll: true },
       plugins: [emailPassword()],
@@ -85,7 +85,7 @@ The better-auth agent plugin uses flat string scopes (`['read:files', 'write:db'
     ```
 === "After (permissions)"
     ```ts
-    const agent = await kavach.agent.create({
+    const agent = await theauth.agent.create({
       ownerId: 'user-123',
       name: 'my-agent',
       type: 'autonomous',
@@ -109,14 +109,14 @@ The better-auth agent plugin uses flat string scopes (`['read:files', 'write:db'
     ```
 === "After (tracked chains with cascading revocation)"
     ```ts
-    const delegate = await kavach.agent.create({
+    const delegate = await theauth.agent.create({
       ownerId: 'user-123',
       name: 'delegate',
       type: 'delegated',
       permissions: [],
     });
 
-    const chain = await kavach.delegate({
+    const chain = await theauth.delegate({
       fromAgent: agent.id,
       toAgent: delegate.id,
       permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
@@ -125,7 +125,7 @@ The better-auth agent plugin uses flat string scopes (`['read:files', 'write:db'
     });
 
     // Revoking agent also revokes delegate
-    await kavach.agent.revoke(agent.id);
+    await theauth.agent.revoke(agent.id);
     ```
 
 ## Related pages

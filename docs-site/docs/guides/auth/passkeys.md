@@ -21,9 +21,9 @@ pnpm add @glinr/theauth
 import { createTheAuth } from '@glinr/theauth';
 import { passkey } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     passkey({
@@ -45,7 +45,7 @@ Passkey registration is a two-step ceremony:
 
 ```typescript
 // Server: generate registration options
-const options = await kavach.auth.passkey.generateRegistrationOptions({
+const options = await theauth.auth.passkey.generateRegistrationOptions({
   userId: user.id,
   userName: user.email,
 });
@@ -55,7 +55,7 @@ const options = await kavach.auth.passkey.generateRegistrationOptions({
 
 ```typescript
 // Server: verify registration response
-const credential = await kavach.auth.passkey.verifyRegistrationResponse({
+const credential = await theauth.auth.passkey.verifyRegistrationResponse({
   userId: user.id,
   response: credentialFromBrowser,
   expectedChallenge: storedChallenge,
@@ -67,13 +67,13 @@ const credential = await kavach.auth.passkey.verifyRegistrationResponse({
 **Step 1.** Request authentication options.
 
 ```typescript
-const options = await kavach.auth.passkey.generateAuthenticationOptions();
+const options = await theauth.auth.passkey.generateAuthenticationOptions();
 ```
 
 **Step 2.** Verify the response.
 
 ```typescript
-const result = await kavach.auth.passkey.verifyAuthenticationResponse({
+const result = await theauth.auth.passkey.verifyAuthenticationResponse({
   response: credentialFromBrowser,
   expectedChallenge: storedChallenge,
 });

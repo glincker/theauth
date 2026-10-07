@@ -1,4 +1,4 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 import { buildCorsHeaders, isPreflight } from "./cors.js";
 import { matchPolicy } from "./policy-matcher.js";
 import { createGatewayRateLimiter } from "./rate-limiter.js";
@@ -6,7 +6,7 @@ import type { Gateway, GatewayConfig, GatewayPolicy, ResolvedIdentity } from "./
 
 // ─── Health Check Path ───────────────────────────────────────────────────────
 
-const HEALTH_PATH = "/_kavach/health";
+const HEALTH_PATH = "/_theauth/health";
 
 // ─── Response Helpers ────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ function buildUpstreamRequest(
 // ─── Permission Check ────────────────────────────────────────────────────────
 
 async function checkPermissions(
-	kavach: Kavach,
+	theauth: TheAuth,
 	identity: ResolvedIdentity,
 	policy: GatewayPolicy,
 	request: Request,
@@ -102,7 +102,7 @@ async function checkPermissions(
 
 	for (const perm of required) {
 		for (const action of perm.actions) {
-			const result = await kavach.authorizeByToken(
+			const result = await theauth.authorizeByToken(
 				identity.token,
 				{ action, resource: perm.resource },
 				{ ip, userAgent },
@@ -119,7 +119,7 @@ async function checkPermissions(
 // ─── Audit ───────────────────────────────────────────────────────────────────
 
 async function recordAuditEntry(
-	kavach: Kavach,
+	theauth: TheAuth,
 	request: Request,
 	identity: ResolvedIdentity | null,
 	result: "allowed" | "denied" | "rate_limited",
@@ -127,7 +127,7 @@ async function recordAuditEntry(
 ): Promise<void> {
 	try {
 		const url = new URL(request.url);
-		await kavach.authorizeByToken(
+		await theauth.authorizeByToken(
 			identity?.token ?? "",
 			{
 				action: request.method.toLowerCase(),
@@ -157,14 +157,14 @@ async function recordAuditEntry(
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { createGateway } from '@glinr/theauth-gateway';
  *
- * const kavach = await createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const theauth = await createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
  *
  * const gateway = createGateway({
  *   upstream: 'http://localhost:8080',
- *   kavach,
+ *   theauth,
  *   policies: [
  *     { path: '/public/*', public: true },
  *     { path: '/api/*', requiredPermissions: [{ resource: 'api', actions: ['read'] }] },
@@ -177,7 +177,7 @@ async function recordAuditEntry(
 export function createGateway(config: GatewayConfig): Gateway {
 	const {
 		upstream,
-		kavach,
+		theauth,
 		policies = [],
 		cors,
 		rateLimit,
@@ -234,7 +234,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 		let identity: ResolvedIdentity | null = null;
 
 		if (token) {
-			const agent = await kavach.agent.validateToken(token);
+			const agent = await theauth.agent.validateToken(token);
 			if (agent) {
 				identity = { agentId: agent.id, ownerId: agent.ownerId, token };
 			}
@@ -243,7 +243,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 		// ── Auth Enforcement ────────────────────────────────────────
 		if (requireAuth && !identity) {
 			if (audit) {
-				await recordAuditEntry(kavach, request, null, "denied", "missing or invalid token");
+				await recordAuditEntry(theauth, request, null, "denied", "missing or invalid token");
 			}
 			return errorResponse("UNAUTHORIZED", "Missing or invalid Bearer token", 401, corsHeaders);
 		}
@@ -254,7 +254,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			const rl = globalLimiter.check(key);
 			if (!rl.allowed) {
 				if (audit && identity) {
-					await recordAuditEntry(kavach, request, identity, "rate_limited", "global rate limit");
+					await recordAuditEntry(theauth, request, identity, "rate_limited", "global rate limit");
 				}
 				return errorResponse("RATE_LIMITED", "Too many requests", 429, {
 					...corsHeaders,
@@ -271,7 +271,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 				const rl = policyLimiter.check(key);
 				if (!rl.allowed) {
 					if (audit && identity) {
-						await recordAuditEntry(kavach, request, identity, "rate_limited", "policy rate limit");
+						await recordAuditEntry(theauth, request, identity, "rate_limited", "policy rate limit");
 					}
 					return errorResponse("RATE_LIMITED", "Too many requests", 429, {
 						...corsHeaders,
@@ -282,10 +282,10 @@ export function createGateway(config: GatewayConfig): Gateway {
 
 			// ── Permission Check ────────────────────────────────────
 			if (identity && matchedPolicy.requiredPermissions) {
-				const permCheck = await checkPermissions(kavach, identity, matchedPolicy, request);
+				const permCheck = await checkPermissions(theauth, identity, matchedPolicy, request);
 				if (!permCheck.allowed) {
 					if (audit) {
-						await recordAuditEntry(kavach, request, identity, "denied", permCheck.reason);
+						await recordAuditEntry(theauth, request, identity, "denied", permCheck.reason);
 					}
 					return errorResponse(
 						"FORBIDDEN",
@@ -305,14 +305,14 @@ export function createGateway(config: GatewayConfig): Gateway {
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Upstream unreachable";
 			if (audit && identity) {
-				await recordAuditEntry(kavach, request, identity, "denied", `upstream error: ${message}`);
+				await recordAuditEntry(theauth, request, identity, "denied", `upstream error: ${message}`);
 			}
 			return errorResponse("BAD_GATEWAY", `Upstream error: ${message}`, 502, corsHeaders);
 		}
 
 		// ── Audit allowed ────────────────────────────────────────────
 		if (audit && identity) {
-			await recordAuditEntry(kavach, request, identity, "allowed");
+			await recordAuditEntry(theauth, request, identity, "allowed");
 		}
 
 		// Add CORS headers to upstream response

@@ -5,7 +5,7 @@
  * with optional per-user session caps. When the cap is reached, the oldest
  * session is evicted automatically (configurable).
  *
- * Uses the existing `kavach_sessions` table — no additional schema required.
+ * Uses the existing `theauth_sessions` table — no additional schema required.
  *
  * @example
  * ```typescript

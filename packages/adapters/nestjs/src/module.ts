@@ -12,21 +12,18 @@ const AUTH_OPTIONS = Symbol("AUTH_OPTIONS");
 
 export interface TheAuthModuleOptions {
 	/** The TheAuth instance created with `createTheAuth()` */
-	kavach: TheAuth;
+	theauth: TheAuth;
 	/** Optional MCP OAuth 2.1 module created with `createMcpModule()` */
 	mcp?: McpAuthModule;
 	/**
 	 * The path prefix where TheAuth routes will be mounted.
-	 * @default '/api/kavach'
+	 * @default '/api/theauth'
 	 */
 	basePath?: string;
 }
 
 /** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
 export type AuthModuleOptions = TheAuthModuleOptions;
-
-/** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
-export type KavachModuleOptions = TheAuthModuleOptions;
 
 // ─── TheAuthModule ────────────────────────────────────────────────────────────
 
@@ -43,7 +40,7 @@ export type KavachModuleOptions = TheAuthModuleOptions;
  *
  * @Module({
  *   imports: [
- *     TheAuthModule.forRoot({ kavach: auth, mcp, basePath: '/api/kavach' }),
+ *     TheAuthModule.forRoot({ theauth: auth, mcp, basePath: '/api/theauth' }),
  *   ],
  * })
  * export class AppModule {}
@@ -57,11 +54,11 @@ export class TheAuthModule implements NestModule {
 	) {}
 
 	configure(consumer: MiddlewareConsumer): void {
-		const basePath = this.options.basePath ?? "/api/kavach";
+		const basePath = this.options.basePath ?? "/api/theauth";
 		consumer
 			.apply(
 				theAuthMiddleware({
-					kavach: this.options.kavach,
+					theauth: this.options.theauth,
 					mcp: this.options.mcp,
 				}),
 			)
@@ -83,6 +80,3 @@ export class TheAuthModule implements NestModule {
 
 /** @deprecated Use `TheAuthModule` instead. Will be removed in a future major version. */
 export const AuthModule = TheAuthModule;
-
-/** @deprecated Use `TheAuthModule` instead. Will be removed in a future major version. */
-export const KavachModule = TheAuthModule;

@@ -7,11 +7,11 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { rateLimit } from '@glinr/theauth/auth';
  * import { kvStore } from '@glinr/theauth/auth/stores/kv';
  *
- * const kavach = createKavach({
+ * const theauth = createTheAuth({
  *   plugins: [
  *     rateLimit({
  *       signIn:        { window: '15m', max: 10 },
@@ -26,7 +26,7 @@
  * ```
  */
 
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import { MemoryStore } from "./stores/memory.js";
 import type { RateLimitStore } from "./stores/types.js";
 
@@ -146,7 +146,7 @@ function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit 
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function rateLimit(config: RateLimitConfig = {}): KavachPlugin {
+export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 	const store: RateLimitStore =
 		!config.store || config.store === "memory" ? new MemoryStore() : config.store;
 
@@ -154,7 +154,7 @@ export function rateLimit(config: RateLimitConfig = {}): KavachPlugin {
 	const onLimitFn = config.onLimit ?? defaultOnLimit;
 
 	return {
-		id: "kavach-rate-limit",
+		id: "theauth-rate-limit",
 
 		hooks: {
 			async onRequest(request: Request): Promise<Request | Response | undefined> {

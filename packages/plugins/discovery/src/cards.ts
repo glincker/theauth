@@ -46,15 +46,15 @@ function rowToCard(row: typeof agentCards.$inferSelect): AgentCard {
  * Create the A2A discovery module for agent capability cards.
  *
  * Accepts the TheAuth database instance, which is available on the
- * `kavach.db` property returned by `createKavach()`.
+ * `theauth.db` property returned by `createTheAuth()`.
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { createDiscoveryModule } from '@glinr/theauth-plugin-discovery';
  *
- * const kavach = await createKavach({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const discovery = createDiscoveryModule(kavach.db);
+ * const theauth = await createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
+ * const discovery = createDiscoveryModule(theauth.db);
  * const card = await discovery.registerCard(agentId, { name: 'Code Reviewer', ... });
  * ```
  */

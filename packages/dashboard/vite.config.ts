@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
 					// Library mode: bundle as importable component for embedding
 					lib: {
 						entry: resolve(import.meta.dirname, "src/index.ts"),
-						name: "KavachDashboard",
+						name: "TheAuthDashboard",
 						formats: ["es"],
 						fileName: (format) => `index.${format}.js`,
 					},

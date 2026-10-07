@@ -10,8 +10,8 @@ description: Reference for every createTheAuth() option in AuthConfig. Covers da
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 ```
 
@@ -23,8 +23,8 @@ A minimal config for local development with email/password auth and no email sen
 import { createTheAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: './kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: './theauth.db' },
   plugins: [
     emailPassword({
       requireVerification: false, // skip in dev
@@ -64,10 +64,10 @@ const kavach = await createTheAuth({
 
 ```typescript
 // Cloudflare D1 (edge)
-database: { provider: 'd1', binding: env.KAVACH_DB }
+database: { provider: 'd1', binding: env.THEAUTH_DB }
 
 // SQLite (Node.js)
-database: { provider: 'sqlite', url: './kavach.db' }
+database: { provider: 'sqlite', url: './theauth.db' }
 
 // PostgreSQL
 database: { provider: 'postgres', url: process.env.DATABASE_URL }
@@ -145,7 +145,7 @@ auth: {
 },
 ```
 
-When `auth` is omitted, `kavach.auth.resolveUser()` always returns `null` (manual user management mode).
+When `auth` is omitted, `theauth.auth.resolveUser()` always returns `null` (manual user management mode).
 
 ## Session config
 
@@ -153,7 +153,7 @@ When `auth` is omitted, `kavach.auth.resolveUser()` always returns `null` (manua
 |---|---|---|---|
 | `secret` | `string` | required | Signing secret for session JWTs. Min 32 characters. |
 | `maxAge` | `number` | `604800` (7 days) | Session lifetime in seconds. |
-| `cookieName` | `string` | `'kavach_session'` | Name of the session cookie. |
+| `cookieName` | `string` | `'theauth_session'` | Name of the session cookie. |
 | `freshAge` | `number` | `300` (5 minutes) | Maximum session age in seconds to be considered fresh. |
 
 ## Password reset config
@@ -210,16 +210,16 @@ anomaly: {
 Never hardcode secrets in config. Pass them through environment variables:
 
 ```typescript
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: {
     provider: 'postgres',
     url: process.env.DATABASE_URL!,
   },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   mcp: {
     enabled: true,
-    issuer: process.env.KAVACH_ISSUER!,
-    signingSecret: process.env.KAVACH_SIGNING_SECRET,
+    issuer: process.env.THEAUTH_ISSUER!,
+    signingSecret: process.env.THEAUTH_SIGNING_SECRET,
   },
 });
 ```
@@ -227,16 +227,16 @@ const kavach = await createTheAuth({
 ## Dev vs production example
 
 ```typescript
-// config/kavach.ts
+// config/theauth.ts
 const isDev = process.env.NODE_ENV !== 'production';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: isDev
-    ? { provider: 'sqlite', url: './kavach-dev.db' }
+    ? { provider: 'sqlite', url: './theauth-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },
 
-  secret: process.env.KAVACH_SECRET!,
-  baseUrl: process.env.KAVACH_BASE_URL ?? 'http://localhost:3000',
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',
 
   agents: {
     enabled: true,
@@ -247,7 +247,7 @@ export const kavach = await createTheAuth({
 
   mcp: {
     enabled: true,
-    issuer: process.env.KAVACH_BASE_URL ?? 'http://localhost:3000',
+    issuer: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',
     accessTokenTtl: isDev ? 86400 : 3600,
     enforceAuth: !isDev,
     loginPage: '/login',

@@ -10,7 +10,7 @@
 //   curl http://localhost:3000/api/audit
 
 import { createTheAuth, users } from "@glinr/theauth";
-import { kavachHono } from "@glinr/theauth-hono";
+import { theAuthHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -21,7 +21,7 @@ const PORT = 3000;
 
 function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	auth.db.run(sql`
-		CREATE TABLE IF NOT EXISTS kavach_users (
+		CREATE TABLE IF NOT EXISTS theauth_users (
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
 			name TEXT,
@@ -34,9 +34,9 @@ function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	`);
 
 	auth.db.run(sql`
-		CREATE TABLE IF NOT EXISTS kavach_agents (
+		CREATE TABLE IF NOT EXISTS theauth_agents (
 			id TEXT PRIMARY KEY,
-			owner_id TEXT NOT NULL REFERENCES kavach_users(id),
+			owner_id TEXT NOT NULL REFERENCES theauth_users(id),
 			name TEXT NOT NULL,
 			type TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'active',
@@ -51,9 +51,9 @@ function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	`);
 
 	auth.db.run(sql`
-		CREATE TABLE IF NOT EXISTS kavach_permissions (
+		CREATE TABLE IF NOT EXISTS theauth_permissions (
 			id TEXT PRIMARY KEY,
-			agent_id TEXT NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+			agent_id TEXT NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
 			resource TEXT NOT NULL,
 			actions TEXT NOT NULL,
 			constraints TEXT,
@@ -62,10 +62,10 @@ function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	`);
 
 	auth.db.run(sql`
-		CREATE TABLE IF NOT EXISTS kavach_audit_logs (
+		CREATE TABLE IF NOT EXISTS theauth_audit_logs (
 			id TEXT PRIMARY KEY,
-			agent_id TEXT NOT NULL REFERENCES kavach_agents(id),
-			user_id TEXT NOT NULL REFERENCES kavach_users(id),
+			agent_id TEXT NOT NULL REFERENCES theauth_agents(id),
+			user_id TEXT NOT NULL REFERENCES theauth_users(id),
 			action TEXT NOT NULL,
 			resource TEXT NOT NULL,
 			parameters TEXT,
@@ -80,9 +80,9 @@ function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	`);
 
 	auth.db.run(sql`
-		CREATE TABLE IF NOT EXISTS kavach_rate_limits (
+		CREATE TABLE IF NOT EXISTS theauth_rate_limits (
 			id TEXT PRIMARY KEY,
-			agent_id TEXT NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+			agent_id TEXT NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
 			resource TEXT NOT NULL,
 			window_start INTEGER NOT NULL,
 			count INTEGER NOT NULL DEFAULT 0
@@ -90,10 +90,10 @@ function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	`);
 
 	auth.db.run(sql`
-		CREATE TABLE IF NOT EXISTS kavach_delegation_chains (
+		CREATE TABLE IF NOT EXISTS theauth_delegation_chains (
 			id TEXT PRIMARY KEY,
-			from_agent_id TEXT NOT NULL REFERENCES kavach_agents(id),
-			to_agent_id TEXT NOT NULL REFERENCES kavach_agents(id),
+			from_agent_id TEXT NOT NULL REFERENCES theauth_agents(id),
+			to_agent_id TEXT NOT NULL REFERENCES theauth_agents(id),
 			permissions TEXT NOT NULL,
 			depth INTEGER NOT NULL DEFAULT 1,
 			max_depth INTEGER NOT NULL DEFAULT 3,
@@ -320,7 +320,7 @@ async function main(): Promise<void> {
 	createTables(auth);
 	seedUser(auth);
 
-	const api = kavachHono(auth);
+	const api = theAuthHono(auth);
 
 	const app = new Hono();
 

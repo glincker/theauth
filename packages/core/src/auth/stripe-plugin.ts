@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { StripeConfig } from "./stripe.js";
 import { createStripeModule } from "./stripe.js";
 
@@ -9,9 +9,9 @@ export type { StripeConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function stripe(config: StripeConfig): KavachPlugin {
+export function stripe(config: StripeConfig): TheAuthPlugin {
 	return {
-		id: "kavach-stripe",
+		id: "theauth-stripe",
 
 		async init(ctx): Promise<undefined> {
 			const module = createStripeModule(config, ctx.db);

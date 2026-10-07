@@ -31,7 +31,7 @@ You'll be asked for a project directory, a template, and a database driver. The 
 
 A working Next.js app with:
 
-- `createKavach` already wired in `lib/auth.ts`
+- `createTheAuth` already wired in `lib/auth.ts`
 - Drizzle schema and migrations for the auth tables
 - Sign-in / sign-up routes using the prebuilt React components
 - `.env.example` with the secrets you need to fill in

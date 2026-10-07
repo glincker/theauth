@@ -6,7 +6,7 @@ import pytest
 import respx
 import httpx
 
-from theauth import KavachClient, KavachSyncClient
+from theauth import TheAuthClient, TheAuthSyncClient
 from theauth.types import AuthorizeRequest, AuthResponse, Session
 
 from tests.conftest import (
@@ -19,7 +19,7 @@ from tests.conftest import (
 
 class TestAsyncSignIn:
     @pytest.mark.asyncio
-    async def test_sign_in_returns_auth_response(self, async_client: KavachClient) -> None:
+    async def test_sign_in_returns_auth_response(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-in/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -34,7 +34,7 @@ class TestAsyncSignIn:
         assert response.session.token == "sess_token_xyz"
 
     @pytest.mark.asyncio
-    async def test_sign_in_sends_correct_body(self, async_client: KavachClient) -> None:
+    async def test_sign_in_sends_correct_body(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/sign-in/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -50,10 +50,10 @@ class TestAsyncSignIn:
         assert body["password"] == "secret123"
 
     @pytest.mark.asyncio
-    async def test_sign_in_does_not_require_auth_header(self, async_client: KavachClient) -> None:
+    async def test_sign_in_does_not_require_auth_header(self, async_client: TheAuthClient) -> None:
         """Sign-in is a public endpoint — the Authorization header should still be
         sent if a token is set on the client, but a missing token should not block the call."""
-        client = KavachClient(base_url=BASE_URL)  # no token
+        client = TheAuthClient(base_url=BASE_URL)  # no token
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-in/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -65,7 +65,7 @@ class TestAsyncSignIn:
 
 class TestAsyncSignUp:
     @pytest.mark.asyncio
-    async def test_sign_up_returns_auth_response(self, async_client: KavachClient) -> None:
+    async def test_sign_up_returns_auth_response(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-up/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -79,7 +79,7 @@ class TestAsyncSignUp:
         assert response.user.email == "user@example.com"
 
     @pytest.mark.asyncio
-    async def test_sign_up_includes_name(self, async_client: KavachClient) -> None:
+    async def test_sign_up_includes_name(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/sign-up/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -95,7 +95,7 @@ class TestAsyncSignUp:
         assert body["name"] == "New User"
 
     @pytest.mark.asyncio
-    async def test_sign_up_without_name(self, async_client: KavachClient) -> None:
+    async def test_sign_up_without_name(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/sign-up/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -112,7 +112,7 @@ class TestAsyncSignUp:
 
 class TestAsyncSignOut:
     @pytest.mark.asyncio
-    async def test_sign_out_returns_none(self, async_client: KavachClient) -> None:
+    async def test_sign_out_returns_none(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-out").mock(
                 return_value=httpx.Response(204)
@@ -122,7 +122,7 @@ class TestAsyncSignOut:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_sign_out_with_explicit_token(self, async_client: KavachClient) -> None:
+    async def test_sign_out_with_explicit_token(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/sign-out").mock(
                 return_value=httpx.Response(204)
@@ -135,7 +135,7 @@ class TestAsyncSignOut:
 
 class TestAsyncGetSession:
     @pytest.mark.asyncio
-    async def test_get_session_returns_session(self, async_client: KavachClient) -> None:
+    async def test_get_session_returns_session(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/session").mock(
                 return_value=httpx.Response(200, json=SESSION_FIXTURE)
@@ -147,7 +147,7 @@ class TestAsyncGetSession:
         assert session.token == "sess_token_xyz"
 
     @pytest.mark.asyncio
-    async def test_get_session_returns_none_on_401(self, async_client: KavachClient) -> None:
+    async def test_get_session_returns_none_on_401(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/session").mock(
                 return_value=httpx.Response(
@@ -160,7 +160,7 @@ class TestAsyncGetSession:
         assert session is None
 
     @pytest.mark.asyncio
-    async def test_get_session_with_explicit_token(self, async_client: KavachClient) -> None:
+    async def test_get_session_with_explicit_token(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/session").mock(
                 return_value=httpx.Response(200, json=SESSION_FIXTURE)
@@ -173,7 +173,7 @@ class TestAsyncGetSession:
 
 class TestAsyncAuthorizeByToken:
     @pytest.mark.asyncio
-    async def test_authorize_by_token(self, async_client: KavachClient) -> None:
+    async def test_authorize_by_token(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/authorize").mock(
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
@@ -190,7 +190,7 @@ class TestAsyncAuthorizeByToken:
 
 
 class TestSyncAuth:
-    def test_sign_in(self, sync_client: KavachSyncClient) -> None:
+    def test_sign_in(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-in/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -199,7 +199,7 @@ class TestSyncAuth:
 
         assert response.user.email == "user@example.com"
 
-    def test_sign_up(self, sync_client: KavachSyncClient) -> None:
+    def test_sign_up(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-up/email").mock(
                 return_value=httpx.Response(200, json=AUTH_RESPONSE_FIXTURE)
@@ -208,14 +208,14 @@ class TestSyncAuth:
 
         assert response.session.id == "sess-abc"
 
-    def test_sign_out(self, sync_client: KavachSyncClient) -> None:
+    def test_sign_out(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/sign-out").mock(return_value=httpx.Response(204))
             result = sync_client.auth.sign_out()
 
         assert result is None
 
-    def test_get_session(self, sync_client: KavachSyncClient) -> None:
+    def test_get_session(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/session").mock(
                 return_value=httpx.Response(200, json=SESSION_FIXTURE)
@@ -225,7 +225,7 @@ class TestSyncAuth:
         assert session is not None
         assert session.token == "sess_token_xyz"
 
-    def test_get_session_returns_none_on_401(self, sync_client: KavachSyncClient) -> None:
+    def test_get_session_returns_none_on_401(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/session").mock(
                 return_value=httpx.Response(

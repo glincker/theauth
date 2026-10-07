@@ -12,7 +12,7 @@ Polar is an open-source funding platform for developers. The TheAuth plugin wire
 <Step>
 ### Get your credentials
 
-From your [Polar dashboard](https://polar.sh), go to **Settings → API** and create an access token. Under **Webhooks**, create an endpoint pointing to `/api/kavach/auth/polar/webhook` and copy the signing secret.
+From your [Polar dashboard](https://polar.sh), go to **Settings → API** and create an access token. Under **Webhooks**, create an endpoint pointing to `/api/theauth/auth/polar/webhook` and copy the signing secret.
 </Step>
 
 <Step>
@@ -22,7 +22,7 @@ From your [Polar dashboard](https://polar.sh), go to **Settings → API** and cr
 import { createTheAuth } from '@glinr/theauth';
 import { polar } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   plugins: [
     polar({
@@ -45,7 +45,7 @@ const kavach = await createTheAuth({
 
 ```ts
 // From an authenticated endpoint
-const { url } = await kavach.plugins.polar.createCheckout(userId, 'product_xxx', {
+const { url } = await theauth.plugins.polar.createCheckout(userId, 'product_xxx', {
   successUrl: 'https://example.com/success',
 });
 
@@ -56,7 +56,7 @@ redirect(url);
 ### Check subscription status
 
 ```ts
-const sub = await kavach.plugins.polar.getSubscription(userId);
+const sub = await theauth.plugins.polar.getSubscription(userId);
 
 if (sub?.status === 'active') {
   // grant access
@@ -144,7 +144,7 @@ polar({
 | `cancelAtPeriodEnd` | `boolean` | Whether cancellation is scheduled |
 
 <Info>
-TheAuth stores Polar subscription data in the `kavach_users` table. You can query it directly with Drizzle or any SQL client.
+TheAuth stores Polar subscription data in the `theauth_users` table. You can query it directly with Drizzle or any SQL client.
 </Info>
 
 ## Related

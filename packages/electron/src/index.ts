@@ -17,20 +17,15 @@ export { openOAuthWindow } from "./oauth-window.js";
 
 export {
 	createIpcStorage,
-	KAVACH_IPC_CHANNELS,
-	setupKavachIpc,
 	setupTheAuthIpc,
 	THEAUTH_IPC_CHANNELS,
 } from "./ipc.js";
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export type { ElectronKavachProviderProps, ElectronTheAuthProviderProps } from "./provider.js";
+export type { ElectronTheAuthProviderProps } from "./provider.js";
 export {
-	ElectronKavachContext,
-	ElectronKavachProvider,
 	ElectronTheAuthContext,
 	ElectronTheAuthProvider,
-	useElectronKavachContext,
 	useElectronTheAuthContext,
 } from "./provider.js";

@@ -7,7 +7,7 @@
  */
 
 import { compactVerify, importJWK, errors as joseErrors, jwtVerify } from "jose";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { Result, TheAuthError } from "../mcp/types.js";
 import type {
 	CredentialFormat,
 	ExtractedPermissions,
@@ -21,7 +21,7 @@ import { VerifiableCredentialSchema, VerifiablePresentationSchema } from "./type
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 

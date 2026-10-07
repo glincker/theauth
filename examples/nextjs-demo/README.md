@@ -32,7 +32,7 @@ app/
   auth/verify-email/page.tsx  # Email verification
   api/theauth/[...theauth]/   # All TheAuth API routes
 lib/
-  kavach.ts                   # Singleton TheAuth instance
+  theauth.ts                   # Singleton TheAuth instance
 ```
 
 ## Notes

@@ -11,7 +11,7 @@ export interface TheAuthNuxtOptions {
 	mcp?: McpAuthModule;
 	/**
 	 * The URL path prefix before the catch-all segment.
-	 * Defaults to `/api/kavach`.
+	 * Defaults to `/api/theauth`.
 	 *
 	 * @example `/api/auth`
 	 */
@@ -21,20 +21,17 @@ export interface TheAuthNuxtOptions {
 /** @deprecated Use `TheAuthNuxtOptions` instead. Will be removed in a future major version. */
 export type AuthNuxtOptions = TheAuthNuxtOptions;
 
-/** @deprecated Use `TheAuthNuxtOptions` instead. Will be removed in a future major version. */
-export type KavachNuxtOptions = TheAuthNuxtOptions;
-
 /**
  * Create a Nuxt/H3 event handler for all TheAuth REST API routes.
  *
- * Mount in `server/api/kavach/[...].ts`:
+ * Mount in `server/api/theauth/[...].ts`:
  *
  * @example
  * ```typescript
  * import { createTheAuth } from '@glinr/theauth';
  * import { theAuthNuxt } from '@glinr/theauth-nuxt';
  *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
  * export default theAuthNuxt(auth);
  * ```
  *
@@ -47,7 +44,7 @@ export type KavachNuxtOptions = TheAuthNuxtOptions;
  */
 export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventHandler {
 	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	return defineEventHandler(async (event: H3Event) => {
 		// Build a standard Request from the H3 event so we can delegate to the
@@ -97,6 +94,3 @@ export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventH
 
 /** @deprecated Use `theAuthNuxt` instead. Will be removed in a future major version. */
 export const authNuxt = theAuthNuxt;
-
-/** @deprecated Use `theAuthNuxt` instead. Will be removed in a future major version. */
-export const kavachNuxt = theAuthNuxt;

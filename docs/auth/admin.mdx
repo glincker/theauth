@@ -1,6 +1,6 @@
 ---
 title: Admin
-description: "Manage users with `kavach.admin`: list accounts, apply permanent or time-limited bans, impersonate for support debugging, and delete user data on request."
+description: "Manage users with `theauth.admin`: list accounts, apply permanent or time-limited bans, impersonate for support debugging, and delete user data on request."
 icon: gear
 ---
 
@@ -11,8 +11,8 @@ Pass `adminUserIds` when creating your TheAuth instance:
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   admin: { // [!code highlight]
     adminUserIds: [process.env.ADMIN_USER_ID], // [!code highlight]
     allowImpersonation: true, // [!code highlight]
@@ -25,7 +25,7 @@ Admin status is determined by the `adminUserIds` list. There is no role column, 
 ## Listing users
 
 ```ts
-const { users, total } = await kavach.admin.listUsers({
+const { users, total } = await theauth.admin.listUsers({
   limit: 50,
   offset: 0,
   search: 'alice',   // optional email filter
@@ -38,13 +38,13 @@ Each user object includes `id`, `email`, `name`, `banned`, `banReason`, `banExpi
 
 ```ts
 // Permanent ban
-await kavach.admin.banUser('user_xyz', 'Violating terms of service');
+await theauth.admin.banUser('user_xyz', 'Violating terms of service');
 
 // Temporary ban
-await kavach.admin.banUser('user_xyz', 'Spam', new Date('2025-06-01'));
+await theauth.admin.banUser('user_xyz', 'Spam', new Date('2025-06-01'));
 
 // Lift the ban
-await kavach.admin.unbanUser('user_xyz');
+await theauth.admin.unbanUser('user_xyz');
 ```
 
 Banning immediately revokes all active sessions for that user.
@@ -56,18 +56,18 @@ Banning immediately revokes all active sessions for that user.
 </Warning>
 
 ```ts
-const { session } = await kavach.admin.impersonate('admin_abc', 'user_xyz'); // [!code highlight]
+const { session } = await theauth.admin.impersonate('admin_abc', 'user_xyz'); // [!code highlight]
 // session.token: use this as a regular session token
 // session.expiresAt
 
 // Stop impersonating
-await kavach.admin.stopImpersonation(session.token);
+await theauth.admin.stopImpersonation(session.token);
 ```
 
 ## Force password reset
 
 ```ts
-await kavach.admin.forcePasswordReset('user_xyz');
+await theauth.admin.forcePasswordReset('user_xyz');
 ```
 
 This sets a flag on the user. Your app should check `user.forcePasswordReset` after login and redirect to a reset flow.
@@ -75,7 +75,7 @@ This sets a flag on the user. Your app should check `user.forcePasswordReset` af
 ## Deleting users
 
 ```ts
-await kavach.admin.deleteUser('user_xyz');
+await theauth.admin.deleteUser('user_xyz');
 ```
 
 Deleting revokes all sessions and marks owned agents as `revoked` to preserve the audit trail, then removes the user record.

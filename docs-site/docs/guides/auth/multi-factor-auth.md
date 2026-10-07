@@ -14,9 +14,9 @@ import { createTheAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 import { twoFactor } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     emailPassword(),
@@ -32,7 +32,7 @@ const kavach = await createTheAuth({
 **Step 1.** Generate a TOTP secret and QR code for the user.
 
 ```typescript
-const { secret, qrCodeUrl, backupCodes } = await kavach.auth.twoFactor.setup({
+const { secret, qrCodeUrl, backupCodes } = await theauth.auth.twoFactor.setup({
   userId: user.id,
 });
 
@@ -43,7 +43,7 @@ const { secret, qrCodeUrl, backupCodes } = await kavach.auth.twoFactor.setup({
 **Step 2.** Confirm enrollment by verifying a code from the authenticator app.
 
 ```typescript
-await kavach.auth.twoFactor.enable({
+await theauth.auth.twoFactor.enable({
   userId: user.id,
   code: codeFromApp,
 });
@@ -54,7 +54,7 @@ await kavach.auth.twoFactor.enable({
 After the primary credential (email/password) is verified, prompt for the TOTP code:
 
 ```typescript
-const result = await kavach.auth.twoFactor.verify({
+const result = await theauth.auth.twoFactor.verify({
   userId: user.id,
   code: totpCode,
 });
@@ -70,7 +70,7 @@ Backup codes are one-time use and generated during enrollment. Each code is hash
 
 ```typescript
 // Regenerate backup codes (invalidates previous ones)
-const { backupCodes } = await kavach.auth.twoFactor.regenerateBackupCodes({
+const { backupCodes } = await theauth.auth.twoFactor.regenerateBackupCodes({
   userId: user.id,
   code: totpCode, // require current TOTP to regenerate
 });
@@ -79,7 +79,7 @@ const { backupCodes } = await kavach.auth.twoFactor.regenerateBackupCodes({
 ## Disabling 2FA
 
 ```typescript
-await kavach.auth.twoFactor.disable({
+await theauth.auth.twoFactor.disable({
   userId: user.id,
   code: totpCode, // require current TOTP to disable
 });

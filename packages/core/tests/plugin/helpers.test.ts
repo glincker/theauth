@@ -53,14 +53,14 @@ describe("parseBody", () => {
 describe("getCookie", () => {
 	it("extracts named cookie", () => {
 		const req = new Request("http://localhost", {
-			headers: { cookie: "kavach_session=abc123; other=xyz" },
+			headers: { cookie: "theauth_session=abc123; other=xyz" },
 		});
-		expect(getCookie(req, "kavach_session")).toBe("abc123");
+		expect(getCookie(req, "theauth_session")).toBe("abc123");
 	});
 
 	it("returns null when cookie missing", () => {
 		const req = new Request("http://localhost");
-		expect(getCookie(req, "kavach_session")).toBeNull();
+		expect(getCookie(req, "theauth_session")).toBeNull();
 	});
 
 	it("returns null when no cookie header", () => {
@@ -74,7 +74,7 @@ describe("extractToken", () => {
 		const req = new Request("http://localhost", {
 			headers: {
 				authorization: "Bearer my-token",
-				cookie: "kavach_session=cookie-token",
+				cookie: "theauth_session=cookie-token",
 			},
 		});
 		expect(extractToken(req)).toBe("my-token");
@@ -82,7 +82,7 @@ describe("extractToken", () => {
 
 	it("falls back to cookie", () => {
 		const req = new Request("http://localhost", {
-			headers: { cookie: "kavach_session=cookie-token" },
+			headers: { cookie: "theauth_session=cookie-token" },
 		});
 		expect(extractToken(req)).toBe("cookie-token");
 	});
@@ -102,8 +102,8 @@ describe("extractToken", () => {
 
 describe("buildSetCookie", () => {
 	it("builds a valid Set-Cookie string", () => {
-		const cookie = buildSetCookie("kavach_session", "tok123", 86400);
-		expect(cookie).toContain("kavach_session=tok123");
+		const cookie = buildSetCookie("theauth_session", "tok123", 86400);
+		expect(cookie).toContain("theauth_session=tok123");
 		expect(cookie).toContain("HttpOnly");
 		expect(cookie).toContain("Secure");
 		expect(cookie).toContain("SameSite=Lax");
@@ -114,8 +114,8 @@ describe("buildSetCookie", () => {
 
 describe("buildClearCookie", () => {
 	it("builds a cookie-clearing string", () => {
-		const cookie = buildClearCookie("kavach_session");
+		const cookie = buildClearCookie("theauth_session");
 		expect(cookie).toContain("Max-Age=0");
-		expect(cookie).toContain("kavach_session=");
+		expect(cookie).toContain("theauth_session=");
 	});
 });

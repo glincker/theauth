@@ -30,7 +30,7 @@ import { createRedirectChain } from "../src/redirect/chain.js";
 function makeRequest(url: string, cookieValue?: string): Request {
 	const headers = new Headers();
 	if (cookieValue !== undefined) {
-		headers.set("cookie", `kavach_redirect=${cookieValue}`);
+		headers.set("cookie", `theauth_redirect=${cookieValue}`);
 	}
 	return new Request(url, { headers });
 }
@@ -52,7 +52,7 @@ describe("capture()", () => {
 		const req = makeRequest("http://localhost/dashboard/projects");
 		const setCookie = chain.capture(req);
 
-		expect(setCookie).toContain("kavach_redirect=");
+		expect(setCookie).toContain("theauth_redirect=");
 
 		// Parse it back
 		const cookieValue = extractCookieValue(setCookie);
@@ -295,7 +295,7 @@ describe("clear()", () => {
 
 		const clearHeader = chain.clear();
 		expect(clearHeader).toContain("Max-Age=0");
-		expect(clearHeader).toContain("kavach_redirect=");
+		expect(clearHeader).toContain("theauth_redirect=");
 	});
 
 	it("chain is gone after clear", () => {

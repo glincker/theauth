@@ -7,8 +7,8 @@ import {
 	verifyPresentation,
 } from "../src/did/signing.js";
 import { generateDidWeb, getDidWebUrl } from "../src/did/web-method.js";
-import type { Kavach } from "../src/kavach.js";
-import { createTestKavach } from "./helpers.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTestTheAuth } from "./helpers.js";
 
 // ─── did:key ──────────────────────────────────────────────────────────────────
 
@@ -261,13 +261,13 @@ describe("createPresentation / verifyPresentation", () => {
 // ─── Database integration (DID module) ───────────────────────────────────────
 
 describe("DID module – database storage", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 	let agentId: string;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: "user-1",
 			name: "DID Test Agent",
 			type: "autonomous",
@@ -277,7 +277,7 @@ describe("DID module – database storage", () => {
 	});
 
 	it("generateKey stores the DID and returns private key", async () => {
-		const { agentDid, privateKeyJwk } = await kavach.did.generateKey(agentId);
+		const { agentDid, privateKeyJwk } = await theauth.did.generateKey(agentId);
 
 		expect(agentDid.did).toMatch(/^did:key:z/);
 		expect(agentDid.agentId).toBe(agentId);
@@ -287,9 +287,9 @@ describe("DID module – database storage", () => {
 	});
 
 	it("getAgentDid retrieves the stored DID record", async () => {
-		const { agentDid } = await kavach.did.generateKey(agentId);
+		const { agentDid } = await theauth.did.generateKey(agentId);
 
-		const stored = await kavach.did.getAgentDid(agentId);
+		const stored = await theauth.did.getAgentDid(agentId);
 		expect(stored).not.toBeNull();
 		expect(stored?.did).toBe(agentDid.did);
 		expect(stored?.method).toBe("key");
@@ -297,18 +297,18 @@ describe("DID module – database storage", () => {
 	});
 
 	it("getAgentDid returns null when no DID exists", async () => {
-		const result = await kavach.did.getAgentDid("nonexistent-agent");
+		const result = await theauth.did.getAgentDid("nonexistent-agent");
 		expect(result).toBeNull();
 	});
 
 	it("sign and verify a payload end-to-end via the module", async () => {
-		const { agentDid, privateKeyJwk } = await kavach.did.generateKey(agentId);
+		const { agentDid, privateKeyJwk } = await theauth.did.generateKey(agentId);
 		const payload = { action: "execute", tool: "search" };
 
-		const signed = await kavach.did.sign(agentId, payload, privateKeyJwk);
+		const signed = await theauth.did.sign(agentId, payload, privateKeyJwk);
 		expect(signed.issuer).toBe(agentDid.did);
 
-		const result = await kavach.did.verify(signed.jws, agentDid.did);
+		const result = await theauth.did.verify(signed.jws, agentDid.did);
 		expect(result.valid).toBe(true);
 		expect(result.payload?.action).toBe("execute");
 	});
@@ -318,45 +318,45 @@ describe("DID module – database storage", () => {
 		const { did, privateKeyJwk } = await generateDidKey();
 		const signed = await signPayload({ x: 1 }, privateKeyJwk, did);
 
-		const result = await kavach.did.verify(signed.jws, did);
+		const result = await theauth.did.verify(signed.jws, did);
 		expect(result.valid).toBe(false);
 		expect(result.error).toContain("No stored public key");
 	});
 
 	it("verify returns error when no DID is provided", async () => {
-		const result = await kavach.did.verify("some.jws.value");
+		const result = await theauth.did.verify("some.jws.value");
 		expect(result.valid).toBe(false);
 	});
 
 	it("createPresentation and verifyPresentation roundtrip via module", async () => {
-		const { agentDid, privateKeyJwk } = await kavach.did.generateKey(agentId);
+		const { agentDid, privateKeyJwk } = await theauth.did.generateKey(agentId);
 
-		const jwt = await kavach.did.createPresentation({
+		const jwt = await theauth.did.createPresentation({
 			agentId,
 			privateKeyJwk,
 			capabilities: ["tool:search", "tool:write"],
 		});
 
-		const result = await kavach.did.verifyPresentation(jwt);
+		const result = await theauth.did.verifyPresentation(jwt);
 		expect(result.valid).toBe(true);
 		expect(result.capabilities).toEqual(["tool:search", "tool:write"]);
 		expect(result.issuer).toBe(agentDid.did);
 	});
 
 	it("generateWeb stores a did:web DID when web config is set", async () => {
-		// Create a separate kavach instance with web config
-		const [{ createKavach }, schema] = await Promise.all([
-			import("../src/kavach.js"),
+		// Create a separate theauth instance with web config
+		const [{ createTheAuth }, schema] = await Promise.all([
+			import("../src/theauth.js"),
 			import("../src/db/schema.js"),
 		]);
 
-		const kavachWithWeb = await createKavach({
+		const theAuthWithWeb = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			did: { web: { domain: "auth.example.com", path: "agents" } },
 		});
 
 		// Seed a user and agent in this instance
-		kavachWithWeb.db
+		theAuthWithWeb.db
 			.insert(schema.users)
 			.values({
 				id: "user-w",
@@ -366,31 +366,31 @@ describe("DID module – database storage", () => {
 			})
 			.run();
 
-		const agent = await kavachWithWeb.agent.create({
+		const agent = await theAuthWithWeb.agent.create({
 			ownerId: "user-w",
 			name: "Web DID Agent",
 			type: "autonomous",
 			permissions: [],
 		});
 
-		const { agentDid } = await kavachWithWeb.did.generateWeb(agent.id);
+		const { agentDid } = await theAuthWithWeb.did.generateWeb(agent.id);
 		expect(agentDid.did).toMatch(/^did:web:auth\.example\.com:agents:/);
 		expect(agentDid.method).toBe("web");
 	});
 
 	it("generateWeb throws when web config is absent", async () => {
-		await expect(kavach.did.generateWeb(agentId)).rejects.toThrow("did:web requires");
+		await expect(theauth.did.generateWeb(agentId)).rejects.toThrow("did:web requires");
 	});
 
 	it("resolve delegates to did:key resolver", async () => {
-		const { agentDid } = await kavach.did.generateKey(agentId);
-		const doc = await kavach.did.resolve(agentDid.did);
+		const { agentDid } = await theauth.did.generateKey(agentId);
+		const doc = await theauth.did.resolve(agentDid.did);
 		expect(doc).not.toBeNull();
 		expect(doc?.id).toBe(agentDid.did);
 	});
 
 	it("resolve returns null for unknown methods", async () => {
-		const doc = await kavach.did.resolve("did:unknown:abc123");
+		const doc = await theauth.did.resolve("did:unknown:abc123");
 		expect(doc).toBeNull();
 	});
 });

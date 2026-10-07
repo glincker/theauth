@@ -14,13 +14,13 @@ import { AuthCard } from "./auth-card.js";
 
 function DefaultInput({ label, error, ...rest }: InputSlotProps): ReactNode {
 	return (
-		<label className="kavach-field flex flex-col gap-1.5">
+		<label className="theauth-field flex flex-col gap-1.5">
 			<span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
 			<input
 				{...rest}
 				className={
 					rest.className ??
-					"kavach-input w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+					"theauth-input w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
 				}
 			/>
 			{error && <p className="text-xs text-red-500">{error}</p>}
@@ -35,7 +35,7 @@ function DefaultButton({ loading, children, ...rest }: ButtonSlotProps): ReactNo
 			disabled={rest.disabled ?? loading}
 			className={
 				rest.className ??
-				"kavach-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+				"theauth-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
 			}
 		>
 			{loading ? (
@@ -55,7 +55,7 @@ function DefaultError({ message, className }: ErrorSlotProps): ReactNode {
 		<div
 			className={
 				className ??
-				"kavach-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+				"theauth-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
 			}
 		>
 			{message}
@@ -77,7 +77,7 @@ function DefaultLink({ href, children, className, onClick }: LinkSlotProps): Rea
 			}
 			className={
 				className ??
-				"kavach-link text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+				"theauth-link text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
 			}
 		>
 			{children}
@@ -103,7 +103,7 @@ function Spinner(): ReactNode {
 export function ForgotPassword({
 	classNames,
 	components,
-	basePath = "/api/kavach",
+	basePath = "/api/theauth",
 	onSuccess,
 	signInUrl,
 	onSignIn,
@@ -161,7 +161,7 @@ export function ForgotPassword({
 				{sent ? (
 					<div
 						className={cx(
-							"kavach-success rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400",
+							"theauth-success rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400",
 							classNames?.success,
 						)}
 					>

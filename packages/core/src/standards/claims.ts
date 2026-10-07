@@ -6,7 +6,7 @@
  *   - draft-liu-agent-operation-authorization-01
  *
  * These constants are off by default. Set `emitAgenticJwtClaims: true` in
- * KavachConfig to include them in issued tokens.
+ * TheAuthConfig to include them in issued tokens.
  */
 
 // ---------------------------------------------------------------------------

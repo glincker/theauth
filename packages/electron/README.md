@@ -39,15 +39,15 @@ function App() {
 // OAuth login from renderer
 import { openOAuthWindow } from '@glinr/theauth-electron';
 
-const result = await openOAuthWindow({ provider: 'google', redirectUri: 'kavach://oauth' });
+const result = await openOAuthWindow({ provider: 'google', redirectUri: 'theauth://oauth' });
 ```
 
 ## Exports
 
-- `ElectronTheAuthProvider` / `ElectronTheAuthContext` / `useElectronTheAuthContext`: renderer-side provider (formerly `ElectronKavach*`, still exported as deprecated aliases)
+- `ElectronTheAuthProvider` / `ElectronTheAuthContext` / `useElectronTheAuthContext`: renderer-side provider (formerly `ElectronTheAuth*`, still exported as deprecated aliases)
 - `createElectronStorage`: encrypted keychain-backed storage
 - `createMemoryStorage`: in-memory storage for testing
-- `setupTheAuthIpc` / `createIpcStorage` / `THEAUTH_IPC_CHANNELS`: main-process IPC setup (formerly `setupKavachIpc` / `KAVACH_IPC_CHANNELS`, still exported as deprecated aliases)
+- `setupTheAuthIpc` / `createIpcStorage` / `THEAUTH_IPC_CHANNELS`: main-process IPC setup (formerly `setupTheAuthIpc` / `THEAUTH_IPC_CHANNELS`, still exported as deprecated aliases)
 - `openOAuthWindow`: opens a managed OAuth popup window
 
 ## Docs

@@ -2,18 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
-import { createKavach } from "../src/kavach.js";
 import { createPluginRouter } from "../src/plugin/router.js";
 import { initializePlugins } from "../src/plugin/runner.js";
-import type { EndpointContext, KavachPlugin, PluginEndpoint } from "../src/plugin/types.js";
-import type { KavachConfig } from "../src/types.js";
+import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../src/plugin/types.js";
+import { createTheAuth } from "../src/theauth.js";
+import type { TheAuthConfig } from "../src/types.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
 const testDbConfig = { provider: "sqlite" as const, url: ":memory:" };
-const baseConfig: KavachConfig = { database: testDbConfig };
+const baseConfig: TheAuthConfig = { database: testDbConfig };
 
 async function makeDb(): Promise<Database> {
 	const db = await createDatabase(testDbConfig);
@@ -65,7 +65,7 @@ describe("initializePlugins", () => {
 	});
 
 	it("plugin init() can add context to the registry", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "ctx-plugin",
 			async init() {
 				return { context: { greeting: "hello", count: 42 } };
@@ -78,7 +78,7 @@ describe("initializePlugins", () => {
 	});
 
 	it("plugin init() context from multiple plugins is merged", async () => {
-		const plugins: KavachPlugin[] = [
+		const plugins: TheAuthPlugin[] = [
 			{
 				id: "plugin-a",
 				async init() {
@@ -99,13 +99,13 @@ describe("initializePlugins", () => {
 	});
 
 	it("plugin with no init() is accepted without error", async () => {
-		const plugin: KavachPlugin = { id: "no-init" };
+		const plugin: TheAuthPlugin = { id: "no-init" };
 		const registry = await initializePlugins([plugin], db, baseConfig);
 		expect(registry.pluginContext).toEqual({});
 	});
 
 	it("plugin registers endpoints via addEndpoint", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "endpoint-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -135,7 +135,7 @@ describe("initializePlugins", () => {
 	});
 
 	it("plugin registers and runs migrations via addMigration", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "migration-plugin",
 			async init(ctx) {
 				ctx.addMigration(
@@ -165,7 +165,7 @@ describe("initializePlugins", () => {
 		const onSessionCreate = vi.fn(async () => {});
 		const onSessionRevoke = vi.fn(async () => {});
 
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "hooks-plugin",
 			hooks: { onRequest, onAuthenticate, onSessionCreate, onSessionRevoke },
 		};
@@ -186,7 +186,7 @@ describe("initializePlugins", () => {
 		const handlerA = vi.fn(async () => {});
 		const handlerB = vi.fn(async () => {});
 
-		const plugins: KavachPlugin[] = [
+		const plugins: TheAuthPlugin[] = [
 			{ id: "a", hooks: { onRequest: handlerA } },
 			{ id: "b", hooks: { onRequest: handlerB } },
 		];
@@ -380,12 +380,12 @@ describe("createPluginRouter", () => {
 });
 
 // ---------------------------------------------------------------------------
-// createKavach with plugins — end-to-end
+// createTheAuth with plugins — end-to-end
 // ---------------------------------------------------------------------------
 
-describe("createKavach with plugins", () => {
+describe("createTheAuth with plugins", () => {
 	it("initializes plugins and exposes the plugins API", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "e2e-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -401,21 +401,21 @@ describe("createKavach with plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: testDbConfig,
 			plugins: [plugin],
 		});
 
 		// Plugin context should be accessible
-		expect(kavach.plugins.getContext()).toEqual({ ready: true });
+		expect(theauth.plugins.getContext()).toEqual({ ready: true });
 
 		// Endpoints should be registered
-		const endpoints = kavach.plugins.getEndpoints();
+		const endpoints = theauth.plugins.getEndpoints();
 		expect(endpoints).toHaveLength(1);
 		expect(endpoints[0]?.path).toBe("/ping");
 
 		// Requests should be routed
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			makeRequest("GET", "http://localhost/ping"),
 		);
 		expect(response).not.toBeNull();
@@ -423,13 +423,13 @@ describe("createKavach with plugins", () => {
 		expect(body.pong).toBe(true);
 	});
 
-	it("kavach without plugins has empty plugin registry", async () => {
-		const kavach = await createKavach({ database: testDbConfig });
+	it("theauth without plugins has empty plugin registry", async () => {
+		const theauth = await createTheAuth({ database: testDbConfig });
 
-		expect(kavach.plugins.getEndpoints()).toHaveLength(0);
-		expect(kavach.plugins.getContext()).toEqual({});
+		expect(theauth.plugins.getEndpoints()).toHaveLength(0);
+		expect(theauth.plugins.getContext()).toEqual({});
 
-		const result = await kavach.plugins.handleRequest(
+		const result = await theauth.plugins.handleRequest(
 			makeRequest("GET", "http://localhost/nothing"),
 		);
 		expect(result).toBeNull();
@@ -438,22 +438,22 @@ describe("createKavach with plugins", () => {
 	it("plugins property exposes the raw registry", async () => {
 		const onRevoke = vi.fn(async () => {});
 
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "registry-access",
 			hooks: { onSessionRevoke: onRevoke },
 		};
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: testDbConfig,
 			plugins: [plugin],
 		});
 
-		expect(kavach.plugins.registry.hooks.onSessionRevoke).toHaveLength(1);
-		expect(kavach.plugins.registry.hooks.onSessionRevoke[0]).toBe(onRevoke);
+		expect(theauth.plugins.registry.hooks.onSessionRevoke).toHaveLength(1);
+		expect(theauth.plugins.registry.hooks.onSessionRevoke[0]).toBe(onRevoke);
 	});
 
 	it("handleRequest with basePath strips the prefix", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "basepath-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -466,14 +466,14 @@ describe("createKavach with plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: testDbConfig,
 			plugins: [plugin],
 		});
 
-		const response = await kavach.plugins.handleRequest(
-			makeRequest("GET", "http://localhost/kavach/status"),
-			"/kavach",
+		const response = await theauth.plugins.handleRequest(
+			makeRequest("GET", "http://localhost/theauth/status"),
+			"/theauth",
 		);
 		expect(response).not.toBeNull();
 		const text = await response?.text();

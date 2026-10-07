@@ -6,7 +6,7 @@ import { getElectronApi } from "./electron-api.js";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ElectronStorageConfig {
-	/** File name for the session data. Defaults to "kavach-session.json". */
+	/** File name for the session data. Defaults to "theauth-session.json". */
 	fileName?: string;
 	/** Optional additional encryption key applied on top of safeStorage. */
 	encryptionKey?: string;
@@ -85,7 +85,7 @@ function writeStorageFile(filePath: string, data: StorageMap): void {
  * plaintext and a warning is emitted once.
  */
 export function createElectronStorage(config?: ElectronStorageConfig): SecureStorage {
-	const fileName = config?.fileName ?? "kavach-session.json";
+	const fileName = config?.fileName ?? "theauth-session.json";
 	const encryptionKey = config?.encryptionKey ?? "";
 
 	let warned = false;

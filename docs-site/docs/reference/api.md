@@ -5,10 +5,10 @@ description: Full HTTP endpoint reference for TheAuth including agent CRUD, toke
 
 # API Endpoints
 
-All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). The base path defaults to `/api/kavach` unless you configure a different mount point.
+All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). The base path defaults to `/api/theauth` unless you configure a different mount point.
 
 !!! note
-    All endpoints require a valid Bearer token unless noted as public. Obtain a token through the MCP OAuth 2.1 flow or by creating an agent with `kavach.agent.create()`.
+    All endpoints require a valid Bearer token unless noted as public. Obtain a token through the MCP OAuth 2.1 flow or by creating an agent with `theauth.agent.create()`.
 
 ## Agent endpoints
 

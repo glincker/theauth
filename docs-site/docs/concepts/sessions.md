@@ -17,25 +17,25 @@ This page covers cookie sessions and JWT sessions. Ephemeral agent sessions are 
 
 ### Configure the session manager
 
-Pass `createCookieSessionManager` a config object and your `kavach.db` instance. The manager handles creation, validation, refresh, and revocation.
+Pass `createCookieSessionManager` a config object and your `theauth.db` instance. The manager handles creation, validation, refresh, and revocation.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 import { createCookieSessionManager } from '@glinr/theauth/auth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
 });
 
 export const sessions = createCookieSessionManager({
-  sessionName: 'kavach_session',
+  sessionName: 'theauth_session',
   maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax',
-  db: kavach.db,
-  secret: process.env.KAVACH_SECRET!,
+  db: theauth.db,
+  secret: process.env.THEAUTH_SECRET!,
 });
 ```
 
@@ -67,9 +67,9 @@ For SPAs, mobile clients, and server-to-server flows where cookies are not pract
 import { createTheAuth } from '@glinr/theauth';
 import { jwt } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   plugins: [
     jwt({
       accessTokenTtl: 3600,    // 1 hour
@@ -87,7 +87,7 @@ Access tokens are short-lived. Refresh tokens rotate on each use (refresh token 
 |---|---|---|---|
 | `secret` | `string` | required | Signing secret for session JWTs. Min 32 characters. |
 | `maxAge` | `number` | `604800` (7 days) | Session lifetime in seconds. |
-| `cookieName` | `string` | `'kavach_session'` | Name of the session cookie. |
+| `cookieName` | `string` | `'theauth_session'` | Name of the session cookie. |
 | `freshAge` | `number` | `300` (5 minutes) | Maximum session age in seconds to be considered fresh. |
 
 ## Related pages

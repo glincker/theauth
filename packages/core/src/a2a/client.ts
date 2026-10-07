@@ -35,7 +35,7 @@ import {
  * ```typescript
  * const client = createA2AClient({
  *   agent: 'https://remote-agent.example.com',
- *   getAuthToken: () => kavach.issueToken({ agentId: myAgent.id }),
+ *   getAuthToken: () => theauth.issueToken({ agentId: myAgent.id }),
  * });
  *
  * const card = await client.discover();

@@ -9,9 +9,9 @@ export interface TheAuthTanStackOptions {
 	mcp?: McpAuthModule;
 	/**
 	 * The URL path prefix before the `$` splat segment.
-	 * Defaults to `/api/kavach`.
+	 * Defaults to `/api/theauth`.
 	 *
-	 * @example `/api/auth/kavach`
+	 * @example `/api/auth/theauth`
 	 */
 	basePath?: string;
 }
@@ -27,14 +27,8 @@ export interface TheAuthTanStackHandlers {
 /** @deprecated Use `TheAuthTanStackOptions` instead. Will be removed in a future major version. */
 export type AuthTanStackOptions = TheAuthTanStackOptions;
 
-/** @deprecated Use `TheAuthTanStackOptions` instead. Will be removed in a future major version. */
-export type KavachTanStackOptions = TheAuthTanStackOptions;
-
 /** @deprecated Use `TheAuthTanStackHandlers` instead. Will be removed in a future major version. */
 export type AuthTanStackHandlers = TheAuthTanStackHandlers;
-
-/** @deprecated Use `TheAuthTanStackHandlers` instead. Will be removed in a future major version. */
-export type KavachTanStackHandlers = TheAuthTanStackHandlers;
 
 /**
  * Create TanStack Start API route handlers for all TheAuth REST API routes.
@@ -46,7 +40,7 @@ export type KavachTanStackHandlers = TheAuthTanStackHandlers;
  * import { createTheAuth } from '@glinr/theauth';
  * import { theAuthTanStack } from '@glinr/theauth-tanstack';
  *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
  * const handlers = theAuthTanStack(auth);
  *
  * export const GET = handlers.GET;
@@ -68,7 +62,7 @@ export function theAuthTanStack(
 	options?: TheAuthTanStackOptions,
 ): TheAuthTanStackHandlers {
 	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	// TanStack Start API routes receive a standard Web API Request, so we can
 	// pass it directly to the TheAuth dispatcher without any conversion.
@@ -85,6 +79,3 @@ export function theAuthTanStack(
 
 /** @deprecated Use `theAuthTanStack` instead. Will be removed in a future major version. */
 export const authTanStack = theAuthTanStack;
-
-/** @deprecated Use `theAuthTanStack` instead. Will be removed in a future major version. */
-export const kavachTanStack = theAuthTanStack;

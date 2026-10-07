@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-    client := theauth.NewClient("https://your-app.com/api/kavach",
+    client := theauth.NewClient("https://your-app.com/api/theauth",
         theauth.WithToken("kv_..."),
         theauth.WithTimeout(10*time.Second),
     )

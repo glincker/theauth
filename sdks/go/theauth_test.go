@@ -43,7 +43,7 @@ func agentFixture() theauth.Agent {
 // -------------------------------------------------------------------------
 
 func TestNewClient_Defaults(t *testing.T) {
-	c := theauth.NewClient("https://example.com/api/kavach")
+	c := theauth.NewClient("https://example.com/api/theauth")
 	if c.Agents == nil {
 		t.Fatal("expected Agents resource to be non-nil")
 	}

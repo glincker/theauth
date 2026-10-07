@@ -11,8 +11,8 @@
  * import { clerkAdapter } from '@glinr/theauth/auth';
  * import { clerkClient, clerkMiddleware, getAuth } from '@clerk/express';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: clerkAdapter({
  *     getUserIdFromRequest: async (req) => {
  *       // clerkMiddleware must run before this; getAuth reads the verified state.

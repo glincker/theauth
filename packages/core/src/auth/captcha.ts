@@ -7,8 +7,8 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   captcha: {
  *     provider: 'turnstile',
  *     secretKey: process.env.TURNSTILE_SECRET,
@@ -17,7 +17,7 @@
  *
  * // In a route handler
  * const captchaToken = request.headers.get('X-Captcha-Token') ?? '';
- * const result = await kavach.captcha?.verify(captchaToken);
+ * const result = await theauth.captcha?.verify(captchaToken);
  * if (!result?.success) return new Response('Captcha failed', { status: 403 });
  * ```
  */

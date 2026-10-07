@@ -10,7 +10,7 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 
 | better-auth | TheAuth |
 |---|---|
-| `auth = betterAuth({...})` | `kavach = await createTheAuth({...})` |
+| `auth = betterAuth({...})` | `theauth = await createTheAuth({...})` |
 | `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
 | `Session` | `Session` + `AgentSession` + `EphemeralAgentSession` |
 | `organization` plugin | `organization` plugin (same name, similar shape) |
@@ -41,11 +41,11 @@ export const auth = betterAuth({
 ```
 
 ```ts
-// AFTER: lib/kavach.ts (TheAuth)
+// AFTER: lib/theauth.ts (TheAuth)
 import { createTheAuth } from '@glinr/theauth';
 import { organization, twoFactor } from '@glinr/theauth/auth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -68,11 +68,11 @@ export const { GET, POST } = toNextJsHandler(auth);
 ```
 
 ```ts
-// AFTER: app/api/kavach/[...kavach]/route.ts (TheAuth)
+// AFTER: app/api/theauth/[...theauth]/route.ts (TheAuth)
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
-import { kavach } from '@/lib/kavach';
+import { theauth } from '@/lib/theauth';
 
-const handlers = theAuthNextjs(kavach);
+const handlers = theAuthNextjs(theauth);
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -96,12 +96,12 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 ```ts
 // AFTER: src/index.ts (TheAuth)
 import { Hono } from 'hono';
-import { kavachHono } from '@glinr/theauth-hono';
-import { kavach } from './lib/kavach.js';
+import { theAuthHono } from '@glinr/theauth-hono';
+import { theauth } from './lib/theauth.js';
 
 const app = new Hono();
 
-app.route('/api/kavach', kavachHono(kavach));
+app.route('/api/theauth', theAuthHono(theauth));
 ```
 
 ## Database adapter
@@ -123,7 +123,7 @@ export const auth = betterAuth({
 // AFTER: TheAuth (Drizzle is built in, no separate adapter import)
 import { createTheAuth } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
 });
 ```
@@ -150,7 +150,7 @@ const { data: session } = await authClient.useSession();
 import { createTheAuthClient } from '@glinr/theauth-client';
 
 export const client = createTheAuthClient({
-  baseUrl: 'http://localhost:3000/api/kavach',
+  baseUrl: 'http://localhost:3000/api/theauth',
 });
 ```
 
@@ -166,7 +166,7 @@ import { useSession } from '@glinr/theauth-react';
 // Wrap your app:
 import { TheAuthProvider } from '@glinr/theauth-react';
 
-<TheAuthProvider basePath="/api/kavach">
+<TheAuthProvider basePath="/api/theauth">
   {children}
 </TheAuthProvider>
 ```
@@ -202,9 +202,9 @@ export const auth = betterAuth({
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
   plugins: [
     oauth({
@@ -260,7 +260,7 @@ const legacyAdapter = customAuth(async (request) => {
   return { id: session.user.id, email: session.user.email, name: session.user.name };
 });
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -290,7 +290,7 @@ better-auth and TheAuth share a similar base schema, but column names differ in 
 
 ```sql
 -- Users
-INSERT INTO kavach_user (id, email, name, email_verified, created_at, updated_at)
+INSERT INTO theauth_user (id, email, name, email_verified, created_at, updated_at)
 SELECT
   id,
   email,
@@ -302,7 +302,7 @@ FROM "user"           -- better-auth default table name
 ON CONFLICT (id) DO NOTHING;
 
 -- Accounts (OAuth connections)
-INSERT INTO kavach_account (
+INSERT INTO theauth_account (
   id, user_id, provider_id, provider_account_id,
   access_token, refresh_token, expires_at, created_at, updated_at
 )
@@ -320,7 +320,7 @@ FROM account
 ON CONFLICT (id) DO NOTHING;
 
 -- Sessions (active sessions)
-INSERT INTO kavach_session (
+INSERT INTO theauth_session (
   id, user_id, token, expires_at, ip_address, user_agent, created_at, updated_at
 )
 SELECT
@@ -356,7 +356,7 @@ export function middleware(req: NextRequest) {
 
   if (bucket < rolloutPercent) {
     // Route to TheAuth handler
-    return NextResponse.rewrite(new URL(req.url.replace('/api/auth', '/api/kavach'), req.url));
+    return NextResponse.rewrite(new URL(req.url.replace('/api/auth', '/api/theauth'), req.url));
   }
 
   // Fall through to better-auth

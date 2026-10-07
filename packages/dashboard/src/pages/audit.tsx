@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, Download, Filter, RefreshCw, ScrollText } from "lucide-react";
 import { useRef, useState } from "react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import type { AuditLogFilters, AuditResult } from "../api/types.js";
 import { Badge } from "../components/badge.js";
 import { Button } from "../components/button.js";
@@ -162,7 +162,7 @@ function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
 // ─── Export Button ────────────────────────────────────────────────────────────
 
 interface ExportButtonProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 	filters: AuditLogFilters;
 }
 
@@ -231,7 +231,7 @@ function ExportButton({ client, filters }: ExportButtonProps) {
 const PAGE_SIZE = 50;
 
 interface AuditPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function AuditPage({ client }: AuditPageProps) {
@@ -310,7 +310,7 @@ export function AuditPage({ client }: AuditPageProps) {
 								<EmptyState
 									icon={<ScrollText className="w-6 h-6" />}
 									title="No audit events yet"
-									description="Events are created automatically when agents call kavach.authorize(). Every allow and deny decision is recorded here."
+									description="Events are created automatically when agents call theauth.authorize(). Every allow and deny decision is recorded here."
 									docsLink="https://theauth.dev/docs/audit"
 								/>
 							</td>

@@ -281,8 +281,8 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 		let userId: string | null = null;
 
 		const metadata = sub.metadata;
-		if (metadata && typeof metadata === "object" && typeof metadata.kavach_user_id === "string") {
-			userId = metadata.kavach_user_id;
+		if (metadata && typeof metadata === "object" && typeof metadata.theauth_user_id === "string") {
+			userId = metadata.theauth_user_id;
 		}
 
 		if (!userId && sub.customer_id) {
@@ -310,8 +310,8 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 		let userId: string | null = null;
 
 		const metadata = sub.metadata;
-		if (metadata && typeof metadata === "object" && typeof metadata.kavach_user_id === "string") {
-			userId = metadata.kavach_user_id;
+		if (metadata && typeof metadata === "object" && typeof metadata.theauth_user_id === "string") {
+			userId = metadata.theauth_user_id;
 		}
 
 		if (!userId && sub.customer_id) {
@@ -350,7 +350,7 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 
 		const body: Record<string, unknown> = {
 			product_id: productId,
-			metadata: { kavach_user_id: userId },
+			metadata: { theauth_user_id: userId },
 		};
 
 		if (options.successUrl) {

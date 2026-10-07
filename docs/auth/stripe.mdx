@@ -13,7 +13,7 @@ The Stripe plugin handles checkout sessions, billing portals, and subscription w
 <Step>
 ### Get your keys
 
-From [Stripe Dashboard](https://dashboard.stripe.com/apikeys), copy your **Secret Key**. Under Webhooks, create an endpoint pointing to `/api/kavach/auth/stripe/webhook` and copy the **Signing Secret**.
+From [Stripe Dashboard](https://dashboard.stripe.com/apikeys), copy your **Secret Key**. Under Webhooks, create an endpoint pointing to `/api/theauth/auth/stripe/webhook` and copy the **Signing Secret**.
 </Step>
 
 <Step>
@@ -23,7 +23,7 @@ From [Stripe Dashboard](https://dashboard.stripe.com/apikeys), copy your **Secre
 import { createTheAuth } from '@glinr/theauth';
 import { stripe } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   plugins: [
     stripe({
@@ -45,7 +45,7 @@ const kavach = await createTheAuth({
 
 ```ts
 // From an authenticated endpoint
-const result = await kavach.stripe.createCheckoutSession(userId, 'price_xxx', {
+const result = await theauth.stripe.createCheckoutSession(userId, 'price_xxx', {
   successUrl: 'https://myapp.com/billing?success=true',
   cancelUrl: 'https://myapp.com/billing',
   trialDays: 14,
@@ -56,14 +56,14 @@ const result = await kavach.stripe.createCheckoutSession(userId, 'price_xxx', {
 ### Open the billing portal
 
 ```ts
-const result = await kavach.stripe.createPortalSession(userId, 'https://myapp.com/settings');
+const result = await theauth.stripe.createPortalSession(userId, 'https://myapp.com/settings');
 // Redirect to result.url
 ```
 
 ### Check subscription status
 
 ```ts
-const sub = await kavach.stripe.getSubscription(userId);
+const sub = await theauth.stripe.getSubscription(userId);
 if (sub?.status === 'active') {
   // User has an active subscription
 }

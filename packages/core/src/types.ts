@@ -48,12 +48,12 @@ export interface TheAuthConfig {
 	 * incoming request.
 	 *
 	 * `session` enables TheAuth-managed session tokens backed by the
-	 * `kavach_sessions` database table.  When provided, the returned
-	 * `kavach.auth.session` manager is available for creating, validating,
+	 * `theauth_sessions` database table.  When provided, the returned
+	 * `theauth.auth.session` manager is available for creating, validating,
 	 * and revoking sessions.
 	 *
 	 * When omitted entirely the instance operates in *manual user management*
-	 * mode – `kavach.auth.resolveUser()` always returns `null`.
+	 * mode – `theauth.auth.resolveUser()` always returns `null`.
 	 */
 	auth?: {
 		adapter?: AuthAdapter;
@@ -84,7 +84,7 @@ export interface TheAuthConfig {
 	/**
 	 * Magic link (passwordless email) authentication.
 	 *
-	 * When provided, `kavach.magicLink` is available with `sendLink`,
+	 * When provided, `theauth.magicLink` is available with `sendLink`,
 	 * `verify`, and `handleRequest`. Requires `auth.session` to be configured
 	 * so that sessions can be issued on successful verification.
 	 */
@@ -93,7 +93,7 @@ export interface TheAuthConfig {
 	/**
 	 * Email OTP (one-time password) authentication.
 	 *
-	 * When provided, `kavach.emailOtp` is available with `sendCode`,
+	 * When provided, `theauth.emailOtp` is available with `sendCode`,
 	 * `verifyCode`, and `handleRequest`. Requires `auth.session` to be
 	 * configured so that sessions can be issued on successful verification.
 	 */
@@ -102,7 +102,7 @@ export interface TheAuthConfig {
 	/**
 	 * Email verification flow.
 	 *
-	 * When provided, `kavach.emailVerification` is available with
+	 * When provided, `theauth.emailVerification` is available with
 	 * `sendVerification`, `verify`, `isVerified`, and `handleRequest`.
 	 * The caller provides a `sendVerificationEmail` callback to deliver the
 	 * link.
@@ -112,7 +112,7 @@ export interface TheAuthConfig {
 	/**
 	 * TOTP two-factor authentication.
 	 *
-	 * When provided, `kavach.totp` is available with `setup`, `enable`,
+	 * When provided, `theauth.totp` is available with `setup`, `enable`,
 	 * `disable`, `verify`, `isEnabled`, `regenerateBackupCodes`, and
 	 * `handleRequest`. Users call `setup` to get a secret + backup codes,
 	 * then `enable` after scanning their authenticator app.
@@ -122,7 +122,7 @@ export interface TheAuthConfig {
 	/**
 	 * Passkey / WebAuthn authentication.
 	 *
-	 * When provided, `kavach.passkey` is available for registering and
+	 * When provided, `theauth.passkey` is available for registering and
 	 * authenticating with platform authenticators (Face ID, Touch ID,
 	 * Windows Hello) and roaming authenticators (hardware security keys).
 	 */
@@ -131,7 +131,7 @@ export interface TheAuthConfig {
 	/**
 	 * Organizations + RBAC.
 	 *
-	 * When provided, `kavach.org` is available with org CRUD, membership
+	 * When provided, `theauth.org` is available with org CRUD, membership
 	 * management, invitation flows, and role-based permission checking.
 	 */
 	org?: OrgConfig;
@@ -139,7 +139,7 @@ export interface TheAuthConfig {
 	/**
 	 * SSO (SAML 2.0 + OIDC) enterprise authentication.
 	 *
-	 * When provided, `kavach.sso` is available for creating org-level SSO
+	 * When provided, `theauth.sso` is available for creating org-level SSO
 	 * connections, generating auth URLs, and processing callbacks.
 	 */
 	sso?: SsoConfig;
@@ -147,7 +147,7 @@ export interface TheAuthConfig {
 	/**
 	 * Admin module.
 	 *
-	 * When provided, `kavach.admin` is available for listing users, banning,
+	 * When provided, `theauth.admin` is available for listing users, banning,
 	 * impersonation, and deletion.
 	 */
 	admin?: AdminConfig;
@@ -155,7 +155,7 @@ export interface TheAuthConfig {
 	/**
 	 * API key management.
 	 *
-	 * When provided, `kavach.apiKeys` is available for creating and validating
+	 * When provided, `theauth.apiKeys` is available for creating and validating
 	 * static API keys with permission scopes.
 	 */
 	apiKeys?: ApiKeyManagerConfig;
@@ -163,7 +163,7 @@ export interface TheAuthConfig {
 	/**
 	 * Username + password authentication.
 	 *
-	 * When provided, `kavach.username` is available with `signUp`, `signIn`,
+	 * When provided, `theauth.username` is available with `signUp`, `signIn`,
 	 * `changePassword`, `changeUsername`, and `handleRequest`. Requires
 	 * `auth.session` to be configured so that sessions can be issued.
 	 */
@@ -172,7 +172,7 @@ export interface TheAuthConfig {
 	/**
 	 * Password reset (forgot password) flow.
 	 *
-	 * When provided, `kavach.passwordReset` is available with `requestReset`,
+	 * When provided, `theauth.passwordReset` is available with `requestReset`,
 	 * `resetPassword`, and `handleRequest`. Requires `username` and
 	 * `auth.session` to be configured. The caller provides a `sendResetEmail`
 	 * callback to deliver the reset link.
@@ -182,7 +182,7 @@ export interface TheAuthConfig {
 	/**
 	 * Phone number (SMS OTP) authentication.
 	 *
-	 * When provided, `kavach.phone` is available with `sendCode`, `verifyCode`,
+	 * When provided, `theauth.phone` is available with `sendCode`, `verifyCode`,
 	 * and `handleRequest`. Requires `auth.session` to be configured.
 	 */
 	phone?: PhoneAuthConfig;
@@ -190,7 +190,7 @@ export interface TheAuthConfig {
 	/**
 	 * Captcha integration (reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile).
 	 *
-	 * When provided, `kavach.captcha` is available with `verify` and
+	 * When provided, `theauth.captcha` is available with `verify` and
 	 * `middleware`.
 	 */
 	captcha?: CaptchaConfig;
@@ -216,7 +216,7 @@ export interface TheAuthConfig {
 	/**
 	 * Redirect chain configuration.
 	 *
-	 * When provided, `kavach.redirects` is available for capturing the user's
+	 * When provided, `theauth.redirects` is available for capturing the user's
 	 * original destination before auth flows and restoring it afterwards,
 	 * with support for intermediate steps (onboarding, email verification, etc.).
 	 */
@@ -247,9 +247,6 @@ export interface TheAuthConfig {
 /** @deprecated Use `TheAuthConfig` instead. Will be removed in a future major version. */
 export type AuthConfig = TheAuthConfig;
 
-/** @deprecated Use `TheAuthConfig` instead. Will be removed in a future major version. */
-export type KavachConfig = TheAuthConfig;
-
 /**
  * The main TheAuth instance returned by createTheAuth()
  */
@@ -268,9 +265,6 @@ export interface TheAuthInstance {
 
 /** @deprecated Use `TheAuthInstance` instead. Will be removed in a future major version. */
 export type AuthInstance = TheAuthInstance;
-
-/** @deprecated Use `TheAuthInstance` instead. Will be removed in a future major version. */
-export type KavachInstance = TheAuthInstance;
 
 export interface AgentModule {
 	create: (input: CreateAgentInput) => Promise<AgentIdentity>;

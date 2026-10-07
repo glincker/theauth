@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { EmailOtpConfig } from "./email-otp.js";
 import { createEmailOtpModule } from "./email-otp.js";
 
@@ -9,14 +9,14 @@ export type { EmailOtpConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function emailOtp(config: EmailOtpConfig): KavachPlugin {
+export function emailOtp(config: EmailOtpConfig): TheAuthPlugin {
 	return {
-		id: "kavach-email-otp",
+		id: "theauth-email-otp",
 
 		async init(ctx): Promise<undefined> {
 			if (!ctx.sessionManager) {
 				throw new Error(
-					"kavach-email-otp plugin requires auth.session to be configured so that sessions can be issued on successful verification.",
+					"theauth-email-otp plugin requires auth.session to be configured so that sessions can be issued on successful verification.",
 				);
 			}
 

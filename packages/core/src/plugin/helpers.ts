@@ -1,5 +1,5 @@
 /**
- * Shared helpers for kavachOS plugin endpoints.
+ * Shared helpers for TheAuth plugin endpoints.
  *
  * Replaces the copy-pasted parseBody/jsonResponse helpers that were
  * duplicated across email-otp, passkey, stripe, admin, api-key, gdpr,
@@ -77,7 +77,7 @@ export function buildClearCookie(name: string, path = "/"): string {
  * Extract a Bearer token from the Authorization header,
  * or fall back to a named cookie.
  */
-export function extractToken(request: Request, cookieName = "kavach_session"): string | null {
+export function extractToken(request: Request, cookieName = "theauth_session"): string | null {
 	const authHeader = request.headers.get("authorization");
 	if (authHeader?.startsWith("Bearer ")) {
 		return authHeader.slice(7);

@@ -64,8 +64,6 @@ export type {
 export { createEmailTemplates } from "./email/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
-export type { Auth, Kavach, TheAuth } from "./kavach.js";
-export { createAuth, createKavach, createTheAuth } from "./kavach.js";
 export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
@@ -73,6 +71,8 @@ export * from "./policies/index.js";
 export * from "./redirect/index.js";
 export * from "./session/index.js";
 export * from "./tenant/index.js";
+export type { Auth, TheAuth } from "./theauth.js";
+export { createAuth, createTheAuth } from "./theauth.js";
 export * from "./trust/index.js";
 export type {
 	AgentFilter,
@@ -85,8 +85,6 @@ export type {
 	DatabaseConfig,
 	DelegateInput,
 	DelegationChain,
-	KavachConfig,
-	KavachInstance,
 	McpMiddleware,
 	McpServer,
 	McpServerInput,

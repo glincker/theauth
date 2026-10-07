@@ -1,2 +1,2 @@
-export type { AuthFastifyOptions, KavachFastifyOptions, TheAuthFastifyOptions } from "./adapter.js";
-export { authFastify, kavachFastify, theAuthFastify } from "./adapter.js";
+export type { AuthFastifyOptions, TheAuthFastifyOptions } from "./adapter.js";
+export { authFastify, theAuthFastify } from "./adapter.js";

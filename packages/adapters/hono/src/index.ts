@@ -14,15 +14,15 @@
  * const app = new Hono<Env>();
  *
  * app.all('/auth/*', async (c) => {
- *   const kavach = await createTheAuth({
+ *   const theauth = await createTheAuth({
  *     database: { provider: 'd1', binding: c.env.DB },
  *     auth: { session: { secret: c.env.SESSION_SECRET } },
  *   });
- *   const api = createHonoAdapter(kavach);
+ *   const api = createHonoAdapter(theauth);
  *   return app.fetch(c.req.raw);
  * });
  *
  * export default app;
  * ```
  */
-export { authHono, kavachHono, theAuthHono, theAuthHono as createHonoAdapter } from "./adapter.js";
+export { authHono, theAuthHono, theAuthHono as createHonoAdapter } from "./adapter.js";

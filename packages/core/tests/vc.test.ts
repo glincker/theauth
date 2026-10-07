@@ -3,9 +3,9 @@ import { generateDidKey } from "../src/did/key-method.js";
 import { createVCIssuer } from "../src/vc/issuer.js";
 import type { CredentialStatus, VerifiableCredential } from "../src/vc/types.js";
 import {
-	KAVACH_AGENT_CREDENTIAL,
-	KAVACH_DELEGATION_CREDENTIAL,
-	KAVACH_PERMISSION_CREDENTIAL,
+	THEAUTH_AGENT_CREDENTIAL,
+	THEAUTH_DELEGATION_CREDENTIAL,
+	THEAUTH_PERMISSION_CREDENTIAL,
 	VC_CONTEXT_V2,
 	VC_TYPE_CREDENTIAL,
 	VerifiableCredentialSchema,
@@ -43,7 +43,7 @@ describe("VC issuance – agent credential", () => {
 		const { credential } = result.data;
 		expect(credential["@context"]).toContain(VC_CONTEXT_V2);
 		expect(credential.type).toContain(VC_TYPE_CREDENTIAL);
-		expect(credential.type).toContain(KAVACH_AGENT_CREDENTIAL);
+		expect(credential.type).toContain(THEAUTH_AGENT_CREDENTIAL);
 		expect(credential.credentialSubject.agentId).toBe("agent-1");
 		expect(credential.credentialSubject.name).toBe("Test Agent");
 		expect(credential.credentialSubject.type).toBe("autonomous");
@@ -134,7 +134,7 @@ describe("VC issuance – permission credential", () => {
 		if (!result.success) return;
 
 		const { credential } = result.data;
-		expect(credential.type).toContain(KAVACH_PERMISSION_CREDENTIAL);
+		expect(credential.type).toContain(THEAUTH_PERMISSION_CREDENTIAL);
 		expect(credential.credentialSubject.permissions).toEqual(["read:files", "execute:tools"]);
 		expect(credential.credentialSubject.agentId).toBe("agent-2");
 	});
@@ -186,7 +186,7 @@ describe("VC issuance – delegation credential", () => {
 		if (!result.success) return;
 
 		const { credential } = result.data;
-		expect(credential.type).toContain(KAVACH_DELEGATION_CREDENTIAL);
+		expect(credential.type).toContain(THEAUTH_DELEGATION_CREDENTIAL);
 		expect(credential.credentialSubject.delegationChain).toHaveLength(2);
 		expect(credential.credentialSubject.delegationScope).toEqual(["read:data"]);
 	});
@@ -765,7 +765,7 @@ describe("VC Zod schema validation", () => {
 	it("validates a well-formed credential", () => {
 		const valid: VerifiableCredential = {
 			"@context": [VC_CONTEXT_V2],
-			type: [VC_TYPE_CREDENTIAL, KAVACH_AGENT_CREDENTIAL],
+			type: [VC_TYPE_CREDENTIAL, THEAUTH_AGENT_CREDENTIAL],
 			issuer: "did:key:z6MkTest",
 			issuanceDate: new Date().toISOString(),
 			credentialSubject: {

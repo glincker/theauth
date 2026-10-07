@@ -18,7 +18,7 @@
  */
 
 import { createTheAuth } from "@glinr/theauth";
-import { kavachHono } from "@glinr/theauth-hono";
+import { theAuthHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
 
 // Cloudflare Workers env bindings
@@ -56,8 +56,8 @@ app.all("/api/*", async (c) => {
 		},
 	});
 
-	// Mount kavachHono under the /api prefix by stripping it before dispatch
-	const api = kavachHono(auth);
+	// Mount theAuthHono under the /api prefix by stripping it before dispatch
+	const api = theAuthHono(auth);
 	const url = new URL(c.req.url);
 	const stripped = new Request(new URL(url.pathname.replace(/^\/api/, "") || "/", url), c.req.raw);
 	return api.fetch(stripped, c.env, c.executionCtx);

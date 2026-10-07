@@ -35,7 +35,7 @@ Pass a `rateLimit` block to `createTheAuth` to override the defaults or enable R
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   rateLimit: {
     store: 'memory',        // or 'redis'
@@ -59,7 +59,7 @@ const kavach = await createTheAuth({
 The permission engine supports a `maxCallsPerHour` constraint. When an agent exceeds its hourly call budget, the permission check returns `allowed: false` with `reason: "Rate limit exceeded"`.
 
 ```typescript
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'data-sync-bot',
   type: 'autonomous',
@@ -87,7 +87,7 @@ The counter resets at the top of each clock hour. If you need sliding windows, u
 ### Checking the limit in your code
 
 ```typescript
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'db:reports:monthly',
 });

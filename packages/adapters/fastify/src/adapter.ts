@@ -201,15 +201,12 @@ export interface TheAuthFastifyOptions {
 	 * registered directly on the provided FastifyInstance).
 	 *
 	 * Use Fastify's built-in prefix option when calling `fastify.register` instead:
-	 * `fastify.register(plugin, { prefix: '/api/kavach' })`
+	 * `fastify.register(plugin, { prefix: '/api/theauth' })`
 	 */
 }
 
 /** @deprecated Use `TheAuthFastifyOptions` instead. Will be removed in a future major version. */
 export type AuthFastifyOptions = TheAuthFastifyOptions;
-
-/** @deprecated Use `TheAuthFastifyOptions` instead. Will be removed in a future major version. */
-export type KavachFastifyOptions = TheAuthFastifyOptions;
 
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
@@ -223,9 +220,9 @@ export type KavachFastifyOptions = TheAuthFastifyOptions;
  * import { theAuthFastify } from '@glinr/theauth-fastify';
  *
  * const app = Fastify();
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
  *
- * await app.register(theAuthFastify(auth), { prefix: '/api/kavach' });
+ * await app.register(theAuthFastify(auth), { prefix: '/api/theauth' });
  * await app.listen({ port: 3000 });
  * ```
  *
@@ -233,7 +230,7 @@ export type KavachFastifyOptions = TheAuthFastifyOptions;
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * await app.register(theAuthFastify(auth, { mcp }), { prefix: '/api/kavach' });
+ * await app.register(theAuthFastify(auth, { mcp }), { prefix: '/api/theauth' });
  * ```
  */
 export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
@@ -740,6 +737,3 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 
 /** @deprecated Use `theAuthFastify` instead. Will be removed in a future major version. */
 export const authFastify = theAuthFastify;
-
-/** @deprecated Use `theAuthFastify` instead. Will be removed in a future major version. */
-export const kavachFastify = theAuthFastify;

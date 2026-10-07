@@ -6,7 +6,7 @@ import pytest
 import respx
 import httpx
 
-from theauth import KavachClient, KavachSyncClient
+from theauth import TheAuthClient, TheAuthSyncClient
 from theauth.types import (
     AuditEntry,
     AuditFilters,
@@ -31,7 +31,7 @@ from tests.conftest import (
 
 class TestAsyncAuditQuery:
     @pytest.mark.asyncio
-    async def test_query_returns_list(self, async_client: KavachClient) -> None:
+    async def test_query_returns_list(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/audit").mock(
                 return_value=httpx.Response(200, json=[AUDIT_ENTRY_FIXTURE])
@@ -44,7 +44,7 @@ class TestAsyncAuditQuery:
         assert entries[0].result == "allowed"
 
     @pytest.mark.asyncio
-    async def test_query_with_filters(self, async_client: KavachClient) -> None:
+    async def test_query_with_filters(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/audit").mock(
                 return_value=httpx.Response(200, json=[AUDIT_ENTRY_FIXTURE])
@@ -65,7 +65,7 @@ class TestAsyncAuditQuery:
         assert params["offset"] == "0"
 
     @pytest.mark.asyncio
-    async def test_query_handles_paginated_response(self, async_client: KavachClient) -> None:
+    async def test_query_handles_paginated_response(self, async_client: TheAuthClient) -> None:
         paginated = {
             "entries": [AUDIT_ENTRY_FIXTURE],
             "total": 100,
@@ -79,7 +79,7 @@ class TestAsyncAuditQuery:
         assert len(entries) == 1
 
     @pytest.mark.asyncio
-    async def test_query_paginated_returns_total(self, async_client: KavachClient) -> None:
+    async def test_query_paginated_returns_total(self, async_client: TheAuthClient) -> None:
         paginated = {
             "entries": [AUDIT_ENTRY_FIXTURE],
             "total": 100,
@@ -95,7 +95,7 @@ class TestAsyncAuditQuery:
         assert len(result.entries) == 1
 
     @pytest.mark.asyncio
-    async def test_query_filters_actions(self, async_client: KavachClient) -> None:
+    async def test_query_filters_actions(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/audit").mock(
                 return_value=httpx.Response(200, json=[])
@@ -110,7 +110,7 @@ class TestAsyncAuditQuery:
 
 class TestAsyncAuditExport:
     @pytest.mark.asyncio
-    async def test_export_json(self, async_client: KavachClient) -> None:
+    async def test_export_json(self, async_client: TheAuthClient) -> None:
         export_data = '[{"id": "aud-abc123"}]'
         with respx.mock:
             route = respx.get(f"{BASE_URL}/audit/export").mock(
@@ -123,7 +123,7 @@ class TestAsyncAuditExport:
         assert params["format"] == "json"
 
     @pytest.mark.asyncio
-    async def test_export_csv(self, async_client: KavachClient) -> None:
+    async def test_export_csv(self, async_client: TheAuthClient) -> None:
         csv_data = "id,action\naud-abc123,read"
         with respx.mock:
             route = respx.get(f"{BASE_URL}/audit/export").mock(
@@ -136,7 +136,7 @@ class TestAsyncAuditExport:
         assert params["format"] == "csv"
 
     @pytest.mark.asyncio
-    async def test_export_defaults_to_json(self, async_client: KavachClient) -> None:
+    async def test_export_defaults_to_json(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/audit/export").mock(
                 return_value=httpx.Response(200, text="[]")
@@ -147,7 +147,7 @@ class TestAsyncAuditExport:
         assert params["format"] == "json"
 
     @pytest.mark.asyncio
-    async def test_export_with_date_range(self, async_client: KavachClient) -> None:
+    async def test_export_with_date_range(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/audit/export").mock(
                 return_value=httpx.Response(200, text="[]")
@@ -166,7 +166,7 @@ class TestAsyncAuditExport:
 
 
 class TestSyncAudit:
-    def test_query(self, sync_client: KavachSyncClient) -> None:
+    def test_query(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/audit").mock(
                 return_value=httpx.Response(200, json=[AUDIT_ENTRY_FIXTURE])
@@ -176,7 +176,7 @@ class TestSyncAudit:
         assert len(entries) == 1
         assert entries[0].agent_id == "agent-abc123"
 
-    def test_export(self, sync_client: KavachSyncClient) -> None:
+    def test_export(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/audit/export").mock(
                 return_value=httpx.Response(200, text="[]")
@@ -193,7 +193,7 @@ class TestSyncAudit:
 
 class TestAsyncDelegationCreate:
     @pytest.mark.asyncio
-    async def test_create_returns_chain(self, async_client: KavachClient) -> None:
+    async def test_create_returns_chain(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/delegations").mock(
                 return_value=httpx.Response(200, json=DELEGATION_FIXTURE)
@@ -213,7 +213,7 @@ class TestAsyncDelegationCreate:
         assert chain.depth == 1
 
     @pytest.mark.asyncio
-    async def test_create_sends_correct_body(self, async_client: KavachClient) -> None:
+    async def test_create_sends_correct_body(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/delegations").mock(
                 return_value=httpx.Response(200, json=DELEGATION_FIXTURE)
@@ -236,7 +236,7 @@ class TestAsyncDelegationCreate:
         assert body["expiresAt"] == "2025-01-01T00:00:00Z"
 
     @pytest.mark.asyncio
-    async def test_create_without_max_depth(self, async_client: KavachClient) -> None:
+    async def test_create_without_max_depth(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/delegations").mock(
                 return_value=httpx.Response(200, json=DELEGATION_FIXTURE)
@@ -257,7 +257,7 @@ class TestAsyncDelegationCreate:
 
 class TestAsyncDelegationListChains:
     @pytest.mark.asyncio
-    async def test_list_chains(self, async_client: KavachClient) -> None:
+    async def test_list_chains(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/delegations/agent-abc123").mock(
                 return_value=httpx.Response(200, json=[DELEGATION_FIXTURE])
@@ -269,7 +269,7 @@ class TestAsyncDelegationListChains:
         assert chains[0].to_agent == "agent-def456"
 
     @pytest.mark.asyncio
-    async def test_list_chains_empty(self, async_client: KavachClient) -> None:
+    async def test_list_chains_empty(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/delegations/agent-abc123").mock(
                 return_value=httpx.Response(200, json=[])
@@ -281,7 +281,7 @@ class TestAsyncDelegationListChains:
 
 class TestAsyncDelegationRevoke:
     @pytest.mark.asyncio
-    async def test_revoke_delegation(self, async_client: KavachClient) -> None:
+    async def test_revoke_delegation(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.delete(f"{BASE_URL}/delegations/del-abc123").mock(
                 return_value=httpx.Response(204)
@@ -293,7 +293,7 @@ class TestAsyncDelegationRevoke:
 
 class TestAsyncDelegationEffectivePermissions:
     @pytest.mark.asyncio
-    async def test_get_effective_permissions(self, async_client: KavachClient) -> None:
+    async def test_get_effective_permissions(self, async_client: TheAuthClient) -> None:
         permissions_data = [
             {"resource": "mcp:github:*", "actions": ["read"]},
             {"resource": "mcp:deploy:staging", "actions": ["execute"]},
@@ -311,7 +311,7 @@ class TestAsyncDelegationEffectivePermissions:
 
 
 class TestSyncDelegation:
-    def test_create(self, sync_client: KavachSyncClient) -> None:
+    def test_create(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/delegations").mock(
                 return_value=httpx.Response(200, json=DELEGATION_FIXTURE)
@@ -327,7 +327,7 @@ class TestSyncDelegation:
 
         assert chain.id == "del-abc123"
 
-    def test_list_chains(self, sync_client: KavachSyncClient) -> None:
+    def test_list_chains(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/delegations/agent-abc123").mock(
                 return_value=httpx.Response(200, json=[DELEGATION_FIXTURE])
@@ -336,7 +336,7 @@ class TestSyncDelegation:
 
         assert len(chains) == 1
 
-    def test_revoke(self, sync_client: KavachSyncClient) -> None:
+    def test_revoke(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.delete(f"{BASE_URL}/delegations/del-abc123").mock(
                 return_value=httpx.Response(204)

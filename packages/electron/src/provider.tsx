@@ -4,24 +4,24 @@ import type { SecureStorage } from "./storage.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface KavachUser {
+interface TheAuthUser {
 	id: string;
 	email?: string;
 	name?: string;
 	image?: string;
 }
 
-interface KavachSession {
+interface TheAuthSession {
 	token: string;
-	user: KavachUser;
+	user: TheAuthUser;
 	expiresAt?: string;
 }
 
 type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
 
-interface KavachContextValue {
-	session: KavachSession | null;
-	user: KavachUser | null;
+interface TheAuthContextValue {
+	session: TheAuthSession | null;
+	user: TheAuthUser | null;
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
@@ -32,7 +32,7 @@ interface KavachContextValue {
 
 export interface ElectronTheAuthProviderProps {
 	children: ReactNode;
-	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */
 	basePath?: string;
 	/** Custom storage adapter. Defaults to in-memory if not provided. */
 	storage?: SecureStorage;
@@ -40,30 +40,21 @@ export interface ElectronTheAuthProviderProps {
 	persistSession?: boolean;
 }
 
-/** @deprecated Use `ElectronTheAuthProviderProps` instead. Will be removed in a future major version. */
-export type ElectronKavachProviderProps = ElectronTheAuthProviderProps;
-
 // ─── Storage key ──────────────────────────────────────────────────────────────
 
-const SESSION_STORAGE_KEY = "kavach:session";
+const SESSION_STORAGE_KEY = "theauth:session";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-export const ElectronTheAuthContext = createContext<KavachContextValue | null>(null);
+export const ElectronTheAuthContext = createContext<TheAuthContextValue | null>(null);
 
-/** @deprecated Use `ElectronTheAuthContext` instead. Will be removed in a future major version. */
-export const ElectronKavachContext = ElectronTheAuthContext;
-
-export function useElectronTheAuthContext(): KavachContextValue {
+export function useElectronTheAuthContext(): TheAuthContextValue {
 	const ctx = useContext(ElectronTheAuthContext);
 	if (!ctx) {
 		throw new Error("useElectronTheAuthContext must be used inside <ElectronTheAuthProvider>");
 	}
 	return ctx;
 }
-
-/** @deprecated Use `useElectronTheAuthContext` instead. Will be removed in a future major version. */
-export const useElectronKavachContext = useElectronTheAuthContext;
 
 // ─── JSON fetch helpers ───────────────────────────────────────────────────────
 
@@ -97,11 +88,11 @@ function extractErrorMessage(body: unknown, fallback: string): string {
  */
 export function ElectronTheAuthProvider({
 	children,
-	basePath = "/api/kavach",
+	basePath = "/api/theauth",
 	storage,
 	persistSession = true,
 }: ElectronTheAuthProviderProps): ReactNode {
-	const [session, setSession] = useState<KavachSession | null>(null);
+	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
 	const base = basePath.replace(/\/$/, "");
@@ -109,7 +100,7 @@ export function ElectronTheAuthProvider({
 	// ── Persist / restore helpers ───────────────────────────────────────────
 
 	const persistToStorage = useCallback(
-		async (s: KavachSession | null): Promise<void> => {
+		async (s: TheAuthSession | null): Promise<void> => {
 			if (!storage || !persistSession) return;
 			if (s === null) {
 				await storage.remove(SESSION_STORAGE_KEY);
@@ -120,7 +111,7 @@ export function ElectronTheAuthProvider({
 		[storage, persistSession],
 	);
 
-	const restoreFromStorage = useCallback(async (): Promise<KavachSession | null> => {
+	const restoreFromStorage = useCallback(async (): Promise<TheAuthSession | null> => {
 		if (!storage || !persistSession) return null;
 		try {
 			const raw = await storage.get(SESSION_STORAGE_KEY);
@@ -130,11 +121,11 @@ export function ElectronTheAuthProvider({
 				parsed !== null &&
 				typeof parsed === "object" &&
 				"token" in parsed &&
-				typeof (parsed as KavachSession).token === "string" &&
+				typeof (parsed as TheAuthSession).token === "string" &&
 				"user" in parsed &&
-				typeof (parsed as KavachSession).user === "object"
+				typeof (parsed as TheAuthSession).user === "object"
 			) {
-				return parsed as KavachSession;
+				return parsed as TheAuthSession;
 			}
 			return null;
 		} catch {
@@ -148,7 +139,7 @@ export function ElectronTheAuthProvider({
 		try {
 			const res = await fetch(`${base}/session`, { credentials: "include" });
 			if (res.ok) {
-				const json = (await res.json()) as { data?: KavachSession };
+				const json = (await res.json()) as { data?: TheAuthSession };
 				const s = json.data ?? null;
 				setSession(s);
 				await persistToStorage(s);
@@ -192,7 +183,7 @@ export function ElectronTheAuthProvider({
 					body: JSON.stringify({ email, password }),
 				});
 				const json = (await res.json()) as
-					| { data: KavachSession }
+					| { data: TheAuthSession }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -202,7 +193,7 @@ export function ElectronTheAuthProvider({
 					};
 				}
 
-				const s = (json as { data: KavachSession }).data;
+				const s = (json as { data: TheAuthSession }).data;
 				setSession(s);
 				await persistToStorage(s);
 				return { success: true, data: undefined };
@@ -226,7 +217,7 @@ export function ElectronTheAuthProvider({
 					body: JSON.stringify({ email, password, name }),
 				});
 				const json = (await res.json()) as
-					| { data: KavachSession }
+					| { data: TheAuthSession }
 					| { error: { code: string; message: string } };
 
 				if (!res.ok) {
@@ -236,7 +227,7 @@ export function ElectronTheAuthProvider({
 					};
 				}
 
-				const s = (json as { data: KavachSession }).data;
+				const s = (json as { data: TheAuthSession }).data;
 				setSession(s);
 				await persistToStorage(s);
 				return { success: true, data: undefined };
@@ -264,7 +255,7 @@ export function ElectronTheAuthProvider({
 
 	// ── Context value ───────────────────────────────────────────────────────
 
-	const value: KavachContextValue = {
+	const value: TheAuthContextValue = {
 		session,
 		user: session?.user ?? null,
 		isLoading,
@@ -280,8 +271,5 @@ export function ElectronTheAuthProvider({
 	);
 }
 
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
-
-/** @deprecated Use `ElectronTheAuthProvider` instead. Will be removed in a future major version. */
-export const ElectronKavachProvider = ElectronTheAuthProvider;

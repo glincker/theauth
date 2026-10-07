@@ -10,8 +10,8 @@
  * import { authJsAdapter } from '@glinr/theauth/auth';
  * import { auth } from './auth'; // your Auth.js instance
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: authJsAdapter({
  *     getSession: (req) => auth({ request: req }),
  *   }),
@@ -24,8 +24,8 @@
  * import { SvelteKitAuth } from '@auth/sveltekit';
  *
  * // Wrap the SvelteKit event resolver into a standard Request-based function.
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: authJsAdapter({ getSession: myGetSession }),
  * });
  * ```

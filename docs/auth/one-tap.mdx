@@ -23,8 +23,8 @@ Go to the [Google Cloud Console](https://console.cloud.google.com/), create an O
 import { createTheAuth } from '@glinr/theauth';
 import { oneTap } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oneTap({ clientId: process.env.GOOGLE_CLIENT_ID }),
   ],
@@ -39,7 +39,7 @@ const kavach = await createTheAuth({
 <script src="https://accounts.google.com/gsi/client" async></script>
 <div id="g_id_onload"
   data-client_id="YOUR_CLIENT_ID"
-  data-login_uri="/api/kavach/auth/one-tap/callback"
+  data-login_uri="/api/theauth/auth/one-tap/callback"
   data-auto_prompt="true">
 </div>
 ```

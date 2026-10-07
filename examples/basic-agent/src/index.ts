@@ -216,7 +216,7 @@ async function main(): Promise<void> {
 
 	// ── Step 6: Audit trail ─────────────────────────────────────────────────────
 	//
-	// Every authorize() call is written to kavach_audit_logs.
+	// Every authorize() call is written to theauth_audit_logs.
 	// You can filter by agent, user, action, result, or time window.
 	// Logs can be exported as JSON or CSV for compliance tooling.
 	//

@@ -302,9 +302,9 @@ describe("AdditionalFieldsModule.getSessionFields / setSessionFields", () => {
 
 describe("additionalFields plugin endpoints", () => {
 	it("GET /auth/users/fields returns user fields", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: "test-secret-at-least-32-characters-long" } },
 			plugins: [
@@ -316,7 +316,7 @@ describe("additionalFields plugin endpoints", () => {
 
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Test",
@@ -325,9 +325,9 @@ describe("additionalFields plugin endpoints", () => {
 			updatedAt: now,
 		});
 
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request(`http://localhost/auth/users/fields?userId=${userId}`, {
 				headers: { Authorization: `Bearer ${token}` },
 			}),
@@ -339,9 +339,9 @@ describe("additionalFields plugin endpoints", () => {
 	});
 
 	it("GET /auth/users/fields returns 400 when userId is missing", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: "test-secret-at-least-32-characters-long" } },
 			plugins: [additionalFields()],
@@ -350,7 +350,7 @@ describe("additionalFields plugin endpoints", () => {
 		// Create a user and auth session to pass the requireAuth check
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Test",
@@ -358,9 +358,9 @@ describe("additionalFields plugin endpoints", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/users/fields", {
 				headers: { Authorization: `Bearer ${token}` },
 			}),
@@ -369,9 +369,9 @@ describe("additionalFields plugin endpoints", () => {
 	});
 
 	it("PUT /auth/users/fields writes fields and returns updated: true", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: "test-secret-at-least-32-characters-long" } },
 			plugins: [
@@ -383,7 +383,7 @@ describe("additionalFields plugin endpoints", () => {
 
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Put Test",
@@ -392,9 +392,9 @@ describe("additionalFields plugin endpoints", () => {
 			updatedAt: now,
 		});
 
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/users/fields", {
 				method: "PUT",
 				headers: {
@@ -411,9 +411,9 @@ describe("additionalFields plugin endpoints", () => {
 	});
 
 	it("PUT /auth/users/fields returns 422 on validation failure", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: "test-secret-at-least-32-characters-long" } },
 			plugins: [
@@ -425,7 +425,7 @@ describe("additionalFields plugin endpoints", () => {
 
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Fail Test",
@@ -434,9 +434,9 @@ describe("additionalFields plugin endpoints", () => {
 			updatedAt: now,
 		});
 
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/users/fields", {
 				method: "PUT",
 				headers: {
@@ -451,9 +451,9 @@ describe("additionalFields plugin endpoints", () => {
 	});
 
 	it("POST /auth/fields/validate returns valid: true for correct fields", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			plugins: [
 				additionalFields({
@@ -462,7 +462,7 @@ describe("additionalFields plugin endpoints", () => {
 			],
 		});
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/fields/validate", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -476,9 +476,9 @@ describe("additionalFields plugin endpoints", () => {
 	});
 
 	it("POST /auth/fields/validate returns 422 for invalid fields", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			plugins: [
 				additionalFields({
@@ -487,7 +487,7 @@ describe("additionalFields plugin endpoints", () => {
 			],
 		});
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/fields/validate", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -502,14 +502,14 @@ describe("additionalFields plugin endpoints", () => {
 	});
 
 	it("plugin context exposes the additionalFields module", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			plugins: [additionalFields({ user: { plan: { type: "string" } } })],
 		});
 
-		const ctx = kavach.plugins.getContext();
+		const ctx = theauth.plugins.getContext();
 		expect(ctx.additionalFields).toBeDefined();
 		const mod = ctx.additionalFields as AdditionalFieldsModule;
 		expect(typeof mod.getUserFields).toBe("function");

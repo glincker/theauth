@@ -14,20 +14,20 @@ description: Authenticate users via Atlassian OAuth 2.0 with `atlassianProvider`
 Go to the [Atlassian Developer Console](https://developer.atlassian.com) and create an OAuth 2.0 app. Add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/atlassian
+https://your-app.com/api/theauth/auth/oauth/callback/atlassian
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 import { atlassianProvider } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

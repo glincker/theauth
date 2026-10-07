@@ -12,17 +12,17 @@ Use the policy engine when you need to make authorization decisions that depend 
 ## Quick start
 
 <Info>
-  `createPolicyEngine` is an internal factory, it is not part of the public API surface. Access the engine through `kavach.policy` on a constructed `TheAuth` instance instead, it is always available (zero-config uses safe defaults).
+  `createPolicyEngine` is an internal factory, it is not part of the public API surface. Access the engine through `theauth.policy` on a constructed `TheAuth` instance instead, it is always available (zero-config uses safe defaults).
 </Info>
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const engine = kavach.policy;
+const engine = theauth.policy;
 
 const decision = await engine.evaluate({
   subject: { agentId: 'agt_abc123', orgId: 'org_acme' },
@@ -100,14 +100,14 @@ Configure via environment variables:
 
 | Variable | Type | Default | Effect |
 |---|---|---|---|
-| `KAVACH_POLICY_CACHE` | `"true"` \| `"false"` | `"true"` | Disable the cache entirely. |
-| `KAVACH_POLICY_CACHE_MAX` | number | `10000` | Maximum number of cached entries. |
-| `KAVACH_POLICY_CACHE_TTL_MS` | number | `60000` | Time-to-live per entry in milliseconds. |
+| `THEAUTH_POLICY_CACHE` | `"true"` \| `"false"` | `"true"` | Disable the cache entirely. |
+| `THEAUTH_POLICY_CACHE_MAX` | number | `10000` | Maximum number of cached entries. |
+| `THEAUTH_POLICY_CACHE_TTL_MS` | number | `60000` | Time-to-live per entry in milliseconds. |
 
 Or pass config directly through `createTheAuth()`:
 
 ```typescript
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   policy: {
     cache: {
@@ -117,7 +117,7 @@ const kavach = await createTheAuth({
   },
 });
 
-const engine = kavach.policy;
+const engine = theauth.policy;
 ```
 
 **What gets cached:** Decisions for purely RBAC and ReBAC paths are cached. A second `evaluate()` call with the same subject, action, resource, and IP returns in under 1ms with `cacheHit: true`.
@@ -175,7 +175,7 @@ To flip to permit-overrides (any PERMIT wins over DENYs), pass `combineStrategy:
 Every `evaluate()` call writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards.
 
 ```typescript
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   policy: {
     audit: true,           // default; set false to disable entirely
@@ -208,16 +208,16 @@ Full `PolicyEngineConfig` reference:
 If you want the full `PolicyDecision` (cache stats, matched relation, duration), call `evaluate()` directly:
 
 ```typescript
-// Before: using kavach.authorize()
-const result = await kavach.authorize(
+// Before: using theauth.authorize()
+const result = await theauth.authorize(
   agent.id,
   { action: 'read', resource: 'mcp:github:repos' },
   { ip: '203.0.113.42' },
 );
 // result: { allowed: boolean; reason: string; auditId: string }
 
-// After: using kavach.policy.evaluate() directly
-const decision = await kavach.policy.evaluate({
+// After: using theauth.policy.evaluate() directly
+const decision = await theauth.policy.evaluate({
   subject: { agentId: agent.id },
   action: 'read',
   resource: 'mcp:github:repos',

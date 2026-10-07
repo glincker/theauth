@@ -7,7 +7,7 @@ description: Seven copy-paste policy templates for agent authorization covering 
 
 Seven pre-built templates for common agent authorization patterns. Each template is a self-contained directory under `docs/policies/templates/` in the repository. It contains a `policy.ts` file with the permission definitions and a `README.md` with the scenario, expected decisions, and notes on engine limitations where relevant.
 
-Seed the exported arrays into `kavach_permissions` (and the supporting tables noted in each README), then call `engine.evaluate()` against them.
+Seed the exported arrays into `theauth_permissions` (and the supporting tables noted in each README), then call `engine.evaluate()` against them.
 
 ## Templates
 
@@ -24,7 +24,7 @@ Seed the exported arrays into `kavach_permissions` (and the supporting tables no
 ## How to use a template
 
 1. Copy `policy.ts` from the template directory into your project.
-2. Seed the exported permission arrays into `kavach_permissions` using your database adapter.
+2. Seed the exported permission arrays into `theauth_permissions` using your database adapter.
 3. For templates that need supporting rows (delegation chains, ReBAC tuples, rate-limit counters), follow the instructions in the template's `README.md`.
 4. Call `engine.evaluate({ subject, action, resource })` in your request handler.
 
@@ -50,7 +50,7 @@ An orchestrator with read+write delegates read-only to a sub-agent with a 1-hour
 
 ```typescript
 // Principal (orchestrator)
-const orchestrator = await kavach.agent.create({
+const orchestrator = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'orchestrator',
   type: 'autonomous',
@@ -60,14 +60,14 @@ const orchestrator = await kavach.agent.create({
 });
 
 // Sub-agent (delegated)
-const delegate = await kavach.agent.create({
+const delegate = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'delegate',
   type: 'delegated',
   permissions: [],
 });
 
-await kavach.delegate({
+await theauth.delegate({
   fromAgent: orchestrator.id,
   toAgent: delegate.id,
   permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],

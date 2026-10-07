@@ -127,7 +127,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		await createTables(db, config.database.provider, config);
 	}
 
-	// Unified policy engine. Always instantiated so kavach.policy is
+	// Unified policy engine. Always instantiated so theauth.policy is
 	// available. Callers can tune it via config.policy (cache size, TTL,
 	// combine strategy, audit sampling). Zero-config uses safe defaults.
 	const policyEngine: PolicyEngine = createPolicyEngine({ db, config: config.policy });
@@ -155,7 +155,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		? createSessionManager(config.auth.session, db)
 		: null;
 
-	// Privilege analyzer — always available via kavach.analyzer.
+	// Privilege analyzer — always available via theauth.analyzer.
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
 
 	// Lifecycle hooks from config.
@@ -317,7 +317,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 					status: 200,
 					headers: {
 						"Content-Type": "application/json",
-						"Set-Cookie": buildClearCookie("kavach_session"),
+						"Set-Cookie": buildClearCookie("theauth_session"),
 					},
 				});
 			},
@@ -505,12 +505,12 @@ export async function createTheAuth(config: TheAuthConfig) {
 	};
 
 	// ── MCP server registry ─────────────────────────────────────────
-	// Uses the kavach_mcp_servers table (defined in db/schema.ts).
+	// Uses the theauth_mcp_servers table (defined in db/schema.ts).
 	const mcpRegistry = {
 		/**
 		 * Register a new MCP tool server.
 		 *
-		 * Persists the server entry to the `kavach_mcp_servers` table.
+		 * Persists the server entry to the `theauth_mcp_servers` table.
 		 * The returned record includes the generated `id` and `createdAt`.
 		 */
 		async register(input: McpServerInput): Promise<McpServer> {
@@ -590,7 +590,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		/**
 		 * MCP server registration.
 		 *
-		 * Register and look up MCP tool servers. Uses the `kavach_mcp_servers`
+		 * Register and look up MCP tool servers. Uses the `theauth_mcp_servers`
 		 * database table — no separate in-memory store needed.
 		 */
 		mcp: mcpRegistry,
@@ -616,7 +616,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * app.use(async (req, res, next) => {
-		 *   const user = await kavach.auth.resolveUser(req);
+		 *   const user = await theauth.auth.resolveUser(req);
 		 *   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 		 *   req.user = user;
 		 *   next();
@@ -633,7 +633,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		/**
 		 * Resolve a human user from an incoming HTTP request.
 		 *
-		 * @deprecated Use `kavach.auth.resolveUser(request)` instead.
+		 * @deprecated Use `theauth.auth.resolveUser(request)` instead.
 		 */
 		async resolveUser(request: Request): Promise<ResolvedUser | null> {
 			if (!authAdapter) return null;
@@ -680,9 +680,9 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const { agentDid, privateKeyJwk } = await kavach.did.generateKey(agentId);
-		 * const signed = await kavach.did.sign(agentId, { action: 'read' }, privateKeyJwk);
-		 * const result = await kavach.did.verify(signed.jws, agentDid.did);
+		 * const { agentDid, privateKeyJwk } = await theauth.did.generateKey(agentId);
+		 * const signed = await theauth.did.sign(agentId, { action: 'read' }, privateKeyJwk);
+		 * const result = await theauth.did.verify(signed.jws, agentDid.did);
 		 * ```
 		 */
 		did: didModule,
@@ -695,7 +695,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // In your route handler
-		 * const response = await kavach.magicLink?.handleRequest(request);
+		 * const response = await theauth.magicLink?.handleRequest(request);
 		 * if (response) return response;
 		 * ```
 		 */
@@ -708,7 +708,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const response = await kavach.emailOtp?.handleRequest(request);
+		 * const response = await theauth.emailOtp?.handleRequest(request);
 		 * if (response) return response;
 		 * ```
 		 */
@@ -721,13 +721,13 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // On setup (show QR code to user)
-		 * const { secret, uri, backupCodes } = await kavach.totp.setup(userId);
+		 * const { secret, uri, backupCodes } = await theauth.totp.setup(userId);
 		 *
 		 * // After user scans QR and enters code
-		 * const { enabled } = await kavach.totp.enable(userId, totpCode);
+		 * const { enabled } = await theauth.totp.enable(userId, totpCode);
 		 *
 		 * // On login (after password check)
-		 * const { valid } = await kavach.totp.verify(userId, totpCode);
+		 * const { valid } = await theauth.totp.verify(userId, totpCode);
 		 * ```
 		 */
 		totp: totpModule,
@@ -739,16 +739,16 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // Registration — step 1: get options, send to browser
-		 * const options = await kavach.passkey.getRegistrationOptions(userId, userName);
+		 * const options = await theauth.passkey.getRegistrationOptions(userId, userName);
 		 *
 		 * // Registration — step 2: verify browser response
-		 * const { credential } = await kavach.passkey.verifyRegistration(userId, response);
+		 * const { credential } = await theauth.passkey.verifyRegistration(userId, response);
 		 *
 		 * // Authentication — step 1: get options
-		 * const options = await kavach.passkey.getAuthenticationOptions(userId);
+		 * const options = await theauth.passkey.getAuthenticationOptions(userId);
 		 *
 		 * // Authentication — step 2: verify browser response
-		 * const result = await kavach.passkey.verifyAuthentication(response);
+		 * const result = await theauth.passkey.verifyAuthentication(response);
 		 * if (result) console.log('Authenticated user:', result.userId);
 		 * ```
 		 */
@@ -760,8 +760,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const org = await kavach.org?.create({ name: 'Acme', slug: 'acme', ownerId: userId });
-		 * const allowed = await kavach.org?.hasPermission(org.id, userId, 'agents:create');
+		 * const org = await theauth.org?.create({ name: 'Acme', slug: 'acme', ownerId: userId });
+		 * const allowed = await theauth.org?.hasPermission(org.id, userId, 'agents:create');
 		 * ```
 		 */
 		org: orgModule,
@@ -772,8 +772,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const conn = await kavach.sso?.createConnection({ orgId, providerId: 'okta', type: 'saml', domain: 'acme.com' });
-		 * const url = await kavach.sso?.getSamlAuthUrl(conn.id);
+		 * const conn = await theauth.sso?.createConnection({ orgId, providerId: 'okta', type: 'saml', domain: 'acme.com' });
+		 * const url = await theauth.sso?.getSamlAuthUrl(conn.id);
 		 * ```
 		 */
 		sso: ssoModule,
@@ -784,8 +784,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * await kavach.admin?.banUser(userId, 'Spam');
-		 * const { session } = await kavach.admin?.impersonate(adminId, userId);
+		 * await theauth.admin?.banUser(userId, 'Spam');
+		 * const { session } = await theauth.admin?.impersonate(adminId, userId);
 		 * ```
 		 */
 		admin: adminModule,
@@ -796,8 +796,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const { key, apiKey } = await kavach.apiKeys?.create({ userId, name: 'CI', permissions: ['agents:read'] });
-		 * const result = await kavach.apiKeys?.validate(key);
+		 * const { key, apiKey } = await theauth.apiKeys?.create({ userId, name: 'CI', permissions: ['agents:read'] });
+		 * const result = await theauth.apiKeys?.validate(key);
 		 * ```
 		 */
 		apiKeys: apiKeyManagerModule,
@@ -809,7 +809,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const response = await kavach.username?.handleRequest(request);
+		 * const response = await theauth.username?.handleRequest(request);
 		 * if (response) return response;
 		 * ```
 		 */
@@ -823,12 +823,12 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // In your route handler
-		 * const response = await kavach.passwordReset?.handleRequest(request);
+		 * const response = await theauth.passwordReset?.handleRequest(request);
 		 * if (response) return response;
 		 *
 		 * // Or programmatically
-		 * await kavach.passwordReset?.requestReset('alice@example.com');
-		 * await kavach.passwordReset?.resetPassword(token, 'new-password');
+		 * await theauth.passwordReset?.requestReset('alice@example.com');
+		 * await theauth.passwordReset?.resetPassword(token, 'new-password');
 		 * ```
 		 */
 		passwordReset: passwordResetModule,
@@ -840,13 +840,13 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // Send a verification email after sign-up
-		 * await kavach.emailVerification?.sendVerification(userId, email);
+		 * await theauth.emailVerification?.sendVerification(userId, email);
 		 *
 		 * // Confirm from the link in the email
-		 * const result = await kavach.emailVerification?.verify(token);
+		 * const result = await theauth.emailVerification?.verify(token);
 		 *
 		 * // Check status
-		 * const verified = await kavach.emailVerification?.isVerified(userId);
+		 * const verified = await theauth.emailVerification?.isVerified(userId);
 		 * ```
 		 */
 		emailVerification: emailVerificationModule,
@@ -866,7 +866,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const stale = kavach.sessionFreshness.guard(session);
+		 * const stale = theauth.sessionFreshness.guard(session);
 		 * if (stale) return stale; // 403 SESSION_NOT_FRESH
 		 * ```
 		 */
@@ -881,7 +881,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const response = await kavach.phone?.handleRequest(request);
+		 * const response = await theauth.phone?.handleRequest(request);
 		 * if (response) return response;
 		 * ```
 		 */
@@ -893,7 +893,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const result = await kavach.captcha?.verify(token, ip);
+		 * const result = await theauth.captcha?.verify(token, ip);
 		 * if (!result?.success) return new Response('Captcha failed', { status: 403 });
 		 * ```
 		 */
@@ -905,7 +905,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * kavach.webhooks?.emit('user.created', { userId: user.id });
+		 * theauth.webhooks?.emit('user.created', { userId: user.id });
 		 * ```
 		 */
 		webhooks: webhookModule,
@@ -919,11 +919,11 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // In auth middleware — save where the user was going
-		 * const setCookie = kavach.redirects.capture(request);
+		 * const setCookie = theauth.redirects.capture(request);
 		 * return new Response(null, { status: 302, headers: { Location: '/sign-in', 'Set-Cookie': setCookie } });
 		 *
 		 * // After sign-in — send user to their original destination
-		 * const { url, clearCookie } = kavach.redirects.pop(request);
+		 * const { url, clearCookie } = theauth.redirects.pop(request);
 		 * const headers: Record<string, string> = { Location: url };
 		 * if (clearCookie) headers['Set-Cookie'] = clearCookie;
 		 * return new Response(null, { status: 302, headers });
@@ -939,7 +939,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const decision = await kavach.policy.evaluate({
+		 * const decision = await theauth.policy.evaluate({
 		 *   subject: { agentId: 'agent-abc' },
 		 *   action: 'read',
 		 *   resource: 'tool:github:list_issues',
@@ -947,10 +947,10 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * if (!decision.allowed) throw new Error(decision.reason);
 		 *
 		 * // Flush cached decisions after a permission change
-		 * kavach.policy.invalidate({ agentId: 'agent-abc' });
+		 * theauth.policy.invalidate({ agentId: 'agent-abc' });
 		 *
 		 * // Inspect cache health
-		 * const { hits, misses, size, evictions } = kavach.policy.stats();
+		 * const { hits, misses, size, evictions } = theauth.policy.stats();
 		 * ```
 		 */
 		policy: {
@@ -968,8 +968,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * @example
 		 * ```typescript
 		 * // In a framework adapter
-		 * app.all('/kavach/*', async (req) => {
-		 *   const response = await kavach.plugins.handleRequest(req);
+		 * app.all('/theauth/*', async (req) => {
+		 *   const response = await theauth.plugins.handleRequest(req);
 		 *   if (response) return response;
 		 *   return new Response('Not Found', { status: 404 });
 		 * });
@@ -1002,16 +1002,6 @@ export type TheAuth = Awaited<ReturnType<typeof createTheAuth>>;
 export const createAuth = createTheAuth;
 
 /**
- * @deprecated Use `createTheAuth` instead. Will be removed in a future major version.
- */
-export const createKavach = createTheAuth;
-
-/**
  * @deprecated Use `TheAuth` instead. Will be removed in a future major version.
  */
 export type Auth = TheAuth;
-
-/**
- * @deprecated Use `TheAuth` instead. Will be removed in a future major version.
- */
-export type Kavach = TheAuth;

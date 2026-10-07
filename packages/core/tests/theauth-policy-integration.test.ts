@@ -1,21 +1,21 @@
 /**
- * Integration tests: policy engine wired through createKavach().
+ * Integration tests: policy engine wired through createTheAuth().
  *
- * Verifies that kavach.policy.{evaluate, invalidate, stats} are reachable
+ * Verifies that theauth.policy.{evaluate, invalidate, stats} are reachable
  * and produce correct decisions against real in-memory SQLite data.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { agents, permissions as permissionsTable, users } from "../src/db/schema.js";
-import type { Kavach } from "../src/kavach.js";
-import { createKavach } from "../src/kavach.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTheAuth } from "../src/theauth.js";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-async function createTestKavach(): Promise<Kavach> {
-	return createKavach({
+async function createTestTheAuth(): Promise<TheAuth> {
+	return createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			maxPerUser: 10,
@@ -26,19 +26,19 @@ async function createTestKavach(): Promise<Kavach> {
 	});
 }
 
-async function seedFixtures(kavach: Kavach): Promise<{ agentId: string; userId: string }> {
+async function seedFixtures(theauth: TheAuth): Promise<{ agentId: string; userId: string }> {
 	const now = new Date();
 	const userId = "u-policy-int";
 	const agentId = "a-policy-int";
 
-	await kavach.db.insert(users).values({
+	await theauth.db.insert(users).values({
 		id: userId,
 		email: "policy-int@test.local",
 		createdAt: now,
 		updatedAt: now,
 	});
 
-	await kavach.db.insert(agents).values({
+	await theauth.db.insert(agents).values({
 		id: agentId,
 		ownerId: userId,
 		name: "policy-int-agent",
@@ -56,17 +56,17 @@ async function seedFixtures(kavach: Kavach): Promise<{ agentId: string; userId: 
 // Suite
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("kavach.policy integration", () => {
-	let kavach: Kavach;
+describe("theauth.policy integration", () => {
+	let theauth: TheAuth;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 	});
 
 	it("evaluate() returns a PolicyDecision", async () => {
-		const { agentId } = await seedFixtures(kavach);
+		const { agentId } = await seedFixtures(theauth);
 
-		const decision = await kavach.policy.evaluate({
+		const decision = await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
 			resource: "tool:docs",
@@ -82,9 +82,9 @@ describe("kavach.policy integration", () => {
 	});
 
 	it("evaluate() reflects direct permissions seeded into the DB", async () => {
-		const { agentId } = await seedFixtures(kavach);
+		const { agentId } = await seedFixtures(theauth);
 
-		await kavach.db.insert(permissionsTable).values({
+		await theauth.db.insert(permissionsTable).values({
 			id: "perm-int-1",
 			agentId,
 			resource: "tool:files",
@@ -92,7 +92,7 @@ describe("kavach.policy integration", () => {
 			createdAt: new Date(),
 		});
 
-		const allow = await kavach.policy.evaluate({
+		const allow = await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
 			resource: "tool:files",
@@ -100,7 +100,7 @@ describe("kavach.policy integration", () => {
 		expect(allow.allowed).toBe(true);
 		expect(allow.effect).toBe("permit");
 
-		const deny = await kavach.policy.evaluate({
+		const deny = await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "delete",
 			resource: "tool:files",
@@ -109,9 +109,9 @@ describe("kavach.policy integration", () => {
 	});
 
 	it("stats() returns hit and miss counters", async () => {
-		const { agentId } = await seedFixtures(kavach);
+		const { agentId } = await seedFixtures(theauth);
 
-		await kavach.db.insert(permissionsTable).values({
+		await theauth.db.insert(permissionsTable).values({
 			id: "perm-int-2",
 			agentId,
 			resource: "tool:stats",
@@ -120,20 +120,20 @@ describe("kavach.policy integration", () => {
 		});
 
 		// First call is a miss
-		await kavach.policy.evaluate({
+		await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
 			resource: "tool:stats",
 		});
 
 		// Second call is a cache hit
-		await kavach.policy.evaluate({
+		await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
 			resource: "tool:stats",
 		});
 
-		const s = kavach.policy.stats();
+		const s = theauth.policy.stats();
 		expect(s.misses).toBe(1);
 		expect(s.hits).toBe(1);
 		expect(s.size).toBe(1);
@@ -141,9 +141,9 @@ describe("kavach.policy integration", () => {
 	});
 
 	it("invalidate({ agentId }) clears entries for that agent", async () => {
-		const { agentId } = await seedFixtures(kavach);
+		const { agentId } = await seedFixtures(theauth);
 
-		await kavach.db.insert(permissionsTable).values({
+		await theauth.db.insert(permissionsTable).values({
 			id: "perm-int-3",
 			agentId,
 			resource: "tool:invalidate",
@@ -152,19 +152,19 @@ describe("kavach.policy integration", () => {
 		});
 
 		// Populate the cache
-		await kavach.policy.evaluate({
+		await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
 			resource: "tool:invalidate",
 		});
-		expect(kavach.policy.stats().size).toBe(1);
+		expect(theauth.policy.stats().size).toBe(1);
 
 		// Invalidate by agentId
-		kavach.policy.invalidate({ agentId });
-		expect(kavach.policy.stats().size).toBe(0);
+		theauth.policy.invalidate({ agentId });
+		expect(theauth.policy.stats().size).toBe(0);
 
 		// Next call is a fresh miss (not a hit)
-		const fresh = await kavach.policy.evaluate({
+		const fresh = await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
 			resource: "tool:invalidate",

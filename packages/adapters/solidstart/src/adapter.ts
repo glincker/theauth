@@ -9,7 +9,7 @@ export interface TheAuthSolidStartOptions {
 	mcp?: McpAuthModule;
 	/**
 	 * The URL path prefix before the `[...auth]` catch-all segment.
-	 * Defaults to `/api/kavach`.
+	 * Defaults to `/api/theauth`.
 	 *
 	 * @example `/api/auth`
 	 */
@@ -18,9 +18,6 @@ export interface TheAuthSolidStartOptions {
 
 /** @deprecated Use `TheAuthSolidStartOptions` instead. Will be removed in a future major version. */
 export type AuthSolidStartOptions = TheAuthSolidStartOptions;
-
-/** @deprecated Use `TheAuthSolidStartOptions` instead. Will be removed in a future major version. */
-export type KavachSolidStartOptions = TheAuthSolidStartOptions;
 
 export interface TheAuthSolidStartHandlers {
 	GET: (request: Request) => Promise<Response>;
@@ -33,9 +30,6 @@ export interface TheAuthSolidStartHandlers {
 /** @deprecated Use `TheAuthSolidStartHandlers` instead. Will be removed in a future major version. */
 export type AuthSolidStartHandlers = TheAuthSolidStartHandlers;
 
-/** @deprecated Use `TheAuthSolidStartHandlers` instead. Will be removed in a future major version. */
-export type KavachSolidStartHandlers = TheAuthSolidStartHandlers;
-
 /**
  * Create SolidStart API route handlers for all TheAuth REST API routes.
  *
@@ -46,7 +40,7 @@ export type KavachSolidStartHandlers = TheAuthSolidStartHandlers;
  * import { createTheAuth } from '@glinr/theauth';
  * import { theAuthSolidStart } from '@glinr/theauth-solidstart';
  *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
  * const handlers = theAuthSolidStart(auth);
  *
  * export const GET = handlers.GET;
@@ -68,7 +62,7 @@ export function theAuthSolidStart(
 	options?: TheAuthSolidStartOptions,
 ): TheAuthSolidStartHandlers {
 	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	// SolidStart API routes receive a standard Web API Request, so we can pass
 	// it directly to the TheAuth dispatcher without any conversion.
@@ -85,6 +79,3 @@ export function theAuthSolidStart(
 
 /** @deprecated Use `theAuthSolidStart` instead. Will be removed in a future major version. */
 export const authSolidStart = theAuthSolidStart;
-
-/** @deprecated Use `theAuthSolidStart` instead. Will be removed in a future major version. */
-export const kavachSolidStart = theAuthSolidStart;

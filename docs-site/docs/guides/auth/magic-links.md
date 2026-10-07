@@ -13,9 +13,9 @@ Magic links let users sign in by clicking a link sent to their email. No passwor
 import { createTheAuth } from '@glinr/theauth';
 import { magicLink } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     magicLink({
@@ -37,7 +37,7 @@ const kavach = await createTheAuth({
 ## Sending a magic link
 
 ```typescript
-await kavach.auth.magicLink.sendLink({
+await theauth.auth.magicLink.sendLink({
   email: 'user@example.com',
 });
 // Calls your onSendLink callback with the signed URL
@@ -48,7 +48,7 @@ await kavach.auth.magicLink.sendLink({
 When the user clicks the link, verify the token from the URL query string:
 
 ```typescript
-const result = await kavach.auth.magicLink.verify({
+const result = await theauth.auth.magicLink.verify({
   token: searchParams.get('token')!,
 });
 

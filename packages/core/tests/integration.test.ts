@@ -22,8 +22,8 @@
 
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Kavach } from "../src/kavach.js";
-import { createKavach } from "../src/kavach.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTheAuth } from "../src/theauth.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -36,13 +36,13 @@ const TEST_EMAIL = "alice@example.com";
 // Factory
 // ---------------------------------------------------------------------------
 
-async function createIntegrationKavach(): Promise<{
-	kavach: Kavach;
+async function createIntegrationTheAuth(): Promise<{
+	theauth: TheAuth;
 	capturedCodes: Map<string, string>;
 }> {
 	const capturedCodes = new Map<string, string>();
 
-	const kavach = await createKavach({
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		auth: {
 			session: { secret: SESSION_SECRET },
@@ -61,7 +61,7 @@ async function createIntegrationKavach(): Promise<{
 		},
 	});
 
-	return { kavach, capturedCodes };
+	return { theauth, capturedCodes };
 }
 
 // ---------------------------------------------------------------------------
@@ -69,20 +69,20 @@ async function createIntegrationKavach(): Promise<{
 // ---------------------------------------------------------------------------
 
 describe("Integration: full auth + agent flow", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 	let capturedCodes: Map<string, string>;
 
 	beforeEach(async () => {
-		({ kavach, capturedCodes } = await createIntegrationKavach());
+		({ theauth, capturedCodes } = await createIntegrationTheAuth());
 	});
 
 	it("completes the full flow end-to-end", async () => {
 		// ── Step 1: instance is alive ────────────────────────────────────────
-		expect(kavach).toBeDefined();
-		expect(kavach.emailOtp).not.toBeNull();
+		expect(theauth).toBeDefined();
+		expect(theauth.emailOtp).not.toBeNull();
 
 		// ── Step 2: sign up (send OTP) ───────────────────────────────────────
-		const sendResult = await kavach.emailOtp?.sendCode(TEST_EMAIL);
+		const sendResult = await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		expect(sendResult.sent).toBe(true);
 
 		const signupCode = capturedCodes.get(TEST_EMAIL);
@@ -91,7 +91,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect((signupCode as string).length).toBeGreaterThan(0);
 
 		// ── Step 3: verify OTP — creates user + issues session ───────────────
-		const signupResult = await kavach.emailOtp?.verifyCode(TEST_EMAIL, signupCode as string);
+		const signupResult = await theauth.emailOtp?.verifyCode(TEST_EMAIL, signupCode as string);
 		expect(signupResult).not.toBeNull();
 
 		const userId = signupResult?.user.id;
@@ -101,16 +101,16 @@ describe("Integration: full auth + agent flow", () => {
 		expect(signupResult?.session.expiresAt.getTime()).toBeGreaterThan(Date.now());
 
 		// Verify the session token is valid
-		const session = await kavach.auth.session?.validate(signupResult?.session.token);
+		const session = await theauth.auth.session?.validate(signupResult?.session.token);
 		expect(session).not.toBeNull();
 		expect(session?.userId).toBe(userId);
 
 		// ── Step 4: sign in again (returning user re-verifies) ───────────────
-		await kavach.emailOtp?.sendCode(TEST_EMAIL);
+		await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		const signinCode = capturedCodes.get(TEST_EMAIL);
 		expect(signinCode).toBeDefined();
 
-		const signinResult = await kavach.emailOtp?.verifyCode(TEST_EMAIL, signinCode as string);
+		const signinResult = await theauth.emailOtp?.verifyCode(TEST_EMAIL, signinCode as string);
 		expect(signinResult).not.toBeNull();
 		// Same user each time
 		expect(signinResult?.user.id).toBe(userId);
@@ -118,7 +118,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(signinResult?.session.token).toBeTruthy();
 
 		// ── Step 5: create an agent with permissions ─────────────────────────
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: userId,
 			name: "data-reader",
 			type: "autonomous",
@@ -135,7 +135,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(agent.permissions).toHaveLength(2);
 
 		// ── Step 6: authorize an allowed action ──────────────────────────────
-		const allowedResult = await kavach.authorize(agent.id, {
+		const allowedResult = await theauth.authorize(agent.id, {
 			action: "read",
 			resource: "reports:monthly",
 		});
@@ -144,7 +144,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(allowedResult.auditId).toBeTruthy();
 
 		// ── Step 7: authorize a denied action ────────────────────────────────
-		const deniedResult = await kavach.authorize(agent.id, {
+		const deniedResult = await theauth.authorize(agent.id, {
 			action: "delete",
 			resource: "reports:monthly",
 		});
@@ -153,7 +153,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(deniedResult.reason).toBeTruthy();
 
 		// ── Step 8: audit trail has both entries ─────────────────────────────
-		const auditLogs = await kavach.audit.query({ agentId: agent.id });
+		const auditLogs = await theauth.audit.query({ agentId: agent.id });
 		expect(auditLogs.length).toBeGreaterThanOrEqual(2);
 
 		const results = auditLogs.map((l) => l.result);
@@ -169,14 +169,14 @@ describe("Integration: full auth + agent flow", () => {
 		}
 
 		// ── Step 9: delegate permissions to a sub-agent ──────────────────────
-		const subAgent = await kavach.agent.create({
+		const subAgent = await theauth.agent.create({
 			ownerId: userId,
 			name: "sub-reader",
 			type: "delegated",
 			permissions: [],
 		});
 
-		const delegationChain = await kavach.delegate({
+		const delegationChain = await theauth.delegate({
 			fromAgent: agent.id,
 			toAgent: subAgent.id,
 			permissions: [{ resource: "reports:monthly", actions: ["read"] }],
@@ -189,14 +189,14 @@ describe("Integration: full auth + agent flow", () => {
 		expect(delegationChain.depth).toBe(1);
 
 		// Effective permissions should now include the delegated grant
-		const effectivePerms = await kavach.delegation.getEffectivePermissions(subAgent.id);
+		const effectivePerms = await theauth.delegation.getEffectivePermissions(subAgent.id);
 		expect(effectivePerms.length).toBeGreaterThanOrEqual(1);
 		const delegatedPerm = effectivePerms.find((p) => p.resource === "reports:monthly");
 		expect(delegatedPerm).toBeDefined();
 		expect(delegatedPerm?.actions).toContain("read");
 
 		// ── Step 10: authorize via delegation ────────────────────────────────
-		const delegatedAllowed = await kavach.authorize(subAgent.id, {
+		const delegatedAllowed = await theauth.authorize(subAgent.id, {
 			action: "read",
 			resource: "reports:monthly",
 		});
@@ -204,7 +204,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(delegatedAllowed.allowed).toBe(true);
 
 		// An action not in the delegation should be denied
-		const delegatedDenied = await kavach.authorize(subAgent.id, {
+		const delegatedDenied = await theauth.authorize(subAgent.id, {
 			action: "export",
 			resource: "reports:monthly",
 		});
@@ -212,14 +212,14 @@ describe("Integration: full auth + agent flow", () => {
 		expect(delegatedDenied.allowed).toBe(false);
 
 		// ── Step 11: revoke the primary agent ────────────────────────────────
-		await kavach.agent.revoke(agent.id);
+		await theauth.agent.revoke(agent.id);
 
-		const revokedAgent = await kavach.agent.get(agent.id);
+		const revokedAgent = await theauth.agent.get(agent.id);
 		expect(revokedAgent).not.toBeNull();
 		expect(revokedAgent?.status).toBe("revoked");
 
 		// ── Step 12: revoked agent is denied on all actions ──────────────────
-		const afterRevokeResult = await kavach.authorize(agent.id, {
+		const afterRevokeResult = await theauth.authorize(agent.id, {
 			action: "read",
 			resource: "reports:monthly",
 		});
@@ -228,11 +228,11 @@ describe("Integration: full auth + agent flow", () => {
 		expect(afterRevokeResult.reason).toMatch(/revoked/i);
 
 		// Token validation should also fail for the revoked agent
-		const tokenResult = await kavach.agent.validateToken(agent.token);
+		const tokenResult = await theauth.agent.validateToken(agent.token);
 		expect(tokenResult).toBeNull();
 
 		// ── Step 13: export audit trail as CSV ───────────────────────────────
-		const csv = await kavach.audit.export({ format: "csv" });
+		const csv = await theauth.audit.export({ format: "csv" });
 
 		// Header row
 		expect(csv).toContain("id,agentId,userId");
@@ -252,18 +252,18 @@ describe("Integration: full auth + agent flow", () => {
 	});
 
 	it("rejects delegation that exceeds parent agent permissions", async () => {
-		await kavach.emailOtp?.sendCode(TEST_EMAIL);
+		await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		const code = capturedCodes.get(TEST_EMAIL) as string;
-		const { user } = (await kavach.emailOtp?.verifyCode(TEST_EMAIL, code))!;
+		const { user } = (await theauth.emailOtp?.verifyCode(TEST_EMAIL, code))!;
 
-		const parent = await kavach.agent.create({
+		const parent = await theauth.agent.create({
 			ownerId: user.id,
 			name: "limited-parent",
 			type: "autonomous",
 			permissions: [{ resource: "docs:*", actions: ["read"] }],
 		});
 
-		const child = await kavach.agent.create({
+		const child = await theauth.agent.create({
 			ownerId: user.id,
 			name: "over-reaching-child",
 			type: "delegated",
@@ -271,7 +271,7 @@ describe("Integration: full auth + agent flow", () => {
 		});
 
 		await expect(
-			kavach.delegate({
+			theauth.delegate({
 				fromAgent: parent.id,
 				toAgent: child.id,
 				permissions: [{ resource: "docs:*", actions: ["read", "write", "delete"] }],
@@ -281,25 +281,25 @@ describe("Integration: full auth + agent flow", () => {
 	});
 
 	it("sub-agent loses access after delegation is revoked", async () => {
-		await kavach.emailOtp?.sendCode(TEST_EMAIL);
+		await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		const code = capturedCodes.get(TEST_EMAIL) as string;
-		const { user } = (await kavach.emailOtp?.verifyCode(TEST_EMAIL, code))!;
+		const { user } = (await theauth.emailOtp?.verifyCode(TEST_EMAIL, code))!;
 
-		const parent = await kavach.agent.create({
+		const parent = await theauth.agent.create({
 			ownerId: user.id,
 			name: "parent",
 			type: "autonomous",
 			permissions: [{ resource: "metrics:*", actions: ["read"] }],
 		});
 
-		const child = await kavach.agent.create({
+		const child = await theauth.agent.create({
 			ownerId: user.id,
 			name: "child",
 			type: "delegated",
 			permissions: [],
 		});
 
-		const chain = await kavach.delegate({
+		const chain = await theauth.delegate({
 			fromAgent: parent.id,
 			toAgent: child.id,
 			permissions: [{ resource: "metrics:dashboard", actions: ["read"] }],
@@ -307,17 +307,17 @@ describe("Integration: full auth + agent flow", () => {
 		});
 
 		// Access granted before revocation
-		const before = await kavach.authorize(child.id, {
+		const before = await theauth.authorize(child.id, {
 			action: "read",
 			resource: "metrics:dashboard",
 		});
 		expect(before.allowed).toBe(true);
 
 		// Revoke the delegation chain
-		await kavach.delegation.revoke(chain.id);
+		await theauth.delegation.revoke(chain.id);
 
 		// Access denied after revocation
-		const after = await kavach.authorize(child.id, {
+		const after = await theauth.authorize(child.id, {
 			action: "read",
 			resource: "metrics:dashboard",
 		});
@@ -325,21 +325,21 @@ describe("Integration: full auth + agent flow", () => {
 	});
 
 	it("audit export as JSON contains all fields", async () => {
-		await kavach.emailOtp?.sendCode(TEST_EMAIL);
+		await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		const code = capturedCodes.get(TEST_EMAIL) as string;
-		const { user } = (await kavach.emailOtp?.verifyCode(TEST_EMAIL, code))!;
+		const { user } = (await theauth.emailOtp?.verifyCode(TEST_EMAIL, code))!;
 
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: user.id,
 			name: "json-export-agent",
 			type: "autonomous",
 			permissions: [{ resource: "files:*", actions: ["read"] }],
 		});
 
-		await kavach.authorize(agent.id, { action: "read", resource: "files:report.pdf" });
-		await kavach.authorize(agent.id, { action: "write", resource: "files:report.pdf" });
+		await theauth.authorize(agent.id, { action: "read", resource: "files:report.pdf" });
+		await theauth.authorize(agent.id, { action: "write", resource: "files:report.pdf" });
 
-		const json = await kavach.audit.export({ format: "json" });
+		const json = await theauth.audit.export({ format: "json" });
 		const entries = JSON.parse(json) as Array<Record<string, unknown>>;
 
 		expect(Array.isArray(entries)).toBe(true);
@@ -369,34 +369,34 @@ describe("Integration: full auth + agent flow", () => {
 		const emailB = `bob-${randomUUID()}@example.com`;
 
 		// Set up user A
-		await kavach.emailOtp?.sendCode(emailA);
+		await theauth.emailOtp?.sendCode(emailA);
 		const codeA = capturedCodes.get(emailA) as string;
-		const { user: userA } = (await kavach.emailOtp?.verifyCode(emailA, codeA))!;
+		const { user: userA } = (await theauth.emailOtp?.verifyCode(emailA, codeA))!;
 
 		// Set up user B
-		await kavach.emailOtp?.sendCode(emailB);
+		await theauth.emailOtp?.sendCode(emailB);
 		const codeB = capturedCodes.get(emailB) as string;
-		const { user: userB } = (await kavach.emailOtp?.verifyCode(emailB, codeB))!;
+		const { user: userB } = (await theauth.emailOtp?.verifyCode(emailB, codeB))!;
 
-		const agentA = await kavach.agent.create({
+		const agentA = await theauth.agent.create({
 			ownerId: userA.id,
 			name: "agent-a",
 			type: "autonomous",
 			permissions: [{ resource: "workspace:a", actions: ["read"] }],
 		});
 
-		const agentB = await kavach.agent.create({
+		const agentB = await theauth.agent.create({
 			ownerId: userB.id,
 			name: "agent-b",
 			type: "autonomous",
 			permissions: [{ resource: "workspace:b", actions: ["read"] }],
 		});
 
-		await kavach.authorize(agentA.id, { action: "read", resource: "workspace:a" });
-		await kavach.authorize(agentB.id, { action: "read", resource: "workspace:b" });
+		await theauth.authorize(agentA.id, { action: "read", resource: "workspace:a" });
+		await theauth.authorize(agentB.id, { action: "read", resource: "workspace:b" });
 
-		const logsA = await kavach.audit.query({ agentId: agentA.id });
-		const logsB = await kavach.audit.query({ agentId: agentB.id });
+		const logsA = await theauth.audit.query({ agentId: agentA.id });
+		const logsB = await theauth.audit.query({ agentId: agentB.id });
 
 		expect(logsA).toHaveLength(1);
 		expect(logsB).toHaveLength(1);

@@ -14,14 +14,14 @@ npm install theauth @glinr/@glinr/theauth-tanstack
 
 ```typescript
 import { createTheAuth } from "@glinr/theauth";
-import { kavachTanStack } from "@glinr/theauth-tanstack";
+import { theAuthTanStack } from "@glinr/theauth-tanstack";
 
-const kavach = createTheAuth({
-  database: { provider: "sqlite", url: "kavach.db" },
+const theauth = createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
 });
 
 // Mount in your TanStack Start API routes
-export const { GET, POST } = kavachTanStack(kavach);
+export const { GET, POST } = theAuthTanStack(theauth);
 ```
 
 ## Docs

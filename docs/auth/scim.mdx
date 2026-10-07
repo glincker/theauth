@@ -16,7 +16,7 @@ SCIM 2.0 lets Okta, Azure AD, and Google Workspace automatically provision and d
 import { createTheAuth } from '@glinr/theauth';
 import { scim } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL },
   plugins: [
     scim({
@@ -33,7 +33,7 @@ const kavach = await createTheAuth({
 Point your IdP's SCIM provisioning settings at:
 
 ```
-Base URL:  https://your-app.com/api/kavach/scim/v2
+Base URL:  https://your-app.com/api/theauth/scim/v2
 Auth:      Bearer token
 Token:     <your SCIM_TOKEN>
 ```

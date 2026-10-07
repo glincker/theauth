@@ -19,11 +19,11 @@ Peer dependencies: React 19+
 Mount the dashboard inside your existing React app:
 
 ```tsx
-import { KavachDashboard } from "@glinr/theauth-dashboard";
+import { TheAuthDashboard } from "@glinr/theauth-dashboard";
 
 export function AdminPage() {
   return (
-    <KavachDashboard
+    <TheAuthDashboard
       apiUrl="http://localhost:3000"
     />
   );

@@ -61,7 +61,7 @@ Three shapes carry most of the real work:
 An agent can hand a subset of its permissions to a sub-agent. Every hop carries a depth counter, an expiry, and can be revoked independently. Revocation cascades: revoke the parent, every delegated child loses its permissions the next time it calls `authorize()`.
 
 ```ts
-await kavach.delegate({
+await theauth.delegate({
   fromAgent: parent.id,
   toAgent: sub.id,
   permissions: [{ resource: 'mcp:github:issues', actions: ['read'] }],
@@ -72,7 +72,7 @@ await kavach.delegate({
 
 ## Audit trail
 
-Every `authorize()` call writes an entry to `kavach_audit_logs`. The log is append-only. Entries record agent ID, user ID, resource, action, result (`allowed`, `denied`, `rate_limited`), duration, and timestamp.
+Every `authorize()` call writes an entry to `theauth_audit_logs`. The log is append-only. Entries record agent ID, user ID, resource, action, result (`allowed`, `denied`, `rate_limited`), duration, and timestamp.
 
 The `auditId` returned by `authorize()` links the decision to its log entry.
 

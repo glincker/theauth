@@ -28,7 +28,7 @@ import type {
 	McpClient,
 } from "@glinr/theauth/mcp";
 import { createMcpModule } from "@glinr/theauth/mcp";
-import { kavachHono } from "@glinr/theauth-hono";
+import { theAuthHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
@@ -248,7 +248,7 @@ async function main(): Promise<void> {
 	});
 
 	// Mount all TheAuth routes (agents, audit, delegation, MCP OAuth)
-	const api = kavachHono(auth, { mcp });
+	const api = theAuthHono(auth, { mcp });
 
 	const app = new Hono();
 

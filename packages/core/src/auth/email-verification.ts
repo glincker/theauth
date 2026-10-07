@@ -31,10 +31,10 @@
  * });
  *
  * // Send verification email
- * await kavach.emailVerification.sendVerification(userId, 'alice@example.com');
+ * await theauth.emailVerification.sendVerification(userId, 'alice@example.com');
  *
  * // Verify the token from the link
- * const result = await kavach.emailVerification.verify(token);
+ * const result = await theauth.emailVerification.verify(token);
  * if (result.success) console.log('Verified:', result.data.userId);
  * ```
  */
@@ -42,14 +42,14 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
-import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
+import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result, TheAuthError };
+export type { AuthError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types

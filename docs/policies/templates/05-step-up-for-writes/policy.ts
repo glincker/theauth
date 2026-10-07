@@ -7,7 +7,7 @@
  * before execution" whenever requireApproval=true is evaluated.
  *
  * Your application should intercept that denial and open an approval flow
- * (e.g. send a Slack message, insert into kavach_approval_requests) before
+ * (e.g. send a Slack message, insert into theauth_approval_requests) before
  * retrying the evaluate call after the human approves.
  */
 

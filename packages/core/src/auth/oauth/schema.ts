@@ -2,8 +2,8 @@
  * Drizzle ORM schema additions for OAuth provider support.
  *
  * Two tables:
- * - `kavach_oauth_accounts`  — links a TheAuth user to a provider account.
- * - `kavach_oauth_states`    — short-lived PKCE state entries for CSRF protection.
+ * - `theauth_oauth_accounts`  — links a TheAuth user to a provider account.
+ * - `theauth_oauth_states`    — short-lived PKCE state entries for CSRF protection.
  *
  * Import from the main schema barrel (`db/schema.ts`) is intentionally
  * avoided here to keep this file self-contained and easy to tree-shake.
@@ -13,7 +13,7 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { users } from "../../db/schema.js";
 
 // ---------------------------------------------------------------------------
-// kavach_oauth_accounts
+// theauth_oauth_accounts
 // ---------------------------------------------------------------------------
 
 /**
@@ -24,7 +24,7 @@ import { users } from "../../db/schema.js";
  * issued by the provider; they carry no TheAuth privileges.  Implementors
  * with stricter requirements should encrypt these columns at rest.
  */
-export const oauthAccounts = sqliteTable("kavach_oauth_accounts", {
+export const oauthAccounts = sqliteTable("theauth_oauth_accounts", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -44,7 +44,7 @@ export const oauthAccounts = sqliteTable("kavach_oauth_accounts", {
 });
 
 // ---------------------------------------------------------------------------
-// kavach_oauth_states
+// theauth_oauth_states
 // ---------------------------------------------------------------------------
 
 /**
@@ -54,7 +54,7 @@ export const oauthAccounts = sqliteTable("kavach_oauth_accounts", {
  * `handleCallback`.  Entries that were never consumed are cleaned up by
  * `expiresAt` — callers should periodically prune stale rows.
  */
-export const oauthStates = sqliteTable("kavach_oauth_states", {
+export const oauthStates = sqliteTable("theauth_oauth_states", {
 	/** Random, opaque state value sent as the `state` query parameter. */
 	state: text("state").primaryKey(),
 	/** PKCE code verifier (plain text — never sent to the provider). */

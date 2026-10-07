@@ -1083,7 +1083,7 @@ describe("OidcProvider.getJwks", () => {
 		const firstKey = jwks.keys[0];
 		if (!firstKey) throw new Error("No key in JWKS");
 		const key = firstKey;
-		expect(key.kid).toBe("kavach-oidc-1");
+		expect(key.kid).toBe("theauth-oidc-1");
 		expect(key.alg).toBe("RS256");
 		expect(key.use).toBe("sig");
 		expect(key.kty).toBe("RSA");

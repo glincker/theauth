@@ -33,10 +33,10 @@
  * });
  *
  * // Forgot password (always succeeds — no email enumeration)
- * await kavach.passwordReset.requestReset('alice@example.com');
+ * await theauth.passwordReset.requestReset('alice@example.com');
  *
  * // Reset password (from the link in the email)
- * const result = await kavach.passwordReset.resetPassword(token, 'new-password-123');
+ * const result = await theauth.passwordReset.resetPassword(token, 'new-password-123');
  * ```
  */
 
@@ -44,7 +44,7 @@ import { eq } from "drizzle-orm";
 import { pbkdf2Hash } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
-import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
+import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { SessionManager } from "../session/session.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
@@ -52,7 +52,7 @@ import type { OneTimeTokenModule } from "./one-time-token.js";
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result, TheAuthError };
+export type { AuthError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types

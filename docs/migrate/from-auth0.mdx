@@ -34,10 +34,10 @@ When to wait:
 | Organizations | `organization` plugin (same conceptual model). |
 | Roles, Permissions | `rbac` + resource-pattern matching on permissions. |
 | `authorize` endpoint (`/oauth/authorize`) | Built-in. PKCE S256 only. |
-| `userinfo` endpoint | `kavach.auth.getUser()` from a session cookie. |
+| `userinfo` endpoint | `theauth.auth.getUser()` from a session cookie. |
 | Management API | Server-side instance methods directly, no separate API. |
 | Refresh token rotation | On by default with the `jwtSession` and `refresh` plugins. |
-| Tenant logs | Audit trail via `kavach.audit.query()` and the audit export. |
+| Tenant logs | Audit trail via `theauth.audit.query()` and the audit export. |
 | Custom domain, cookie domain | Set `baseUrl` and the cookie config on `createTheAuth`. |
 | Hooks (Pre-User Registration, Post-User Registration, Send Phone Message) | Lifecycle hooks on the relevant plugins. |
 
@@ -50,11 +50,11 @@ When to wait:
 ```
 
 ```ts
-// AFTER: lib/kavach.ts (TheAuth)
+// AFTER: lib/theauth.ts (TheAuth)
 import { createTheAuth } from '@glinr/theauth';
 import { organization } from '@glinr/theauth/auth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!, // e.g. https://auth.example.com
@@ -70,7 +70,7 @@ export const kavach = await createTheAuth({
 ```
 
 <Info>
-  Role-based access is handled by the built-in policy engine (`kavach.policy.evaluate`), there is no separate `rbac` plugin to opt into, see [Policy engine](/policy-engine). MCP OAuth 2.1 is a top-level `mcp` config key, not a `plugins: [...]` entry, see [MCP](/mcp).
+  Role-based access is handled by the built-in policy engine (`theauth.policy.evaluate`), there is no separate `rbac` plugin to opt into, see [Policy engine](/policy-engine). MCP OAuth 2.1 is a top-level `mcp` config key, not a `plugins: [...]` entry, see [MCP](/mcp).
 </Info>
 
 ## Mounting the handler
@@ -86,11 +86,11 @@ export const GET = handleAuth();
 
 ```ts
 // AFTER (TheAuth + Next.js)
-// app/api/kavach/[...kavach]/route.ts
+// app/api/theauth/[...theauth]/route.ts
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
-import { kavach } from '@/lib/kavach';
+import { theauth } from '@/lib/theauth';
 
-const handlers = theAuthNextjs(kavach);
+const handlers = theAuthNextjs(theauth);
 
 export const { GET, POST, PATCH, DELETE, OPTIONS } = handlers;
 ```
@@ -146,7 +146,7 @@ exports.onExecutePostLogin = async (event, api) => {
 // AFTER: TheAuth lifecycle hook
 import { createTheAuth } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { /* ... */ },
   hooks: {
     beforeSession: async ({ user, session }) => {
@@ -176,7 +176,7 @@ Auth0's M2M clients issue long-lived tokens against an API. They have a flat sco
 
 ```ts
 // AFTER (TheAuth agent)
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-ops@example.com',
   name: 'billing-pipeline',
   type: 'service',
@@ -195,8 +195,8 @@ const agent = await kavach.agent.create({
 });
 
 // agent.token → kv_... Bearer. Hand it to the service.
-// Rotate with kavach.agent.rotate(agent.id) when you need to.
-// Revoke with kavach.agent.revoke(agent.id). Everything is audited.
+// Rotate with theauth.agent.rotate(agent.id) when you need to.
+// Revoke with theauth.agent.revoke(agent.id). Everything is audited.
 ```
 
 Two differences to call out:
@@ -228,7 +228,7 @@ The Auth0 export delivers one JSON object per user. A small Node script is enoug
 // scripts/import-auth0.ts
 import fs from 'node:fs';
 import readline from 'node:readline';
-import { kavach } from '../lib/kavach.js';
+import { theauth } from '../lib/theauth.js';
 
 const stream = readline.createInterface({
   input: fs.createReadStream('auth0-users.ndjson'),
@@ -236,7 +236,7 @@ const stream = readline.createInterface({
 
 for await (const line of stream) {
   const u = JSON.parse(line);
-  await kavach.auth.importUser({
+  await theauth.auth.importUser({
     email: u.email,
     emailVerified: u.email_verified,
     name: u.name,

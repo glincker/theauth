@@ -3,7 +3,7 @@
  *
  * Fires signed HTTP POST requests to configured endpoints when auth events
  * occur. Payloads are signed with HMAC-SHA256 and sent with
- * `X-Kavach-Event`, `X-Kavach-Signature`, and `X-Kavach-Timestamp` headers.
+ * `X-TheAuth-Event`, `X-TheAuth-Signature`, and `X-TheAuth-Timestamp` headers.
  *
  * Delivery is fire-and-forget with exponential backoff retries (1s, 2s, 4s).
  * Failed deliveries after all retries are silently dropped so they never block
@@ -11,17 +11,17 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   webhooks: [{
- *     url: 'https://my-service.example.com/webhooks/kavach',
+ *     url: 'https://my-service.example.com/webhooks/theauth',
  *     secret: process.env.WEBHOOK_SECRET,
  *     events: ['user.created', 'session.created'],
  *   }],
  * });
  *
  * // Emit from anywhere in your app
- * kavach.webhooks?.emit('user.created', { userId: user.id });
+ * theauth.webhooks?.emit('user.created', { userId: user.id });
  * ```
  */
 
@@ -93,9 +93,9 @@ async function deliverOnce(
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				"X-Kavach-Event": event,
-				"X-Kavach-Signature": `sha256=${signature}`,
-				"X-Kavach-Timestamp": timestamp,
+				"X-TheAuth-Event": event,
+				"X-TheAuth-Signature": `sha256=${signature}`,
+				"X-TheAuth-Timestamp": timestamp,
 			},
 			body,
 			signal: controller.signal,

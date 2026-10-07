@@ -1,6 +1,6 @@
 ---
 title: Svelte
-description: Add TheAuth auth to Svelte and SvelteKit apps via createTheAuthClient and createKavachHooks. Session state is reactive and server-populated on first page load.
+description: Add TheAuth auth to Svelte and SvelteKit apps via createTheAuthClient and createTheAuthHooks. Session state is reactive and server-populated on first page load.
 icon: code
 ---
 
@@ -16,7 +16,7 @@ pnpm add @glinr/theauth-svelte
 
 Create a client instance and export the stores from a shared module:
 
-```typescript title="src/lib/kavach.ts"
+```typescript title="src/lib/theauth.ts"
 import { createTheAuthClient } from '@glinr/theauth-svelte'; // [!code highlight]
 
 export const {
@@ -27,7 +27,7 @@ export const {
   signUp,
   agents,
 } = createTheAuthClient({ // [!code highlight]
-  basePath: '/api/kavach', // [!code highlight]
+  basePath: '/api/theauth', // [!code highlight]
 }); // [!code highlight]
 ```
 
@@ -36,10 +36,10 @@ export const {
 In SvelteKit, expose the session on the server side via `hooks.server.ts` so the initial page load is never unauthenticated:
 
 ```typescript title="src/hooks.server.ts"
-import { createKavachHooks } from '@glinr/theauth-svelte/sveltekit'; // [!code highlight]
+import { createTheAuthHooks } from '@glinr/theauth-svelte/sveltekit'; // [!code highlight]
 
-export const { handle } = createKavachHooks({ // [!code highlight]
-  basePath: '/api/kavach', // [!code highlight]
+export const { handle } = createTheAuthHooks({ // [!code highlight]
+  basePath: '/api/theauth', // [!code highlight]
 }); // [!code highlight]
 ```
 
@@ -57,7 +57,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
 ```svelte title="src/routes/+page.svelte"
 <script lang="ts">
-  import { session } from '$lib/kavach';
+  import { session } from '$lib/theauth';
 </script>
 
 {#if $session.isLoading}
@@ -73,7 +73,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
 ```svelte title="src/routes/sign-in/+page.svelte"
 <script lang="ts">
-  import { signIn } from '$lib/kavach';
+  import { signIn } from '$lib/theauth';
 
   let email = '';
   let password = '';
@@ -89,13 +89,13 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 ```
 
 ```typescript title="Sign up"
-import { signUp } from '$lib/kavach';
+import { signUp } from '$lib/theauth';
 
 const result = await signUp({ email, password, name });
 ```
 
 ```typescript title="Sign out"
-import { signOut } from '$lib/kavach';
+import { signOut } from '$lib/theauth';
 
 await signOut();
 ```
@@ -109,7 +109,7 @@ Manage agent identities in reactive Svelte stores:
   import { createAgentStore } from '@glinr/theauth-svelte';
 
   const { agents, createAgent, revokeAgent, isLoading } = createAgentStore({
-    basePath: '/api/kavach',
+    basePath: '/api/theauth',
   });
 
   async function addAgent() {
@@ -124,7 +124,7 @@ Manage agent identities in reactive Svelte stores:
 
 ## Client configuration reference
 
-<ParamField path="basePath" type="string" default="'/api/kavach'">Base path where your TheAuth handler is mounted.</ParamField>
+<ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your TheAuth handler is mounted.</ParamField>
 <ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call.</ParamField>
 
 ## Related

@@ -1,1 +1,1 @@
-export { authExpress, kavachExpress, theAuthExpress } from "./adapter.js";
+export { authExpress, theAuthExpress } from "./adapter.js";

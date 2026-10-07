@@ -16,7 +16,7 @@ Go to the [Yahoo Developer Console](https://developer.yahoo.com/apps/) and creat
 Set the **Callback Domain** and add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/yahoo
+https://your-app.com/api/theauth/auth/oauth/callback/yahoo
 ```
 
 Enable the **OpenID Connect** API and the **Email** scope.
@@ -31,13 +31,13 @@ After creating the app, copy the **Client ID (Consumer Key)** and **Client Secre
 
 ## Configuration
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth, yahooProvider } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com',
   plugins: [
     oauth({

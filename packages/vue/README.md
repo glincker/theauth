@@ -50,7 +50,7 @@ const { signOut } = useSignOut();
 
 ## Exports
 
-- `createTheAuthPlugin`: Vue plugin factory (formerly `createKavachPlugin`, still exported as a deprecated alias)
+- `createTheAuthPlugin`: Vue plugin factory (formerly `createTheAuthPlugin`, still exported as a deprecated alias)
 - `useSession`: current session and loading state
 - `useUser`: authenticated user object
 - `useSignIn`: sign-in composable

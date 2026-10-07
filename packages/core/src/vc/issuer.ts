@@ -9,7 +9,7 @@
 
 import { importJWK, SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { Result, TheAuthError } from "../mcp/types.js";
 import type {
 	CredentialFormat,
 	CredentialSubject,
@@ -18,9 +18,9 @@ import type {
 	VerifiableCredential,
 } from "./types.js";
 import {
-	KAVACH_AGENT_CREDENTIAL,
-	KAVACH_DELEGATION_CREDENTIAL,
-	KAVACH_PERMISSION_CREDENTIAL,
+	THEAUTH_AGENT_CREDENTIAL,
+	THEAUTH_DELEGATION_CREDENTIAL,
+	THEAUTH_PERMISSION_CREDENTIAL,
 	VC_CONTEXT_V2,
 	VC_TYPE_CREDENTIAL,
 } from "./types.js";
@@ -31,7 +31,7 @@ const DEFAULT_TTL_SECONDS = 86400; // 24 hours
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function makeError(code: string, message: string, details?: Record<string, unknown>): KavachError {
+function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 
@@ -276,7 +276,7 @@ export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 			...(trustLevel !== undefined ? { trustLevel } : {}),
 		};
 
-		const credential = buildCredential([KAVACH_AGENT_CREDENTIAL], subject, ttl);
+		const credential = buildCredential([THEAUTH_AGENT_CREDENTIAL], subject, ttl);
 		return signCredential(credential, agentId, ttl, format);
 	}
 
@@ -305,7 +305,7 @@ export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 			permissions,
 		};
 
-		const credential = buildCredential([KAVACH_PERMISSION_CREDENTIAL], subject, ttl);
+		const credential = buildCredential([THEAUTH_PERMISSION_CREDENTIAL], subject, ttl);
 		return signCredential(credential, agentId, ttl, format);
 	}
 
@@ -335,7 +335,7 @@ export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 			...(delegationScope !== undefined ? { delegationScope } : {}),
 		};
 
-		const credential = buildCredential([KAVACH_DELEGATION_CREDENTIAL], subject, ttl);
+		const credential = buildCredential([THEAUTH_DELEGATION_CREDENTIAL], subject, ttl);
 		return signCredential(credential, agentId, ttl, format);
 	}
 

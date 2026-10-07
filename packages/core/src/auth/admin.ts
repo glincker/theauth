@@ -6,13 +6,13 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   admin: { adminUserIds: ['user_abc123'], allowImpersonation: true },
  * });
  *
- * await kavach.admin.banUser('user_xyz', 'Violating terms');
- * const { session } = await kavach.admin.impersonate('user_abc123', 'user_xyz');
+ * await theauth.admin.banUser('user_xyz', 'Violating terms');
+ * const { session } = await theauth.admin.impersonate('user_abc123', 'user_xyz');
  * ```
  */
 

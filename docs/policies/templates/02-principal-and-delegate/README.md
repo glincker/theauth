@@ -12,7 +12,7 @@ engine.evaluate({ subject: { agentId: "principal-id" }, action: "write", resourc
 engine.evaluate({ subject: { agentId: "delegate-id" }, action: "read", resource: "reports:monthly" });
 ```
 
-The delegation chain must be inserted into `kavach_delegation_chains` with `status: "active"` and `expiresAt` in the future.
+The delegation chain must be inserted into `theauth_delegation_chains` with `status: "active"` and `expiresAt` in the future.
 
 ## Example decisions
 

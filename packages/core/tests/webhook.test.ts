@@ -81,10 +81,10 @@ describe("webhook module: dispatch", () => {
 
 		const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["x-kavach-event"]).toBe("user.created");
+		expect(headers["x-theauth-event"]).toBe("user.created");
 	});
 
-	it("includes x-kavach-delivery, x-kavach-timestamp, and x-kavach-signature headers", async () => {
+	it("includes x-theauth-delivery, x-theauth-timestamp, and x-theauth-signature headers", async () => {
 		const wh = createWebhookModule({ secret: "test-secret", maxRetries: 1 });
 		await wh.subscribe("https://example.com/hook", ["agent.created"]);
 
@@ -96,9 +96,9 @@ describe("webhook module: dispatch", () => {
 
 		const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["x-kavach-delivery"]).toBeTruthy();
-		expect(headers["x-kavach-timestamp"]).toBeTruthy();
-		expect(headers["x-kavach-signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
+		expect(headers["x-theauth-delivery"]).toBeTruthy();
+		expect(headers["x-theauth-timestamp"]).toBeTruthy();
+		expect(headers["x-theauth-signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
 	});
 
 	it("sends the payload as JSON in the request body", async () => {

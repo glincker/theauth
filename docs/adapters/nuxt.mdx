@@ -1,10 +1,10 @@
 ---
 title: Nuxt
-description: Mount TheAuth auth routes in Nuxt with `theAuthNuxt(kavach)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
+description: Mount TheAuth auth routes in Nuxt with `theAuthNuxt(theauth)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
 icon: "/brand-icons/nuxt.svg"
 ---
 
-`theAuthNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
+`theAuthNuxt(theauth, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
 
 ## Install
 
@@ -15,15 +15,15 @@ pnpm add @glinr/theauth @glinr/theauth-nuxt
 ## Setup
 
 <Steps>
-<Step title="Create the kavach instance">
+<Step title="Create the theauth instance">
 
 Create this outside the event handler so it is initialized once at server startup:
 
 ```typescript
-// server/utils/kavach.ts
+// server/utils/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -32,27 +32,27 @@ export const kavach = await createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 </Step>
 <Step title="Create the catch-all route">
 
-In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-paths. Create `server/api/kavach/[...].ts`:
+In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-paths. Create `server/api/theauth/[...].ts`:
 
 ```typescript
-// server/api/kavach/[...].ts
+// server/api/theauth/[...].ts
 import { theAuthNuxt } from '@glinr/theauth-nuxt';
-import { kavach, mcp } from '../utils/kavach';
+import { theauth, mcp } from '../utils/theauth';
 
-export default theAuthNuxt(kavach, { mcp });
+export default theAuthNuxt(theauth, { mcp });
 ```
 
 </Step>
 </Steps>
 
 <Info>
-  The `basePath` option defaults to `/api/kavach`. If your Nuxt app uses a different route prefix, pass `basePath` to match.
+  The `basePath` option defaults to `/api/theauth`. If your Nuxt app uses a different route prefix, pass `basePath` to match.
 </Info>
 
 ## Options
@@ -60,7 +60,7 @@ export default theAuthNuxt(kavach, { mcp });
 ```typescript
 interface AuthNuxtOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
-  basePath?: string;       // defaults to '/api/kavach'
+  basePath?: string;       // defaults to '/api/theauth'
 }
 ```
 
@@ -69,11 +69,11 @@ interface AuthNuxtOptions {
 When `mcp` is passed, the MCP OAuth 2.1 authorization server is available at:
 
 ```
-GET  /api/kavach/.well-known/oauth-authorization-server
-GET  /api/kavach/.well-known/oauth-protected-resource
-POST /api/kavach/mcp/register
-GET  /api/kavach/mcp/authorize
-POST /api/kavach/mcp/token
+GET  /api/theauth/.well-known/oauth-authorization-server
+GET  /api/theauth/.well-known/oauth-protected-resource
+POST /api/theauth/mcp/register
+GET  /api/theauth/mcp/authorize
+POST /api/theauth/mcp/token
 ```
 
 ## Endpoint reference
@@ -97,11 +97,11 @@ POST /api/kavach/mcp/token
 ## Full example
 
 ```typescript
-// server/api/kavach/[...].ts
+// server/api/theauth/[...].ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { theAuthNuxt } from '@glinr/theauth-nuxt';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -110,12 +110,12 @@ const kavach = await createTheAuth({
   },
 });
 
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule(theauth);
 
-export default theAuthNuxt(kavach, { mcp });
+export default theAuthNuxt(theauth, { mcp });
 ```
 
-All TheAuth routes are then available at `/api/kavach/...` within your Nuxt server.
+All TheAuth routes are then available at `/api/theauth/...` within your Nuxt server.
 
 ## Related
 

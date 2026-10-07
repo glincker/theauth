@@ -9,8 +9,8 @@
  * import { betterAuthAdapter } from '@glinr/theauth/auth';
  * import { auth } from './lib/auth'; // your better-auth instance
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: betterAuthAdapter(auth),
  * });
  * ```

@@ -48,7 +48,7 @@ Policies are evaluated at authorization time, before any LLM call is made. If an
 
 ```typescript
 // Per-agent daily token cap
-const policy = await kavach.policy.create({
+const policy = await theauth.policy.create({
   agentId: 'agt_abc123',
   limits: {
     maxTokensCostPerDay: 1000,
@@ -58,7 +58,7 @@ const policy = await kavach.policy.create({
 });
 
 // Per-user monthly cap (applies to all agents owned by this user)
-const userPolicy = await kavach.policy.create({
+const userPolicy = await theauth.policy.create({
   userId: 'user-456',
   limits: {
     maxTokensCostPerMonth: 10_000,
@@ -67,7 +67,7 @@ const userPolicy = await kavach.policy.create({
 });
 
 // Tenant-wide monthly cap
-const tenantPolicy = await kavach.policy.create({
+const tenantPolicy = await theauth.policy.create({
   tenantId: 'tnt_acme',
   limits: {
     maxTokensCostPerMonth: 50_000,
@@ -82,7 +82,7 @@ const tenantPolicy = await kavach.policy.create({
 Call `checkBudget` with a speculative `tokensCost` to see whether this call would exceed any policy. The cost is included in the check but not recorded yet.
 
 ```typescript
-const check = await kavach.policy.checkBudget('agt_abc123', 50);
+const check = await theauth.policy.checkBudget('agt_abc123', 50);
 
 if (!check.allowed) {
   console.error(check.reason);
@@ -100,7 +100,7 @@ Call `recordUsage` after the LLM call completes to update the counters.
 const result = await llm.complete(prompt);
 const actualCost = result.usage.totalTokens;
 
-await kavach.policy.recordUsage('agt_abc123', actualCost);
+await theauth.policy.recordUsage('agt_abc123', actualCost);
 ```
 
 `recordUsage` increments `callsToday`, `callsThisMonth`, `tokensCostToday`, and `tokensCostThisMonth` on every active policy that applies to this agent. It also transitions any policy from `active` to `triggered` if the new totals cross a threshold.
@@ -110,14 +110,14 @@ await kavach.policy.recordUsage('agt_abc123', actualCost);
 Reset daily counters on a UTC midnight cron job:
 
 ```typescript
-const { reset } = await kavach.policy.resetDaily();
+const { reset } = await theauth.policy.resetDaily();
 console.log(`Reset ${reset} policies`);
 ```
 
 Reset monthly counters on the first of each month:
 
 ```typescript
-const { reset } = await kavach.policy.resetMonthly();
+const { reset } = await theauth.policy.resetMonthly();
 ```
 
 After a reset, policies that were `triggered` are automatically moved back to `active` if the new totals are within limits.
@@ -126,16 +126,16 @@ After a reset, policies that were `triggered` are automatically moved back to `a
 
 ```typescript
 // All policies for an agent (including global ones)
-const policies = await kavach.policy.list({ agentId: 'agt_abc123' });
+const policies = await theauth.policy.list({ agentId: 'agt_abc123' });
 
 // Change the limit and action
-await kavach.policy.update(policy.id, {
+await theauth.policy.update(policy.id, {
   limits: { maxTokensCostPerDay: 2000 },
   action: 'warn',
 });
 
 // Remove a policy
-await kavach.policy.remove(policy.id);
+await theauth.policy.remove(policy.id);
 ```
 
 ## Combining warn and block
@@ -144,14 +144,14 @@ A common pattern: warn at a soft limit, block at the hard limit.
 
 ```typescript
 // Warn at 800 tokens/day
-await kavach.policy.create({
+await theauth.policy.create({
   agentId: 'agt_abc123',
   limits: { maxTokensCostPerDay: 800 },
   action: 'warn',
 });
 
 // Block at 1000 tokens/day
-await kavach.policy.create({
+await theauth.policy.create({
   agentId: 'agt_abc123',
   limits: { maxTokensCostPerDay: 1000 },
   action: 'block',

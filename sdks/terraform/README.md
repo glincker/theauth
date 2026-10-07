@@ -53,7 +53,7 @@ terraform {
 }
 
 provider "theauth" {
-  base_url = "https://your-app.com/api/kavach"
+  base_url = "https://your-app.com/api/theauth"
   token    = var.theauth_token
 }
 ```
@@ -61,7 +61,7 @@ provider "theauth" {
 Both arguments can be set via environment variables instead:
 
 ```bash
-export THEAUTH_BASE_URL=https://your-app.com/api/kavach
+export THEAUTH_BASE_URL=https://your-app.com/api/theauth
 export THEAUTH_TOKEN=kv_live_...
 ```
 

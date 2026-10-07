@@ -43,7 +43,7 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
  *
  * The router strips `basePath` from the request URL before matching so plugins
  * register paths relative to the mount point (e.g. `/auth/sign-in` instead
- * of `/api/kavach/auth/sign-in`).
+ * of `/api/theauth/auth/sign-in`).
  */
 export function createPluginRouter(endpoints: PluginEndpoint[]): {
 	/** Try to handle a request. Returns Response if matched, null if not. */

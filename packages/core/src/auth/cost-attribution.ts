@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, budgetPolicies, costEvents } from "../db/schema.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { Result, TheAuthError } from "../mcp/types.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ function ok<T>(data: T): Result<T> {
 }
 
 function fail(code: string, message: string, details?: Record<string, unknown>): Result<never> {
-	const error: KavachError = { code, message, ...(details ? { details } : {}) };
+	const error: TheAuthError = { code, message, ...(details ? { details } : {}) };
 	return { success: false, error };
 }
 

@@ -52,7 +52,7 @@ const resolved = await server.resolveUser(new Request('https://example.com'));
 
 ### Per-request user override
 
-Set the `x-mock-kavach-user-id` header on a `Request` to override the active user for that specific request only, without calling `setActiveUser`:
+Set the `x-mock-theauth-user-id` header on a `Request` to override the active user for that specific request only, without calling `setActiveUser`:
 
 ```ts
 import { MOCK_USER_ID_HEADER } from '@glinr/theauth-test-utils';

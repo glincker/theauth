@@ -21,7 +21,7 @@ Federation tokens are not long-lived sessions. They are single-use, short-lived 
 
 1. Service A issues a federation token for one of its agents
 2. The agent presents that token to Service B
-3. Service B fetches Service A's public key from `/.well-known/kavach-federation.json`
+3. Service B fetches Service A's public key from `/.well-known/theauth-federation.json`
 4. Service B verifies the token signature, checks expiry, and applies trust level rules
 5. Service B now has a `FederatedAgent` object with the agent's identity and (possibly downgraded) permissions
 
@@ -56,11 +56,11 @@ const federation = createFederationModule({
 
 ### Expose the well-known endpoint
 
-Serve the instance identity at `/.well-known/kavach-federation.json` so other instances can discover your public key.
+Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key.
 
 ```typescript
 // In your HTTP server
-app.get("/.well-known/kavach-federation.json", async (req, res) => {
+app.get("/.well-known/theauth-federation.json", async (req, res) => {
   const identity = await federation.getInstanceIdentity();
   res.json(identity);
 });
@@ -194,7 +194,7 @@ On the receiving side, `result.data.credential` will contain the VC JWT, which y
 Each TheAuth instance can publish its identity at:
 
 ```
-GET /.well-known/kavach-federation.json
+GET /.well-known/theauth-federation.json
 ```
 
 Response:
@@ -249,7 +249,7 @@ const federation = createFederationModule({
 });
 
 // Expose well-known endpoint
-app.get("/.well-known/kavach-federation.json", async (req, res) => {
+app.get("/.well-known/theauth-federation.json", async (req, res) => {
   const identity = await federation.getInstanceIdentity();
   res.json(identity);
 });

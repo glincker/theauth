@@ -159,7 +159,7 @@ function extractError(body: unknown, fallback: string): string {
  * Fetches the agent list and exposes create, revoke, and rotate helpers.
  * All mutations refresh the list automatically.
  */
-export function useAgents(basePath = "/api/kavach") {
+export function useAgents(basePath = "/api/theauth") {
 	const { user } = useRequiredContext("useAgents");
 	const base = basePath.replace(/\/$/, "");
 

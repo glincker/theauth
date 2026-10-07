@@ -4,7 +4,6 @@ export { initializePlugins } from "./runner.js";
 export type {
 	AuthPlugin,
 	EndpointContext,
-	KavachPlugin,
 	PluginContext,
 	PluginEndpoint,
 	PluginInitResult,

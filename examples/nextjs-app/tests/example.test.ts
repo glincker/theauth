@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../packages/core/src/db/schema.js";
-import type { TheAuth } from "../../../packages/core/src/kavach.js";
-import { createTheAuth } from "../../../packages/core/src/kavach.js";
+import type { TheAuth } from "../../../packages/core/src/theauth.js";
+import { createTheAuth } from "../../../packages/core/src/theauth.js";
 
-const state = vi.hoisted(() => ({ kavach: null as TheAuth | null }));
+const state = vi.hoisted(() => ({ theauth: null as TheAuth | null }));
 
-vi.mock("@/lib/kavach", () => ({
-	getKavach: async () => state.kavach,
+vi.mock("@/lib/theauth", () => ({
+	getTheAuth: async () => state.theauth,
 }));
 
 vi.mock("@glinr/theauth-nextjs", async () => {
@@ -42,7 +42,7 @@ describe("nextjs-app example", () => {
 			})
 			.run();
 
-		state.kavach = auth;
+		state.theauth = auth;
 	});
 
 	it("mounts the catch-all route and serves the TheAuth API under /api/theauth", async () => {

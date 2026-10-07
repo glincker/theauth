@@ -18,7 +18,7 @@ flowchart LR
 
 ## User vs agent
 
-A **user** is a human. They have email, password, sessions, OAuth accounts. Kavach can run human auth for you (see [Authentication](/auth)) or plug into Clerk, Auth.js, better-auth.
+A **user** is a human. They have email, password, sessions, OAuth accounts. TheAuth can run human auth for you (see [Authentication](/auth)) or plug into Clerk, Auth.js, better-auth.
 
 An **agent** is a program acting on a user's behalf. One human can own many agents. Agents do not sign in. They authenticate with a bearer token (`kv_...`) that is issued once and hashed at rest. No password, no session, no OAuth.
 
@@ -56,7 +56,7 @@ Resource strings are conventions, not enforced syntax. Pick `mcp:github:*`, `db:
 An agent can hand a subset of its permissions to a sub-agent. Every hop carries a depth counter, an expiry, and can be revoked independently. Revocation cascades: revoke the parent, every delegated child loses its permissions the next time it calls `authorize()`.
 
 ```ts
-await kavach.delegate({
+await theauth.delegate({
   fromAgent: parent.id,
   toAgent: child.id,
   permissions: [{ resource: 'mcp:github:issues', actions: ['read'] }],
@@ -119,7 +119,7 @@ Three relevant standards: **PKCE S256** (RFC 7636), **Protected Resource Metadat
     Five minutes to a working agent.
   </Card>
   <Card title="Add to an existing app" icon="screwdriver-wrench" href="/add-to-existing-app">
-    Drop Kavach next to Clerk, Auth.js, or better-auth.
+    Drop TheAuth next to Clerk, Auth.js, or better-auth.
   </Card>
   <Card title="Permissions" icon="shield-halved" href="/permissions">
     Resource strings, constraints, approval gates.

@@ -5,7 +5,7 @@ import { generateId } from "../crypto/web-crypto.js";
 // ---------------------------------------------------------------------------
 
 export interface RedirectConfig {
-	/** Cookie name for storing the redirect chain (default: "kavach_redirect") */
+	/** Cookie name for storing the redirect chain (default: "theauth_redirect") */
 	cookieName?: string;
 	/** Max age in seconds for the redirect cookie (default: 600 = 10 min) */
 	maxAge?: number;
@@ -124,7 +124,7 @@ export interface RedirectChainManager {
 // Defaults
 // ---------------------------------------------------------------------------
 
-const DEFAULT_COOKIE_NAME = "kavach_redirect";
+const DEFAULT_COOKIE_NAME = "theauth_redirect";
 const DEFAULT_MAX_AGE = 600; // 10 minutes
 const DEFAULT_PATH = "/";
 const DEFAULT_MAX_DEPTH = 10;

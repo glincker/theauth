@@ -1,4 +1,4 @@
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { OrgConfig } from "./organization.js";
 import { createOrgModule } from "./organization.js";
 
@@ -30,9 +30,9 @@ const ADMIN_ROLES = new Set(["owner", "admin"]);
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function organization(config?: OrgConfig): KavachPlugin {
+export function organization(config?: OrgConfig): TheAuthPlugin {
 	return {
-		id: "kavach-organization",
+		id: "theauth-organization",
 
 		async init(ctx): Promise<undefined> {
 			const module = createOrgModule(config ?? {}, ctx.db);

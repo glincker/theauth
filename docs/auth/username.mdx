@@ -4,7 +4,7 @@ description: Authenticate users with a unique username and password via the `use
 icon: key
 ---
 
-TheAuth's built-in password auth is username-based: users register with a username (not an email address) and a password. Passwords are hashed with PBKDF2 before storage so a database breach does not expose credentials. It is a headless module, you mount it yourself by forwarding requests to `kavach.username.handleRequest`.
+TheAuth's built-in password auth is username-based: users register with a username (not an email address) and a password. Passwords are hashed with PBKDF2 before storage so a database breach does not expose credentials. It is a headless module, you mount it yourself by forwarding requests to `theauth.username.handleRequest`.
 
 <Info>
   There is no separate email-based password plugin. For email-first sign-in, pair this module with [email verification](/mcp) and [email OTP](/auth/email-otp), or use [magic link](/auth/magic-link) for a fully passwordless flow.
@@ -12,10 +12,10 @@ TheAuth's built-in password auth is username-based: users register with a userna
 
 ## Setup
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   auth: { session: { secret: process.env.SESSION_SECRET! } }, // required — signUp/signIn issue sessions
   username: {
@@ -32,7 +32,7 @@ Forward matching requests to the module from your framework adapter (or call it 
 
 ```typescript title="Mount the handler"
 async function handleAuth(request: Request): Promise<Response> {
-  const response = await kavach.username?.handleRequest(request);
+  const response = await theauth.username?.handleRequest(request);
   if (response) return response;
   return new Response('Not Found', { status: 404 });
 }
@@ -124,11 +124,11 @@ Usernames must still be unique after the change, sign-up validation rules (`allo
 
 ## Using the module directly
 
-`kavach.username` exposes typed methods in addition to `handleRequest`, useful when you want to call sign-up/sign-in from server code (e.g. an admin invite flow) instead of going through HTTP:
+`theauth.username` exposes typed methods in addition to `handleRequest`, useful when you want to call sign-up/sign-in from server code (e.g. an admin invite flow) instead of going through HTTP:
 
 ```typescript
-const result = await kavach.username?.signUp({ username: 'ada_lovelace', password: 'correct horse battery' });
-const signedIn = await kavach.username?.signIn({ username: 'ada_lovelace', password: 'correct horse battery' });
+const result = await theauth.username?.signUp({ username: 'ada_lovelace', password: 'correct horse battery' });
+const signedIn = await theauth.username?.signIn({ username: 'ada_lovelace', password: 'correct horse battery' });
 ```
 
 ## Configuration reference

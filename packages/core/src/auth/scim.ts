@@ -5,7 +5,7 @@
  * providers (Okta, Azure AD, Google Workspace) to provision and deprovision
  * users and groups automatically.
  *
- * Users map to kavach_users. Groups map to kavach_organizations.
+ * Users map to theauth_users. Groups map to theauth_organizations.
  *
  * @example
  * ```typescript

@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { TheAuth } from "../../../core/src/kavach.js";
-import { createTheAuth } from "../../../core/src/kavach.js";
-import { kavachNextjs } from "../src/adapter.js";
+import type { TheAuth } from "../../../core/src/theauth.js";
+import { createTheAuth } from "../../../core/src/theauth.js";
+import { theAuthNextjs } from "../src/adapter.js";
 
-const BASE_URL = "http://localhost/api/auth/kavach";
+const BASE_URL = "http://localhost/api/auth/theauth";
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
-type Handlers = ReturnType<typeof kavachNextjs>;
+type Handlers = ReturnType<typeof theAuthNextjs>;
 
-async function createTestHandlers(): Promise<{ handlers: Handlers; kavach: TheAuth }> {
-	const kavach = await createTheAuth({
+async function createTestHandlers(): Promise<{ handlers: Handlers; theauth: TheAuth }> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -21,7 +21,7 @@ async function createTestHandlers(): Promise<{ handlers: Handlers; kavach: TheAu
 		},
 	});
 
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -33,8 +33,8 @@ async function createTestHandlers(): Promise<{ handlers: Handlers; kavach: TheAu
 		.run();
 
 	return {
-		handlers: kavachNextjs(kavach, { basePath: "/api/auth/kavach" }),
-		kavach,
+		handlers: theAuthNextjs(theauth, { basePath: "/api/auth/theauth" }),
+		theauth,
 	};
 }
 

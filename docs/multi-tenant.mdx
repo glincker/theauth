@@ -37,7 +37,7 @@ This is useful for SaaS products where each customer gets their own isolated age
 Slugs must be unique and match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. TheAuth rejects duplicate slugs at creation time.
 
 ```typescript
-const tenant = await kavach.tenant.create({
+const tenant = await theauth.tenant.create({
   name: 'Acme Corp',
   slug: 'acme',
   settings: {
@@ -56,7 +56,7 @@ console.log(tenant.slug); // acme
 Pass `tenantId` when creating an agent. The agent is then scoped to that tenant.
 
 ```typescript
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-456',
   name: 'acme-data-bot',
   type: 'autonomous',
@@ -72,7 +72,7 @@ Authorization checks respect the tenant boundary: an agent in `tnt_acme` cannot 
 ## Listing agents by tenant
 
 ```typescript
-const agents = await kavach.agent.list({
+const agents = await theauth.agent.list({
   tenantId: tenant.id,
   status: 'active',
 });
@@ -82,13 +82,13 @@ const agents = await kavach.agent.list({
 
 ```typescript
 // By ID
-const t = await kavach.tenant.get('tnt_abc123');
+const t = await theauth.tenant.get('tnt_abc123');
 
 // By slug (useful when the slug comes from a URL path)
-const t2 = await kavach.tenant.getBySlug('acme');
+const t2 = await theauth.tenant.getBySlug('acme');
 
 // Update settings
-const updated = await kavach.tenant.update(tenant.id, {
+const updated = await theauth.tenant.update(tenant.id, {
   settings: {
     maxAgents: 500,
     auditRetentionDays: 730,
@@ -101,7 +101,7 @@ Settings are merged, not replaced. Fields you omit in the update keep their exis
 ## Listing all tenants
 
 ```typescript
-const tenants = await kavach.tenant.list();
+const tenants = await theauth.tenant.list();
 ```
 
 Useful for admin dashboards. Returns all tenants regardless of status.
@@ -112,10 +112,10 @@ When a tenant is suspended, all `authorize()` calls for agents in that tenant re
 
 ```typescript
 // Suspend
-await kavach.tenant.suspend(tenant.id);
+await theauth.tenant.suspend(tenant.id);
 
 // Reactivate
-await kavach.tenant.activate(tenant.id);
+await theauth.tenant.activate(tenant.id);
 ```
 
 ## Budget policies per tenant
@@ -123,7 +123,7 @@ await kavach.tenant.activate(tenant.id);
 Attach a budget policy to a tenant to apply spending limits across all agents in it. See [Budget policies](/guides/budget-policies) for the full policy reference.
 
 ```typescript
-await kavach.policy.create({
+await theauth.policy.create({
   tenantId: tenant.id,
   limits: {
     maxTokensCostPerMonth: 5000,

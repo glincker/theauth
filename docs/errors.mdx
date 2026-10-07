@@ -17,7 +17,7 @@ interface TheAuthError {
 All SDK functions that can fail return a `Result<T>` discriminated union rather than throwing:
 
 ```typescript
-const result = await kavach.authorize(agentId, { action: 'write', resource: 'mcp:github:*' });
+const result = await theauth.authorize(agentId, { action: 'write', resource: 'mcp:github:*' });
 
 if (!result.allowed) {
   console.log(result.reason); // e.g. "RATE_LIMITED"

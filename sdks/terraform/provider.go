@@ -25,7 +25,7 @@ func New() *schema.Provider {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("THEAUTH_BASE_URL", nil),
-				Description: "Base URL of your TheAuth deployment, e.g. https://your-app.com/api/kavach. " +
+				Description: "Base URL of your TheAuth deployment, e.g. https://your-app.com/api/theauth. " +
 					"Can also be set via the THEAUTH_BASE_URL environment variable.",
 			},
 			"token": {

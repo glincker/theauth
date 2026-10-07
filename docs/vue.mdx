@@ -24,7 +24,7 @@ import App from './App.vue';
 const app = createApp(App);
 
 app.use(createTheAuthPlugin({ // [!code highlight]
-  basePath: '/api/kavach', // [!code highlight]
+  basePath: '/api/theauth', // [!code highlight]
 })); // [!code highlight]
 
 app.mount('#app');
@@ -34,12 +34,12 @@ app.mount('#app');
 
 In Nuxt, create a plugin file:
 
-```typescript title="plugins/kavach.client.ts"
+```typescript title="plugins/theauth.client.ts"
 import { createTheAuthPlugin } from '@glinr/theauth-vue';
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.use(createTheAuthPlugin({
-    basePath: '/api/kavach',
+    basePath: '/api/theauth',
   }));
 });
 ```
@@ -120,7 +120,7 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 
 ## Plugin configuration reference
 
-<ParamField path="basePath" type="string" default="'/api/kavach'">Base path where your TheAuth handler is mounted.</ParamField>
+<ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your TheAuth handler is mounted.</ParamField>
 <ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call (e.g. custom headers).</ParamField>
 
 ## Related

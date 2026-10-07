@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 import respx
 
-from theauth import KavachClient, KavachSyncClient
+from theauth import TheAuthClient, TheAuthSyncClient
 
 
-BASE_URL = "https://test.theauth.dev/api/kavach"
+BASE_URL = "https://test.theauth.dev/api/theauth"
 
 
 @pytest.fixture
@@ -17,13 +17,13 @@ def base_url() -> str:
 
 
 @pytest.fixture
-def async_client() -> KavachClient:
-    return KavachClient(base_url=BASE_URL, token="kv_test_token")
+def async_client() -> TheAuthClient:
+    return TheAuthClient(base_url=BASE_URL, token="kv_test_token")
 
 
 @pytest.fixture
-def sync_client() -> KavachSyncClient:
-    return KavachSyncClient(base_url=BASE_URL, token="kv_test_token")
+def sync_client() -> TheAuthSyncClient:
+    return TheAuthSyncClient(base_url=BASE_URL, token="kv_test_token")
 
 
 # ---------------------------------------------------------------------------

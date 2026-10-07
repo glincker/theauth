@@ -12,7 +12,7 @@ function DefaultAvatar({ src, name, className }: AvatarSlotProps): ReactNode {
 			<img
 				src={src}
 				alt={name ?? "User avatar"}
-				className={className ?? "kavach-avatar h-8 w-8 rounded-full object-cover"}
+				className={className ?? "theauth-avatar h-8 w-8 rounded-full object-cover"}
 			/>
 		);
 	}
@@ -28,7 +28,7 @@ function DefaultAvatar({ src, name, className }: AvatarSlotProps): ReactNode {
 		<div
 			className={
 				className ??
-				"kavach-avatar flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+				"theauth-avatar flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
 			}
 		>
 			{initials}
@@ -86,12 +86,12 @@ export function UserButton({
 	if (!isAuthenticated || !user) return null;
 
 	return (
-		<div ref={ref} className={cx("kavach-user-button relative", classNames?.root ?? className)}>
+		<div ref={ref} className={cx("theauth-user-button relative", classNames?.root ?? className)}>
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				className={cx(
-					"kavach-user-trigger flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800",
+					"theauth-user-trigger flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800",
 					classNames?.trigger,
 				)}
 				aria-expanded={open}
@@ -104,7 +104,7 @@ export function UserButton({
 				<div
 					role="menu"
 					className={cx(
-						"kavach-user-dropdown absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900",
+						"theauth-user-dropdown absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900",
 						classNames?.dropdown,
 					)}
 				>
@@ -113,7 +113,7 @@ export function UserButton({
 						{user.name && (
 							<p
 								className={cx(
-									"kavach-user-name truncate text-sm font-medium text-zinc-900 dark:text-zinc-100",
+									"theauth-user-name truncate text-sm font-medium text-zinc-900 dark:text-zinc-100",
 									classNames?.name,
 								)}
 							>
@@ -123,7 +123,7 @@ export function UserButton({
 						{showEmail && user.email && (
 							<p
 								className={cx(
-									"kavach-user-email truncate text-xs text-zinc-500 dark:text-zinc-400",
+									"theauth-user-email truncate text-xs text-zinc-500 dark:text-zinc-400",
 									classNames?.email,
 								)}
 							>
@@ -145,7 +145,7 @@ export function UserButton({
 										item.onClick();
 									}}
 									className={cx(
-										`kavach-menu-item flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+										`theauth-menu-item flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
 											item.danger
 												? "text-red-600 dark:text-red-400"
 												: "text-zinc-700 dark:text-zinc-300"
@@ -169,7 +169,7 @@ export function UserButton({
 							role="menuitem"
 							onClick={handleSignOut}
 							className={cx(
-								"kavach-menu-item flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800",
+								"theauth-menu-item flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800",
 								classNames?.menuItem,
 							)}
 						>

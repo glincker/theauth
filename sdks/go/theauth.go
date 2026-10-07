@@ -5,7 +5,7 @@
 //
 // Basic usage:
 //
-//	client := theauth.NewClient("https://your-app.com/api/kavach",
+//	client := theauth.NewClient("https://your-app.com/api/theauth",
 //	    theauth.WithToken("kv_..."),
 //	    theauth.WithTimeout(10*time.Second),
 //	)
@@ -86,7 +86,7 @@ func WithHeader(key, value string) Option {
 // NewClient creates a new TheAuth client.
 //
 // baseURL is the base URL of your TheAuth deployment, e.g.
-// "https://your-app.com/api/kavach". Apply options with the With* helpers.
+// "https://your-app.com/api/theauth". Apply options with the With* helpers.
 func NewClient(baseURL string, opts ...Option) *Client {
 	cfg := &clientConfig{
 		timeout: 30 * time.Second,

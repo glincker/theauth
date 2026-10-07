@@ -6,11 +6,11 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { webhooks } from '@glinr/theauth/webhook';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   plugins: [
  *     webhooks({
  *       endpoints: [
@@ -64,7 +64,7 @@ export interface WebhooksPlugin {
 /**
  * Create a webhooks plugin instance from a config object.
  *
- * Designed to be consumed by `createKavach({ plugins: [webhooks(config)] })`.
+ * Designed to be consumed by `createTheAuth({ plugins: [webhooks(config)] })`.
  */
 export function webhooks(config: WebhooksPluginConfig): WebhooksPlugin {
 	const engine = createDeliveryEngine(config.retry ?? {});

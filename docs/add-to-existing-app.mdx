@@ -17,7 +17,7 @@ TheAuth does not replace your human auth. It runs alongside it. This guide assum
     Your existing auth must expose a stable string ID, anything from Clerk's `userId`, Auth.js's `session.user.id`, or a row id from your own users table.
   </Card>
   <Card title="A database" icon="database">
-    Postgres, MySQL, SQLite, or Cloudflare D1. TheAuth creates its own tables, prefixed `kavach_`, alongside yours.
+    Postgres, MySQL, SQLite, or Cloudflare D1. TheAuth creates its own tables, prefixed `theauth_`, alongside yours.
   </Card>
 </CardGroup>
 
@@ -37,12 +37,12 @@ Substitute the adapter for your framework: `@glinr/theauth-hono`, `@glinr/theaut
 
 <Step title="Create the TheAuth instance">
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 
 let instance: Awaited<ReturnType<typeof createTheAuth>> | null = null;
 
-export async function getKavach() {
+export async function getTheAuth() {
   if (!instance) {
     instance = await createTheAuth({
       database: {
@@ -62,16 +62,16 @@ The lazy pattern lets Next.js build without opening a DB connection.
 
 <Step title="Wire the route handler">
 
-```ts title="app/api/kavach/[...kavach]/route.ts"
+```ts title="app/api/theauth/[...theauth]/route.ts"
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
-const { GET, POST } = theAuthNextjs(getKavach);
+const { GET, POST } = theAuthNextjs(getTheAuth);
 
 export { GET, POST };
 ```
 
-Pick a path that does not collide with your existing auth. `/api/kavach/*` lives next to `/api/auth/*` (Clerk / Auth.js) without stepping on it.
+Pick a path that does not collide with your existing auth. `/api/theauth/*` lives next to `/api/auth/*` (Clerk / Auth.js) without stepping on it.
 
 </Step>
 
@@ -80,12 +80,12 @@ Pick a path that does not collide with your existing auth. `/api/kavach/*` lives
 Hook into your existing post-sign-in flow. For Clerk, that is a webhook or a server action. For Auth.js, the `signIn` event. For better-auth, the `onSignIn` hook.
 
 ```ts title="wherever you create user-scoped resources"
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
 export async function createDefaultAgent(userId: string) {
-  const kavach = await getKavach();
+  const theauth = await getTheAuth();
 
-  const agent = await kavach.agent.create({
+  const agent = await theauth.agent.create({
     ownerId: userId,                     // stable ID from your auth provider
     name: 'default',
     type: 'autonomous',
@@ -101,7 +101,7 @@ export async function createDefaultAgent(userId: string) {
 ```
 
 <Warning>
-The token is shown once. Store it in your secrets store or hand it directly to the agent process. If you lose it, rotate with `kavach.agent.rotate(agentId)` to issue a new one.
+The token is shown once. Store it in your secrets store or hand it directly to the agent process. If you lose it, rotate with `theauth.agent.rotate(agentId)` to issue a new one.
 </Warning>
 
 </Step>
@@ -111,15 +111,15 @@ The token is shown once. Store it in your secrets store or hand it directly to t
 Anywhere your agent code runs, check authorization before the call.
 
 ```ts title="app/api/agent-action/route.ts"
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
 export async function POST(req: Request) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '');
   if (!token) return new Response('Missing token', { status: 401 });
 
-  const kavach = await getKavach();
+  const theauth = await getTheAuth();
 
-  const { allowed, reason, auditId } = await kavach.authorizeByToken(token, {
+  const { allowed, reason, auditId } = await theauth.authorizeByToken(token, {
     action: 'read',
     resource: 'mcp:github:repos',
   });
@@ -145,14 +145,14 @@ export async function POST(req: Request) {
 
 ```ts
 import { auth } from '@clerk/nextjs/server';
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const kavach = await getKavach();
-  const agent = await kavach.agent.create({
+  const theauth = await getTheAuth();
+  const agent = await theauth.agent.create({
     ownerId: userId,
     name: 'default',
     type: 'autonomous',
@@ -168,14 +168,14 @@ export async function POST(req: Request) {
 
 ```ts
 import { auth } from '@/auth';
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
 export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return new Response('Unauthorized', { status: 401 });
 
-  const kavach = await getKavach();
-  const agent = await kavach.agent.create({
+  const theauth = await getTheAuth();
+  const agent = await theauth.agent.create({
     ownerId: session.user.id,
     name: 'default',
     type: 'autonomous',
@@ -191,15 +191,15 @@ export async function POST() {
 
 ```ts
 import { auth } from '@/lib/auth';
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 import { headers } from 'next/headers';
 
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return new Response('Unauthorized', { status: 401 });
 
-  const kavach = await getKavach();
-  const agent = await kavach.agent.create({
+  const theauth = await getTheAuth();
+  const agent = await theauth.agent.create({
     ownerId: session.user.id,
     name: 'default',
     type: 'autonomous',
@@ -217,13 +217,13 @@ export async function POST() {
 
 <AccordionGroup>
 <Accordion title="Do I need to run TheAuth migrations manually?" icon="database">
-No by default. TheAuth runs its own migrations on first boot. Set `skipMigrations: true` in `createTheAuth` if you want to run them yourself via `kavach-cli migrate`.
+No by default. TheAuth runs its own migrations on first boot. Set `skipMigrations: true` in `createTheAuth` if you want to run them yourself via `theauth-cli migrate`.
 </Accordion>
 <Accordion title="Can I share the session cookie with my existing auth?" icon="cookie-bite">
 Not directly. TheAuth issues its own cookie for sessions created via its plugins. If you never use TheAuth's human-auth plugins (because you have Clerk / Auth.js / better-auth), you never see that cookie and there is nothing to share.
 </Accordion>
 <Accordion title="What if my user IDs change shape later?" icon="arrows-rotate">
-TheAuth stores `ownerId` as a string and never interprets it. Migrating from numeric IDs to UUIDs later means updating `kavach_agents.owner_id` in a single SQL update.
+TheAuth stores `ownerId` as a string and never interprets it. Migrating from numeric IDs to UUIDs later means updating `theauth_agents.owner_id` in a single SQL update.
 </Accordion>
 <Accordion title="Does TheAuth emit events I can subscribe to?" icon="rss">
 Yes, via [event streaming](/event-streaming) and [webhooks](/webhooks). Wire them to your analytics or to Stripe / PostHog / Slack.

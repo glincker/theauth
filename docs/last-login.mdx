@@ -13,11 +13,11 @@ The last login module records every successful authentication event per user. Yo
 import { createTheAuth } from '@glinr/theauth';
 import { createLastLoginModule } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({ /* ... */ });
+const theauth = await createTheAuth({ /* ... */ });
 
 const loginHistory = createLastLoginModule(
   { maxHistoryPerUser: 20 },
-  kavach.db,
+  theauth.db,
 );
 ```
 

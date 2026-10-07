@@ -8,7 +8,7 @@ npm install --save-dev @glinr/@glinr/theauth-test-utils
 
 ## What's in the box
 
-- `MockKavachProvider`: drop-in React provider that returns a fake session, agent, and user. Pair with `@testing-library/react`.
+- `MockTheAuthProvider`: drop-in React provider that returns a fake session, agent, and user. Pair with `@testing-library/react`.
 - Factories for `Session`, `User`, `AgentIdentity`, `OrgMembership`. Pass overrides; defaults are filled in.
 - Assertion helpers like `expectSignedIn`, `expectAgentScope`, `expectAuditEntry` so test failures read clearly.
 
@@ -16,15 +16,15 @@ npm install --save-dev @glinr/@glinr/theauth-test-utils
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { MockKavachProvider, makeUser } from "@glinr/theauth-test-utils";
+import { MockTheAuthProvider, makeUser } from "@glinr/theauth-test-utils";
 import { Dashboard } from "../src/dashboard.js";
 
 test("dashboard greets the signed-in user", () => {
   const user = makeUser({ name: "Ada Lovelace" });
   render(
-    <MockKavachProvider user={user}>
+    <MockTheAuthProvider user={user}>
       <Dashboard />
-    </MockKavachProvider>,
+    </MockTheAuthProvider>,
   );
   expect(screen.getByText(/welcome, ada/i)).toBeInTheDocument();
 });

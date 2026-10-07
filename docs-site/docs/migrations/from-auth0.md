@@ -36,17 +36,17 @@ When to wait:
 | `authorize` endpoint | Built-in. PKCE S256 only. |
 | Management API | Server-side instance methods directly, no separate API. |
 | Refresh token rotation | On by default with the `jwtSession` and `refresh` plugins. |
-| Tenant logs | Audit trail via `kavach.audit.query()` and the audit export. |
+| Tenant logs | Audit trail via `theauth.audit.query()` and the audit export. |
 | Custom domain | Set `baseUrl` and the cookie config on `createTheAuth`. |
 
 ## Server setup
 
 ```ts
-// lib/kavach.ts
+// lib/theauth.ts
 import { createTheAuth } from '@glinr/theauth';
 import { organization, rbac } from '@glinr/theauth/plugins';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!, // e.g. https://auth.example.com
@@ -83,7 +83,7 @@ Auth0 M2M clients use client credentials flow. In TheAuth, replace them with `ty
     ```
 === "After (TheAuth service agent)"
     ```typescript
-    const serviceAgent = await kavach.agent.create({
+    const serviceAgent = await theauth.agent.create({
       ownerId: 'system',
       name: 'reporting-service',
       type: 'service',
@@ -93,7 +93,7 @@ Auth0 M2M clients use client credentials flow. In TheAuth, replace them with `ty
     });
 
     // Use agent.token as the Bearer credential
-    const result = await kavach.authorizeByToken(serviceAgent.token, {
+    const result = await theauth.authorizeByToken(serviceAgent.token, {
       action: 'read',
       resource: 'api:reports:q4-2025',
     });
@@ -115,7 +115,7 @@ Auth0 Rules are JavaScript functions that run in the auth pipeline. TheAuth life
     ```
 === "After (TheAuth hook)"
     ```typescript
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       // ...
       hooks: {
         onTokenIssue: async ({ userId, claims }) => {

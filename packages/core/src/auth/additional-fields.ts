@@ -11,11 +11,11 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { additionalFields } from '@glinr/theauth/auth';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   plugins: [
  *     additionalFields({
  *       user: {
@@ -26,7 +26,7 @@
  *   ],
  * });
  *
- * const mod = kavach.plugins.getContext().additionalFields as AdditionalFieldsModule;
+ * const mod = theauth.plugins.getContext().additionalFields as AdditionalFieldsModule;
  * await mod.setUserFields(userId, { plan: 'pro', credits: 100 });
  * const fields = await mod.getUserFields(userId);
  * // => { plan: 'pro', credits: 100 }
@@ -36,7 +36,7 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { sessions, users } from "../db/schema.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -299,9 +299,9 @@ export function createAdditionalFieldsModule(
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function additionalFields(config: AdditionalFieldsConfig = {}): KavachPlugin {
+export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPlugin {
 	return {
-		id: "kavach-additional-fields",
+		id: "theauth-additional-fields",
 
 		async init(ctx) {
 			const mod = createAdditionalFieldsModule(config, ctx.db);

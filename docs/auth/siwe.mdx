@@ -16,13 +16,13 @@ It works with any wallet that supports personal_sign: MetaMask, WalletConnect, C
 
 ### Add the plugin
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { siwe } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     siwe({ // [!code highlight]
@@ -44,7 +44,7 @@ Out of the box, the plugin validates message structure and nonce integrity but d
 
 <Tabs>
   <Tab title="viem">
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { verifyMessage } from 'viem';
 import { siwe } from '@glinr/theauth/auth';
 
@@ -59,7 +59,7 @@ siwe({
 ```
   </Tab>
   <Tab title="ethers">
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { ethers } from 'ethers';
 import { siwe } from '@glinr/theauth/auth';
 
@@ -219,7 +219,7 @@ if (!user) {
 }
 
 // Create a TheAuth session for this user
-const session = await kavach.sessions.create({ userId: user.id });
+const session = await theauth.sessions.create({ userId: user.id });
 ```
 
 ## Endpoints

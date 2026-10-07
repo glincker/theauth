@@ -7,7 +7,7 @@ A Next.js SaaS starter with [TheAuth](https://theauth.dev) auth built in.
 - **Next.js 15** with App Router and TypeScript
 - **TheAuth** for agent identity, session management, and auth
 - **Drizzle ORM** with **__DB_DRIVER__**: schema-first, type-safe
-- Sign-in / sign-out flow wired to `/api/auth/[...kavach]`
+- Sign-in / sign-out flow wired to `/api/auth/[...theauth]`
 - An agents list page at `/agents`
 
 ## Getting started
@@ -28,19 +28,19 @@ Open [http://localhost:3000](http://localhost:3000).
 | Variable | Required | Notes |
 |---|---|---|
 | `THEAUTH_SECRET` | Yes | Long random string, used to sign sessions |
-| `DATABASE_URL` | Yes | SQLite: `file:./kavach.db` · Postgres: connection string |
+| `DATABASE_URL` | Yes | SQLite: `file:./theauth.db` · Postgres: connection string |
 
 ## Project structure
 
 ```
 src/
   app/
-    api/auth/[...kavach]/route.ts  : TheAuth HTTP handler
+    api/auth/[...theauth]/route.ts  : TheAuth HTTP handler
     agents/page.tsx                : agent list UI
-    layout.tsx                     : KavachProvider wrapper
+    layout.tsx                     : TheAuthProvider wrapper
     page.tsx                       : home / landing
   lib/
-    kavach.ts                      : singleton TheAuth instance
+    theauth.ts                      : singleton TheAuth instance
 ```
 
 ## Deploying

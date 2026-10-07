@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createKavach } from "../src/kavach.js";
-import type { KavachPlugin } from "../src/plugin/types.js";
+import type { TheAuthPlugin } from "../src/plugin/types.js";
+import { createTheAuth } from "../src/theauth.js";
 
 const testDbConfig = { provider: "sqlite" as const, url: ":memory:" };
 
@@ -12,9 +12,9 @@ function makeRequest(method: string, url: string, body?: unknown): Request {
 	});
 }
 
-describe("plugin endpoint wiring via kavach.plugins", () => {
+describe("plugin endpoint wiring via theauth.plugins", () => {
 	it("exposes a GET endpoint registered by a plugin", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "test-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -30,16 +30,16 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({ database: testDbConfig, plugins: [plugin] });
+		const theauth = await createTheAuth({ database: testDbConfig, plugins: [plugin] });
 
-		const endpoints = kavach.plugins.getEndpoints();
+		const endpoints = theauth.plugins.getEndpoints();
 		expect(endpoints).toHaveLength(1);
 		expect(endpoints[0]?.method).toBe("GET");
 		expect(endpoints[0]?.path).toBe("/test");
 	});
 
 	it("calling the endpoint handler directly returns the expected response", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "direct-call-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -56,12 +56,12 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({ database: testDbConfig, plugins: [plugin] });
+		const theauth = await createTheAuth({ database: testDbConfig, plugins: [plugin] });
 
-		const endpoints = kavach.plugins.getEndpoints();
+		const endpoints = theauth.plugins.getEndpoints();
 		expect(endpoints).toHaveLength(1);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			makeRequest("GET", "http://localhost/ping"),
 		);
 
@@ -73,8 +73,8 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 		expect(body.hasDb).toBe(true);
 	});
 
-	it("handleRequest routes to plugin endpoints via the kavach instance", async () => {
-		const plugin: KavachPlugin = {
+	it("handleRequest routes to plugin endpoints via the theauth instance", async () => {
+		const plugin: TheAuthPlugin = {
 			id: "route-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -91,9 +91,9 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({ database: testDbConfig, plugins: [plugin] });
+		const theauth = await createTheAuth({ database: testDbConfig, plugins: [plugin] });
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			makeRequest("POST", "http://localhost/echo", { message: "hello" }),
 		);
 
@@ -105,7 +105,7 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 	});
 
 	it("returns null for requests that do not match any plugin endpoint", async () => {
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "no-match-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -118,9 +118,9 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({ database: testDbConfig, plugins: [plugin] });
+		const theauth = await createTheAuth({ database: testDbConfig, plugins: [plugin] });
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			makeRequest("GET", "http://localhost/unknown"),
 		);
 
@@ -128,7 +128,7 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 	});
 
 	it("multiple plugins each register their endpoints and all are accessible", async () => {
-		const pluginA: KavachPlugin = {
+		const pluginA: TheAuthPlugin = {
 			id: "plugin-a",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -141,7 +141,7 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const pluginB: KavachPlugin = {
+		const pluginB: TheAuthPlugin = {
 			id: "plugin-b",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -154,22 +154,22 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({ database: testDbConfig, plugins: [pluginA, pluginB] });
+		const theauth = await createTheAuth({ database: testDbConfig, plugins: [pluginA, pluginB] });
 
-		const endpoints = kavach.plugins.getEndpoints();
+		const endpoints = theauth.plugins.getEndpoints();
 		expect(endpoints).toHaveLength(2);
 
-		const respA = await kavach.plugins.handleRequest(makeRequest("GET", "http://localhost/a"));
+		const respA = await theauth.plugins.handleRequest(makeRequest("GET", "http://localhost/a"));
 		expect(await respA?.text()).toBe("from-a");
 
-		const respB = await kavach.plugins.handleRequest(makeRequest("GET", "http://localhost/b"));
+		const respB = await theauth.plugins.handleRequest(makeRequest("GET", "http://localhost/b"));
 		expect(await respB?.text()).toBe("from-b");
 	});
 
 	it("endpoint receives the EndpointContext with getUser and getSession", async () => {
 		let receivedCtx: { hasGetUser: boolean; hasGetSession: boolean } | null = null;
 
-		const plugin: KavachPlugin = {
+		const plugin: TheAuthPlugin = {
 			id: "ctx-check-plugin",
 			async init(ctx) {
 				ctx.addEndpoint({
@@ -186,9 +186,9 @@ describe("plugin endpoint wiring via kavach.plugins", () => {
 			},
 		};
 
-		const kavach = await createKavach({ database: testDbConfig, plugins: [plugin] });
+		const theauth = await createTheAuth({ database: testDbConfig, plugins: [plugin] });
 
-		await kavach.plugins.handleRequest(makeRequest("GET", "http://localhost/ctx-check"));
+		await theauth.plugins.handleRequest(makeRequest("GET", "http://localhost/ctx-check"));
 
 		expect(receivedCtx).not.toBeNull();
 		expect(receivedCtx?.hasGetUser).toBe(true);

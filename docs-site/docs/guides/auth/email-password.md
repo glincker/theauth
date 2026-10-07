@@ -45,9 +45,9 @@ The `emailPassword` plugin handles user registration, sign-in, email verificatio
 import { createTheAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     emailPassword({
@@ -63,7 +63,7 @@ const kavach = await createTheAuth({
 ## Registration
 
 ```typescript
-const result = await kavach.auth.signUp({
+const result = await theauth.auth.signUp({
   email: 'user@example.com',
   password: 'securepassword123',
   name: 'Alice',
@@ -76,7 +76,7 @@ const result = await kavach.auth.signUp({
 ## Sign-in
 
 ```typescript
-const result = await kavach.auth.signIn({
+const result = await theauth.auth.signIn({
   email: 'user@example.com',
   password: 'securepassword123',
 });

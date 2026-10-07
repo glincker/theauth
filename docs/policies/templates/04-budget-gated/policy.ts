@@ -5,7 +5,7 @@
  * hour. Once the counter reaches the cap the engine denies further calls
  * until the sliding window resets.
  *
- * The rate-limit counter is stored in kavach_rate_limits. Pre-seeding a row
+ * The rate-limit counter is stored in theauth_rate_limits. Pre-seeding a row
  * with count = MAX_CALLS_PER_HOUR simulates a saturated budget in tests.
  *
  * Note: decisions involving maxCallsPerHour are never cached because the

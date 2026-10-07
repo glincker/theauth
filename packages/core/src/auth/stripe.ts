@@ -445,7 +445,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		const customer = await api<StripeCustomer>("POST", "/customers", {
 			email,
 			...(name ? { name } : {}),
-			metadata: { kavach_user_id: userId },
+			metadata: { theauth_user_id: userId },
 		});
 
 		await db

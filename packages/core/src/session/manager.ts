@@ -49,7 +49,7 @@ import { createSessionManager } from "./session.js";
 export interface CookieSessionConfig extends SessionConfig {
 	/**
 	 * Name of the session cookie.
-	 * Defaults to `"kavach_session"`.
+	 * Defaults to `"theauth_session"`.
 	 */
 	sessionName?: string;
 
@@ -141,7 +141,7 @@ export interface CookieSessionManager {
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_SESSION_NAME = "kavach_session";
+const DEFAULT_SESSION_NAME = "theauth_session";
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 // ---------------------------------------------------------------------------

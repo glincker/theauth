@@ -33,7 +33,7 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
-import type { KavachPlugin, PluginContext } from "../src/plugin/types.js";
+import type { PluginContext, TheAuthPlugin } from "../src/plugin/types.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -234,7 +234,7 @@ describe("createCustomer", () => {
 		expect(stored).toBe("cus_test_abc");
 	});
 
-	it("includes the kavach_user_id in the Stripe request metadata", async () => {
+	it("includes the theauth_user_id in the Stripe request metadata", async () => {
 		let capturedBody = "";
 		mockFetch((_url, init) => {
 			capturedBody = typeof init?.body === "string" ? init.body : "";
@@ -242,7 +242,7 @@ describe("createCustomer", () => {
 		});
 
 		await mod.createCustomer("user_cust_01", "m@example.com");
-		expect(capturedBody).toContain("kavach_user_id");
+		expect(capturedBody).toContain("theauth_user_id");
 		expect(capturedBody).toContain("user_cust_01");
 	});
 });
@@ -642,7 +642,7 @@ describe("handleWebhook event dispatch", () => {
 
 describe("stripe plugin — unauthenticated endpoint access", () => {
 	let db: Database;
-	let plugin: KavachPlugin;
+	let plugin: TheAuthPlugin;
 
 	type EndpointEntry = {
 		method: string;

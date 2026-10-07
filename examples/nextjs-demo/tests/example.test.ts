@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emailPassword } from "../../../packages/auth/email/src/index.js";
-import type { TheAuth } from "../../../packages/core/src/kavach.js";
-import { createTheAuth } from "../../../packages/core/src/kavach.js";
+import type { TheAuth } from "../../../packages/core/src/theauth.js";
+import { createTheAuth } from "../../../packages/core/src/theauth.js";
 
-const state = vi.hoisted(() => ({ kavach: null as TheAuth | null }));
+const state = vi.hoisted(() => ({ theauth: null as TheAuth | null }));
 
-vi.mock("@/lib/kavach", () => ({
-	getKavach: async () => state.kavach,
+vi.mock("@/lib/theauth", () => ({
+	getTheAuth: async () => state.theauth,
 }));
 
 vi.mock("@glinr/theauth-nextjs", async () => {
@@ -34,7 +34,7 @@ function getField<T>(body: Record<string, unknown>, key: string): T | undefined 
 
 describe("nextjs-demo example", () => {
 	beforeEach(async () => {
-		state.kavach = await createTheAuth({
+		state.theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			agents: {
 				enabled: true,

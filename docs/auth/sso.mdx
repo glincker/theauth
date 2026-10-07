@@ -13,8 +13,8 @@ Configure your identity providers when creating the TheAuth instance:
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   sso: { // [!code highlight]
     saml: [ // [!code highlight]
       {
@@ -23,7 +23,7 @@ const kavach = await createTheAuth({
         entryPoint: 'https://your-org.okta.com/app/appId/sso/saml', // [!code highlight]
         issuer: 'https://your-app.com', // [!code highlight]
         cert: process.env.OKTA_SAML_CERT, // [!code highlight]
-        callbackUrl: 'https://your-app.com/api/kavach/auth/sso/saml/conn_id/acs', // [!code highlight]
+        callbackUrl: 'https://your-app.com/api/theauth/auth/sso/saml/conn_id/acs', // [!code highlight]
       },
     ],
   }, // [!code highlight]
@@ -34,8 +34,8 @@ const kavach = await createTheAuth({
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   sso: { // [!code highlight]
     oidc: [ // [!code highlight]
       {
@@ -44,7 +44,7 @@ const kavach = await createTheAuth({
         issuer: 'https://login.microsoftonline.com/your-tenant-id/v2.0', // [!code highlight]
         clientId: process.env.AZURE_CLIENT_ID, // [!code highlight]
         clientSecret: process.env.AZURE_CLIENT_SECRET, // [!code highlight]
-        callbackUrl: 'https://your-app.com/api/kavach/auth/sso/oidc/conn_id/callback', // [!code highlight]
+        callbackUrl: 'https://your-app.com/api/theauth/auth/sso/oidc/conn_id/callback', // [!code highlight]
         scopes: ['openid', 'profile', 'email'], // [!code highlight]
       },
     ],
@@ -60,7 +60,7 @@ Connections link an org to an identity provider and route by email domain.
 
 ```ts
 // Create a connection for an org
-const connection = await kavach.sso.createConnection({ // [!code highlight]
+const connection = await theauth.sso.createConnection({ // [!code highlight]
   orgId: 'org_acme',
   providerId: 'okta',    // matches the id in your sso config // [!code highlight]
   type: 'saml',          // 'saml' | 'oidc' // [!code highlight]
@@ -68,13 +68,13 @@ const connection = await kavach.sso.createConnection({ // [!code highlight]
 });
 
 // Look up a connection by domain (e.g., to redirect on login)
-const conn = await kavach.sso.getConnectionByDomain('alice@acme.com'.split('@')[1]);
+const conn = await theauth.sso.getConnectionByDomain('alice@acme.com'.split('@')[1]);
 
 // List all connections for an org
-const conns = await kavach.sso.listConnections('org_acme');
+const conns = await theauth.sso.listConnections('org_acme');
 
 // Remove a connection
-await kavach.sso.removeConnection(connection.id);
+await theauth.sso.removeConnection(connection.id);
 ```
 
 ## JIT provisioning
@@ -87,11 +87,11 @@ User IDs are derived deterministically from the provider and subject, so the sam
 
 ```ts
 // 1. Redirect the user to the IdP
-const authUrl = await kavach.sso.getSamlAuthUrl(connection.id, '/dashboard');
+const authUrl = await theauth.sso.getSamlAuthUrl(connection.id, '/dashboard');
 // redirect to authUrl
 
 // 2. Handle the ACS callback (POST from IdP)
-const { user, orgId } = await kavach.sso.handleSamlResponse(
+const { user, orgId } = await theauth.sso.handleSamlResponse(
   connection.id,
   samlResponseFromFormData,
 );
@@ -106,11 +106,11 @@ const { user, orgId } = await kavach.sso.handleSamlResponse(
 
 ```ts
 // 1. Redirect the user to the IdP
-const authUrl = await kavach.sso.getOidcAuthUrl(connection.id, stateParam);
+const authUrl = await theauth.sso.getOidcAuthUrl(connection.id, stateParam);
 // redirect to authUrl
 
 // 2. Handle the callback
-const { user, orgId } = await kavach.sso.handleOidcCallback(connection.id, codeFromQuery);
+const { user, orgId } = await theauth.sso.handleOidcCallback(connection.id, codeFromQuery);
 // user.id, user.email, user.name
 ```
 

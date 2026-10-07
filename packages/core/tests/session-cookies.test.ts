@@ -327,7 +327,7 @@ describe("CookieSessionManager — createSession", () => {
 
 	it("returns a Set-Cookie header containing the session name", async () => {
 		const { setCookieHeader } = await mgr.createSession(TEST_USER_ID);
-		expect(setCookieHeader).toContain("kavach_session=");
+		expect(setCookieHeader).toContain("theauth_session=");
 		expect(setCookieHeader).toContain("HttpOnly");
 		expect(setCookieHeader).toContain("SameSite=Lax");
 		expect(setCookieHeader).toContain("Path=/");
@@ -366,7 +366,7 @@ describe("CookieSessionManager — validateSession", () => {
 	it("returns the session when the cookie is valid", async () => {
 		const { setCookieHeader } = await mgr.createSession(TEST_USER_ID);
 		// Extract the raw Cookie header value from the Set-Cookie header.
-		const cookieValue = setCookieHeader.split(";")[0]; // "kavach_session=<token>"
+		const cookieValue = setCookieHeader.split(";")[0]; // "theauth_session=<token>"
 		const { session } = await mgr.validateSession(cookieValue ?? "");
 		expect(session).not.toBeNull();
 		expect(session?.userId).toBe(TEST_USER_ID);
@@ -413,7 +413,7 @@ describe("CookieSessionManager — auto-refresh", () => {
 		const { session, refreshCookieHeader } = await mgr.validateSession(cookieValue);
 		expect(session).not.toBeNull();
 		expect(refreshCookieHeader).not.toBeNull();
-		expect(refreshCookieHeader).toContain("kavach_session=");
+		expect(refreshCookieHeader).toContain("theauth_session=");
 	});
 
 	it("issues a new token on refresh (cookie value changes)", async () => {
@@ -445,7 +445,7 @@ describe("CookieSessionManager — refreshSession", () => {
 
 		expect(refreshed).not.toBeNull();
 		expect(refreshed?.session.userId).toBe(TEST_USER_ID);
-		expect(refreshed?.setCookieHeader).toContain("kavach_session=");
+		expect(refreshed?.setCookieHeader).toContain("theauth_session=");
 	});
 
 	it("returns null for a non-existent session ID", async () => {
@@ -478,7 +478,7 @@ describe("CookieSessionManager — revokeSession", () => {
 		const { session } = await mgr.createSession(TEST_USER_ID);
 		const { deleteCookieHeader } = await mgr.revokeSession(session.id);
 		expect(deleteCookieHeader).toContain("Max-Age=0");
-		expect(deleteCookieHeader).toContain("kavach_session=");
+		expect(deleteCookieHeader).toContain("theauth_session=");
 	});
 
 	it("invalidates the session so subsequent validation returns null", async () => {
@@ -491,7 +491,7 @@ describe("CookieSessionManager — revokeSession", () => {
 
 	it("does not throw for a non-existent session ID", async () => {
 		await expect(mgr.revokeSession("ghost-id")).resolves.toMatchObject({
-			deleteCookieHeader: expect.stringContaining("kavach_session="),
+			deleteCookieHeader: expect.stringContaining("theauth_session="),
 		});
 	});
 });
@@ -599,7 +599,7 @@ describe("CookieSessionManager — buildLogoutCookie", () => {
 		const db = await createTestDb();
 		const mgr = createCookieSessionManager({ secret: TEST_SECRET }, db);
 		const header = mgr.buildLogoutCookie();
-		expect(header).toContain("kavach_session=");
+		expect(header).toContain("theauth_session=");
 		expect(header).toContain("Max-Age=0");
 	});
 });

@@ -3,10 +3,10 @@ import type { SecureStorage } from "./storage.js";
 
 // ─── IPC channel names ────────────────────────────────────────────────────────
 
-const CHANNEL_GET = "kavach:storage:get";
-const CHANNEL_SET = "kavach:storage:set";
-const CHANNEL_REMOVE = "kavach:storage:remove";
-const CHANNEL_CLEAR = "kavach:storage:clear";
+const CHANNEL_GET = "theauth:storage:get";
+const CHANNEL_SET = "theauth:storage:set";
+const CHANNEL_REMOVE = "theauth:storage:remove";
+const CHANNEL_CLEAR = "theauth:storage:clear";
 
 // ─── Request/response types ───────────────────────────────────────────────────
 
@@ -129,11 +129,5 @@ export const THEAUTH_IPC_CHANNELS = {
 	CLEAR: CHANNEL_CLEAR,
 } as const;
 
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
-
-/** @deprecated Use `setupTheAuthIpc` instead. Will be removed in a future major version. */
-export const setupKavachIpc = setupTheAuthIpc;
-
-/** @deprecated Use `THEAUTH_IPC_CHANNELS` instead. Will be removed in a future major version. */
-export const KAVACH_IPC_CHANNELS = THEAUTH_IPC_CHANNELS;

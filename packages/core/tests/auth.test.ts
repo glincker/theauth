@@ -7,7 +7,7 @@
  * - bearerAuth: validates HS256 JWT, extracts claims, rejects expired/invalid
  *   tokens, returns null when header is missing or not Bearer scheme
  * - customAuth: delegates to the provided resolver
- * - createKavach.resolveUser: returns null when no adapter is configured,
+ * - createTheAuth.resolveUser: returns null when no adapter is configured,
  *   delegates when an adapter is configured
  */
 
@@ -18,7 +18,7 @@ import { bearerAuth } from "../src/auth/adapters/bearer.js";
 import { customAuth } from "../src/auth/adapters/custom.js";
 import { headerAuth } from "../src/auth/adapters/header.js";
 import { usernameAccounts, users } from "../src/db/schema.js";
-import { createKavach } from "../src/kavach.js";
+import { createTheAuth } from "../src/theauth.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -230,69 +230,69 @@ describe("customAuth", () => {
 });
 
 // ---------------------------------------------------------------------------
-// createKavach.resolveUser integration
+// createTheAuth.resolveUser integration
 // ---------------------------------------------------------------------------
 
-describe("createKavach.resolveUser", () => {
+describe("createTheAuth.resolveUser", () => {
 	it("returns null when no auth adapter is configured", async () => {
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 		});
-		const user = await kavach.resolveUser(makeRequest({ "x-user-id": "user-abc" }));
+		const user = await theauth.resolveUser(makeRequest({ "x-user-id": "user-abc" }));
 		expect(user).toBeNull();
 	});
 
 	it("delegates to the configured adapter", async () => {
 		const token = await signJwt({ sub: "user-integration", email: "int@example.com" });
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { adapter: bearerAuth({ secret: TEST_SECRET }) },
 		});
 		const req = makeRequest({ authorization: `Bearer ${token}` });
-		const user = await kavach.resolveUser(req);
+		const user = await theauth.resolveUser(req);
 		expect(user).toMatchObject({ id: "user-integration", email: "int@example.com" });
 	});
 
-	it("delegates to the configured adapter via kavach.auth.resolveUser", async () => {
+	it("delegates to the configured adapter via theauth.auth.resolveUser", async () => {
 		const token = await signJwt({ sub: "user-integration-2", email: "int2@example.com" });
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { adapter: bearerAuth({ secret: TEST_SECRET }) },
 		});
 		const req = makeRequest({ authorization: `Bearer ${token}` });
-		const user = await kavach.auth.resolveUser(req);
+		const user = await theauth.auth.resolveUser(req);
 		expect(user).toMatchObject({ id: "user-integration-2", email: "int2@example.com" });
 	});
 
 	it("returns null when adapter finds no credential", async () => {
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { adapter: headerAuth() },
 		});
 		// No X-User-Id header
-		const user = await kavach.resolveUser(makeRequest({}));
+		const user = await theauth.resolveUser(makeRequest({}));
 		expect(user).toBeNull();
 	});
 
 	it("works with a customAuth adapter", async () => {
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { adapter: customAuth(async () => ({ id: "user-custom", name: "Custom User" })) },
 		});
-		const user = await kavach.resolveUser(makeRequest({}));
+		const user = await theauth.resolveUser(makeRequest({}));
 		expect(user).toEqual({ id: "user-custom", name: "Custom User" });
 	});
 });
 
 describe("password auth smoke flow", () => {
 	it("signs up a user and stores a hashed password", async () => {
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: TEST_SECRET } },
 			username: {},
 		});
 
-		const result = await kavach.username?.signUp({
+		const result = await theauth.username?.signUp({
 			username: "alice",
 			password: "Password1!",
 			name: "Alice",
@@ -301,37 +301,37 @@ describe("password auth smoke flow", () => {
 		expect(result?.user.username).toBe("alice");
 		expect(result?.session.token).toBeTruthy();
 
-		const userRows = await kavach.db.select().from(users);
+		const userRows = await theauth.db.select().from(users);
 		expect(userRows[0]?.email).toBe("alice@username.local");
 
-		const accountRows = await kavach.db.select().from(usernameAccounts);
+		const accountRows = await theauth.db.select().from(usernameAccounts);
 		expect(accountRows[0]?.passwordHash).toMatch(/^pbkdf2:/);
 		expect(accountRows[0]?.passwordHash).not.toBe("Password1!");
 	});
 
 	it("signs in with correct credentials and rejects a wrong password", async () => {
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: TEST_SECRET } },
 			username: {},
 		});
 
-		await kavach.username?.signUp({ username: "alice", password: "Password1!" });
+		await theauth.username?.signUp({ username: "alice", password: "Password1!" });
 
-		const signedIn = await kavach.username?.signIn({
+		const signedIn = await theauth.username?.signIn({
 			username: "alice",
 			password: "Password1!",
 		});
 		expect(signedIn?.session.token).toBeTruthy();
 
 		await expect(
-			kavach.username?.signIn({ username: "alice", password: "WrongPassword1!" }),
+			theauth.username?.signIn({ username: "alice", password: "WrongPassword1!" }),
 		).rejects.toThrow("Invalid username or password");
 	});
 
 	it("resets the password and allows login with the new credentials", async () => {
 		const sendResetEmail = vi.fn().mockResolvedValue(undefined);
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: TEST_SECRET } },
 			username: {},
@@ -341,18 +341,18 @@ describe("password auth smoke flow", () => {
 			},
 		});
 
-		await kavach.username?.signUp({ username: "alice", password: "Password1!" });
+		await theauth.username?.signUp({ username: "alice", password: "Password1!" });
 
-		const requestResult = await kavach.passwordReset?.requestReset("alice@username.local");
+		const requestResult = await theauth.passwordReset?.requestReset("alice@username.local");
 		expect(requestResult?.success).toBe(true);
 
 		const token = sendResetEmail.mock.calls[0]?.[1] as string | undefined;
 		expect(token).toBeTruthy();
 
-		const resetResult = await kavach.passwordReset?.resetPassword(token ?? "", "Password2!");
+		const resetResult = await theauth.passwordReset?.resetPassword(token ?? "", "Password2!");
 		expect(resetResult?.success).toBe(true);
 
-		const signedIn = await kavach.username?.signIn({
+		const signedIn = await theauth.username?.signIn({
 			username: "alice",
 			password: "Password2!",
 		});

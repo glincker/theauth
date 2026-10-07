@@ -14,11 +14,11 @@ TheAuth includes built-in tools for the three GDPR obligations that most commonl
 
 The `gdpr` plugin takes no options. It registers three self-service endpoints scoped to the authenticated user:
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { gdpr } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   agents: { enabled: true },
   plugins: [
@@ -91,7 +91,7 @@ The plugin wraps `createGdprModule`, which you can also call directly (for backg
 ```typescript
 import { createGdprModule } from '@glinr/theauth/auth';
 
-const gdprModule = createGdprModule(kavach.db);
+const gdprModule = createGdprModule(theauth.db);
 
 const exportData = await gdprModule.exportUserData(userId);
 const result = await gdprModule.deleteUser(userId, { keepAuditLogs: true });

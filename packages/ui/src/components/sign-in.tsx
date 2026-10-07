@@ -17,13 +17,13 @@ import { OAuthButtons } from "./oauth-buttons.js";
 
 function DefaultInput({ label, error, ...rest }: InputSlotProps): ReactNode {
 	return (
-		<label className="kavach-field flex flex-col gap-1.5">
+		<label className="theauth-field flex flex-col gap-1.5">
 			<span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
 			<input
 				{...rest}
 				className={
 					rest.className ??
-					"kavach-input w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+					"theauth-input w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
 				}
 			/>
 			{error && <p className="text-xs text-red-500">{error}</p>}
@@ -38,7 +38,7 @@ function DefaultButton({ loading, children, ...rest }: ButtonSlotProps): ReactNo
 			disabled={rest.disabled ?? loading}
 			className={
 				rest.className ??
-				"kavach-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+				"theauth-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
 			}
 		>
 			{loading ? (
@@ -55,7 +55,7 @@ function DefaultButton({ loading, children, ...rest }: ButtonSlotProps): ReactNo
 
 function DefaultDivider({ label, className }: DividerSlotProps): ReactNode {
 	return (
-		<div className={className ?? "kavach-divider flex items-center gap-3 py-1"}>
+		<div className={className ?? "theauth-divider flex items-center gap-3 py-1"}>
 			<div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
 			{label && <span className="text-xs text-zinc-400">{label}</span>}
 			<div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
@@ -68,7 +68,7 @@ function DefaultError({ message, className }: ErrorSlotProps): ReactNode {
 		<div
 			className={
 				className ??
-				"kavach-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+				"theauth-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
 			}
 		>
 			{message}
@@ -90,7 +90,7 @@ function DefaultLink({ href, children, className, onClick }: LinkSlotProps): Rea
 			}
 			className={
 				className ??
-				"kavach-link text-sm text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+				"theauth-link text-sm text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
 			}
 		>
 			{children}
@@ -117,7 +117,7 @@ export function SignIn({
 	classNames,
 	components,
 	providers = [],
-	basePath = "/api/kavach",
+	basePath = "/api/theauth",
 	onSuccess,
 	forgotPasswordUrl,
 	onForgotPassword,
@@ -199,7 +199,7 @@ export function SignIn({
 				{/* OAuth providers */}
 				{providers.length > 0 && (
 					<>
-						<div className={cx("kavach-oauth-section", classNames?.oauthSection)}>
+						<div className={cx("theauth-oauth-section", classNames?.oauthSection)}>
 							<OAuthButtons
 								providers={providers}
 								basePath={basePath}
@@ -331,7 +331,7 @@ export function SignIn({
 				{(signUpUrl ?? onSignUp) && (
 					<p
 						className={cx(
-							"kavach-footer text-center text-sm text-zinc-500 dark:text-zinc-400",
+							"theauth-footer text-center text-sm text-zinc-500 dark:text-zinc-400",
 							classNames?.footer,
 						)}
 					>

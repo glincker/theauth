@@ -5,7 +5,7 @@
  * changes, auth events, and anomalies. SOC teams and monitoring systems can
  * subscribe instead of polling the audit API or relying solely on webhooks.
  *
- * Endpoint: GET /api/kavach/events/stream
+ * Endpoint: GET /api/theauth/events/stream
  * Auth: Bearer token via Authorization header or `?token=` query param
  * Filtering: `?types=audit,agent.created`
  * Replay: `?since=2026-01-01T00:00:00Z` or Last-Event-ID header
@@ -33,7 +33,7 @@ import { z } from "zod";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { streamEvents } from "../db/schema.js";
-import type { KavachError, Result } from "../mcp/types.js";
+import type { Result, TheAuthError } from "../mcp/types.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ function ok<T>(data: T): Result<T> {
 }
 
 function fail(code: string, message: string): Result<never> {
-	const error: KavachError = { code, message };
+	const error: TheAuthError = { code, message };
 	return { success: false, error };
 }
 

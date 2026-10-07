@@ -11,8 +11,8 @@
 import { generateId } from "@glinr/theauth";
 import { NextResponse } from "next/server";
 import { makeSessionCookie } from "@/lib/cookie";
-import { getKavach } from "@/lib/kavach-instance";
 import { createFreshSession, setSession } from "@/lib/session-store";
+import { getTheAuth } from "@/lib/theauth-instance";
 
 export async function POST(request: Request): Promise<NextResponse> {
 	try {
@@ -27,7 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 		// Pre-warm the TheAuth singleton so it's ready for step 2.
 		// The user lives only in the session store; no DB call needed here.
-		await getKavach();
+		await getTheAuth();
 
 		const session = createFreshSession(userId, userName);
 		session.passkeyRegistered = true;

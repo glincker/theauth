@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Kavach } from "../src/kavach.js";
-import { createTestKavach } from "./helpers.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTestTheAuth } from "./helpers.js";
 
 describe("trust – graduated autonomy scoring", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 	let agentId: string;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: "user-1",
 			name: "Trust Test Agent",
 			type: "autonomous",
@@ -19,7 +19,7 @@ describe("trust – graduated autonomy scoring", () => {
 	});
 
 	it("computes score 50 for a fresh agent with no audit history", async () => {
-		const score = await kavach.trust.computeScore(agentId);
+		const score = await theauth.trust.computeScore(agentId);
 
 		expect(score.agentId).toBe(agentId);
 		expect(score.score).toBe(50);
@@ -28,7 +28,7 @@ describe("trust – graduated autonomy scoring", () => {
 	});
 
 	it("score for a fresh agent with no calls is exactly 50", async () => {
-		const score = await kavach.trust.computeScore(agentId);
+		const score = await theauth.trust.computeScore(agentId);
 		expect(score.score).toBe(50);
 		expect(score.factors.totalCalls).toBe(0);
 		expect(score.factors.denialRate).toBe(0);
@@ -36,9 +36,9 @@ describe("trust – graduated autonomy scoring", () => {
 	});
 
 	it("persists score and retrieves via getScore", async () => {
-		await kavach.trust.computeScore(agentId);
+		await theauth.trust.computeScore(agentId);
 
-		const stored = await kavach.trust.getScore(agentId);
+		const stored = await theauth.trust.getScore(agentId);
 		expect(stored).not.toBeNull();
 		expect(stored?.agentId).toBe(agentId);
 		expect(typeof stored?.score).toBe("number");
@@ -46,13 +46,13 @@ describe("trust – graduated autonomy scoring", () => {
 	});
 
 	it("returns null from getScore before first compute", async () => {
-		const score = await kavach.trust.getScore(agentId);
+		const score = await theauth.trust.getScore(agentId);
 		expect(score).toBeNull();
 	});
 
 	it("overwrites previous score on recompute", async () => {
-		const first = await kavach.trust.computeScore(agentId);
-		const second = await kavach.trust.computeScore(agentId);
+		const first = await theauth.trust.computeScore(agentId);
+		const second = await theauth.trust.computeScore(agentId);
 
 		// Same agent, same conditions — score should be the same
 		expect(second.score).toBe(first.score);
@@ -64,52 +64,52 @@ describe("trust – graduated autonomy scoring", () => {
 
 	it("computeAll processes all active agents", async () => {
 		// Create a second agent
-		await kavach.agent.create({
+		await theauth.agent.create({
 			ownerId: "user-1",
 			name: "Second Agent",
 			type: "service",
 			permissions: [],
 		});
 
-		const scores = await kavach.trust.computeAll();
+		const scores = await theauth.trust.computeAll();
 		expect(scores.length).toBeGreaterThanOrEqual(2);
 		expect(scores.every((s) => s.score >= 0 && s.score <= 100)).toBe(true);
 	});
 
 	it("getScores returns all stored scores", async () => {
-		await kavach.trust.computeScore(agentId);
-		const scores = await kavach.trust.getScores();
+		await theauth.trust.computeScore(agentId);
+		const scores = await theauth.trust.getScores();
 		expect(scores.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("getScores filters by minScore", async () => {
-		await kavach.trust.computeScore(agentId);
+		await theauth.trust.computeScore(agentId);
 
-		const all = await kavach.trust.getScores();
+		const all = await theauth.trust.getScores();
 		const agentScore = all.find((s) => s.agentId === agentId);
 		expect(agentScore).toBeDefined();
 
 		// Filter at exactly the computed score should include it
-		const filtered = await kavach.trust.getScores({ minScore: agentScore?.score });
+		const filtered = await theauth.trust.getScores({ minScore: agentScore?.score });
 		expect(filtered.find((s) => s.agentId === agentId)).toBeDefined();
 
 		// Filter above the computed score should exclude it
-		const tooHigh = await kavach.trust.getScores({ minScore: agentScore?.score + 1 });
+		const tooHigh = await theauth.trust.getScores({ minScore: agentScore?.score + 1 });
 		expect(tooHigh.find((s) => s.agentId === agentId)).toBeUndefined();
 	});
 
 	it("getScores filters by level", async () => {
-		await kavach.trust.computeScore(agentId);
+		await theauth.trust.computeScore(agentId);
 
-		const all = await kavach.trust.getScores();
+		const all = await theauth.trust.getScores();
 		const agentScore = all.find((s) => s.agentId === agentId);
 		expect(agentScore).toBeDefined();
 
-		const byLevel = await kavach.trust.getScores({ level: agentScore?.level });
+		const byLevel = await theauth.trust.getScores({ level: agentScore?.level });
 		expect(byLevel.find((s) => s.agentId === agentId)).toBeDefined();
 
 		// A different level should not include this agent
-		const wrongLevel = await kavach.trust.getScores({ level: "elevated" });
+		const wrongLevel = await theauth.trust.getScores({ level: "elevated" });
 		// Fresh agent won't have elevated score (50 < 95)
 		expect(wrongLevel.find((s) => s.agentId === agentId)).toBeUndefined();
 	});
@@ -128,7 +128,7 @@ describe("trust – graduated autonomy scoring", () => {
 					elevated: 90,
 				},
 			},
-			kavach.db,
+			theauth.db,
 		);
 
 		const score = await trustWithCustomThresholds.computeScore(agentId);
@@ -138,13 +138,13 @@ describe("trust – graduated autonomy scoring", () => {
 	});
 
 	it("score is clamped to 0-100", async () => {
-		const score = await kavach.trust.computeScore(agentId);
+		const score = await theauth.trust.computeScore(agentId);
 		expect(score.score).toBeGreaterThanOrEqual(0);
 		expect(score.score).toBeLessThanOrEqual(100);
 	});
 
 	it("factors include all required fields", async () => {
-		const score = await kavach.trust.computeScore(agentId);
+		const score = await theauth.trust.computeScore(agentId);
 		expect(score.factors).toHaveProperty("successRate");
 		expect(score.factors).toHaveProperty("denialRate");
 		expect(score.factors).toHaveProperty("ageInDays");

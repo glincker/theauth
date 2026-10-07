@@ -17,7 +17,7 @@ function detectPackageManager(): PackageManager {
 }
 
 function defaultDbUrl(driver: DbDriver): string {
-	if (driver === "better-sqlite3") return "file:./kavach.db";
+	if (driver === "better-sqlite3") return "file:./theauth.db";
 	return "";
 }
 

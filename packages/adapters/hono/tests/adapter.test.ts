@@ -1,14 +1,14 @@
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { TheAuth } from "../../../core/src/kavach.js";
-import { createTheAuth } from "../../../core/src/kavach.js";
-import { kavachHono } from "../src/adapter.js";
+import type { TheAuth } from "../../../core/src/theauth.js";
+import { createTheAuth } from "../../../core/src/theauth.js";
+import { theAuthHono } from "../src/adapter.js";
 
 // ─── Test Setup ──────────────────────────────────────────────────────────────
 
-async function createTestApp(): Promise<{ app: Hono; kavach: TheAuth }> {
-	const kavach = await createTheAuth({
+async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -20,7 +20,7 @@ async function createTestApp(): Promise<{ app: Hono; kavach: TheAuth }> {
 	});
 
 	// Seed a test user
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -31,8 +31,8 @@ async function createTestApp(): Promise<{ app: Hono; kavach: TheAuth }> {
 		})
 		.run();
 
-	const app = kavachHono(kavach);
-	return { app, kavach };
+	const app = theAuthHono(theauth);
+	return { app, theauth };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -65,10 +65,10 @@ async function createTestAgent(
 
 describe("Hono adapter", () => {
 	let app: Hono;
-	let kavach: TheAuth;
+	let theauth: TheAuth;
 
 	beforeEach(async () => {
-		({ app, kavach } = await createTestApp());
+		({ app, theauth } = await createTestApp());
 	});
 
 	// ── Agent CRUD ─────────────────────────────────────────────────────────────
@@ -559,7 +559,7 @@ describe("Hono adapter", () => {
 			const { id } = await createTestAgent(app, {
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
-			await kavach.authorize(id, { action: "read", resource: "test:data" });
+			await theauth.authorize(id, { action: "read", resource: "test:data" });
 
 			const res = await app.request("/audit/export?format=json");
 
@@ -573,7 +573,7 @@ describe("Hono adapter", () => {
 			const { id } = await createTestAgent(app, {
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
-			await kavach.authorize(id, { action: "read", resource: "test:data" });
+			await theauth.authorize(id, { action: "read", resource: "test:data" });
 
 			const res = await app.request("/audit/export?format=csv");
 

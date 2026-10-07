@@ -445,6 +445,3 @@ export interface TheAuthPrismaAdapter {
 
 /** @deprecated Use `TheAuthPrismaAdapter` instead. Will be removed in a future major version. */
 export type AuthPrismaAdapter = TheAuthPrismaAdapter;
-
-/** @deprecated Use `TheAuthPrismaAdapter` instead. Will be removed in a future major version. */
-export type KavachPrismaAdapter = TheAuthPrismaAdapter;

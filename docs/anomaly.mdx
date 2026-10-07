@@ -48,7 +48,7 @@ Anomaly detection is not a background process. You call `scan()` and get back a 
 ### Scan a single agent for anomalies
 
 ```typescript
-const anomalies = await kavach.audit.query({
+const anomalies = await theauth.audit.query({
   agentId: 'agt_abc123',
   result: 'denied',
   since: new Date(Date.now() - 24 * 3_600_000),
@@ -74,7 +74,7 @@ if (escalations.length > 0) {
 ```typescript
 const since = new Date(Date.now() - 24 * 3_600_000);
 
-const logs = await kavach.audit.query({ since, limit: 5000 });
+const logs = await theauth.audit.query({ since, limit: 5000 });
 
 const byAgent: Record<string, { total: number; denied: number }> = {};
 
@@ -99,7 +99,7 @@ console.log('Agents with >20% denial rate:', highDenialAgents);
 The most effective response to a privilege escalation detection is to pause the agent while you investigate:
 
 ```typescript
-const denied = await kavach.audit.query({
+const denied = await theauth.audit.query({
   agentId: 'agt_abc123',
   result: 'denied',
   since: new Date(Date.now() - 3_600_000),
@@ -110,7 +110,7 @@ const escalations = denied.filter((e) =>
 );
 
 if (escalations.length >= 3) {
-  await kavach.agent.revoke('agt_abc123');
+  await theauth.agent.revoke('agt_abc123');
   console.log('Agent revoked after repeated escalation attempts.');
 }
 ```
@@ -124,7 +124,7 @@ if (escalations.length >= 3) {
 The `anomalyCount` field on a trust score is a pre-computed count of privilege escalation attempts, updated each time `computeScore` runs. It is a cheaper signal than a full scan when you only need the count:
 
 ```typescript
-const score = await kavach.trust.computeScore('agt_abc123');
+const score = await theauth.trust.computeScore('agt_abc123');
 
 if (score.factors.anomalyCount > 0) {
   console.warn(

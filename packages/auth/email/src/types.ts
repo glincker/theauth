@@ -76,7 +76,7 @@ export interface EmailAuthModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-/** Internal row type for kavach_email_accounts */
+/** Internal row type for theauth_email_accounts */
 export interface EmailAccountRow {
 	id: string;
 	userId: string;

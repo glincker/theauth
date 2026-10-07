@@ -40,12 +40,12 @@ The A2A server exposes your agent as a JSON-RPC endpoint that other agents can c
 import { createTheAuth } from '@glinr/theauth';
 import { createAgentCard, createA2AServer } from '@glinr/theauth/a2a';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
 // Register an agent identity
-const agent = await kavach.createAgent({
+const agent = await theauth.createAgent({
   ownerId: 'user-1',
   name: 'Code Reviewer',
   type: 'service',
@@ -102,7 +102,7 @@ const server = createA2AServer({
   authenticate: async (request) => {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     if (!token) return null;
-    const session = await kavach.mcp.validateToken(token);
+    const session = await theauth.mcp.validateToken(token);
     return session.success ? session.data.userId : null;
   },
   onAudit: async (event) => {
@@ -195,7 +195,7 @@ const client = createA2AClient({
   agent: 'https://remote-agent.example.com',
   getAuthToken: async () => {
     // Use TheAuth to get a token for this agent
-    const token = await kavach.issueToken({ agentId: myAgent.id });
+    const token = await theauth.issueToken({ agentId: myAgent.id });
     return token;
   },
 });
@@ -253,7 +253,7 @@ TheAuth supports all A2A security schemes. You declare them in the Agent Card an
       authenticate: async (req) => {
         const token = req.headers.get('Authorization')?.slice(7);
         if (!token) return null;
-        const session = await kavach.mcp.validateToken(token);
+        const session = await theauth.mcp.validateToken(token);
         return session.success ? session.data.userId : null;
       },
     });
@@ -275,7 +275,7 @@ TheAuth supports all A2A security schemes. You declare them in the Agent Card an
       handler: { onMessage: handleMessage },
       authenticate: async (req) => {
         const key = req.headers.get('X-API-Key');
-        const agent = await kavach.verifyApiKey(key);
+        const agent = await theauth.verifyApiKey(key);
         return agent?.id ?? null;
       },
     });

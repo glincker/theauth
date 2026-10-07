@@ -86,7 +86,7 @@ describe("MagicLinkModule.sendLink", () => {
 		expect(rows[0]?.used).toBe(false);
 	});
 
-	it("creates the user in kavach_users if they do not exist yet", async () => {
+	it("creates the user in theauth_users if they do not exist yet", async () => {
 		const { users } = await import("../src/db/schema.js");
 		await mod.sendLink("newuser@example.com");
 

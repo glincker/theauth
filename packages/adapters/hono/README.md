@@ -18,14 +18,14 @@ import { Hono } from 'hono';
 import { createTheAuth } from '@glinr/theauth';
 import { theAuthHono } from '@glinr/theauth-hono';
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
 const app = new Hono();
 
-// Mount all TheAuth routes at /api/kavach
-app.route('/api/kavach', theAuthHono(kavach));
+// Mount all TheAuth routes at /api/theauth
+app.route('/api/theauth', theAuthHono(theauth));
 
 serve({ fetch: app.fetch, port: 3000 });
 ```
@@ -43,7 +43,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-app.route('/api/kavach', theAuthHono(kavach, { mcp }));
+app.route('/api/theauth', theAuthHono(theauth, { mcp }));
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -56,7 +56,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`theAuthHono(kavach, options?)` returns a `Hono` instance with all routes registered. Pass it to `app.route()` with your chosen prefix.
+`theAuthHono(theauth, options?)` returns a `Hono` instance with all routes registered. Pass it to `app.route()` with your chosen prefix.
 
 | Option | Type | Description |
 |--------|------|-------------|

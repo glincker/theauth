@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI stdout/stderr is intentional here
 import { parseArgs } from "node:util";
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { loadConfigFile } from "./config-loader.js";
 import { createGateway } from "./gateway.js";
 import type { GatewayConfig } from "./types.js";
@@ -48,9 +48,9 @@ async function main(): Promise<void> {
 
 	const dbUrl = values.database ?? ":memory:";
 
-	let kavach: Awaited<ReturnType<typeof createKavach>>;
+	let theauth: Awaited<ReturnType<typeof createTheAuth>>;
 	try {
-		kavach = await createKavach({
+		theauth = await createTheAuth({
 			database: { provider: "sqlite", url: dbUrl },
 		});
 	} catch (err) {
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
 
 	const gatewayConfig: GatewayConfig = {
 		upstream,
-		kavach,
+		theauth,
 		policies: fileConfig.policies,
 		cors: fileConfig.cors,
 		rateLimit: fileConfig.rateLimit,
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
 	await gateway.listen(port);
 	console.log(`TheAuth Gateway running on port ${port}`);
 	console.log(`Proxying to: ${upstream}`);
-	console.log(`Health check: http://localhost:${port}/_kavach/health`);
+	console.log(`Health check: http://localhost:${port}/_theauth/health`);
 }
 
 function printHelp(): void {

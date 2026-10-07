@@ -20,8 +20,8 @@ TheAuth implements the full MCP auth stack:
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: {
     issuer: 'https://auth.yourapp.com',
@@ -50,7 +50,7 @@ Then mount the MCP module via a framework adapter. See [Framework Adapters](../r
 
 ## Endpoints
 
-Once mounted, TheAuth serves these endpoints (relative to your `basePath`, default `/api/kavach`):
+Once mounted, TheAuth serves these endpoints (relative to your `basePath`, default `/api/theauth`):
 
 | Endpoint | RFC | Purpose |
 |---|---|---|

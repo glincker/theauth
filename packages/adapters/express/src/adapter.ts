@@ -204,8 +204,8 @@ function buildWebRequest(req: Request): globalThis.Request {
  * app.use(express.json());
  * app.use(express.urlencoded({ extended: true }));
  *
- * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * app.use('/auth', theAuthExpress(kavach));
+ * const theauth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
+ * app.use('/auth', theAuthExpress(theauth));
  *
  * app.listen(3000);
  * ```
@@ -214,10 +214,10 @@ function buildWebRequest(req: Request): globalThis.Request {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * app.use('/auth', theAuthExpress(kavach, { mcp }));
+ * app.use('/auth', theAuthExpress(theauth, { mcp }));
  * ```
  */
-export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Router {
+export function theAuthExpress(theauth: TheAuth, options?: { mcp?: McpAuthModule }): Router {
 	const router = Router();
 	const mcp = options?.mcp;
 
@@ -234,7 +234,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		kavach.agent
+		theauth.agent
 			.create(input)
 			.then((agent) => sendCreated(res, agent))
 			.catch((err: unknown) => {
@@ -254,7 +254,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 		if (typeof type === "string" && ["autonomous", "delegated", "service"].includes(type)) {
 			filter.type = type as AgentFilter["type"];
 		}
-		kavach.agent
+		theauth.agent
 			.list(filter)
 			.then((agents) => sendOk(res, agents))
 			.catch((err: unknown) => {
@@ -266,7 +266,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 	// GET /agents/:id - get agent
 	router.get("/agents/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
-		kavach.agent
+		theauth.agent
 			.get(id)
 			.then((agent) => {
 				if (!agent) {
@@ -293,7 +293,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[] | undefined,
 		};
-		kavach.agent
+		theauth.agent
 			.update(id, input)
 			.then((agent) => sendOk(res, agent))
 			.catch((err: unknown) => {
@@ -309,7 +309,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 	// DELETE /agents/:id - revoke agent
 	router.delete("/agents/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
-		kavach.agent
+		theauth.agent
 			.revoke(id)
 			.then(() => sendNoContent(res))
 			.catch((err: unknown) => {
@@ -325,7 +325,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 	// POST /agents/:id/rotate - rotate token
 	router.post("/agents/:id/rotate", (req: Request, res: Response) => {
 		const id = param(req, "id");
-		kavach.agent
+		theauth.agent
 			.rotate(id)
 			.then((agent) => sendOk(res, agent))
 			.catch((err: unknown) => {
@@ -356,7 +356,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			(Array.isArray(req.headers["user-agent"])
 				? req.headers["user-agent"][0]
 				: req.headers["user-agent"]) ?? undefined;
-		kavach
+		theauth
 			.authorize(
 				parsed.data.agentId,
 				{
@@ -399,7 +399,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			(Array.isArray(req.headers["user-agent"])
 				? req.headers["user-agent"][0]
 				: req.headers["user-agent"]) ?? undefined;
-		kavach
+		theauth
 			.authorizeByToken(
 				token,
 				{
@@ -432,7 +432,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		kavach
+		theauth
 			.delegate(input)
 			.then((chain) => sendCreated(res, chain))
 			.catch((err: unknown) => {
@@ -452,7 +452,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 	// DELETE /delegations/:id - revoke delegation
 	router.delete("/delegations/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
-		kavach.delegation
+		theauth.delegation
 			.revoke(id)
 			.then(() => sendNoContent(res))
 			.catch((err: unknown) => {
@@ -468,7 +468,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 	// GET /delegations/:agentId - list chains for agent
 	router.get("/delegations/:agentId", (req: Request, res: Response) => {
 		const agentId = param(req, "agentId");
-		kavach.delegation
+		theauth.delegation
 			.listChains(agentId)
 			.then((chains) => sendOk(res, chains))
 			.catch((err: unknown) => {
@@ -509,7 +509,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
-		kavach.audit
+		theauth.audit
 			.query(filter)
 			.then((entries) => sendOk(res, entries))
 			.catch((err: unknown) => {
@@ -537,7 +537,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			if (!Number.isNaN(d.getTime())) options.until = d;
 		}
 
-		kavach.audit
+		theauth.audit
 			.export(options)
 			.then((exported) => {
 				const contentType = format === "csv" ? "text/csv" : "application/json";
@@ -675,8 +675,8 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 	// GET /dashboard/stats
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
 		Promise.all([
-			kavach.agent.list(),
-			kavach.audit.query({
+			theauth.agent.list(),
+			theauth.audit.query({
 				since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 				limit: 1000,
 			}),
@@ -723,7 +723,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 		if (typeof type === "string" && ["autonomous", "delegated", "service"].includes(type)) {
 			filter.type = type as AgentFilter["type"];
 		}
-		kavach.agent
+		theauth.agent
 			.list(filter)
 			.then((agents) => sendOk(res, agents))
 			.catch((err: unknown) => {
@@ -762,7 +762,7 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
-		kavach.audit
+		theauth.audit
 			.query(filter)
 			.then((entries) => sendOk(res, entries))
 			.catch((err: unknown) => {
@@ -773,11 +773,11 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 
 	// ── Plugin Endpoints ────────────────────────────────────────────
 
-	for (const endpoint of kavach.plugins.getEndpoints()) {
+	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
-			kavach.plugins
+			theauth.plugins
 				.handleRequest(webReq)
 				.then((response) => {
 					if (!response) {
@@ -804,5 +804,3 @@ export function theAuthExpress(kavach: TheAuth, options?: { mcp?: McpAuthModule 
 
 /** @deprecated Use `theAuthExpress` instead. Will be removed in a future major version. */
 export const authExpress = theAuthExpress;
-/** @deprecated Use `theAuthExpress` instead. Will be removed in a future major version. */
-export const kavachExpress = theAuthExpress;

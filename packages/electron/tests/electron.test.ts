@@ -67,7 +67,7 @@ function makeElectronApi(overrides: Partial<ElectronApi> = {}): ElectronApi {
 			decryptString: safeStorage.decryptString,
 		},
 		app: {
-			getPath: vi.fn(() => "/tmp/kavach-test"),
+			getPath: vi.fn(() => "/tmp/theauth-test"),
 		},
 		BrowserWindow: vi.fn() as unknown as ElectronApi["BrowserWindow"],
 		ipcMain: makeMockIpcMain(),
@@ -300,9 +300,9 @@ describe("openOAuthWindow", () => {
 
 		setTimeout(() => closedCb?.(), 20);
 
-		const result = await openOAuthWindow("github", { basePath: "/api/kavach" });
+		const result = await openOAuthWindow("github", { basePath: "/api/theauth" });
 
-		expect(capturedUrl).toContain("/api/kavach/sign-in/github");
+		expect(capturedUrl).toContain("/api/theauth/sign-in/github");
 		expect(capturedUrl).toContain("redirect=electron");
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("Window closed by user");
@@ -405,12 +405,12 @@ describe("openOAuthWindow", () => {
 
 		const { openOAuthWindow } = await import("../src/oauth-window.js");
 
-		const resultPromise = openOAuthWindow("github", { basePath: "/api/kavach" });
+		const resultPromise = openOAuthWindow("github", { basePath: "/api/theauth" });
 
 		await Promise.resolve();
 		navigateCb?.(
 			{},
-			"/api/kavach/callback?error=access_denied&error_description=User+denied+access",
+			"/api/theauth/callback?error=access_denied&error_description=User+denied+access",
 		);
 
 		const result = await resultPromise;
@@ -421,9 +421,9 @@ describe("openOAuthWindow", () => {
 	});
 });
 
-// ─── setupKavachIpc ───────────────────────────────────────────────────────────
+// ─── setupTheAuthIpc ───────────────────────────────────────────────────────────
 
-describe("setupKavachIpc", () => {
+describe("setupTheAuthIpc", () => {
 	let mockIpcMain: ReturnType<typeof makeMockIpcMain>;
 
 	beforeEach(() => {
@@ -436,37 +436,37 @@ describe("setupKavachIpc", () => {
 	});
 
 	it("registers handlers for all four storage channels", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
 		const registeredChannels = mockIpcMain.handle.mock.calls.map(([ch]) => ch);
-		expect(registeredChannels).toContain(KAVACH_IPC_CHANNELS.GET);
-		expect(registeredChannels).toContain(KAVACH_IPC_CHANNELS.SET);
-		expect(registeredChannels).toContain(KAVACH_IPC_CHANNELS.REMOVE);
-		expect(registeredChannels).toContain(KAVACH_IPC_CHANNELS.CLEAR);
+		expect(registeredChannels).toContain(THEAUTH_IPC_CHANNELS.GET);
+		expect(registeredChannels).toContain(THEAUTH_IPC_CHANNELS.SET);
+		expect(registeredChannels).toContain(THEAUTH_IPC_CHANNELS.REMOVE);
+		expect(registeredChannels).toContain(THEAUTH_IPC_CHANNELS.CLEAR);
 	});
 
 	it("removes existing handlers before re-registering", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
 		const removedChannels = mockIpcMain.removeHandler.mock.calls.map(([ch]) => ch);
-		expect(removedChannels).toContain(KAVACH_IPC_CHANNELS.GET);
-		expect(removedChannels).toContain(KAVACH_IPC_CHANNELS.SET);
-		expect(removedChannels).toContain(KAVACH_IPC_CHANNELS.REMOVE);
-		expect(removedChannels).toContain(KAVACH_IPC_CHANNELS.CLEAR);
+		expect(removedChannels).toContain(THEAUTH_IPC_CHANNELS.GET);
+		expect(removedChannels).toContain(THEAUTH_IPC_CHANNELS.SET);
+		expect(removedChannels).toContain(THEAUTH_IPC_CHANNELS.REMOVE);
+		expect(removedChannels).toContain(THEAUTH_IPC_CHANNELS.CLEAR);
 	});
 
 	it("GET handler returns stored value", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
 		await storage.set("mykey", "myvalue");
 
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
-		const getCall = mockIpcMain.handle.mock.calls.find(([ch]) => ch === KAVACH_IPC_CHANNELS.GET);
+		const getCall = mockIpcMain.handle.mock.calls.find(([ch]) => ch === THEAUTH_IPC_CHANNELS.GET);
 		expect(getCall).toBeDefined();
 
 		const handler = getCall![1];
@@ -476,22 +476,22 @@ describe("setupKavachIpc", () => {
 	});
 
 	it("GET handler returns null for missing key", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
-		const getCall = mockIpcMain.handle.mock.calls.find(([ch]) => ch === KAVACH_IPC_CHANNELS.GET);
+		const getCall = mockIpcMain.handle.mock.calls.find(([ch]) => ch === THEAUTH_IPC_CHANNELS.GET);
 		const handler = getCall![1];
 		const result = await handler({ reply: vi.fn() }, { key: "nope" });
 		expect(result).toEqual({ value: null });
 	});
 
 	it("SET handler stores a value", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
-		const setCall = mockIpcMain.handle.mock.calls.find(([ch]) => ch === KAVACH_IPC_CHANNELS.SET);
+		const setCall = mockIpcMain.handle.mock.calls.find(([ch]) => ch === THEAUTH_IPC_CHANNELS.SET);
 		const handler = setCall![1];
 		await handler({ reply: vi.fn() }, { key: "ipc-key", value: "ipc-val" });
 
@@ -499,13 +499,13 @@ describe("setupKavachIpc", () => {
 	});
 
 	it("REMOVE handler deletes a value", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
 		await storage.set("del-key", "del-val");
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
 		const removeCall = mockIpcMain.handle.mock.calls.find(
-			([ch]) => ch === KAVACH_IPC_CHANNELS.REMOVE,
+			([ch]) => ch === THEAUTH_IPC_CHANNELS.REMOVE,
 		);
 		const handler = removeCall![1];
 		await handler({ reply: vi.fn() }, { key: "del-key" });
@@ -514,14 +514,14 @@ describe("setupKavachIpc", () => {
 	});
 
 	it("CLEAR handler empties storage", async () => {
-		const { setupKavachIpc, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { setupTheAuthIpc, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		const storage = createMemoryStorage();
 		await storage.set("c1", "v1");
 		await storage.set("c2", "v2");
-		setupKavachIpc(storage);
+		setupTheAuthIpc(storage);
 
 		const clearCall = mockIpcMain.handle.mock.calls.find(
-			([ch]) => ch === KAVACH_IPC_CHANNELS.CLEAR,
+			([ch]) => ch === THEAUTH_IPC_CHANNELS.CLEAR,
 		);
 		const handler = clearCall![1];
 		await handler({ reply: vi.fn() });
@@ -546,51 +546,51 @@ describe("createIpcStorage", () => {
 	});
 
 	it("invokes GET channel and returns value", async () => {
-		const { createIpcStorage, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { createIpcStorage, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		mockIpcRenderer.invoke.mockResolvedValueOnce({ value: "stored-val" });
 
 		const storage = createIpcStorage();
 		const result = await storage.get("my-key");
 
-		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(KAVACH_IPC_CHANNELS.GET, {
+		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(THEAUTH_IPC_CHANNELS.GET, {
 			key: "my-key",
 		});
 		expect(result).toBe("stored-val");
 	});
 
 	it("invokes SET channel with key and value", async () => {
-		const { createIpcStorage, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { createIpcStorage, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		mockIpcRenderer.invoke.mockResolvedValueOnce(undefined);
 
 		const storage = createIpcStorage();
 		await storage.set("token", "abc123");
 
-		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(KAVACH_IPC_CHANNELS.SET, {
+		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(THEAUTH_IPC_CHANNELS.SET, {
 			key: "token",
 			value: "abc123",
 		});
 	});
 
 	it("invokes REMOVE channel with key", async () => {
-		const { createIpcStorage, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { createIpcStorage, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		mockIpcRenderer.invoke.mockResolvedValueOnce(undefined);
 
 		const storage = createIpcStorage();
 		await storage.remove("old-key");
 
-		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(KAVACH_IPC_CHANNELS.REMOVE, {
+		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(THEAUTH_IPC_CHANNELS.REMOVE, {
 			key: "old-key",
 		});
 	});
 
 	it("invokes CLEAR channel", async () => {
-		const { createIpcStorage, KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
+		const { createIpcStorage, THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
 		mockIpcRenderer.invoke.mockResolvedValueOnce(undefined);
 
 		const storage = createIpcStorage();
 		await storage.clear();
 
-		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(KAVACH_IPC_CHANNELS.CLEAR);
+		expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(THEAUTH_IPC_CHANNELS.CLEAR);
 	});
 
 	it("returns null when GET response has null value", async () => {
@@ -604,14 +604,14 @@ describe("createIpcStorage", () => {
 	});
 });
 
-// ─── KAVACH_IPC_CHANNELS constant ─────────────────────────────────────────────
+// ─── THEAUTH_IPC_CHANNELS constant ─────────────────────────────────────────────
 
-describe("KAVACH_IPC_CHANNELS", () => {
+describe("THEAUTH_IPC_CHANNELS", () => {
 	it("exposes all four channel names", async () => {
-		const { KAVACH_IPC_CHANNELS } = await import("../src/ipc.js");
-		expect(KAVACH_IPC_CHANNELS.GET).toBe("kavach:storage:get");
-		expect(KAVACH_IPC_CHANNELS.SET).toBe("kavach:storage:set");
-		expect(KAVACH_IPC_CHANNELS.REMOVE).toBe("kavach:storage:remove");
-		expect(KAVACH_IPC_CHANNELS.CLEAR).toBe("kavach:storage:clear");
+		const { THEAUTH_IPC_CHANNELS } = await import("../src/ipc.js");
+		expect(THEAUTH_IPC_CHANNELS.GET).toBe("theauth:storage:get");
+		expect(THEAUTH_IPC_CHANNELS.SET).toBe("theauth:storage:set");
+		expect(THEAUTH_IPC_CHANNELS.REMOVE).toBe("theauth:storage:remove");
+		expect(THEAUTH_IPC_CHANNELS.CLEAR).toBe("theauth:storage:clear");
 	});
 });

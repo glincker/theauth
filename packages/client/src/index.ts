@@ -2,13 +2,11 @@ export type {
 	AuthClient,
 	AuthClientOptions,
 	AuthorizeRequest,
-	KavachClient,
-	KavachClientOptions,
 	TheAuthClient,
 	TheAuthClientOptions,
 } from "./client.js";
-export { createAuthClient, createKavachClient, createTheAuthClient } from "./client.js";
-export { AuthApiError, KavachApiError, TheAuthApiError } from "./error.js";
+export { createAuthClient, createTheAuthClient } from "./client.js";
+export { AuthApiError, TheAuthApiError } from "./error.js";
 export {
 	createTheAuthGoClient,
 	GO_ERROR_HTTP,
@@ -74,9 +72,6 @@ export type {
 	DelegateInput,
 	DelegationChain,
 	ExportOptions,
-	KavachApiErrorBody,
-	KavachError,
-	KavachResult,
 	McpServer,
 	PaginatedAuditLogs,
 	Permission,

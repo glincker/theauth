@@ -63,7 +63,7 @@ model AuthUser {
   updatedAt          DateTime  @map("updated_at")
   // ... (see full schema in @glinr/theauth-prisma/src/schema.prisma)
 
-  @@map("kavach_users")
+  @@map("theauth_users")
 }
 
 model AuthAgent {
@@ -78,7 +78,7 @@ model AuthAgent {
   createdAt   DateTime  @map("created_at")
   updatedAt   DateTime  @map("updated_at")
 
-  @@map("kavach_agents")
+  @@map("theauth_agents")
 }
 
 // ... add remaining models from schema.prisma ...
@@ -109,7 +109,7 @@ import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '@glinr/theauth-prisma';
 
 const prisma = new PrismaClient();
-export const kavachDb = createPrismaAdapter(prisma);
+export const theAuthDb = createPrismaAdapter(prisma);
 ```
 
 </Step>
@@ -120,22 +120,22 @@ export const kavachDb = createPrismaAdapter(prisma);
 ### Agent operations
 
 ```typescript
-import { kavachDb } from './lib/kavach-db';
+import { theAuthDb } from './lib/theauth-db';
 
 // Look up an agent by ID
-const agent = await kavachDb.findAgentById('agent-123');
+const agent = await theAuthDb.findAgentById('agent-123');
 
 // Look up by token hash (for auth middleware)
-const agent = await kavachDb.findAgentByTokenHash(tokenHash);
+const agent = await theAuthDb.findAgentByTokenHash(tokenHash);
 
 // List all active agents owned by a user
-const agents = await kavachDb.listAgents({
+const agents = await theAuthDb.listAgents({
   ownerId: 'user-456',
   status: 'active',
 });
 
 // Create an agent
-const agent = await kavachDb.createAgent({
+const agent = await theAuthDb.createAgent({
   id: crypto.randomUUID(),
   ownerId: 'user-456',
   name: 'my-agent',
@@ -147,17 +147,17 @@ const agent = await kavachDb.createAgent({
 });
 
 // Revoke an agent
-await kavachDb.updateAgent('agent-123', { status: 'revoked' });
+await theAuthDb.updateAgent('agent-123', { status: 'revoked' });
 ```
 
 ### User operations
 
 ```typescript
 // Find by email (for sign-in)
-const user = await kavachDb.findUserByEmail('alice@example.com');
+const user = await theAuthDb.findUserByEmail('alice@example.com');
 
 // Create a user
-const user = await kavachDb.createUser({
+const user = await theAuthDb.createUser({
   id: crypto.randomUUID(),
   email: 'alice@example.com',
   name: 'Alice',
@@ -166,7 +166,7 @@ const user = await kavachDb.createUser({
 });
 
 // Update user (e.g., link Stripe customer)
-await kavachDb.updateUser(userId, {
+await theAuthDb.updateUser(userId, {
   stripeCustomerId: 'cus_abc123',
 });
 ```
@@ -175,7 +175,7 @@ await kavachDb.updateUser(userId, {
 
 ```typescript
 // Create a session
-const session = await kavachDb.createSession({
+const session = await theAuthDb.createSession({
   id: crypto.randomUUID(),
   userId: 'user-456',
   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -183,34 +183,34 @@ const session = await kavachDb.createSession({
 });
 
 // Validate a session
-const session = await kavachDb.findSessionById(sessionId);
+const session = await theAuthDb.findSessionById(sessionId);
 if (!session || session.expiresAt < new Date()) {
   throw new Error('Session expired');
 }
 
 // Clean up expired sessions
-const deleted = await kavachDb.deleteExpiredSessions();
+const deleted = await theAuthDb.deleteExpiredSessions();
 ```
 
 ### Audit log queries
 
 ```typescript
 // Query recent actions for an agent
-const logs = await kavachDb.queryAuditLogs({
+const logs = await theAuthDb.queryAuditLogs({
   agentId: 'agent-123',
   since: new Date(Date.now() - 24 * 60 * 60 * 1000),
   limit: 50,
 });
 
 // Query denied actions for investigation
-const denials = await kavachDb.queryAuditLogs({
+const denials = await theAuthDb.queryAuditLogs({
   userId: 'user-456',
   result: 'denied',
   since: new Date('2025-01-01'),
 });
 
 // Write an audit log entry
-await kavachDb.createAuditLog({
+await theAuthDb.createAuditLog({
   id: crypto.randomUUID(),
   agentId: 'agent-123',
   userId: 'user-456',
@@ -226,10 +226,10 @@ await kavachDb.createAuditLog({
 
 ```typescript
 // Get all permissions for an agent
-const perms = await kavachDb.findPermissionsByAgentId('agent-123');
+const perms = await theAuthDb.findPermissionsByAgentId('agent-123');
 
 // Grant a permission
-await kavachDb.createPermission({
+await theAuthDb.createPermission({
   id: crypto.randomUUID(),
   agentId: 'agent-123',
   resource: 'mcp:github:*',
@@ -238,7 +238,7 @@ await kavachDb.createPermission({
 });
 
 // Revoke all permissions for an agent
-await kavachDb.deletePermissionsByAgentId('agent-123');
+await theAuthDb.deletePermissionsByAgentId('agent-123');
 ```
 
 ### Transactions
@@ -250,18 +250,18 @@ import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '@glinr/theauth-prisma';
 
 const prisma = new PrismaClient();
-const kavachDb = createPrismaAdapter(prisma);
+const theAuthDb = createPrismaAdapter(prisma);
 
 // TheAuth operations inside a transaction
-await kavachDb.transaction(async (tx) => {
+await theAuthDb.transaction(async (tx) => {
   const agent = await tx.createAgent({ ... });
   await tx.createPermission({ agentId: agent.id, ... });
 });
 
 // Mix with your own Prisma models
 await prisma.$transaction(async (tx) => {
-  const kavach = createPrismaAdapter(tx);
-  await kavach.createAgent({ ... });
+  const theauth = createPrismaAdapter(tx);
+  await theauth.createAgent({ ... });
   // Your own model:
   await tx.subscription.create({ data: { ... } });
 });
@@ -271,11 +271,11 @@ await prisma.$transaction(async (tx) => {
 
 ```typescript
 // Get the trust score for an agent
-const trust = await kavachDb.findTrustScore('agent-123');
+const trust = await theAuthDb.findTrustScore('agent-123');
 console.log(trust?.level); // "trusted" | "limited" | ...
 
 // Upsert after recomputing
-await kavachDb.upsertTrustScore({
+await theAuthDb.upsertTrustScore({
   agentId: 'agent-123',
   score: 85,
   level: 'trusted',
@@ -288,10 +288,10 @@ await kavachDb.upsertTrustScore({
 
 ```typescript
 // List pending approvals for a human to review
-const pending = await kavachDb.listPendingApprovals('agent-123');
+const pending = await theAuthDb.listPendingApprovals('agent-123');
 
 // Approve a request
-await kavachDb.updateApprovalRequest(requestId, {
+await theAuthDb.updateApprovalRequest(requestId, {
   status: 'approved',
   respondedAt: new Date(),
   respondedBy: 'user-456',
@@ -302,13 +302,13 @@ await kavachDb.updateApprovalRequest(requestId, {
 
 If you started with the built-in Drizzle backend and want to switch to Prisma:
 
-1. Keep the same table names, all TheAuth tables use the `kavach_` prefix and the same column names in both Drizzle and Prisma.
+1. Keep the same table names, all TheAuth tables use the `theauth_` prefix and the same column names in both Drizzle and Prisma.
 2. Run `npx prisma introspect` against your existing database to generate a Prisma schema from the Drizzle-created tables.
 3. Replace calls to the Drizzle `db` directly with `createPrismaAdapter(prisma)`.
 4. Set `database.skipMigrations: true` in `createTheAuth(...)` if the core TheAuth instance is still used for other features (agents, MCP, etc.), so Drizzle does not conflict with Prisma.
 
 ```typescript
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: {
     provider: 'postgres',
     url: process.env.DATABASE_URL,
@@ -331,7 +331,7 @@ const db = createPrismaAdapter(prisma);
 
 The full reference schema is in `node_modules/@glinr/theauth-prisma/src/schema.prisma`. It includes all 30+ TheAuth models with correct column mappings, indexes, and default values.
 
-Every model name follows `KavachPascalCase` and maps to a `kavach_snake_case` table, keeping your Prisma namespace clean and your SQL tables clearly scoped.
+Every model name follows `TheAuthPascalCase` and maps to a `theauth_snake_case` table, keeping your Prisma namespace clean and your SQL tables clearly scoped.
 
 ## Related
 

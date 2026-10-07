@@ -9,9 +9,6 @@ export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
 /** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
 export const AUTH_KEY = THEAUTH_KEY;
 
-/** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
-export const KAVACH_KEY = THEAUTH_KEY;
-
 // ─── useRequiredContext ───────────────────────────────────────────────────────
 
 export function useRequiredContext(composableName: string): TheAuthContextValue {
@@ -27,21 +24,18 @@ export function useRequiredContext(composableName: string): TheAuthContextValue 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
 export interface TheAuthPluginOptions {
-	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */
 	basePath?: string;
 }
 
 /** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
 export type AuthPluginOptions = TheAuthPluginOptions;
 
-/** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
-export type KavachPluginOptions = TheAuthPluginOptions;
-
 export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 	return {
 		install(app: App) {
-			const base = (options.basePath ?? "/api/kavach").replace(/\/$/, "");
-			const STORAGE_KEY = "kavach_session";
+			const base = (options.basePath ?? "/api/theauth").replace(/\/$/, "");
+			const STORAGE_KEY = "theauth_session";
 
 			const session: Ref<TheAuthSession | null> = ref(null);
 			const isLoading: Ref<boolean> = ref(true);
@@ -185,11 +179,8 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 	};
 }
 
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 
 /** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
 export const createAuthPlugin = createTheAuthPlugin;
-
-/** @deprecated Use `createTheAuthPlugin` instead. Will be removed in a future major version. */
-export const createKavachPlugin = createTheAuthPlugin;

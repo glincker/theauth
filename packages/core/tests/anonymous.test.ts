@@ -232,22 +232,22 @@ describe("AnonymousAuthModule.cleanup", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Plugin endpoints (via createKavach + anonymousAuth plugin)
+// Plugin endpoints (via createTheAuth + anonymousAuth plugin)
 // ---------------------------------------------------------------------------
 
 describe("anonymousAuth plugin endpoints", () => {
 	it("POST /auth/anonymous returns 200 with userId and sessionToken", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 		const { anonymousAuth } = await import("../src/auth/anonymous-plugin.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [anonymousAuth()],
 		});
 
 		const request = new Request("http://localhost/auth/anonymous", { method: "POST" });
-		const response = await kavach.plugins.handleRequest(request);
+		const response = await theauth.plugins.handleRequest(request);
 		expect(response).not.toBeNull();
 		expect(response?.status).toBe(200);
 
@@ -257,16 +257,16 @@ describe("anonymousAuth plugin endpoints", () => {
 	});
 
 	it("GET /auth/anonymous/status returns anonymous: true for a guest", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 		const { anonymousAuth } = await import("../src/auth/anonymous-plugin.js");
 
 		// We need the auth adapter to resolve the userId from the session token.
-		// The plugin creates sessions using kavach's internal DB — we can't share
+		// The plugin creates sessions using theauth's internal DB — we can't share
 		// that DB from outside. Instead, use a token-map adapter: after creating
 		// the anonymous user we store the (token → userId) mapping.
 		const tokenMap = new Map<string, string>();
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: {
 				adapter: customAuth(async (request) => {
@@ -284,7 +284,7 @@ describe("anonymousAuth plugin endpoints", () => {
 		});
 
 		const createReq = new Request("http://localhost/auth/anonymous", { method: "POST" });
-		const createRes = await kavach.plugins.handleRequest(createReq);
+		const createRes = await theauth.plugins.handleRequest(createReq);
 		expect(createRes).not.toBeNull();
 		const { userId, sessionToken } = (await createRes?.json()) as {
 			userId: string;
@@ -296,19 +296,19 @@ describe("anonymousAuth plugin endpoints", () => {
 			method: "GET",
 			headers: { Authorization: `Bearer ${sessionToken}` },
 		});
-		const statusRes = await kavach.plugins.handleRequest(statusReq);
+		const statusRes = await theauth.plugins.handleRequest(statusReq);
 		expect(statusRes?.status).toBe(200);
 		const body = (await statusRes?.json()) as Record<string, unknown>;
 		expect(body.anonymous).toBe(true);
 	});
 
 	it("POST /auth/anonymous/upgrade upgrades the account and returns upgraded: true", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 		const { anonymousAuth } = await import("../src/auth/anonymous-plugin.js");
 
 		const tokenMap = new Map<string, string>();
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: {
 				adapter: customAuth(async (request) => {
@@ -326,7 +326,7 @@ describe("anonymousAuth plugin endpoints", () => {
 		});
 
 		const createReq = new Request("http://localhost/auth/anonymous", { method: "POST" });
-		const createRes = await kavach.plugins.handleRequest(createReq);
+		const createRes = await theauth.plugins.handleRequest(createReq);
 		const { userId, sessionToken } = (await createRes?.json()) as {
 			userId: string;
 			sessionToken: string;
@@ -341,19 +341,19 @@ describe("anonymousAuth plugin endpoints", () => {
 			},
 			body: JSON.stringify({ email: "upgraded@example.com", name: "Guest User" }),
 		});
-		const upgradeRes = await kavach.plugins.handleRequest(upgradeReq);
+		const upgradeRes = await theauth.plugins.handleRequest(upgradeReq);
 		expect(upgradeRes?.status).toBe(200);
 		const body = (await upgradeRes?.json()) as Record<string, unknown>;
 		expect(body.upgraded).toBe(true);
 	});
 
 	it("POST /auth/anonymous/upgrade returns 400 when email is missing", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 		const { anonymousAuth } = await import("../src/auth/anonymous-plugin.js");
 
 		const tokenMap = new Map<string, string>();
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: {
 				adapter: customAuth(async (request) => {
@@ -371,7 +371,7 @@ describe("anonymousAuth plugin endpoints", () => {
 		});
 
 		const createReq = new Request("http://localhost/auth/anonymous", { method: "POST" });
-		const createRes = await kavach.plugins.handleRequest(createReq);
+		const createRes = await theauth.plugins.handleRequest(createReq);
 		const { userId, sessionToken } = (await createRes?.json()) as {
 			userId: string;
 			sessionToken: string;
@@ -386,7 +386,7 @@ describe("anonymousAuth plugin endpoints", () => {
 			},
 			body: JSON.stringify({ name: "No Email" }),
 		});
-		const upgradeRes = await kavach.plugins.handleRequest(upgradeReq);
+		const upgradeRes = await theauth.plugins.handleRequest(upgradeReq);
 		expect(upgradeRes?.status).toBe(400);
 	});
 });

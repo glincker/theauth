@@ -247,30 +247,30 @@ describe("SessionManager.list", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Integration: createKavach wires session manager when auth.session is set
+// Integration: createTheAuth wires session manager when auth.session is set
 // ---------------------------------------------------------------------------
 
-describe("createKavach auth.session integration", () => {
-	it("exposes a session manager on kavach.auth.session when configured", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+describe("createTheAuth auth.session integration", () => {
+	it("exposes a session manager on theauth.auth.session when configured", async () => {
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: {
 				session: { secret: TEST_SECRET },
 			},
 		});
 
-		expect(kavach.auth.session).not.toBeNull();
+		expect(theauth.auth.session).not.toBeNull();
 	});
 
-	it("kavach.auth.session is null when auth.session is not configured", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+	it("theauth.auth.session is null when auth.session is not configured", async () => {
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 		});
 
-		expect(kavach.auth.session).toBeNull();
+		expect(theauth.auth.session).toBeNull();
 	});
 });

@@ -4,12 +4,12 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgents, useSession, useSignIn, useSignOut, useSignUp, useUser } from "../src/hooks.js";
-import { KavachExpoProvider, useKavachContext } from "../src/provider.js";
+import { TheAuthExpoProvider, useTheAuthContext } from "../src/provider.js";
 import { createMemoryStorage } from "../src/storage.js";
-import type { ActionResult, KavachAgent } from "../src/types.js";
+import type { ActionResult, TheAuthAgent } from "../src/types.js";
 
 type Snapshot = {
-	context: ReturnType<typeof useKavachContext>;
+	context: ReturnType<typeof useTheAuthContext>;
 	session: ReturnType<typeof useSession>;
 	user: ReturnType<typeof useUser>;
 	signIn: ReturnType<typeof useSignIn>;
@@ -24,7 +24,7 @@ let root: Root | null = null;
 let latest: Snapshot | null = null;
 let fetchMock: ReturnType<typeof vi.fn>;
 let storage = createMemoryStorage();
-let agentsState: KavachAgent[] = [];
+let agentsState: TheAuthAgent[] = [];
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(body === null ? null : JSON.stringify(body), {
@@ -58,13 +58,13 @@ async function waitForCondition(predicate: () => boolean) {
 }
 
 function Probe() {
-	const context = useKavachContext();
+	const context = useTheAuthContext();
 	const session = useSession();
 	const user = useUser();
 	const signIn = useSignIn();
 	const signUp = useSignUp();
 	const signOut = useSignOut();
-	const agents = useAgents("/api/kavach");
+	const agents = useAgents("/api/theauth");
 
 	useEffect(() => {
 		latest = { context, session, user, signIn, signUp, signOut, agents };
@@ -88,7 +88,7 @@ beforeEach(async () => {
 		const parsed = new URL(url, "http://localhost");
 		const authHeader = new Headers(init?.headers).get("Authorization");
 
-		if (parsed.pathname === "/api/kavach/session" && authHeader === "Bearer stored-token") {
+		if (parsed.pathname === "/api/theauth/session" && authHeader === "Bearer stored-token") {
 			return jsonResponse({
 				data: {
 					token: "stored-token",
@@ -102,7 +102,7 @@ beforeEach(async () => {
 			});
 		}
 
-		if (parsed.pathname === "/api/kavach/sign-in/email" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/sign-in/email" && init?.method === "POST") {
 			return jsonResponse({
 				data: {
 					token: "signin-token",
@@ -116,7 +116,7 @@ beforeEach(async () => {
 			});
 		}
 
-		if (parsed.pathname === "/api/kavach/sign-up/email" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/sign-up/email" && init?.method === "POST") {
 			return jsonResponse({
 				data: {
 					token: "signup-token",
@@ -129,18 +129,18 @@ beforeEach(async () => {
 			});
 		}
 
-		if (parsed.pathname === "/api/kavach/sign-out" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/sign-out" && init?.method === "POST") {
 			return new Response(null, { status: 204 });
 		}
 
-		if (parsed.pathname === "/api/kavach/agents" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/agents" && init?.method === "POST") {
 			const payload = JSON.parse(String(init.body ?? "{}")) as {
 				ownerId: string;
 				name: string;
-				type: KavachAgent["type"];
-				permissions: KavachAgent["permissions"];
+				type: TheAuthAgent["type"];
+				permissions: TheAuthAgent["permissions"];
 			};
-			const agent: KavachAgent = {
+			const agent: TheAuthAgent = {
 				id: `agent-${payload.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
 				ownerId: payload.ownerId,
 				name: payload.name,
@@ -156,7 +156,7 @@ beforeEach(async () => {
 			return jsonResponse({ data: agent });
 		}
 
-		if (parsed.pathname.startsWith("/api/kavach/agents/") && parsed.pathname.endsWith("/rotate")) {
+		if (parsed.pathname.startsWith("/api/theauth/agents/") && parsed.pathname.endsWith("/rotate")) {
 			const agentId = parsed.pathname.split("/")[4];
 			agentsState = agentsState.map((agent) =>
 				agent.id === agentId
@@ -168,13 +168,13 @@ beforeEach(async () => {
 			return jsonResponse({ data: agent });
 		}
 
-		if (parsed.pathname.startsWith("/api/kavach/agents/") && init?.method === "DELETE") {
+		if (parsed.pathname.startsWith("/api/theauth/agents/") && init?.method === "DELETE") {
 			const agentId = parsed.pathname.split("/")[4];
 			agentsState = agentsState.filter((agent) => agent.id !== agentId);
 			return new Response(null, { status: 204 });
 		}
 
-		if (parsed.pathname === "/api/kavach/agents" && init?.method !== "POST") {
+		if (parsed.pathname === "/api/theauth/agents" && init?.method !== "POST") {
 			return jsonResponse({ data: agentsState });
 		}
 
@@ -216,9 +216,9 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		];
 
 		render(
-			<KavachExpoProvider config={{ basePath: "/api/kavach", storage }}>
+			<TheAuthExpoProvider config={{ basePath: "/api/theauth", storage }}>
 				<Probe />
-			</KavachExpoProvider>,
+			</TheAuthExpoProvider>,
 		);
 		await waitForCondition(() => latest?.context.isAuthenticated === true);
 		expect(latest?.session.session?.token).toBe("stored-token");
@@ -227,14 +227,14 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(
 			fetchMock.mock.calls.some(
 				([input, init]) =>
-					String(input).includes("/api/kavach/session") &&
+					String(input).includes("/api/theauth/session") &&
 					new Headers(init?.headers).get("Authorization") === "Bearer stored-token",
 			),
 		).toBe(true);
 		expect(
 			fetchMock.mock.calls.some(
 				([input, init]) =>
-					String(input).includes("/api/kavach/agents?userId=user-1") &&
+					String(input).includes("/api/theauth/agents?userId=user-1") &&
 					new Headers(init?.headers).get("Authorization") === "Bearer stored-token",
 			),
 		).toBe(true);
@@ -242,9 +242,9 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 
 	it("signs in, mutates agents, and clears storage on sign out", async () => {
 		render(
-			<KavachExpoProvider config={{ basePath: "/api/kavach", storage }}>
+			<TheAuthExpoProvider config={{ basePath: "/api/theauth", storage }}>
 				<Probe />
-			</KavachExpoProvider>,
+			</TheAuthExpoProvider>,
 		);
 		await flush();
 
@@ -258,7 +258,7 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(await storage.getItem(SESSION_KEY)).toBe("signin-token");
 		expect(latest?.context.isAuthenticated).toBe(true);
 
-		let created: ActionResult<KavachAgent> | undefined;
+		let created: ActionResult<TheAuthAgent> | undefined;
 		await act(async () => {
 			created = await latest!.agents.create({
 				ownerId: "user-1",
@@ -277,7 +277,7 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(created?.success).toBe(true);
 		expect(latest?.agents.agents).toHaveLength(1);
 
-		let rotated: ActionResult<KavachAgent> | undefined;
+		let rotated: ActionResult<TheAuthAgent> | undefined;
 		await act(async () => {
 			rotated = await latest!.agents.rotate("agent-reporter");
 		});

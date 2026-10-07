@@ -10,8 +10,8 @@
  * 3. `linkAccount` — manually link provider tokens to an existing user.
  * 4. `findLinkedUser` — look up which user owns a provider account.
  *
- * All state operations use the `kavach_oauth_states` table; all account links
- * use the `kavach_oauth_accounts` table — both defined in `./schema.ts`.
+ * All state operations use the `theauth_oauth_states` table; all account links
+ * use the `theauth_oauth_accounts` table — both defined in `./schema.ts`.
  */
 
 import { and, eq, lt } from "drizzle-orm";
@@ -196,7 +196,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			};
 		}
 
-		// New link — we do NOT create the kavach_users row here.  That is the
+		// New link — we do NOT create the theauth_users row here.  That is the
 		// caller's responsibility because they may want to look up an existing
 		// user by email, collect extra profile fields, enforce tenant rules, etc.
 		const accountId = generateId();
@@ -205,7 +205,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		await db.insert(oauthAccounts).values({
 			id: accountId,
 			// userId will be set by the caller via linkAccount once they know the
-			// kavach user ID.  We use a placeholder that foreign-key-checks will
+			// theauth user ID.  We use a placeholder that foreign-key-checks will
 			// reject on real databases — callers MUST call linkAccount.
 			userId: "__pending__",
 			provider: providerId,
@@ -312,7 +312,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	 * Delete all expired state entries.
 	 *
 	 * Call this periodically (e.g. from a cron job) to prevent unbounded
-	 * growth of the `kavach_oauth_states` table.
+	 * growth of the `theauth_oauth_states` table.
 	 */
 	async function pruneExpiredStates(): Promise<number> {
 		const now = new Date();

@@ -13,11 +13,11 @@ tags:
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: user.id,
   name: 'code-reviewer',
   type: 'autonomous',
@@ -26,7 +26,7 @@ const agent = await kavach.agent.create({
   ],
 });
 
-const { allowed, auditId } = await kavach.authorize(agent.id, {
+const { allowed, auditId } = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
@@ -70,9 +70,9 @@ const { allowed, auditId } = await kavach.authorize(agent.id, {
 ```mermaid
 flowchart LR
   User([Human user]) -->|signs in| HumanAuth[Clerk / Auth.js / better-auth]
-  HumanAuth -->|user ID| Kavach[TheAuth]
-  Kavach -->|agent.create| Agents[(Agents)]
-  Kavach -->|authorize| Decision{allowed?}
+  HumanAuth -->|user ID| TheAuth[TheAuth]
+  TheAuth -->|agent.create| Agents[(Agents)]
+  TheAuth -->|authorize| Decision{allowed?}
   Decision -->|yes| Tools[MCP servers, APIs, databases]
   Decision -.->|logged either way| Audit[(Audit trail)]
 ```
@@ -85,8 +85,8 @@ flowchart LR
 | Framework | Package | Mount pattern |
 |---|---|---|
 | [Next.js](guides/frameworks/nextjs.md) | `@glinr/theauth-nextjs` | catch-all App Router route |
-| [Hono](guides/frameworks/hono.md) | `@glinr/theauth-hono` | `app.route('/api/kavach', ...)` |
-| [Express](guides/frameworks/express.md) | `@glinr/theauth-express` | `app.use('/api/kavach', ...)` |
+| [Hono](guides/frameworks/hono.md) | `@glinr/theauth-hono` | `app.route('/api/theauth', ...)` |
+| [Express](guides/frameworks/express.md) | `@glinr/theauth-express` | `app.use('/api/theauth', ...)` |
 | [Fastify](guides/frameworks/fastify.md) | `@glinr/theauth-fastify` | plugin registration |
 | [NestJS](guides/frameworks/nestjs.md) | `@glinr/theauth-nestjs` | guards and decorators |
 | [Nuxt](guides/frameworks/nuxt.md) | `@glinr/theauth-nuxt` | catch-all server route |

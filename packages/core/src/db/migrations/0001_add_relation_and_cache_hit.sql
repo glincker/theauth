@@ -8,6 +8,6 @@
 --
 -- Both columns are additive; existing rows are unaffected.
 
-ALTER TABLE kavach_permissions ADD COLUMN relation TEXT;
+ALTER TABLE theauth_permissions ADD COLUMN relation TEXT;
 
-ALTER TABLE kavach_audit_logs ADD COLUMN cache_hit BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE theauth_audit_logs ADD COLUMN cache_hit BOOLEAN NOT NULL DEFAULT FALSE;

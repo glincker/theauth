@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { AnonymousAuthConfig } from "./anonymous.js";
 import { createAnonymousAuthModule } from "./anonymous.js";
 
@@ -7,9 +7,9 @@ import { createAnonymousAuthModule } from "./anonymous.js";
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function anonymousAuth(config?: AnonymousAuthConfig): KavachPlugin {
+export function anonymousAuth(config?: AnonymousAuthConfig): TheAuthPlugin {
 	return {
-		id: "kavach-anonymous",
+		id: "theauth-anonymous",
 
 		async init(ctx): Promise<undefined> {
 			if (!ctx.sessionManager) {

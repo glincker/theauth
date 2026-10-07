@@ -13,19 +13,19 @@ icon: "/brand-icons/kakaotalk.svg"
 Go to the [Kakao Developers](https://developers.kakao.com) portal and create an application. Under **Kakao Login**, enable the feature and add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/kakao
+https://your-app.com/api/theauth/auth/oauth/callback/kakao
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

@@ -56,7 +56,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     export default function AdminPage() {
       return (
         <AuthDashboard
-          apiUrl="/api/kavach"
+          apiUrl="/api/theauth"
           theme="system"
           demo={false}
         />
@@ -77,15 +77,15 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     <Tabs>
       <Tab title="Next.js">
         ```typescript
-        // app/api/kavach/[...path]/route.ts
+        // app/api/theauth/[...path]/route.ts
         import { createTheAuth } from '@glinr/theauth';
         import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
-        const kavach = await createTheAuth({
+        const theauth = await createTheAuth({
           database: { provider: 'postgres', url: process.env.DATABASE_URL! },
         });
 
-        const handler = theAuthNextjs(kavach);
+        const handler = theAuthNextjs(theauth);
         export const GET = handler;
         export const POST = handler;
         export const DELETE = handler;
@@ -96,28 +96,28 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
         ```typescript
         import { Hono } from 'hono';
         import { createTheAuth } from '@glinr/theauth';
-        import { kavachHono } from '@glinr/theauth-hono';
+        import { theAuthHono } from '@glinr/theauth-hono';
 
-        const kavach = await createTheAuth({
-          database: { provider: 'sqlite', url: 'kavach.db' },
+        const theauth = await createTheAuth({
+          database: { provider: 'sqlite', url: 'theauth.db' },
         });
 
         const app = new Hono();
-        app.route('/api/kavach', kavachHono(kavach));
+        app.route('/api/theauth', theAuthHono(theauth));
         ```
       </Tab>
       <Tab title="Express">
         ```typescript
         import express from 'express';
         import { createTheAuth } from '@glinr/theauth';
-        import { kavachExpress } from '@glinr/theauth-express';
+        import { theAuthExpress } from '@glinr/theauth-express';
 
-        const kavach = await createTheAuth({
-          database: { provider: 'sqlite', url: 'kavach.db' },
+        const theauth = await createTheAuth({
+          database: { provider: 'sqlite', url: 'theauth.db' },
         });
 
         const app = express();
-        app.use('/api/kavach', kavachExpress(kavach));
+        app.use('/api/theauth', theAuthExpress(theauth));
         ```
       </Tab>
     </Tabs>
@@ -136,7 +136,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
       const session = await getSession();
       if (!session?.user.isAdmin) redirect('/');
 
-      return <AuthDashboard apiUrl="/api/kavach" theme="system" />;
+      return <AuthDashboard apiUrl="/api/theauth" theme="system" />;
     }
     ```
 

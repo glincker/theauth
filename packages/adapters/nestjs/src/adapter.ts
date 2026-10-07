@@ -191,16 +191,13 @@ function buildWebRequest(req: Request): globalThis.Request {
 
 export interface TheAuthNestjsOptions {
 	/** The TheAuth instance */
-	kavach: TheAuth;
+	theauth: TheAuth;
 	/** Optional MCP OAuth 2.1 module */
 	mcp?: McpAuthModule;
 }
 
 /** @deprecated Use `TheAuthNestjsOptions` instead. Will be removed in a future major version. */
 export type AuthNestjsOptions = TheAuthNestjsOptions;
-
-/** @deprecated Use `TheAuthNestjsOptions` instead. Will be removed in a future major version. */
-export type KavachNestjsOptions = TheAuthNestjsOptions;
 
 // ─── Express Router Builder ──────────────────────────────────────────────────
 
@@ -776,12 +773,12 @@ export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
  * ```typescript
  * // main.ts
  * const app = await NestFactory.create(AppModule);
- * app.use('/api/kavach', theAuthMiddleware({ kavach, mcp }));
+ * app.use('/api/theauth', theAuthMiddleware({ theauth, mcp }));
  * await app.listen(3000);
  * ```
  */
 export function theAuthMiddleware(options: TheAuthNestjsOptions) {
-	const router = buildTheAuthRouter(options.kavach, options.mcp);
+	const router = buildTheAuthRouter(options.theauth, options.mcp);
 	return (req: Request, res: Response, next: NextFunction) => {
 		router(req, res, next);
 	};
@@ -790,11 +787,5 @@ export function theAuthMiddleware(options: TheAuthNestjsOptions) {
 /** @deprecated Use `theAuthMiddleware` instead. Will be removed in a future major version. */
 export const authMiddleware = theAuthMiddleware;
 
-/** @deprecated Use `theAuthMiddleware` instead. Will be removed in a future major version. */
-export const kavachMiddleware = theAuthMiddleware;
-
 /** @deprecated Use `buildTheAuthRouter` instead. Will be removed in a future major version. */
 export const buildAuthRouter = buildTheAuthRouter;
-
-/** @deprecated Use `buildTheAuthRouter` instead. Will be removed in a future major version. */
-export const buildKavachRouter = buildTheAuthRouter;

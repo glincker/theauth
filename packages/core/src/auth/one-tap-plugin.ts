@@ -1,4 +1,4 @@
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import { createSessionManager } from "../session/session.js";
 import type { OneTapConfig } from "./one-tap.js";
 import { createOneTapModule } from "./one-tap.js";
@@ -9,15 +9,15 @@ export type { OneTapConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function oneTap(config: OneTapConfig): KavachPlugin {
+export function oneTap(config: OneTapConfig): TheAuthPlugin {
 	return {
-		id: "kavach-one-tap",
+		id: "theauth-one-tap",
 
 		async init(ctx): Promise<undefined> {
 			const sessionConfig = ctx.config.auth?.session;
 			if (!sessionConfig) {
 				throw new Error(
-					"kavach-one-tap plugin requires auth.session to be configured so that sessions can be issued on successful sign-in.",
+					"theauth-one-tap plugin requires auth.session to be configured so that sessions can be issued on successful sign-in.",
 				);
 			}
 

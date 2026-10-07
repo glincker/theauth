@@ -9,9 +9,9 @@
  */
 
 import { z } from "zod";
-import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
+import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
-export type { AuthError, KavachError, Result, TheAuthError };
+export type { AuthError, Result, TheAuthError };
 
 // ─── Protocol Constants ─────────────────────────────────────────────────────
 

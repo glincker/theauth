@@ -36,7 +36,7 @@ export function useTheAuthContext(): TheAuthContextValue {
 
 export interface TheAuthProviderProps {
 	children: ReactNode;
-	/** Base path where TheAuth is mounted. Defaults to "/api/kavach". */
+	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */
 	basePath?: string;
 	/**
 	 * External auth mode - delegates authentication to an external API.
@@ -93,7 +93,7 @@ function makeLogger(enabled: boolean) {
 
 export function TheAuthProvider({
 	children,
-	basePath = "/api/kavach",
+	basePath = "/api/theauth",
 	external,
 	debug,
 }: TheAuthProviderProps): ReactNode {
@@ -615,7 +615,7 @@ function ManagedProvider({
 	// Strip trailing slash from basePath once
 	const base = basePath.replace(/\/$/, "");
 
-	const STORAGE_KEY = "kavach_session";
+	const STORAGE_KEY = "theauth_session";
 
 	const fetchSession = useCallback(async (): Promise<void> => {
 		if (typeof window === "undefined") return;
@@ -779,29 +779,17 @@ function ManagedProvider({
 }
 
 // ─── Deprecated aliases ─────────────────────────────────────────────────────
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
 export const AuthContext = TheAuthContext;
 
-/** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
-export const KavachContext = TheAuthContext;
-
 /** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
 export const useAuthContext = useTheAuthContext;
-
-/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
-export const useKavachContext = useTheAuthContext;
 
 /** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
 export const AuthProvider = TheAuthProvider;
 
-/** @deprecated Use `TheAuthProvider` instead. Will be removed in a future major version. */
-export const KavachProvider = TheAuthProvider;
-
 /** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
 export type AuthProviderProps = TheAuthProviderProps;
-
-/** @deprecated Use `TheAuthProviderProps` instead. Will be removed in a future major version. */
-export type KavachProviderProps = TheAuthProviderProps;

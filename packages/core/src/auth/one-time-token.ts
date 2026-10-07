@@ -33,13 +33,13 @@ import { z } from "zod";
 import { randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { oneTimeTokens } from "../db/schema.js";
-import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
+import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types for callers that import from this module
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result, TheAuthError };
+export type { AuthError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types

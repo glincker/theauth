@@ -16,7 +16,7 @@ Go to your Bitbucket workspace settings: **Workspace Settings > Apps and feature
 Set the **Callback URL** to:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/bitbucket
+https://your-app.com/api/theauth/auth/oauth/callback/bitbucket
 ```
 
 Under **Permissions**, enable at minimum **Account: Read**.
@@ -31,13 +31,13 @@ After saving, expand the consumer to see the **Key** (client ID) and **Secret** 
 
 ## Configuration
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth, bitbucketProvider } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com',
   plugins: [
     oauth({

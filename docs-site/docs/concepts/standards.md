@@ -38,7 +38,7 @@ Claim emission is off by default. Flip the `emitAgenticJwtClaims` flag on your c
 ```ts
 import { createTheAuth } from "@glinr/theauth";
 
-const kavach = createTheAuth({
+const theauth = createTheAuth({
   database: { url: process.env.DATABASE_URL },
   secret: process.env.THEAUTH_SECRET,
   emitAgenticJwtClaims: true,

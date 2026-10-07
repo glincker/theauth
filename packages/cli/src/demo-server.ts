@@ -5,9 +5,9 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, join, resolve } from "node:path";
 import { env, stdout } from "node:process";
-import type { Kavach, Permission } from "@glinr/theauth";
-import { createKavach, users } from "@glinr/theauth";
-import { kavachHono } from "@glinr/theauth-hono";
+import type { Permission, TheAuth } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
+import { theAuthHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -72,9 +72,9 @@ async function patchIndexHtml(distDir: string, apiUrl: string): Promise<string> 
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
 
-async function seedDemoData(kavach: Kavach): Promise<void> {
+async function seedDemoData(theauth: TheAuth): Promise<void> {
 	// Seed a demo user
-	kavach.db
+	theauth.db
 		.insert(users)
 		.values({
 			id: "user-demo",
@@ -90,7 +90,7 @@ async function seedDemoData(kavach: Kavach): Promise<void> {
 		{ resource: "mcp:github:repos", actions: ["read", "list"] },
 		{ resource: "mcp:github:issues", actions: ["read", "list", "write"] },
 	];
-	const githubAgent = await kavach.agent.create({
+	const githubAgent = await theauth.agent.create({
 		ownerId: "user-demo",
 		name: "github-reader",
 		type: "autonomous",
@@ -102,7 +102,7 @@ async function seedDemoData(kavach: Kavach): Promise<void> {
 		{ resource: "mcp:slack:channels", actions: ["read"] },
 		{ resource: "mcp:slack:messages", actions: ["read"] },
 	];
-	const slackAgent = await kavach.agent.create({
+	const slackAgent = await theauth.agent.create({
 		ownerId: "user-demo",
 		name: "slack-bot",
 		type: "service",
@@ -111,7 +111,7 @@ async function seedDemoData(kavach: Kavach): Promise<void> {
 
 	// Agent 3: deploy-helper (delegated)
 	const deployPerms: Permission[] = [{ resource: "mcp:deploy:staging", actions: ["execute"] }];
-	const deployAgent = await kavach.agent.create({
+	const deployAgent = await theauth.agent.create({
 		ownerId: "user-demo",
 		name: "deploy-helper",
 		type: "delegated",
@@ -119,7 +119,7 @@ async function seedDemoData(kavach: Kavach): Promise<void> {
 	});
 
 	// Delegation: github-reader -> deploy-helper
-	await kavach.delegate({
+	await theauth.delegate({
 		fromAgent: githubAgent.id,
 		toAgent: deployAgent.id,
 		permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
@@ -142,7 +142,7 @@ async function seedDemoData(kavach: Kavach): Promise<void> {
 	];
 
 	for (const check of authorizeChecks) {
-		await kavach.authorize(check.agentId, {
+		await theauth.authorize(check.agentId, {
 			action: check.action,
 			resource: check.resource,
 		});
@@ -184,7 +184,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	}
 
 	// 1. Create TheAuth with in-memory SQLite
-	const kavach = await createKavach({
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -196,10 +196,10 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	});
 
 	// 2. Seed demo data
-	await seedDemoData(kavach);
+	await seedDemoData(theauth);
 
 	// 3. Build the Hono app
-	const api = kavachHono(kavach);
+	const api = theAuthHono(theauth);
 	const authRoute = createAuthRoute(dashboardSecret);
 	const app = new Hono();
 
@@ -207,9 +207,9 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 
 	// Dashboard compatibility routes (transform core shape -> dashboard expected shape)
 	app.get("/api/dashboard/stats", async (c) => {
-		const allAgents = await kavach.agent.list({});
+		const allAgents = await theauth.agent.list({});
 		const activeCount = allAgents.filter((a: { status: string }) => a.status === "active").length;
-		const auditEntries = await kavach.audit.query({ limit: 10000 });
+		const auditEntries = await theauth.audit.query({ limit: 10000 });
 		// audit.query returns an array directly from core
 		const entries = Array.isArray(auditEntries) ? auditEntries : [];
 		const now = Date.now();
@@ -222,7 +222,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 
 		let activeDelegations = 0;
 		try {
-			const delegations = await kavach.delegation.listChains("");
+			const delegations = await theauth.delegation.listChains("");
 			activeDelegations = Array.isArray(delegations) ? delegations.length : 0;
 		} catch {
 			// delegation.list may not exist or may throw
@@ -245,7 +245,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		const agentId = c.req.query("agentId");
 		const result = c.req.query("result");
 
-		const allEntries = await kavach.audit.query({
+		const allEntries = await theauth.audit.query({
 			...(agentId ? { agentId } : {}),
 			...(result ? { result: result as "allowed" | "denied" } : {}),
 			limit: 10000,
@@ -268,7 +268,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 
 	// Agents list (dashboard expects array with permissionsCount)
 	app.get("/api/agents", async (c) => {
-		const agents = await kavach.agent.list({});
+		const agents = await theauth.agent.list({});
 		return c.json(
 			agents.map((a) => ({
 				...a,
@@ -282,10 +282,10 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	// Delegations (aggregate from all agents)
 	app.get("/api/delegations", async (c) => {
 		try {
-			const agents = await kavach.agent.list({});
+			const agents = await theauth.agent.list({});
 			const allChains: Array<Record<string, unknown>> = [];
 			for (const agent of agents) {
-				const chains = await kavach.delegation.listChains(agent.id as string);
+				const chains = await theauth.delegation.listChains(agent.id as string);
 				if (Array.isArray(chains)) {
 					for (const chain of chains) {
 						allChains.push({
@@ -343,7 +343,7 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	app.get("/api/agents/:id/permissions", async (c) => {
 		const agentId = c.req.param("id");
 		try {
-			const agent = await kavach.agent.get(agentId);
+			const agent = await theauth.agent.get(agentId);
 			if (!agent) return c.json([], 200);
 			return c.json(agent.permissions ?? []);
 		} catch {

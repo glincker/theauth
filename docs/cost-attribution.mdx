@@ -17,11 +17,11 @@ Cost attribution gives you per-agent, per-tool, and per-delegation-chain cost re
 import { createTheAuth } from '@glinr/theauth';
 import { createCostAttributionModule } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const costs = createCostAttributionModule(kavach.db, {
+const costs = createCostAttributionModule(theauth.db, {
   currency: 'USD',
   retentionDays: 90,
   alertThresholds: { warn: 5.00, critical: 20.00 },
@@ -190,7 +190,7 @@ When agents delegate to sub-agents, you can attribute all costs back to the orig
 
 ```typescript
 // When the parent agent creates a delegation
-const chain = await kavach.delegate({
+const chain = await theauth.delegate({
   fromAgent: parentAgent.id,
   toAgent: childAgent.id,
   permissions: [{ resource: 'tool:summarize', actions: ['execute'] }],
@@ -220,7 +220,7 @@ Alerts fire automatically when `recordCost()` is called. There are three alert t
 | `budget_exceeded` | Monthly spend crosses the `maxTokensCostPerMonth` limit from a budget policy |
 
 ```typescript
-const costs = createCostAttributionModule(kavach.db, {
+const costs = createCostAttributionModule(theauth.db, {
   alertThresholds: {
     warn: 5.00,      // $5 in 24 hours
     critical: 20.00, // $20 in 24 hours
@@ -228,7 +228,7 @@ const costs = createCostAttributionModule(kavach.db, {
   onAlert: async (alert) => {
     if (alert.type === 'budget_exceeded') {
       // Revoke or suspend the agent
-      await kavach.agent.revoke(alert.agentId);
+      await theauth.agent.revoke(alert.agentId);
     }
 
     // Send to Slack, PagerDuty, etc.
@@ -249,7 +249,7 @@ const costs = createCostAttributionModule(kavach.db, {
 
 ## Integration with budget policies
 
-`checkBudget()` reads budget policies created via `kavach.policies` and compares them against actual spend from the cost events table. This gives you a real-time answer before authorizing an operation.
+`checkBudget()` reads budget policies created via `theauth.policies` and compares them against actual spend from the cost events table. This gives you a real-time answer before authorizing an operation.
 
 ```typescript
 const result = await costs.checkBudget(agent.id);
@@ -268,7 +268,7 @@ if (result.success) {
 To set a budget limit, create a policy with `maxTokensCostPerMonth`:
 
 ```typescript
-await kavach.policies.create({
+await theauth.policies.create({
   agentId: agent.id,
   limits: {
     maxTokensCostPerMonth: 50, // $50/month

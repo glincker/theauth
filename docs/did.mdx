@@ -30,7 +30,7 @@ TheAuth supports two W3C DID methods:
 <Tab title="did:key">
 
 ```typescript
-const { agentDid, privateKeyJwk } = await kavach.did.generateKey(agent.id);
+const { agentDid, privateKeyJwk } = await theauth.did.generateKey(agent.id);
 
 console.log(agentDid.did);
 // did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK
@@ -44,14 +44,14 @@ console.log(agentDid.did);
 Configure your domain first:
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   did: {
     web: { domain: 'auth.example.com', path: 'agents' },
   },
 });
 
-const { agentDid, privateKeyJwk } = await kavach.did.generateWeb(agent.id);
+const { agentDid, privateKeyJwk } = await theauth.did.generateWeb(agent.id);
 
 console.log(agentDid.did);
 // did:web:auth.example.com:agents:agt_abc123
@@ -77,7 +77,7 @@ An agent can sign a payload to prove it authored a request:
 
 ```typescript
 // Agent signs a payload
-const signed = await kavach.did.sign(agent.id, {
+const signed = await theauth.did.sign(agent.id, {
   action: 'deploy',
   environment: 'staging',
   timestamp: new Date().toISOString(),
@@ -90,7 +90,7 @@ console.log(signed.issuer); // did:key:z6Mk...
 A receiving service verifies the signature:
 
 ```typescript
-const result = await kavach.did.verify(signed.jws, agentDid.did);
+const result = await theauth.did.verify(signed.jws, agentDid.did);
 
 if (result.valid) {
   console.log(result.payload);  // { action: 'deploy', ... }
@@ -104,7 +104,7 @@ A presentation is a signed JWT that bundles an agent's identity with its capabil
 
 ```typescript
 // Create a presentation
-const jwt = await kavach.did.createPresentation({
+const jwt = await theauth.did.createPresentation({
   agentId: agent.id,
   did: agentDid.did,
   privateKeyJwk,
@@ -114,7 +114,7 @@ const jwt = await kavach.did.createPresentation({
 });
 
 // Verify on the receiving end
-const result = await kavach.did.verifyPresentation(jwt);
+const result = await theauth.did.verifyPresentation(jwt);
 
 if (result.valid) {
   console.log(result.agentId);      // agt_abc123
@@ -151,7 +151,7 @@ Every agent DID resolves to a W3C DID document:
 ## Retrieve a stored DID
 
 ```typescript
-const agentDid = await kavach.did.getAgentDid(agent.id);
+const agentDid = await theauth.did.getAgentDid(agent.id);
 
 if (agentDid) {
   console.log(agentDid.did);       // did:key:z6Mk...
@@ -163,10 +163,10 @@ if (agentDid) {
 
 ```typescript
 // Resolve did:key (local, no network)
-const doc = await kavach.did.resolve('did:key:z6Mk...');
+const doc = await theauth.did.resolve('did:key:z6Mk...');
 
 // Resolve did:web (fetches from HTTPS)
-const doc = await kavach.did.resolve('did:web:auth.example.com');
+const doc = await theauth.did.resolve('did:web:auth.example.com');
 ```
 
 <ParamField path="agentId" type="string">The agent this DID belongs to.</ParamField>

@@ -102,7 +102,7 @@ const NAV_ITEMS: NavItem[] = [
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
-function KavachLogo() {
+function TheAuthLogo() {
 	return (
 		<div className="flex items-center gap-2.5 px-4 py-5 border-b border-zinc-200 dark:border-zinc-800 dark:border-zinc-800">
 			<div className="w-7 h-7 rounded-lg bg-amber-600 flex items-center justify-center flex-shrink-0">
@@ -123,7 +123,7 @@ function KavachLogo() {
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
 	return (
 		<aside className="w-56 flex-shrink-0 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col h-screen sticky top-0">
-			<KavachLogo />
+			<TheAuthLogo />
 
 			<nav className="flex-1 px-3 py-4 space-y-0.5">
 				{NAV_ITEMS.map((item) => {

@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Clock, Database, Save, Zap } from "lucide-react";
 import { useState } from "react";
-import type { KavachApiClient } from "../api/client.js";
-import type { KavachSettings } from "../api/types.js";
+import type { TheAuthApiClient } from "../api/client.js";
+import type { TheAuthSettings } from "../api/types.js";
 import { Button } from "../components/button.js";
 import { FormGroup, Input, Label } from "../components/input.js";
 import { PageHeader } from "../components/layout.js";
@@ -56,8 +56,8 @@ function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
 // ─── Settings Form ────────────────────────────────────────────────────────────
 
 interface SettingsFormProps {
-	settings: KavachSettings;
-	onSave: (updates: Partial<Omit<KavachSettings, "database">>) => void;
+	settings: TheAuthSettings;
+	onSave: (updates: Partial<Omit<TheAuthSettings, "database">>) => void;
 	loading: boolean;
 }
 
@@ -208,7 +208,7 @@ function SettingsForm({ settings, onSave, loading }: SettingsFormProps) {
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
 interface SettingsPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function SettingsPage({ client }: SettingsPageProps) {
@@ -220,7 +220,7 @@ export function SettingsPage({ client }: SettingsPageProps) {
 	});
 
 	const updateMutation = useMutation({
-		mutationFn: (updates: Partial<Omit<KavachSettings, "database">>) =>
+		mutationFn: (updates: Partial<Omit<TheAuthSettings, "database">>) =>
 			client.updateSettings(updates),
 		onSuccess: (result) => {
 			if (result.success) {

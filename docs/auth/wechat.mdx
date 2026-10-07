@@ -17,18 +17,18 @@ Go to the [WeChat Open Platform](https://open.weixin.qq.com) and register a webs
 your-app.com
 ```
 
-TheAuth will handle the path `/api/kavach/auth/oauth/callback/wechat`.
+TheAuth will handle the path `/api/theauth/auth/oauth/callback/wechat`.
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

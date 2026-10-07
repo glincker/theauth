@@ -24,10 +24,10 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'sqlite',
-        url: './kavach.db',
+        url: './theauth.db',
       },
     });
     ```
@@ -35,7 +35,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     For in-memory SQLite (tests and CI), use `:memory:` as the URL:
 
     ```typescript
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'sqlite',
         url: ':memory:',
@@ -60,7 +60,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
@@ -81,7 +81,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'mysql',
         url: process.env.DATABASE_URL!,
@@ -118,22 +118,22 @@ TheAuth creates the following tables in your database:
 
 | Table | Purpose |
 |-------|---------|
-| `kavach_users` | Human user identities, synced from your auth provider |
-| `kavach_tenants` | Multi-tenant isolation |
-| `kavach_agents` | AI agent identities (the core entity) |
-| `kavach_permissions` | Per-agent resource+action permissions with constraints |
-| `kavach_delegation_chains` | Agent-to-agent delegation records |
-| `kavach_audit_logs` | Immutable log of every agent action |
-| `kavach_rate_limits` | Per-agent call-rate counters |
-| `kavach_mcp_servers` | Registered MCP servers |
-| `kavach_sessions` | TheAuth-managed human user sessions |
-| `kavach_oauth_clients` | OAuth 2.1 client registrations (RFC 7591) |
-| `kavach_oauth_access_tokens` | Issued access and refresh tokens |
-| `kavach_oauth_authorization_codes` | Short-lived PKCE authorization codes |
-| `kavach_agent_cards` | A2A capability discovery cards |
-| `kavach_approval_requests` | CIBA async approval flow records |
-| `kavach_trust_scores` | Graduated autonomy trust scores per agent |
-| `kavach_budget_policies` | Token and call budget caps per agent/user/tenant |
+| `theauth_users` | Human user identities, synced from your auth provider |
+| `theauth_tenants` | Multi-tenant isolation |
+| `theauth_agents` | AI agent identities (the core entity) |
+| `theauth_permissions` | Per-agent resource+action permissions with constraints |
+| `theauth_delegation_chains` | Agent-to-agent delegation records |
+| `theauth_audit_logs` | Immutable log of every agent action |
+| `theauth_rate_limits` | Per-agent call-rate counters |
+| `theauth_mcp_servers` | Registered MCP servers |
+| `theauth_sessions` | TheAuth-managed human user sessions |
+| `theauth_oauth_clients` | OAuth 2.1 client registrations (RFC 7591) |
+| `theauth_oauth_access_tokens` | Issued access and refresh tokens |
+| `theauth_oauth_authorization_codes` | Short-lived PKCE authorization codes |
+| `theauth_agent_cards` | A2A capability discovery cards |
+| `theauth_approval_requests` | CIBA async approval flow records |
+| `theauth_trust_scores` | Graduated autonomy trust scores per agent |
+| `theauth_budget_policies` | Token and call budget caps per agent/user/tenant |
 
 All table and column names use `snake_case`. All IDs are `text` (UUID or CUID2). Timestamps are stored as Unix seconds integers.
 
@@ -160,17 +160,17 @@ Use `:memory:` for fast, isolated tests that need no setup or teardown:
 import { createTheAuth } from '@glinr/theauth';
 import { describe, beforeEach, it } from 'vitest';
 
-let kavach: Awaited<ReturnType<typeof createTheAuth>>;
+let theauth: Awaited<ReturnType<typeof createTheAuth>>;
 
 beforeEach(async () => {
-  kavach = await createTheAuth({
+  theauth = await createTheAuth({
     database: { provider: 'sqlite', url: ':memory:' },
     agents: { enabled: true },
   });
 });
 
 it('creates an agent', async () => {
-  const agent = await kavach.agent.create({
+  const agent = await theauth.agent.create({
     ownerId: 'user_1',
     name: 'Test Agent',
     type: 'autonomous',

@@ -55,24 +55,24 @@ interface PrismaModelDelegate<T> {
 }
 
 interface PrismaClientLike {
-	kavachUser: PrismaModelDelegate<PrismaUser>;
-	kavachAgent: PrismaModelDelegate<PrismaAgent>;
-	kavachPermission: PrismaModelDelegate<PrismaPermission>;
-	kavachDelegationChain: PrismaModelDelegate<PrismaDelegationChain>;
-	kavachAuditLog: PrismaModelDelegate<PrismaAuditLog>;
-	kavachSession: PrismaModelDelegate<PrismaSession>;
-	kavachRateLimit: PrismaModelDelegate<PrismaRateLimit>;
-	kavachOAuthClient: PrismaModelDelegate<PrismaOAuthClient>;
-	kavachOAuthAccessToken: PrismaModelDelegate<PrismaOAuthAccessToken>;
-	kavachOAuthAuthorizationCode: PrismaModelDelegate<PrismaOAuthAuthorizationCode>;
-	kavachMcpServer: PrismaModelDelegate<PrismaMcpServer>;
-	kavachApiKey: PrismaModelDelegate<PrismaApiKey>;
-	kavachOrganization: PrismaModelDelegate<PrismaOrganization>;
-	kavachOrgMember: PrismaModelDelegate<PrismaOrgMember>;
-	kavachOrgInvitation: PrismaModelDelegate<PrismaOrgInvitation>;
-	kavachJwtRefreshToken: PrismaModelDelegate<PrismaJwtRefreshToken>;
-	kavachTrustScore: PrismaModelDelegate<PrismaTrustScore>;
-	kavachApprovalRequest: PrismaModelDelegate<PrismaApprovalRequest>;
+	theAuthUser: PrismaModelDelegate<PrismaUser>;
+	theAuthAgent: PrismaModelDelegate<PrismaAgent>;
+	theAuthPermission: PrismaModelDelegate<PrismaPermission>;
+	theAuthDelegationChain: PrismaModelDelegate<PrismaDelegationChain>;
+	theAuthAuditLog: PrismaModelDelegate<PrismaAuditLog>;
+	theAuthSession: PrismaModelDelegate<PrismaSession>;
+	theAuthRateLimit: PrismaModelDelegate<PrismaRateLimit>;
+	theAuthOAuthClient: PrismaModelDelegate<PrismaOAuthClient>;
+	theAuthOAuthAccessToken: PrismaModelDelegate<PrismaOAuthAccessToken>;
+	theAuthOAuthAuthorizationCode: PrismaModelDelegate<PrismaOAuthAuthorizationCode>;
+	theAuthMcpServer: PrismaModelDelegate<PrismaMcpServer>;
+	theAuthApiKey: PrismaModelDelegate<PrismaApiKey>;
+	theAuthOrganization: PrismaModelDelegate<PrismaOrganization>;
+	theAuthOrgMember: PrismaModelDelegate<PrismaOrgMember>;
+	theAuthOrgInvitation: PrismaModelDelegate<PrismaOrgInvitation>;
+	theAuthJwtRefreshToken: PrismaModelDelegate<PrismaJwtRefreshToken>;
+	theAuthTrustScore: PrismaModelDelegate<PrismaTrustScore>;
+	theAuthApprovalRequest: PrismaModelDelegate<PrismaApprovalRequest>;
 	$transaction<T>(fn: (tx: PrismaClientLike) => Promise<T>): Promise<T>;
 }
 
@@ -102,33 +102,33 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	// ── Users ──────────────────────────────────────────────────────────────────
 
 	async function findUserById(id: string): Promise<PrismaUser | null> {
-		return prisma.kavachUser.findUnique({ where: { id } });
+		return prisma.theAuthUser.findUnique({ where: { id } });
 	}
 
 	async function findUserByEmail(email: string): Promise<PrismaUser | null> {
-		return prisma.kavachUser.findUnique({ where: { email } });
+		return prisma.theAuthUser.findUnique({ where: { email } });
 	}
 
 	async function createUser(input: CreateUserInput): Promise<PrismaUser> {
-		return prisma.kavachUser.create({ data: input });
+		return prisma.theAuthUser.create({ data: input });
 	}
 
 	async function updateUser(id: string, data: Partial<CreateUserInput>): Promise<PrismaUser> {
-		return prisma.kavachUser.update({ where: { id }, data });
+		return prisma.theAuthUser.update({ where: { id }, data });
 	}
 
 	async function deleteUser(id: string): Promise<void> {
-		await prisma.kavachUser.delete({ where: { id } });
+		await prisma.theAuthUser.delete({ where: { id } });
 	}
 
 	// ── Agents ─────────────────────────────────────────────────────────────────
 
 	async function findAgentById(id: string): Promise<PrismaAgent | null> {
-		return prisma.kavachAgent.findUnique({ where: { id } });
+		return prisma.theAuthAgent.findUnique({ where: { id } });
 	}
 
 	async function findAgentByTokenHash(tokenHash: string): Promise<PrismaAgent | null> {
-		return prisma.kavachAgent.findFirst({ where: { tokenHash } });
+		return prisma.theAuthAgent.findFirst({ where: { tokenHash } });
 	}
 
 	async function listAgents(filter?: AgentFilter): Promise<PrismaAgent[]> {
@@ -137,47 +137,47 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		if (filter?.tenantId !== undefined) where.tenantId = filter.tenantId;
 		if (filter?.status !== undefined) where.status = filter.status;
 		if (filter?.type !== undefined) where.type = filter.type;
-		return prisma.kavachAgent.findMany({ where, orderBy: { createdAt: "desc" } });
+		return prisma.theAuthAgent.findMany({ where, orderBy: { createdAt: "desc" } });
 	}
 
 	async function createAgent(input: CreateAgentInput): Promise<PrismaAgent> {
-		return prisma.kavachAgent.create({ data: input });
+		return prisma.theAuthAgent.create({ data: input });
 	}
 
 	async function updateAgent(id: string, data: Partial<CreateAgentInput>): Promise<PrismaAgent> {
-		return prisma.kavachAgent.update({ where: { id }, data });
+		return prisma.theAuthAgent.update({ where: { id }, data });
 	}
 
 	async function deleteAgent(id: string): Promise<void> {
-		await prisma.kavachAgent.delete({ where: { id } });
+		await prisma.theAuthAgent.delete({ where: { id } });
 	}
 
 	// ── Permissions ────────────────────────────────────────────────────────────
 
 	async function findPermissionsByAgentId(agentId: string): Promise<PrismaPermission[]> {
-		return prisma.kavachPermission.findMany({ where: { agentId } });
+		return prisma.theAuthPermission.findMany({ where: { agentId } });
 	}
 
 	async function createPermission(input: CreatePermissionInput): Promise<PrismaPermission> {
-		return prisma.kavachPermission.create({ data: input });
+		return prisma.theAuthPermission.create({ data: input });
 	}
 
 	async function deletePermissionsByAgentId(agentId: string): Promise<void> {
-		await prisma.kavachPermission.deleteMany({ where: { agentId } });
+		await prisma.theAuthPermission.deleteMany({ where: { agentId } });
 	}
 
 	async function deletePermission(id: string): Promise<void> {
-		await prisma.kavachPermission.delete({ where: { id } });
+		await prisma.theAuthPermission.delete({ where: { id } });
 	}
 
 	// ── Delegation chains ──────────────────────────────────────────────────────
 
 	async function findDelegationChain(id: string): Promise<PrismaDelegationChain | null> {
-		return prisma.kavachDelegationChain.findUnique({ where: { id } });
+		return prisma.theAuthDelegationChain.findUnique({ where: { id } });
 	}
 
 	async function findDelegationChainsByAgent(agentId: string): Promise<PrismaDelegationChain[]> {
-		return prisma.kavachDelegationChain.findMany({
+		return prisma.theAuthDelegationChain.findMany({
 			where: { fromAgentId: agentId },
 			orderBy: { createdAt: "desc" },
 		});
@@ -186,20 +186,20 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	async function createDelegationChain(
 		input: Omit<PrismaDelegationChain, "id"> & { id: string },
 	): Promise<PrismaDelegationChain> {
-		return prisma.kavachDelegationChain.create({ data: input });
+		return prisma.theAuthDelegationChain.create({ data: input });
 	}
 
 	async function updateDelegationChain(
 		id: string,
 		data: Partial<PrismaDelegationChain>,
 	): Promise<PrismaDelegationChain> {
-		return prisma.kavachDelegationChain.update({ where: { id }, data });
+		return prisma.theAuthDelegationChain.update({ where: { id }, data });
 	}
 
 	// ── Audit logs ─────────────────────────────────────────────────────────────
 
 	async function createAuditLog(input: CreateAuditLogInput): Promise<PrismaAuditLog> {
-		return prisma.kavachAuditLog.create({ data: input });
+		return prisma.theAuthAuditLog.create({ data: input });
 	}
 
 	async function queryAuditLogs(filter: AuditLogFilter): Promise<PrismaAuditLog[]> {
@@ -215,7 +215,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 			where.timestamp = timestampFilter;
 		}
 
-		return prisma.kavachAuditLog.findMany({
+		return prisma.theAuthAuditLog.findMany({
 			where,
 			orderBy: { timestamp: "desc" },
 			take: filter.limit ?? 100,
@@ -226,19 +226,19 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	// ── Sessions ───────────────────────────────────────────────────────────────
 
 	async function findSessionById(id: string): Promise<PrismaSession | null> {
-		return prisma.kavachSession.findUnique({ where: { id } });
+		return prisma.theAuthSession.findUnique({ where: { id } });
 	}
 
 	async function createSession(input: CreateSessionInput): Promise<PrismaSession> {
-		return prisma.kavachSession.create({ data: input });
+		return prisma.theAuthSession.create({ data: input });
 	}
 
 	async function deleteSession(id: string): Promise<void> {
-		await prisma.kavachSession.delete({ where: { id } });
+		await prisma.theAuthSession.delete({ where: { id } });
 	}
 
 	async function deleteExpiredSessions(): Promise<number> {
-		const result = await prisma.kavachSession.deleteMany({
+		const result = await prisma.theAuthSession.deleteMany({
 			where: { expiresAt: { lt: new Date() } as unknown as Date },
 		});
 		return result.count;
@@ -251,7 +251,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		resource: string,
 		windowStart: Date,
 	): Promise<PrismaRateLimit | null> {
-		return prisma.kavachRateLimit.findFirst({
+		return prisma.theAuthRateLimit.findFirst({
 			where: { agentId, resource, windowStart },
 		});
 	}
@@ -269,7 +269,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 			.digest("hex")
 			.slice(0, 32);
 
-		return prisma.kavachRateLimit.upsert({
+		return prisma.theAuthRateLimit.upsert({
 			where: { id },
 			create: { id, agentId, resource, windowStart, count },
 			update: { count },
@@ -279,42 +279,42 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	// ── OAuth clients ──────────────────────────────────────────────────────────
 
 	async function findOAuthClientById(clientId: string): Promise<PrismaOAuthClient | null> {
-		return prisma.kavachOAuthClient.findFirst({ where: { clientId } });
+		return prisma.theAuthOAuthClient.findFirst({ where: { clientId } });
 	}
 
 	async function createOAuthClient(
 		input: Omit<PrismaOAuthClient, "id"> & { id: string },
 	): Promise<PrismaOAuthClient> {
-		return prisma.kavachOAuthClient.create({ data: input });
+		return prisma.theAuthOAuthClient.create({ data: input });
 	}
 
 	async function updateOAuthClient(
 		clientId: string,
 		data: Partial<PrismaOAuthClient>,
 	): Promise<PrismaOAuthClient> {
-		return prisma.kavachOAuthClient.update({ where: { clientId }, data });
+		return prisma.theAuthOAuthClient.update({ where: { clientId }, data });
 	}
 
 	// ── OAuth access tokens ────────────────────────────────────────────────────
 
 	async function findOAuthAccessToken(accessToken: string): Promise<PrismaOAuthAccessToken | null> {
-		return prisma.kavachOAuthAccessToken.findFirst({ where: { accessToken } });
+		return prisma.theAuthOAuthAccessToken.findFirst({ where: { accessToken } });
 	}
 
 	async function findOAuthRefreshToken(
 		refreshToken: string,
 	): Promise<PrismaOAuthAccessToken | null> {
-		return prisma.kavachOAuthAccessToken.findFirst({ where: { refreshToken } });
+		return prisma.theAuthOAuthAccessToken.findFirst({ where: { refreshToken } });
 	}
 
 	async function createOAuthAccessToken(
 		input: Omit<PrismaOAuthAccessToken, "id"> & { id: string },
 	): Promise<PrismaOAuthAccessToken> {
-		return prisma.kavachOAuthAccessToken.create({ data: input });
+		return prisma.theAuthOAuthAccessToken.create({ data: input });
 	}
 
 	async function revokeOAuthAccessToken(accessToken: string): Promise<void> {
-		await prisma.kavachOAuthAccessToken.deleteMany({ where: { accessToken } });
+		await prisma.theAuthOAuthAccessToken.deleteMany({ where: { accessToken } });
 	}
 
 	// ── OAuth authorization codes ──────────────────────────────────────────────
@@ -322,43 +322,43 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	async function findOAuthAuthorizationCode(
 		code: string,
 	): Promise<PrismaOAuthAuthorizationCode | null> {
-		return prisma.kavachOAuthAuthorizationCode.findFirst({ where: { code } });
+		return prisma.theAuthOAuthAuthorizationCode.findFirst({ where: { code } });
 	}
 
 	async function createOAuthAuthorizationCode(
 		input: Omit<PrismaOAuthAuthorizationCode, "id"> & { id: string },
 	): Promise<PrismaOAuthAuthorizationCode> {
-		return prisma.kavachOAuthAuthorizationCode.create({ data: input });
+		return prisma.theAuthOAuthAuthorizationCode.create({ data: input });
 	}
 
 	async function deleteOAuthAuthorizationCode(id: string): Promise<void> {
-		await prisma.kavachOAuthAuthorizationCode.delete({ where: { id } });
+		await prisma.theAuthOAuthAuthorizationCode.delete({ where: { id } });
 	}
 
 	// ── MCP servers ────────────────────────────────────────────────────────────
 
 	async function findMcpServerByEndpoint(endpoint: string): Promise<PrismaMcpServer | null> {
-		return prisma.kavachMcpServer.findFirst({ where: { endpoint } });
+		return prisma.theAuthMcpServer.findFirst({ where: { endpoint } });
 	}
 
 	async function listMcpServers(): Promise<PrismaMcpServer[]> {
-		return prisma.kavachMcpServer.findMany({ orderBy: { createdAt: "asc" } });
+		return prisma.theAuthMcpServer.findMany({ orderBy: { createdAt: "asc" } });
 	}
 
 	async function createMcpServer(
 		input: Omit<PrismaMcpServer, "id"> & { id: string },
 	): Promise<PrismaMcpServer> {
-		return prisma.kavachMcpServer.create({ data: input });
+		return prisma.theAuthMcpServer.create({ data: input });
 	}
 
 	// ── API keys ───────────────────────────────────────────────────────────────
 
 	async function findApiKeyByHash(keyHash: string): Promise<PrismaApiKey | null> {
-		return prisma.kavachApiKey.findFirst({ where: { keyHash } });
+		return prisma.theAuthApiKey.findFirst({ where: { keyHash } });
 	}
 
 	async function listApiKeysByUser(userId: string): Promise<PrismaApiKey[]> {
-		return prisma.kavachApiKey.findMany({
+		return prisma.theAuthApiKey.findMany({
 			where: { userId },
 			orderBy: { createdAt: "desc" },
 		});
@@ -367,45 +367,45 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	async function createApiKey(
 		input: Omit<PrismaApiKey, "id"> & { id: string },
 	): Promise<PrismaApiKey> {
-		return prisma.kavachApiKey.create({ data: input });
+		return prisma.theAuthApiKey.create({ data: input });
 	}
 
 	async function updateApiKeyLastUsed(id: string, lastUsedAt: Date): Promise<void> {
-		await prisma.kavachApiKey.update({ where: { id }, data: { lastUsedAt } });
+		await prisma.theAuthApiKey.update({ where: { id }, data: { lastUsedAt } });
 	}
 
 	async function deleteApiKey(id: string): Promise<void> {
-		await prisma.kavachApiKey.delete({ where: { id } });
+		await prisma.theAuthApiKey.delete({ where: { id } });
 	}
 
 	// ── Organizations ──────────────────────────────────────────────────────────
 
 	async function findOrgById(id: string): Promise<PrismaOrganization | null> {
-		return prisma.kavachOrganization.findUnique({ where: { id } });
+		return prisma.theAuthOrganization.findUnique({ where: { id } });
 	}
 
 	async function findOrgBySlug(slug: string): Promise<PrismaOrganization | null> {
-		return prisma.kavachOrganization.findFirst({ where: { slug } });
+		return prisma.theAuthOrganization.findFirst({ where: { slug } });
 	}
 
 	async function createOrg(
 		input: Omit<PrismaOrganization, "id"> & { id: string },
 	): Promise<PrismaOrganization> {
-		return prisma.kavachOrganization.create({ data: input });
+		return prisma.theAuthOrganization.create({ data: input });
 	}
 
 	async function deleteOrg(id: string): Promise<void> {
-		await prisma.kavachOrganization.delete({ where: { id } });
+		await prisma.theAuthOrganization.delete({ where: { id } });
 	}
 
 	// ── Org members ────────────────────────────────────────────────────────────
 
 	async function findOrgMember(orgId: string, userId: string): Promise<PrismaOrgMember | null> {
-		return prisma.kavachOrgMember.findFirst({ where: { orgId, userId } });
+		return prisma.theAuthOrgMember.findFirst({ where: { orgId, userId } });
 	}
 
 	async function listOrgMembers(orgId: string): Promise<PrismaOrgMember[]> {
-		return prisma.kavachOrgMember.findMany({
+		return prisma.theAuthOrgMember.findMany({
 			where: { orgId },
 			orderBy: { joinedAt: "asc" },
 		});
@@ -414,56 +414,56 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	async function createOrgMember(
 		input: Omit<PrismaOrgMember, "id"> & { id: string },
 	): Promise<PrismaOrgMember> {
-		return prisma.kavachOrgMember.create({ data: input });
+		return prisma.theAuthOrgMember.create({ data: input });
 	}
 
 	async function deleteOrgMember(orgId: string, userId: string): Promise<void> {
-		await prisma.kavachOrgMember.deleteMany({ where: { orgId, userId } });
+		await prisma.theAuthOrgMember.deleteMany({ where: { orgId, userId } });
 	}
 
 	// ── Org invitations ────────────────────────────────────────────────────────
 
 	async function findOrgInvitation(id: string): Promise<PrismaOrgInvitation | null> {
-		return prisma.kavachOrgInvitation.findUnique({ where: { id } });
+		return prisma.theAuthOrgInvitation.findUnique({ where: { id } });
 	}
 
 	async function createOrgInvitation(
 		input: Omit<PrismaOrgInvitation, "id"> & { id: string },
 	): Promise<PrismaOrgInvitation> {
-		return prisma.kavachOrgInvitation.create({ data: input });
+		return prisma.theAuthOrgInvitation.create({ data: input });
 	}
 
 	async function updateOrgInvitation(
 		id: string,
 		data: Partial<PrismaOrgInvitation>,
 	): Promise<PrismaOrgInvitation> {
-		return prisma.kavachOrgInvitation.update({ where: { id }, data });
+		return prisma.theAuthOrgInvitation.update({ where: { id }, data });
 	}
 
 	// ── JWT refresh tokens ─────────────────────────────────────────────────────
 
 	async function findJwtRefreshToken(tokenHash: string): Promise<PrismaJwtRefreshToken | null> {
-		return prisma.kavachJwtRefreshToken.findFirst({ where: { tokenHash } });
+		return prisma.theAuthJwtRefreshToken.findFirst({ where: { tokenHash } });
 	}
 
 	async function createJwtRefreshToken(
 		input: Omit<PrismaJwtRefreshToken, "id"> & { id: string },
 	): Promise<PrismaJwtRefreshToken> {
-		return prisma.kavachJwtRefreshToken.create({ data: input });
+		return prisma.theAuthJwtRefreshToken.create({ data: input });
 	}
 
 	async function markJwtRefreshTokenUsed(id: string): Promise<void> {
-		await prisma.kavachJwtRefreshToken.update({ where: { id }, data: { used: true } });
+		await prisma.theAuthJwtRefreshToken.update({ where: { id }, data: { used: true } });
 	}
 
 	// ── Trust scores ───────────────────────────────────────────────────────────
 
 	async function findTrustScore(agentId: string): Promise<PrismaTrustScore | null> {
-		return prisma.kavachTrustScore.findUnique({ where: { agentId } });
+		return prisma.theAuthTrustScore.findUnique({ where: { agentId } });
 	}
 
 	async function upsertTrustScore(data: PrismaTrustScore): Promise<PrismaTrustScore> {
-		return prisma.kavachTrustScore.upsert({
+		return prisma.theAuthTrustScore.upsert({
 			where: { agentId: data.agentId },
 			create: data,
 			update: {
@@ -478,11 +478,11 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	// ── Approval requests ──────────────────────────────────────────────────────
 
 	async function findApprovalRequest(id: string): Promise<PrismaApprovalRequest | null> {
-		return prisma.kavachApprovalRequest.findUnique({ where: { id } });
+		return prisma.theAuthApprovalRequest.findUnique({ where: { id } });
 	}
 
 	async function listPendingApprovals(agentId: string): Promise<PrismaApprovalRequest[]> {
-		return prisma.kavachApprovalRequest.findMany({
+		return prisma.theAuthApprovalRequest.findMany({
 			where: { agentId, status: "pending" },
 			orderBy: { createdAt: "asc" },
 		});
@@ -491,14 +491,14 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 	async function createApprovalRequest(
 		input: Omit<PrismaApprovalRequest, "id"> & { id: string },
 	): Promise<PrismaApprovalRequest> {
-		return prisma.kavachApprovalRequest.create({ data: input });
+		return prisma.theAuthApprovalRequest.create({ data: input });
 	}
 
 	async function updateApprovalRequest(
 		id: string,
 		data: Partial<PrismaApprovalRequest>,
 	): Promise<PrismaApprovalRequest> {
-		return prisma.kavachApprovalRequest.update({ where: { id }, data });
+		return prisma.theAuthApprovalRequest.update({ where: { id }, data });
 	}
 
 	// ── Transactions ───────────────────────────────────────────────────────────

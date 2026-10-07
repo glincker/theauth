@@ -45,7 +45,7 @@ export interface AuthAdapter {
 
 	/**
 	 * Persist / update user data from the auth provider into the TheAuth
-	 * `kavach_users` table.
+	 * `theauth_users` table.
 	 *
 	 * Called after a successful `resolveUser` when user data should be kept in
 	 * sync with an external provider.

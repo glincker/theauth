@@ -64,7 +64,7 @@ export interface TheAuthClient {
  * pass the returned object to whatever components need it.
  */
 export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClient {
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	const session = writable<TheAuthSession | null>(null);
 	const isLoading = writable(true);
@@ -72,7 +72,7 @@ export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClie
 	const user = derived(session, ($session) => $session?.user ?? null);
 	const isAuthenticated = derived(session, ($session) => $session !== null);
 
-	const STORAGE_KEY = "kavach_session";
+	const STORAGE_KEY = "theauth_session";
 
 	async function fetchSession(): Promise<void> {
 		isLoading.set(true);
@@ -206,7 +206,7 @@ export interface AgentStore {
  * whenever a user is present. Otherwise call `load(userId)` manually.
  */
 export function createAgentStore(options?: AgentStoreOptions): AgentStore {
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	const agents = writable<TheAuthAgent[]>([]);
 	const isLoading = writable(false);
@@ -334,23 +334,14 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 	};
 }
 
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
 export type AuthClientOptions = TheAuthClientOptions;
 
-/** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
-export type KavachClientOptions = TheAuthClientOptions;
-
 /** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
 export type AuthClient = TheAuthClient;
 
-/** @deprecated Use `TheAuthClient` instead. Will be removed in a future major version. */
-export type KavachClient = TheAuthClient;
-
 /** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
 export const createAuthClient = createTheAuthClient;
-
-/** @deprecated Use `createTheAuthClient` instead. Will be removed in a future major version. */
-export const createKavachClient = createTheAuthClient;
