@@ -1,0 +1,65 @@
+name: release-discussion
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to (re)sync into the monthly release discussion
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          TAG="${INPUT_TAG:-$RUN_TAG}"
+          case "$TAG" in
+            v[0-9]*) echo "tag=$TAG" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Not a release tag: $TAG" ;;
+          esac
+
+  sync:
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
+    permissions:
+      contents: read
+      discussions: write
+    uses: ./.github/workflows/release-discussion.yml
+    with:
+      repo_key: theauth
+      repo_title: theauth (TypeScript SDK)
+      tag: ${{ needs.resolve.outputs.tag }}
+      release_url: https://github.com/${{ github.repository }}/releases/tag/${{ needs.resolve.outputs.tag }}
+    secrets:
+      DISCUSSIONS_TOKEN: ${{ secrets.DISCUSSIONS_TOKEN }}
+
+  link:
+    needs: [resolve, sync]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+    steps:
+      - name: Link the discussion from the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          URL: ${{ needs.sync.outputs.discussion_url }}
+        run: |
+          BODY=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body)
+          if grep -qF "$URL" <<<"$BODY"; then exit 0; fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "$BODY"$'\n\n'"Discussion: $URL"

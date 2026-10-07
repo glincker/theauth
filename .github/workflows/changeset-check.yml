@@ -1,0 +1,35 @@
+name: changeset-check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changeset:
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      !startsWith(github.head_ref, 'changeset-release/') &&
+      !contains(github.event.pull_request.labels.*.name, 'no-changeset')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Require a changeset for package source changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD")
+          if ! echo "$CHANGED" | grep -qE '^packages/.+/src/'; then
+            echo "No package source changes, no changeset needed."; exit 0
+          fi
+          if echo "$CHANGED" | grep -qE '^\.changeset/.+\.md$'; then
+            echo "Changeset found."; exit 0
+          fi
+          echo "::error::Package source changed but no changeset was added. Run 'pnpm changeset', or add the 'no-changeset' label if none is needed."
+          exit 1

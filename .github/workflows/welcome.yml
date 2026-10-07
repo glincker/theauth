@@ -1,0 +1,28 @@
+name: welcome
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: >
+            Thanks for opening your first issue. A maintainer will triage it
+            soon. For quick questions you can also ask in the GLINR Discord
+            (https://discord.gg/Ar5pcaZB99) or in Discussions.
+          pr_message: >
+            Thanks for your first pull request. CI will run shortly. If the
+            change touches package source, please add a changeset with
+            `pnpm changeset`.
