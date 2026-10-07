@@ -72,15 +72,34 @@ Groups are mapped to theAuth organizations.
 | PATCH | `/scim/v2/Groups/:id` | Update group membership |
 | DELETE | `/scim/v2/Groups/:id` | Remove a group |
 
-## Filtering
+## Filtering and sorting
 
-The Users and Groups list endpoints accept a SCIM `filter` query parameter. The most common one is `userName`:
+The Users and Groups list endpoints accept the full RFC 7644 filter grammar through the `filter` query parameter:
 
 ```
 GET /scim/v2/Users?filter=userName eq "john@example.com"
+GET /scim/v2/Users?filter=emails[type eq "work" and value ew "@acme.com"]
 ```
 
-Supported filter operators: `eq`, `co` (contains), `sw` (starts with), and `pr` (present, no value). Combine clauses with `and`. `ne` and `or` are not supported.
+Supported operators are `eq`, `ne`, `co`, `sw`, `ew`, `gt`, `ge`, `lt`, `le` and `pr`, combined with `and`, `or`, `not` and parentheses, plus value path selectors. A filter that does not parse returns `400 invalidFilter`. See the [filter reference](/auth/scim-filter-reference) for the grammar.
+
+List endpoints also accept `sortBy` and `sortOrder`, with `id` as the tie break, along with `startIndex` and `count` for pagination.
+
+## PATCH
+
+PATCH supports path expressions with value filters, such as `emails[type eq "work"].value`, and rejects changes to immutable attributes with `400 mutability`. A single request is capped at 1000 operations. See the [PATCH reference](/auth/scim-patch-reference).
+
+## Me and Bulk
+
+`GET /scim/v2/Me` is opt in. Pass a `resolveSelf` callback to map the authenticated caller to a SCIM user, otherwise the endpoint returns `501`. `POST /scim/v2/Bulk` returns a spec compliant `501`, and `ServiceProviderConfig` advertises bulk as unsupported.
+
+## Enterprise User extension
+
+User resources accept and return the RFC 7643 Enterprise User extension (`employeeNumber`, `department`, `manager` and the rest). It is advertised in `/Schemas`.
+
+## Audit
+
+Pass `audit: { agentId }` to record an audit log row for every successful provisioning write (POST, PUT, PATCH and DELETE). The agent must already exist. Audit writes are best effort, so a failed audit insert never fails the SCIM call.
 
 ## Discovery endpoints
 
@@ -88,7 +107,7 @@ SCIM clients use these to learn what your server supports:
 
 | Path | Description |
 |------|-------------|
-| `/scim/v2/ServiceProviderConfig` | Supported features and auth schemes (PATCH and filter supported, bulk not supported) |
+| `/scim/v2/ServiceProviderConfig` | Supported features and auth schemes (PATCH, filter and sort supported, bulk not supported) |
 | `/scim/v2/Schemas` | User and Group schema definitions |
 | `/scim/v2/ResourceTypes` | Registered resource type metadata |
 

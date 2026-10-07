@@ -138,15 +138,15 @@ Rate limiting (per-agent and per-IP) &middot; HIBP breach checking &middot; CSRF
 
 ## SCIM 2.0 compatibility
 
-Full RFC 7644 protocol and RFC 7643 core schema, with a working demo against Okta. See [`examples/scim-okta`](../../examples/scim-okta) and the [SCIM guide](https://docs.kavachos.com/docs/scim).
+Full RFC 7644 protocol and RFC 7643 core schema, with a working demo against Okta. See [`examples/scim-okta`](../../examples/scim-okta) and the [SCIM guide](https://docs.theauth.dev/auth/scim).
 
 | Area | Status | Notes |
 |---|---|---|
 | Discovery (`/ServiceProviderConfig`, `/Schemas`, `/ResourceTypes`) | ✓ | Enterprise User extension advertised in `/Schemas` |
 | `/Users` CRUD | ✓ | POST, GET, PUT, PATCH, DELETE |
-| `/Groups` CRUD | ✓ | Backed by `kavach_organizations` + `kavach_org_members` |
+| `/Groups` CRUD | ✓ | Backed by `theauth_organizations` + `theauth_org_members` |
 | `/Me` | ✓ | Opt-in via `resolveSelf` callback |
-| `/Bulk` | 501 | Deliberate — advertised as `supported: false` |
+| `/Bulk` | 501 | Deliberate, advertised as `supported: false` |
 | Filter grammar (§3.4.2.2) | ✓ | eq, ne, co, sw, ew, gt, ge, lt, le, pr, and, or, not, parens, value-path |
 | PATCH path expressions (§3.5.2) | ✓ | Includes `emails[type eq "work"].value`, op cap of 1000, immutable checks |
 | Sort (§3.4.2.3) | ✓ | `sortBy` + `sortOrder` with `id` tie-break |
@@ -154,7 +154,7 @@ Full RFC 7644 protocol and RFC 7643 core schema, with a working demo against Okt
 | Enterprise User extension (RFC 7643 §4.3) | ✓ | `employeeNumber`, `department`, `manager`, etc. |
 | Audit log on every write | ✓ | `auditLogs` row per POST/PUT/PATCH/DELETE |
 | Bearer token auth | ✓ | Only supported scheme |
-| ETag / conditional requests | — | Not implemented |
+| ETag / conditional requests | No | Not implemented |
 | Groups PATCH with value-filter member ops | Partial | Routes through legacy handler |
 
 Tested against Okta's SCIM test suite categories: discovery, Users CRUD, Groups CRUD, filter (all listed ops), PATCH simple paths, PATCH value-paths, Enterprise User, pagination, sort. Outstanding gaps are the two rows above.

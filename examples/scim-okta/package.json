@@ -1,5 +1,5 @@
 {
-  "name": "@kavachos/example-scim-okta",
+  "name": "@glinr/theauth-example-scim-okta",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,15 +7,15 @@
     "dev": "tsx watch src/server.ts"
   },
   "dependencies": {
-    "kavachos": "workspace:*",
-    "@kavachos/hono": "workspace:*",
-    "hono": "^4.0.0",
+    "@glinr/theauth": "workspace:*",
+    "@glinr/theauth-hono": "workspace:*",
+    "hono": "^4.12.27",
     "@hono/node-server": "^1.13.0",
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {
     "tsx": "^4.19.2",
-    "typescript": "^5.8.0",
+    "typescript": "^6.0.3",
     "@types/better-sqlite3": "^7.6.13"
   }
 }
