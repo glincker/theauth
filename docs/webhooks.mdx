@@ -1,74 +1,88 @@
 ---
 title: Webhooks
-description: Push HMAC-signed HTTP POST payloads to external URLs on auth events via createWebhookModule. Subscribe each endpoint to specific event types or all events.
+description: Push HMAC-signed HTTP POST payloads to external URLs for the events you emit. Configure endpoints with the `webhooks` option of createTheAuth.
 icon: globe
 ---
 
 
 ## What webhooks do
 
-Webhooks push signed HTTP POST requests to a URL you control whenever a TheAuth auth event occurs. Use them to sync user records, trigger onboarding flows, alert on suspicious logins, or feed events into your analytics pipeline.
+Webhooks push signed HTTP POST requests to a URL you control. Use them to sync user records, trigger onboarding flows, alert on suspicious logins, or feed events into your analytics pipeline.
+
+<Warning>
+  Webhooks are a delivery mechanism, not an event source. The TheAuth core does not call `emit` for you when a user signs up or an agent is created. Your code (or a lifecycle hook) calls `theauth.webhooks?.emit(event, payload)` at the points where you want a delivery to happen.
+</Warning>
 
 ## Setup
 
+Pass an array of endpoints as `webhooks` to `createTheAuth`. Each endpoint has its own URL, secret, and event list. The instance then exposes `theauth.webhooks` (`null` when no endpoints were configured).
+
 ```typescript
-import { createTheAuth, createWebhookModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
-  plugins: [
-    createWebhookModule({
-      secret: process.env.THEAUTH_WEBHOOK_SECRET,
-      endpoints: [
-        {
-          url: 'https://myapp.com/webhooks/theauth',
-          events: ['user.created', 'auth.login', 'agent.created'],
-        },
-      ],
-    }),
+  webhooks: [
+    {
+      url: 'https://myapp.com/webhooks/theauth',
+      secret: process.env.THEAUTH_WEBHOOK_SECRET!,
+      events: ['user.created', 'agent.created'],
+    },
   ],
 });
+
+// Emit from anywhere in your app. Delivery is fire-and-forget.
+theauth.webhooks?.emit('user.created', { userId: 'user_123' });
 ```
 
 <Warning>
   Store the webhook secret in an environment variable, not in source code. TheAuth uses it to sign every request with HMAC-SHA256.
 </Warning>
 
-## Subscribing to events
+### Endpoint options
 
-Each endpoint subscribes to one or more event types. Use `'*'` to receive all events.
+<ParamField path="url" type="string">Destination URL for the POST request.</ParamField>
+<ParamField path="secret" type="string">Signing secret used for the HMAC-SHA256 signature.</ParamField>
+<ParamField path="events" type="WebhookEvent[]">Event types this endpoint receives. There is no `'*'` wildcard: list every event you want.</ParamField>
+<ParamField path="retries" type="number">Retry attempts after the first failed delivery. Defaults to 3.</ParamField>
+<ParamField path="timeout" type="number">Per-request timeout in milliseconds. Defaults to 10000.</ParamField>
 
-```typescript
-createWebhookModule({
-  secret: process.env.THEAUTH_WEBHOOK_SECRET,
-  endpoints: [
-    {
-      url: 'https://myapp.com/webhooks/all',
-      events: ['*'],
-    },
-    {
-      url: 'https://myapp.com/webhooks/agents',
-      events: ['agent.created', 'agent.revoked'],
-    },
-  ],
-});
-```
+You can add endpoints at runtime with `theauth.webhooks?.addEndpoint({ ... })` and read them back with `listEndpoints()`.
 
 ## Event reference
 
-| Event | Fired when |
+These are the event names accepted by `emit` and by an endpoint's `events` list:
+
+| Event | Intended meaning |
 |-------|-----------|
 | `user.created` | A new human user registers |
+| `user.updated` | A user account changes |
 | `user.deleted` | A user account is deleted |
-| `auth.login` | A successful login occurs |
-| `auth.logout` | A session is terminated |
-| `auth.failed` | A login attempt fails |
+| `session.created` | A session is created |
+| `session.revoked` | A session is revoked |
 | `agent.created` | A new agent identity is created |
 | `agent.revoked` | An agent is revoked |
-| `delegation.granted` | An agent receives a delegation grant |
-| `delegation.revoked` | A delegation grant is removed |
-| `approval.requested` | A human approval request is opened |
-| `approval.resolved` | An approval request is approved or denied |
+| `agent.rotated` | An agent token is rotated |
+| `auth.sign-in` | A user signs in |
+| `auth.sign-up` | A user signs up |
+| `auth.password-reset` | A password is reset |
+| `auth.email-verified` | An email address is verified |
+
+The meaning column describes what you would emit the event for. The library does not emit these automatically. Delegation and approval events are not part of this list.
+
+## Payload
+
+The request body is JSON:
+
+```json
+{
+  "event": "user.created",
+  "timestamp": "1767225600",
+  "data": { "userId": "user_123" }
+}
+```
+
+`timestamp` is Unix time in seconds, as a string, and `data` is the payload you passed to `emit`.
 
 ## Request headers
 
@@ -76,29 +90,37 @@ Every webhook delivery includes these headers:
 
 | Header | Value |
 |--------|-------|
-| `X-TheAuth-Signature` | `sha256=<hmac>`. HMAC-SHA256 of the raw body |
+| `X-TheAuth-Signature` | `sha256=<hex>`, the HMAC-SHA256 of `<timestamp>.<raw body>` using your secret |
 | `X-TheAuth-Event` | Event type, e.g. `user.created` |
-| `X-TheAuth-Delivery` | Unique UUID for this delivery attempt |
-| `X-TheAuth-Timestamp` | Unix timestamp (seconds) of delivery |
+| `X-TheAuth-Timestamp` | Unix timestamp (seconds) of delivery, the same value as `timestamp` in the body |
 
 ## Verifying signatures
 
-Always verify the signature before trusting the payload.
+The signature covers the timestamp and the raw body joined by a dot, not the body alone. Always verify it before trusting the payload, and reject old timestamps to limit replays.
 
 <Tabs>
   <Tab title="Node">
 ```typescript
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-function verifyWebhook(rawBody: Buffer, signature: string, secret: string): boolean {
-  const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex');
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+function verifyWebhook(
+  rawBody: Buffer,
+  timestamp: string,
+  signature: string,
+  secret: string,
+): boolean {
+  const expected =
+    'sha256=' + createHmac('sha256', secret).update(`${timestamp}.${rawBody.toString('utf8')}`).digest('hex');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 // Express handler
 app.post('/webhooks/theauth', express.raw({ type: 'application/json' }), (req, res) => {
   const sig = req.headers['x-theauth-signature'] as string;
-  if (!verifyWebhook(req.body, sig, process.env.THEAUTH_WEBHOOK_SECRET!)) {
+  const ts = req.headers['x-theauth-timestamp'] as string;
+  if (!verifyWebhook(req.body, ts, sig, process.env.THEAUTH_WEBHOOK_SECRET!)) {
     return res.status(401).send('Invalid signature');
   }
   const event = JSON.parse(req.body.toString());
@@ -109,7 +131,12 @@ app.post('/webhooks/theauth', express.raw({ type: 'application/json' }), (req, r
   </Tab>
   <Tab title="Edge (Web Crypto)">
 ```typescript
-async function verifyWebhook(rawBody: string, signature: string, secret: string): Promise<boolean> {
+async function verifyWebhook(
+  rawBody: string,
+  timestamp: string,
+  signature: string,
+  secret: string,
+): Promise<boolean> {
   const key = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(secret),
@@ -117,7 +144,7 @@ async function verifyWebhook(rawBody: string, signature: string, secret: string)
     false,
     ['sign'],
   );
-  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${timestamp}.${rawBody}`));
   const expected = 'sha256=' + Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, '0')).join('');
   return expected === signature;
 }
@@ -127,25 +154,29 @@ async function verifyWebhook(rawBody: string, signature: string, secret: string)
 
 ## Retry behavior
 
-If your endpoint returns a non-2xx status or times out, TheAuth retries the delivery three times with exponential backoff:
+If your endpoint returns a non-2xx status, errors, or times out, TheAuth retries up to `retries` times (default 3) after the first attempt, with exponential backoff:
 
-| Attempt | Delay |
+| Retry | Delay before it |
 |---------|-------|
-| 1 | 30 seconds |
-| 2 | 5 minutes |
-| 3 | 30 minutes |
+| 1 | 1 second |
+| 2 | 2 seconds |
+| 3 | 4 seconds |
 
-After three failures the delivery is marked `failed` and no further retries occur.
+After the last retry the delivery is dropped silently. There is no persisted delivery record, no `failed` state, and no replay: retries run in memory in the same process, so a restart loses pending retries.
 
-## Testing a webhook URL
+## Standalone subscription module
 
-Use the `theauth.webhooks.test()` method to send a synthetic `ping` event to any registered endpoint:
+`@glinr/theauth` also exports a separate `createWebhookModule({ secret, maxRetries?, timeoutMs? })` with runtime subscriptions kept in memory: `subscribe(url, events)`, `unsubscribe(id)`, `list()`, `dispatch(event, payload)`, and `test(subscriptionId)`. It is independent of `theauth.webhooks`, signs the raw body only (`X-TheAuth-Signature: sha256=<hex>` of the body, plus `X-TheAuth-Delivery` and an ISO `X-TheAuth-Timestamp`), tries up to `maxRetries` attempts in total, and accepts a different event list that includes `delegation.created`, `delegation.revoked`, `auth.login`, `auth.logout`, `auth.failed`, and `org.*` events. Verify its deliveries with the exported `verifyWebhookSignature(secret, rawBody, signature)`. Subscriptions are lost on restart.
 
 ```typescript
-await theauth.webhooks.test('https://myapp.com/webhooks/theauth');
-```
+import { createWebhookModule } from '@glinr/theauth';
 
-The test delivery sends `{ event: 'ping', timestamp: '...' }` and respects the same signing and retry logic as real events.
+const webhooks = createWebhookModule({ secret: process.env.THEAUTH_WEBHOOK_SECRET! });
+const sub = await webhooks.subscribe('https://myapp.com/webhooks/theauth', ['agent.created']);
+
+webhooks.dispatch('agent.created', { agentId: 'agt_123' });
+const ping = await webhooks.test(sub.id); // { success, statusCode?, error? }
+```
 
 ## Next steps
 

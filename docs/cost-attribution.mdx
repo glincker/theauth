@@ -9,7 +9,7 @@ icon: chart-column
 
 When agents make LLM calls, every token has a price. In multi-agent systems where one agent can spawn or delegate to others, costs accumulate across multiple providers and chains. Without proper attribution you cannot answer basic questions: which agent is responsible for a $200 spike? Which tool is burning the most budget? Did the delegation chain for last night's job exceed its allocation?
 
-Cost attribution gives you per-agent, per-tool, and per-delegation-chain cost records. It integrates with budget policies so you can fire alerts before spend becomes a problem, not after.
+Cost attribution gives you per-agent, per-tool, and per-delegation-chain cost records. Alert callbacks and a budget check read the same cost records, so you can react to spend as it is recorded. The module reports and alerts; it does not block anything by itself.
 
 ## Setup
 
@@ -21,6 +21,7 @@ const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
+// Standalone module: it is not attached to the theauth instance
 const costs = createCostAttributionModule(theauth.db, {
   currency: 'USD',
   retentionDays: 90,
@@ -33,9 +34,9 @@ const costs = createCostAttributionModule(theauth.db, {
 
 ### Configuration options
 
-<ParamField path="currency" type="string" default="'USD'">ISO 4217 currency code for cost records.</ParamField>
-<ParamField path="alertThresholds" type="{ warn: number; critical: number }" default="undefined (no threshold alerts)">Dollar amounts for 24-hour rolling spend that trigger alerts.</ParamField>
-<ParamField path="onAlert" type={`(alert: CostAlert) => void | Promise<void>`} default="undefined">Called when a threshold is crossed or a budget policy is exceeded.</ParamField>
+<ParamField path="currency" type="string" default="'USD'">Currency code stored on each cost record. It is a label only, no conversion happens, and the input field is still named `costUsd`.</ParamField>
+<ParamField path="alertThresholds" type="{ warn: number; critical: number }" default="undefined (no threshold alerts)">Amounts for 24-hour rolling spend that trigger alerts. Only used when `onAlert` is also set.</ParamField>
+<ParamField path="onAlert" type={`(alert: CostAlert) => void | Promise<void>`} default="undefined">Called from `recordCost()` when 24-hour spend is at or above a threshold, or when monthly spend has reached a budget policy limit.</ParamField>
 <ParamField path="retentionDays" type="number" default="90">How many days of cost events to keep. Older rows are deleted on cleanup().</ParamField>
 
 ## Recording costs
@@ -186,7 +187,7 @@ if (result.success) {
 
 ### Delegation chain report
 
-When agents delegate to sub-agents, you can attribute all costs back to the originating chain by passing `delegationChainId` in `recordCost()`:
+`getDelegationChainCost(chainId)` returns all events recorded with that `delegationChainId`, regardless of date. The returned report uses the chain ID in its `agentId` field and a default 30-day `period` value that does not filter the events. When agents delegate to sub-agents, you can attribute all costs back to the originating chain by passing `delegationChainId` in `recordCost()`:
 
 ```typescript
 // When the parent agent creates a delegation
@@ -194,7 +195,7 @@ const chain = await theauth.delegate({
   fromAgent: parentAgent.id,
   toAgent: childAgent.id,
   permissions: [{ resource: 'tool:summarize', actions: ['execute'] }],
-  expiresIn: '1h',
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
 });
 
 // In the child agent's handler
@@ -211,13 +212,15 @@ const result = await costs.getDelegationChainCost(chain.id);
 
 ## Setting up alerts
 
-Alerts fire automatically when `recordCost()` is called. There are three alert types:
+Alerts are evaluated inside `recordCost()` and only when `onAlert` is set. There are three alert types:
 
 | Type | When it fires |
 |------|---------------|
-| `warn` | 24-hour rolling spend crosses the `warn` threshold |
-| `critical` | 24-hour rolling spend crosses the `critical` threshold |
-| `budget_exceeded` | Monthly spend crosses the `maxTokensCostPerMonth` limit from a budget policy |
+| `warn` | 24-hour rolling spend is at or above the `warn` threshold (and below `critical`) |
+| `critical` | 24-hour rolling spend is at or above the `critical` threshold |
+| `budget_exceeded` | Calendar-month spend (server local time) has reached the smallest `maxTokensCostPerMonth` among the agent's budget policies |
+
+Alerts are level-triggered, not edge-triggered: every `recordCost()` call made while spend is above a threshold fires the alert again, so deduplicate in `onAlert` if you notify humans. Budget alerts need `onAlert` but not `alertThresholds`. A failed `recordCost()` returns an error result; an `onAlert` that throws is caught and also returns `RECORD_COST_FAILED` (the cost row is already written).
 
 ```typescript
 const costs = createCostAttributionModule(theauth.db, {
@@ -249,7 +252,7 @@ const costs = createCostAttributionModule(theauth.db, {
 
 ## Integration with budget policies
 
-`checkBudget()` reads budget policies created via `theauth.policies` and compares them against actual spend from the cost events table. This gives you a real-time answer before authorizing an operation.
+`checkBudget()` reads budget policies created via `theauth.policies` and compares them against calendar-month spend from the cost events table. It only considers policies whose `agentId` equals the agent (user-wide or tenant-wide policies are ignored), and only the `maxTokensCostPerMonth` limit; the daily and call-count limits and the policy `action` are not used. It reports; enforcing the result is up to your code. `theauth.authorize()` does not call it.
 
 ```typescript
 const result = await costs.checkBudget(agent.id);
@@ -261,7 +264,7 @@ if (result.success) {
     return new Response('Agent has exceeded its monthly cost budget', { status: 402 });
   }
 
-  console.log(`$${spent.toFixed(4)} of $${limit?.toFixed(2) ?? '∞'} used`);
+  console.log(`$${spent.toFixed(4)} of $${limit?.toFixed(2) ?? 'no limit'} used`);
 }
 ```
 
@@ -277,7 +280,7 @@ await theauth.policies.create({
 });
 ```
 
-The `budget_exceeded` alert fires automatically on `recordCost()` when spend crosses this limit, so you do not need to poll.
+The `budget_exceeded` alert fires from `recordCost()` once spend has reached this limit (`withinBudget` is `false` when spend is equal to or above the limit). The `action: 'block'` value is stored on the policy but nothing in the cost module acts on it, so revoke or block the agent yourself in `onAlert`.
 
 ## Maintenance
 
@@ -319,13 +322,13 @@ Check `result.success` before accessing `result.data`. Error codes:
 
 <CardGroup cols={2}>
   <Card title="Budget policies" href="/budget-policies" icon="chart-line">
-    Set monthly spend limits that block agents automatically.
+    Create the policies that `checkBudget()` reads. Policies are not enforced by authorize().
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
-    The underlying log that cost attribution writes alongside.
+    The authorization log. Cost events are stored separately, in their own table.
   </Card>
-  <Card title="Anomaly detection" href="/anomaly" icon="triangle-exclamation">
-    Flag unusual spend patterns and high-frequency call bursts.
+  <Card title="Trust scoring" href="/trust" icon="shield-halved">
+    Trust levels you can combine with spend data in your own logic.
   </Card>
   <Card title="Rate limiting" href="/rate-limiting" icon="gauge">
     Hard call-count caps per agent, per resource, per hour.

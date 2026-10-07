@@ -12,7 +12,7 @@ A delegation chain lets one agent grant a subset of its permissions to another. 
 This pattern is most useful when an orchestrator spins up sub-agents for specific tasks. Each sub-agent gets only the access it needs, for only as long as it needs it.
 
 <Info>
-The delegating agent must currently hold every permission it is trying to delegate. Attempting to delegate a permission not in the agent's own set fails with `INSUFFICIENT_PERMISSIONS`.
+The delegating agent must currently hold every permission it is trying to delegate. Attempting to delegate a permission not in the agent's own set throws an `Error` ("Delegated permissions must be a subset of the parent agent's permissions..."). The check runs against the agent's own permissions only, not against permissions it received through other delegations.
 </Info>
 
 ## Working with delegations
@@ -39,7 +39,7 @@ console.log(chain.expiresAt); // Date
 <ParamField path="toAgent" type="string">Agent ID receiving the permissions.</ParamField>
 <ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent\'s own permissions.</ParamField>
 <ParamField path="expiresAt" type="Date">When the delegation expires. After this point, the chain is no longer valid.</ParamField>
-<ParamField path="maxDepth" type="number">How many additional hops the chain can be re-delegated. Default is 3.</ParamField>
+<ParamField path="maxDepth" type="number">Highest chain depth this call may create. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to this value, otherwise the call throws. Default is 3. The value is not inherited by later hops: each `delegate()` call is checked against its own `maxDepth`.</ParamField>
 
 ### Permission subset enforcement
 
@@ -68,10 +68,10 @@ Invalid delegations:
 
 ### Depth limiting
 
-`maxDepth` controls how many additional re-delegation hops are allowed. With `maxDepth: 2`, the receiving agent can delegate to another agent, but that next agent cannot delegate further.
+Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code compares the new link's depth with the `maxDepth` passed on that same call (default 3) and throws if the depth is larger. `maxDepth` is not stored as a ceiling for later hops, so to stop re-delegation you pass a small `maxDepth` on each call, and the hop that would exceed it is rejected.
 
 ```typescript
-// Orchestrator → Sub (depth 1, maxDepth 2)
+// Orchestrator → Sub (depth 1, maxDepth 2): allowed
 await theauth.delegate({
   fromAgent: orchestrator.id,
   toAgent: sub.id,
@@ -86,17 +86,22 @@ await theauth.delegate({
   toAgent: subSub.id,
   permissions: [{ resource: 'mcp:github:issues', actions: ['read'] }],
   expiresAt: new Date(Date.now() + 1_800_000),
-  maxDepth: 1,
+  maxDepth: 2,
 });
 
-// SubSub → anything: blocked, depth limit reached
+// Same call with maxDepth: 1 is rejected: depth 2 exceeds maxDepth 1
+// SubSub → anything with maxDepth: 2 is rejected: depth 3 exceeds maxDepth 2
 ```
 
 The default `maxDepth` when not specified is `3`.
 
+<Warning>
+The subset check uses the delegating agent's own permissions, not the permissions it received through delegation. An agent that holds only delegated permissions (such as `sub` above, created with `permissions: []`) cannot re-delegate them: that call throws the subset error before depth is considered. Give the intermediate agent its own copy of the permissions if it must re-delegate.
+</Warning>
+
 ### Cascading revocation
 
-Revoking a chain removes it and all chains created downstream of it in the same tree.
+Revoking a chain marks it revoked and does the same for active chains that start from the receiving agent.
 
 ```typescript
 await theauth.delegation.revoke(chain.id);
@@ -114,19 +119,16 @@ To see the full set of permissions an agent has at a given moment, including tho
 
 ```typescript
 const effective = await theauth.delegation.getEffectivePermissions(subAgent.id);
-// Returns Permission[] combining own permissions and all active delegations
+// Returns only the Permission[] received through active, unexpired delegation chains
 ```
 
-The authorization engine calls this internally on every `authorize()` request. You can call it directly to inspect what an agent can currently do before attempting an action.
+`authorize()` checks the agent's own permissions first and, if they deny, falls back to these delegated permissions. You can call it directly to inspect what an agent has received through delegation.
 
 ### Listing chains
 
 ```typescript
-// All chains where subAgent is the receiver
-const incoming = await theauth.delegation.listChains({ toAgent: subAgent.id });
-
-// All chains originating from the orchestrator
-const outbound = await theauth.delegation.listChains({ fromAgent: orchestrator.id });
+// All chains originating from the orchestrator (fromAgent === agentId)
+const outbound = await theauth.delegation.listChains(orchestrator.id);
 ```
 
 ### DelegationChain type
@@ -172,7 +174,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
     ```
   </Step>
   <Step>
-    Delegate only what the sub-agent needs, with a short expiry and `maxDepth: 1` to prevent further delegation.
+    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (re-delegation calls must pass a larger one, see depth limiting above).
 
     ```typescript
     await theauth.delegate({

@@ -18,7 +18,7 @@ engine.evaluate({
 | Server time | Decision |
 |---|---|
 | 10:30 | **allow**, inside window |
-| 17:00 | **allow**, end of window, inclusive |
+| 17:00 | **allow**, end of window, inclusive (the check has minute resolution, so it holds through 17:00:59) |
 | 17:01 | **deny**, after hours |
 | 08:59 | **deny**, before hours |
 
@@ -28,5 +28,6 @@ The engine does not support timezone-aware time windows. It calls `new Date().ge
 
 ## Tweak this
 
+- The window is a same-day range only. A window that wraps midnight (for example `start: "22:00"`, `end: "06:00"`) is never satisfied, so every call is denied.
 - Change `end` to `"23:59"` to allow evening work without removing the morning floor.
 - Add an `ipAllowlist` constraint alongside `timeWindow` to require the agent to also call from a known office IP range.

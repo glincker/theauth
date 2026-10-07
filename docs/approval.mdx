@@ -13,6 +13,10 @@ TheAuth supports this with a permission constraint called `requireApproval`. Whe
 
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
+<Warning>
+  Approval is a record, not a bypass. `theauth.authorize()` does not look up approval requests, so a permission with `requireApproval: true` is denied every time, even after a human approves. After `approve()` succeeds, your application performs the action itself (or calls a code path that does not run `authorize()` for that permission). Also note that `approve()` does not check `expiresAt`; the TTL is only applied when you call `cleanup()`, which marks overdue pending requests as `expired`.
+</Warning>
+
 <Info>
   TheAuth creates the approval request and persists it. Delivering the notification to the human, email, Slack, push notification, is your application's job. Use `webhookUrl` or `onApprovalNeeded` to hook into your existing notification stack.
 </Info>
@@ -28,7 +32,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Human gets notified**
 
-    TheAuth fires your `webhookUrl` or `onApprovalNeeded` handler with the request details. Your app sends an email, opens a Slack DM, or surfaces a notification in your dashboard.
+    When you call `theauth.approval.request()`, TheAuth persists the request and fires your `webhookUrl` or `onApprovalNeeded` handler with the request details. Your app sends an email, opens a Slack DM, or surfaces a notification in your dashboard.
   </Step>
   <Step>
     **Human approves or denies**
@@ -38,7 +42,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Agent retries**
 
-    Once approved, your application retries the original action. For maximum simplicity, pass the request ID back to the agent so it can poll or be woken up when a decision arrives.
+    Check the decision with `theauth.approval.get(requestId)`. Once the status is `approved`, your application carries out the original action. For maximum simplicity, pass the request ID back to the agent so it can poll or be woken up when a decision arrives.
   </Step>
 </Steps>
 
@@ -50,8 +54,8 @@ The flow is async. The agent does not block waiting. The human can respond minut
 <ParamField path="action" type="string">The action the agent wants to perform.</ParamField>
 <ParamField path="resource" type="string">The resource the action targets.</ParamField>
 <ParamField path="arguments" type={`Record<string, unknown> | undefined`}>The arguments the agent passed at the time of the call.</ParamField>
-<ParamField path="status" type="'pending' | 'approved' | 'denied' | 'expired'">Current state. Transitions are one-way.</ParamField>
-<ParamField path="expiresAt" type="Date">When the request expires if no response is received. Default TTL is 5 minutes.</ParamField>
+<ParamField path="status" type="'pending' | 'approved' | 'denied' | 'expired'">Current state. Only `pending` requests can be approved or denied; `approve()` and `deny()` throw on any other status.</ParamField>
+<ParamField path="expiresAt" type="Date">When the request expires if no response is received. Default TTL is 5 minutes (`ttl` is in seconds).</ParamField>
 <ParamField path="respondedAt" type="Date | undefined">When the human responded.</ParamField>
 <ParamField path="respondedBy" type="string | undefined">Identifier of the person who approved or denied.</ParamField>
 <ParamField path="createdAt" type="Date">When the request was created.</ParamField>
@@ -88,7 +92,7 @@ const theauth = await createTheAuth({
 });
 ```
 
-Both `webhookUrl` and `onApprovalNeeded` fire asynchronously so the `request()` call is not delayed by notification latency.
+Both `webhookUrl` and `onApprovalNeeded` fire asynchronously (not awaited) so the `request()` call is not delayed by notification latency. If both are set, both fire.
 
 ## How webhooks work
 
@@ -111,7 +115,7 @@ When `webhookUrl` is set, TheAuth sends a `POST` to that URL with a JSON body:
 }
 ```
 
-Webhook delivery failures are non-fatal. The request is already persisted, your app can poll `listPending()` as a fallback.
+The webhook is a plain `POST` with no signature header and no retries. Delivery failures are non-fatal. The request is already persisted, your app can poll `listPending()` as a fallback.
 
 ## Code examples
 
@@ -200,8 +204,9 @@ console.log(`Expired ${result.expired} stale approval requests`);
 const request = await theauth.approval.get('apr_...');
 
 if (request?.status === 'approved') {
-  // Safe to retry the action
-  await deleteFile(agent.id, '/prod/dataset.csv');
+  // Safe to carry out the action. authorize() will still deny this
+  // permission, so run the action directly from your own code.
+  await deleteFile('/prod/dataset.csv');
 } else if (request?.status === 'denied') {
   console.log('Human denied the request.');
 } else if (request?.status === 'expired') {
@@ -216,9 +221,9 @@ if (request?.status === 'approved') {
   Add requireApproval constraints to individual permissions.
 </Card>
   <Card title="Trust scoring" href="/trust">
-  Use trust levels to decide which agents need approval.
+  Trust levels are separate from approval. Use them in your own logic to decide which agents get requireApproval permissions.
 </Card>
   <Card title="Audit trail" href="/audit">
-  Every approval decision is linked to an audit entry.
+  Denials caused by requireApproval are written to the audit log as denied. The approval module itself does not write audit entries.
 </Card>
 </CardGroup>

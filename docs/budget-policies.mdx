@@ -9,18 +9,22 @@ icon: dollar-sign
 
 When agents make LLM calls, costs accumulate in the background. Without limits, a single runaway agent or a misconfigured loop can burn through a month's budget in hours. Budget policies let you set hard caps and choose what happens when those caps are hit.
 
-Policies are evaluated at authorization time, before any LLM call is made. If an agent is over budget, the authorization check fails before your code even runs.
+Budget policies are a separate module at `theauth.policies`. `theauth.authorize()` does not consult them. Call `theauth.policies.checkBudget()` yourself before an LLM call, and `theauth.policies.recordUsage()` after it. Nothing is enforced unless your code makes those calls and acts on the result.
 
 <Info>
-  Policies stack. An agent can have a per-agent policy, a per-user policy, and a per-tenant policy all active at once. TheAuth evaluates all of them and returns the first one that is exceeded.
+  `theauth.policy` is a different thing: the unified policy engine (see [Policy engine](/policy-engine)). Budget policies live on `theauth.policies`.
 </Info>
+
+<Warning>
+  `checkBudget` and `recordUsage` select policies by `agentId` only: a policy for that exact agent, or any policy whose `agentId` is empty. A policy created with only `userId` or `tenantId` has no `agentId`, so it is treated as applying to every agent. The `userId` and `tenantId` fields are stored and can be used to filter `list()`, but they do not scope the check.
+</Warning>
 
 ## Data model
 
 <ParamField path="id" type="string">Stable identifier with a pol_ prefix.</ParamField>
 <ParamField path="agentId" type="string" default="undefined (all agents)">Agent this policy applies to. Omit to create a global policy that applies to all agents.</ParamField>
-<ParamField path="userId" type="string" default="undefined (all users)">User this policy applies to. Omit to apply regardless of owner.</ParamField>
-<ParamField path="tenantId" type="string" default="undefined (all tenants)">Tenant this policy applies to.</ParamField>
+<ParamField path="userId" type="string" default="undefined">Stored on the policy and usable as a `list()` filter. Not used by `checkBudget` or `recordUsage`.</ParamField>
+<ParamField path="tenantId" type="string" default="undefined">Stored on the policy and usable as a `list()` filter. Not used by `checkBudget` or `recordUsage`.</ParamField>
 <ParamField path="limits" type="BudgetLimits">The numeric thresholds for this policy.</ParamField>
 <ParamField path="action" type="'warn' | 'throttle' | 'block' | 'revoke'">What happens when a limit is exceeded.</ParamField>
 <ParamField path="status" type="'active' | 'triggered' | 'disabled'">Current policy state. 'triggered' means a limit has been hit.</ParamField>
@@ -28,27 +32,29 @@ Policies are evaluated at authorization time, before any LLM call is made. If an
 
 ### BudgetLimits
 
-<ParamField path="maxTokensCostPerDay" type="number" default="undefined (no daily token limit)">Maximum token cost units allowed per day. Resets at midnight UTC.</ParamField>
-<ParamField path="maxTokensCostPerMonth" type="number" default="undefined (no monthly token limit)">Maximum token cost units allowed per calendar month.</ParamField>
-<ParamField path="maxCallsPerDay" type="number" default="undefined (no daily call limit)">Maximum authorize() calls allowed per day.</ParamField>
-<ParamField path="maxCallsPerMonth" type="number" default="undefined (no monthly call limit)">Maximum authorize() calls allowed per calendar month.</ParamField>
+<ParamField path="maxTokensCostPerDay" type="number" default="undefined (no daily token limit)">Maximum token cost units allowed per day. Counters reset when you call `resetDaily()`.</ParamField>
+<ParamField path="maxTokensCostPerMonth" type="number" default="undefined (no monthly token limit)">Maximum token cost units allowed per month. Counters reset when you call `resetMonthly()`.</ParamField>
+<ParamField path="maxCallsPerDay" type="number" default="undefined (no daily call limit)">Maximum calls per day, as counted by `recordUsage()` (one per call).</ParamField>
+<ParamField path="maxCallsPerMonth" type="number" default="undefined (no monthly call limit)">Maximum calls per month, as counted by `recordUsage()` (one per call).</ParamField>
 
 ## Actions
 
-| Action | What happens |
-|--------|--------------|
-| `warn` | Authorization still succeeds. The policy is marked as `triggered`. |
-| `throttle` | Authorization fails. The agent must wait for the reset cycle. |
-| `block` | Authorization fails. Stays blocked until the limit resets or you reset manually. |
-| `revoke` | Authorization fails. The agent's token is revoked immediately. |
+The action only changes what `checkBudget()` returns once a limit is reached (usage greater than or equal to the limit):
 
-`warn` is useful for sending alerts before you start blocking. Set a `warn` policy at 80% of your limit and a `block` policy at 100%.
+| Action | `checkBudget()` result |
+|--------|--------------|
+| `warn` | `allowed: true`, with `reason` and `policy` set so you can alert. |
+| `throttle` | `allowed: false`. |
+| `block` | `allowed: false`. |
+| `revoke` | `allowed: false`. The agent token is not revoked automatically. Call `theauth.agent.revoke()` yourself if you want that. |
+
+`throttle`, `block`, and `revoke` are not distinguished by the code today: all three return `allowed: false`, and the policy stays `triggered` until a reset brings usage back under the limit. `warn` is useful for sending alerts before you start blocking. Set a `warn` policy at 80% of your limit and a `block` policy at 100%.
 
 ## Creating a policy
 
 ```typescript
 // Per-agent daily token cap
-const policy = await theauth.policy.create({
+const policy = await theauth.policies.create({
   agentId: 'agt_abc123',
   limits: {
     maxTokensCostPerDay: 1000,
@@ -58,7 +64,7 @@ const policy = await theauth.policy.create({
 });
 
 // Per-user monthly cap (applies to all agents owned by this user)
-const userPolicy = await theauth.policy.create({
+const userPolicy = await theauth.policies.create({
   userId: 'user-456',
   limits: {
     maxTokensCostPerMonth: 10_000,
@@ -67,7 +73,7 @@ const userPolicy = await theauth.policy.create({
 });
 
 // Tenant-wide monthly cap
-const tenantPolicy = await theauth.policy.create({
+const tenantPolicy = await theauth.policies.create({
   tenantId: 'tnt_acme',
   limits: {
     maxTokensCostPerMonth: 50_000,
@@ -79,10 +85,10 @@ const tenantPolicy = await theauth.policy.create({
 
 ## Checking a budget before a call
 
-Call `checkBudget` with a speculative `tokensCost` to see whether this call would exceed any policy. The cost is included in the check but not recorded yet.
+Call `checkBudget` with an optional speculative `tokensCost` to see whether this call would exceed any policy. The cost is included in the check but not recorded yet. Call it before your LLM call; `authorize()` does not do it for you.
 
 ```typescript
-const check = await theauth.policy.checkBudget('agt_abc123', 50);
+const check = await theauth.policies.checkBudget('agt_abc123', 50);
 
 if (!check.allowed) {
   console.error(check.reason);
@@ -90,7 +96,7 @@ if (!check.allowed) {
 }
 ```
 
-`checkBudget` evaluates all active policies for the agent (both exact-match and global). If any policy is exceeded, it returns the first violation and stops.
+`checkBudget` evaluates every policy that is not `disabled` (including `triggered` ones) for the agent, both exact-match and global. It returns at the first policy whose limit is reached. Note that a `warn` policy that is reached also returns early with `allowed: true`, so a `block` policy later in the list is not reported in that call.
 
 ## Recording usage after a call
 
@@ -100,42 +106,42 @@ Call `recordUsage` after the LLM call completes to update the counters.
 const result = await llm.complete(prompt);
 const actualCost = result.usage.totalTokens;
 
-await theauth.policy.recordUsage('agt_abc123', actualCost);
+await theauth.policies.recordUsage('agt_abc123', actualCost);
 ```
 
-`recordUsage` increments `callsToday`, `callsThisMonth`, `tokensCostToday`, and `tokensCostThisMonth` on every active policy that applies to this agent. It also transitions any policy from `active` to `triggered` if the new totals cross a threshold.
+`recordUsage` increments `callsToday`, `callsThisMonth`, `tokensCostToday`, and `tokensCostThisMonth` on every policy that is not `disabled` and applies to this agent. It also sets a policy to `triggered` if the new totals reach a limit.
 
 ## Resetting counters
 
-Reset daily counters on a UTC midnight cron job:
+Nothing resets counters automatically. Schedule these calls yourself. Reset daily counters from a UTC midnight cron job:
 
 ```typescript
-const { reset } = await theauth.policy.resetDaily();
+const { reset } = await theauth.policies.resetDaily();
 console.log(`Reset ${reset} policies`);
 ```
 
 Reset monthly counters on the first of each month:
 
 ```typescript
-const { reset } = await theauth.policy.resetMonthly();
+const { reset } = await theauth.policies.resetMonthly();
 ```
 
-After a reset, policies that were `triggered` are automatically moved back to `active` if the new totals are within limits.
+Both reset calls apply to every policy. After a reset, policies that were `triggered` move back to `active` if the new totals are within limits.
 
 ## Listing and updating policies
 
 ```typescript
 // All policies for an agent (including global ones)
-const policies = await theauth.policy.list({ agentId: 'agt_abc123' });
+const policies = await theauth.policies.list({ agentId: 'agt_abc123' });
 
 // Change the limit and action
-await theauth.policy.update(policy.id, {
+await theauth.policies.update(policy.id, {
   limits: { maxTokensCostPerDay: 2000 },
   action: 'warn',
 });
 
 // Remove a policy
-await theauth.policy.remove(policy.id);
+await theauth.policies.remove(policy.id);
 ```
 
 ## Combining warn and block
@@ -144,27 +150,27 @@ A common pattern: warn at a soft limit, block at the hard limit.
 
 ```typescript
 // Warn at 800 tokens/day
-await theauth.policy.create({
+await theauth.policies.create({
   agentId: 'agt_abc123',
   limits: { maxTokensCostPerDay: 800 },
   action: 'warn',
 });
 
 // Block at 1000 tokens/day
-await theauth.policy.create({
+await theauth.policies.create({
   agentId: 'agt_abc123',
   limits: { maxTokensCostPerDay: 1000 },
   action: 'block',
 });
 ```
 
-When the agent hits 800, the `warn` policy triggers and you can send an alert (via a lifecycle hook). At 1000, the `block` policy triggers and requests stop.
+When the agent hits 800, the `warn` policy triggers: `checkBudget` returns `allowed: true` with the policy attached, and you can send an alert from your own code. At 1000, `checkBudget` returns `allowed: false`, and your code is responsible for stopping the call.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Lifecycle hooks" href="/hooks">
-  Fire custom logic when a policy is triggered.
+  Run your own logic around authorization calls.
 </Card>
   <Card title="Cost attribution" href="/cost-attribution">
   Aggregate token costs per agent for billing reports.

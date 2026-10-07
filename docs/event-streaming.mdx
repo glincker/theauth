@@ -1,29 +1,29 @@
 ---
 title: Event streaming
-description: Stream auth events, agent lifecycle changes, and anomaly alerts in real time via SSE using createEventStreamModule. Missed events replay from a stored cursor.
+description: Stream events you emit (agent lifecycle, auth, budget, and others) to clients in real time via SSE using createEventStreamModule. Missed events replay from a timestamp cursor.
 icon: tower-broadcast
 ---
 
 
 ## What event streaming is
 
-Event streaming gives you a persistent, real-time connection to TheAuth events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). The moment an agent is revoked, a budget is exceeded, or an anomaly is detected, connected clients receive the event, no polling required.
+Event streaming gives you a persistent, real-time connection to TheAuth events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). Whenever your code calls `stream.emit()` (an agent is revoked, a budget is exceeded, and so on), connected clients receive it, no polling required.
 
 Events are also persisted to the database so you can replay anything you missed.
 
 ## Streaming vs webhooks
 
-Both webhooks and SSE carry the same events, but they serve different use cases.
+Webhooks and SSE are separate mechanisms with separate event sets: the webhook module delivers the events you pass to `theauth.webhooks.emit()`, and the stream delivers the events you pass to `stream.emit()`. You can emit the same occurrence to both.
 
 | | Webhooks | Event streaming |
 |---|---|---|
 | Transport | HTTP POST to your server | Persistent HTTP connection to your browser or service |
-| Latency | ~100–500ms (network + retry) | Near-instant |
-| Auth | Verified by HMAC signature | Bearer token |
-| Missed events | Retried up to 3 times, then dropped | Replay via `since` cursor |
+| Latency | Network latency plus retries | Near-instant |
+| Auth | Signed with an HMAC signature header | Bearer token |
+| Missed events | Retried up to 3 times by default, then dropped | Replay via the `since` timestamp |
 | Best for | Backend integrations, data pipelines | Dashboards, SOC tooling, live monitoring |
 
-Use webhooks when you need durable delivery to an external service. Use event streaming when you need a live view, a security dashboard, an admin feed, or a CI script watching for `anomaly.detected`.
+Use webhooks when you need durable delivery to an external service. Use event streaming when you need a live view, a security dashboard, an admin feed, or a CI script watching for `budget.exceeded`.
 
 ## Setup
 
@@ -39,17 +39,17 @@ const stream = createEventStreamModule({
   db: theauth.db,
   requireAuth: true,
   validateToken: async (token) => {
-    // Return the subscriber ID (userId or agentId) on success, null on failure.
-    const session = await theauth.session.verify(token);
+    // Return a subscriber ID (userId or agentId) on success, null on failure.
+    // Here: a TheAuth-managed session (requires `auth.session` in the config).
+    const session = await theauth.auth.session?.validate(token);
     return session?.userId ?? null;
   },
 });
 
-// Mount in your HTTP handler
-app.get('/api/theauth/events/stream', (req, res) => {
-  const response = stream.handleRequest(req);
-  if (response) return response;
-});
+// Mount in a Web-standard (Request/Response) handler, for example a Next.js route
+export async function GET(request: Request): Promise<Response> {
+  return stream.handleRequest(request) ?? new Response('Not found', { status: 404 });
+}
 
 // Emit from anywhere in your application
 stream.emit({
@@ -61,7 +61,7 @@ stream.emit({
 ```
 
 <Note>
-  `handleRequest` returns `null` for any request that is not a valid SSE request (wrong path, wrong `Accept` header, or non-GET method). This makes it safe to call inside a catch-all handler.
+  `handleRequest` takes a Web `Request` and returns a Web `Response`, or `null` for any request that is not an SSE request: the method must be GET, the path must end in `/events/stream`, and the `Accept` header must include `text/event-stream`. This makes it safe to call inside a catch-all handler. Node `(req, res)` handlers such as Express need a small adapter to convert to and from `Request` and `Response`.
 </Note>
 
 ## Connecting from a browser
@@ -73,19 +73,23 @@ const source = new EventSource(
   '/api/theauth/events/stream?token=your-bearer-token',
 );
 
+// Each message is named by its type and carries { id, type, timestamp, data, agentId?, userId? }
 source.addEventListener('agent.created', (event) => {
-  const data = JSON.parse(event.data);
-  console.log('New agent:', data.agentId);
+  const payload = JSON.parse((event as MessageEvent).data);
+  console.log('New agent:', payload.data.agentId);
 });
 
-source.addEventListener('anomaly.detected', (event) => {
-  const data = JSON.parse(event.data);
-  console.warn('Anomaly:', data);
+source.addEventListener('budget.exceeded', (event) => {
+  const payload = JSON.parse((event as MessageEvent).data);
+  console.warn('Budget exceeded:', payload.data);
 });
 
 source.addEventListener('error', (event) => {
-  const data = JSON.parse((event as MessageEvent).data);
-  console.error('Stream error:', data.code);
+  // Server-sent error events carry JSON; connection errors have no data
+  const raw = (event as MessageEvent).data;
+  if (typeof raw === 'string') {
+    console.error('Stream error:', JSON.parse(raw).code);
+  }
 });
 
 // Clean up
@@ -105,10 +109,11 @@ const source = new EventSource('https://your-app.com/api/theauth/events/stream',
   },
 });
 
-source.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Event:', data.type, data);
-};
+// Messages are named events, so onmessage never fires. Listen per type.
+source.addEventListener('agent.revoked', (event) => {
+  const payload = JSON.parse(event.data);
+  console.log('Event:', payload.type, payload.data);
+});
 
 source.onerror = () => {
   console.error('Connection lost, reconnecting...');
@@ -116,6 +121,12 @@ source.onerror = () => {
 ```
 
 ## Event types
+
+<Warning>
+  The stream module is standalone. The TheAuth core does not call `stream.emit()` for you, so none of these events fire automatically: you emit the ones you need from your own code, hooks, or webhook handlers. `anomaly.detected` is only a reserved type name, since TheAuth has no anomaly detector.
+</Warning>
+
+The type column below describes the intended meaning of each type.
 
 | Type | When it fires |
 |---|---|
@@ -129,7 +140,7 @@ source.onerror = () => {
 | `delegation.created` | A new delegation chain is created |
 | `delegation.revoked` | A delegation is revoked |
 | `budget.exceeded` | An agent exceeds its cost budget |
-| `anomaly.detected` | The anomaly detector flags unusual behaviour |
+| `anomaly.detected` | Reserved name. TheAuth has no anomaly detector, so this only appears if your own code emits it |
 | `cost.recorded` | A cost event is attributed to an agent |
 
 ## Filtering events
@@ -137,7 +148,7 @@ source.onerror = () => {
 Pass a `types` query parameter with a comma-separated list to receive only the events you care about.
 
 ```
-GET /api/theauth/events/stream?types=anomaly.detected,budget.exceeded
+GET /api/theauth/events/stream?types=agent.revoked,budget.exceeded
 ```
 
 ```typescript
@@ -147,26 +158,28 @@ const source = new EventSource(
 );
 ```
 
-You can also restrict the types at the module level so no client can subscribe to events outside the allowed set.
+Unknown type names in `types` are ignored; if none are valid, the connection receives all types. You can also restrict the types at the module level, which filters live delivery.
 
 ```typescript
 const stream = createEventStreamModule({
   db: theauth.db,
   requireAuth: true,
   validateToken,
-  eventTypes: ['audit', 'anomaly.detected'], // only these types are ever delivered
+  eventTypes: ['audit', 'budget.exceeded'], // only these types are delivered live
 });
 ```
 
 ## Replay and cursor
 
-Events are persisted in the `theauth_stream_events` table. If a client disconnects and reconnects, pass `since` to receive everything it missed.
+Events passed to `emit()` are persisted in the `theauth_stream_events` table (a failed write is ignored). If a client disconnects and reconnects, pass `since` to receive everything it missed, oldest first, after the `connected` event. `since` must be an ISO 8601 timestamp with an offset or `Z`; anything else is rejected with a 400.
 
 ```
 GET /api/theauth/events/stream?since=2026-01-15T10:00:00Z
 ```
 
-The browser `EventSource` can also pass the last received event ID via the `Last-Event-ID` header, which the browser manages automatically when you set the `id:` field on SSE events. TheAuth uses the `Last-Event-ID` value as the replay cursor.
+The module also reads the `Last-Event-ID` header as a fallback cursor, but it parses the value as a date. Each SSE message uses your event `id` as its `id:` field, so the header only works for replay if your event IDs are timestamps (for example ISO strings). With UUID IDs, as in the examples here, an automatic browser reconnect replays nothing, so track the last timestamp yourself and pass `since`.
+
+Replay applies the connection's `types` filter, or the module-level `eventTypes` if the client sent none. A client that passes its own `types` can replay types outside the module-level list, and the programmatic `replay()` method does not apply the module-level list at all.
 
 ```typescript
 // Programmatic replay without an open connection
@@ -182,18 +195,22 @@ if (result.success) {
 
 ## Auth requirements
 
-By default `requireAuth: true`. Every connection must present a valid Bearer token, either in the `Authorization` header or as the `token` query parameter.
+By default `requireAuth: true`. Every connection must present a Bearer token, either in the `Authorization` header or as the `token` query parameter.
 
 ```
 Authorization: Bearer <token>
 GET /api/theauth/events/stream?token=<token>
 ```
 
-When the token is invalid, the stream sends a single `error` event and closes.
+When the token is missing or `validateToken` returns `null`, the stream sends a single `error` event and closes (the HTTP status is still 200).
 
 ```json
 { "code": "UNAUTHORIZED", "message": "Invalid token" }
 ```
+
+<Warning>
+  If you set `requireAuth: true` but do not provide `validateToken`, any non-empty token is accepted. Always supply `validateToken` in production.
+</Warning>
 
 To disable auth for local development or internal-only deployments:
 
@@ -226,7 +243,8 @@ interface EventStreamConfig {
   // Require a Bearer token to connect (default: true)
   requireAuth?: boolean;
 
-  // Validate the token and return subscriber ID (userId or agentId), or null
+  // Validate the token and return a subscriber ID (userId or agentId), or null.
+  // If omitted while requireAuth is true, any non-empty token is accepted.
   validateToken?: (token: string) => Promise<string | null>;
 }
 ```
@@ -272,7 +290,8 @@ interface EventStreamModule {
   // Number of currently active connections
   getConnectionCount(): number;
 
-  // Replay persisted events since a date, optionally filtered by type
+  // Replay persisted events since a date, optionally filtered by type.
+  // Up to 1000 events, newest first.
   replay(since: Date, types?: EventType[]): Promise<Result<StreamEvent[]>>;
 
   // Close all connections and stop the heartbeat timer
@@ -287,12 +306,12 @@ interface EventStreamModule {
     Durable HTTP delivery for the same events to external services.
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
-    The persistent audit log that backs event replay.
+    The audit log. Replay reads from the separate stream events table, not from audit entries.
   </Card>
-  <Card title="Anomaly detection" href="/anomaly" icon="triangle-exclamation">
-    Anomaly events that surface in the stream as `anomaly.detected`.
+  <Card title="Hooks" href="/hooks" icon="plug">
+    Call `stream.emit()` from lifecycle hooks such as `onViolation` and `onAgentRevoke`.
   </Card>
   <Card title="Dashboard" href="/dashboard" icon="table-columns">
-    Visual live monitoring of agents, audit entries, and anomalies.
+    Visual monitoring of agents and audit entries.
   </Card>
 </CardGroup>

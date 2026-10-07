@@ -5,6 +5,12 @@ icon: server
 ---
 
 
+<Warning>
+**Status: experimental, built from source only.** The provider lives in this repository at `sdks/terraform` (version `0.1.0`, Terraform SDK v2). It is not published to the Terraform Registry, so the `theauth/theauth` source only resolves through the local plugin directory or a dev override as shown below.
+
+Only `theauth_agent`, `theauth_permission`, and the two `theauth_agent` data sources are backed by REST routes that the TypeScript server ships (`/agents`, `/agents/:id`, `/agents/:id/rotate` in the framework adapters, via the Go SDK in `sdks/go`). `theauth_api_key` calls `/api-keys` with a `scopes` body, and `theauth_organization` calls `/organizations` with `slug`, `plan`, and `domains`. The server has no such routes: the API key plugin serves `/auth/api-keys` (user session auth, body field `permissions`) and the organization plugin serves `/auth/org/*`. Treat those two resources as unsupported until the server and provider agree. All resource and attribute names below are taken from the provider schema in `sdks/terraform`.
+</Warning>
+
 ## Why IaC for auth
 
 Auth config drifts in ways application code doesn't. An agent spun up by hand in a dashboard has no peer review, no version history, and no automated rollback. When the production incident happens and you need to know why an agent had write access to the deploy tool, "someone added it last Tuesday" is not an audit trail.
@@ -13,15 +19,14 @@ Treating agents and permissions as Terraform resources fixes this. Every grant g
 
 ## Installation
 
-The provider requires Go 1.21 to build.
+The provider requires Go 1.21 to build. It depends on `github.com/glincker/theauth-go` (the Go SDK in `sdks/go`) at `v0.1.0`, so building needs network access to that module or a local `replace` directive in `sdks/terraform/go.mod`.
 
 <Steps>
 <Step>
-Clone the repository and build the binary:
+From a checkout of this repository, build the binary:
 
 ```bash
-git clone https://github.com/glincker/terraform-provider-theauth
-cd terraform-provider-theauth/sdks/terraform
+cd sdks/terraform
 go build -o terraform-provider-theauth .
 ```
 </Step>
@@ -66,17 +71,19 @@ Both arguments can be set via environment variables, which is preferred in CI:
 
 ```bash
 export THEAUTH_BASE_URL=https://your-app.com/api/theauth
-export THEAUTH_TOKEN=kv_live_...
+export THEAUTH_TOKEN=<your token>
 ```
 
-<ParamField path="base_url" type="string" default="THEAUTH_BASE_URL env var">Base URL of your TheAuth deployment.</ParamField>
-<ParamField path="token" type="string" default="THEAUTH_TOKEN env var">API token for authenticating with TheAuth.</ParamField>
+<ParamField path="base_url" type="string" required>Base URL of your TheAuth deployment, including the path where the adapter is mounted (for example `https://your-app.com/auth`). Falls back to the `THEAUTH_BASE_URL` env var.</ParamField>
+<ParamField path="token" type="string" required>Bearer token sent on every request. Falls back to the `THEAUTH_TOKEN` env var. Marked sensitive.</ParamField>
+
+Both are required; the provider errors at configure time if neither the argument nor the env var is set. The token is sent as `Authorization: Bearer <token>`. How the server authenticates that token is up to your adapter configuration, TheAuth does not mint a "provider token" for you.
 
 ## Resources
 
 ### theauth_agent
 
-Manages an agent identity, the primary entity in TheAuth.
+Manages an agent identity, the primary entity in TheAuth. Destroying the resource revokes the agent (`DELETE /agents/:id`), it does not remove the row. `owner_id` and `type` force replacement when changed.
 
 ```hcl
 resource "theauth_agent" "github_reader" {
@@ -93,9 +100,9 @@ resource "theauth_agent" "github_reader" {
     resource = "mcp:deploy:production"
     actions  = ["execute"]
     constraints {
-      require_approval    = true
+      require_approval   = true
       max_calls_per_hour = 10
-      ip_allowlist        = ["10.0.0.0/8"]
+      ip_allowlist       = ["10.0.0.0/8"]
     }
   }
 
@@ -103,21 +110,34 @@ resource "theauth_agent" "github_reader" {
 }
 ```
 
-The `token` attribute is computed on creation and marked sensitive. Read it with:
+The `token` attribute is computed on creation and marked sensitive. Expose it with an output block, then read it:
+
+```hcl
+output "github_reader_token" {
+  value     = theauth_agent.github_reader.token
+  sensitive = true
+}
+```
 
 ```bash
 terraform output -raw github_reader_token
 ```
 
+The token is also stored in Terraform state, so protect the state backend.
+
 <Warning>
-The raw token is only returned once, at creation time. TheAuth does not store it in recoverable form. If you lose it, rotate the agent's token via the API or dashboard.
+The raw token is only returned once, at creation time. TheAuth does not store it in recoverable form, and the provider leaves `token` empty for imported agents. If you lose it, rotate the agent's token with `POST /agents/:id/rotate` (the provider has no rotation attribute, so the new token will not appear in Terraform state).
 </Warning>
 
 <ParamField path="owner_id" type="string" required>ID of the user who owns this agent.</ParamField>
 <ParamField path="name" type="string" required>Human-readable name.</ParamField>
 <ParamField path="type" type={`"autonomous" | "delegated" | "service"`} required>Agent type: autonomous, delegated, or service.</ParamField>
 <ParamField path="permission" type="block[]">One or more permission grant blocks.</ParamField>
-<ParamField path="expires_at" type="string">RFC 3339 expiry timestamp.</ParamField>
+<ParamField path="expires_at" type="string">RFC 3339 expiry timestamp. Removing the argument does not clear an expiry that is already set.</ParamField>
+
+Computed attributes: `token` (sensitive), `status`, `created_at`, `updated_at`.
+
+Permissions are evaluated in list order and only the first permission whose resource and actions match is used (see [Permissions](/permissions)), so order the `permission` blocks from most to least specific.
 
 **Permission block arguments**
 
@@ -129,8 +149,10 @@ The raw token is only returned once, at creation time. TheAuth does not store it
 
 <ParamField path="require_approval" type="bool" default="false">Require human approval before the action executes.</ParamField>
 <ParamField path="max_calls_per_hour" type="number">Rate limit: maximum calls allowed per hour.</ParamField>
-<ParamField path="allowed_arg_patterns" type="string[]">Glob patterns restricting allowed argument values.</ParamField>
-<ParamField path="ip_allowlist" type="string[]">CIDR blocks from which this permission may be used.</ParamField>
+<ParamField path="allowed_arg_patterns" type="string[]">Regular expressions (not globs, despite the provider's schema description). Every string argument must match every pattern.</ParamField>
+<ParamField path="ip_allowlist" type="string[]">IPv4 addresses or CIDR blocks from which this permission may be used.</ParamField>
+
+The provider does not expose the `timeWindow` constraint.
 
 ---
 
@@ -152,14 +174,16 @@ resource "theauth_permission" "staging_deploy" {
 <ParamField path="actions" type="string[]" required>Allowed actions.</ParamField>
 <ParamField path="require_approval" type="bool" default="false">Require human approval.</ParamField>
 <ParamField path="max_calls_per_hour" type="number">Rate limit per hour.</ParamField>
-<ParamField path="allowed_arg_patterns" type="string[]">Glob patterns for argument values.</ParamField>
-<ParamField path="ip_allowlist" type="string[]">CIDR blocks allowed to exercise the permission.</ParamField>
+<ParamField path="allowed_arg_patterns" type="string[]">Regular expressions for argument values (see above).</ParamField>
+<ParamField path="ip_allowlist" type="string[]">IPv4 addresses or CIDR blocks allowed to exercise the permission.</ParamField>
+
+This resource edits the agent's permission list (read, modify, `PATCH /agents/:id`) and identifies a permission by `resource`, so two `theauth_permission` resources with the same `resource` on one agent collide, and concurrent applies against the same agent can overwrite each other. It does not support `terraform import`. Do not combine it with inline `permission` blocks on the same agent: the next apply of the agent resource replaces the whole list.
 
 ---
 
 ### theauth_api_key
 
-Manages an API key for server-to-server requests.
+Manages an API key for server-to-server requests. See the status warning at the top: the provider sends `POST /api-keys` with a `scopes` field, and the TypeScript server does not serve that route.
 
 ```hcl
 resource "theauth_api_key" "ci_pipeline" {
@@ -183,7 +207,7 @@ The `key` attribute is only populated immediately after creation. Read it with `
 
 ### theauth_organization
 
-Manages an organization for multi-tenant isolation.
+Manages an organization for multi-tenant isolation. See the status warning at the top: the provider sends `POST /organizations`, and the TypeScript server does not serve that route.
 
 ```hcl
 resource "theauth_organization" "engineering" {
@@ -193,7 +217,7 @@ resource "theauth_organization" "engineering" {
 }
 ```
 
-`slug` is immutable after creation. Change it by deleting and recreating the organization.
+`slug` is immutable after creation (lowercase alphanumeric with hyphens). Change it by deleting and recreating the organization. `plan` accepts `free`, `pro`, or `enterprise`; `domains` is an optional list. `member_count`, `created_at`, and `updated_at` are computed.
 
 ---
 
@@ -242,10 +266,12 @@ Resources provisioned outside Terraform can be brought under management:
 terraform import theauth_agent.my_bot agent-abc123
 
 # Import an API key
-terraform import theauth_api_key.ci kv_key_abc123
+terraform import theauth_api_key.ci <key-id>
 
 # Import an organization
-terraform import theauth_organization.eng org-xyz789
+terraform import theauth_organization.eng <org-id>
+
+# theauth_permission has no importer
 ```
 
 After importing, run `terraform plan`. Terraform will show a diff for any attributes that differ from your configuration. Update the HCL to match, or let Terraform converge.
@@ -310,9 +336,7 @@ jobs:
         run: terraform -chdir=infra apply tfplan
 ```
 
-Every permission change ships as a pull request diff. The plan output shows exactly what will change before it's applied. The apply only runs on merge to main.
-
-This means the same controls you use for code changes, required reviewers, branch protection, signed commits, apply to auth config changes too.
+Every permission change ships as a pull request diff. The plan output shows what will change before it is applied, and the apply only runs on merge to main. The same controls you use for code changes (required reviewers, branch protection, signed commits) then apply to auth config changes. Note that the plan file and state contain agent tokens, so restrict access to both.
 
 ## Related
 
@@ -327,6 +351,6 @@ This means the same controls you use for code changes, required reviewers, branc
     Visual alternative to Terraform for one-off agent management.
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
-    Immutable log showing who changed what, complement to Terraform history.
+    Log of authorization decisions. Terraform changes are not audited by TheAuth, so keep the Terraform history alongside it.
   </Card>
 </CardGroup>

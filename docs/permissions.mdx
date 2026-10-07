@@ -9,7 +9,7 @@ icon: user-shield
 
 A permission grants an agent the right to perform one or more actions on a resource. TheAuth evaluates permissions at call time by checking whether any of the agent's permissions match the requested resource and include the requested action, then verifying all constraints pass.
 
-<ParamField path="resource" type="string">Colon-separated resource path. Wildcards (*) match exactly one segment.</ParamField>
+<ParamField path="resource" type="string">Colon-separated resource path. A `*` segment matches the rest of the path from that position on.</ParamField>
 <ParamField path="actions" type="string[]">The actions this permission grants. No fixed set, define what fits your tools.</ParamField>
 <ParamField path="constraints" type="PermissionConstraints" default="undefined">Optional conditions that must all be satisfied for the permission to apply.</ParamField>
 
@@ -21,12 +21,14 @@ Resources follow a colon-separated hierarchy. The `resource` field in a permissi
 
 ```
 mcp:github:repos        // exact match
-mcp:github:*            // matches any direct child of mcp:github
-mcp:*                   // matches anything directly under mcp
+mcp:github:*            // matches mcp:github and everything beneath it
+mcp:*                   // matches mcp and everything beneath it
 *                       // matches all resources
 ```
 
-A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos` and `mcp:github:issues`, but not `mcp:github:repos:comments`, that is two segments deeper.
+A `*` segment is not a single-segment wildcard. When the matcher reaches a `*` segment in the pattern, it stops comparing and accepts the resource, so the wildcard covers every remaining segment (including none). `mcp:github:*` matches `mcp:github:repos` and also `mcp:github:repos:comments` and `mcp:github` itself. Without a wildcard, the pattern and the resource must have the same number of segments.
+
+Use `*` only as the last segment. A wildcard in the middle, such as `mcp:*:repos`, also accepts everything after `mcp:`, so it is not a "any server, repos only" pattern.
 
 ```typescript
 // This permission...
@@ -36,12 +38,24 @@ A wildcard matches exactly one segment. `mcp:github:*` matches `mcp:github:repos
 // mcp:github:repos          ✓
 // mcp:github:issues         ✓
 // mcp:github:pull_requests  ✓
+// mcp:github:repos:comments ✓  (the wildcard covers all deeper segments)
+// mcp:github                ✓  (the wildcard also matches zero segments)
 
 // ...but NOT these:
-// mcp:github                ✗  (no wildcard segment)
 // mcp:slack:channels        ✗  (different namespace)
-// mcp:github:repos:comments ✗  (two levels deeper)
+// mcpx:github:repos         ✗  (first segment differs)
 ```
+
+| Pattern | Resource | Match |
+|---|---|---|
+| `mcp:github:repos` | `mcp:github:repos` | yes |
+| `mcp:github:repos` | `mcp:github:repos:comments` | no (segment counts differ) |
+| `mcp:github:*` | `mcp:github:repos` | yes |
+| `mcp:github:*` | `mcp:github:repos:comments` | yes |
+| `mcp:github:*` | `mcp:github` | yes |
+| `mcp:github:*` | `mcp:slack:channels` | no |
+| `mcp:*:repos` | `mcp:slack:channels` | yes (middle wildcard accepts the rest) |
+| `*` | anything | yes |
 
 ### Actions
 
@@ -56,17 +70,17 @@ Common actions in MCP contexts:
 | `execute` | Running tools, shell commands, deployments |
 | `delete` | Permanent removal of resources |
 
-An authorization check passes when an agent has a permission with: a matching resource pattern, the requested action in that permission's `actions` array, and all constraints satisfied.
+An authorization check passes when an agent has a permission with: a matching resource pattern, the requested action in that permission's `actions` array, and all constraints satisfied. Only the first permission whose resource and action match is evaluated: if its constraints fail, later matching permissions are not tried.
 
 ## Constraints
 
 Constraints add conditions to a permission. All conditions must be met for the permission to apply.
 
-<ParamField path="maxCallsPerHour" type="number" default="undefined (no limit)">Sliding 5-minute window rate limit. Calls beyond this return RATE_LIMIT_EXCEEDED.</ParamField>
-<ParamField path="allowedArgPatterns" type="string[]" default="undefined (any arguments allowed)">Glob-style patterns. The arguments field in the authorization request must match at least one.</ParamField>
-<ParamField path="requireApproval" type="boolean" default="false">When true, the call is denied with APPROVAL_REQUIRED. Your app must handle the approval flow.</ParamField>
-<ParamField path="timeWindow" type="{ start: string; end: string }" default="undefined (any time)">HH:MM format, UTC. Calls outside this range are denied.</ParamField>
-<ParamField path="ipAllowlist" type="string[]" default="undefined (any IP)">CIDR ranges. Requests from IPs outside this list are denied.</ParamField>
+<ParamField path="maxCallsPerHour" type="number" default="undefined (no limit)">Rolling one-hour limit per agent and resource, counted in 5-minute buckets. Calls beyond it are denied with a reason starting `Rate limit exceeded`.</ParamField>
+<ParamField path="allowedArgPatterns" type="string[]" default="undefined (any arguments allowed)">Regular expression strings (compiled with `new RegExp`). Every string value in the request's `arguments` must match every pattern. Non-string values are ignored, and the check is skipped when the request has no `arguments`.</ParamField>
+<ParamField path="requireApproval" type="boolean" default="false">When true, the call is always denied with the reason `This action requires human approval before execution`. Your app must handle the approval flow.</ParamField>
+<ParamField path="timeWindow" type="{ start: string; end: string }" default="undefined (any time)">HH:MM format, compared as strings against the server's local time (not UTC). Calls outside this range are denied. Ranges that wrap past midnight are not supported.</ParamField>
+<ParamField path="ipAllowlist" type="string[]" default="undefined (any IP)">Exact IPv4 addresses or IPv4 CIDR ranges. Requests from IPs outside this list, or with no `ip` on the request, are denied. IPv6 is not supported.</ParamField>
 
 <AccordionGroup>
   <Accordion title="Rate limiting">
@@ -82,23 +96,23 @@ Constraints add conditions to a permission. All conditions must be met for the p
     }
     ```
 
-    Calls beyond the limit return `result: 'rate_limited'` in the audit log and `allowed: false` with reason `RATE_LIMIT_EXCEEDED`.
+    Calls beyond the limit return `allowed: false` with a reason such as `Rate limit exceeded: 20/20 calls per hour for resource "mcp:deploy:staging"`. The permission engine writes these denials to the audit log with `result: 'denied'`; it does not write `rate_limited`.
   </Accordion>
 
   <Accordion title="Argument pattern matching">
-    Restricts what arguments an agent can pass to a tool. Patterns are glob-style strings matched against the `arguments` field of the authorization request.
+    Restricts what arguments an agent can pass to a tool. Patterns are regular expressions tested against each string value in the `arguments` field of the authorization request. Every string value must match every pattern, so use one alternation pattern rather than several alternatives.
 
     ```typescript
     {
       resource: 'tool:file_write',
       actions: ['execute'],
       constraints: {
-        allowedArgPatterns: ['/home/agent/**', '/tmp/**'],
+        allowedArgPatterns: ['^/(home/agent|tmp)/'],
       },
     }
     ```
 
-    If no pattern matches, the call is denied.
+    If any string argument fails any pattern, the call is denied.
   </Accordion>
 
   <Accordion title="Human-in-the-loop approval">
@@ -114,7 +128,7 @@ Constraints add conditions to a permission. All conditions must be met for the p
     }
     ```
 
-    The authorization result has `allowed: false` and reason `APPROVAL_REQUIRED`. Your application is responsible for presenting the approval UI and re-authorizing after approval.
+    The authorization result has `allowed: false` and the reason `This action requires human approval before execution`. Your application is responsible for presenting the approval UI and re-authorizing after approval.
 
     <Info>
       TheAuth does not ship an approval UI. It provides the enforcement point. How you build the human review step is up to you.
@@ -122,7 +136,7 @@ Constraints add conditions to a permission. All conditions must be met for the p
   </Accordion>
 
   <Accordion title="Time windows">
-    Restricts when an action is allowed. Times are in 24-hour format, UTC.
+    Restricts when an action is allowed. Times are in 24-hour `HH:MM` format and are compared with the server's local clock, not UTC. A window that wraps past midnight (for example `22:00` to `06:00`) is not supported.
 
     ```typescript
     {
@@ -138,7 +152,7 @@ Constraints add conditions to a permission. All conditions must be met for the p
   </Accordion>
 
   <Accordion title="IP allowlist">
-    Restricts which source IPs can use the permission. Accepts CIDR notation.
+    Restricts which source IPs can use the permission. Accepts exact IPv4 addresses and IPv4 CIDR notation.
 
     ```typescript
     {
@@ -150,7 +164,7 @@ Constraints add conditions to a permission. All conditions must be met for the p
     }
     ```
 
-    Pass the caller's IP in the authorization request for this to take effect. Requests from IPs outside the list are denied.
+    Pass the caller's IP as `ip` on the authorization request (`authorize(agentId, { action, resource, ip })`). `context.ip` is only used for audit logging. Requests with no `ip`, or from IPs outside the list, are denied.
   </Accordion>
 </AccordionGroup>
 
@@ -180,7 +194,7 @@ Available templates:
 | `mcpFull` | `read`, `write`, `execute` | `mcp:*` | |
 | `rateLimitedRead` | `read` | `*` | 100 calls/hour |
 | `approvalRequired` | `*` | `*` | Every call requires human approval |
-| `businessHours` | `read`, `write`, `execute` | `*` | 09:00–17:00 UTC |
+| `businessHours` | `read`, `write`, `execute` | `*` | 09:00 to 17:00 server local time |
 
 Templates are plain `Permission[]` arrays. Spread and extend them directly:
 

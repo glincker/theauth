@@ -22,7 +22,7 @@ Scores are computed from the audit log, not guessed. An agent cannot self-report
 <ParamField path="factors.denialRate" type="number">Percentage of all calls that were denied.</ParamField>
 <ParamField path="factors.ageInDays" type="number">Days since the agent was created.</ParamField>
 <ParamField path="factors.totalCalls" type="number">Total authorization calls in the audit log.</ParamField>
-<ParamField path="factors.anomalyCount" type="number">Denied calls matching privilege escalation patterns.</ParamField>
+<ParamField path="factors.anomalyCount" type="number">Denied calls whose reason contains `INSUFFICIENT_PERMISSIONS`, `privilege`, or `escalation`. Built-in denial reasons do not contain these words, so this stays 0 unless your hooks produce them (see [Anomaly detection](/anomaly)).</ParamField>
 <ParamField path="factors.lastViolation" type="string | undefined">ISO timestamp of the most recent denied call.</ParamField>
 <ParamField path="computedAt" type="string">ISO timestamp of when this score was last computed.</ParamField>
 
@@ -34,35 +34,25 @@ The formula starts at 50 and applies adjustments:
 score = 50
 score += min(25, floor(allowedCalls / 100))   // +1 per 100 successful calls, capped at +25
 score -= deniedCalls × 5                       // -5 per denial
-score -= anomalyCount × 10                     // -10 per privilege escalation attempt
+score -= anomalyCount × 10                     // -10 per counted anomaly (a denial whose reason matches, see anomalyCount)
 score += 10 if ageInDays > 30                  // bonus for established agents
 score += 5  if ageInDays > 7                   // smaller bonus for recent agents
 score = clamp(score, 0, 100)
 ```
 
-An agent with 200 successful calls, no denials, and 40 days of history scores: `50 + 2 + 10 = 62`, landing in the `standard` band.
+An agent with 200 successful calls, no denials, and 40 days of history scores: `50 + 2 + 10 = 62`, landing in the `standard` level (60 to 79). Note that a brand-new agent with no history sits at the baseline of 50, which is `limited`.
 
 ## Trust levels
 
 | Level | Default threshold | Meaning |
 |---|---|---|
-| `untrusted` | score < 20 | New or misbehaving. Approve all sensitive actions manually. |
-| `limited` | 20 – 39 | Early history. Apply stricter rate limits. |
-| `standard` | 40 – 59 | Baseline autonomous operation. |
-| `trusted` | 60 – 79 | Established track record. Fewer restrictions warranted. |
-| `elevated` | ≥ 95 | Long-running, clean history. Maximum autonomy. |
+| `untrusted` | score < 40 | Misbehaving or heavily denied. Approve all sensitive actions manually. |
+| `limited` | 40 to 59 | Early history (a new agent starts here at 50). Apply stricter rate limits. |
+| `standard` | 60 to 79 | Baseline autonomous operation. |
+| `trusted` | 80 to 94 | Established track record. Fewer restrictions warranted. |
+| `elevated` | 95 to 100 | Long-running, clean history. Maximum autonomy. |
 
-The default thresholds can be overridden at init:
-
-```typescript
-const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
-  // Override specific thresholds while keeping others at their defaults
-});
-
-// theauth.trust uses the module directly. No threshold config exposed yet.
-// Use the computed level in your application logic instead
-```
+The thresholds are lower bounds hardcoded in the core (`createTheAuth` passes an empty trust config), so they cannot be changed through `createTheAuth` today. Use `score.score` in your own logic if you need different cut-offs.
 
 ## Code examples
 
@@ -72,7 +62,7 @@ const theauth = await createTheAuth({
 const score = await theauth.trust.computeScore('agt_abc123');
 
 console.log(score.score);           // 72
-console.log(score.level);           // 'trusted'
+console.log(score.level);           // 'standard'
 console.log(score.factors.denialRate); // 1.4
 ```
 

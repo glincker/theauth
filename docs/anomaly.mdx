@@ -1,75 +1,43 @@
 ---
 title: Anomaly detection
-description: Identifying unusual agent behavior by scanning audit logs for denial patterns and privilege escalation attempts.
+description: What TheAuth provides for spotting unusual agent behavior today (trust score anomaly count, the onViolation hook, audit queries) and what is not implemented.
 icon: triangle-exclamation
 ---
 
 
-## What anomaly detection does
+## What exists today
 
-TheAuth scans the audit log for behavioral patterns that suggest an agent is operating outside its intended scope. The most common signal is a cluster of denied calls that match privilege escalation patterns, an agent repeatedly attempting to access resources it was never granted.
+TheAuth does not ship an anomaly detector. There is no `scan()` function and no anomaly finding type. Three small pieces exist, and everything else on this page is something you build on top of the audit log.
 
-Anomaly detection is not a background process. You call `scan()` and get back a list of findings at that point in time. This keeps the system predictable: there are no background threads, no persistent state, and no surprise side effects.
+| Piece | What it does |
+|---|---|
+| Trust score `anomalyCount` | `theauth.trust.computeScore()` counts denied audit entries whose `reason` contains `INSUFFICIENT_PERMISSIONS`, `privilege`, or `escalation` (case-insensitive for the last two). Each counted entry lowers the score by 10, on top of 5 for the denial itself. |
+| `onViolation` hook | A lifecycle hook that fires on every denied `authorize()` call, with a coarse `type`: `permission_denied`, `rate_limited`, `ip_blocked`, `time_restricted`, or `approval_required`. |
+| `anomaly.detected` event type | A name reserved in the event stream's `EventType` list. Nothing in the library emits it. You can emit it yourself with the stream's `emit()`. |
 
-## Anomaly types
+<Warning>
+  The built-in denial reasons are plain sentences such as `No permission grants agent "x" access to "write" on "y"`. They do not contain `INSUFFICIENT_PERMISSIONS`, `privilege`, or `escalation`, so `anomalyCount` stays at 0 unless a `beforeAuthorize` hook or your own wrapper produces a reason with one of those words. Do not rely on `anomalyCount` as a privilege escalation detector without that.
+</Warning>
 
-| Type | Severity | Description |
-|---|---|---|
-| `privilege_escalation` | critical | Denied calls with reasons matching `INSUFFICIENT_PERMISSIONS`, `privilege`, or `escalation`. |
-| `high_denial_rate` | warning | More than 20% of the agent's recent calls were denied. |
-| `rapid_fire` | warning | Call volume in the last hour exceeds a configurable threshold. |
-| `unusual_resource_access` | info | The agent accessed a resource it has no explicit permission for, even if the call succeeded. |
-| `off_hours_activity` | info | Calls outside the agent's declared `timeWindow` constraint, if one is set. |
+### Not implemented
 
-<Info>
-  `scan()` queries audit logs directly, it is not a background process and does not push alerts. Call it from a scheduled job, a webhook handler, or a dashboard endpoint.
-</Info>
-
-## Anomaly fields
-
-<ParamField path="agentId" type="string">The agent where the anomaly was detected.</ParamField>
-<ParamField path="type" type="'privilege_escalation' | 'high_denial_rate' | 'rapid_fire' | 'unusual_resource_access' | 'off_hours_activity'">Classification of the detected pattern.</ParamField>
-<ParamField path="severity" type="'critical' | 'warning' | 'info'">How urgent the finding is.</ParamField>
-<ParamField path="description" type="string">Human-readable explanation of what was observed.</ParamField>
-<ParamField path="count" type="number">Number of matching events in the scanned window.</ParamField>
-<ParamField path="detectedAt" type="string">ISO timestamp of when the scan ran.</ParamField>
-<ParamField path="evidence" type="AuditEntry[]">The specific audit log entries that triggered this finding.</ParamField>
-
-## AnomalyConfig options
-
-<ParamField path="since" type="Date">Start of the window to scan. Defaults to 24 hours ago.</ParamField>
-<ParamField path="until" type="Date">End of the window to scan. Defaults to now.</ParamField>
-<ParamField path="minDenialRate" type="number">Denial rate percentage above which high_denial_rate fires. Default is 20.</ParamField>
-<ParamField path="rapidFireThreshold" type="number">Calls per hour above which rapid_fire fires. Default is 100.</ParamField>
-<ParamField path="agentId" type="string">Scope the scan to a single agent. Omit to scan all agents.</ParamField>
+These were described on earlier versions of this page and are not in the TypeScript package: a `scan()` API, the finding types `privilege_escalation`, `high_denial_rate`, `rapid_fire`, `unusual_resource_access`, and `off_hours_activity`, the `AnomalyConfig` options (`since`, `until`, `minDenialRate`, `rapidFireThreshold`, `agentId`), and finding objects with `severity`, `evidence`, and `detectedAt`. If you want these signals, compute them from the audit log as shown below.
 
 ## Code examples
 
-### Scan a single agent for anomalies
+### Find denied calls for an agent
 
 ```typescript
-const anomalies = await theauth.audit.query({
+const denied = await theauth.audit.query({
   agentId: 'agt_abc123',
   result: 'denied',
   since: new Date(Date.now() - 24 * 3_600_000),
 });
 
-// Check for privilege escalation pattern
-const escalations = anomalies.filter((entry) => {
-  const reason = entry.reason ?? '';
-  return (
-    reason.includes('INSUFFICIENT_PERMISSIONS') ||
-    reason.toLowerCase().includes('privilege') ||
-    reason.toLowerCase().includes('escalation')
-  );
-});
-
-if (escalations.length > 0) {
-  console.warn(`${escalations.length} escalation attempt(s) detected for agt_abc123`);
-}
+console.log(`${denied.length} denied call(s) in the last 24 hours`);
 ```
 
-### Get a denial-rate summary for all agents
+### Compute a denial rate per agent
 
 ```typescript
 const since = new Date(Date.now() - 24 * 3_600_000);
@@ -94,9 +62,28 @@ const highDenialAgents = Object.entries(byAgent)
 console.log('Agents with >20% denial rate:', highDenialAgents);
 ```
 
-### Act on critical findings
+### React to denials with the `onViolation` hook
 
-The most effective response to a privilege escalation detection is to pause the agent while you investigate:
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+
+const violations = new Map<string, number>();
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  hooks: {
+    onViolation: async ({ agentId, type, resource, reason }) => {
+      const count = (violations.get(agentId) ?? 0) + 1;
+      violations.set(agentId, count);
+      console.warn(`[violation] ${agentId} ${type} on ${resource}: ${reason}`);
+    },
+  },
+});
+```
+
+The hook is called without being awaited, so a slow handler does not delay the `authorize()` result. Keep counters in a durable store if you need them to survive restarts.
+
+### Pause an agent after repeated denials
 
 ```typescript
 const denied = await theauth.audit.query({
@@ -105,13 +92,9 @@ const denied = await theauth.audit.query({
   since: new Date(Date.now() - 3_600_000),
 });
 
-const escalations = denied.filter((e) =>
-  (e.reason ?? '').includes('INSUFFICIENT_PERMISSIONS'),
-);
-
-if (escalations.length >= 3) {
+if (denied.length >= 3) {
   await theauth.agent.revoke('agt_abc123');
-  console.log('Agent revoked after repeated escalation attempts.');
+  console.log('Agent revoked after repeated denials.');
 }
 ```
 
@@ -119,30 +102,30 @@ if (escalations.length >= 3) {
   `agent.revoke()` is permanent. If you want to temporarily suspend an agent and restore it later, create a new agent with the same configuration instead of revoking.
 </Warning>
 
-### Use trust scores as the anomaly aggregate
-
-The `anomalyCount` field on a trust score is a pre-computed count of privilege escalation attempts, updated each time `computeScore` runs. It is a cheaper signal than a full scan when you only need the count:
+### Read the trust score factors
 
 ```typescript
 const score = await theauth.trust.computeScore('agt_abc123');
 
-if (score.factors.anomalyCount > 0) {
-  console.warn(
-    `${score.factors.anomalyCount} anomalies detected. Last denial: ${score.factors.lastViolation}`,
-  );
+console.log(score.score, score.level);
+console.log(score.factors.denialRate, score.factors.anomalyCount);
+if (score.factors.lastViolation) {
+  console.warn(`Last denial: ${score.factors.lastViolation}`);
 }
 ```
+
+`lastViolation` is the timestamp of the most recent denied call of any kind. Computing a score also stores it.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Trust scoring" href="/trust">
-  Translate anomaly counts into a graduated trust level.
+  Turn denial history into a graduated trust level.
 </Card>
   <Card title="Approval flows" href="/approval">
   Route flagged agents through human review before they act.
 </Card>
   <Card title="Audit trail" href="/audit">
-  Query the raw log data that anomaly detection reads.
+  Query the raw log data these signals are built on.
 </Card>
 </CardGroup>

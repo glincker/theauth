@@ -1,62 +1,68 @@
 ---
 title: Rate limiting
-description: Apply IP-based limits on auth endpoints and per-agent call caps via the maxCallsPerHour constraint. Redis store supported for multi-instance deployments.
+description: Apply per-IP limits on auth endpoints with the rateLimit plugin and per-agent call caps with the maxCallsPerHour constraint.
 icon: shield-halved
 ---
 
 
 ## Overview
 
-TheAuth applies rate limits at two layers: auth endpoints get IP-based limits to protect against brute force and credential stuffing, and the permission engine enforces per-agent call limits via the `maxCallsPerHour` constraint.
+TheAuth has three separate rate limiting mechanisms:
 
-Both layers return a standard `429` response and set `Retry-After` when applicable.
+1. The `rateLimit()` plugin: per-IP limits on `/auth/*` endpoints, with a pluggable store. It is opt-in.
+2. Per-endpoint limits that individual plugins declare in their endpoint metadata. These apply automatically once the plugin is installed.
+3. The `maxCallsPerHour` permission constraint, enforced by the permission engine for agent calls.
 
-## Built-in auth endpoint limits
+There is no top-level `rateLimit` option on `createTheAuth()`, no Redis store, and no single shared 429 response shape. Each mechanism is described below.
 
-These limits apply automatically with no configuration required.
+## The rateLimit plugin
 
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| `POST /sign-in` | 10 requests | per IP per minute |
-| `POST /sign-up` | 5 requests | per IP per minute |
-| `POST /magic-link` | 3 requests | per IP per minute |
-| `POST /email-otp` | 5 requests | per IP per minute |
-| `POST /totp/verify` | 10 requests | per IP per minute |
-| `POST /token` (OAuth) | 20 requests | per IP per minute |
-
-<Info>
-  Limits are tracked in-process by default. For multi-instance deployments, configure a Redis store so all instances share the same counters.
-</Info>
-
-## Configuring auth limits
-
-Pass a `rateLimit` block to `createTheAuth` to override the defaults or enable Redis:
+Install the plugin to throttle `/auth/*` requests by IP. Nothing is limited until you add it, and a request is only limited if its path matches a configured key (or `default` is set).
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
+import { rateLimit } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'postgres', url: process.env.DATABASE_URL },
-  rateLimit: {
-    store: 'memory',        // or 'redis'
-    redisUrl: process.env.REDIS_URL,
-    endpoints: {
-      signIn: { limit: 5, window: 60 },    // 5 per minute (stricter)
-      signUp: { limit: 2, window: 60 },
-      magicLink: { limit: 2, window: 60 },
-    },
-  },
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  plugins: [
+    rateLimit({
+      signIn: { window: '1m', max: 5 },
+      signUp: { window: '1m', max: 2 },
+      passwordReset: { window: '1h', max: 3 },
+      agentAuthorize: { window: '1m', max: 100 },
+      default: { window: '1m', max: 60 },
+    }),
+  ],
 });
 ```
 
-<ParamField path="store" type={`"memory" | "redis"`} default={`"memory"`}>Where to persist counters. Use redis in production when running multiple instances.</ParamField>
-<ParamField path="redisUrl" type="string | undefined">Redis connection string. Required when store is redis.</ParamField>
-<ParamField path="endpoints.signIn" type="{ limit: number; window: number }">Override for the sign-in endpoint. window is in seconds.</ParamField>
-<ParamField path="endpoints.signUp" type="{ limit: number; window: number }">Override for the sign-up endpoint.</ParamField>
+<ParamField path="signIn" type="{ window: string; max: number }">Limit for paths ending in `/auth/sign-in`.</ParamField>
+<ParamField path="signUp" type="{ window: string; max: number }">Limit for paths ending in `/auth/sign-up`.</ParamField>
+<ParamField path="passwordReset" type="{ window: string; max: number }">Limit for paths ending in `/auth/password-reset`.</ParamField>
+<ParamField path="agentAuthorize" type="{ window: string; max: number }">Limit for paths ending in `/auth/agent/authorize`.</ParamField>
+<ParamField path="default" type="{ window: string; max: number }">Fallback for every other path containing `/auth/`.</ParamField>
+<ParamField path="store" type={`"memory" | RateLimitStore`} default={`"memory"`}>Counter storage. The built-in `MemoryStore` is per process. For edge deployments use `kvStore(namespace)` (Cloudflare KV), or pass any object implementing `increment(key, windowMs)` and `reset(key)`. There is no built-in Redis store; implement `RateLimitStore` yourself if you need one for multiple instances.</ParamField>
+<ParamField path="keyExtractor" type="(request: Request) => string">Rate limit key. Defaults to the first `x-forwarded-for` entry, then `x-real-ip`, then `"unknown"`. Only trust those headers behind a proxy that sets them.</ParamField>
+<ParamField path="onLimit" type="(request: Request, retryAfter: number) => Response">Custom 429 response factory.</ParamField>
+
+`window` is a duration string: a number followed by `s`, `m`, `h`, or `d` (for example `"30s"`, `"15m"`, `"1h"`). Any other format throws when the first request is checked. The window is a fixed window starting at the first request for that key and path, and the counter is keyed by path plus client key.
+
+When the limit is exceeded, the response is `429` with this body, plus `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` (always `0`), and `X-RateLimit-Reset` headers:
+
+```json
+{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }
+```
+
+Requests under the limit pass through without rate limit headers.
+
+## Per-endpoint limits declared by plugins
+
+Some plugin endpoints carry their own `metadata.rateLimit` (for example the email OTP, magic link, and OAuth authorize endpoints). The plugin router enforces these with an in-process counter keyed by IP and endpoint path, and responds `429` with `{ "error": "Rate limit exceeded" }` and no `Retry-After` header. They are fixed in the plugin source, not configurable through `rateLimit()`, and not shared across instances. Note that the router interprets `window` in seconds.
 
 ## Per-agent limits with maxCallsPerHour
 
-The permission engine supports a `maxCallsPerHour` constraint. When an agent exceeds its hourly call budget, the permission check returns `allowed: false` with `reason: "Rate limit exceeded"`.
+The permission engine supports a `maxCallsPerHour` constraint. When an agent exceeds its hourly call budget, `authorize()` returns `allowed: false` with a reason that starts with `Rate limit exceeded`.
 
 ```typescript
 const agent = await theauth.agent.create({
@@ -82,7 +88,13 @@ const agent = await theauth.agent.create({
 });
 ```
 
-The counter resets at the top of each clock hour. If you need sliding windows, use `createRateLimiter` instead (see below).
+How the counter works, from the permission engine source:
+
+- It is a rolling hour, not a clock-hour reset. Calls are recorded in 5 minute buckets in the `theauth_rate_limits` table, and every bucket from the last hour is summed. Because the counters live in the database, they are shared across instances.
+- The counter is keyed by agent ID and the requested resource string (for example `db:reports:monthly`), not by the permission pattern. A `db:reports:*` permission therefore keeps a separate count for each concrete resource requested.
+- A call is counted when the rate check passes, even if a later constraint on the same permission (argument patterns, approval, time window, IP allowlist) denies it.
+- Only the first permission whose resource and action match is evaluated by `authorize()`.
+- Budget policies (`theauth.policies`) are a different module and are not part of this check.
 
 ### Checking the limit in your code
 
@@ -92,86 +104,63 @@ const result = await theauth.authorize(agent.id, {
   resource: 'db:reports:monthly',
 });
 
-if (!result.allowed) {
-  if (result.reason === 'Rate limit exceeded') {
-    // Return 429 to the calling agent
-    return new Response('Too many requests', {
-      status: 429,
-      headers: { 'Retry-After': '3600' },
-    });
-  }
+if (!result.allowed && result.reason?.startsWith('Rate limit exceeded')) {
+  // result.reason looks like:
+  // Rate limit exceeded: 100/100 calls per hour for resource "db:reports:monthly"
+  return new Response('Too many requests', {
+    status: 429,
+    headers: { 'Retry-After': '300' },
+  });
 }
 ```
+
+`authorize()` does not produce an HTTP response, so choosing the status and `Retry-After` value is up to your code. A slot frees up when the oldest 5 minute bucket leaves the window, so a short `Retry-After` is reasonable. The `onViolation` hook receives these denials with type `rate_limited`.
 
 ## createRateLimiter
 
-Use `createRateLimiter` for custom rate limiting on your own endpoints, for example, an expensive AI inference route that should be capped per user.
+`createRateLimiter` is a small in-memory sliding window limiter. It is synchronous, per process, and keyed by a string you pass in.
 
 ```typescript
-import { createRateLimiter } from '@glinr/theauth';
+import { createRateLimiter } from '@glinr/theauth/auth';
 
 const inferenceLimit = createRateLimiter({
-  limit: 20,
-  window: 3600,           // 1 hour in seconds
-  keyFn: (req) => req.headers.get('x-user-id') ?? req.ip ?? 'anonymous',
-  store: 'redis',
-  redisUrl: process.env.REDIS_URL,
+  max: 20,
+  window: 3600, // seconds
 });
+
+const result = inferenceLimit.check(userId);
+if (!result.allowed) {
+  // result.remaining === 0, result.resetAt is a Date
+}
+
+inferenceLimit.reset(userId); // clear a key, for example after a successful login
 ```
 
-<ParamField path="limit" type="number">Maximum number of requests allowed within the window.</ParamField>
-<ParamField path="window" type="number">Time window in seconds.</ParamField>
-<ParamField path="keyFn" type="(req: Request) => string">Derives the rate limit key from the request. Defaults to the client IP.</ParamField>
-<ParamField path="store" type={`"memory" | "redis"`} default={`"memory"`}>Counter storage backend.</ParamField>
-<ParamField path="redisUrl" type="string | undefined">Redis connection string. Required when store is redis.</ParamField>
+<ParamField path="max" type="number">Maximum number of hits allowed within the window.</ParamField>
+<ParamField path="window" type="number">Window length in seconds.</ParamField>
+
+`check(key)` returns `{ allowed, remaining, resetAt }` and consumes a slot when allowed. There are no `limit`, `keyFn`, `store`, or `redisUrl` options.
 
 ## withRateLimit middleware
 
-Wrap any handler with `withRateLimit` to apply a limiter without modifying the handler itself.
+`withRateLimit(handler, limiter, options?)` wraps a plugin endpoint handler (the `(request, ctx) => Promise<Response>` shape used by `TheAuthPlugin` endpoints) so it is checked against a limiter first.
 
 ```typescript
-import { withRateLimit } from '@glinr/theauth';
+import { createRateLimiter, withRateLimit } from '@glinr/theauth/auth';
 
-const inferenceLimit = createRateLimiter({
-  limit: 20,
-  window: 3600,
-  keyFn: (req) => req.headers.get('x-user-id') ?? 'anonymous',
-});
+const inferenceLimit = createRateLimiter({ max: 20, window: 3600 });
 
-// Works with any framework adapter. The handler receives a standard Request.
-export const POST = withRateLimit(inferenceLimit, async (req: Request) => {
-  const result = await runInference(await req.json());
-  return Response.json(result);
-});
+const handler = withRateLimit(
+  async (request, ctx) => {
+    const result = await runInference(await request.json());
+    return Response.json(result);
+  },
+  inferenceLimit,
+  { keyExtractor: (req) => req.headers.get('x-user-id') ?? 'anonymous' },
+);
 ```
 
-When the limit is exceeded, `withRateLimit` returns a `429` response automatically and does not call the wrapped handler.
-
-## 429 response format
-
-All rate limit rejections, from auth endpoints, the permission engine, or `withRateLimit`, return the same shape:
-
-```json
-{
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Too many requests. Try again after 60 seconds.",
-    "details": {
-      "limit": 10,
-      "window": 60,
-      "retryAfter": 60
-    }
-  }
-}
-```
-
-The `Retry-After` header is also set to the number of seconds remaining in the current window.
-
-```http
-HTTP/1.1 429 Too Many Requests
-Content-Type: application/json
-Retry-After: 42
-```
+When the limit is exceeded, `withRateLimit` returns a `429` response with a `Retry-After` header and the body `{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }`, and does not call the wrapped handler. The default `keyExtractor` is the same `x-forwarded-for`, then `x-real-ip`, then `"unknown"` chain as the plugin.
 
 ## Next steps
 
@@ -182,7 +171,7 @@ Retry-After: 42
   <Card title="Approval flows" href="/approval">
   Pair rate limits with human-in-the-loop approval for sensitive actions.
 </Card>
-  <Card title="Anomaly detection" href="/anomaly">
-  Use anomaly scoring alongside rate limits for behavioural signals.
+  <Card title="Hooks" href="/hooks">
+  React to rate_limited denials with the onViolation hook.
 </Card>
 </CardGroup>

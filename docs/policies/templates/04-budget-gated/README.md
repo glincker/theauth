@@ -17,9 +17,11 @@ engine.evaluate({
 | Call count in window | Decision |
 |---|---|
 | 0-99 | **allow**, under cap |
-| 100 | **deny**, limit reached |
+| 100 or more | **deny**, limit reached |
+
+The window is a rolling hour. Calls are counted in 5 minute buckets and every bucket from the last hour is summed. The counter is keyed by agent and requested resource string, and it increments when the rate check passes (before the other constraints on the same permission run). Budget policies (`theauth.policies`) are a separate module and are not consulted by `evaluate()` or `authorize()`.
 
 ## Tweak this
 
 - Lower `maxCallsPerHour` to `10` during initial rollout and raise it once you trust the agent.
-- Pair with a webhook on the deny event to alert the team before the hour resets.
+- When requests go through `theauth.authorize()`, the `onViolation` hook receives a `rate_limited` violation when the cap is hit, which you can use to alert the team.
