@@ -46,10 +46,10 @@ const result = await openOAuthWindow({ provider: 'google', redirectUri: 'theauth
 
 ## Exports
 
-- `ElectronTheAuthProvider` / `ElectronTheAuthContext` / `useElectronTheAuthContext`: renderer-side provider (formerly `ElectronTheAuth*`, still exported as deprecated aliases)
+- `ElectronTheAuthProvider` / `ElectronTheAuthContext` / `useElectronTheAuthContext`: renderer-side provider
 - `createElectronStorage`: encrypted keychain-backed storage
 - `createMemoryStorage`: in-memory storage for testing
-- `setupTheAuthIpc` / `createIpcStorage` / `THEAUTH_IPC_CHANNELS`: main-process IPC setup (formerly `setupTheAuthIpc` / `THEAUTH_IPC_CHANNELS`, still exported as deprecated aliases)
+- `setupTheAuthIpc` / `createIpcStorage` / `THEAUTH_IPC_CHANNELS`: main-process IPC setup
 - `openOAuthWindow`: opens a managed OAuth popup window
 
 ## Docs

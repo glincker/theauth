@@ -45,7 +45,7 @@ export const agents = createAgentStore({ client: auth });
 
 ## Exports
 
-- `createTheAuthClient`: creates a reactive Svelte store client (formerly `createTheAuthClient`, still exported as a deprecated alias)
+- `createTheAuthClient`: creates a reactive Svelte store client
 - `createAgentStore`: creates a store for managing AI agents
 
 ## Docs
