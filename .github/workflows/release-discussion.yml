@@ -1,0 +1,132 @@
+name: release-discussion-sync
+
+# Reusable. Keeps one "Releases YYYY-MM" Announcements discussion in
+# glincker/theauth with a section per repo. Each release only rewrites its own
+# section, so reruns are idempotent. Callers: theauth and theauth-go.
+on:
+  workflow_call:
+    inputs:
+      repo_key:
+        description: Repo name used as the section key (theauth or theauth-go)
+        type: string
+        required: true
+      repo_title:
+        description: Heading shown for the repo section
+        type: string
+        required: true
+      tag:
+        type: string
+        required: true
+      release_url:
+        type: string
+        required: true
+    secrets:
+      DISCUSSIONS_TOKEN:
+        description: Token with Discussions write on glincker/theauth. Required when called from another repo.
+        required: false
+    outputs:
+      discussion_url:
+        value: ${{ jobs.sync.outputs.discussion_url }}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      discussions: write
+    outputs:
+      discussion_url: ${{ steps.sync.outputs.discussion_url }}
+    steps:
+      - id: sync
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPO_KEY: ${{ inputs.repo_key }}
+          REPO_TITLE: ${{ inputs.repo_title }}
+          TAG: ${{ inputs.tag }}
+          RELEASE_URL: ${{ inputs.release_url }}
+        with:
+          github-token: ${{ secrets.DISCUSSIONS_TOKEN || github.token }}
+          script: |
+            const owner = 'glincker';
+            const repo = 'theauth';
+            const { REPO_KEY, REPO_TITLE, TAG, RELEASE_URL } = process.env;
+            const sections = [
+              ['theauth', 'theauth (TypeScript SDK)'],
+              ['theauth-go', 'theauth-go'],
+            ];
+            const markers = (key) => ({
+              start: `<!-- repo:${key}:start -->`,
+              end: `<!-- repo:${key}:end -->`,
+            });
+            const empty = '_No releases yet._';
+            const skeleton = (title) =>
+              [
+                `# ${title}`,
+                'Release notes for the TheAuth family this month. Updated automatically by the release workflows.',
+                ...sections.map(([key, heading]) => {
+                  const m = markers(key);
+                  return `## ${heading}\n${m.start}\n${empty}\n${m.end}`;
+                }),
+              ].join('\n\n');
+            const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const month = new Date().toISOString().slice(0, 7);
+            const title = `Releases ${month}`;
+
+            const meta = await github.graphql(
+              `query($owner: String!, $repo: String!) {
+                repository(owner: $owner, name: $repo) {
+                  id
+                  discussionCategories(first: 25) { nodes { id name } }
+                  discussions(first: 30, orderBy: {field: CREATED_AT, direction: DESC}) {
+                    nodes { id title body url }
+                  }
+                }
+              }`,
+              { owner, repo },
+            );
+            const existing = meta.repository.discussions.nodes.find((d) => d.title === title);
+
+            let body = existing ? existing.body : skeleton(title);
+            const m = markers(REPO_KEY);
+            if (!body.includes(m.start)) {
+              body += `\n\n## ${REPO_TITLE}\n${m.start}\n${empty}\n${m.end}`;
+            }
+            const re = new RegExp(`${escapeRe(m.start)}([\\s\\S]*?)${escapeRe(m.end)}`);
+            let inner = body.match(re)[1].replace(empty, '').trim();
+            if (!inner.includes(RELEASE_URL)) {
+              const date = new Date().toISOString().slice(0, 10);
+              inner = (inner ? inner + '\n' : '') + `- [${TAG}](${RELEASE_URL}) (${date})`;
+            }
+            body = body.replace(re, () => `${m.start}\n${inner}\n${m.end}`);
+
+            let url;
+            if (existing) {
+              url = existing.url;
+              if (body !== existing.body) {
+                await github.graphql(
+                  `mutation($id: ID!, $body: String!) {
+                    updateDiscussion(input: {discussionId: $id, body: $body}) { discussion { id } }
+                  }`,
+                  { id: existing.id, body },
+                );
+              }
+            } else {
+              const category = meta.repository.discussionCategories.nodes.find((c) => c.name === 'Announcements');
+              if (!category) throw new Error('Announcements category not found');
+              const created = await github.graphql(
+                `mutation($repoId: ID!, $catId: ID!, $title: String!, $body: String!) {
+                  createDiscussion(input: {repositoryId: $repoId, categoryId: $catId, title: $title, body: $body}) {
+                    discussion { url }
+                  }
+                }`,
+                { repoId: meta.repository.id, catId: category.id, title, body },
+              );
+              url = created.createDiscussion.discussion.url;
+            }
+            core.info(`Discussion: ${url}`);
+            core.setOutput('discussion_url', url);

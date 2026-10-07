@@ -46,3 +46,22 @@ Packages are versioned independently with Changesets. Current lines are listed i
 ## Contact
 
 - All inquiries (security, conduct, general): support@glincker.com
+
+## Release automation
+
+Releases are mostly automatic. A maintainer only reviews and merges two kinds of PR.
+
+1. Contributors add a changeset (`pnpm changeset`) with package source changes. The `changeset-check` workflow enforces it (label `no-changeset` skips it).
+2. On every push to `main`, `version-packages` opens or updates a `chore: version packages` PR with bumped versions and changelogs.
+3. Merging that PR makes the workflow push the `v<version>` tag. The tag triggers `release.yml`, which publishes to npm and creates the GitHub release.
+4. When the release workflow finishes, `release-discussion` adds the release to the monthly `Releases YYYY-MM` discussion in Announcements and links it from the release notes. `theauth-go` writes to the same thread, so both repos share one post per month.
+
+### Secrets
+
+| Secret | Used by | Scope |
+| --- | --- | --- |
+| `RELEASE_TOKEN` | `version-packages` | Contents and pull requests write. Must be a GitHub App or fine-grained PAT, because tags pushed with the default token do not trigger `release.yml`. |
+| `DISCUSSIONS_TOKEN` | `release-discussion` (and `theauth-go`) | Discussions write on `glincker/theauth`. Optional here, required in `theauth-go`. |
+| `NPM_TOKEN` | `release.yml` | npm publish. |
+
+Rotate tokens at least yearly. If a release did not reach the discussion, rerun `release-discussion` from the Actions tab with the tag.
