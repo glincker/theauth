@@ -9,7 +9,7 @@ const packageDir = join(__dirname, "..");
 const distBin = join(packageDir, "dist/bin.js");
 
 function runCli(args: string[]) {
-	return spawnSync("pnpm", ["exec", "node", distBin, ...args], {
+	return spawnSync(process.execPath, [distBin, ...args], {
 		cwd: packageDir,
 		encoding: "utf8",
 		env: process.env,
@@ -23,7 +23,8 @@ beforeAll(() => {
 	});
 });
 
-describe("cli smoke", () => {
+// Each case spawns a real node process; give slow CI runners room.
+describe("cli smoke", { timeout: 30_000 }, () => {
 	it("prints the package version", () => {
 		const pkg = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8")) as {
 			version: string;
