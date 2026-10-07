@@ -36,7 +36,7 @@ existing call, but each changes runtime behavior.
   The v2.x tags were never resolvable by the Go toolchain because the module
   path lacked the `/v2` suffix, so `go get github.com/glincker/theauth-go`
   returned v1.0.0. Breaking for import paths only: the API is unchanged. See
-  [Migrating to /v2](https://github.com/glincker/theauth-go/blob/main/docs-site/docs/migrations/to-v2-module-path.md).
+  [Migrating to /v2](/go/migrations/to-v2-module-path).
   The `storage/sqlite`, `mcpresource` and `audit/sinks/otlp` modules keep their
   paths and now require the v2 root.
 - **Login throttle is on by default.** Password signin is gated by per
@@ -214,7 +214,7 @@ API tokens, device grant, agents and CLI login
   attempt limits and an atomic compare-and-set redeem, and caps minted token
   abilities to the approver (root only when requested and held). Memory
   implementation plus `storagetest.RunAPITokens` and `RunDeviceCodes`. See
-  `docs-site/docs/guides/api-tokens.md`.
+  [API tokens and device login](/go/guides/api-tokens).
 - **Legacy API token acceptance.** `APITokensConfig.AcceptUnprefixed` accepts
   unprefixed bearer tokens by SHA-256 hash, and `ImportAPIToken` inserts an
   existing token record by hash without seeing the secret.
