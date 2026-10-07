@@ -13,29 +13,43 @@ Because the core uses only Web platform APIs, TheAuth runs on edge runtimes with
 Each adapter follows the same pattern: accept a `theauth` instance, optionally accept a config object, and return something your framework knows how to mount.
 
 ```typescript
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
 });
 
-const mcp = createMcpModule(theauth); // optional, enables MCP OAuth endpoints
+// optional, enables MCP OAuth endpoints
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: 'https://auth.yourapp.com',
+    baseUrl: 'https://auth.yourapp.com/api/theauth', // origin plus the mount path
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  },
+  ...mcpStore,
+});
 ```
 
-Pass `mcp` to the adapter to enable all MCP OAuth 2.1 endpoints under the same mount path.
+Pass `mcp` to the adapter to enable the MCP OAuth 2.1 endpoints under the same mount path. `createMcpModule` comes from `@glinr/theauth/mcp` and takes a config object plus storage callbacks, see [MCP](/mcp).
 
 ## Available adapters
 
 | Package | Framework | Mount pattern |
 |---|---|---|
-| [`@glinr/theauth-hono`](/platform/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
-| [`@glinr/theauth-express`](/platform/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
-| [`@glinr/theauth-nextjs`](/platform/adapters/nextjs) | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` |
-| [`@glinr/theauth-fastify`](/platform/adapters/fastify) | Fastify | `app.register(theAuthFastify(theauth), { prefix: '/api/theauth' })` |
-| [`@glinr/theauth-nuxt`](/platform/adapters/nuxt) | Nuxt (H3) | catch-all file `server/api/theauth/[...].ts` |
-| [`@glinr/theauth-sveltekit`](/platform/adapters/sveltekit) | SvelteKit | catch-all route `src/routes/api/theauth/[...path]/+server.ts` |
-| [`@glinr/theauth-astro`](/platform/adapters/astro) | Astro | catch-all page `src/pages/api/theauth/[...path].ts` |
+| [`@glinr/theauth-hono`](/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
+| [`@glinr/theauth-express`](/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
+| [`@glinr/theauth-nextjs`](/adapters/nextjs) | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` |
+| [`@glinr/theauth-fastify`](/adapters/fastify) | Fastify | `app.register(theAuthFastify(theauth), { prefix: '/api/theauth' })` |
+| [`@glinr/theauth-nuxt`](/adapters/nuxt) | Nuxt (H3) | catch-all file `server/api/theauth/[...].ts` |
+| [`@glinr/theauth-sveltekit`](/adapters/sveltekit) | SvelteKit | catch-all route `src/routes/api/theauth/[...path]/+server.ts` |
+| [`@glinr/theauth-astro`](/adapters/astro) | Astro | catch-all page `src/pages/api/theauth/[...path].ts` |
+| [`@glinr/theauth-nestjs`](/adapters/nestjs) | NestJS | `AuthModule.forRoot({ theauth, mcp })` |
+| [`@glinr/theauth-solidstart`](/adapters/solidstart) | SolidStart | catch-all route `src/routes/api/theauth/[...theauth].ts` |
+| [`@glinr/theauth-tanstack`](/adapters/tanstack) | TanStack Start | catch-all route `app/routes/api/theauth.$.ts` |
 
 ## Endpoints registered
 
@@ -49,7 +63,8 @@ All adapters register the same set of REST routes under `basePath` (default `/ap
 | `/authorize` | `POST` | Authorize an action by agent ID |
 | `/authorize/token` | `POST` | Authorize an action by bearer token |
 | `/delegations` | `POST` | Create a delegation chain |
-| `/delegations/:id` | `GET`, `DELETE` | List or revoke a delegation |
+| `/delegations/:id` | `DELETE` | Revoke a delegation |
+| `/delegations/:agentId` | `GET` | List delegation chains for an agent |
 | `/audit` | `GET` | Query audit logs |
 | `/audit/export` | `GET` | Export audit logs as JSON or CSV |
 
@@ -63,36 +78,36 @@ When `mcp` is passed, additional endpoints are registered:
 | `/mcp/authorize` | `GET` | Authorization endpoint (PKCE + S256) |
 | `/mcp/token` | `POST` | Token endpoint |
 
+<Warning>
+  These paths are relative to the mount point, but MCP clients look for the `/.well-known/*` documents at the root of your origin. When you mount the adapter under a prefix such as `/api/theauth`, also serve `mcp.getMetadata()` and `mcp.getProtectedResourceMetadata()` from root-level `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource` routes. See [MCP](/mcp).
+</Warning>
+
 ## Using without an adapter
 
-If your framework is not listed, use the core handler directly. It works with any server that handles standard `Request` objects.
+If your framework is not listed, call the module methods directly from any server that handles standard `Request` objects. The `mcp` module from `createMcpModule` does not route URLs for you: you map paths to its methods yourself.
 
 ```typescript
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
-
-const theauth = await createTheAuth({ /* ... */ });
-const mcp = createMcpModule(theauth);
+import { mcp } from './lib/theauth.js';
 
 async function handler(request: Request): Promise<Response> {
-  // Let TheAuth handle its own routes
-  const theAuthResponse = await mcp.handleRequest(request);
-  if (theAuthResponse) return theAuthResponse;
+  const url = new URL(request.url);
 
-  // Validate auth for your protected routes
-  const authResult = await mcp.validateRequest(request);
-  if (!authResult.valid) {
-    return mcp.buildUnauthorizedResponse(request);
+  if (url.pathname === '/.well-known/oauth-authorization-server') {
+    return Response.json(mcp.getMetadata());
+  }
+  if (url.pathname === '/.well-known/oauth-protected-resource') {
+    return Response.json(mcp.getProtectedResourceMetadata());
   }
 
-  return new Response(JSON.stringify({ tools: [] }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  // Protect everything else: 401 or 403 responses are built for you
+  const check = await mcp.requireScopes(request, ['mcp:read']);
+  if (!check.authorized) return check.response;
+
+  return Response.json({ tools: [] });
 }
 ```
 
-<Info>
-  `handleRequest` returns `null` when the request URL does not match any TheAuth route, so your own handlers run normally for all other paths.
-</Info>
+You would also route `/mcp/register`, `/mcp/authorize`, and `/mcp/token` to `mcp.registerClient(body)`, `mcp.authorize(request)`, and `mcp.token(request)`, which return a `Result` you turn into a `Response`. The adapters in this table already do that, and the agent REST routes are only available through an adapter.
 
 ## Choose your framework
 

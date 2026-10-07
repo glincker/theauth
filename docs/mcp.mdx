@@ -17,50 +17,123 @@ TheAuth implements the full MCP auth stack:
 - Resource Indicators (RFC 8707)
 - Dynamic Client Registration (RFC 7591)
 
+<Info>
+  This page describes the TypeScript package. The Go server in this repository exposes its OAuth endpoints under `/oauth/*` instead (`/oauth/authorize`, `/oauth/token`). The TypeScript adapters serve `/mcp/register`, `/mcp/authorize`, and `/mcp/token`, as listed below.
+</Info>
+
 ## Setup
+
+The OAuth server is a separate module from the `theauth` instance. You create it with `createMcpModule` from `@glinr/theauth/mcp` and pass it to a framework adapter. The module has no built-in database: you supply the storage callbacks.
 
 ### Setting up
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import type { McpAccessToken, McpAuthorizationCode, McpClient } from '@glinr/theauth/mcp';
 
-const theauth = await createTheAuth({
+// In-memory stores for illustration. Back these with your database in production.
+const clients = new Map<string, McpClient>();
+const codes = new Map<string, McpAuthorizationCode>();
+const tokens = new Map<string, McpAccessToken>();
+const byRefreshToken = new Map<string, string>();
+
+export const mcpStore = {
+  storeClient: async (client: McpClient) => {
+    clients.set(client.clientId, client);
+  },
+  findClient: async (clientId: string) => clients.get(clientId) ?? null,
+  storeAuthorizationCode: async (code: McpAuthorizationCode) => {
+    codes.set(code.code, code);
+  },
+  consumeAuthorizationCode: async (code: string) => {
+    const found = codes.get(code) ?? null;
+    if (found) codes.delete(code); // a code must be single use
+    return found;
+  },
+  storeToken: async (token: McpAccessToken) => {
+    tokens.set(token.accessToken, token);
+    if (token.refreshToken) byRefreshToken.set(token.refreshToken, token.accessToken);
+  },
+  findTokenByRefreshToken: async (refreshToken: string) => {
+    const accessToken = byRefreshToken.get(refreshToken);
+    return accessToken ? (tokens.get(accessToken) ?? null) : null;
+  },
+  revokeToken: async (accessToken: string) => {
+    tokens.delete(accessToken);
+  },
+  // Return the signed-in user's ID from your session, or null to send them to loginPage
+  resolveUserId: async (request: Request) => {
+    void request;
+    return null as string | null;
+  },
+};
+
+export const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
-  mcp: {
+  mcp: { enabled: true }, // creates the MCP server registry table
+});
+
+export const mcp = createMcpModule({
+  config: {
+    enabled: true,
     issuer: 'https://auth.yourapp.com',
-    audience: 'https://mcp.yourapp.com',
-    accessTokenTtl: 3600,    // seconds
-    refreshTokenTtl: 86400,
+    // Public origin plus the path where you mount the adapter
+    baseUrl: 'https://auth.yourapp.com/api/theauth',
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+    scopes: ['mcp:read', 'mcp:execute'],
+    loginPage: 'https://auth.yourapp.com/login',
   },
+  ...mcpStore,
 });
 ```
 
-Then mount the MCP module via a framework adapter. See [Framework adapters](/adapters) for how to pass `createMcpModule` to your adapter.
+Then mount the module via a framework adapter by passing it as the `mcp` option, for example `theAuthHono(theauth, { mcp })`. See [Framework adapters](/adapters).
+
+<Warning>
+  `createTheAuth` accepts an `mcp` config key, but it only makes the instance create the MCP tables (including the registry behind `theauth.mcp.register`). It does not build the OAuth server, and `audience` is not an option. The OAuth server comes only from `createMcpModule`.
+</Warning>
 
 ### MCP config options
 
-<ParamField path="issuer" type="string">The authorization server URL. Appears in token claims and metadata documents.</ParamField>
-<ParamField path="audience" type="string">The protected resource URL. Tokens are bound to this audience and rejected by any other server.</ParamField>
+These go in the `config` object passed to `createMcpModule`.
+
+<ParamField path="enabled" type="boolean">Required by the type. Set to `true`.</ParamField>
+<ParamField path="issuer" type="string">The authorization server URL. Appears in token claims and metadata documents. Required at runtime.</ParamField>
+<ParamField path="baseUrl" type="string">The URL under which the adapter serves the endpoints (origin plus mount path). The metadata documents are built from it, for example `${baseUrl}/mcp/token`. Required at runtime.</ParamField>
+<ParamField path="signingSecret" type="string">HMAC secret for access tokens, at least 32 characters. Required at runtime.</ParamField>
+<ParamField path="scopes" type="string[]">Extra scopes to advertise and accept, in addition to `openid`, `profile`, `email`, and `offline_access`.</ParamField>
 <ParamField path="accessTokenTtl" type="number">Access token lifetime in seconds. Defaults to 3600.</ParamField>
-<ParamField path="refreshTokenTtl" type="number">Refresh token lifetime in seconds. Defaults to 86400. Rotation is applied on each use for public clients.</ParamField>
+<ParamField path="refreshTokenTtl" type="number">Refresh token lifetime in seconds. Defaults to 604800 (7 days).</ParamField>
+<ParamField path="codeTtl" type="number">Authorization code lifetime in seconds. Defaults to 600.</ParamField>
+<ParamField path="allowedResources" type="string[]">Resource URIs (RFC 8707) that a client may request. A `resource` outside this list is rejected when the list is set.</ParamField>
+<ParamField path="loginPage" type="string">Where users are sent when `resolveUserId` returns `null`.</ParamField>
+<ParamField path="consentPage" type="string">When set, the authorize endpoint redirects here instead of issuing a code, and your page calls `mcp.approveConsent(...)` after the user allows.</ParamField>
+<ParamField path="preRegisteredClients" type="Array">Clients stored at startup through `storeClient`.</ParamField>
 
 ### Endpoints
 
-Once mounted, TheAuth serves these endpoints (relative to your `basePath`, default `/api/theauth`):
+Adapters register these routes relative to their mount path (default `/api/theauth`):
 
 | Endpoint | RFC | Purpose |
 |---|---|---|
 | `GET /.well-known/oauth-authorization-server` | RFC 8414 | Authorization server metadata |
 | `GET /.well-known/oauth-protected-resource` | RFC 9728 | Protected resource metadata |
-| `POST /oauth/register` | RFC 7591 | Dynamic client registration |
-| `GET /oauth/authorize` | OAuth 2.1 | Authorization endpoint |
-| `POST /oauth/token` | OAuth 2.1 | Token endpoint |
-| `POST /oauth/revoke` | RFC 7009 | Token revocation |
+| `POST /mcp/register` | RFC 7591 | Dynamic client registration |
+| `GET /mcp/authorize` | OAuth 2.1 | Authorization endpoint |
+| `POST /mcp/token` | OAuth 2.1 | Token endpoint |
 
-<Info>
-  The well-known endpoints are served at the root of your domain, not under `basePath`. TheAuth registers them separately so MCP clients can discover your auth server from any path.
-</Info>
+So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. The authorization server metadata also advertises `revocation_endpoint` (`/mcp/revoke`) and `jwks_uri` (`/mcp/jwks`), but the TypeScript adapters do not serve either route today.
+
+<Warning>
+  The well-known documents are registered relative to the mount point, so with the default mount they live at `/api/theauth/.well-known/...`. MCP clients look for them at the root of your origin (`/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`). When you mount the adapter under a prefix, add root-level routes (or rewrites) that serve the same documents:
+
+  ```typescript
+  app.get('/.well-known/oauth-authorization-server', (c) => c.json(mcp.getMetadata()));
+  app.get('/.well-known/oauth-protected-resource', (c) => c.json(mcp.getProtectedResourceMetadata()));
+  ```
+</Warning>
 
 ## OAuth flow
 
@@ -98,7 +171,7 @@ TheAuth only accepts `S256`. Plain PKCE is rejected at the authorization endpoin
     ### Redirect to the authorization endpoint
 
     ```typescript
-    const authUrl = new URL('https://auth.yourapp.com/oauth/authorize');
+    const authUrl = new URL('https://auth.yourapp.com/api/theauth/mcp/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -111,9 +184,9 @@ TheAuth only accepts `S256`. Plain PKCE is rejected at the authorization endpoin
   <Step>
     ### Exchange the code for tokens
 
-    After the user approves, the server issues an authorization code. The client sends it to `/oauth/token` along with the original `code_verifier`.
+    After the user approves, the server issues an authorization code. The client sends it to `/mcp/token` along with the original `code_verifier`.
 
-    The server computes `base64url(sha256(code_verifier))` and compares it to the stored challenge. A mismatch returns a 400.
+    The server computes `base64url(sha256(code_verifier))` and compares it to the stored challenge. A mismatch is rejected.
   </Step>
 </Steps>
 
@@ -121,71 +194,75 @@ TheAuth only accepts `S256`. Plain PKCE is rejected at the authorization endpoin
 
 Access tokens are JWTs signed with HS256 (`typ: at+jwt`). They carry:
 
-- `sub`: the agent ID
-- `aud`: the audience URL from your config
+- `sub`: the user ID of the person who authorized the client
+- `client_id`: the OAuth client
+- `aud`: the `resource` the client requested (RFC 8707), or the issuer when none was requested
 - `scope`: space-separated granted scopes
-- `exp`: expiry timestamp
-- `iat`: issued-at timestamp
+- `jti`: unique token ID
+- `exp` and `iat`: expiry and issued-at timestamps
 
-Refresh tokens rotate on each use for public clients. Reusing an old refresh token invalidates the entire grant.
+A refresh token is issued only when the granted scope includes `offline_access`. Each refresh call revokes the old access token and issues a new access and refresh token pair. The module does not detect refresh token reuse: that depends on what your `findTokenByRefreshToken` and `revokeToken` callbacks do.
 
 ## Token validation
 
 ### Validating tokens
 
-Call `theauth.mcp.validate(token)` to check a token before processing a tool call:
+Call `mcp.validateToken(token, requiredScopes?)` on the module returned by `createMcpModule`. It returns a `Result`, not a flat object:
 
 ```typescript
-const result = await theauth.mcp.validate(token);
+const result = await mcp.validateToken(token, ['mcp:read']);
 
-if (!result.valid) {
+if (!result.success) {
+  // result.error.code: INVALID_TOKEN, TOKEN_EXPIRED, INVALID_AUDIENCE, INVALID_ISSUER, INSUFFICIENT_SCOPE, ...
   return new Response('Unauthorized', { status: 401 });
 }
 
-// result.agentId:   the agent making the call
-// result.userId:    the human owner
-// result.scopes:    granted scopes as a string array
-// result.expiresAt: Date object
+const session = result.data;
+// session.userId:    the user who authorized the client
+// session.clientId:  the OAuth client
+// session.scopes:    granted scopes as a string array
+// session.resource:  the audience the token is bound to
+// session.expiresAt: Date object
 ```
 
-Validation checks the JWT signature, audience binding, scope presence, and expiry. A token issued for a different audience fails even if the signature is valid.
+Validation checks the JWT signature (HS256), issuer, expiry, that an audience claim is present, and (when you pass `requiredScopes`) that every scope is on the token. It does not compare the audience with your resource URL unless you use the lower-level `validateAccessToken` with `expectedAudience`.
 
-### `withMcpAuth` middleware
+<Note>
+  `theauth.mcp` on the main instance is only a registry of MCP tool servers (`register`, `list`, `get`). It has no `validate` method. Token validation lives on the module from `createMcpModule`.
+</Note>
 
-The `withMcpAuth` middleware extracts the bearer token from the `Authorization` header, validates it, and attaches the agent context to the request. It returns 401 if no token is present or invalid, and 403 if the token is valid but lacks the required scope.
+### Protecting a route
+
+`mcp.requireScopes(request, scopes)` extracts the bearer token, validates it, and either returns the session or a ready-made `Response`: 401 with a `WWW-Authenticate` header when the token is missing or invalid, and 403 with a step-up challenge when it lacks a required scope.
 
 ```typescript
 // Hono example. See the adapters doc for other frameworks.
+import { Hono } from 'hono';
+import type { McpSession } from '@glinr/theauth/mcp';
 import { theAuthHono } from '@glinr/theauth-hono';
-import { createMcpModule } from '@glinr/theauth';
+import { theauth, mcp } from './lib/theauth.js';
 
-const mcp = createMcpModule(theauth);
-const { withMcpAuth } = theAuthHono(theauth, { mcp });
+const app = new Hono<{ Variables: { mcpSession: McpSession } }>();
 
-app.use('/mcp/*', withMcpAuth());
+app.route('/api/theauth', theAuthHono(theauth, { mcp }));
 
-app.get('/mcp/tools/list', (c) => {
-  const agent = c.get('agent');   // AgentIdentity set by middleware
-  return c.json({ tools: [] });
+app.use('/mcp/*', async (c, next) => {
+  const check = await mcp.requireScopes(c.req.raw, ['mcp:read']);
+  if (!check.authorized) return check.response;
+  c.set('mcpSession', check.session);
+  await next();
 });
 ```
 
-### `buildUnauthorizedResponse`
+`mcp.middleware(request)` is the lighter variant: it returns the same `Result` as `validateToken` after reading the `Authorization` header. The adapters do not add a `withMcpAuth` helper to the app.
 
-When writing custom handlers, use `buildUnauthorizedResponse` to produce a well-formed 401 with a `WWW-Authenticate` header pointing to your auth server:
+### Unauthorized responses
 
-```typescript
-import { buildUnauthorizedResponse } from '@glinr/theauth';
-
-return buildUnauthorizedResponse({
-  issuer: 'https://auth.yourapp.com',
-  resource: 'https://mcp.yourapp.com',
-  error: 'invalid_token',
-});
-// Returns a Response with status 401 and the correct WWW-Authenticate header
-```
+`buildUnauthorizedResponse` and `createMcpResponseHelpers` are exported from `@glinr/theauth/mcp`, but they take an internal context object that the module does not expose. For ordinary handlers, use `mcp.requireScopes` (which builds the 401 and 403 responses for you) or `mcp.buildStepUpResponse({ currentScopes, requiredScopes })`.
 
 ## Registering MCP servers
+
+`theauth.mcp` stores a registry of the tool servers you operate. The registry is a database table (created when you pass `mcp` to `createTheAuth`):
 
 ```typescript
 const server = await theauth.mcp.register({
@@ -196,21 +273,25 @@ const server = await theauth.mcp.register({
   rateLimit: { rpm: 60 },
 });
 
-// server.id → "mcp_..."
+// server.id is a generated ID
+const all = await theauth.mcp.list();
+const one = await theauth.mcp.get(server.id);
 ```
 
-Registered servers appear in the protected resource metadata document. Their tool names can be referenced directly in permission resources, for example `mcp:github-mcp:list_repos`.
+The registry is bookkeeping for your own tooling and dashboards. It is not read by the metadata documents or the OAuth endpoints. Tool names can still be used in permission resources, for example `mcp:github-mcp:list_repos`.
 
 <AccordionGroup>
   <Accordion title="Protected resource metadata document">
-    TheAuth generates this document automatically from your `mcp` config and registered servers:
+    Generated from the module `config` (issuer, baseUrl, scopes), not from the registry:
 
     ```json
     {
-      "resource": "https://mcp.yourapp.com",
+      "resource": "https://auth.yourapp.com",
       "authorization_servers": ["https://auth.yourapp.com"],
+      "jwks_uri": "https://auth.yourapp.com/api/theauth/mcp/jwks",
+      "scopes_supported": ["openid", "profile", "email", "offline_access", "mcp:read", "mcp:execute"],
       "bearer_methods_supported": ["header"],
-      "scopes_supported": ["mcp:read", "mcp:execute"]
+      "resource_signing_alg_values_supported": ["HS256"]
     }
     ```
   </Accordion>
@@ -219,12 +300,17 @@ Registered servers appear in the protected resource metadata document. Their too
     ```json
     {
       "issuer": "https://auth.yourapp.com",
-      "authorization_endpoint": "https://auth.yourapp.com/oauth/authorize",
-      "token_endpoint": "https://auth.yourapp.com/oauth/token",
-      "registration_endpoint": "https://auth.yourapp.com/oauth/register",
+      "authorization_endpoint": "https://auth.yourapp.com/api/theauth/mcp/authorize",
+      "token_endpoint": "https://auth.yourapp.com/api/theauth/mcp/token",
+      "registration_endpoint": "https://auth.yourapp.com/api/theauth/mcp/register",
+      "jwks_uri": "https://auth.yourapp.com/api/theauth/mcp/jwks",
+      "revocation_endpoint": "https://auth.yourapp.com/api/theauth/mcp/revoke",
+      "scopes_supported": ["openid", "profile", "email", "offline_access", "mcp:read", "mcp:execute"],
       "code_challenge_methods_supported": ["S256"],
       "grant_types_supported": ["authorization_code", "refresh_token"],
-      "response_types_supported": ["code"]
+      "response_types_supported": ["code"],
+      "response_modes_supported": ["query"],
+      "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"]
     }
     ```
   </Accordion>
