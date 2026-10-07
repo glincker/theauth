@@ -6,91 +6,123 @@ icon: gear
 
 ## Setup
 
-Pass `adminUserIds` when creating your TheAuth instance:
+Pass an `admin` config when creating your TheAuth instance. `theauth.admin` is `null` unless the `admin` key is passed, so use `theauth.admin!.` (or `?.`) in your code.
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // needed for impersonation
   admin: { // [!code highlight]
-    adminUserIds: [process.env.ADMIN_USER_ID], // [!code highlight]
+    adminUserIds: [process.env.ADMIN_USER_ID!], // [!code highlight]
     allowImpersonation: true, // [!code highlight]
+    impersonationTtlSeconds: 3600,
+    onAdminAction: async (entry) => { // [!code highlight]
+      console.info('admin action', entry.action, entry.targetUserId); // [!code highlight]
+    }, // [!code highlight]
   }, // [!code highlight]
 });
 ```
 
-Admin status is determined by the `adminUserIds` list. There is no role column, keep these IDs in environment variables, not hardcoded.
+Admin status is determined by the `adminUserIds` list. There is no role column, keep these IDs in environment variables, not hardcoded. `theauth.admin.isAdmin(userId)` checks membership.
+
+To expose HTTP endpoints, add the `admin()` plugin (from `@glinr/theauth/auth`) with the same options instead. The plugin endpoints require an authenticated user who is in `adminUserIds` (401 without a user, 403 for non-admins).
+
+```ts
+import { admin } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  plugins: [admin({ adminUserIds: [process.env.ADMIN_USER_ID!] })],
+});
+```
 
 ## Listing users
 
 ```ts
-const { users, total } = await theauth.admin.listUsers({
+const { users, total } = await theauth.admin!.listUsers({
   limit: 50,
   offset: 0,
-  search: 'alice',   // optional email filter
+  search: 'alice',   // optional, substring match on email
 });
 ```
 
-Each user object includes `id`, `email`, `name`, `banned`, `banReason`, `banExpiresAt`, `agentCount`, and `createdAt`.
+Each user object includes `id`, `email`, `name`, `banned`, `banReason`, `banExpiresAt`, `agentCount`, and `createdAt`. `limit` defaults to 50. `theauth.admin.getUser(userId)` returns one user or `null`.
 
 ## Banning users
 
 ```ts
 // Permanent ban
-await theauth.admin.banUser('user_xyz', 'Violating terms of service');
+await theauth.admin!.banUser('user_xyz', 'Violating terms of service');
 
-// Temporary ban
-await theauth.admin.banUser('user_xyz', 'Spam', new Date('2025-06-01'));
+// Ban with an expiry date recorded
+await theauth.admin!.banUser('user_xyz', 'Spam', new Date('2027-06-01'));
 
 // Lift the ban
-await theauth.admin.unbanUser('user_xyz');
+await theauth.admin!.unbanUser('user_xyz');
 ```
 
-Banning immediately revokes all active sessions for that user.
+Banning deletes all of the user's sessions and marks every agent they own as `revoked`. Unbanning clears the ban fields but does not restore revoked agents or sessions.
+
+<Warning>
+  TheAuth records the ban (`banned`, `banReason`, `banExpiresAt`) but the sign-in modules do not check it, and nothing lifts a ban when `banExpiresAt` passes. Check `theauth.admin.getUser(id)` in your own sign-in flow and call `unbanUser` yourself when a temporary ban lapses.
+</Warning>
 
 ## Impersonation
 
 <Warning>
-  Impersonation creates a real session token. Use it only for debugging and support. All impersonated sessions are tagged with `impersonating: true` and the originating `adminUserId`.
+  Impersonation creates a real session token. Use it only for debugging and support. Impersonated sessions carry `impersonating: true` and the originating `adminUserId` in their session metadata.
 </Warning>
 
 ```ts
-const { session } = await theauth.admin.impersonate('admin_abc', 'user_xyz'); // [!code highlight]
+const { session, impersonating } = await theauth.admin!.impersonate('admin_abc', 'user_xyz'); // [!code highlight]
 // session.token: use this as a regular session token
-// session.expiresAt
+// session.expiresAt: now + impersonationTtlSeconds (default 1 hour)
 
-// Stop impersonating
-await theauth.admin.stopImpersonation(session.token);
+// Stop impersonating (revokes the session)
+await theauth.admin!.stopImpersonation(session.token);
 ```
+
+`impersonate` throws if `allowImpersonation` is `false`, if no session manager is configured, or if the first argument is not in `adminUserIds`. The returned `session.expiresAt` and the `impersonationExpiresAt` metadata reflect `impersonationTtlSeconds`, but the session record itself expires after `auth.session.maxAge` (7 days by default). Call `stopImpersonation` when the support session ends.
 
 ## Force password reset
 
 ```ts
-await theauth.admin.forcePasswordReset('user_xyz');
+await theauth.admin!.forcePasswordReset('user_xyz');
 ```
 
-This sets a flag on the user. Your app should check `user.forcePasswordReset` after login and redirect to a reset flow.
+This sets a `forcePasswordReset` flag on the user. The [username module](/auth/username) refuses sign-in for flagged users with a `403` `PASSWORD_RESET_REQUIRED` error. If you use another sign-in method, check the flag yourself.
 
 ## Deleting users
 
 ```ts
-await theauth.admin.deleteUser('user_xyz');
+await theauth.admin!.deleteUser('user_xyz');
 ```
 
-Deleting revokes all sessions and marks owned agents as `revoked` to preserve the audit trail, then removes the user record.
+Deleting removes all sessions, marks owned agents as `revoked` so their records remain, then removes the user record.
+
+## Audit callback
+
+`onAdminAction` receives `{ adminUserId, action, targetUserId, details?, timestamp }` for `ban_user`, `unban_user`, `delete_user`, `force_password_reset`, and `impersonate`. Only `impersonate` records the real admin ID. The other actions are logged with `adminUserId: 'system'`. Errors thrown by the callback are swallowed.
 
 ## Endpoints
+
+With the `admin()` plugin, all endpoints require an authenticated admin:
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/auth/admin/users` | List users (`limit`, `offset`, `search`) |
 | GET | `/auth/admin/users/:id` | Get user |
-| POST | `/auth/admin/users/:id/ban` | Ban user |
+| POST | `/auth/admin/users/:id/ban` | Ban user, optional body `{ reason, expiresAt }` |
 | POST | `/auth/admin/users/:id/unban` | Unban user |
 | DELETE | `/auth/admin/users/:id` | Delete user |
-| POST | `/auth/admin/impersonate/:userId` | Impersonate user |
-| POST | `/auth/admin/stop-impersonation` | End impersonation session |
+| POST | `/auth/admin/users/:id/impersonate` | Impersonate user |
+
+The plugin has no stop-impersonation endpoint, call `theauth.admin.stopImpersonation` from your own code.
+
+The module's own `theauth.admin.handleRequest` is a different, unauthenticated surface (it serves the same paths but takes `adminUserId` in the body for impersonation and adds `POST /auth/admin/stop-impersonation`). Do not expose it to the internet without your own admin check.
 
 ## Related
 
@@ -102,7 +134,7 @@ Deleting revokes all sessions and marks owned agents as `revoked` to preserve th
     Create scoped API keys for machine-to-machine callers.
   </Card>
   <Card title="Audit" href="/audit" icon="list-check">
-    Full activity trail for impersonation and admin actions.
+    Audit trail for agent activity. Admin actions are reported through `onAdminAction`.
   </Card>
   <Card title="SCIM" href="/auth/scim" icon="database">
     Automated user provisioning and deprovisioning via directory sync.

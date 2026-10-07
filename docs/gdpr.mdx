@@ -1,18 +1,18 @@
 ---
-title: GDPR compliance
-description: Data export, account deletion, and audit log anonymization to meet GDPR requirements.
+title: GDPR data rights
+description: Data export, account deletion, and account anonymization endpoints that support GDPR data subject requests.
 icon: file-lines
 ---
 
-TheAuth includes built-in tools for the three GDPR obligations that most commonly require custom code: giving users their data, deleting their account on request, and anonymizing audit trails.
+TheAuth includes built-in tools for three data subject requests that commonly require custom code: exporting a user's data, deleting their account on request, and anonymizing their account. Deleting an account can also anonymize the user's audit rows.
 
 <Info>
-  These tools cover the technical layer. Your privacy policy, data processing agreements, and response timelines are your responsibility.
+  These tools cover part of the technical layer and do not make a deployment compliant by themselves. Your privacy policy, data processing agreements, and response timelines are your responsibility.
 </Info>
 
 ## Setup
 
-The `gdpr` plugin takes no options. It registers three self-service endpoints scoped to the authenticated user:
+The `gdpr` plugin takes no options. It registers three self-service endpoints scoped to the authenticated user. The user is resolved through the same mechanism as other plugin endpoints (your configured auth adapter or session); unauthenticated requests get a 401.
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
@@ -31,7 +31,7 @@ const theauth = await createTheAuth({
 
 `GET /auth/gdpr/export`
 
-Returns a JSON bundle of all data TheAuth holds for the authenticated user: profile, agents, sessions, audit events, delegations, organizations, and API keys (GDPR Article 20).
+Returns a JSON bundle covering the authenticated user's profile, agents, sessions, audit events, delegations, organization memberships, and API keys (GDPR Article 20). It is not a dump of every table: it omits, for example, TOTP records, passkeys, OAuth tokens, approval requests, and budget policies, and each section contains a few summary fields only (API keys: id, name, createdAt; sessions: id and timestamps). Audit events and delegations are only included if the user owns at least one agent.
 
 ```typescript title="Request export (client)"
 const res = await fetch('/auth/gdpr/export', {
@@ -47,7 +47,7 @@ const data = await res.json();
 
 `DELETE /auth/gdpr/delete`
 
-Permanently deletes the user account and all associated data (GDPR Article 17). Requires an explicit confirmation string in the request body:
+Deletes the user account and associated data (GDPR Article 17). Requires an explicit confirmation string in the request body:
 
 ```typescript title="Delete account (client)"
 const res = await fetch('/auth/gdpr/delete', {
@@ -57,13 +57,19 @@ const res = await fetch('/auth/gdpr/delete', {
   body: JSON.stringify({
     confirm: 'delete my account', // literal string, required // [!code highlight]
     keepAuditLogs: true, // default: true, anonymizes rather than deletes audit rows // [!code highlight]
-    deleteOrganizations: false, // default: false, leaves owned orgs intact // [!code highlight]
+    deleteOrganizations: false, // default: false, removes memberships but leaves owned orgs // [!code highlight]
   }),
 });
 
 const { success, deletedAgents, deletedSessions, deletedDelegations, deletedApiKeys, anonymizedAuditLogs } =
   await res.json();
 ```
+
+What the delete does, in order: revokes the user's agents; deletes sessions, delegation chains involving those agents, and API keys; anonymizes the audit rows of those agents (or deletes the rows of this user when `keepAuditLogs` is `false`); deletes approval requests, budget policies, OAuth tokens and codes, magic links, email OTPs, TOTP records, passkeys, and org memberships; optionally deletes owned organizations; then deletes the user row. Note that with `keepAuditLogs: true` the agent rows are kept with status `revoked` (so `deletedAgents` counts agents revoked, not rows removed), and they still carry their name and metadata. With `keepAuditLogs: false` the agent rows are deleted.
+
+<Warning>
+  The module toggles `PRAGMA foreign_keys` while deleting and anonymizing audit rows. That statement is SQLite syntax, so on Postgres or MySQL the `keepAuditLogs: true` path and the final user deletion will fail with a database error unless the statement is accepted by your driver. Test deletion against your production database engine before relying on it.
+</Warning>
 
 <Warning>
   Deletion is irreversible. Any app data you store outside TheAuth that references the user ID will become orphaned, the plugin has no `onBeforeDelete` hook, cascade those deletes yourself before calling this endpoint.
@@ -73,7 +79,7 @@ const { success, deletedAgents, deletedSessions, deletedDelegations, deletedApiK
 
 `POST /auth/gdpr/anonymize`
 
-Replaces PII (email, name) with deterministic anonymous values while keeping the account, agents, and audit history intact. Use this instead of deletion when org membership or audit referential integrity must be preserved.
+Replaces the email with a deterministic anonymous value (`deleted-<hash>@anon.invalid`) and clears name, external ID, and metadata, while keeping the account row, agents, and audit history. It also deletes the user's TOTP records and passkeys. It does not revoke sessions, and it does not touch audit rows (those still reference the same user ID). Use this instead of deletion when org membership or audit referential integrity must be preserved.
 
 ```typescript title="Anonymize account (client)"
 const res = await fetch('/auth/gdpr/anonymize', {
@@ -102,13 +108,13 @@ await gdprModule.anonymizeUser(userId);
 
 <CardGroup cols={2}>
   <Card title="Compliance" href="/compliance" icon="file-lines">
-    EU AI Act, NIST, SOC 2, and ISO 42001 audit infrastructure.
+    Framework mapping and evidence export (JSON, CSV, verifiable credentials).
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
     The audit log that GDPR anonymization targets.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Tap into the account deletion lifecycle to clean up app data.
+    Lifecycle hooks for authorization and agent events. There is no account deletion hook.
   </Card>
   <Card title="Multi-session" href="/multi-session" icon="key">
     Session revocation that runs as part of account deletion.

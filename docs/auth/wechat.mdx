@@ -25,19 +25,21 @@ TheAuth will handle the path `/api/theauth/auth/oauth/callback/wechat`.
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, wechatProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'wechat',
-          clientId: process.env.WECHAT_APP_ID!,
-          clientSecret: process.env.WECHAT_APP_SECRET!,
-        },
-      ],
+      providers: {
+        wechat: wechatProvider(
+          process.env.WECHAT_APP_ID!,
+          process.env.WECHAT_APP_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -61,6 +63,10 @@ Default scopes: `snsapi_login`
 
 <Warning>
   WeChat uses `appid` and `secret` rather than the standard `client_id` / `client_secret` naming, but TheAuth maps these correctly. The WeChat Open Platform requires ICP filing for mainland China deployments.
+</Warning>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://api.weixin.qq.com/sns/userinfo` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns an `openid` field and no email, so sign-in is expected to fail with `WeChat userinfo response missing required "sub" field`. This preset has not been verified against the live service.
 </Warning>
 
 ## Endpoints

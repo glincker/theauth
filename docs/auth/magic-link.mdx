@@ -1,10 +1,10 @@
 ---
 title: Magic link
-description: Issue signed, single-use email links for passwordless sign-in with `magicLink()`. Configure token expiry, a send function, and the post-verification redirect.
+description: Issue single-use email links for passwordless sign-in with `magicLink()`. Configure the app URL, a send function, and token expiry.
 icon: link
 ---
 
-Magic links let users sign in by clicking a link sent to their email. No password needed. The link is a signed, single-use token that expires after a configurable window.
+Magic links let users sign in by clicking a link sent to their email. No password needed. The link carries a random single-use token that expires after a configurable window.
 
 ## Setup
 
@@ -30,11 +30,11 @@ import { magicLink } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // [!code highlight]
   plugins: [
     magicLink({ // [!code highlight]
-      onSendLink: async (email, url) => { // [!code highlight]
+      appUrl: 'https://auth.example.com/api/theauth', // [!code highlight]
+      sendMagicLink: async (email, _token, url) => { // [!code highlight]
         await resend.emails.send({
           from: 'auth@example.com',
           to: email,
@@ -47,18 +47,22 @@ const theauth = await createTheAuth({
 });
 ```
 
+The plugin throws at startup unless `auth.session` is configured, because it issues a session when the link is verified. `auth.session.secret` must be at least 32 characters. `appUrl` is prepended to the callback path to build the link, so it must point at where the verify endpoint is reachable (the adapter mount path, `/api/theauth` by default).
+
+You can also skip the plugin and pass the same options as a top-level `magicLink` key to `createTheAuth`. That exposes `theauth.magicLink` (`sendLink`, `verify`, `handleRequest`), which is `null` when the config key is absent or `auth.session` is not set.
+
 </Step>
 
 <Step>
 
 ### Handle the callback route
 
-Magic links redirect to `baseUrl + /auth/magic-link/verify?token=...`. TheAuth handles this automatically. Set `redirectTo` to control where users land after sign-in:
+Magic links point at `appUrl + callbackPath + ?token=...`. The plugin registers `GET /auth/magic-link/verify`, which matches the default `callbackPath`. Leave `callbackPath` unchanged when you use the plugin.
 
 ```typescript
 magicLink({
-  redirectTo: '/dashboard', // [!code highlight]
-  onSendLink: async (email, url) => { /* ... */ },
+  appUrl: 'https://auth.example.com/api/theauth',
+  sendMagicLink: async (email, token, url) => { /* ... */ },
 }),
 ```
 
@@ -69,9 +73,9 @@ magicLink({
 ## How it works
 
 1. User submits their email to `POST /auth/magic-link/send`.
-2. TheAuth generates a signed token and calls your `onSendLink` function with the email address and the full URL.
+2. TheAuth generates a signed token and calls your `sendMagicLink` function with the email address, the raw token, and the full URL.
 3. User clicks the link in their inbox.
-4. TheAuth validates the token, creates or retrieves the user, sets a session cookie, and redirects.
+4. TheAuth validates the token, creates or retrieves the user, and returns the user and a session token as JSON. It does not set a cookie or redirect, so your app stores the session token (for example in a cookie) and navigates the user.
 
 If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created automatically.
 
@@ -82,41 +86,37 @@ If the email belongs to an existing account, the same user ID is returned. If it
 `POST /auth/magic-link/send`
 
 ```typescript
-await fetch('/auth/magic-link/send', { // [!code highlight]
+await fetch('/api/theauth/auth/magic-link/send', { // [!code highlight]
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email: 'user@example.com' }),
 });
 ```
 
-The response is always `200` to prevent email enumeration. Attach a `redirectTo` in the body to override the default redirect for this request:
-
-```typescript
-body: JSON.stringify({ email: 'user@example.com', redirectTo: '/onboarding' }),
-```
+The email is trimmed and lowercased. A successful response is `200` with `{ "sent": true }`. A missing `email` returns `400`. A user record is created for the address when the link is issued, so an unknown email gets an account.
 
 ### Verify token
 
 `GET /auth/magic-link/verify?token=<token>`
 
-TheAuth handles this automatically when the user clicks the link. On success, the user is redirected. On failure (expired or already-used token), a `400` is returned.
+On success, returns `200` with `{ user: { id, email }, session: { token, expiresAt } }`. A missing `token` returns `400`, and an invalid, expired, or already-used token returns `401`.
 
 ## Rate limiting
 
-Requests to `/auth/magic-link/send` are limited to **5 per minute per IP address**. Requests that exceed this return `429 Too Many Requests`. Build a cooldown timer into your UI so users know when they can retry.
+The send endpoint is limited to **5 requests per minute per IP address** (taken from `x-forwarded-for` or `x-real-ip`). Requests over the limit return `429 Too Many Requests` with a `Retry-After` header. Build a cooldown timer into your UI so users know when they can retry.
 
 <Warning>
-  Magic links are single-use. Clicking an expired or already-used link returns a 400. Show the user a "resend" option in your UI.
+  Magic links are single-use. Clicking an expired or already-used link returns a 401. Show the user a "resend" option in your UI.
 </Warning>
 
 ## Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `onSendLink` | `(email: string, url: string) => Promise<void>` | required | Called with the recipient email and the full magic link URL |
-| `tokenTtl` | `number` | `900` | Token lifetime in seconds (default: 15 minutes) |
-| `redirectTo` | `string` | `/` | Where to redirect after successful sign-in |
-| `createUserIfNotFound` | `boolean` | `true` | Auto-create accounts for new emails |
+| `sendMagicLink` | `(email: string, token: string, url: string) => Promise<void>` | required | Called with the recipient email, the raw token, and the full magic link URL |
+| `appUrl` | `string` | required | Base URL prepended to the callback path, for example `https://app.example.com` |
+| `tokenExpiry` | `number` | `900` | Token lifetime in seconds (15 minutes) |
+| `callbackPath` | `string` | `/auth/magic-link/verify` | Path appended to `appUrl` in the link |
 
 ## Related
 

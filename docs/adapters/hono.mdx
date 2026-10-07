@@ -21,18 +21,26 @@ Create this once and reuse it across your app (e.g. `lib/theauth.ts`):
 
 ```typescript
 // lib/theauth.ts
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 
 export const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   baseUrl: process.env.AUTH_BASE_URL!,
-  mcp: {
-    issuer: process.env.AUTH_BASE_URL!,
-    audience: process.env.MCP_BASE_URL!,
-  },
+  mcp: { enabled: true }, // creates the MCP tables
 });
 
-export const mcp = createMcpModule(theauth);
+// baseUrl is the public origin plus the adapter mount path (default /api/theauth)
+export const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: process.env.AUTH_BASE_URL!,
+    baseUrl: `${process.env.AUTH_BASE_URL!}/api/theauth`,
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  },
+  ...mcpStore,
+});
 ```
 
 </Step>
@@ -97,19 +105,27 @@ app.route('/api/theauth', theAuthHono(theauth, { mcp }));
 ```typescript
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 import { theAuthHono } from '@glinr/theauth-hono';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
-  mcp: {
-    issuer: 'https://auth.yourapp.com',
-    audience: 'https://mcp.yourapp.com',
-  },
+  mcp: { enabled: true }, // creates the MCP tables
 });
 
-const mcp = createMcpModule(theauth);
+// baseUrl is the public origin plus the adapter mount path (default /api/theauth)
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: 'https://auth.yourapp.com',
+    baseUrl: 'https://auth.yourapp.com/api/theauth',
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  },
+  ...mcpStore,
+});
 
 const app = new Hono();
 

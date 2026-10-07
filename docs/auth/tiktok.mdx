@@ -23,19 +23,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/tiktok
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, tiktokProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'tiktok',
-          clientId: process.env.TIKTOK_CLIENT_ID!,
-          clientSecret: process.env.TIKTOK_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        tiktok: tiktokProvider(
+          process.env.TIKTOK_CLIENT_ID!,
+          process.env.TIKTOK_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -61,6 +63,10 @@ Default scopes: `user.info.basic`
 <Info>
   TikTok Login Kit requires app review before production use. During development you can test with sandbox accounts added to your app's tester list.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://open.tiktokapis.com/v2/user/info/` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns an `open_id` nested under `data.user` and no email, so sign-in is expected to fail with `TikTok userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

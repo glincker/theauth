@@ -4,103 +4,102 @@ description: Let users hold multiple active sessions and manage them from an acc
 icon: key
 ---
 
-By default, TheAuth allows unlimited concurrent sessions per user. The multi-session module adds a cap, a configurable overflow strategy, and endpoints for listing and revoking sessions, useful for building an "active devices" settings page.
+By default, TheAuth allows unlimited concurrent sessions per user. The multi-session module adds a cap with a configurable overflow strategy, plus functions for listing and revoking sessions, useful for building an "active devices" settings page.
+
+It is a plain module exported from `@glinr/theauth`, not a plugin. It registers no HTTP routes and does not hook into sign-in on its own: you call `enforceSessionLimit` before creating a session, and you expose the list and revoke operations from your own routes.
 
 ## Setup
 
 ```typescript title="lib/theauth.ts"
-import { createTheAuth } from '@glinr/theauth';
-import { multiSession } from '@glinr/theauth/auth'; // [!code highlight]
+import { createTheAuth, createMultiSessionModule } from '@glinr/theauth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
-  plugins: [
-    multiSession({ // [!code highlight]
-      maxSessions: 5, // [!code highlight]
-      overflow: 'evict-oldest', // [!code highlight]
-    }), // [!code highlight]
-  ],
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
 });
+
+export const multiSession = createMultiSessionModule( // [!code highlight]
+  {
+    maxSessions: 5, // [!code highlight]
+    overflowStrategy: 'evict-oldest', // [!code highlight]
+  },
+  theauth.db,
+  theauth.auth.session!, // [!code highlight]
+);
+```
+
+The third argument is the low-level session manager (`theauth.auth.session`, or `cookieSessionManager.raw` if you use `createCookieSessionManager`).
+
+## Enforcing the cap
+
+Call `enforceSessionLimit` before you create a session, and use `buildSessionMetadata` to record device and IP:
+
+```typescript title="Sign-in handler"
+import { buildSessionMetadata, MultiSessionLimitError } from '@glinr/theauth';
+
+try {
+  await multiSession.enforceSessionLimit(userId);
+} catch (err) {
+  if (err instanceof MultiSessionLimitError) {
+    return new Response(JSON.stringify({ error: err.code }), { status: 429 });
+  }
+  throw err;
+}
+
+const { token } = await theauth.auth.session!.create(userId, buildSessionMetadata(request));
 ```
 
 ## Overflow strategies
 
 | Strategy | Behavior |
 |----------|----------|
-| `evict-oldest` | Deletes the least-recently-used session when the cap is reached |
-| `reject` | Returns `429` with code `SESSION_LIMIT_REACHED`, new sign-in fails |
+| `evict-oldest` | Revokes the oldest sessions (by creation time) until there is room for the new one |
+| `reject` | Throws `MultiSessionLimitError` with code `SESSION_LIMIT_REACHED`. Turning that into an HTTP status is up to your handler |
 
 ## List sessions
 
-`GET /auth/sessions`
+`listSessions(userId)` returns all non-expired sessions for a user, newest first. Wire it to your own route to build an "active devices" UI.
 
-Returns all active sessions for the authenticated user. Useful for building an "active devices" UI.
-
-```typescript title="List sessions (client)"
-const res = await fetch('/auth/sessions', {
-  credentials: 'include',
-});
-
-const { sessions } = await res.json();
+```typescript title="List sessions (server)"
+const sessions = await multiSession.listSessions(userId);
 ```
 
-**Response shape**
+**Result shape**
 
 ```json
-{
-  "sessions": [
-    {
-      "id": "ses_abc123",
-      "current": true,
-      "createdAt": "2025-06-01T10:00:00.000Z",
-      "expiresAt": "2025-06-08T10:00:00.000Z",
-      "device": {
-        "browser": "Chrome",
-        "os": "macOS",
-        "type": "desktop"
-      },
-      "ipAddress": "203.0.113.1"
-    }
-  ]
-}
+[
+  {
+    "id": "5f0c2d1e-...",
+    "createdAt": "2026-06-01T10:00:00.000Z",
+    "expiresAt": "2026-06-08T10:00:00.000Z",
+    "device": "Chrome on macOS",
+    "ip": "203.0.113.1"
+  }
+]
 ```
 
-Device information is parsed from the `User-Agent` header at sign-in time. IP addresses are stored as-is, apply your own masking if required.
+`device` and `ip` are only present when the session was created with metadata from `buildSessionMetadata` (or your own metadata with those keys). `device` is a short string parsed from the `User-Agent` header, such as `Chrome on macOS`. IP addresses are stored as-is, apply your own masking if required. Any other metadata keys appear under `metadata`. The result has no `current` flag, compare `id` with the caller's session ID yourself.
 
 ## Revoke a session
 
-`DELETE /auth/sessions/:id`
-
-Revokes a specific session. Users can revoke any of their own sessions, including the current one.
-
-```typescript title="Revoke session (client)"
-await fetch(`/auth/sessions/${sessionId}`, {
-  method: 'DELETE',
-  credentials: 'include',
-});
+```typescript title="Revoke session (server)"
+await multiSession.revokeSession(sessionId);
 ```
+
+`revokeSession` deletes the session by ID. It does not check who owns it, so verify that the session belongs to the signed-in user before calling it.
 
 ## Revoke all other sessions
 
-`DELETE /auth/sessions`
-
-Revokes all sessions for the user except the current one. Useful for "sign out everywhere else" buttons.
-
-```typescript title="Sign out all other devices (client)"
-await fetch('/auth/sessions', {
-  method: 'DELETE',
-  credentials: 'include',
-});
+```typescript title="Sign out all other devices (server)"
+const revoked = await multiSession.revokeOtherSessions(userId, currentSessionId);
 ```
+
+Revokes every non-expired session for the user except `currentSessionId` and returns the number revoked. `getSessionCount(userId)` returns the number of active sessions.
 
 ## Configuration reference
 
-<ParamField path="maxSessions" type="number" default="0 (unlimited)">Maximum concurrent sessions per user. Set to 0 for unlimited.</ParamField>
-<ParamField path="overflow" type="'evict-oldest' | 'reject'" default="'evict-oldest'">What to do when a new sign-in would exceed maxSessions.</ParamField>
-<ParamField path="trackDevice" type="boolean" default="true">Parse and store browser/OS information from the User-Agent header.</ParamField>
-<ParamField path="trackIp" type="boolean" default="true">Store the IP address of the sign-in request.</ParamField>
+<ParamField path="maxSessions" type="number" default="10">Maximum concurrent sessions per user.</ParamField>
+<ParamField path="overflowStrategy" type="'evict-oldest' | 'reject'" default="'evict-oldest'">What to do when a new sign-in would exceed maxSessions.</ParamField>
 
 ## Related
 
@@ -109,12 +108,12 @@ await fetch('/auth/sessions', {
     Core session model with cookie and JWT session details.
   </Card>
   <Card title="Cookie options" href="/cookies" icon="cookie-bite">
-    Cookie attributes and rolling expiry that affect session lifetime.
+    Cookie attributes and sliding expiry that affect session lifetime.
   </Card>
   <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
-    Mark specific devices so 2FA is skipped on subsequent sign-ins.
+    Mark specific devices as trusted so your sign-in flow can skip 2FA.
   </Card>
   <Card title="GDPR compliance" href="/gdpr" icon="file-lines">
-    Delete or export all sessions as part of an account deletion request.
+    Erase or export user data on request.
   </Card>
 </CardGroup>

@@ -19,18 +19,26 @@ pnpm add @glinr/theauth @glinr/theauth-astro
 
 ```typescript
 // src/lib/theauth.ts
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { mcpStore } from './mcp-store'; // storage callbacks, see the MCP page
 
 export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
-  mcp: {
-    issuer: import.meta.env.AUTH_BASE_URL,
-    audience: import.meta.env.MCP_BASE_URL,
-  },
+  mcp: { enabled: true }, // creates the MCP tables
 });
 
-export const mcp = createMcpModule(theauth);
+// baseUrl is the public origin plus the adapter mount path (default /api/theauth)
+export const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: import.meta.env.AUTH_BASE_URL,
+    baseUrl: `${import.meta.env.AUTH_BASE_URL}/api/theauth`,
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  },
+  ...mcpStore,
+});
 ```
 
 </Step>
@@ -108,19 +116,27 @@ POST /api/theauth/mcp/token
 
 ```typescript
 // src/pages/api/theauth/[...path].ts
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { mcpStore } from './mcp-store'; // storage callbacks, see the MCP page
 import { theAuthAstro } from '@glinr/theauth-astro';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
-  mcp: {
-    issuer: import.meta.env.AUTH_BASE_URL,
-    audience: import.meta.env.MCP_BASE_URL,
-  },
+  mcp: { enabled: true }, // creates the MCP tables
 });
 
-const mcp = createMcpModule(theauth);
+// baseUrl is the public origin plus the adapter mount path (default /api/theauth)
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: import.meta.env.AUTH_BASE_URL,
+    baseUrl: `${import.meta.env.AUTH_BASE_URL}/api/theauth`,
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  },
+  ...mcpStore,
+});
 
 const handlers = theAuthAstro(theauth, { mcp });
 

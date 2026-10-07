@@ -2,10 +2,10 @@
 icon: stripe
 iconType: brands
 title: Stripe
-description: Wire Stripe checkout sessions, billing portals, and subscription webhooks via the `stripe` plugin. No `stripe` npm package needed, calls Stripe's REST API directly.
+description: Wire Stripe checkout sessions, billing portals, and subscription webhooks via the `stripe` plugin or `createStripeModule`. No `stripe` npm package needed, calls Stripe's REST API directly.
 ---
 
-The Stripe plugin handles checkout sessions, billing portals, and subscription webhooks. It calls Stripe's REST API directly (no `stripe` npm package needed).
+The Stripe integration handles checkout sessions, billing portals, and subscription webhooks. It calls Stripe's REST API directly (no `stripe` npm package needed). The `stripe()` plugin exposes HTTP endpoints. The plugin does not add `theauth.stripe` to the instance, so to call the methods from your own code you create the module yourself (see Usage).
 
 ## Setup
 
@@ -24,11 +24,12 @@ import { createTheAuth } from '@glinr/theauth';
 import { stripe } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'postgres', url: process.env.DATABASE_URL },
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     stripe({
-      secretKey: process.env.STRIPE_SECRET_KEY,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      secretKey: process.env.STRIPE_SECRET_KEY!,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
       onSubscriptionChange: async (userId, sub) => {
         console.log(`User ${userId} subscription: ${sub.status}`);
       },
@@ -36,37 +37,55 @@ const theauth = await createTheAuth({
   ],
 });
 ```
+The `secretKey` and `webhookSecret` options are both required. Other options: `autoCreateCustomer` (default `true`), `apiVersion` (default `2024-12-18.acacia`), and the `onSubscriptionChange(userId, subscription)` callback. The checkout, portal and subscription endpoints act on the authenticated user, resolved from `auth.adapter` or an `auth.session` token.
 </Step>
 </Steps>
 
 ## Usage
 
+Create the module with the same config and your instance's database. You can build it once and share it with the plugin config.
+
+```ts
+import { createStripeModule } from '@glinr/theauth/auth';
+
+const stripeModule = createStripeModule(
+  {
+    secretKey: process.env.STRIPE_SECRET_KEY!,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+  },
+  theauth.db,
+);
+```
+
 ### Create a checkout session
 
 ```ts
 // From an authenticated endpoint
-const result = await theauth.stripe.createCheckoutSession(userId, 'price_xxx', {
+const result = await stripeModule.createCheckoutSession(userId, 'price_xxx', {
   successUrl: 'https://myapp.com/billing?success=true',
   cancelUrl: 'https://myapp.com/billing',
   trialDays: 14,
 });
-// Redirect user to result.url
+// Redirect user to result.url (result also has sessionId)
 ```
+
+Always pass `successUrl` and `cancelUrl`. If you omit `successUrl`, it falls back to a placeholder (`https://example.com/success`).
 
 ### Open the billing portal
 
 ```ts
-const result = await theauth.stripe.createPortalSession(userId, 'https://myapp.com/settings');
+const result = await stripeModule.createPortalSession(userId, 'https://myapp.com/settings');
 // Redirect to result.url
 ```
 
 ### Check subscription status
 
 ```ts
-const sub = await theauth.stripe.getSubscription(userId);
+const sub = await stripeModule.getSubscription(userId);
 if (sub?.status === 'active') {
   // User has an active subscription
 }
+// sub: { id, status, priceId, currentPeriodEnd, cancelAtPeriodEnd } or null
 ```
 
 ## Webhook events
@@ -81,20 +100,20 @@ The plugin handles these Stripe events automatically:
 | `customer.subscription.deleted` | Marks subscription canceled |
 | `invoice.payment_failed` | Sets status to `past_due` |
 
-Webhook signatures are verified using HMAC-SHA256 with constant-time comparison. Stale timestamps (over 5 minutes) are rejected.
+Other event types are acknowledged and ignored. Webhook signatures are verified using HMAC-SHA256. Timestamps more than 5 minutes from the current time are rejected. A missing or invalid signature returns `400`.
 
 ## Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/stripe/checkout` | Yes | Create checkout session |
-| POST | `/auth/stripe/portal` | Yes | Create billing portal |
-| GET | `/auth/stripe/subscription` | Yes | Get subscription info |
+| POST | `/auth/stripe/checkout` | Yes | Create checkout session, body `{ priceId, successUrl?, cancelUrl?, trialDays?, metadata? }` |
+| POST | `/auth/stripe/portal` | Yes | Create billing portal, body `{ returnUrl }` |
+| GET | `/auth/stripe/subscription` | Yes | Get subscription info as `{ subscription }` |
 | POST | `/auth/stripe/webhook` | No | Stripe webhook (signature verified) |
 
 ## Database columns
 
-The plugin adds these columns to the users table:
+These Stripe columns are part of the users table that TheAuth creates (they are not added by the plugin):
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -106,7 +125,7 @@ The plugin adds these columns to the users table:
 | `stripe_cancel_at_period_end` | boolean | Whether cancellation is scheduled |
 
 <Warning>
-Set `STRIPE_WEBHOOK_SECRET` in production. Without it, webhook events cannot be verified and will be rejected.
+`webhookSecret` is required. Webhook events whose signature does not verify against it are rejected.
 </Warning>
 
 ## Related
@@ -122,6 +141,6 @@ Set `STRIPE_WEBHOOK_SECRET` in production. Without it, webhook events cannot be 
     Issue scoped API keys for server-to-server billing integrations.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    React to subscription changes with lifecycle hooks.
+    Lifecycle hooks you can attach to your instance. For subscription changes use the `onSubscriptionChange` callback.
   </Card>
 </CardGroup>

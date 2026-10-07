@@ -15,8 +15,8 @@ Key differences from a regular agent:
 | | Regular agent | Ephemeral session |
 |---|---|---|
 | Lifetime | Indefinite by default | Bounded TTL (default 5 min) |
-| Token | Rotatable, persistent | Single-use window |
-| Cleanup | Manual revocation | Automatic |
+| Token | Rotatable, persistent | `kveph_` token that stops working at expiry or exhaustion |
+| Cleanup | Manual revocation | Marked expired on use, or by `cleanupExpired()` |
 | Action budget | None | Optional hard cap |
 | Audit | Per-agent | Grouped under one session ID |
 
@@ -62,7 +62,7 @@ const { token, expiresAt, auditGroupId } = result.data;
 // Pass `token` to the agent. Never store it or log it.
 ```
 
-The returned `token` starts with `kveph_` to distinguish it from long-lived agent tokens (`kv_`).
+The returned `token` is `kveph_` followed by 64 hex characters, to distinguish it from long-lived agent tokens (`kv_`). Only its SHA-256 hash is stored. Creating a session also creates a temporary agent (type `autonomous`) that holds the permissions, so `result.data` includes `agentId` as well. `ttlSeconds` above `maxTtlSeconds` returns a `TTL_EXCEEDS_MAX` error, and `permissions` must contain at least one entry.
 
 ## Validating a session
 
@@ -98,7 +98,7 @@ const { actionsRemaining } = consumed.data;
 // actionsRemaining is null when no maxActions was configured
 ```
 
-When `actionsRemaining` hits zero, the session transitions to `exhausted` and the underlying agent is automatically revoked.
+When `actionsRemaining` hits zero, the session transitions to `exhausted`, and the underlying agent is revoked if `autoRevokeOnExpiry` is on (the default). Further calls return `SESSION_EXHAUSTED`. After the session leaves `active`, `consumeAction` returns `SESSION_EXPIRED`, `SESSION_REVOKED` or `SESSION_EXHAUSTED` accordingly.
 
 ## Action limits
 
@@ -124,7 +124,7 @@ If the agent completes the task before the TTL expires, revoke the session manua
 await ephemeral.revokeSession(sessionId);
 ```
 
-Revocation is idempotent, calling it on an already-revoked session returns success.
+Revocation also revokes the underlying agent. It is idempotent, calling it on an already-revoked session returns success. An unknown session ID returns a `SESSION_NOT_FOUND` error.
 
 ## Listing active sessions
 
@@ -166,7 +166,7 @@ setInterval(async () => {
 
 ## Audit grouping
 
-When `auditGrouping: true` (the default), all actions within a session share the same `auditGroupId`. This makes it trivial to reconstruct the full activity trace for a single task.
+When `auditGrouping: true` (the default), the session gets its own `auditGroupId`. With `auditGrouping: false`, `auditGroupId` is set to the session ID instead. TheAuth returns the ID from `validateSession` but does not stamp it onto audit entries for you, so attach it to the entries you record. That makes it straightforward to reconstruct the full activity trace for a single task.
 
 ```typescript
 const validated = await ephemeral.validateSession(token);
@@ -179,12 +179,12 @@ if (validated.success) {
 ## Session status lifecycle
 
 ```
-created → active → exhausted (maxActions reached)
-                 → expired   (TTL elapsed)
-                 → revoked   (manual revocation)
+active → exhausted (maxActions reached)
+       → expired   (TTL elapsed)
+       → revoked   (manual revocation)
 ```
 
-Once a session leaves `active`, it cannot be reactivated. Create a new session for a new task.
+A session starts as `active`. Once it leaves `active`, it cannot be reactivated. Create a new session for a new task. Expiry is recorded lazily, when the session is next validated, listed, or swept by `cleanupExpired()`.
 
 ## Error codes
 
@@ -207,9 +207,9 @@ Once a session leaves `active`, it cannot be reactivated. Create a new session f
     Hand a subset of permissions to a sub-agent with depth limits.
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
-    How ephemeral session actions group under a single audit session ID.
+    Audit trail for agent activity.
   </Card>
   <Card title="Sessions" href="/sessions" icon="key">
-    The three session types: cookie, JWT, and ephemeral agent sessions.
+    Cookie and JWT sessions, plus how they differ from ephemeral agent sessions.
   </Card>
 </CardGroup>

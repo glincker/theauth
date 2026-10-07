@@ -2,7 +2,7 @@
 icon: microsoft
 iconType: brands
 title: Microsoft
-description: Authenticate users via Microsoft Entra ID OAuth 2.0. Covers app registration, tenant configuration for personal or work accounts, and the `microsoft` provider.
+description: Authenticate users via Microsoft Entra ID OAuth 2.0. Covers app registration, the `createMicrosoftProvider` factory, and restricting sign-in to a single tenant.
 ---
 
 ## Get credentials
@@ -45,38 +45,48 @@ From the app overview, copy the **Application (client) ID** and the **Directory 
   <Tab title="Personal + work accounts">
     ```typescript title="lib/theauth.ts"
     import { createTheAuth } from '@glinr/theauth';
-    import { oauth } from '@glinr/theauth/auth';
+    import { oauth, createMicrosoftProvider } from '@glinr/theauth/auth';
 
     const theauth = await createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
       secret: process.env.THEAUTH_SECRET!,
       baseUrl: 'https://auth.example.com',
+      auth: { session: { secret: process.env.THEAUTH_SECRET! } },
       plugins: [
         oauth({
-          providers: [
-            {
-              id: 'microsoft', // [!code highlight]
+          providers: {
+            microsoft: createMicrosoftProvider({ // [!code highlight]
               clientId: process.env.MICROSOFT_CLIENT_ID!, // [!code highlight]
               clientSecret: process.env.MICROSOFT_CLIENT_SECRET!, // [!code highlight]
-              // tenant: 'common' is the default. Accepts personal and work accounts.
-            },
-          ],
+            }), // [!code highlight]
+          },
         }),
       ],
     });
     ```
   </Tab>
   <Tab title="Work accounts only (single tenant)">
+    `createMicrosoftProvider` is fixed to the `common` authority and has no `tenant` option. A single-tenant app registration needs its tenant-specific endpoints, so build the provider with the generic OIDC factory instead. Note that this reads the OIDC `sub` and `email` claims from the userinfo response, so the user ID differs from the Graph `id` used by `createMicrosoftProvider`:
+
     ```typescript title="lib/theauth.ts"
+    import { oauth, genericOIDC } from '@glinr/theauth/auth';
+
+    const tenant = process.env.MICROSOFT_TENANT_ID!;
+
     oauth({
-      providers: [
-        {
+      providers: {
+        microsoft: genericOIDC({
           id: 'microsoft',
+          name: 'Microsoft',
+          issuer: `https://login.microsoftonline.com/${tenant}/v2.0`, // [!code highlight]
           clientId: process.env.MICROSOFT_CLIENT_ID!,
           clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
-          tenant: process.env.MICROSOFT_TENANT_ID!, // Your directory (tenant) ID // [!code highlight]
-        },
-      ],
+          scopes: ['openid', 'profile', 'email'],
+          authorizationUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`, // [!code highlight]
+          tokenUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, // [!code highlight]
+          userinfoUrl: 'https://graph.microsoft.com/oidc/userinfo', // [!code highlight]
+        }),
+      },
     })
     ```
   </Tab>
@@ -90,18 +100,18 @@ MICROSOFT_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # only for single-tena
 
 ## Account types and tenant
 
-The `tenant` option maps to the Microsoft authority URL:
+`createMicrosoftProvider` always uses the `common` authority (`https://login.microsoftonline.com/common/oauth2/v2.0/...`). The segment in the endpoint URLs decides who can sign in, which you can control with the generic factory shown above:
 
-| Value | Who can sign in |
+| Authority segment | Who can sign in |
 |-------|----------------|
-| `common` (default) | Personal Microsoft accounts and work/school accounts |
+| `common` (what `createMicrosoftProvider` uses) | Personal Microsoft accounts and work/school accounts |
 | `organizations` | Work and school accounts only |
 | `consumers` | Personal Microsoft accounts only |
 | Your tenant ID | Only users in your Azure AD directory |
 
 ## Scopes
 
-Default scopes: `openid email profile User.Read`
+Default scopes: `openid profile email User.Read`. Scopes you pass are added on top of the defaults.
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -114,13 +124,13 @@ Default scopes: `openid email profile User.Read`
 
 | Field | Source | Notes |
 |-------|--------|-------|
-| `id` | `oid` claim | Stable object ID within the tenant |
-| `email` | `email` or `preferred_username` | Work email or Microsoft account email |
-| `name` | `name` claim | Display name |
-| `image` | MS Graph `/me/photo` | Fetched separately; may be absent |
+| `id` | Graph `/me` `id` field | Stable object ID within the tenant |
+| `email` | Graph `mail`, falling back to `userPrincipalName` | Work email or Microsoft account email |
+| `name` | Graph `displayName` | Display name |
+| `avatar` | Not populated | The provider does not fetch the Graph photo |
 
 <Info>
-  Personal Microsoft account profile photos require an additional Graph API call with `User.Read` scope. Work account photos may be restricted by IT policy.
+  The profile photo is not fetched. Graph serves it from a separate `/me/photo/$value` call that you would make yourself with the user's access token.
 </Info>
 
 ## Related

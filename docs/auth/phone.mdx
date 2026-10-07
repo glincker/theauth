@@ -1,104 +1,106 @@
 ---
 title: Phone number
-description: Authenticate users with `phoneAuth()` via SMS one-time codes. Supply an `onSendCode` callback, configure expiry, and TheAuth handles rate limiting.
+description: Authenticate users with SMS one-time codes through the `phone` config key. Supply a `sendSms` callback, configure expiry and attempt limits, and forward requests to `theauth.phone.handleRequest`.
 icon: key
 ---
 
-The `phoneAuth` plugin registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. TheAuth handles code generation, expiry, and rate limiting.
+The phone module registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. TheAuth generates the code, hashes it before storage, enforces expiry, and limits verification attempts. It ships as a config key, not a plugin: there is no `phoneAuth()` plugin export.
 
 ## Setup
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { phoneAuth } from '@glinr/theauth/auth'; // [!code highlight]
 import { Twilio } from 'twilio';
 
 const twilio = new Twilio(process.env.TWILIO_SID!, process.env.TWILIO_TOKEN!);
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
-  plugins: [
-    phoneAuth({ // [!code highlight]
-      onSendCode: async (phone, code) => { // [!code highlight]
-        await twilio.messages.create({ // [!code highlight]
-          body: `Your verification code: ${code}`, // [!code highlight]
-          from: process.env.TWILIO_FROM!, // [!code highlight]
-          to: phone, // [!code highlight]
-        }); // [!code highlight]
-      }, // [!code highlight]
-      codeLength: 6, // [!code highlight]
-      codeExpiry: 300, // seconds // [!code highlight]
-    }), // [!code highlight]
-  ],
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // [!code highlight]
+  phone: { // [!code highlight]
+    sendSms: async (phone, code) => { // [!code highlight]
+      await twilio.messages.create({
+        body: `Your verification code: ${code}`,
+        from: process.env.TWILIO_FROM!,
+        to: phone,
+      });
+    }, // [!code highlight]
+    codeLength: 6,
+    codeExpiry: 300, // seconds
+  },
 });
 ```
 
-Mount the handler the same way as any other plugin, see [adapters](/adapters).
+`theauth.phone` is `null` unless the `phone` key is passed and `auth.session` is configured (a session is issued on verification). Forward matching requests to it from a catch-all route:
+
+```typescript title="Mount the handler"
+async function handleAuth(request: Request): Promise<Response> {
+  const response = await theauth.phone?.handleRequest(request);
+  if (response) return response;
+  return new Response('Not Found', { status: 404 });
+}
+```
+
+`handleRequest` handles `POST` only and matches the literal pathnames below. If you mount it under a prefix such as `/api/theauth`, strip the prefix from the URL first. See [adapters](/adapters).
 
 ## Send code
 
 `POST /auth/phone/send-code`
 
-Sends a one-time code to the given phone number. Creates the user account on first send.
+Sends a one-time code to the given phone number, replacing any earlier code for that number.
 
 ```typescript title="Send code (client)"
 const res = await fetch('/auth/phone/send-code', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    phone: '+14155550123', // E.164 format // [!code highlight]
+    phoneNumber: '+14155550123', // E.164 format // [!code highlight]
   }),
 });
 
-// Always returns { success: true } to prevent phone enumeration
+// 200: { sent: true }
 ```
 
-Phone numbers must be in [E.164 format](https://www.twilio.com/docs/glossary/what-e164) (`+` prefix, country code, number).
-
-**Error codes**
-
-| Code | Status | Meaning |
-|------|--------|---------|
-| `PHONE_INVALID` | 422 | Not a valid E.164 phone number |
-| `RATE_LIMITED` | 429 | Too many codes sent to this number |
+Use [E.164 format](https://www.twilio.com/docs/glossary/what-e164) (`+` prefix, country code, number). TheAuth only strips whitespace and does not validate or reformat the number, so normalize it before you call. A missing `phoneNumber` returns `400`. The module has no built-in rate limit for sending, so add one in front of this route (see [rate limiting](/rate-limiting)) to limit SMS cost and abuse.
 
 ## Verify code
 
-`POST /auth/phone/verify-code`
+`POST /auth/phone/verify`
 
-Submits the code the user received. Returns a session on success.
+Submits the code the user received. Returns the user and a session token on success. The user account is created on the first successful verification.
 
 ```typescript title="Verify code (client)"
-const res = await fetch('/auth/phone/verify-code', {
+const res = await fetch('/auth/phone/verify', {
   method: 'POST',
-  credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    phone: '+14155550123', // [!code highlight]
+    phoneNumber: '+14155550123', // [!code highlight]
     code: '482910', // [!code highlight]
   }),
 });
 
 if (res.ok) {
   const { user, session } = await res.json();
+  // user: { id, phone }, session: { token, expiresAt }
 }
 ```
 
-**Error codes**
+**Responses**
 
-| Code | Status | Meaning |
-|------|--------|---------|
-| `INVALID_CODE` | 401 | Code is wrong or expired |
-| `CODE_EXPIRED` | 401 | Code was valid but has passed its expiry window |
+| Status | Meaning |
+|--------|---------|
+| 200 | `{ user: { id, phone }, session: { token, expiresAt } }` |
+| 400 | Missing `phoneNumber` or `code`, or invalid JSON |
+| 401 | `{ error: "Invalid or expired code" }`, covering a wrong code, an expired code, and exhausted attempts |
+
+The handler does not set a cookie, so your app stores the session token.
 
 ## Configuration reference
 
-<ParamField path="onSendCode" type={`(phone: string, code: string) => Promise<void>`} required>Callback invoked to deliver the code. Receives the phone number (E.164) and the numeric code as a string.</ParamField>
+<ParamField path="sendSms" type={`(phoneNumber: string, code: string) => Promise<void>`} required>Callback invoked to deliver the code. Receives the phone number and the numeric code as a string.</ParamField>
 <ParamField path="codeLength" type="number" default={6}>Number of digits in the generated code.</ParamField>
 <ParamField path="codeExpiry" type="number" default="300 (5 min)">Code validity window in seconds.</ParamField>
-<ParamField path="maxAttempts" type="number" default={5}>Failed attempts allowed before the code is invalidated.</ParamField>
+<ParamField path="maxAttempts" type="number" default={5}>Verification attempts allowed per code before it stops being accepted.</ParamField>
 
 ## Related
 

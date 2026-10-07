@@ -1,18 +1,20 @@
 ---
 title: Multi-tenant isolation
-description: Running multiple organizations on one TheAuth instance with per-tenant settings.
+description: Tenant records and tenant-scoped agents on one TheAuth instance. Tenant settings and suspension are stored but not enforced by the SDK.
 icon: building
 ---
 
 
 ## What tenants are
 
-A tenant represents an organization or workspace that shares one TheAuth deployment. Each tenant has its own agents, audit log, and policy settings. Data is isolated by `tenantId`: agents in one tenant cannot be seen or authorized against by another.
+A tenant represents an organization or workspace that shares one TheAuth deployment. The tenant module stores tenant records (name, slug, settings, status), and agents and budget policies can carry a `tenantId`.
 
-This is useful for SaaS products where each customer gets their own isolated agent environment without you running a separate database per customer.
+<Warning>
+  Tenants are a data model, not an enforcement layer. What exists today: `agent.create({ tenantId })` stores the tenant on the agent, and `agent.list({ tenantId })` filters by it. Nothing else reads it: `authorize()` does not compare tenants, a suspended tenant does not block authorization, the `settings` values are not applied when agents or delegations are created, and the audit log and REST endpoints have no tenant filter. If you need isolation, enforce it in your own code, for example by checking `agent.tenantId` against the caller's tenant before acting.
+</Warning>
 
 <Info>
-  `tenantId` is nullable everywhere it appears. Existing agents, policies, and audit entries created before you enable multi-tenancy continue to work without modification.
+  `tenantId` is nullable everywhere it appears. Existing agents, policies, and audit entries created before you start using tenants continue to work without modification.
 </Info>
 
 ## Data model
@@ -20,17 +22,17 @@ This is useful for SaaS products where each customer gets their own isolated age
 <ParamField path="id" type="string">Stable identifier with a tnt_ prefix, e.g. tnt_acme.</ParamField>
 <ParamField path="name" type="string">Display name for the tenant.</ParamField>
 <ParamField path="slug" type="string">URL-safe identifier. Lowercase letters, numbers, and hyphens only. Must be unique.</ParamField>
-<ParamField path="settings" type="TenantSettings">Per-tenant configuration overrides.</ParamField>
-<ParamField path="status" type="'active' | 'suspended'">Suspended tenants cannot authorize requests.</ParamField>
+<ParamField path="settings" type="TenantSettings">Per-tenant configuration values, stored on the tenant record and not enforced by the SDK (see the note above).</ParamField>
+<ParamField path="status" type="'active' | 'suspended'">Recorded by `suspend()` and `activate()`. The SDK does not currently act on it.</ParamField>
 <ParamField path="createdAt" type="Date">When the tenant was created.</ParamField>
 <ParamField path="updatedAt" type="Date">When the tenant was last modified.</ParamField>
 
 ### TenantSettings
 
-<ParamField path="maxAgents" type="number" default="undefined (uses global limit)">Maximum active agents allowed in this tenant. Overrides the global default.</ParamField>
-<ParamField path="maxDelegationDepth" type="number" default="undefined">How deep delegation chains can go. Defaults to the global setting.</ParamField>
-<ParamField path="auditRetentionDays" type="number" default="undefined (no automatic pruning)">How long audit entries are kept for this tenant, in days.</ParamField>
-<ParamField path="allowedAgentTypes" type="string[]" default="undefined (all types allowed)">Restrict which agent types can be created. E.g. ['autonomous'] to disallow delegated agents.</ParamField>
+<ParamField path="maxAgents" type="number" default="undefined (uses global limit)">Intended cap on active agents in this tenant. Not enforced; the cap that applies is `agents.maxPerUser`.</ParamField>
+<ParamField path="maxDelegationDepth" type="number" default="undefined">Intended delegation depth limit. Not enforced; delegation uses the `maxDepth` passed to `delegate()`.</ParamField>
+<ParamField path="auditRetentionDays" type="number" default="undefined (no automatic pruning)">Intended audit retention for this tenant, in days. Not enforced; call `theauth.audit.cleanup({ retentionDays })` yourself.</ParamField>
+<ParamField path="allowedAgentTypes" type="string[]" default="undefined (all types allowed)">Intended restriction on agent types. Not enforced.</ParamField>
 
 ## Creating a tenant
 
@@ -53,7 +55,7 @@ console.log(tenant.slug); // acme
 
 ## Creating an agent inside a tenant
 
-Pass `tenantId` when creating an agent. The agent is then scoped to that tenant.
+Pass `tenantId` when creating an agent with `theauth.agent.create`. The agent stores that tenant ID, and the tenant must already exist (foreign key). The REST endpoint `POST /agents` ignores `tenantId`.
 
 ```typescript
 const agent = await theauth.agent.create({
@@ -67,9 +69,9 @@ const agent = await theauth.agent.create({
 });
 ```
 
-Authorization checks respect the tenant boundary: an agent in `tnt_acme` cannot be authorized against resources in `tnt_other`.
-
 ## Listing agents by tenant
+
+Available on `theauth.agent.list` only; `GET /agents` has no `tenantId` parameter.
 
 ```typescript
 const agents = await theauth.agent.list({
@@ -108,7 +110,7 @@ Useful for admin dashboards. Returns all tenants regardless of status.
 
 ## Suspending and reactivating
 
-When a tenant is suspended, all `authorize()` calls for agents in that tenant return `allowed: false`. Existing tokens are not revoked; they fail authorization until the tenant is reactivated.
+`suspend` and `activate` flip the tenant's `status` between `suspended` and `active`. The SDK does not check that status when authorizing, so suspending a tenant does not stop its agents by itself. To cut off a tenant today, check `tenant.status` in your own code, or revoke its agents with `theauth.agent.revoke`.
 
 ```typescript
 // Suspend
@@ -120,10 +122,10 @@ await theauth.tenant.activate(tenant.id);
 
 ## Budget policies per tenant
 
-Attach a budget policy to a tenant to apply spending limits across all agents in it. See [Budget policies](/guides/budget-policies) for the full policy reference.
+Budget policies store a `tenantId`, but `checkBudget` and `recordUsage` match policies by `agentId` only, so a tenant-only policy applies to every agent, not just the tenant's. See [Budget policies](/budget-policies) for the full reference and how to enforce limits.
 
 ```typescript
-await theauth.policy.create({
+await theauth.policies.create({
   tenantId: tenant.id,
   limits: {
     maxTokensCostPerMonth: 5000,
@@ -137,12 +139,12 @@ await theauth.policy.create({
 
 <CardGroup cols={2}>
   <Card title="Budget policies" href="/budget-policies">
-  Apply cost limits at the tenant, agent, or user level.
+  Per-agent and global cost limits, with the check and enforcement steps you call yourself.
 </Card>
   <Card title="Agent identity" href="/agents">
   Create agents scoped to a tenant.
 </Card>
   <Card title="Audit log" href="/audit">
-  Filter the audit trail by tenant.
+  Query the audit trail by agent or user.
 </Card>
 </CardGroup>

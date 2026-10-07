@@ -6,6 +6,8 @@ icon: key
 
 ## Setup
 
+`theauth.apiKeys` is `null` unless the `apiKeys` key is passed to `createTheAuth`, so use `theauth.apiKeys!.` (or `?.`) in your code.
+
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
@@ -21,15 +23,15 @@ const theauth = await createTheAuth({
 ## Creating a key
 
 ```ts
-const { key, apiKey } = await theauth.apiKeys.create({
+const { key, apiKey } = await theauth.apiKeys!.create({
   userId: 'user_abc',
   name: 'CI deploy token',
   permissions: ['agents:read', 'agents:create'], // [!code highlight]
-  expiresAt: new Date('2026-01-01'),  // optional, falls back to defaultExpiryDays // [!code highlight]
+  expiresAt: new Date('2027-01-01'),  // optional, falls back to defaultExpiryDays // [!code highlight]
 });
 
-// key = 'kos_a3f8c2e1...', the full secret, returned once only
-// apiKey.id, apiKey.prefix, apiKey.permissions, apiKey.expiresAt
+// key = 'kos_' + 64 hex characters, the full secret, returned once only
+// apiKey.id, apiKey.prefix (prefix + first 8 hex chars), apiKey.permissions, apiKey.expiresAt
 ```
 
 <Warning>
@@ -39,41 +41,65 @@ const { key, apiKey } = await theauth.apiKeys.create({
 ## Validating a key
 
 ```ts
-const result = await theauth.apiKeys.validate('kos_a3f8c2e1...');
+const result = await theauth.apiKeys!.validate('kos_a3f8c2e1...');
 if (result) {
   // result.userId, result.permissions, result.keyId
 }
 ```
 
-Validation updates `lastUsedAt` asynchronously without blocking the response.
+`validate` returns `null` for an unknown or expired key and updates `lastUsedAt` on success.
+
+To check a permission in the same call, use `validateWithScope`. It returns `null` unless the key's permissions include the required string or the `*` wildcard:
+
+```ts
+const result = await theauth.apiKeys!.validateWithScope(key, 'agents:read');
+```
+
+Permission strings are compared for exact equality (plus the literal `*`). There is no path matching here.
 
 ## Listing and revoking
 
 ```ts
 // All keys for a user (no secrets exposed)
-const keys = await theauth.apiKeys.list('user_abc');
+const keys = await theauth.apiKeys!.list('user_abc');
 
-// Revoke by key ID
-await theauth.apiKeys.revoke('key_...');
+// Revoke by key ID (deletes the key record)
+await theauth.apiKeys!.revoke('key_...');
 ```
 
 ## Rotating a key
 
-Rotation revokes the existing key and creates a new one with the same name and permissions:
+Rotation deletes the existing key and creates a new one with the same name, permissions, and expiry date:
 
 ```ts
-const { key, apiKey } = await theauth.apiKeys.rotate('key_...');
+const { key, apiKey } = await theauth.apiKeys!.rotate('key_...');
 // key = new full secret, store it now
 ```
 
+`rotate` throws if the key ID does not exist.
+
 ## Endpoints
+
+Add the `apiKeys()` plugin (from `@glinr/theauth/auth`) to expose HTTP endpoints. They act on the authenticated user, resolved from `auth.adapter` or an `auth.session` token, so a caller cannot manage another user's keys.
+
+```ts
+import { apiKeys } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  plugins: [apiKeys({ prefix: 'kos_' })],
+});
+```
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/auth/api-keys` | Create API key |
-| GET | `/auth/api-keys/:userId` | List keys for user |
-| DELETE | `/auth/api-keys/:keyId` | Revoke key |
-| POST | `/auth/api-keys/:keyId/rotate` | Rotate key |
+| POST | `/auth/api-keys` | Create a key for the signed-in user, body `{ name, permissions, expiresAt? }`, returns `{ apiKey, key }` with status 201 |
+| GET | `/auth/api-keys` | List the signed-in user's keys as `{ apiKeys }` |
+| DELETE | `/auth/api-keys/:id` | Revoke one of the user's keys, returns `{ revoked: true }` |
+| POST | `/auth/api-keys/:id/rotate` | Rotate one of the user's keys |
+
+The module's own `theauth.apiKeys.handleRequest` serves similar paths but takes `userId` from the request body or path and does no authentication. Do not expose it directly to clients.
 
 ## Related
 
@@ -88,6 +114,6 @@ const { key, apiKey } = await theauth.apiKeys.rotate('key_...');
     Attach scoped permissions to agents and keys.
   </Card>
   <Card title="Audit" href="/audit" icon="list-check">
-    Track every key validation and revocation event.
+    Audit trail for agent activity.
   </Card>
 </CardGroup>

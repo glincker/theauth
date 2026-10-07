@@ -24,19 +24,22 @@ Copy the **App ID** and **App Secret** from the app dashboard.
 ### Configure
 
 ```ts
-import { createTheAuth, oauth } from '@glinr/theauth';
-import { facebookProvider } from '@glinr/theauth/auth'; // [!code highlight]
+import { createTheAuth } from '@glinr/theauth';
+import { oauth, facebookProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        facebookProvider( // [!code highlight]
-          process.env.FACEBOOK_CLIENT_ID, // [!code highlight]
-          process.env.FACEBOOK_CLIENT_SECRET, // [!code highlight]
+      providers: {
+        facebook: facebookProvider( // [!code highlight]
+          process.env.FACEBOOK_CLIENT_ID!, // [!code highlight]
+          process.env.FACEBOOK_CLIENT_SECRET!, // [!code highlight]
         ), // [!code highlight]
-      ],
+      },
     }),
   ],
 });
@@ -55,18 +58,22 @@ FACEBOOK_CLIENT_SECRET=your_app_secret
 
 Default scopes: `email`, `public_profile`
 
-To request additional data, pass a `scopes` array:
+To request additional data, pass a `scopes` array as the third argument. It replaces the defaults, so include `email` and `public_profile` too:
 
 ```ts
 facebookProvider(
-  process.env.FACEBOOK_CLIENT_ID,
-  process.env.FACEBOOK_CLIENT_SECRET,
-  { scopes: ['email', 'public_profile', 'user_birthday'] }, // [!code highlight]
+  process.env.FACEBOOK_CLIENT_ID!,
+  process.env.FACEBOOK_CLIENT_SECRET!,
+  ['email', 'public_profile', 'user_birthday'], // [!code highlight]
 )
 ```
 
 <Warning>
   Facebook requires app review before requesting most extended permissions beyond `email` and `public_profile`.
+</Warning>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://graph.facebook.com/me?fields=id,email,name,picture` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a numeric `id` field, so sign-in is expected to fail with `Facebook userinfo response missing required "sub" field`. This preset has not been verified against the live service.
 </Warning>
 
 ## Endpoints

@@ -34,7 +34,7 @@ async function handleSignUp(username: string, password: string) {
 
 ## check() and enforce()
 
-The module exposes two methods with different failure modes:
+The module exposes two methods with different failure modes. `check()` does not apply `threshold`, it always returns the raw breach count:
 
 ```typescript title="Manual usage"
 const hibp = createHibpModule();
@@ -87,7 +87,7 @@ const hibp = createHibpModule({
   threshold: 0, // reject any breach count greater than this // [!code highlight]
   apiUrl: 'https://api.pwnedpasswords.com', // default, override for a self-hosted mirror // [!code highlight]
   timeoutMs: 5000, // ms before the check is abandoned // [!code highlight]
-  onError: 'allow', // 'allow' | 'block' — behavior when the API is unreachable // [!code highlight]
+  onError: 'allow', // 'allow' | 'block', behavior when the API is unreachable // [!code highlight]
 });
 ```
 
@@ -109,12 +109,12 @@ const hibp = createHibpModule({
     Add TOTP as a second layer of protection beyond password quality.
   </Card>
   <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
-    Skip 2FA on devices verified after a successful sign-in.
+    Skip 2FA on devices you have marked as trusted.
   </Card>
   <Card title="Username and password" href="/auth/username" icon="key">
     TheAuth's built-in password module that HIBP enforcement typically guards.
   </Card>
   <Card title="Compliance" href="/compliance" icon="file-lines">
-    Broader security posture including audit and anomaly detection.
+    Audit trail, GDPR tooling, and the other compliance-related features.
   </Card>
 </CardGroup>

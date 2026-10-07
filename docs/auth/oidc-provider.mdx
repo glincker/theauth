@@ -87,9 +87,11 @@ The `clientSecret` is only returned on registration. It is stored hashed. If you
 
 ## Authorization code flow
 
-1. Client redirects user to `{issuer}/authorize` with `response_type=code`, `client_id`, `redirect_uri`, `scope`, and optionally `code_challenge` + `code_challenge_method=S256`.
+`createOidcProviderModule` returns a module of methods. It does not register any HTTP routes, so you mount the endpoints in your own server and call the matching method from each handler.
+
+1. Client redirects the user to your authorization route (the discovery document advertises `{issuer}/authorize`) with `response_type=code`, `client_id`, `redirect_uri`, `scope`, and optionally `code_challenge` + `code_challenge_method=S256`.
 2. Your app authenticates the user, then calls `oidc.authorize({ ...params, userId })` to issue a code.
-3. Client exchanges the code at `{issuer}/token` for `access_token`, `id_token`, and `refresh_token`.
+3. Client exchanges the code at your token route (`{issuer}/token`), which calls `oidc.exchangeToken(...)` and returns `access_token`, `id_token`, and `refresh_token`.
 4. Client can refresh tokens using `grant_type=refresh_token`. Refresh tokens rotate on each use.
 
 <Info>
@@ -98,14 +100,18 @@ The `clientSecret` is only returned on registration. It is stored hashed. If you
 
 ## Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/.well-known/openid-configuration` | Discovery document |
-| GET | `/.well-known/jwks.json` | Public signing keys |
-| GET | `/authorize` | Authorization endpoint |
-| POST | `/token` | Token endpoint |
-| GET/POST | `/userinfo` | UserInfo endpoint |
-| POST | `/register` | Dynamic client registration |
+The module does not serve these routes. The discovery document returned by `getDiscoveryDocument()` advertises the following URLs under `issuer`, and the table shows the module method each route should call:
+
+| Method | Advertised path | Module method |
+|--------|-----------------|---------------|
+| GET | `/.well-known/openid-configuration` | `getDiscoveryDocument()` |
+| GET | `/.well-known/jwks.json` | `getJwks()` |
+| GET | `/authorize` | `authorize(params)` after you authenticate the user |
+| POST | `/token` | `exchangeToken(params)` |
+| GET/POST | `/userinfo` | `getUserInfo(accessToken)` |
+| POST | `/register` | `registerClient(input)` |
+
+Other module methods: `getClient`, `deleteClient`, and `validateAccessToken`.
 
 ## Related
 

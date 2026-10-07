@@ -4,7 +4,11 @@ description: Attach arbitrary data to sessions at creation time and read it back
 icon: sliders
 ---
 
-The `customSession` plugin lets you store application-specific data inside every session without adding database columns. Fields live in `session.metadata.custom`.
+The `customSession` plugin lets you store application-specific data on a session without adding database columns. Fields live in `session.metadata.custom`, and you read and update them with the module or the REST endpoints below.
+
+<Warning>
+  `defaultFields` and `onSessionCreate` are registered as a plugin `onSessionCreate` hook, but TheAuth's session managers and sign-in modules do not currently invoke plugin hooks. Creating a session through `theauth.auth.session.create(...)` does not populate `metadata.custom` by itself. Until that wiring exists, write the initial fields yourself with `updateSessionFields` right after you create the session.
+</Warning>
 
 ## Install
 
@@ -19,7 +23,7 @@ import { customSession } from '@glinr/theauth/auth';
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   auth: {
-    session: { secret: process.env.SESSION_SECRET },
+    session: { secret: process.env.SESSION_SECRET! },
   },
   plugins: [
     customSession({
@@ -37,14 +41,14 @@ const theauth = await createTheAuth({
 
 ## Reading and writing fields
 
-After setup, access the module through the plugin context:
+After setup, access the module through the plugin context (it is not a property of the instance):
 
 ```typescript
 import type { CustomSessionModule } from '@glinr/theauth/auth';
 
 const mod = theauth.plugins.getContext().customSession as CustomSessionModule;
 
-// Read custom fields
+// Read custom fields (null when the session is missing or has none)
 const fields = await mod.getSessionFields(session.id);
 // => { theme: 'system', beta: false, createdAt: 1234567890, plan: 'pro' }
 
@@ -52,11 +56,11 @@ const fields = await mod.getSessionFields(session.id);
 await mod.updateSessionFields(session.id, { beta: true, lastPage: '/dashboard' });
 ```
 
-`updateSessionFields` merges with existing data. Keys not in the update are left untouched.
+`updateSessionFields` merges with existing data. Keys not in the update are left untouched. It throws when the session does not exist.
 
 ## Hook behaviour
 
-`onSessionCreate` fires inside the plugin runner's `onSessionCreate` hook, the same lifecycle point used by other plugins. The returned fields are merged into `session.metadata.custom`. If both `defaultFields` and the callback define the same key, the callback wins.
+The plugin declares an `onSessionCreate` hook that merges `defaultFields` and the result of your `onSessionCreate` callback (callback wins on a key clash) into `{ custom: ... }`. The hook is collected into the plugin registry, but TheAuth does not call it when sessions are created today (see the warning above). Treat `defaultFields` and `onSessionCreate` as inert until it is wired up.
 
 ## REST endpoints
 
@@ -91,7 +95,7 @@ Content-Type: application/json
 { "updated": true }
 ```
 
-Returns `404` when the session does not exist.
+Returns `404` when the session does not exist. Both endpoints require an authenticated user, but they do not check that the `sessionId` belongs to that user, so any signed-in caller who knows a session ID can read or change its custom fields. Treat session IDs as private, or put your own ownership check in front of these routes.
 
 ## Config reference
 
@@ -104,8 +108,8 @@ interface CustomSessionConfig {
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `defaultFields` | `Record<string, unknown>` | Fields merged into every new session. |
-| `onSessionCreate` | `async (userId, request?) => Record` | Async callback; return value is merged over `defaultFields`. |
+| `defaultFields` | `Record<string, unknown>` | Fields intended to be merged into every new session (see the warning above). |
+| `onSessionCreate` | `async (userId, request?) => Record` | Async callback; return value is intended to be merged over `defaultFields`. |
 
 ## Storage
 
@@ -121,9 +125,9 @@ No migrations required. Custom data is stored in the `metadata` JSON column of `
     Attach custom columns to users instead of sessions.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Tap into session lifecycle events with server-side hooks.
+    Lifecycle hooks you can attach to your instance.
   </Card>
   <Card title="Cookie options" href="/cookies" icon="cookie-bite">
-    Configure cookie attributes for cross-subdomain and production setups.
+    Cookie attributes for cross-subdomain and production setups.
   </Card>
 </CardGroup>

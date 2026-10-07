@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/naver
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, naverProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'naver',
-          clientId: process.env.NAVER_CLIENT_ID!,
-          clientSecret: process.env.NAVER_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        naver: naverProvider(
+          process.env.NAVER_CLIENT_ID!,
+          process.env.NAVER_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -49,7 +51,7 @@ NAVER_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `name`, `email`
+Default scopes: `email`, `profile`
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -57,6 +59,10 @@ Default scopes: `name`, `email`
 | `email` | Email address |
 | `profile_image` | Profile image URL |
 | `mobile` | Mobile phone number |
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://openapi.naver.com/v1/nid/me` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns an `id` field nested under `response`, so sign-in is expected to fail with `Naver userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

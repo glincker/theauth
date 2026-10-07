@@ -1,6 +1,6 @@
 ---
 title: Zoom
-description: "Authenticate users with Zoom via `zoomProvider`. Covers App Marketplace app creation, redirect URI setup, and default scopes: `openid`, `profile`, and `email`."
+description: "Authenticate users with Zoom via `createZoomProvider`. Covers App Marketplace app creation, redirect URI setup, and the default `user:read` scope."
 icon: "/brand-icons/zoom.svg"
 ---
 
@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/zoom
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
-import { zoomProvider } from '@glinr/theauth/auth';
+import { oauth, createZoomProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        zoomProvider(
-          process.env.ZOOM_CLIENT_ID!,
-          process.env.ZOOM_CLIENT_SECRET!,
-        ),
-      ],
+      providers: {
+        zoom: createZoomProvider({
+          clientId: process.env.ZOOM_CLIENT_ID!,
+          clientSecret: process.env.ZOOM_CLIENT_SECRET!,
+        }),
+      },
     }),
   ],
 });
@@ -49,13 +51,11 @@ ZOOM_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `openid`, `profile`, `email`
+Default scope: `user:read`. Scopes you pass are added on top of the default.
 
 | Scope | What it unlocks |
 |-------|----------------|
-| `openid` | OIDC identity token |
-| `profile` | Name and profile picture |
-| `email` | Email address |
+| `user:read` | Read the user's profile and email (default) |
 | `meeting:read` | Read meeting info |
 
 ## Endpoints

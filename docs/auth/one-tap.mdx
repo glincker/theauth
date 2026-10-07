@@ -25,11 +25,15 @@ import { oneTap } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } }, // [!code highlight]
   plugins: [
-    oneTap({ clientId: process.env.GOOGLE_CLIENT_ID }),
+    oneTap({ clientId: process.env.GOOGLE_CLIENT_ID! }),
   ],
 });
 ```
+
+`oneTap()` issues a session on success, so `auth.session` must be configured. Without it the plugin throws on startup.
 </Step>
 
 <Step>
@@ -39,7 +43,7 @@ const theauth = await createTheAuth({
 <script src="https://accounts.google.com/gsi/client" async></script>
 <div id="g_id_onload"
   data-client_id="YOUR_CLIENT_ID"
-  data-login_uri="/api/theauth/auth/one-tap/callback"
+  data-login_uri="https://auth.example.com/auth/one-tap/callback"
   data-auto_prompt="true">
 </div>
 ```
@@ -53,7 +57,7 @@ const theauth = await createTheAuth({
 3. Google sends a `credential` (JWT ID token) to your callback
 4. TheAuth verifies the JWT against Google's JWKS (`https://www.googleapis.com/oauth2/v3/certs`)
 5. Validates audience, issuer, expiry, and CSRF token
-6. Creates or links the user, returns a session
+6. Finds the user by email (or creates one when `autoCreateUser` is true) and returns a session as JSON: `{ user: { id, email }, session: { token, expiresAt } }`. The plugin does not set a cookie or redirect
 
 ## CSRF protection
 
@@ -76,6 +80,10 @@ Google sends a `g_csrf_token` cookie with the request. TheAuth validates that th
 <Info>
 Google One-tap requires HTTPS in production. It works on localhost for development.
 </Info>
+
+<Warning>
+  The One-tap handler only matches the exact path `/auth/one-tap/callback`. When TheAuth is mounted under an adapter prefix such as `/api/theauth`, the request path includes the prefix and the handler responds with `Unexpected routing error` (500). Serve TheAuth with no path prefix for One-tap, or route the callback to it at the root path.
+</Warning>
 
 ## Related
 

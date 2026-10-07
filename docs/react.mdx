@@ -7,7 +7,7 @@ icon: code
 
 ## Overview
 
-`@glinr/theauth-react` provides React hooks and a context provider for building auth UIs on top of TheAuth. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup.
+`@glinr/theauth-react` provides React hooks and a context provider for building auth UIs on top of TheAuth. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup (the package declares React 18 or later as a peer dependency).
 
 The package itself has no Node.js dependencies, it runs entirely in the browser. Your TheAuth API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
 
@@ -55,11 +55,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```
 
 <ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your TheAuth API handler. Must match the route you mounted in the adapter.</ParamField>
-<ParamField path="fetchOptions" type="RequestInit" default="undefined">Merged into every fetch call. Use this to add custom headers or credentials mode.</ParamField>
+<ParamField path="external" type="ExternalAuthConfig" default="undefined">Delegate authentication to an external API instead of the managed mode described below. See "External auth mode".</ParamField>
+<ParamField path="debug" type="boolean" default="false">Enable verbose auth state logging (also enabled when `localStorage.DEBUG === "theauth"`).</ParamField>
 
 <Info>
-Sessions are stored in `localStorage` under the key `theauth_session`. The hooks automatically restore the session on page reload.
+In managed mode (no `external` prop) the session is stored in `localStorage` under the key `theauth_session`, and the provider restores it from there on page load. It does not re-verify the session with the server on load.
 </Info>
+
+<Warning>
+The managed provider signs in and up by calling `POST {basePath}/auth/sign-in` and `POST {basePath}/auth/sign-up` with a JSON body of `{ email, password }` (plus `name` for sign-up). TheAuth core does not ship email-and-password routes at those paths (its built-in password module is [username based](/auth/username)), so you need to serve them from your own handler, returning `{ user, session: { token, expiresAt } }` for sign-in and `{ user, token }` for sign-up, or use `external` mode instead.
+</Warning>
 
 ## useSession
 
@@ -76,15 +81,15 @@ function SessionDebug() {
 
   return (
     <p>
-      Session expires: {new Date(session.expiresAt).toLocaleString()}
+      Session expires: {session.expiresAt ? new Date(session.expiresAt).toLocaleString() : 'unknown'}
     </p>
   );
 }
 ```
 
-<ParamField path="session" type="Session | null">The current session. Null when unauthenticated or still loading.</ParamField>
-<ParamField path="isLoading" type="boolean">True during the initial session fetch.</ParamField>
-<ParamField path="refetch" type={`() => Promise<void>`}>Force a re-fetch of the session. Call this after making out-of-band auth changes.</ParamField>
+<ParamField path="session" type="TheAuthSession | null">The current session (`{ token, user, expiresAt? }`). Null when unauthenticated or still loading.</ParamField>
+<ParamField path="isLoading" type="boolean">True during the initial session restore.</ParamField>
+<ParamField path="refresh" type={`() => Promise<void>`}>Re-read the session. In managed mode this re-reads `localStorage`, in external mode it re-fetches the current user.</ParamField>
 
 ## useUser
 
@@ -97,7 +102,7 @@ function ProfileCard() {
   const { user, isAuthenticated, isLoading } = useUser();
 
   if (isLoading) return <Skeleton />;
-  if (!isAuthenticated) return <SignInPrompt />;
+  if (!isAuthenticated || !user) return <SignInPrompt />;
 
   return (
     <div>
@@ -108,15 +113,15 @@ function ProfileCard() {
 }
 ```
 
-<ParamField path="user" type="User | null">The authenticated user object. Null when unauthenticated.</ParamField>
+<ParamField path="user" type="TheAuthUser | null">The authenticated user (`{ id, email?, name?, image? }`). Null when unauthenticated.</ParamField>
 <ParamField path="isAuthenticated" type="boolean">True when a valid session with a user is present.</ParamField>
 <ParamField path="isLoading" type="boolean">True during the initial load. Avoid rendering auth-gated UI until this is false.</ParamField>
 
 ## useSignIn
 
-Handles email and password sign-in. Returns a `signIn` function and state fields.
+Handles email and password sign-in. Returns `signIn(email, password)` plus `isLoading` and `error` (a string or `null`).
 
-The hook posts to `POST /api/theauth/auth/sign-in` (not `/sign-in/email`). Make sure your adapter is mounted at `/api/theauth`.
+The hook posts to `POST {basePath}/auth/sign-in` (see the warning above about the server route).
 
 ```tsx
 import { useSignIn } from '@glinr/theauth-react';
@@ -129,10 +134,10 @@ function SignInForm() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const result = await signIn({
-      email: form.get('email') as string,
-      password: form.get('password') as string,
-    });
+    const result = await signIn(
+      form.get('email') as string,
+      form.get('password') as string,
+    );
     if (result.success) router.push('/dashboard');
   }
 
@@ -140,7 +145,7 @@ function SignInForm() {
     <form onSubmit={handleSubmit}>
       <input name="email" type="email" />
       <input name="password" type="password" />
-      {error && <p>{error.message}</p>}
+      {error && <p>{error}</p>}
       <button type="submit" disabled={isLoading}>
         {isLoading ? 'Signing in...' : 'Sign in'}
       </button>
@@ -151,7 +156,7 @@ function SignInForm() {
 
 ## useSignUp
 
-Handles new account registration. Posts to `POST /api/theauth/auth/sign-up` (not `/sign-up/email`).
+Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/sign-up`.
 
 ```tsx
 import { useSignUp } from '@glinr/theauth-react';
@@ -162,11 +167,11 @@ function SignUpForm() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    await signUp({
-      email: form.get('email') as string,
-      password: form.get('password') as string,
-      name: form.get('name') as string,
-    });
+    await signUp(
+      form.get('email') as string,
+      form.get('password') as string,
+      form.get('name') as string,
+    );
   }
 
   return (
@@ -174,7 +179,7 @@ function SignUpForm() {
       <input name="name" type="text" />
       <input name="email" type="email" />
       <input name="password" type="password" />
-      {error && <p>{error.message}</p>}
+      {error && <p>{error}</p>}
       <button type="submit" disabled={isLoading}>Create account</button>
     </form>
   );
@@ -183,7 +188,7 @@ function SignUpForm() {
 
 ## useSignOut
 
-Signs the user out and clears the local session. Optionally redirects after sign-out.
+Signs the user out. `signOut()` takes no arguments. In managed mode it clears the stored session from React state and `localStorage` and does not call the server, so revoke the session server-side separately if you need to. In external mode it calls your logout path. It does not redirect, navigate yourself afterwards.
 
 ```tsx
 import { useSignOut } from '@glinr/theauth-react';
@@ -193,7 +198,7 @@ function NavBar() {
 
   return (
     <nav>
-      <button onClick={() => signOut({ redirectTo: '/login' })}>
+      <button onClick={async () => { await signOut(); window.location.assign('/login'); }}>
         Sign out
       </button>
     </nav>
@@ -203,19 +208,20 @@ function NavBar() {
 
 ## useAgents
 
-Lets your UI create, list, and revoke agents without going through a custom API route.
+Lets your UI list, create, revoke, and rotate agents through your TheAuth API. `useAgents(basePath = '/api/theauth')` takes its own base path and reads the user from the provider.
 
 ```tsx
-import { useAgents } from '@glinr/theauth-react';
+import { useAgents, useUser } from '@glinr/theauth-react';
 
 function Dashboard() {
-  const { user, isAuthenticated, isLoading } = useUser();
+  const { user, isAuthenticated } = useUser();
   const { agents, create, revoke, isLoading: agentsLoading } = useAgents();
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || !user) return null;
 
   async function handleCreate() {
     await create({
+      ownerId: user.id,
       name: 'my-bot',
       type: 'autonomous',
       permissions: [
@@ -239,11 +245,37 @@ function Dashboard() {
 }
 ```
 
-<ParamField path="agents" type="Agent[]">Current list of agents for the authenticated user.</ParamField>
-<ParamField path="create" type={`(input: CreateAgentInput) => Promise<Agent>`}>Create a new agent. The list refreshes automatically on success.</ParamField>
-<ParamField path="revoke" type={`(agentId: string) => Promise<void>`}>Revoke an agent by ID. Removes it from the local list on success.</ParamField>
-<ParamField path="refetch" type={`() => Promise<void>`}>Re-fetch the agent list manually.</ParamField>
-<ParamField path="isLoading" type="boolean">True during the initial agents fetch.</ParamField>
+The hook calls `GET {basePath}/agents?userId=<id>` (expecting `{ data: Agent[] }`), `POST {basePath}/agents`, `DELETE {basePath}/agents/:id`, and `POST {basePath}/agents/:id/rotate`, all with `credentials: 'include'`. Single-agent responses are expected as `{ data: Agent }`.
+
+<ParamField path="agents" type="TheAuthAgent[]">Current list of agents for the authenticated user.</ParamField>
+<ParamField path="create" type={`(input: CreateAgentInput) => Promise<ActionResult<TheAuthAgent>>`}>Create a new agent. `CreateAgentInput` requires `ownerId`, `name`, `type`, and `permissions`. The list reloads on success.</ParamField>
+<ParamField path="revoke" type={`(agentId: string) => Promise<ActionResult>`}>Revoke an agent by ID. The list reloads on success.</ParamField>
+<ParamField path="rotate" type={`(agentId: string) => Promise<ActionResult<TheAuthAgent>>`}>Rotate an agent's token. The returned agent carries the new token.</ParamField>
+<ParamField path="load" type={`() => Promise<void>`}>Re-fetch the agent list manually.</ParamField>
+<ParamField path="isLoading" type="boolean">True while the agent list is loading.</ParamField>
+<ParamField path="error" type="string | null">The last load error message.</ParamField>
+
+`ActionResult<T>` is `{ success: true, data: T } | { success: false, error: string }`.
+
+## External auth mode
+
+Pass `external` to delegate authentication to an API you already run, for example one that manages httpOnly cookies. The provider then fetches the user from `apiUrl + mePath` (default `/api/auth/me`), sends login redirects to `loginPath` (default `/auth/github`), and calls `logoutPath` (default `/auth/logout`, method `POST`) on sign out. No session is stored in `localStorage`.
+
+```tsx
+<TheAuthProvider
+  external={{
+    apiUrl: 'https://api.example.com',
+    mePath: '/api/auth/me',
+    loginPath: '/auth/github',
+    logoutPath: '/auth/logout',
+    refreshPath: '/auth/refresh', // enables rotation, see useRotateSession
+  }}
+>
+  {children}
+</TheAuthProvider>
+```
+
+`useRotateSession()` returns `{ rotate, status, isOnline }` for the token rotation flow. It only does work when `refreshPath` is set, otherwise `rotate()` resolves with `{ success: false, code: 'network_error' }`.
 
 ## Next steps
 

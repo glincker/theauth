@@ -7,7 +7,7 @@ icon: scroll
 
 ## How audit logging works
 
-Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed, denied, and rate-limited calls are all recorded. The log is append-only: entries are never updated or deleted.
+Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). Calls rejected before the permission engine runs, such as an unknown or revoked agent, are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
 
 `authorize()` returns an `auditId` linking the decision to its log entry:
 
@@ -17,27 +17,28 @@ const result = await theauth.authorize(agent.id, {
   resource: 'mcp:github:repos',
 });
 
-console.log(result.auditId); // "aud_3f8a..."
+console.log(result.auditId); // a UUID, e.g. "7b0c1d52-..."
 ```
 
 ## Querying logs
 
 ### AuditEntry type
 
-<ParamField path="id" type="string">Unique entry identifier, prefixed aud_.</ParamField>
+<ParamField path="id" type="string">Unique entry identifier (a UUID). Equal to the `auditId` returned by `authorize()`.</ParamField>
 <ParamField path="agentId" type="string">The agent that triggered the authorization check.</ParamField>
 <ParamField path="userId" type="string">The user who owns the agent.</ParamField>
 <ParamField path="action" type="string">The action the agent attempted (e.g. read, write, delete).</ParamField>
 <ParamField path="resource" type="string">The resource the action was attempted on.</ParamField>
 <ParamField path="parameters" type={`Record<string, unknown>`}>Arguments passed to the tool at the time of the call.</ParamField>
-<ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">The outcome of the authorization check.</ParamField>
+<ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">The outcome of the authorization check. The built-in permission engine writes only `allowed` or `denied`.</ParamField>
+<ParamField path="reason" type="string">Free-text explanation of a denial. Absent on allowed entries.</ParamField>
 <ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
-<ParamField path="tokensCost" type="number">Optional token usage from the agent\'s LLM call, if provided.</ParamField>
+<ParamField path="tokensCost" type="number">Optional token usage. The built-in permission engine does not populate it.</ParamField>
 <ParamField path="timestamp" type="Date">When the authorization check occurred.</ParamField>
 
 ### Filtering
 
-All filter fields are optional and combinable. Without filters, the query returns all entries up to the `limit`.
+All filter fields are optional and combinable. Results are ordered newest first. Without filters or a `limit`, the query returns every entry.
 
 ```typescript
 const logs = await theauth.audit.query({
@@ -55,10 +56,10 @@ const logs = await theauth.audit.query({
 <ParamField path="agentId" type="string">Filter to a specific agent.</ParamField>
 <ParamField path="userId" type="string">Filter to all agents owned by a user.</ParamField>
 <ParamField path="since" type="Date">Include entries on or after this timestamp.</ParamField>
-<ParamField path="until" type="Date">Include entries before this timestamp.</ParamField>
-<ParamField path="actions" type="string[]">Filter to specific action names.</ParamField>
+<ParamField path="until" type="Date">Include entries on or before this timestamp.</ParamField>
+<ParamField path="actions" type="string[]">Filter to specific action names. Applied after `limit` and `offset`, so a page can come back shorter than `limit`.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">Filter by outcome.</ParamField>
-<ParamField path="limit" type="number">Maximum entries to return. Default is 1000.</ParamField>
+<ParamField path="limit" type="number">Maximum entries to return. No default: all matching entries are returned when omitted.</ParamField>
 <ParamField path="offset" type="number">Pagination offset.</ParamField>
 
 ### Exporting logs
@@ -78,10 +79,10 @@ const q4 = await theauth.audit.export({
 });
 ```
 
-The CSV export includes a header row with field names matching the `AuditEntry` interface. Each row is one authorization decision.
+The CSV export includes a header row (`id,agentId,userId,action,resource,result,reason,durationMs,tokensCost,timestamp`). Each row is one authorization decision. The `parameters` field appears only in the JSON export. The export returns a string, not a file.
 
 <Info>
-Both `since` and `until` are optional on exports. Omitting both exports the entire log.
+Both `since` and `until` are optional on exports. Exports are capped at the 10,000 most recent matching entries, so page through `audit.query` if you need more.
 </Info>
 
 ## Compliance references
@@ -94,7 +95,7 @@ Both `since` and `until` are optional on exports. Omitting both exports the enti
     The NIST AI Risk Management Framework calls for documented accountability mechanisms and the ability to trace AI actions to specific identities. The append-only audit trail links every decision to a named agent and user.
   </Accordion>
   <Accordion title="SOC 2. CC6.1 through CC7.2">
-    SOC 2 trust services criteria for logical access controls and system monitoring require evidence that access is granted only to authorized identities and that access events are logged. The `allowed`/`denied`/`rate_limited` result field satisfies CC6.1–CC6.3. The tamper-evident, append-only structure satisfies CC7.2.
+    SOC 2 trust services criteria for logical access controls and system monitoring require evidence that access is granted only to authorized identities and that access events are logged. The `allowed`/`denied` result field is evidence that maps to CC6.1 to CC6.3, and the append-only structure maps to CC7.2. TheAuth does not make you compliant on its own, and tamper-evidence needs protections at the database level.
   </Accordion>
   <Accordion title="ISO 42001, Annex A.8. Documentation of AI system behaviour">
     ISO 42001 recommends documenting the behavior of AI systems in production. Exporting the audit log as JSON or CSV gives auditors a machine-readable record of every decision the system made.
@@ -139,7 +140,7 @@ console.log(`${highActivity.length} calls in the last hour`);
 ```
 
 <Warning>
-A sudden spike in call volume from a single agent often indicates a runaway loop. Use `theauth.agent.revoke()` to suspend the agent while you investigate.
+A sudden spike in call volume from a single agent often indicates a runaway loop. Use `theauth.agent.revoke()` to cut off the agent while you investigate (revocation is permanent, so create a new agent afterwards).
 </Warning>
 
 ## Next steps

@@ -1,85 +1,106 @@
 ---
 title: JWT sessions
-description: Issue short-lived JWT access tokens and rotate refresh tokens via jwtSession. Stateless access token verification, revocation tracked in the database.
+description: Issue short-lived JWT access tokens and rotate refresh tokens with createJwtSessionModule. Stateless access token verification, refresh tokens tracked in the database.
 icon: key
 ---
 
 
-The JWT session plugin issues short-lived access tokens (JWTs) and long-lived refresh tokens. Access tokens are stateless (no DB lookup on every request). Refresh tokens are stored in the database and support rotation.
+The JWT session module issues short-lived access tokens (JWTs) and long-lived refresh tokens. Access tokens are stateless (no DB lookup on every request). Refresh tokens are opaque random strings stored hashed in the database and rotate on every use.
+
+It is a module you create yourself with `createJwtSessionModule`. There is no `jwtSession()` plugin, no `theauth.jwt` property, and no `/auth/jwt/*` routes. You call the module from your own handlers.
 
 ## Setup
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
-import { jwtSession } from '@glinr/theauth/auth';
+import { createJwtSessionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
-  plugins: [
-    jwtSession({
-      secret: process.env.JWT_SECRET, // min 32 chars for HS256
-      accessTokenTtl: 900,            // 15 minutes
-      refreshTokenTtl: 604800,        // 7 days
-      issuer: 'https://myapp.com',
-      audience: 'https://api.myapp.com',
-    }),
-  ],
 });
+
+export const jwtSessions = createJwtSessionModule({
+  secret: process.env.JWT_SECRET!, // min 32 chars for HS256
+  accessTokenTtl: 900,             // 15 minutes
+  refreshTokenTtl: 604800,         // 7 days
+  issuer: 'https://myapp.com',
+  audience: 'https://api.myapp.com',
+  customClaims: (user) => ({ role: 'admin' }), // optional extra claims
+}, theauth.db);
 ```
 
 ## Usage
 
+Every method returns a `Result`: `{ success: true, data }` or `{ success: false, error: { code, message } }`. They do not throw for normal failures.
+
 ### Create a session
 
 ```ts
-const { accessToken, refreshToken, expiresIn } = await theauth.jwt.createSession({
-  userId: user.id,
+const result = await jwtSessions.createSession({
+  id: user.id,
   email: user.email,
   name: user.name,
-  claims: { role: 'admin' }, // custom claims
 });
+
+if (result.success) {
+  const { accessToken, refreshToken, expiresIn } = result.data;
+}
 ```
+
+Custom claims come from the `customClaims` function in the config, which receives `{ id, email?, name? }`. `createSession` does not take a `claims` argument.
 
 ### Verify an access token
 
 ```ts
-const payload = await theauth.jwt.verifyAccessToken(accessToken);
-// { sub: 'user-123', email: '...', role: 'admin', exp: ..., iss: '...' }
+const result = await jwtSessions.verifySession(accessToken);
+
+if (result.success) {
+  const { userId, email, name, claims } = result.data;
+  // claims includes custom claims plus iss, aud, iat, exp
+}
 ```
+
+Verification does not touch the database. It fails on a bad signature, expiry, or issuer or audience mismatch (error codes include `TOKEN_EXPIRED`, `INVALID_TOKEN`, `ISSUER_MISMATCH`, `AUDIENCE_MISMATCH`).
 
 ### Refresh
 
 ```ts
-const { accessToken: newAccess, refreshToken: newRefresh } = await theauth.jwt.refreshSession(refreshToken);
-// Old refresh token is revoked (rotation)
+const result = await jwtSessions.refreshSession(refreshToken);
+
+if (result.success) {
+  const { accessToken: newAccess, refreshToken: newRefresh } = result.data;
+}
+// The old refresh token is marked used (rotation)
 ```
+
+A refresh issues a new pair for the same user ID. The new access token carries `sub` and your `customClaims` output, but not the `email` or `name` from the original `createSession` call. Errors are `REFRESH_TOKEN_NOT_FOUND`, `REFRESH_TOKEN_USED`, and `REFRESH_TOKEN_EXPIRED`. Presenting an already-used refresh token fails but does not revoke the user's other refresh tokens.
 
 ### Revoke
 
 ```ts
-await theauth.jwt.revokeSession(refreshToken);
-await theauth.jwt.revokeAllSessions(userId);
+await jwtSessions.revokeSession(refreshToken);
 ```
+
+`revokeSession` marks one refresh token as used. Revoking an already-revoked or unknown token is a no-op. There is no revoke-all method on this module.
 
 ## Algorithms
 
 | Algorithm | Config | Notes |
 |-----------|--------|-------|
-| HS256 | `secret: string` | Symmetric, simplest |
-| RS256 | `privateKey: CryptoKey, publicKey: CryptoKey` | Asymmetric, for distributed verification |
+| HS256 | `secret: string` (at least 32 characters) | Symmetric, simplest |
+| RS256 / ES256 | `secret: CryptoKey` or `JsonWebKey` | Asymmetric. The algorithm is inferred from the key type, or set `algorithm` explicitly |
 
-## Endpoints
+The module does not publish a JWKS endpoint. If other services verify your tokens with a public key, serve that key yourself.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/auth/jwt/token` | Create session |
-| POST | `/auth/jwt/refresh` | Refresh tokens |
-| POST | `/auth/jwt/revoke` | Revoke refresh token |
-| GET | `/auth/jwt/.well-known/jwks.json` | JWKS endpoint (RS256 only) |
+## HTTP endpoints
+
+The module ships no HTTP handler. Expose the methods through routes you write, for example `POST /auth/token` calling `createSession` and `POST /auth/refresh` calling `refreshSession`.
 
 <Info>
 Access tokens are stateless. Revocation only affects refresh tokens. For immediate access token invalidation, use short TTLs (5-15 minutes).
 </Info>
+
+Set `emitAgenticJwtClaims: true` to add `agent_id`, `agent_type`, and `trust_tier` claims when `createSession` receives an `agenticContext` on the user. See [Standards alignment](/standards).
 
 ## Related
 
@@ -88,7 +109,7 @@ Access tokens are stateless. Revocation only affects refresh tokens. For immedia
     Cookie sessions, JWT tokens, and the full session lifecycle.
   </Card>
   <Card title="Cookie options" href="/cookies" icon="cookie-bite">
-    Configure cookie attributes for same-domain browser setups.
+    Cookie attributes for same-domain browser setups.
   </Card>
   <Card title="MCP OAuth 2.1" href="/mcp" icon="globe">
     OAuth 2.1 token issuance for MCP tool server authorization.

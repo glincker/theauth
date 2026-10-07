@@ -25,19 +25,21 @@ Set the app type to **Web App** and enable **Read** permissions at minimum.
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
-import { createTwitterProvider } from '@glinr/theauth/auth';
+import { oauth, createTwitterProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        createTwitterProvider({
+      providers: {
+        twitter: createTwitterProvider({
           clientId: process.env.TWITTER_CLIENT_ID!,
           clientSecret: process.env.TWITTER_CLIENT_SECRET!,
         }),
-      ],
+      },
     }),
   ],
 });
@@ -52,7 +54,7 @@ TWITTER_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `users.read`, `tweet.read`
+Default scopes: `users.read`, `tweet.read`. Scopes you pass are added on top of the defaults.
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -61,7 +63,7 @@ Default scopes: `users.read`, `tweet.read`
 | `offline.access` | Refresh token support |
 
 <Warning>
-  Twitter does not return an email address through the standard OAuth 2.0 flow. TheAuth uses a synthetic non-deliverable address (`username@twitter.invalid`) as a placeholder. Do not treat it as a real email.
+  Twitter does not return an email address through the standard OAuth 2.0 flow. The provider reports a synthetic non-deliverable address (`username@twitter.invalid`) as the email, and the `oauth()` plugin stores it on the user record because it matches users by email. Do not treat it as a real email.
 </Warning>
 
 ## Endpoints

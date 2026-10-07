@@ -27,19 +27,31 @@ AGENTIC_JWT_CLAIMS.OPERATION;        // "operation"
 
 ## Turning claim emission on
 
-Claim emission is off by default. Flip the `emitAgenticJwtClaims` flag on your TheAuth config to start populating claims on issued JWTs:
+Claim emission is off by default and is configured on the two token issuers that support it, not through a single global switch. `TheAuthConfig` declares a top-level `emitAgenticJwtClaims` field, but `createTheAuth()` does not read it, so setting it there has no effect.
+
+**MCP access tokens.** Set `emitAgenticJwtClaims: true` on the `mcp` config and supply `getAgenticContext`, which returns the values to embed. Fields you leave out are omitted rather than invented.
 
 ```ts
 import { createTheAuth } from "@glinr/theauth";
 
 const theauth = await createTheAuth({
-  database: { url: process.env.DATABASE_URL },
-  secret: process.env.THEAUTH_SECRET,
-  emitAgenticJwtClaims: true,
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  mcp: {
+    enabled: true,
+    signingSecret: process.env.THEAUTH_MCP_SECRET,
+    emitAgenticJwtClaims: true,
+    getAgenticContext: async (userId) => ({
+      agentId: "agent_42",
+      agentType: "delegated",
+      trustTier: "standard",
+    }),
+  },
 });
 ```
 
-With the flag on, a JWT issued for a delegated agent looks like this (abridged):
+**JWT sessions.** Set `emitAgenticJwtClaims: true` in the JWT session config, and pass an `agenticContext` (`{ agentId?, agentType?, trustTier? }`) on the `SessionUser` you create the session for. See [JWT sessions](/jwt-sessions).
+
+With emission on and a context supplied, a token looks like this (abridged):
 
 ```json
 {
@@ -54,18 +66,24 @@ With the flag on, a JWT issued for a delegated agent looks like this (abridged):
 
 ## What is populated today
 
+Only three claims are ever written, and only from the context you provide:
+
 | Claim | Populated when | Source |
 |---|---|---|
-| `agent_id` | The issuing code path has an agent in context | `AgentIdentity.id` |
-| `agent_type` | Agent session is delegated, autonomous, or supervised | Delegation mode |
-| `trust_tier` | Trust score band is resolvable | Trust module |
-| `on_behalf_of`, `act`, `may_act`, `audit_ref`, `tool_constraints`, `wit`, `operation` | Deferred to follow-up releases | See "Roadmap" below |
+| `agent_id` | The context has `agentId` | `getAgenticContext` (MCP) or `SessionUser.agenticContext` (JWT sessions) |
+| `agent_type` | The context has `agentType` (`autonomous`, `delegated`, or `supervised`) | Same |
+| `trust_tier` | The context has `trustTier` (`unverified`, `low`, `standard`, `elevated`, or `high`) | Same |
+| `on_behalf_of`, `act`, `may_act`, `audit_ref`, `tool_constraints`, `wit`, `operation` | Never. The names are defined as constants and typed in `AgenticJwtClaims`, but no issuer emits them | None |
+
+TheAuth does not derive these values for you. The trust module is not wired into `getAgenticContext`, and the `TrustTier` bands used for the claim (`unverified`, `low`, `standard`, `elevated`, `high`) are a separate vocabulary from the trust levels returned by `theauth.trust` (`untrusted`, `limited`, `standard`, `trusted`, `elevated`). Map between them in your own `getAgenticContext`.
 
 ## Roadmap
 
-- Three-layer binding (`wit`, `operation`): coming with workload identity support.
-- `act` and `may_act` for RFC 8693 delegation chains: coming with the delegation chain refactor.
-- Auto-populated `trust_tier` on the MCP token path without manual context wiring: follow-up.
+Not implemented, listed so you do not look for them:
+
+- Three-layer binding (`wit`, `operation`): needs workload identity support.
+- `act` and `may_act` for RFC 8693 delegation chains.
+- Automatic `trust_tier` from the trust module.
 
 ## What this does not aim at
 

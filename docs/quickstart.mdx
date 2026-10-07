@@ -22,14 +22,14 @@ Two paths. Pick whichever fits your day.
 
 ```bash
 pnpm create @glinr/theauth-app
-# answer the 3 prompts, then:
+# answer the 4 prompts, then:
 cd my-theauth-app && pnpm install && pnpm db:push && pnpm dev
 ```
 </Columns>
 
 ## Start from a template
 
-The fastest path is the scaffolder. One command, three prompts, a running Next.js SaaS with TheAuth wired up.
+The fastest path is the scaffolder. One command, four prompts, a running Next.js SaaS with TheAuth wired up.
 
 <Tabs>
   <Tab title="pnpm">
@@ -54,7 +54,7 @@ The fastest path is the scaffolder. One command, three prompts, a running Next.j
   </Tab>
 </Tabs>
 
-The CLI asks for a directory, a template, a package manager, and a database driver. Only the Next.js SaaS template is shipping today; the Hono MCP and Expo templates print a coming-soon note and exit. Placeholders in the template (`__APP_NAME__`, `__DB_DRIVER__`, `__DB_URL__`) are replaced on copy.
+The CLI asks for a directory, a template, a package manager, and a database driver. The Next.js SaaS and Hono MCP templates are available; the Expo template prints a coming-soon note and exits. Placeholders in the template (`__APP_NAME__`, `__DB_DRIVER__`, `__DB_URL__`) are replaced on copy.
 
 Next steps are printed at the end: `cd`, install, `db:push`, `dev`.
 
@@ -112,17 +112,13 @@ const theauth = await createTheAuth({
 For in-memory storage (useful in tests), pass `url: ':memory:'` instead.
 </Info>
 
-<Info>
-Set `requireVerification: false` during development so you can sign in without verifying email. Remove this in production.
-</Info>
-
 </Step>
 
 <Step>
 
 ### Create an agent
 
-An agent always has an owner: the user ID from your existing auth system. TheAuth does not manage human authentication.
+An agent always has an owner: a user ID that already exists as a row in `theauth_users` (the `owner_id` column is a foreign key). The row can come from TheAuth's own auth modules or be inserted yourself, as shown in [Troubleshooting](#foreign-key-constraint-failed-when-creating-agents).
 
 ```ts
 const agent = await theauth.agent.create({
@@ -138,7 +134,7 @@ const agent = await theauth.agent.create({
       resource: 'mcp:deploy:production',
       actions: ['execute'],
       constraints: {
-        requireApproval: true,   // human-in-the-loop gate
+        requireApproval: true,   // authorize() denies until approval is wired up
         maxCallsPerHour: 5,
       },
     },
@@ -167,7 +163,7 @@ There are three agent types:
 
 ### Authorize an action
 
-Call `theauth.authorize` before any sensitive operation. It returns `{ allowed, reason?, auditId }`.
+Call `theauth.authorize` before any sensitive operation. It returns `{ allowed, reason?, auditId }`. `reason` is a free-text explanation when the request is denied. Budget policies are not checked here; call `theauth.policies.checkBudget()` yourself if you use them.
 
 ```ts
 const result = await theauth.authorize(agent.id, {
@@ -197,7 +193,7 @@ const result = await theauth.authorizeByToken(bearerToken, {
 
 ### Check the audit trail
 
-Every authorization decision is logged. Query by agent, filter by result, or export for compliance.
+Every `authorize()` decision is logged while `auditAll` is on (the default). Query by agent, filter by result, or export for compliance.
 
 ```ts
 // All decisions for an agent
@@ -219,7 +215,7 @@ const csv = await theauth.audit.export({ format: 'csv' });
 
 ## Delegation
 
-An orchestrator agent can delegate a subset of its permissions to a sub-agent. The delegation has its own expiry and a `maxDepth` to prevent unbounded chains.
+An orchestrator agent can delegate a subset of its permissions to a sub-agent. The delegation has its own expiry and a `maxDepth` (default 3) to prevent unbounded chains: the new link's depth must be less than or equal to `maxDepth`.
 
 ```ts
 const sub = await theauth.agent.create({
@@ -237,7 +233,7 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Resolves the full effective permission set, including delegated ones
+// Permissions this agent currently holds through active delegations
 const perms = await theauth.delegation.getEffectivePermissions(sub.id);
 ```
 
@@ -313,9 +309,9 @@ await theauth.delegate({
 
 const perms = await theauth.delegation.getEffectivePermissions(sub.id);
 console.log(perms);
-// [{ resource: 'mcp:github:issues', actions: ['read'] }]
+// [{ resource: 'mcp:github:issues', actions: ['read'] }]  (delegated permissions only)
 
-// Export the full audit trail
+// Export the audit trail (up to the 10,000 most recent entries)
 const csv = await theauth.audit.export({ format: 'csv' });
 ```
 
@@ -336,6 +332,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.get('/health', async (c) => {
   const theauth = await createTheAuth({
     database: { provider: 'd1', binding: c.env.THEAUTH_DB },
+    agents: { enabled: true },
   });
 
   const agent = await theauth.agent.create({
@@ -360,25 +357,27 @@ database_name = "theauth"
 database_id = "<your-database-id>"
 ```
 
-Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the schema, or set `skipMigrations: false` to let TheAuth run migrations on first boot.
+Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the schema yourself (and set `skipMigrations: true` inside `database`), or leave it at its default of `false` and TheAuth creates the tables with `CREATE TABLE IF NOT EXISTS` on startup.
 
 <Info>
-`createTheAuth` is async when using D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.
+`createTheAuth` is always async, not only with D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.
 </Info>
 
 ## Troubleshooting
 
 ### "Invalid email or password" after sign-up
 
-Sign-in requires email verification by default. Either:
+With the `@glinr/theauth-email` plugin, sign-in requires email verification by default. Either:
 1. Verify the email using the token from the sign-up response
-2. Set `requireVerification: false` in the `emailPassword()` config
+2. Set `requireVerification: false` in the `emailPassword()` config (development only)
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-You need a user in the `theauth_users` table before creating agents. Sign up via the email auth plugin, or seed a user manually:
+You need a user in the `theauth_users` table before creating agents. Sign up via the email auth plugin, or seed a user manually (SQLite shown):
 
 ```typescript
+import { users } from '@glinr/theauth';
+
 theauth.db.insert(users).values({
   id: 'user-1',
   email: 'test@example.com',

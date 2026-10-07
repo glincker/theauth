@@ -49,10 +49,11 @@ await mod.setUserFields(userId, { plan: 'pro', credits: 100 });
 
 // Read (missing fields get their defaultValue)
 const fields = await mod.getUserFields(userId);
-// => { plan: 'pro', credits: 100, verified: undefined, settings: undefined }
+// => { plan: 'pro', credits: 100 }
+// Fields that were never written and have no defaultValue are absent from the result.
 ```
 
-`setUserFields` merges with existing fields. Previously stored keys not present in the update are preserved.
+`setUserFields` merges with existing fields. Previously stored keys not present in the update are preserved. It throws if validation fails or the user does not exist.
 
 ## Reading and writing session fields
 
@@ -77,7 +78,7 @@ const ok = mod.validate({ plan: 'pro', credits: 10 }, 'user');
 
 Rules enforced during `validate()` (and automatically on every `setUserFields` / `setSessionFields` call):
 
-- Required fields must be present.
+- Required fields must be present in the map you pass. Because `setUserFields` and `setSessionFields` validate the update itself (not the merged result), a schema with `required: true` fields means every write must include them.
 - Field values must match the declared type.
 - Fields not in the schema are rejected.
 
@@ -124,7 +125,7 @@ Content-Type: application/json
 { "updated": true }
 ```
 
-Returns `422` when validation fails. Returns `404` when the user does not exist.
+Returns `422` when validation fails. Returns `404` when the user does not exist. The endpoints require an authenticated user, but they do not check that the `userId` is the caller's own, so any signed-in caller can read or write another user's fields. Put your own ownership or admin check in front of them. `GET` returns the schema defaults for an unknown user ID rather than a `404`.
 
 ### Validate example
 
@@ -144,6 +145,8 @@ Content-Type: application/json
   "errors": ["Field \"plan\" must be of type string"]
 }
 ```
+
+The status is `200` when valid and `422` when not. `schema` must be `"user"` or `"session"`. Only the user fields have REST read and write endpoints, session fields are read and written through the module (`getSessionFields`, `setSessionFields`).
 
 ## Schema reference
 
@@ -168,15 +171,15 @@ No database migrations are needed. User fields are stored under `user.metadata.a
 
 <CardGroup cols={2}>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Run custom logic before and after sign-in, sign-up, and session events.
+    Lifecycle hooks you can attach to your instance.
   </Card>
   <Card title="Custom session" href="/custom-session" icon="key">
-    Extend the session object returned to your frontend.
+    Store extra data on a session record.
   </Card>
   <Card title="Database" href="/database" icon="database">
     Supported databases and schema overview for TheAuth.
   </Card>
   <Card title="Organizations" href="/auth/organizations" icon="users">
-    Multi-tenant support with roles and per-org metadata.
+    Organizations with roles and per-org metadata.
   </Card>
 </CardGroup>

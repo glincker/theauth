@@ -45,10 +45,11 @@ const theauth = await createTheAuth({
 });
 
 // Register an agent identity
-const agent = await theauth.createAgent({
+const agent = await theauth.agent.create({
   ownerId: 'user-1',
   name: 'Code Reviewer',
   type: 'service',
+  permissions: [{ resource: 'a2a:*', actions: ['execute'] }],
 });
 
 // Build the A2A Agent Card
@@ -102,8 +103,9 @@ const server = createA2AServer({
   authenticate: async (request) => {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     if (!token) return null;
-    const session = await theauth.mcp.validateToken(token);
-    return session.success ? session.data.userId : null;
+    // Agent bearer tokens (kv_...) are validated against the stored hash
+    const caller = await theauth.agent.validateToken(token);
+    return caller?.id ?? null;
   },
   onAudit: async (event) => {
     console.log('[A2A audit]', event.method, event.agentId, event.success);
@@ -175,13 +177,14 @@ const { publicKey, privateKey } = await generateKeyPair('ES256');
 
 // Sign
 const signed = await signAgentCard({ card, privateKey });
+if (!signed.success) throw new Error(signed.error.message);
 
 // Verify
 const verified = await verifyAgentCard({
   card: signed.data,
   publicKey,
 });
-console.log('Valid:', verified.data.valid); // true
+if (verified.success) console.log('Valid:', verified.data.valid); // true
 ```
 
 ## Calling other agents
@@ -193,11 +196,10 @@ import { createA2AClient } from '@glinr/theauth/a2a';
 
 const client = createA2AClient({
   agent: 'https://remote-agent.example.com',
-  getAuthToken: async () => {
-    // Use TheAuth to get a token for this agent
-    const token = await theauth.issueToken({ agentId: myAgent.id });
-    return token;
-  },
+  // The bearer token for the calling agent: the `token` returned by
+  // theauth.agent.create() or theauth.agent.rotate(). It is shown only once,
+  // so keep it in your secret store.
+  getAuthToken: async () => process.env.AGENT_TOKEN!,
 });
 
 // Discover the remote agent's capabilities
@@ -253,8 +255,8 @@ TheAuth supports all A2A security schemes. You declare them in the Agent Card an
       authenticate: async (req) => {
         const token = req.headers.get('Authorization')?.slice(7);
         if (!token) return null;
-        const session = await theauth.mcp.validateToken(token);
-        return session.success ? session.data.userId : null;
+        const caller = await theauth.agent.validateToken(token);
+        return caller?.id ?? null;
       },
     });
     ```
@@ -275,7 +277,9 @@ TheAuth supports all A2A security schemes. You declare them in the Agent Card an
       handler: { onMessage: handleMessage },
       authenticate: async (req) => {
         const key = req.headers.get('X-API-Key');
-        const agent = await theauth.verifyApiKey(key);
+        if (!key) return null;
+        // An agent bearer token sent in a custom header
+        const agent = await theauth.agent.validateToken(key);
         return agent?.id ?? null;
       },
     });

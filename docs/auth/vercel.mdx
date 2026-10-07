@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/vercel
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, vercelProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'vercel',
-          clientId: process.env.VERCEL_CLIENT_ID!,
-          clientSecret: process.env.VERCEL_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        vercel: vercelProvider(
+          process.env.VERCEL_CLIENT_ID!,
+          process.env.VERCEL_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -49,17 +51,21 @@ VERCEL_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `user`
+Default scopes: `openid`, `email`, `profile`
 
 | Scope | What it unlocks |
 |-------|----------------|
-| `user` | Read user profile and email |
-| `deployments` | Read deployment info |
-| `projects` | Read project info |
+| `openid` | OIDC identity |
+| `email` | Email address |
+| `profile` | Name and profile picture |
 
 <Info>
   Vercel OAuth apps are created as marketplace integrations. The access token grants access to the user's personal account and any teams they belong to.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://api.vercel.com/v2/user` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a `user` object with an `id` field, so sign-in is expected to fail with `Vercel userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

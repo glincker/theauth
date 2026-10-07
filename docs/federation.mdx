@@ -15,9 +15,11 @@ This is useful when:
 - An agent orchestrator delegates sub-tasks to agents registered at different services
 - You run a multi-service architecture and want unified agent identity
 
-Federation tokens are not long-lived sessions. They are single-use, short-lived credentials (5 minutes by default) that prove "this agent exists at Service A, with these permissions."
+Federation tokens are not long-lived sessions. They are short-lived credentials (5 minutes by default) that prove "this agent exists at Service A, with these permissions." The module does not track used tokens, so a token can be presented more than once until it expires. Use audience restriction and short TTLs to limit replay.
 
 ## How it works
+
+The module only signs and verifies tokens, and it does not look agents up in your database. The `agentId`, permissions and trust score you pass to `issueFederationToken` are exactly what the token carries.
 
 1. Service A issues a federation token for one of its agents
 2. The agent presents that token to Service B
@@ -54,6 +56,8 @@ const federation = createFederationModule({
 });
 ```
 
+`signingKey` must be a `CryptoKey` for an EdDSA (Ed25519) key. Other options: `trustedInstances` (a list of pre-configured instances) and `autoTrust`.
+
 ### Expose the well-known endpoint
 
 Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key.
@@ -78,7 +82,7 @@ federation.addTrustedInstance({
 });
 ```
 
-Or use discovery to fetch the public key automatically:
+`trustLevel` defaults to `full` when omitted. Or use discovery to fetch the public key automatically:
 
 ```typescript
 const discovered = await federation.discoverInstance("https://a.example.com");
@@ -160,7 +164,7 @@ Verification checks:
 
 1. Token signature matches the source instance's public key
 2. Token has not expired
-3. Source instance is in the trusted list (or `autoTrust` is on)
+3. Source instance is in the trusted list and has a public key configured
 4. Audience matches this instance (if audience is set in the token)
 5. Trust level rules are applied to downgrade permissions if needed
 
@@ -171,6 +175,12 @@ You can attach a W3C Verifiable Credential to the federation token for offline v
 ```typescript
 import { createVCIssuer } from "@glinr/theauth/vc";
 
+const vcIssuer = createVCIssuer({
+  issuerDid, // e.g. a did:key for this instance
+  privateKeyJwk,
+  publicKeyJwk,
+});
+
 // Issue a VC for the agent
 const vcResult = await vcIssuer.issueAgentCredential({
   agentId: "agent-123",
@@ -179,12 +189,14 @@ const vcResult = await vcIssuer.issueAgentCredential({
 });
 
 // Embed it in the federation token
-const fedResult = await federation.issueFederationToken({
-  agentId: "agent-123",
-  permissions: ["read:data"],
-  trustScore: 0.85,
-  credential: vcResult.data.jwt,
-});
+if (vcResult.success) {
+  const fedResult = await federation.issueFederationToken({
+    agentId: "agent-123",
+    permissions: ["read:data"],
+    trustScore: 0.85,
+    credential: vcResult.data.jwt,
+  });
+}
 ```
 
 On the receiving side, `result.data.credential` will contain the VC JWT, which you can verify independently using `createVCVerifier`.
@@ -227,8 +239,8 @@ Federation tokens carry permissions across trust boundaries. Think carefully abo
 - **Audience restriction**: Use `targetInstance` to prevent token replay at unintended services.
 - **Key rotation**: Rotate signing keys periodically. When you rotate, update the well-known endpoint and notify trusted instances.
 - **Discovery vs. pre-configuration**: Discovery is convenient for dev, but pre-configure public keys in production for stronger security guarantees.
-- **Auto-trust is for development only**: In production, always explicitly configure trusted instances.
-- **Trust levels are enforced by the verifier**: The source instance cannot override the target's trust level setting. A `limited` trust target will always strip write permissions regardless of what the source claims.
+- **Auto-trust**: `autoTrust` only skips the trusted-list check. Verification still needs a public key for the issuing instance, so in practice you still add each instance (with its key) via `addTrustedInstance` or `trustedInstances`. Do not rely on it in production.
+- **Trust levels are enforced by the verifier**: The source instance cannot override the target's trust level setting. When the target marks the source `limited`, permissions containing `write` or `admin` are always stripped regardless of what the source claims.
 
 ## Full example
 
@@ -313,7 +325,7 @@ app.use("/agents/federated/*", async (req, res, next) => {
 
 <CardGroup cols={2}>
   <Card title="W3C DID identity" href="/did" icon="fingerprint">
-    Ed25519-backed agent identities that federation tokens are signed with.
+    Ed25519-backed DIDs for agents. Federation tokens are signed with the instance's own EdDSA key.
   </Card>
   <Card title="Verifiable credentials" href="/verifiable-credentials" icon="circle-check">
     Embed W3C Verifiable Credentials in federation tokens for offline proof.

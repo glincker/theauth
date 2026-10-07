@@ -7,7 +7,7 @@ icon: key
 TheAuth's built-in password auth is username-based: users register with a username (not an email address) and a password. Passwords are hashed with PBKDF2 before storage so a database breach does not expose credentials. It is a headless module, you mount it yourself by forwarding requests to `theauth.username.handleRequest`.
 
 <Info>
-  There is no separate email-based password plugin. For email-first sign-in, pair this module with [email verification](/mcp) and [email OTP](/auth/email-otp), or use [magic link](/auth/magic-link) for a fully passwordless flow.
+  There is no separate email-based password plugin. For email-first sign-in, pair this module with the email verification module and [email OTP](/auth/email-otp), or use [magic link](/auth/magic-link) for a fully passwordless flow.
 </Info>
 
 ## Setup
@@ -17,7 +17,7 @@ import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  auth: { session: { secret: process.env.SESSION_SECRET! } }, // required — signUp/signIn issue sessions
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // required, signUp/signIn issue sessions
   username: {
     minUsernameLength: 3,
     maxUsernameLength: 32,
@@ -37,6 +37,8 @@ async function handleAuth(request: Request): Promise<Response> {
   return new Response('Not Found', { status: 404 });
 }
 ```
+
+`handleRequest` matches the literal pathnames below (`/auth/username/sign-up` and so on) and only for `POST`. If you mount it under a prefix such as `/api/theauth`, strip the prefix from the URL before calling it. `theauth.username` is `null` unless the `username` key is passed and `auth.session` is configured.
 
 ## Sign up
 
@@ -91,6 +93,10 @@ if (res.status === 403) {
 
 Requires the caller to know the current password. The module does not read the session for you, pass the authenticated `userId` from your own session lookup.
 
+<Warning>
+  The HTTP handler takes `userId` from the request body and does not check the caller's session. Do not expose `change-password` or `change-username` to browsers as-is. Resolve the session on your server and call `theauth.username.changePassword(userId, current, newPassword)` and `theauth.username.changeUsername(userId, newUsername)` instead.
+</Warning>
+
 ```typescript title="Change password (client)"
 const res = await fetch('/auth/username/change-password', {
   method: 'POST',
@@ -129,6 +135,7 @@ Usernames must still be unique after the change, sign-up validation rules (`allo
 ```typescript
 const result = await theauth.username?.signUp({ username: 'ada_lovelace', password: 'correct horse battery' });
 const signedIn = await theauth.username?.signIn({ username: 'ada_lovelace', password: 'correct horse battery' });
+await theauth.username?.changePassword(userId, 'correct horse battery', 'new-stronger-password');
 ```
 
 ## Configuration reference

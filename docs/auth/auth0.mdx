@@ -37,16 +37,17 @@ import { oauth, auth0Provider } from '@glinr/theauth/auth';
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://your-app.com',
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        auth0Provider(
+      providers: {
+        auth0: auth0Provider(
           process.env.AUTH0_DOMAIN!,       // your-tenant.auth0.com
           process.env.AUTH0_CLIENT_ID!,
           process.env.AUTH0_CLIENT_SECRET!,
         ),
-      ],
+      },
     }),
   ],
 });

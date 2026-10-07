@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/railway
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, railwayProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'railway',
-          clientId: process.env.RAILWAY_CLIENT_ID!,
-          clientSecret: process.env.RAILWAY_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        railway: railwayProvider(
+          process.env.RAILWAY_CLIENT_ID!,
+          process.env.RAILWAY_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -49,13 +51,16 @@ RAILWAY_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `read:profile`, `read:email`
+Default scopes: `read:user`, `read:project`
 
 | Scope | What it unlocks |
 |-------|----------------|
-| `read:profile` | Read user profile |
-| `read:email` | Read email address |
-| `read:projects` | Read project list |
+| `read:user` | Read user profile |
+| `read:project` | Read project list |
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://backboard.railway.com/graphql/v2` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a GraphQL `data` object, so sign-in is expected to fail with `Railway userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

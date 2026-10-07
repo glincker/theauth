@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/line
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
-import { lineProvider } from '@glinr/theauth/auth';
+import { oauth, lineProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        lineProvider(
+      providers: {
+        line: lineProvider(
           process.env.LINE_CLIENT_ID!,
           process.env.LINE_CLIENT_SECRET!,
         ),
-      ],
+      },
     }),
   ],
 });
@@ -60,6 +62,10 @@ Default scopes: `openid`, `profile`, `email`
 <Info>
   The `email` scope requires an additional approval step in the LINE Developer Console. You must agree to the LINE Login email permission terms and submit for review.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://api.line.me/v2/profile` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a `userId` field and no email, so sign-in is expected to fail with `LINE userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

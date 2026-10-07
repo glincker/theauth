@@ -23,19 +23,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/salesforce
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, salesforceProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'salesforce',
-          clientId: process.env.SALESFORCE_CLIENT_ID!,
-          clientSecret: process.env.SALESFORCE_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        salesforce: salesforceProvider(
+          process.env.SALESFORCE_CLIENT_ID!,
+          process.env.SALESFORCE_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -50,7 +52,7 @@ SALESFORCE_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `openid`, `id`, `email`
+Default scopes: `openid`, `email`, `profile`
 
 | Scope | What it unlocks |
 |-------|----------------|

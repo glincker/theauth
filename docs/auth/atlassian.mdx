@@ -2,7 +2,7 @@
 icon: atlassian
 iconType: brands
 title: Atlassian
-description: Authenticate users via Atlassian OAuth 2.0 with `atlassianProvider`. Covers Jira and Confluence accounts, token refresh, and scope configuration for Atlassian APIs.
+description: Authenticate users via Atlassian OAuth 2.0 with `createAtlassianProvider`. Covers Jira and Confluence accounts, token refresh, and scope configuration for Atlassian APIs.
 ---
 
 ## Setup
@@ -23,19 +23,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/atlassian
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
-import { atlassianProvider } from '@glinr/theauth/auth';
+import { oauth, createAtlassianProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        atlassianProvider(
-          process.env.ATLASSIAN_CLIENT_ID!,
-          process.env.ATLASSIAN_CLIENT_SECRET!,
-        ),
-      ],
+      providers: {
+        atlassian: createAtlassianProvider({
+          clientId: process.env.ATLASSIAN_CLIENT_ID!,
+          clientSecret: process.env.ATLASSIAN_CLIENT_SECRET!,
+        }),
+      },
     }),
   ],
 });
@@ -50,12 +52,12 @@ ATLASSIAN_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `read:me`, `offline_access`
+Default scope: `read:me`. Scopes you pass are added on top of the default.
 
 | Scope | What it unlocks |
 |-------|----------------|
 | `read:me` | Read the user's profile |
-| `offline_access` | Refresh token support |
+| `offline_access` | Refresh token support (not requested by default, add it to `scopes`) |
 | `read:jira-user` | Read Jira user info |
 | `read:confluence-user` | Read Confluence user info |
 

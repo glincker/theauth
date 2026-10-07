@@ -74,7 +74,7 @@ await rebac.createResource({
 });
 ```
 
-Deleting a resource cascades: all child resources and their relationships are removed.
+Resource ids are unique across all types (the id is the primary key), so `document:spec` and `project:spec` cannot both exist. Deleting a resource cascades: all child resources and the relationships that name the resource as subject or object are removed. Methods return a `Result` (`{ success, data }` or `{ success: false, error }`) rather than throwing for expected failures such as `PARENT_NOT_FOUND`, `RESOURCE_EXISTS`, or `RELATIONSHIP_EXISTS`.
 
 ## Relationships
 
@@ -110,18 +110,21 @@ The engine resolves permissions in two ways:
 
 For each resource type, some relations imply others. The built-in rules:
 
-| Resource type | owner implies | editor implies | member implies |
-|---|---|---|---|
-| org | admin, editor, viewer, member | viewer | viewer |
-| workspace | admin, editor, viewer, member | viewer | viewer |
-| project | admin, editor, viewer, member | viewer | viewer |
-| document | editor, viewer | viewer | - |
+| Resource type | owner implies | admin implies | editor implies | member implies |
+|---|---|---|---|---|
+| org | admin, editor, viewer, member | editor, viewer, member | viewer | viewer |
+| workspace | admin, editor, viewer, member | editor, viewer, member | viewer | viewer |
+| project | admin, editor, viewer, member | editor, viewer, member | viewer | viewer |
+| document | editor, viewer | - | viewer | - |
+| resource | editor, viewer | - | viewer | - |
+
+Any type not in this table (for example `doc`) has no implication or inheritance rules: only a tuple whose relation equals the requested permission grants access. Inheritance from the parent is on for `workspace`, `project`, `document`, and `resource`, and off for `org`.
 
 So if you're an `editor` on a document, a check for `viewer` succeeds. If you're an `owner`, both `editor` and `viewer` checks succeed.
 
 ### Parent inheritance
 
-When a resource type has `inheritFromParent` enabled, the engine walks up the tree. If Alice is a `viewer` on workspace `eng`, she's also a `viewer` on project `api` (a child of `eng`) and document `spec` (a grandchild).
+When a resource type has `inheritFromParent` enabled (see the defaults above), the engine walks up the tree through the parent links stored by `createResource`. If Alice is a `viewer` on workspace `eng`, she's also a `viewer` on project `api` (a child of `eng`) and document `spec` (a grandchild).
 
 This combines with implied relations. Alice as `editor` on workspace `eng` gets `viewer` access to everything underneath.
 
@@ -220,11 +223,11 @@ const allowed = await rebac.check({
 });
 ```
 
-This works with the existing TheAuth permission system. Use ReBAC for resource-level authorization and the existing `theauth_permissions` table for tool/action-level authorization.
+`theauth.authorize()` does not consult ReBAC. To combine the two, set `relation` on a permission and call `theauth.policy.evaluate()`, which runs the check for you (see [Policy engine](/policy-engine)). Two limits apply there: the policy engine builds its own ReBAC module with the default rules only, so custom `permissionRules` are not used, and the requested resource must be a concrete `type:id`.
 
 ## Depth limiting
 
-The `maxDepth` config caps how many parent hops the engine will traverse. Default is 10. Set it lower if your hierarchy is shallow and you want faster checks:
+The `maxDepth` config caps how many parent hops the engine will traverse; a check that would go deeper returns `allowed: false`. Default is 10. Set it lower if your hierarchy is shallow and you want faster checks:
 
 ```typescript
 const rebac = createReBACModule({ maxDepth: 5 }, db);

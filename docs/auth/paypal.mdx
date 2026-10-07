@@ -25,19 +25,21 @@ Make sure to enable **Log In with PayPal** for the app.
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, paypalProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'paypal',
-          clientId: process.env.PAYPAL_CLIENT_ID!,
-          clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        paypal: paypalProvider(
+          process.env.PAYPAL_CLIENT_ID!,
+          process.env.PAYPAL_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });

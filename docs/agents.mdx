@@ -28,14 +28,14 @@ console.log(agent.token);
 
 ## Anatomy
 
-<ParamField path="id" type="string">Stable identifier with an `agt_` prefix. Never changes.</ParamField>
+<ParamField path="id" type="string">Stable identifier (a UUID). Never changes.</ParamField>
 <ParamField path="token" type="string">Bearer token with a `kv_` prefix. Shown once at creation, then SHA-256 hashed. Rotate to replace.</ParamField>
 <ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every `authorize()` call.</ParamField>
 <ParamField path="status" type="'active' | 'revoked' | 'expired'">Current state. Revocation is permanent.</ParamField>
-<ParamField path="ownerId" type="string">The user ID from your auth provider who owns this agent.</ParamField>
+<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key).</ParamField>
 <ParamField path="name" type="string">Human-readable label.</ParamField>
 <ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
-<ParamField path="expiresAt" type="Date" default="undefined (never expires)">Optional expiry. After this time, `status` becomes `expired`.</ParamField>
+<ParamField path="expiresAt" type="Date" default="now + agents.tokenExpiry (24h)">Optional at creation; when omitted it defaults to `agents.tokenExpiry` from now. Token validation (`authorizeByToken`) rejects an expired agent and flips its `status` to `expired`. `authorize(agentId)` only checks `status`, so it does not notice an elapsed `expiresAt` until the agent has been marked expired.</ParamField>
 <ParamField path="metadata" type="Record<string, unknown>" default="{}">Arbitrary key/value pairs for your own use.</ParamField>
 
 ## Agent types
@@ -66,11 +66,11 @@ const agent = await theauth.agent.create({
   permissions: [
     { resource: 'mcp:github:*', actions: ['read'] },
   ],
-  expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000), // optional
+  expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000), // optional, defaults to 24h from now
   metadata: { purpose: 'nightly PR review' },
 });
 
-console.log(agent.token); // kv_a3f8c2e1..., only shown here
+console.log(agent.token); // kv_..., only shown here
 ```
 
 <Warning>
@@ -81,7 +81,7 @@ The token is returned once at creation. TheAuth stores only the SHA-256 hash, so
 
 <Step title="Authenticate">
 
-Tokens use the `kv_` prefix followed by 32 random bytes as 64 hex chars. Pass as a Bearer credential:
+Tokens use the `kv_` prefix followed by 32 random bytes encoded as base64url (43 characters, 46 in total). Pass as a Bearer credential:
 
 ```http
 Authorization: Bearer kv_a3f8c2e1d4b5...
@@ -111,13 +111,13 @@ if (!result.allowed) {
 }
 ```
 
-One database lookup (hash compare), then in-memory permission evaluation. No JWTs, no network round-trip.
+The token is hashed and looked up in the database, then permissions are evaluated and the decision is written to the audit log. No JWTs, no network round-trip. This path checks the agent's own permissions only; permissions it holds through delegation are applied by `authorize(agentId, ...)`.
 
 </Step>
 
 <Step title="Rotate">
 
-Rotation issues a new token and immediately invalidates the old one. Atomic: no window where both are valid.
+Rotation issues a new token and immediately invalidates the old one. It is a single update, so there is no window where both are valid. Only active agents can be rotated.
 
 ```ts
 const rotated = await theauth.agent.rotate(agentId);
@@ -171,12 +171,13 @@ The default is 10 active agents per user. Raise at initialization:
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
   agents: {
+    enabled: true,
     maxPerUser: 50,
   },
 });
 ```
 
-Attempts to exceed the cap return an error with code `AGENT_LIMIT_EXCEEDED`.
+The cap counts active agents. Creating one past it throws a plain `Error` with the message `User <id> has reached the maximum of <n> active agents.` (there is no dedicated error code, and the REST endpoint reports it as `500 INTERNAL_ERROR`).
 
 ## What agents aren't
 

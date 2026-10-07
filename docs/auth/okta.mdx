@@ -35,16 +35,17 @@ import { oauth, oktaProvider } from '@glinr/theauth/auth';
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://your-app.com',
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        oktaProvider(
+      providers: {
+        okta: oktaProvider(
           process.env.OKTA_DOMAIN!,        // your-org.okta.com
           process.env.OKTA_CLIENT_ID!,
           process.env.OKTA_CLIENT_SECRET!,
         ),
-      ],
+      },
     }),
   ],
 });

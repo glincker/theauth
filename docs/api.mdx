@@ -5,11 +5,13 @@ icon: code
 ---
 
 
-All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). The base path defaults to `/` unless you configure `baseUrl`.
+All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). Paths below are relative to the mount path. The Next.js, Astro, Fastify, and NestJS adapters default to `/api/theauth` (set with their `basePath` or `prefix` option); with Hono and Express you pick the mount path yourself, for example `app.route('/api/theauth', theAuthHono(theauth))`.
 
 <Note>
-  All endpoints require a valid Bearer token unless noted as public. Obtain a token through the MCP OAuth 2.1 flow or by creating an agent with `theauth.agent.create()`.
+  The adapters do not authenticate callers. Only `POST /authorize/token` reads a bearer token (the agent's own `kv_` token). Every other endpoint, including agent creation, audit queries, and the dashboard routes, is open to whoever can reach the mount path, so put your own authentication in front of it (middleware or a gateway).
 </Note>
+
+Successful responses wrap the payload as `{ "data": ... }`. Errors use `{ "error": { "code": "...", "message": "..." } }` with codes such as `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `NOT_FOUND` (404), and `INTERNAL_ERROR` (500). Examples below show the payload inside `data`. Dates are ISO 8601 strings and IDs are UUIDs (the `agt_...` IDs in the examples are illustrative). The MCP OAuth endpoints are the exception: they return bare OAuth JSON.
 
 ## Agent endpoints
 
@@ -42,6 +44,8 @@ Creates a new agent identity.
 }
 ```
 
+`ownerId`, `name`, `type`, and at least one permission are required. `expiresAt` is optional: when omitted, the agent expires after `agents.tokenExpiry` (default `24h`). The owner must already exist as a row in `theauth_users`. Fields not listed here, such as `tenantId`, are ignored by the REST endpoint.
+
 **Response** `201 Created`
 
 ```json
@@ -50,7 +54,7 @@ Creates a new agent identity.
   "ownerId": "user_01abc",
   "name": "GitHub Automation",
   "type": "autonomous",
-  "token": "kvch_live_...",
+  "token": "kv_...",
   "status": "active",
   "permissions": [...],
   "expiresAt": "2026-12-31T23:59:59.000Z",
@@ -59,21 +63,25 @@ Creates a new agent identity.
 }
 ```
 
+The `token` (`kv_` followed by 43 base64url characters) is returned only here and from the rotate endpoint. Every other endpoint returns `"token": ""`. Validation failures return `400`.
+
 ### List agents
 
 ```
 GET /agents
 ```
 
-Returns all agents for the authenticated user. Supports query parameters for filtering.
+Returns agents, optionally filtered. With no filters it returns every agent.
 
 **Query parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
+| `userId` | `string` | Filter by owner |
 | `status` | `active \| revoked \| expired` | Filter by status |
 | `type` | `autonomous \| delegated \| service` | Filter by agent type |
-| `tenantId` | `string` | Filter by tenant |
+
+Unrecognized `status` or `type` values are ignored rather than rejected.
 
 **Response** `200 OK` - Array of agent objects.
 
@@ -106,7 +114,7 @@ Updates name, permissions, expiry, or metadata.
 }
 ```
 
-All fields are optional. **Response** `200 OK` - Updated agent object.
+All fields are optional. Passing `permissions` replaces the full permission list. **Response** `200 OK` - Updated agent object, or `404` when not found.
 
 ### Revoke agent
 
@@ -116,7 +124,7 @@ DELETE /agents/:id
 
 Permanently revokes an agent. Revoked agents cannot be reactivated.
 
-**Response** `204 No Content`
+**Response** `204 No Content`, or `404` when not found.
 
 ### Rotate agent token
 
@@ -124,9 +132,9 @@ Permanently revokes an agent. Revoked agents cannot be reactivated.
 POST /agents/:id/rotate
 ```
 
-Issues a new token and invalidates the previous one. Use this for credential rotation.
+Issues a new token and invalidates the previous one. Use this for credential rotation. Only active agents can be rotated.
 
-**Response** `200 OK` - Agent object with a new `token` value.
+**Response** `200 OK` - Agent object with a new `token` value. `404` when not found; `500` with the message `Cannot rotate token for <status> agent.` when the agent is revoked or expired.
 
 ---
 
@@ -138,7 +146,7 @@ Issues a new token and invalidates the previous one. Use this for credential rot
 POST /authorize
 ```
 
-Checks whether an agent has permission to perform an action on a resource.
+Checks whether an agent has permission to perform an action on a resource. The agent's own permissions are checked first, then permissions it holds through delegation. Budget policies are not checked here.
 
 **Request body**
 
@@ -150,32 +158,41 @@ Checks whether an agent has permission to perform an action on a resource.
   "arguments": {
     "repo": "org/repo",
     "title": "Bug fix"
-  },
-  "context": {
-    "ip": "203.0.113.42",
-    "userAgent": "MyAgent/1.0"
   }
 }
 ```
 
-**Response** `200 OK`
+`agentId`, `action`, and `resource` are required. The client IP (first entry of `X-Forwarded-For`, else `X-Real-IP`) and `User-Agent` are read from the request headers and stored on the audit entry. A `context` object in the body is ignored.
+
+**Response** `200 OK` when allowed
 
 ```json
 {
   "allowed": true,
-  "auditId": "aud_01xyz"
+  "auditId": "7b0c1d52-..."
 }
 ```
 
-On denial:
+**Response** `403 Forbidden` when denied. The body is still wrapped in `data`, and `reason` is free text, not a code:
 
 ```json
 {
   "allowed": false,
-  "reason": "RATE_LIMITED",
-  "auditId": "aud_01xyz"
+  "reason": "Rate limit exceeded: 100/100 calls per hour for resource \"mcp:github:create_issue\"",
+  "auditId": "7b0c1d52-..."
 }
 ```
+
+For an unknown or inactive agent the response is also `403`, with an empty `auditId` because no audit entry is written.
+
+### Authorize by agent token
+
+```
+POST /authorize/token
+Authorization: Bearer kv_...
+```
+
+Same check, but the agent is identified by its bearer token instead of `agentId`. The body takes `action`, `resource`, and optional `arguments`. A missing or malformed `Authorization` header returns `401 UNAUTHORIZED`. An invalid, revoked, or expired token returns `403` with `reason: "Invalid or expired agent token"`. This path checks only the agent's own permissions, not delegated ones.
 
 ---
 
@@ -187,7 +204,7 @@ On denial:
 POST /delegations
 ```
 
-Delegates a subset of permissions from one agent to another.
+Delegates a subset of permissions from one agent to another. The permissions must be a subset of what `fromAgent` holds itself.
 
 **Request body**
 
@@ -202,6 +219,8 @@ Delegates a subset of permissions from one agent to another.
   "maxDepth": 2
 }
 ```
+
+`fromAgent`, `toAgent`, at least one permission, and `expiresAt` are required. `maxDepth` defaults to `3`; the new link's depth must be less than or equal to it, otherwise the call fails with `400`. An unknown parent agent returns `404`. A permission set that is not a subset of the parent's currently surfaces as `500 INTERNAL_ERROR` with the explanatory message.
 
 **Response** `201 Created`
 
@@ -220,17 +239,10 @@ Delegates a subset of permissions from one agent to another.
 ### List delegations
 
 ```
-GET /delegations
+GET /delegations/:agentId
 ```
 
-Returns all active delegation chains for the authenticated user.
-
-**Query parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `fromAgent` | `string` | Filter by source agent |
-| `toAgent` | `string` | Filter by target agent |
+Returns the delegation chains where `:agentId` is the source agent (`fromAgent`). There are no query parameters, and there is no endpoint that lists every delegation.
 
 **Response** `200 OK` - Array of delegation objects.
 
@@ -240,9 +252,9 @@ Returns all active delegation chains for the authenticated user.
 DELETE /delegations/:id
 ```
 
-Revokes a delegation chain immediately.
+Revokes a delegation chain immediately, and cascades to chains the target agent has delegated onward.
 
-**Response** `204 No Content`
+**Response** `204 No Content`, or `404` when not found.
 
 ---
 
@@ -266,8 +278,10 @@ Returns audit log entries matching the specified filters.
 | `until` | `ISO 8601` | End of time range |
 | `actions` | `string` (comma-separated) | Filter by action names |
 | `result` | `allowed \| denied \| rate_limited` | Filter by outcome |
-| `limit` | `number` | Max results (default 100) |
+| `limit` | `number` | Max results (no default; all matches when omitted) |
 | `offset` | `number` | Pagination offset |
+
+Entries are returned newest first. Invalid dates, non-positive `limit`, and negative `offset` values are ignored. The `actions` filter is applied after `limit` and `offset`, so a page can come back shorter than `limit`. Authorization decisions are recorded only as `allowed` or `denied`, so `result=rate_limited` currently matches nothing.
 
 **Response** `200 OK`
 
@@ -282,11 +296,12 @@ Returns audit log entries matching the specified filters.
     "parameters": { "repo": "org/repo" },
     "result": "allowed",
     "durationMs": 3,
-    "tokensCost": 1200,
     "timestamp": "2026-03-21T10:00:00.000Z"
   }
 ]
 ```
+
+Denied entries also carry a free-text `reason`. `tokensCost` appears only on entries that recorded one. The IP address and user agent are stored but not returned.
 
 ### Export audit log
 
@@ -294,23 +309,23 @@ Returns audit log entries matching the specified filters.
 GET /audit/export?format=json&since=2026-01-01
 ```
 
-Exports the audit log as JSON or CSV for compliance reporting.
+Exports the audit log as JSON or CSV, as evidence for compliance work. The export contains at most the 10,000 most recent matching entries.
 
 **Query parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `format` | `json \| csv` | Output format. Required. |
+| `format` | `json \| csv` | Output format. Defaults to `json`; any other value returns `400`. |
 | `since` | `ISO 8601` | Start of time range |
 | `until` | `ISO 8601` | End of time range |
 
-**Response** `200 OK` - File download with `Content-Disposition: attachment`.
+**Response** `200 OK` - File download (`audit-export.json` or `audit-export.csv`) with `Content-Disposition: attachment`. The body is not wrapped in `data`. CSV columns are `id, agentId, userId, action, resource, result, reason, durationMs, tokensCost, timestamp`; request `parameters` appear only in the JSON export.
 
 ---
 
 ## MCP endpoints
 
-These endpoints implement the MCP OAuth 2.1 specification.
+These endpoints implement the MCP OAuth 2.1 specification. They are served only when you pass an MCP module to the adapter (`theAuthHono(theauth, { mcp })`, built with `createMcpModule` from `@glinr/theauth/mcp`); otherwise they return `404` with `MCP module not configured`. Responses are bare OAuth JSON (no `data` wrapper), errors look like `{ "error": "invalid_request", "error_description": "..." }`, and CORS is open (`Access-Control-Allow-Origin: *`).
 
 ### Authorization Server Metadata
 
@@ -334,7 +349,7 @@ Returns Protected Resource Metadata (RFC 9728). Public endpoint, no auth require
 POST /mcp/register
 ```
 
-Registers a new OAuth client (RFC 7591). No auth required (open registration) unless restricted by configuration.
+Registers a new OAuth client (RFC 7591). Registration is open: the endpoint itself does not authenticate callers.
 
 **Request body** - See RFC 7591 for the full schema. Minimum:
 
@@ -345,7 +360,7 @@ Registers a new OAuth client (RFC 7591). No auth required (open registration) un
 }
 ```
 
-**Response** `201 Created` - Client credentials including `client_id` and `client_secret`.
+**Response** `201 Created` (with `Cache-Control: no-store`) - Client metadata including `client_id`. A `client_secret` is included for confidential clients, which is the default (`token_endpoint_auth_method` of `client_secret_basic`); clients that register with `none` get no secret. Invalid metadata returns `400` with `invalid_client_metadata`.
 
 ### Authorization request
 
@@ -353,7 +368,7 @@ Registers a new OAuth client (RFC 7591). No auth required (open registration) un
 GET /mcp/authorize?response_type=code&client_id=...&redirect_uri=...&code_challenge=...&code_challenge_method=S256
 ```
 
-Starts the OAuth authorization code flow. Requires PKCE (`code_challenge` + `code_challenge_method=S256`). Redirects to `loginPage` if the user is not authenticated, or to `consentPage` for scope approval.
+Starts the OAuth authorization code flow. Requires PKCE (`code_challenge` + `code_challenge_method=S256`). Responds with a `302` redirect: to the module's `loginPage` (with a `returnTo` parameter) if `resolveUserId` finds no signed-in user, to `consentPage` when one is configured, and otherwise to your `redirect_uri` with the authorization code. Request errors return `400` with an OAuth `error` code.
 
 ### Token exchange
 
@@ -361,7 +376,7 @@ Starts the OAuth authorization code flow. Requires PKCE (`code_challenge` + `cod
 POST /mcp/token
 ```
 
-Exchanges an authorization code or refresh token for an access token.
+Exchanges an authorization code or refresh token for an access token. Confidential clients authenticate with `client_secret_basic` or `client_secret_post`.
 
 **Request body** (`application/x-www-form-urlencoded`)
 
@@ -383,7 +398,7 @@ grant_type=refresh_token
 &client_id=<client_id>
 ```
 
-**Response** `200 OK`
+**Response** `200 OK` (with `Cache-Control: no-store`)
 
 ```json
 {
@@ -391,9 +406,11 @@ grant_type=refresh_token
   "token_type": "Bearer",
   "expires_in": 3600,
   "refresh_token": "...",
-  "scope": "agents:read agents:write"
+  "scope": "mcp:read mcp:execute"
 }
 ```
+
+`refresh_token` is present only when the granted scope includes `offline_access`. `expires_in` is the module's `accessTokenTtl`. Failures return `401` for `invalid_client` and `400` for everything else.
 
 ---
 
@@ -405,19 +422,37 @@ grant_type=refresh_token
 GET /dashboard/stats
 ```
 
-Returns aggregate statistics for the admin dashboard.
+Returns aggregate statistics for the admin dashboard. The audit counts cover the last 24 hours and are computed from at most the 1,000 most recent entries.
 
 **Response** `200 OK`
 
 ```json
 {
-  "totalAgents": 42,
-  "activeAgents": 38,
-  "totalAuditEntries": 18420,
-  "denialRateLast24h": 2.3,
-  "topAgentsByCallCount": [...]
+  "agents": { "total": 42, "active": 38, "revoked": 3, "expired": 1 },
+  "users": { "total": 12 },
+  "audit": { "last24h": 480, "allowed": 470, "denied": 10, "rateLimited": 0 }
 }
 ```
+
+### Dashboard agents and audit
+
+```
+GET /dashboard/agents
+GET /dashboard/audit
+```
+
+Aliases for `GET /agents` and `GET /audit`, with the same query parameters and responses.
+
+## Password reset and email verification
+
+```
+POST /auth/forgot-password
+POST /auth/reset-password
+POST /auth/verify-email/send
+POST /auth/verify-email/confirm
+```
+
+These forward the request to `theauth.passwordReset` and `theauth.emailVerification`, which exist only when you pass `passwordReset` or `emailVerification` to `createTheAuth` (and, for password reset, `username` and `auth.session`). When the module is not configured the route returns `404`. Request and response bodies are defined by those modules, not by the agent endpoints above.
 
 ## Related
 

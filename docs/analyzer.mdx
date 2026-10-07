@@ -12,45 +12,53 @@ The privilege analyzer scans agent permissions to find over-privileged agents, u
 ```ts
 const analysis = await theauth.analyzer.analyzeAgent(agentId);
 
-console.log(analysis.overPrivileged);  // permissions broader than needed
-console.log(analysis.unusedPermissions); // granted but never exercised
-console.log(analysis.riskScore);       // 0-100 risk assessment
-console.log(analysis.recommendations); // suggested permission changes
+console.log(analysis.score);           // "minimal" | "appropriate" | "over-permissioned" | "wildcard-heavy"
+console.log(analysis.findings);        // PrivilegeFinding[]
+console.log(analysis.recommendations); // suggested permission changes (string[])
 ```
 
-## Scan all agents
+`analyzeAgent(agentId, { since })` compares the agent's permissions against audit log entries since `since` (default: the last 30 days). If the agent does not exist, it returns an `"appropriate"` result with `agentName: "unknown"` and no findings.
+
+## Analyze all agents
 
 ```ts
-const report = await theauth.analyzer.scanAll();
+const analyses = await theauth.analyzer.analyzeAll();
 
-for (const finding of report.findings) {
-  console.log(`${finding.agentId}: ${finding.type} - ${finding.description}`);
+for (const analysis of analyses) {
+  for (const finding of analysis.findings) {
+    console.log(`${analysis.agentId}: ${finding.type} (${finding.severity}) - ${finding.description}`);
+  }
 }
+
+const summary = await theauth.analyzer.getSummary();
+// { total, byScore: Record<string, number>, criticalFindings }
 ```
+
+`analyzeAll` covers agents whose status is `active`. There is no `scanAll` method.
 
 ## Finding types
 
-| Type | Description |
-|------|-------------|
-| `over-privileged` | Agent has broader permissions than its actual usage |
-| `wildcard-risk` | Agent uses `*` wildcard on sensitive resources |
-| `unused-permission` | Permission granted but never used in audit trail |
-| `stale-agent` | Agent hasn't been used in 30+ days |
-| `no-expiry` | Agent has no expiration date set |
-| `deep-delegation` | Delegation chain depth exceeds recommended limit |
+| Type | Severity | Description |
+|------|----------|-------------|
+| `wildcard_permission` | critical | The resource is `*` or ends in `:*` or `/*`, or the actions include `*` |
+| `unused_permission` | warning | The resource does not appear in the audit log within the lookback window |
+| `overly_broad` | warning | A namespace permission where only one or two specific sub-resources were used |
+| `no_constraints` | info | No `maxCallsPerHour`, `timeWindow`, `requireApproval`, or `ipAllowlist` on the permission |
+| `no_expiry` | info | The agent has no expiration date set |
+
+## Score
+
+| Score | When |
+|-------|------|
+| `wildcard-heavy` | Any critical finding, or two or more wildcard findings |
+| `over-permissioned` | One wildcard finding, or two or more warnings |
+| `minimal` | No findings |
+| `appropriate` | Only info-level findings, or a single warning |
 
 ## Configuration
 
-```ts
-const theauth = await createTheAuth({
-  analyzer: {
-    unusedThresholdDays: 30,  // flag permissions unused for 30+ days
-    maxRecommendedDepth: 3,   // flag delegation chains deeper than 3
-    wildcardWarning: true,    // flag wildcard permissions
-  },
-});
-```
+The analyzer has no configuration options. The lookback window is 30 days by default and can be overridden per call with `since`.
 
 <Warning>
-The analyzer reads from the audit trail. Enable `auditAll: true` in agent config for accurate unused-permission detection.
+The analyzer reads from the audit trail. Keep `agents.auditAll` enabled (the default) so that permission usage is recorded; otherwise every permission looks unused.
 </Warning>

@@ -4,7 +4,9 @@ description: Add TOTP second-factor authentication via the `twoFactor` plugin. Q
 icon: mobile-screen
 ---
 
-The `twoFactor()` plugin adds TOTP (time-based one-time password) support compatible with Google Authenticator, Authy, 1Password, and any RFC 6238 app. Users enroll once by scanning a QR code, then provide a 6-digit code on every sign-in.
+The `twoFactor()` plugin adds TOTP (time-based one-time password) support compatible with Google Authenticator, Authy, 1Password, and any RFC 6238 app. Users enroll once by scanning a QR code, then provide a 6-digit code as a second factor.
+
+TheAuth stores and verifies the TOTP secret and backup codes. It does not sit inside your sign-in flow: there is no built-in "two factor required" challenge on the primary sign-in endpoints. You decide in your own sign-in code when to ask for a code, and call the verify endpoint (or `theauth.totp.verify`) to check it.
 
 ## Setup
 
@@ -26,25 +28,22 @@ pnpm add @glinr/theauth
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { emailPassword } from '@glinr/theauth/auth';
 import { twoFactor } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
-    emailPassword(),
     twoFactor({ // [!code highlight]
-      issuer: 'My App',  // Shown in the authenticator app // [!code highlight]
+      appName: 'My App',  // Shown in the authenticator app // [!code highlight]
     }), // [!code highlight]
   ],
 });
 ```
 
-<Info>
-  `twoFactor()` works with any primary auth method. Pair it with OAuth providers or magic link as well as email/password.
-</Info>
+All plugin endpoints require an authenticated request, resolved from either a configured `auth.adapter` or an `auth.session` token (`Authorization: Bearer` header or the `theauth_session` cookie). `twoFactor()` works with any primary auth method.
+
+Instead of the plugin you can pass the same options as a top-level `totp` key to `createTheAuth`. That exposes `theauth.totp` (`setup`, `enable`, `verify`, `disable`, `isEnabled`, `regenerateBackupCodes`, `handleRequest`), which is `null` when the key is absent. The module's own `handleRequest` serves `POST /auth/2fa/setup`, `/enable`, `/verify`, `/disable` and `/backup-codes` with a `userId` in the body and no session check, so call the methods from server code rather than exposing that handler to browsers.
 
 </Step>
 
@@ -52,7 +51,7 @@ const theauth = await createTheAuth({
 
 ## Enrollment flow
 
-All enrollment endpoints require an active session.
+All plugin endpoints require an authenticated request.
 
 <Steps>
 
@@ -63,15 +62,15 @@ All enrollment endpoints require an active session.
 `POST /auth/2fa/enroll`
 
 ```typescript
-const res = await fetch('/auth/2fa/enroll', {
+const res = await fetch('/api/theauth/auth/2fa/enroll', {
   method: 'POST',
   credentials: 'include',
 });
 
-const { secret, qrCodeUrl, backupCodes } = await res.json(); // [!code highlight]
+const { secret, uri, backupCodes } = await res.json(); // [!code highlight]
 ```
 
-Render `qrCodeUrl` as a QR code image in your UI. The user scans it with their authenticator app. Show `backupCodes` once at this point, they cannot be retrieved again.
+Render `uri` (an `otpauth://` URL) as a QR code in your UI with a QR library of your choice. The user scans it with their authenticator app, or enters `secret` manually. Show `backupCodes` once at this point. Only hashes are stored, so they cannot be retrieved again. Calling enroll again replaces the secret and backup codes and turns 2FA off until the new secret is confirmed.
 
 </Step>
 
@@ -84,7 +83,7 @@ Ask the user to enter the code their authenticator app shows to confirm enrollme
 `POST /auth/2fa/verify`
 
 ```typescript
-await fetch('/auth/2fa/verify', {
+await fetch('/api/theauth/auth/2fa/verify', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
@@ -92,52 +91,51 @@ await fetch('/auth/2fa/verify', {
 });
 ```
 
-A successful response activates 2FA on the account.
+While 2FA is not yet enabled, a valid code activates it and the response is `{ "valid": true, "activated": true }`. An invalid code returns `400`.
 
 </Step>
 
 </Steps>
 
-## Login verification
+## Checking a code at sign-in
 
-When a user with 2FA enabled signs in, the primary auth endpoint returns a partial response instead of a session:
-
-```json
-{ "status": "two_factor_required", "challengeToken": "..." }
-```
-
-Submit the TOTP code along with the challenge token to complete sign-in:
+Once 2FA is enabled, the same endpoint checks a code for the authenticated user:
 
 `POST /auth/2fa/verify`
 
 ```typescript
-const res = await fetch('/auth/2fa/verify', {
+const res = await fetch('/api/theauth/auth/2fa/verify', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    challengeToken,   // From the primary auth response // [!code highlight]
     code: '482910',   // From the user's authenticator app // [!code highlight]
   }),
 });
+
+const { valid, usedBackupCode } = await res.json();
 ```
 
-On success, a session cookie is set.
+The response is `{ valid: boolean, usedBackupCode?: boolean }`. A wrong code returns `200` with `valid: false`, so check the field rather than the status. The endpoint does not issue a session or set a cookie. To gate sign-in, complete the primary sign-in on your server, hold the user in a "pending second factor" state of your own, and call `theauth.totp.verify(userId, code)` before treating them as signed in.
+
+Codes are accepted within one 30-second step either side of the current time by default (`window` and `period` options).
 
 ## Backup codes
 
-Ten single-use backup codes are generated at enrollment. Each is a 10-character alphanumeric string. A backup code can be submitted in place of a TOTP code at the verify endpoint, useful when the user has lost access to their authenticator app.
+Ten single-use backup codes are generated at enrollment (`backupCodeCount`). Each is an 8-character code from an alphabet that leaves out `0`, `O`, `1` and `I`. A backup code can be submitted in place of a TOTP code at the verify and disable endpoints, useful when the user has lost access to their authenticator app. A used backup code cannot be reused, and the response reports `usedBackupCode: true`.
 
 ### Regenerate backup codes
 
 `POST /auth/2fa/backup-codes`
 
-This invalidates all existing backup codes and issues a new set. Requires an active session.
+This invalidates all existing backup codes and issues a new set. It requires a valid TOTP or backup code in the body as confirmation.
 
 ```typescript
-const res = await fetch('/auth/2fa/backup-codes', {
+const res = await fetch('/api/theauth/auth/2fa/backup-codes', {
   method: 'POST',
   credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ code: '482910' }),
 });
 
 const { backupCodes } = await res.json();
@@ -147,10 +145,10 @@ const { backupCodes } = await res.json();
 
 `POST /auth/2fa/disable`
 
-Requires the user's current TOTP code as confirmation:
+Requires a valid TOTP or backup code as confirmation. Disabling deletes the stored secret and backup codes:
 
 ```typescript
-await fetch('/auth/2fa/disable', {
+await fetch('/api/theauth/auth/2fa/disable', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
@@ -163,43 +161,42 @@ await fetch('/auth/2fa/disable', {
 `GET /auth/2fa/status`
 
 ```typescript
-const res = await fetch('/auth/2fa/status', { credentials: 'include' });
-const { enabled, enrolledAt } = await res.json();
+const res = await fetch('/api/theauth/auth/2fa/status', { credentials: 'include' });
+const { enabled } = await res.json();
 ```
 
 ## Endpoints
 
-All endpoints require an authenticated session unless noted.
+All endpoints require an authenticated request.
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /auth/2fa/enroll` | Generate a TOTP secret and backup codes |
-| `POST /auth/2fa/verify` | Confirm enrollment or complete login |
-| `POST /auth/2fa/disable` | Disable 2FA, requires current code |
+| `POST /auth/2fa/enroll` | Generate a TOTP secret, `otpauth://` URI and backup codes |
+| `POST /auth/2fa/verify` | Confirm enrollment, or check a code once enabled |
+| `POST /auth/2fa/disable` | Disable 2FA, requires a current code |
 | `GET /auth/2fa/status` | Check whether 2FA is enabled |
-| `POST /auth/2fa/backup-codes` | Regenerate backup codes |
+| `POST /auth/2fa/backup-codes` | Regenerate backup codes, requires a current code |
 
 ## Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `issuer` | `string` | required | App name shown in the authenticator |
-| `enforce` | `boolean` | `false` | Require 2FA for all users |
-| `shouldEnforce` | `(user: User) => Promise<boolean>` |, | Per-user enforcement logic |
+| `appName` | `string` | `TheAuth` | App name shown in the authenticator (used as the `otpauth://` label and issuer) |
+| `period` | `number` | `30` | TOTP step in seconds |
 | `backupCodeCount` | `number` | `10` | Number of backup codes generated at enrollment |
-| `challengeTokenTtl` | `number` | `300` | Seconds to complete verification after primary auth |
+| `window` | `number` | `1` | Adjacent time steps accepted on either side, to tolerate clock drift |
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
-    Skip 2FA on verified devices using an HMAC-signed fingerprint.
+    Skip 2FA on verified devices for a limited window.
   </Card>
   <Card title="Password breach checking" href="/hibp" icon="shield-halved">
     Block passwords found in known data breaches at sign-up.
   </Card>
-  <Card title="Email and password" href="/auth/email-password" icon="envelope">
-    Primary auth method that pairs with two-factor auth.
+  <Card title="Username and password" href="/auth/username" icon="key">
+    Built-in primary auth method that pairs with two-factor auth.
   </Card>
   <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
     Phishing-resistant WebAuthn alternative to TOTP.

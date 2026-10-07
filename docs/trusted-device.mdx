@@ -28,7 +28,7 @@ const trustedDevice = createTrustedDeviceModule( // [!code highlight]
 
 ## Fingerprint a request
 
-`generateFingerprint` derives a stable, HMAC-protected fingerprint from request headers (user-agent, accept-language). The same request shape always produces the same fingerprint:
+`generateFingerprint` derives a stable, HMAC-protected fingerprint from the `user-agent`, `accept-language`, `accept-encoding`, and `accept` request headers. The same header values always produce the same fingerprint, and a browser update that changes them produces a new one:
 
 ```typescript
 const fingerprint = await trustedDevice.generateFingerprint(request);
@@ -36,7 +36,7 @@ const fingerprint = await trustedDevice.generateFingerprint(request);
 
 ## Trust a device
 
-After the user completes 2FA, call `trustDevice` to mark their device. It returns the trust record's id, store it in a long-lived cookie so you can check it on the next sign-in:
+After the user completes 2FA, call `trustDevice` to mark their device. It returns the trust record's id (calling it again for the same fingerprint refreshes the expiry and returns the same id). Note that `isTrusted` looks devices up by user and fingerprint, not by this id, so the id is only useful if you want to keep a handle on the record, for example in a long-lived cookie:
 
 ```typescript title="Trust after 2FA (server)"
 // After verifying the 2FA code:
@@ -71,27 +71,28 @@ await trustedDevice.revokeAllDevices(user.id);
 ```typescript title="List devices (server)"
 const devices = await trustedDevice.listDevices(user.id);
 // [{ id, fingerprint, label, trustedAt, expiresAt }, ...]
+// label is always "Trusted device"
 ```
 
 ## Configuration reference
 
 <ParamField path="secret" type="string">HMAC key used to sign device fingerprints. Rotate this to invalidate all trusted devices instantly. If omitted, a random per-process key is used and fingerprints won't survive a restart.</ParamField>
 <ParamField path="trustDurationSeconds" type="number" default={2592000}>How long a device stays trusted, in seconds. Default is 30 days.</ParamField>
-<ParamField path="maxDevices" type="number" default={10}>Maximum number of trusted devices per user. Oldest is evicted when exceeded.</ParamField>
+<ParamField path="maxDevices" type="number" default={10}>Maximum number of trusted devices per user. The oldest records are evicted when exceeded.</ParamField>
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Two-factor auth" href="/auth/two-factor" icon="mobile-screen">
-    TOTP plugin that trusted devices lets you skip on recognized devices.
+    TOTP plugin whose second-factor check you can skip on trusted devices in your own sign-in flow.
   </Card>
   <Card title="Multi-session" href="/multi-session" icon="key">
-    List and revoke active sessions alongside trusted device management.
+    List and revoke a user's sessions.
   </Card>
   <Card title="Compliance" href="/compliance" icon="file-lines">
-    Audit infrastructure that records trusted device events.
+    Audit trail, GDPR tooling, and the other compliance-related features.
   </Card>
   <Card title="Sessions" href="/sessions" icon="key">
-    Session model that trusted device verification gates into.
+    Cookie and JWT sessions you issue after sign-in.
   </Card>
 </CardGroup>

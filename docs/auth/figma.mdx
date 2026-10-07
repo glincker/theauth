@@ -2,7 +2,7 @@
 icon: figma
 iconType: brands
 title: Figma
-description: Authenticate users via Figma OAuth 2.0 with `figmaProvider`. Covers app registration, redirect URI setup, and the file read scope needed for design file access.
+description: Authenticate users via Figma OAuth 2.0 with `createFigmaProvider`. Covers app registration, redirect URI setup, and the file read scope needed for design file access.
 ---
 
 ## Setup
@@ -23,19 +23,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/figma
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
-import { figmaProvider } from '@glinr/theauth/auth';
+import { oauth, createFigmaProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        figmaProvider(
-          process.env.FIGMA_CLIENT_ID!,
-          process.env.FIGMA_CLIENT_SECRET!,
-        ),
-      ],
+      providers: {
+        figma: createFigmaProvider({
+          clientId: process.env.FIGMA_CLIENT_ID!,
+          clientSecret: process.env.FIGMA_CLIENT_SECRET!,
+        }),
+      },
     }),
   ],
 });

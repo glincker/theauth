@@ -72,7 +72,7 @@ afterEach(() => server.reset()); // clears the store and active session
 
 ## Assertions
 
-Three typed assertion helpers narrow `ActionResult<T>` and throw descriptive errors on failure.
+Three typed assertion helpers narrow `ActionResult<T>` (the result type used by `@glinr/theauth-react`, where a failure carries an `error` string) and throw descriptive errors on failure.
 
 ```ts
 import {
@@ -88,30 +88,47 @@ console.log(result.data); // typed
 // Passes only when result.success === false
 expectUnauthenticated(result);
 
-// Passes only when result.success === false and error contains "permission"
+// Passes only when result.success === false and error contains "permission" (case-insensitive)
 expectPermissionDenied(result);
 
 // Custom substring match
 expectPermissionDenied(result, 'not allowed');
 ```
 
+## Mock React provider
+
+For component tests, `MockTheAuthProvider` replaces `<TheAuthProvider>` with fixed values. It accepts `user`, `session`, `isAuthenticated`, `isLoading`, and optional `signIn`, `signUp`, `signOut`, and `refresh` overrides. The actions default to `vi.fn()` spies, so you can assert on calls.
+
+```tsx
+import { MockTheAuthProvider, createMockUser, createMockSession } from '@glinr/theauth-test-utils';
+
+const user = createMockUser();
+const session = createMockSession({ user });
+
+render(
+  <MockTheAuthProvider user={user} session={session}>
+    <ProfileButton />
+  </MockTheAuthProvider>
+);
+```
+
 <Note>
-The mock server has zero runtime dependencies. It matches the `AuthAdapter` interface structurally, so TypeScript will accept it anywhere an `AuthAdapter` is expected.
+The mock server itself has no dependencies. It matches the `AuthAdapter` interface structurally, so TypeScript will accept it anywhere an `AuthAdapter` is expected. The package entry point also exports `MockTheAuthProvider`, which imports `vitest`, `react` and `@glinr/theauth-react` (`react` and `@glinr/theauth-react` are optional peer dependencies), so use the package from a Vitest setup.
 </Note>
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Error codes" href="/errors" icon="triangle-exclamation">
-    Error codes the assertions check against in test expectations.
+    How TheAuth reports errors.
   </Card>
   <Card title="Database setup" href="/database" icon="database">
     In-memory SQLite for integration tests that need a real database.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
-    Agent creation and permission checking that test-utils wraps.
+    Agent creation and permission checking to exercise in integration tests.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Test lifecycle hooks that fire on auth events.
+    Lifecycle hooks you can attach to your instance.
   </Card>
 </CardGroup>

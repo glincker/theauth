@@ -20,7 +20,7 @@ All SDK functions that can fail return a `Result<T>` discriminated union rather 
 const result = await theauth.authorize(agentId, { action: 'write', resource: 'mcp:github:*' });
 
 if (!result.allowed) {
-  console.log(result.reason); // e.g. "RATE_LIMITED"
+  console.log(result.reason); // e.g. 'Rate limit exceeded: 20/20 calls per hour for resource "mcp:deploy:staging"'
 }
 ```
 
@@ -34,6 +34,10 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 ```
 
 ## Error code reference
+
+<Warning>
+`theauth.authorize()` and `theauth.delegate()` do not return the permission and delegation codes in the tables below. `authorize()` returns `{ allowed, reason, auditId }` where `reason` is free-form text (for example `No permission grants agent "x" access to "write" on "mcp:github:repos"`), and `delegate()` throws a plain `Error` with a descriptive message (a subset violation or a depth overrun). Treat the Agent, Permission, Token, and Delegation tables as a reference vocabulary for your own HTTP layer, not as values the TypeScript core emits. The MCP module returns `Result` errors with codes such as `INVALID_CLIENT`, `INVALID_GRANT`, `LOGIN_REQUIRED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_AUDIENCE`, `INVALID_ISSUER`, `INSUFFICIENT_SCOPE`, `UNAUTHORIZED`, and `SERVER_ERROR`.
+</Warning>
 
 ### Agent errors
 

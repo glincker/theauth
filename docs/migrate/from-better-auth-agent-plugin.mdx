@@ -17,11 +17,11 @@ better-auth treats an agent as an OAuth client attached to a user. A single-hop 
 TheAuth treats an agent as a primary database entity with its own lifecycle:
 
 - `AgentIdentity` row in the schema, owned by a user, with status transitions (`active`, `revoked`, `expired`).
-- Multi-hop delegation chains with depth limits and cascading revocation.
+- Multi-hop delegation chains with a per-call depth limit and cascading revocation of chains.
 - Trust scoring, 5 levels, computed from the audit log.
 - Cost attribution per agent, tool, and chain.
-- MCP OAuth 2.1 authorization server baked into the same instance.
-- Ephemeral agent sessions for one-off tasks.
+- An MCP OAuth 2.1 authorization server (`createMcpModule`) that sits alongside the same instance and adapter.
+- Ephemeral agent sessions for one-off tasks (`createEphemeralSessionModule`).
 
 ## Concepts map
 
@@ -29,18 +29,18 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 |---|---|
 | `agentPlugin()` added to `betterAuth` | Built into `createTheAuth`. No plugin needed for the core agent surface. |
 | `auth.api.createAgent({ userId, scopes })` | `theauth.agent.create({ ownerId, name, type, permissions })` |
-| `agent.accessToken` | `agent.token` (prefix `kv_`, returned once, SHA-256 hashed at rest) |
+| `agent.accessToken` | `agent.token` (`kv_` followed by base64url of 32 random bytes, returned once, SHA-256 hashed at rest) |
 | `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
 | `agent.kind: 'service' \| 'user-agent'` | `agent.type: 'autonomous' \| 'delegated' \| 'service'` |
-| `auth.api.verifyAgentToken(token)` | `theauth.agent.verifyToken(token)` or `theauth.authorizeByToken(token, req)` |
-| Single-hop delegation via second `createAgent` call | `theauth.delegation.create({ fromAgent, toAgent, permissions, maxDepth })` |
-| No cascading revocation | Revoking a parent cascades down the chain. Immediate. |
-| No audit module (relies on generic logs) | `theauth.audit.query()` + structured CSV and JSON export |
+| `auth.api.verifyAgentToken(token)` | `theauth.agent.validateToken(token)` (returns the agent or `null`) or `theauth.authorizeByToken(token, req)` |
+| Single-hop delegation via second `createAgent` call | `theauth.delegate({ fromAgent, toAgent, permissions, expiresAt, maxDepth })` |
+| No cascading revocation | `theauth.delegation.revoke(chainId)` revokes that link and every downstream link. Immediate. |
+| No audit module (relies on generic logs) | `theauth.audit.query()` and `theauth.audit.export()` |
 | No trust score | `theauth.trust.computeScore(agentId)` |
-| No MCP server | Built-in OAuth 2.1 authorization server, PKCE S256, RFC 9728 / 8707 / 8414 / 7591 |
+| No MCP server | OAuth 2.1 authorization server from `createMcpModule` (`@glinr/theauth/mcp`), PKCE S256, RFC 9728 / 8707 / 8414 / 7591 |
 | No per-agent rate cap | Permission constraint: `maxCallsPerHour` |
-| No approval gate | Permission constraint: `requireApproval: true`, surfaces a CIBA-style approval flow |
-| No ephemeral sessions | `theauth.ephemeral.create({ agentId, ttlMs })` |
+| No approval gate | Permission constraint `requireApproval: true` denies the call with a "requires human approval" reason. Create and resolve requests with `theauth.approval`. |
+| No ephemeral sessions | `createEphemeralSessionModule({ db: theauth.db }).createSession({ ownerId, permissions, ttlSeconds })`, see [Ephemeral sessions](/ephemeral-sessions) |
 
 ## Server setup
 
@@ -70,7 +70,7 @@ export const theauth = await createTheAuth({
 });
 ```
 
-TheAuth has no `emailAndPassword` config key, its built-in password module authenticates by username (see [Username and password](/auth/username)). The rest of the human-auth config (`organization`, `twoFactor`, etc.) maps one-to-one and keeps its plugin shape, imported from `@glinr/theauth/auth` rather than `@glinr/theauth/plugins`.
+TheAuth has no `emailAndPassword` config key, its built-in password module authenticates by username (see [Username and password](/auth/username)). The rest of the human-auth config (`organization`, `twoFactor`, etc.) keeps a similar plugin shape, imported from `@glinr/theauth/auth` rather than `@glinr/theauth/plugins`. Check each feature's page, the option names are not identical.
 
 ## Creating an agent
 
@@ -101,12 +101,12 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token (prefix kv_) is the bearer. Returned once. Rotate with
-// theauth.agent.rotate(agent.id) to cut a new one; the old token is invalidated
-// atomically.
+// agent.token (kv_ plus base64url of 32 random bytes) is the bearer. Returned once,
+// only its SHA-256 hash is stored. Rotate with theauth.agent.rotate(agent.id) to cut
+// a new one; the old token stops validating as soon as the new hash is written.
 ```
 
-The shape of the call is close. The substantive difference is the permission model. A `scopes: ['github:read']` list maps to `{ resource: 'mcp:github:*', actions: ['read'] }`. The extra structure pays for itself when you need to add rate caps, argument allowlists, or time windows.
+The shape of the call is close. The substantive difference is the permission model. A `scopes: ['github:read']` list maps to `{ resource: 'mcp:github:*', actions: ['read'] }`. The extra structure pays for itself when you need to add rate caps, argument allowlists, or time windows. In a resource pattern, `*` matches the rest of the path from that position on, so `mcp:github:*` also covers `mcp:github:repos:list`. `ownerId` must be the id of an existing user (`theauth_users`).
 
 ## Authorizing a tool call
 
@@ -150,7 +150,7 @@ const child = await auth.api.createAgent({
 
 ```ts
 // AFTER: explicit chain with depth and expiry
-const chain = await theauth.delegation.create({
+const chain = await theauth.delegate({
   fromAgent: parent.id,
   toAgent: child.id,
   permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
@@ -158,10 +158,15 @@ const chain = await theauth.delegation.create({
   expiresAt: new Date(Date.now() + 60 * 60 * 1000),
 });
 
-// If you revoke `parent.id`, `child.id` loses delegated permissions automatically.
+// Revoke the link, and every link downstream of `child`, in one call:
+await theauth.delegation.revoke(chain.id);
 ```
 
-The depth limit matters when agents delegate to sub-agents. A run-away loop cannot issue a fourth-hop token if `maxDepth: 2` is set on the root.
+The delegated permissions must be a subset of the parent agent's own permissions, otherwise `delegate` throws. `expiresAt` is required.
+
+Revocation works on chains, not on the parent agent. `theauth.agent.revoke(parent.id)` marks that agent revoked so its own calls are denied, but it does not touch the chains it already issued. Call `theauth.delegation.revoke(chain.id)` to cut the child off, which also revokes the chains the child delegated onward. Use `theauth.delegation.listChains(agentId)` to find them.
+
+`maxDepth` is checked on each call to `theauth.delegate`: the new link's depth must be less than or equal to the `maxDepth` you pass on that call (default 3). Depth is one more than the deepest active chain that ends at `fromAgent`. So `maxDepth: 2` stops a third hop only if you pass it when creating that third link. Nothing stores a root-level cap that later calls inherit, so pass the same value from your delegation helper every time.
 
 ## Trust scoring
 
@@ -184,50 +189,77 @@ if (score.level === 'untrusted' || score.level === 'limited') {
 
 ## MCP server
 
-If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. TheAuth mounts the MCP endpoints on the same adapter:
+If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. TheAuth's OAuth 2.1 server is a module you create with `createMcpModule` from `@glinr/theauth/mcp` and pass to your framework adapter. It does not take the `theauth` instance, and it has no built-in database: you supply the storage callbacks. [MCP](/mcp) has a complete in-memory example of those callbacks.
 
 ```ts
-import { createTheAuth, createMcpModule } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule } from '@glinr/theauth/mcp';
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
+import { mcpStore } from './mcp-store'; // storeClient, findClient, storeAuthorizationCode, ...
 
-const theauth = await createTheAuth({ /* ... */ });
-const mcp = createMcpModule(theauth);
+const theauth = await createTheAuth({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  mcp: { enabled: true }, // creates the MCP server registry table only
+});
+
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: 'https://auth.yourapp.com',
+    // Public origin plus the adapter mount path
+    baseUrl: 'https://auth.yourapp.com/api/theauth',
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  },
+  ...mcpStore,
+});
 
 export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { mcp });
 ```
 
-The `.well-known` documents, dynamic client registration, authorize endpoint, and token endpoint all come up under the same mount path.
+`mcpStore` supplies `storeClient`, `findClient`, `storeAuthorizationCode`, `consumeAuthorizationCode`, `storeToken`, `findTokenByRefreshToken`, `revokeToken`, and `resolveUserId`. The adapter serves `/mcp/register`, `/mcp/authorize`, and `/mcp/token`, plus the two `.well-known` documents, all relative to its mount path (`/api/theauth` by default). MCP clients look for the `.well-known` documents at the root of your origin, so add root-level routes or rewrites when you mount under a prefix, see [MCP](/mcp).
 
 ## Data migration
 
-Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration, usually `agents` or `bettterauth_agents`). TheAuth uses `agent_identities` by default.
+Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration). TheAuth stores agents in `theauth_agents` and their permissions in `theauth_permissions`, and it keeps only the SHA-256 hash of the full `kv_...` token. A better-auth token hash cannot be reused: the bearer would have to be a `kv_` token whose SHA-256 matches, which no old token is. So do not copy token hashes with SQL. Recreate each agent through the API and hand the owner a new token:
 
-```sql
--- Rough shape. Adjust column names to match your actual better-auth plugin schema.
-INSERT INTO agent_identities (id, owner_id, name, type, token_hash, status, created_at, metadata)
-SELECT
-  id,
-  user_id                              AS owner_id,
-  name,
-  CASE kind
-    WHEN 'service' THEN 'service'
-    WHEN 'user-agent' THEN 'autonomous'
-    ELSE 'autonomous'
-  END                                  AS type,
-  access_token_hash                    AS token_hash,
-  CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END AS status,
-  created_at,
-  jsonb_build_object('imported_from', 'better-auth-agent-plugin')
-FROM bettterauth_agents;
+```ts
+// scripts/import-agents.ts
+import { theauth } from '../lib/theauth.js';
+
+interface LegacyAgent {
+  userId: string;
+  name: string;
+  kind: 'service' | 'user-agent';
+  scopes: string[]; // e.g. ['github:read']
+}
+
+export async function importAgent(legacy: LegacyAgent) {
+  const agent = await theauth.agent.create({
+    ownerId: legacy.userId, // must already exist in theauth_users
+    name: legacy.name,
+    type: legacy.kind === 'service' ? 'service' : 'autonomous',
+    permissions: legacy.scopes.map((scope) => {
+      // 'github:read' becomes resource 'mcp:github:*' with action 'read'
+      const idx = scope.lastIndexOf(':');
+      const resource = scope.slice(0, idx);
+      const action = scope.slice(idx + 1);
+      return { resource: `mcp:${resource}:*`, actions: [action] };
+    }),
+    metadata: { importedFrom: 'better-auth-agent-plugin' },
+  });
+
+  // agent.token is shown once. Deliver it to the service that used the old accessToken.
+  return agent;
+}
 ```
 
-Permissions need mapping from `scopes` (flat strings) to `Permission[]` objects. Write a small script that reads scopes, maps each to a resource pattern, and writes the rows to your `agent_permissions` table. Do this in staging first, the mapping is the load-bearing piece.
+The scope mapping above is only a starting point. Decide per scope what resource pattern and actions it should map to, and test the result in staging, the mapping is the load-bearing piece.
 
 ## Cutover plan
 
 1. Stand up TheAuth next to better-auth against the same database (or a shadow copy). Do not delete the better-auth schema yet.
-2. Import agents. Validate one service token with `theauth.authorizeByToken(token, {...})`. It should succeed against the imported rows.
-3. Flip a single non-critical service to call `theauth.authorizeByToken` instead of `auth.api.verifyAgentToken`.
+2. Import agents with `theauth.agent.create`. Validate one new service token with `theauth.authorizeByToken(token, {...})`.
+3. Give a single non-critical service its new token and switch it to `theauth.authorizeByToken` instead of `auth.api.verifyAgentToken`.
 4. Watch the audit log for `allowed: false` entries. Fix permission mappings.
 5. Expand the TheAuth-guarded agent surface one service at a time.
 6. Remove the `@better-auth/agent-auth` plugin from `lib/auth.ts` once no service still calls it.
@@ -240,7 +272,7 @@ Keep the better-auth agent plugin wired for at least one rotation cycle after th
 
 1. Re-enable the `agent()` plugin in `lib/auth.ts`.
 2. Point services back at `auth.api.verifyAgentToken`.
-3. TheAuth agent rows remain, they just stop being read. The token hashes are compatible enough that the same bearer keeps working on better-auth until it rotates.
+3. TheAuth agent rows remain, they just stop being read. Old better-auth bearers keep working on better-auth because you never revoked them there, new `kv_` tokens only work against TheAuth.
 
 ## Runnable example
 

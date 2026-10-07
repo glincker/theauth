@@ -14,7 +14,7 @@ TheAuth does not replace your human auth. It runs alongside it. This guide assum
 
 <CardGroup cols={2}>
   <Card title="A user ID on every request" icon="user-check">
-    Your existing auth must expose a stable string ID, anything from Clerk's `userId`, Auth.js's `session.user.id`, or a row id from your own users table.
+    Your existing auth must expose a stable string ID, anything from Clerk's `userId`, Auth.js's `session.user.id`, or a row id from your own users table. TheAuth needs a matching row in its `theauth_users` table (see step 4).
   </Card>
   <Card title="A database" icon="database">
     Postgres, MySQL, SQLite, or Cloudflare D1. TheAuth creates its own tables, prefixed `theauth_`, alongside yours.
@@ -49,6 +49,7 @@ export async function getTheAuth() {
         provider: 'postgres',
         url: process.env.DATABASE_URL!,
       },
+      agents: { enabled: true },
       secret: process.env.THEAUTH_SECRET!,
     });
   }
@@ -56,7 +57,7 @@ export async function getTheAuth() {
 }
 ```
 
-The lazy pattern lets Next.js build without opening a DB connection.
+The singleton makes sure the instance (and its database connection) is created once per process. Passing `agents` is what makes TheAuth create the agent, permission, delegation, and audit tables; without it those tables do not exist and `agent.create` fails.
 
 </Step>
 
@@ -66,10 +67,12 @@ The lazy pattern lets Next.js build without opening a DB connection.
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { getTheAuth } from '@/lib/theauth';
 
-const { GET, POST } = theAuthNextjs(getTheAuth);
+const theauth = await getTheAuth();
 
-export { GET, POST };
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth);
 ```
+
+`theAuthNextjs` takes the resolved instance (not a function) and returns one handler per HTTP method. Export all five: the REST API uses `PATCH` and `DELETE` as well. Its default `basePath` is `/api/theauth`; pass `{ basePath }` if you mount it elsewhere. The route handler only exposes the TheAuth endpoints and does not add authentication, so protect it with your own middleware (see the [REST API](/api)).
 
 Pick a path that does not collide with your existing auth. `/api/theauth/*` lives next to `/api/auth/*` (Clerk / Auth.js) without stepping on it.
 
@@ -78,6 +81,10 @@ Pick a path that does not collide with your existing auth. `/api/theauth/*` live
 <Step title="Create an agent when a user signs up or activates AI features">
 
 Hook into your existing post-sign-in flow. For Clerk, that is a webhook or a server action. For Auth.js, the `signIn` event. For better-auth, the `onSignIn` hook.
+
+<Warning>
+`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Before the first agent, make sure a `theauth_users` row exists whose `id` is your provider's user ID (`id`, `email`, `createdAt`, and `updatedAt` are required). Otherwise the insert fails with a foreign key error.
+</Warning>
 
 ```ts title="wherever you create user-scoped resources"
 import { getTheAuth } from '@/lib/theauth';
@@ -101,7 +108,7 @@ export async function createDefaultAgent(userId: string) {
 ```
 
 <Warning>
-The token is shown once. Store it in your secrets store or hand it directly to the agent process. If you lose it, rotate with `theauth.agent.rotate(agentId)` to issue a new one.
+The token is shown once. Store it in your secrets store or hand it directly to the agent process. If you lose it, rotate with `theauth.agent.rotate(agentId)` to issue a new one. Agents also expire after `agents.tokenExpiry` (default `24h`) unless you pass `expiresAt` to `agent.create`.
 </Warning>
 
 </Step>
@@ -217,13 +224,13 @@ export async function POST() {
 
 <AccordionGroup>
 <Accordion title="Do I need to run TheAuth migrations manually?" icon="database">
-No by default. TheAuth runs its own migrations on first boot. Set `skipMigrations: true` in `createTheAuth` if you want to run them yourself via `theauth-cli migrate`.
+No by default. TheAuth runs its own migrations on first boot. Set `skipMigrations: true` inside the `database` config if you want to run them yourself with `npx theauth migrate` (from `@glinr/theauth-cli`).
 </Accordion>
 <Accordion title="Can I share the session cookie with my existing auth?" icon="cookie-bite">
 Not directly. TheAuth issues its own cookie for sessions created via its plugins. If you never use TheAuth's human-auth plugins (because you have Clerk / Auth.js / better-auth), you never see that cookie and there is nothing to share.
 </Accordion>
 <Accordion title="What if my user IDs change shape later?" icon="arrows-rotate">
-TheAuth stores `ownerId` as a string and never interprets it. Migrating from numeric IDs to UUIDs later means updating `theauth_agents.owner_id` in a single SQL update.
+TheAuth stores `ownerId` as a string and never interprets it, but `theauth_agents.owner_id` references `theauth_users.id`. Migrating from numeric IDs to UUIDs later means updating `theauth_users.id` and every referencing `owner_id` together, in one transaction.
 </Accordion>
 <Accordion title="Does TheAuth emit events I can subscribe to?" icon="rss">
 Yes, via [event streaming](/event-streaming) and [webhooks](/webhooks). Wire them to your analytics or to Stripe / PostHog / Slack.

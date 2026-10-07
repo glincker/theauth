@@ -6,30 +6,48 @@ icon: users
 
 ## Setup
 
-Add the `organization` plugin to your TheAuth instance:
+There are two ways to use organizations, and the `theauth.org` object used in the examples below only exists with the first one.
+
+**Programmatic API (`theauth.org`).** Pass an `org` config object to `createTheAuth`. Without it, `theauth.org` is `null` and every `theauth.org.*` call below fails.
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
-import { organization } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
-  plugins: [
-    organization({ // [!code highlight]
-      maxMembers: 100, // [!code highlight]
-      maxOrgsPerUser: 5, // [!code highlight]
-      allowCustomRoles: true, // [!code highlight]
-    }), // [!code highlight]
-  ],
+  org: { // [!code highlight]
+    maxMembers: 100, // [!code highlight]
+    maxOrgsPerUser: 5, // [!code highlight]
+    allowCustomRoles: true, // [!code highlight]
+  }, // [!code highlight]
+});
+
+// theauth.org is typed as nullable
+const org = await theauth.org?.create({ name: 'Acme', slug: 'acme', ownerId: 'user_123' });
+```
+
+**HTTP endpoints (`organization` plugin).** The `organization()` plugin registers `/auth/org/*` routes for an adapter to serve. It does not add `theauth.org` to the instance.
+
+```ts
+import { organization } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  plugins: [organization({ maxMembers: 100, maxOrgsPerUser: 5, allowCustomRoles: true })],
 });
 ```
+
+The plugin routes act on the authenticated user, resolved from `auth.adapter` or an `auth.session` token.
+
+The code samples below call `theauth.org!.<method>(...)`. They assume the `org` config was passed. Use `?.` instead of `!` if you want to tolerate it being absent.
 
 ## Creating organizations
 
 ```ts
-const org = await theauth.org.create({
+const org = await theauth.org!.create({
   name: 'Acme Corp',
-  slug: 'acme-corp',   // lowercase letters, numbers, hyphens only
+  slug: 'acme-corp',   // lowercase letters, numbers, hyphens only (no leading, trailing or doubled hyphens)
   ownerId: 'user_abc',
   metadata: { plan: 'pro' },
 });
@@ -41,32 +59,32 @@ The creator is automatically added as a member with the `owner` role.
 ## Inviting members
 
 ```ts
-const invitation = await theauth.org.invite({
+const invitation = await theauth.org!.invite({
   orgId: org.id,
   email: 'alice@acme.com',
   role: 'admin',
   invitedBy: 'user_abc',
 });
-// invitation.id, invitation.expiresAt (7 days)
+// invitation.id, invitation.expiresAt (7 days by default, set invitationExpiryMs to change)
 ```
 
 Accept on the invited user's side:
 
 ```ts
-const member = await theauth.org.acceptInvitation(invitation.id, 'user_xyz');
+const member = await theauth.org!.acceptInvitation(invitation.id, 'user_xyz');
 ```
 
 ## Managing members
 
 ```ts
 // List all members
-const members = await theauth.org.getMembers(org.id);
+const members = await theauth.org!.getMembers(org.id);
 
 // Change a member's role
-await theauth.org.updateMemberRole(org.id, 'user_xyz', 'member');
+await theauth.org!.updateMemberRole(org.id, 'user_xyz', 'member');
 
 // Remove a member
-await theauth.org.removeMember(org.id, 'user_xyz');
+await theauth.org!.removeMember(org.id, 'user_xyz');
 ```
 
 ## Roles and permissions
@@ -83,23 +101,49 @@ Four built-in roles ship by default:
 Check permissions at runtime:
 
 ```ts
-const allowed = await theauth.org.hasPermission(org.id, userId, 'agents:create'); // [!code highlight]
+const allowed = await theauth.org!.hasPermission(org.id, userId, 'agents:create'); // [!code highlight]
 ```
 
 ### Custom roles
 
 ```ts
-await theauth.org.createRole(org.id, {
+await theauth.org!.createRole(org.id, {
   name: 'billing',
   permissions: ['invoices:read', 'invoices:pay'],
 });
 ```
 
 <Note>
-  Set `allowCustomRoles: false` in the plugin config to restrict orgs to the built-in roles only.
+  Set `allowCustomRoles: false` in the `org` config (or the plugin options) to restrict orgs to the built-in roles only.
 </Note>
 
+## Configuration reference
+
+<ParamField path="defaultRoles" type="OrgRole[]">Roles created for new organizations. Defaults to the four built-in roles.</ParamField>
+<ParamField path="maxMembers" type="number" default={100}>Maximum members per organization.</ParamField>
+<ParamField path="maxOrgsPerUser" type="number" default={5}>Maximum organizations a user can create.</ParamField>
+<ParamField path="allowCustomRoles" type="boolean" default={true}>Whether `createRole` is allowed.</ParamField>
+<ParamField path="invitationExpiryMs" type="number" default={604800000}>Invitation lifetime in milliseconds (7 days).</ParamField>
+<ParamField path="maxInvitationsPerHour" type="number" default={50}>Maximum invitations per organization per hour.</ParamField>
+
 ## Endpoints
+
+### `organization()` plugin
+
+All plugin routes require an authenticated user.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/org/create` | Create an organization, body `{ name, slug, metadata? }`. The caller becomes owner |
+| GET | `/auth/org/list` | List the caller's organizations as `{ organizations }` |
+| POST | `/auth/org/:id/invite` | Send an invitation, body `{ email, role? }` (default role `member`). Owner or admin only |
+| POST | `/auth/org/:id/members` | List members as `{ members }`. Caller must be a member (this route lists, it does not add) |
+| PATCH | `/auth/org/:id/members/:userId` | Update a member's role, body `{ role }`. Owner or admin only |
+| DELETE | `/auth/org/:id/members/:userId` | Remove a member. Owner or admin only |
+
+### `theauth.org.handleRequest` (module)
+
+The module's own handler serves a larger set of paths. It does no authentication, so only mount it behind your own checks.
 
 | Method | Path | Description |
 |--------|------|-------------|

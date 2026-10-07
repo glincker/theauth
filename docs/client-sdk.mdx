@@ -13,6 +13,10 @@ icon: code
   Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun, anywhere the Fetch API is available.
 </Info>
 
+<Warning>
+  The client and the adapters in this repository do not fully line up yet. The adapters wrap every success body as `{ "data": ... }` and the client returns the parsed body as is, without unwrapping it. The adapters answer a denied authorization with HTTP `403`, which the client throws as a `TheAuthApiError` instead of returning `allowed: false`. And four client calls target paths the adapters do not serve: `authorize` (`POST /agents/:id/authorize`), `authorizeByToken` (`POST /authorize` with a bearer header; the adapters take `agentId` there and use `POST /authorize/token` for tokens), `delegations.getEffectivePermissions` (`GET /delegations/:agentId/permissions`), and all of `mcp.*` (`/mcp/servers`). The examples below show the API the client is typed for. Check it against your server before relying on it, or call the [REST endpoints](/api) directly.
+</Warning>
+
 ## Installation
 
 ```bash
@@ -47,7 +51,7 @@ const agent = await client.agents.create({
   ],
 });
 
-console.log(agent.token); // kv_a3f8c2e1..., save this now
+console.log(agent.token); // kv_..., save this now
 
 // List with optional filters
 const active = await client.agents.list({
@@ -59,7 +63,7 @@ const active = await client.agents.list({
 // Get by ID (returns null for 404)
 const found = await client.agents.get('agt_abc123');
 
-// Update name and permissions
+// Update name and permissions (a new permissions array replaces the old one)
 const updated = await client.agents.update('agt_abc123', {
   name: 'data-pipeline-bot-v2',
   permissions: [
@@ -81,19 +85,19 @@ Two paths: by agent ID (when you manage the agent directly) or by raw bearer tok
 
 ```typescript
 // By agent ID, useful in admin or backend code
-const result = await client.authorize('agt_abc123', {
+const byId = await client.authorize('agt_abc123', {
   action: 'read',
   resource: 'db:reports:monthly',
   arguments: { reportId: 'r-456' },
 });
 
-if (!result.allowed) {
-  console.error(result.reason); // why it was denied
+if (!byId.allowed) {
+  console.error(byId.reason); // free-text explanation of the denial
 }
 
 // By bearer token, useful in middleware
 const bearerToken = request.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
-const result = await client.authorizeByToken(bearerToken, {
+const byToken = await client.authorizeByToken(bearerToken, {
   action: 'read',
   resource: 'db:reports:monthly',
 });
@@ -109,13 +113,14 @@ const chain = await client.delegations.create({
   permissions: [
     { resource: 'db:reports:*', actions: ['read'] },
   ],
-  expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
 });
 
-// List delegations for an agent
+// List delegations where the agent is the source (fromAgent)
 const delegations = await client.delegations.list('agt_parent');
 
-// Effective permissions: union of own + delegated
+// Effective permissions: the permissions the agent currently holds through
+// active, unexpired delegations (its own permissions are not included)
 const effective = await client.delegations.getEffectivePermissions('agt_child');
 
 // Revoke a delegation
@@ -128,18 +133,18 @@ await client.delegations.revoke(chain.id);
 // Query with filters
 const entries = await client.audit.query({
   agentId: 'agt_abc123',
-  since: new Date('2024-01-01'),
-  until: new Date('2024-02-01'),
+  since: '2024-01-01T00:00:00Z',
+  until: '2024-02-01T00:00:00Z',
   result: 'denied',
   limit: 100,
   offset: 0,
 });
 
-// Export as CSV for billing or compliance
+// Export as CSV for billing or compliance (returns the file contents as a string)
 const csv = await client.audit.export({
   format: 'csv',
-  since: new Date('2024-01-01'),
-  until: new Date('2024-02-01'),
+  since: '2024-01-01T00:00:00Z',
+  until: '2024-02-01T00:00:00Z',
 });
 
 // Export as JSON
@@ -154,10 +159,10 @@ All methods throw `TheAuthApiError` when the server returns a non-2xx response o
 import { TheAuthApiError } from '@glinr/theauth-client';
 
 try {
-  const agent = await client.agents.get('agt_nonexistent');
+  const agent = await client.agents.rotate('agt_nonexistent');
 } catch (err) {
   if (err instanceof TheAuthApiError) {
-    console.error(err.code);    // e.g. 'AGENT_NOT_FOUND'
+    console.error(err.code);    // e.g. 'NOT_FOUND', 'BAD_REQUEST', 'INTERNAL_ERROR'
     console.error(err.message); // human-readable message
     console.error(err.status);  // HTTP status code
   }
@@ -171,6 +176,8 @@ try {
 </Warning>
 
 ## MCP servers
+
+These calls hit `/mcp/servers`, which the bundled adapters do not serve (see the warning above). In your own server code, use the in-process registry `theauth.mcp.register`, `list`, and `get` instead.
 
 ```typescript
 // Register an MCP server

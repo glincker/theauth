@@ -25,4 +25,5 @@ The delegation chain must be inserted into `theauth_delegation_chains` with `sta
 ## Tweak this
 
 - Set `expiresAt` to `Date.now() + 3_600_000` for a one-hour window.
-- Reduce `maxDepth` on the chain row to prevent the delegate from re-delegating further.
+- When creating chains through `theauth.delegate()`, pass `maxDepth` (default 3) to cap chain depth. The check is made at delegation time against the `maxDepth` of the new delegation call; the `maxDepth` stored on an existing chain row is not consulted when the delegate delegates further.
+- Delegated permissions reach the engine as `resource` and `actions` only, so constraints on delegated permissions are not applied.

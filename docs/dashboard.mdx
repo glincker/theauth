@@ -1,6 +1,6 @@
 ---
 title: Admin dashboard
-description: Embed `AuthDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
+description: Embed `TheAuthDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
 icon: table-columns
 ---
 
@@ -24,7 +24,7 @@ The fastest way to see the dashboard in action:
 npx theauth dashboard
 ```
 
-This starts a full TheAuth instance with in-memory SQLite, seeds sample data (3 agents, permissions, audit entries, a delegation chain), and serves the dashboard on `http://localhost:3100`.
+This starts a full TheAuth instance with in-memory SQLite, seeds sample data (3 agents, permissions, audit entries, a delegation chain), and serves the dashboard on `http://localhost:3100` (set another port with `--port`).
 
 To add a login screen:
 
@@ -32,7 +32,7 @@ To add a login screen:
 THEAUTH_DASHBOARD_SECRET=your-secret npx theauth dashboard
 ```
 
-When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt before granting access. Without it, the dashboard is open (suitable for local development only).
+When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt before granting access. Without it, the server prints a warning and the dashboard login accepts anyone (suitable for local development only).
 
 <Warning>
   Demo mode uses an in-memory database. All data is lost when the server stops. For persistent data, embed the dashboard in your app and point it at a real database.
@@ -48,17 +48,16 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     pnpm add @glinr/theauth-dashboard
     ```
 
-    Render `AuthDashboard` inside a protected route in your app:
+    Render `TheAuthDashboard` inside a protected route in your app. (`AuthDashboard` is a deprecated alias for the same component.)
 
     ```tsx
-    import { AuthDashboard } from '@glinr/theauth-dashboard';
+    import { TheAuthDashboard } from '@glinr/theauth-dashboard';
 
     export default function AdminPage() {
       return (
-        <AuthDashboard
-          apiUrl="/api/theauth"
-          theme="system"
-          demo={false}
+        <TheAuthDashboard
+          apiUrl="https://api.example.com"
+          theme="dark"
         />
       );
     }
@@ -66,82 +65,62 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
 
     ### Component props
 
-    <ParamField path="apiUrl" type="string">Base URL for API requests. The dashboard appends paths like /agents, /audit, etc.</ParamField>
-<ParamField path="theme" type="'light' | 'dark' | 'system'">Color scheme. Defaults to 'system' (follows OS preference).</ParamField>
-<ParamField path="demo" type="boolean">When true, shows a banner indicating sample data. Defaults to false.</ParamField>
+    <ParamField path="apiUrl" type="string" required>Base URL of the API. The dashboard calls `${apiUrl}/api/...` (for example `/api/agents`, `/api/audit`, `/api/dashboard/stats`), see the endpoint list below.</ParamField>
+<ParamField path="theme" type="'light' | 'dark'">Initial color scheme. Defaults to `'dark'`. A choice made with the header toggle is saved in localStorage and takes precedence on later visits. There is no `'system'` option.</ParamField>
+<ParamField path="demo" type="boolean">When true, shows a banner indicating sample data.</ParamField>
 
-    ### Backend proxy
+    The component peer-depends on React 19 or later.
 
-    The dashboard talks to your backend, which forwards requests to TheAuth. This keeps database credentials server-side.
+    ### Backend
 
-    <Tabs>
-      <Tab title="Next.js">
-        ```typescript
-        // app/api/theauth/[...path]/route.ts
-        import { createTheAuth } from '@glinr/theauth';
-        import { theAuthNextjs } from '@glinr/theauth-nextjs';
+    The dashboard needs an HTTP backend that serves the paths listed under "API endpoints" below, all under an `/api` prefix on `apiUrl`. The framework adapters (`theAuthNextjs`, `theAuthHono`, `theAuthExpress`, and the others) serve the agent, authorization, delegation, audit, and `dashboard/*` routes of the core API (mounted under `/api/theauth` by default), but they do not serve every route the dashboard calls: `/users`, `/permissions/templates`, `/settings`, `/mcp/servers` (list), and `/agents/:id/permissions` are only implemented in the CLI's demo server. The dashboard also revokes agents with `POST /agents/:id/revoke`, while the Hono adapter exposes revocation as `DELETE /agents/:id`, so that route needs a small shim of your own. The adapter paths also have no `/api` prefix of their own, so mount the adapter so that its routes resolve under `/api` on the host you pass as `apiUrl`. Treat the embedded component as something you wire to your own `/api` routes, and use the standalone CLI if you only want to look at the UI.
 
-        const theauth = await createTheAuth({
-          database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-        });
+    ```typescript
+    import { Hono } from 'hono';
+    import { createTheAuth } from '@glinr/theauth';
+    import { theAuthHono } from '@glinr/theauth-hono';
 
-        const handler = theAuthNextjs(theauth);
-        export const GET = handler;
-        export const POST = handler;
-        export const DELETE = handler;
-        export const PATCH = handler;
-        ```
-      </Tab>
-      <Tab title="Hono">
-        ```typescript
-        import { Hono } from 'hono';
-        import { createTheAuth } from '@glinr/theauth';
-        import { theAuthHono } from '@glinr/theauth-hono';
+    const theauth = await createTheAuth({
+      database: { provider: 'sqlite', url: 'theauth.db' },
+    });
 
-        const theauth = await createTheAuth({
-          database: { provider: 'sqlite', url: 'theauth.db' },
-        });
+    const app = new Hono();
+    app.route('/api', theAuthHono(theauth)); // serves /api/agents, /api/audit, /api/dashboard/stats, ...
+    ```
 
-        const app = new Hono();
-        app.route('/api/theauth', theAuthHono(theauth));
-        ```
-      </Tab>
-      <Tab title="Express">
-        ```typescript
-        import express from 'express';
-        import { createTheAuth } from '@glinr/theauth';
-        import { theAuthExpress } from '@glinr/theauth-express';
+    ### Login gate
 
-        const theauth = await createTheAuth({
-          database: { provider: 'sqlite', url: 'theauth.db' },
-        });
+    The component always renders its own login gate. On load it checks a secret stored in `sessionStorage` against `GET ${apiUrl}/api/dashboard/auth` (with an `Authorization: Bearer <secret>` header), and shows a password screen when that check fails. Your backend must implement `/api/dashboard/auth` (return `200` when the bearer secret is valid) or the dashboard never gets past the login screen. The core adapters do not implement it. The CLI servers implement it with `THEAUTH_DASHBOARD_SECRET`.
 
-        const app = express();
-        app.use('/api/theauth', theAuthExpress(theauth));
-        ```
-      </Tab>
-    </Tabs>
+    ```typescript
+    app.get('/api/dashboard/auth', (c) => {
+      const provided = c.req.header('Authorization')?.replace('Bearer ', '');
+      return provided === process.env.DASHBOARD_SECRET
+        ? c.json({ ok: true })
+        : c.json({ code: 'UNAUTHORIZED', message: 'Invalid dashboard secret.' }, 401);
+    });
+    ```
 
-    ### Auth guard
+    ### Route protection
 
-    The dashboard component does not enforce authentication. Wrap the page with your own auth check:
+    That secret gate is not a replacement for your app's own access control. Wrap the page with your own auth check as well:
 
     ```tsx
     // app/admin/page.tsx
     import { redirect } from 'next/navigation';
     import { getSession } from '@/lib/auth';
-    import { AuthDashboard } from '@glinr/theauth-dashboard';
+    import { TheAuthDashboard } from '@glinr/theauth-dashboard';
 
     export default async function AdminPage() {
       const session = await getSession();
       if (!session?.user.isAdmin) redirect('/');
 
-      return <AuthDashboard apiUrl="/api/theauth" theme="system" />;
+      return <TheAuthDashboard apiUrl="https://api.example.com" />;
     }
     ```
 
     <Warning>
-      Do not render `AuthDashboard` on a public route. It gives full read/write access to all agents, permissions, and audit data.
+      Do not render the dashboard on a public route. It gives full read/write access to all agents, permissions, and audit data.
     </Warning>
   </Tab>
 
@@ -152,21 +131,21 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     npx theauth dashboard --port 3100
     ```
 
-    This starts a demo server with in-memory SQLite and sample data. For a production setup, embed the React component in your app instead.
+    This starts a demo server with in-memory SQLite and sample data. The data is not persisted. For a persistent setup, embed the React component in your app and point it at your own backend.
 
     ### CLI options
 
     | Option | Description |
     |---|---|
     | `--port` | Port to listen on. Defaults to `3100`. |
-    | `--static` | Static-only mode. Serves the dashboard UI without a backend. Use `--api` to point at your own API server. |
+    | `--static` | Static-only mode. Serves the dashboard UI without a backend, and serves only the `/api/dashboard/auth` check itself. Use `--api` to point at your own API server. |
     | `--api` | API URL when using `--static` mode. Defaults to `http://localhost:3000`. |
 
     ### Environment variables
 
     | Variable | Description |
     |---|---|
-    | `THEAUTH_DASHBOARD_SECRET` | When set, the dashboard requires this password to log in. Without it, access is open. |
+    | `THEAUTH_DASHBOARD_SECRET` | When set, the dashboard requires this password to log in. Without it, the server warns and login is open. |
 
     ### Example with auth
 
@@ -208,20 +187,20 @@ When embedded as a React component, pass `theme="light"`, `theme="dark"`, or `th
 
 ## API endpoints
 
-The dashboard calls these REST endpoints on your backend. If you are building a custom dashboard or integrating with other tools, here is the full list:
+The dashboard calls these REST endpoints on `${apiUrl}`, each under an `/api` prefix (for example `/api/agents`). If you are building a custom dashboard or integrating with other tools, here is the list the client uses. Paths are shown without the prefix:
 
 | Method | Path | Description |
 |---|---|---|
+| GET | `/dashboard/auth` | Validate the dashboard secret (Bearer header), used by the login gate |
 | GET | `/dashboard/stats` | Agent counts, audit stats, delegation counts |
 | GET | `/agents` | List all agents |
 | POST | `/agents` | Create an agent |
-| DELETE | `/agents/:id` | Revoke an agent |
+| POST | `/agents/:id/revoke` | Revoke an agent |
 | POST | `/agents/:id/rotate` | Rotate an agent's token |
 | GET | `/agents/:id/permissions` | Get an agent's permissions |
 | GET | `/audit` | Query audit logs (supports filters) |
 | GET | `/audit/export` | Export logs as JSON or CSV |
 | GET | `/delegations` | List delegation chains |
-| POST | `/delegations` | Create a delegation |
 | DELETE | `/delegations/:id` | Revoke a delegation |
 | GET | `/permissions/templates` | List permission templates |
 | POST | `/permissions/templates` | Create a template |
@@ -243,7 +222,7 @@ The dashboard calls these REST endpoints on your backend. If you are building a 
     Query and export the same audit data the dashboard surfaces.
   </Card>
   <Card title="UI components" href="/ui-components" icon="table-columns">
-    Pre-built React components for sign-in forms and session management.
+    React components for sign-in forms and session management.
   </Card>
   <Card title="Terraform" href="/terraform" icon="server">
     Manage agents and permissions as code for reproducible environments.

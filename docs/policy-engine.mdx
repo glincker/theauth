@@ -7,7 +7,7 @@ icon: shield-halved
 
 The policy engine is the single decision point for all authorization in TheAuth. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
 
-Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. The existing `authorize()` function still works unchanged in v1; it shares ABAC primitives with the policy engine but evaluates only the agent's direct permissions. Migrate calls to `evaluate()` when you want role expansion, ReBAC checks, or richer decision metadata.
+Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. `theauth.authorize()` is a separate code path: it shares the ABAC primitives (resource matching and constraint checks) with the policy engine, but it evaluates only the first matching permission on the agent, then falls back to permissions received through delegation. It does not call `evaluate()`, and it does not do role expansion or ReBAC checks. Call `evaluate()` directly when you want those, combine-all semantics, or richer decision metadata.
 
 ## Quick start
 
@@ -36,6 +36,7 @@ if (!decision.allowed) {
 }
 // decision.cacheHit === false on first call
 // decision.durationMs shows wall time in milliseconds
+// Constraints that inspect arguments read them from context.arguments
 ```
 
 ## The PolicyDecision shape
@@ -46,9 +47,9 @@ Every `evaluate()` call returns a `PolicyDecision`. Never throw on a denied deci
 |---|---|---|
 | `allowed` | `boolean` | Whether the request is permitted. |
 | `effect` | `"permit" \| "deny" \| "indeterminate"` | The combining result. `indeterminate` means no permission matched or an error occurred; callers should treat it as deny. |
-| `reason` | `string` | A human-readable or error-code string explaining the decision. On clean permits, this is `"matched"`. |
-| `matchedPermissionId` | `string \| undefined` | ID of the permission row that produced the final result, if available. |
-| `matchedRelation` | `string \| undefined` | The ReBAC relation string that was consulted, if a permission has `relation` set. |
+| `reason` | `string` | A human-readable or error-code string explaining the decision. On clean permits, this is `"matched"`. When nothing matched it is `POLICY_NO_MATCHING_PERMISSION`. Other codes: `POLICY_INVALID_INPUT`, `POLICY_SUBJECT_NOT_FOUND`, `POLICY_GRAPH_QUERY_FAILED`. |
+| `matchedPermissionId` | `string \| undefined` | Declared on the type but not populated by the engine today; it is always `undefined`. |
+| `matchedRelation` | `string \| undefined` | The ReBAC relation string of the permission that produced the result, if that permission has `relation` set. |
 | `cacheHit` | `boolean` | Whether this decision came from the LRU cache. |
 | `durationMs` | `number` | Wall time for the evaluation, rounded to the nearest millisecond. |
 | `auditId` | `string \| undefined` | ID of the audit row written for this evaluation. Undefined if audit is disabled, sampling excluded it, or the subject is user-only. |
@@ -57,11 +58,13 @@ Every `evaluate()` call returns a `PolicyDecision`. Never throw on a denied deci
 
 ### Direct and delegated permissions
 
-For agent subjects, the engine fetches permissions stored directly on the agent (via the `permissions` table) and permissions received through active, non-expired delegation chains. These are the same records that `authorize()` evaluated before the policy engine existed.
+For agent subjects, the engine fetches permissions stored directly on the agent (via the `permissions` table) and permissions received through active, non-expired delegation chains. Delegated permissions carry only `resource` and `actions` into the engine; constraints set on the delegated permission are not applied.
+
+Unlike `authorize()`, the engine evaluates every matching permission (not just the first) and combines the results.
 
 ### Role-derived permissions
 
-For user subjects (when `subject.userId` is present), the engine joins `orgMembers` to `orgRoles` and folds the resulting permissions into the effective set. Supply `subject.orgId` to scope the lookup to a specific org; without it the engine considers all orgs the user belongs to.
+For user subjects (when `subject.userId` is present), the engine joins `orgMembers` to `orgRoles` and folds the resulting permissions into the effective set. Role permissions are stored as `resource:action` strings (split on the last colon). Supply `subject.orgId` to scope the lookup to a specific org; without it the engine considers all orgs the user belongs to.
 
 ```typescript
 // User subject with org scope
@@ -88,7 +91,7 @@ const perm: Permission = {
 };
 ```
 
-At evaluation time the engine calls into the existing ReBAC module to check whether `(subject, "viewer", resource)` is satisfied, including inherited relations from parent objects. If no tuple matches, the permission is skipped. It does not contribute a PERMIT or DENY, the next permission in the effective set is checked instead.
+At evaluation time the engine calls into the existing ReBAC module to check whether `(subject, "viewer", resource)` is satisfied, including inherited relations from parent objects. The requested resource must be a concrete `type:id` (for example `document:123`); a resource containing `*` never matches a relation. Set only one of `agentId` or `userId` on the subject for relation checks, because a subject with both is treated as invalid and does not match. If no tuple matches, the permission is skipped. It does not contribute a PERMIT or DENY, the next permission in the effective set is checked instead.
 
 If the graph query itself fails (database error or depth limit exceeded), the engine records `POLICY_GRAPH_QUERY_FAILED` and returns `indeterminate` rather than accidentally granting access. The engine is fail-closed on graph errors.
 
@@ -120,9 +123,9 @@ const theauth = await createTheAuth({
 const engine = theauth.policy;
 ```
 
-**What gets cached:** Decisions for purely RBAC and ReBAC paths are cached. A second `evaluate()` call with the same subject, action, resource, and IP returns in under 1ms with `cacheHit: true`.
+**What gets cached:** Decisions that came from a normal evaluation and involved no state-dependent constraint. The cache key is subject (agent ID, else user ID), org ID, action, resource, and IP. A second `evaluate()` call with the same key is served from the cache with `cacheHit: true`. Validation errors, subject lookup failures, and graph query failures are not cached.
 
-**What does not get cached:** Permissions with `maxCallsPerHour` or `timeWindow` constraints are time-sensitive. Caching those would let a rate-limited agent exceed its limit or let a timed-out permission linger past its window. The engine detects any time-sensitive permission in the effective set and skips the cache write for that evaluation entirely.
+**What does not get cached:** Permissions with `maxCallsPerHour`, `timeWindow`, or `allowedArgPatterns` constraints are state or input dependent. Caching those would let a rate-limited agent exceed its limit, let a timed-out permission linger past its window, or let a safe-arguments decision serve an unsafe-arguments request (arguments are not part of the key). The engine skips the cache write for any evaluation where a matching permission carries one of these constraints.
 
 **Invalidation:** TTL expiry happens lazily on read. For immediate invalidation after a write:
 
@@ -133,7 +136,7 @@ engine.invalidate({ agentId: 'agt_abc123' });
 // Flush all decisions for a specific user
 engine.invalidate({ userId: 'usr_alice' });
 
-// Flush all decisions touching a specific resource (clears the full cache)
+// Flush all decisions for a specific resource (clears the full cache)
 engine.invalidate({ resource: 'mcp:github:repos' });
 ```
 
@@ -149,7 +152,7 @@ const { hits, misses, size, evictions } = engine.stats();
 
 ## Combining algorithm
 
-The default strategy is deny-overrides. Any explicit DENY in the matched permission set wins over any number of PERMITs. This reflects the conservative principle: if any rule says no, the answer is no.
+The default strategy is deny-overrides. Every matching permission produces a PERMIT (constraints pass) or a DENY (a constraint fails); permissions that do not match the resource or action, or whose ReBAC relation is not satisfied, produce nothing. Any DENY wins over any number of PERMITs. This reflects the conservative principle: if any rule says no, the answer is no.
 
 A worked example:
 
@@ -166,13 +169,13 @@ decision.effect === "deny"
 
 Even though `perm-1` would allow the call in isolation, the time-window constraint on `perm-2` produces a DENY, and deny-overrides means the final answer is no.
 
-If no permission matched at all, the result is `indeterminate`, which `allowed: false` represents. Callers should treat `indeterminate` the same as an explicit deny.
+If no permission matched at all, the result is `indeterminate` with reason `POLICY_NO_MATCHING_PERMISSION`, and `allowed` is `false`. Callers should treat `indeterminate` the same as an explicit deny.
 
-To flip to permit-overrides (any PERMIT wins over DENYs), pass `combineStrategy: "permit-overrides"` in config. That is less common; most deployments want the conservative default.
+To flip to permit-overrides (any PERMIT wins over DENYs), pass `combineStrategy: "permit-overrides"` in the `policy` config. That is less common; most deployments want the conservative default.
 
 ## Audit
 
-Every `evaluate()` call writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards.
+Every `evaluate()` call with an `agentId` in the subject writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards. The `result` column is `allowed` or `denied`. Calls rejected by input validation, and calls where the agent has no owner, write no row.
 
 ```typescript
 const theauth = await createTheAuth({
@@ -186,9 +189,9 @@ const theauth = await createTheAuth({
 
 `auditSampleRate` defaults to `1.0` (every evaluation). Dial it down in high-throughput environments where a hot cache path would otherwise generate millions of rows per hour.
 
-**Current limitation:** Only evaluations with an `agentId` in the subject write audit rows. The `audit_logs` table has `agent_id NOT NULL`, so user-only subjects (where only `userId` is present) are silently skipped. This will be addressed when the audit schema adds a nullable `user_id` column separate from `agent_id`.
+**Current limitation:** Only evaluations with an `agentId` in the subject write audit rows. The `audit_logs` table has `agent_id NOT NULL`, so user-only subjects (where only `userId` is present) are silently skipped.
 
-Audit writes are non-blocking. A write failure logs a warning and does not affect the returned decision. The `auditId` field on the decision will be `undefined` if the write was skipped or failed.
+Audit writes are non-blocking. A write failure is swallowed and does not affect the returned decision. The `auditId` on the decision is generated before the write, so it can refer to a row that was never written if the insert failed. It is `undefined` when audit is disabled, the sample excluded the call, or the subject has no `agentId`.
 
 ## Configuration
 
@@ -203,18 +206,17 @@ Full `PolicyEngineConfig` reference:
 
 ## Migration from `authorize()`
 
-`authorize()` still works. Its body now calls `evaluate()` internally and returns the same shape it always did. Adapters can migrate at their own pace.
+`authorize()` still works and is the path adapters use. It does not call `evaluate()` internally, so the two can disagree: `authorize()` stops at the first permission matching resource and action, while `evaluate()` considers all matching permissions (deny-overrides) and also reads roles and ReBAC relations. Also, `authorize()` takes the request context as an optional third argument, while `evaluate()` takes `context` inside its input.
 
-If you want the full `PolicyDecision` (cache stats, matched relation, duration), call `evaluate()` directly:
+If you want the full `PolicyDecision` (cache hit, matched relation, duration), call `evaluate()` directly:
 
 ```typescript
 // Before: using theauth.authorize()
 const result = await theauth.authorize(
   agent.id,
-  { action: 'read', resource: 'mcp:github:repos' },
-  { ip: '203.0.113.42' },
+  { action: 'read', resource: 'mcp:github:repos', ip: '203.0.113.42' },
 );
-// result: { allowed: boolean; reason: string; auditId: string }
+// result: { allowed: boolean; reason?: string; auditId: string }
 
 // After: using theauth.policy.evaluate() directly
 const decision = await theauth.policy.evaluate({
@@ -226,13 +228,11 @@ const decision = await theauth.policy.evaluate({
 // decision: PolicyDecision (richer shape)
 ```
 
-The `authorize()` signature is locked by a snapshot test in `policy-backwards-compat.test.ts`. Any drift from the existing return shape will fail CI.
-
 `requireScopes()` in `mcp/require-scopes.ts` still uses its own code path. It does not yet call `evaluate()`.
 
 ## Performance targets and benchmarks
 
-Targets measured on a single M-series core:
+Design targets (not guarantees; run the benchmark on your own hardware):
 
 | Path | p99 target |
 |---|---|
@@ -247,7 +247,6 @@ The benchmark suite lives at `packages/core/bench/policy-engine.bench.ts` and us
 pnpm --filter @glinr/theauth bench
 ```
 
-CI captures the output as a JSON artifact. A regression of more than 20% from the previous main run fails the build.
 
 ## Limitations and follow-ups
 
@@ -255,7 +254,7 @@ These are known gaps in v1, tracked for future work:
 
 **Process-local cache only.** `invalidate()` affects only the current process. In a multi-instance deployment, stale entries persist in other processes until TTL expiry. A KV or Redis cache layer can slot in later through the same `PolicyCache` interface, but it is not implemented yet.
 
-**No auto-invalidation on writes.** The spec describes hooks that call `invalidate()` whenever permissions, delegation chains, org roles, org members, or ReBAC relationships are mutated. Those hooks are not yet wired to the write paths. Until they are, callers must call `engine.invalidate()` manually after mutations that should take effect immediately.
+**No auto-invalidation on writes.** Nothing calls `invalidate()` when permissions, delegation chains, org roles, org members, or ReBAC relationships change. Callers must call `engine.invalidate()` manually after mutations that should take effect immediately.
 
 **User-only subjects skip audit.** If `subject.agentId` is absent, no audit row is written. This is a schema constraint (`audit_logs.agent_id NOT NULL`), not a policy choice.
 

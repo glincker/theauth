@@ -38,15 +38,16 @@ import { oauth, yahooProvider } from '@glinr/theauth/auth';
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://your-app.com',
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        yahooProvider(
+      providers: {
+        yahoo: yahooProvider(
           process.env.YAHOO_CLIENT_ID!,
           process.env.YAHOO_CLIENT_SECRET!,
         ),
-      ],
+      },
     }),
   ],
 });
