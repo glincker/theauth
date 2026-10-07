@@ -5,7 +5,7 @@
 <h2 align="center"><em>Open-source auth for AI agents and humans.<br>Agent identity, MCP OAuth 2.1, passkeys, SSO.</em></h2>
 
 <p align="center">
-  by <a href="https://glinr.com"><strong>GLINR STUDIOS</strong></a> &middot; founded by <a href="https://thegdsks.com">thegdsks</a>
+  by <a href="https://glincker.com"><strong>GLINCKER</strong></a>, a <a href="https://glinr.com">GLINR STUDIOS</a> company &middot; founded by <a href="https://thegdsks.com">thegdsks</a>
 </p>
 
 <p align="center">
@@ -502,9 +502,9 @@ By contributing, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
-## Made by GLINR STUDIOS
+## Made by GLINCKER, a GLINR STUDIOS company
 
-theAuth is built and maintained in the open by [GLINR STUDIOS](https://glinr.com). Founder: [thegdsks.com](https://thegdsks.com). This site and the docs are designed with [GLINUI](https://glinui.com).
+theAuth is built and maintained in the open by [GLINCKER](https://glincker.com), the open-source division of [GLINR STUDIOS](https://glinr.com). Founder: [thegdsks.com](https://thegdsks.com). This site and the docs are designed with [GLINUI](https://glinui.com).
 
 ### Partner open-source projects
 
@@ -515,5 +515,5 @@ theAuth is built and maintained in the open by [GLINR STUDIOS](https://glinr.com
 | **GLINUI** | Open-source liquid glass UI components for React. theauth.dev is designed with it. | [glinui.com](https://glinui.com) | [glincker/glinui](https://github.com/glincker/glinui) |
 
 <p align="center">
-  <em>A product of <a href="https://glinr.com"><strong>GLINR STUDIOS</strong></a>. Founded by <a href="https://thegdsks.com">thegdsks</a>.</em>
+  <em>By <a href="https://glincker.com"><strong>GLINCKER</strong></a>, a <a href="https://glinr.com">GLINR STUDIOS</a> company. Founded by <a href="https://thegdsks.com">thegdsks</a>.</em>
 </p>
