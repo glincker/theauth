@@ -4,6 +4,10 @@ description: "The Model Context Protocol (MCP) specification (2025-11-25 and the
 ---
 The Model Context Protocol (MCP) specification (2025-11-25 and the draft revision) mandates OAuth 2.1 with PKCE for any MCP server that exposes tools over HTTP. The authorization layer is more involved than a typical app-login because the *caller* is an AI agent, not a human, and the chain of delegation must be auditable and revocable at every link.
 
+<Frame caption="The MCP client discovers, registers and authorizes with PKCE S256, then the MCP server validates the token.">
+  <img src="/images/diagrams/mcp-oauth.png" alt="Isometric diagram of an MCP client discovers, registers with and authorizes against the theAuth authorization server using PKCE S256, receives a token, and the MCP server validates that token." />
+</Frame>
+
 ## What the MCP spec requires
 
 1. **An OAuth 2.1 AS** that mints RFC 9068 JWT access tokens bound to a specific resource via RFC 8707.

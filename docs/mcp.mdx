@@ -11,6 +11,10 @@ icon: globe
 
 The Model Context Protocol defines how AI clients connect to tool servers. The 2025-03 revision added an auth layer: MCP servers can now require OAuth 2.1 tokens before accepting tool calls.
 
+<Frame caption="The MCP client discovers, registers and authorizes with PKCE S256, then the MCP server validates the token.">
+  <img src="/images/diagrams/mcp-oauth.png" alt="Isometric diagram of an MCP client discovers, registers with and authorizes against the theAuth authorization server using PKCE S256, receives a token, and the MCP server validates that token." />
+</Frame>
+
 theAuth implements the full MCP auth stack:
 
 - OAuth 2.1 with PKCE (S256 code challenge method only)

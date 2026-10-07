@@ -8,6 +8,10 @@ icon: users
 
 There are two ways to use organizations, and the `theauth.org` object used in the examples below only exists with the first one.
 
+<Frame caption="An identity provider and a SCIM directory feed an organization that holds members and agents.">
+  <img src="/images/diagrams/org-sso.png" alt="Isometric diagram of an identity provider connected by SAML 2.0 or OIDC and a SCIM 2.0 directory both feed an organization that holds members and agents, with tenant tagging." />
+</Frame>
+
 **Programmatic API (`theauth.org`).** Pass an `org` config object to `createTheAuth`. Without it, `theauth.org` is `null` and every `theauth.org.*` call below fails.
 
 ```ts

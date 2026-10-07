@@ -113,6 +113,10 @@ if (!result.allowed) {
 
 The token is hashed and looked up in the database, then permissions are evaluated and the decision is written to the audit log. No JWTs, no network round-trip. This path checks the agent's own permissions only; permissions it holds through delegation are applied by `authorize(agentId, ...)`.
 
+<Frame caption="An authorize() call checks permissions, writes the audit record and returns allowed with an auditId.">
+  <img src="/images/diagrams/authorize-flow.png" alt="Isometric diagram of an agent request passes the theAuth gate, which checks permissions and writes an audit record, before reaching your MCP server or API. The result is allowed: true with an audit id." />
+</Frame>
+
 </Step>
 
 <Step title="Rotate">
