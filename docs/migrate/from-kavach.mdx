@@ -1,0 +1,52 @@
+---
+title: Upgrade from Kavach names
+description: Rename Kavach exports, env vars, imports and JSX components to TheAuth in one command with the theauth codemod rename CLI.
+icon: arrow-right-arrow-left
+---
+
+The legacy `Kavach*` names are gone. Exports are `TheAuth*`, env vars are `THEAUTH_*`, webhook headers are `X-TheAuth-*`, and database tables are `theauth_*`. The `theauth codemod rename` command updates your source for the part that is mechanical.
+
+## Run the codemod
+
+The command is a dry run by default. It lists what would change and writes nothing.
+
+```bash
+npx @glinr/theauth-cli codemod rename src
+```
+
+Review the summary, then apply it.
+
+```bash
+npx @glinr/theauth-cli codemod rename src --write
+```
+
+| Option | Effect |
+|---|---|
+| `[paths...]` | Files or folders to scan. Defaults to the current directory. |
+| `--write` | Apply the changes. Without it nothing is written. |
+| `--include-env` | Also rewrite `KAVACH_*` to `THEAUTH_*` in `.env*` files and `.md` or `.mdx` docs. |
+
+## What it changes
+
+It scans `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, `.cts`, `.vue` and `.svelte` files and skips `node_modules`, `dist`, `build` and other generated folders.
+
+- Identifiers such as `createKavach`, `KavachConfig` and `useKavachContext` in imports, usages, type references and comments, matched on word boundaries only. `KavachProvider` becomes `TheAuthProvider` in JSX opening and closing tags.
+- Old package names in import paths (`kavachos`, `@kavachos/react`) become `@glinr/theauth` and `@glinr/theauth-react`.
+- `process.env.KAVACH_X` and `import.meta.env.KAVACH_X` become `THEAUTH_X`.
+- Other string literals are never touched.
+
+The mapping lives in one data file, `packages/cli/src/rename-map.ts`, and a test checks that every target name is a real export in this repo.
+
+## What it only reports
+
+Some mentions need a human, so the summary lists them with file and line and leaves them alone.
+
+- `X-Kavach-*` header strings. Update your webhook receivers and senders together.
+- `kavach_*` table or cookie names. `createTables` renames existing `kavach_*` tables in place, so you rarely need to edit these.
+- Any other `Kavach` mention, for example a variable named `kavachos_notes`.
+
+Running the command again after `--write` changes nothing, so it is safe to repeat.
+
+## Auth names
+
+`Auth*` names, such as `createAuth`, remain as deprecated aliases and are not rewritten. Switch them to `TheAuth*` at your own pace.

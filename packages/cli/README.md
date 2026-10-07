@@ -43,6 +43,17 @@ npx theauth dashboard
 npx theauth dashboard --port 4000 --api http://localhost:3000
 ```
 
+### `codemod rename`
+
+Migrates `Kavach*` names, `KAVACH_*` env vars and old import paths to TheAuth. Dry run by default:
+
+```bash
+npx theauth codemod rename src
+npx theauth codemod rename src --write --include-env
+```
+
+Reports `X-Kavach-*` headers, `kavach_*` table names and any other leftover mention without editing them. See the [migration guide](https://theauth.dev/docs/migrate/from-kavach).
+
 ## Options
 
 | Flag | Default | Description |
