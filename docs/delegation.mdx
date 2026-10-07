@@ -11,6 +11,10 @@ A delegation chain lets one agent grant a subset of its permissions to another. 
 
 This pattern is most useful when an orchestrator spins up sub-agents for specific tasks. Each sub-agent gets only the access it needs, for only as long as it needs it.
 
+<Frame caption="A delegation chain is capped by maxDepth, and revoking a link also revokes the links created downstream of it.">
+  <img src="/images/diagrams/delegation-chain.png" alt="Isometric diagram of a human owner, an agent and two sub-agents joined by delegation links. Delegation depth is limited to 3, and revoking a link also revokes the links downstream of it." />
+</Frame>
+
 <Info>
 The delegating agent must currently hold every permission it is trying to delegate. Attempting to delegate a permission not in the agent's own set throws an `Error` ("Delegated permissions must be a subset of the parent agent's permissions..."). The check runs against the agent's own permissions only, not against permissions it received through other delegations.
 </Info>

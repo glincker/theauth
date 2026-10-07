@@ -169,6 +169,10 @@ Don't see your provider? The [generic OAuth factory](/auth/oauth) wires any auth
 
 Plugins register routes at `createTheAuth()` time, and the instance serves them through `theauth.plugins.handleRequest(request)` (framework adapters do this for you, mounted under `/api/theauth` by default). Several methods are also available as config keys that expose a module on the instance, for example `username`, `phone`, `magicLink`, `emailOtp`, `totp`, `passkey`, `org`, `sso`, `admin`, `apiKeys` and `captcha`. Those properties are `null` unless the matching config key is passed.
 
+<Frame caption="Sign-in methods feed one session through theAuth into your app.">
+  <img src="/images/diagrams/human-auth.png" alt="Isometric diagram of sign-in methods such as passkey, magic link, OAuth and TOTP feed through theAuth into one session that your app reads." />
+</Frame>
+
 To identify the signed-in human, configure an `auth.adapter` (for example `bearerAuth`) or `auth.session`, then resolve the user from a request:
 
 ```ts title="resolving a user from a request"
