@@ -1,0 +1,110 @@
+---
+title: "Migrating from Hand-Rolled Sessions"
+sidebarTitle: "Migrate from Hand-Rolled Sessions"
+description: "This guide is for an app that already has its own users table, a password column, and a session cookie it issues itself (a random value in a sessions table, a signed cookie, or a gorilla/scs style store)."
+---
+This guide is for an app that already has its own users table, a password column, and a session cookie it issues itself (a random value in a `sessions` table, a signed cookie, or a gorilla/scs style store). It replaces the auth plumbing with theauth-go in steps you can ship one at a time. Nothing here needs a flag day.
+
+## What you get, and what changes
+
+| Hand-rolled | theauth-go |
+|---|---|
+| Cookie value looked up in your table | Opaque random token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` when `BaseURL` is https). Only its SHA-256 hash is stored |
+| Your hashing scheme | Argon2id, 12 character minimum, with an optional bcrypt fallback for legacy hashes |
+| Ad hoc "log out everywhere" | `RevokeUserSessions`, `POST /auth/sessions/revoke-others`, rotation on login, MFA and password change |
+| Nothing for CLIs | Scoped API tokens and the RFC 8628 device grant |
+| Hand-written re-auth checks | `RequireRecentAuth` with `POST /auth/step-up` (password, TOTP or passkey) |
+| Signup left open or guarded by a flag | `Config.Bootstrap` first-run setup token |
+
+Sessions are server side and opaque. If you currently issue JWTs or signed cookies, existing sessions cannot be honored by theauth-go, so plan for a one-time re-login (step 5).
+
+## 1. Pick a storage backend
+
+For a single host, use `storage/sqlite` (Go 1.26). For several instances or organizations, use Postgres. Check [Capability interfaces](/go/concepts/capability-interfaces) for the features you need, then create the new tables. theauth-go owns tables prefixed `theauth_` by default, so they cannot collide with yours:
+
+```go
+if err := sqlitestore.Migrate(ctx, db); err != nil { ... }
+```
+
+If you run your own migration tool, use `sqlitestore.Migrations()` or `RenderMigrations()` and fold the SQL into your numbered history instead.
+
+## 2. Import your users
+
+Create a theauth user per existing row, keeping the email and verified state, then attach the password hash. Use the storage adapter directly, since theauth-go has no public bulk-import API:
+
+```go
+u, err := store.CreateUser(ctx, theauth.User{
+    ID:              ulid.Make(),
+    Email:           row.Email,
+    EmailVerifiedAt: row.VerifiedAt,
+    Name:            row.Name,
+})
+if err != nil { ... }
+if row.PasswordHash != "" {
+    err = store.SetUserPassword(ctx, u.ID, row.PasswordHash)
+}
+```
+
+Keep a mapping from your old integer or UUID key to `u.ID` (a ULID) and migrate the foreign keys in your own tables.
+
+## 3. Keep old password hashes working
+
+Hashes in Argon2id PHC form (`$argon2id$...`) verify as is. bcrypt hashes (`$2a$`, `$2b$`, `$2x$`) verify only while the migration flag is on, and are upgraded to Argon2id on each successful login:
+
+```go
+PasswordPolicy: theauth.PasswordPolicyConfig{
+    AllowLegacyBcrypt: true,
+    // Optional: the library persists the new Argon2id hash itself. Set this
+    // only if you mirror password hashes in your own storage.
+    OnLegacyHashAccepted: func(userID, newHash string) {
+        id, err := ulid.ParseStrict(userID)
+        if err == nil {
+            _ = mirror.SetUserPassword(context.Background(), id, newHash)
+        }
+    },
+},
+```
+
+Turn the flag off once nearly all active users have logged in once. Any other scheme (scrypt, PBKDF2, MD5) is not verified. Send those users through password reset or magic link. The same approach is described for Auth0 in [Migrate from Auth0](/go/guides/migrate-from-auth0).
+
+The default maximum password length is 72 bytes. Users with longer passwords must reset.
+
+## 4. Swap the middleware
+
+Mount the auth routes and replace your session lookup:
+
+```go
+mux.Handle("/auth/", a.Handler())
+protected := a.RequireAuth()   // cookie session, 401 when missing
+```
+
+Inside handlers, `theauth.UserFromContext(r.Context())` returns the user. If your handlers read a user from your own context key, write one small adapter middleware that calls `UserFromContext` and sets your key, so handler code does not change. Route by route is fine: `RequireAuth` and your old middleware can coexist while you move routes over.
+
+Replace your own login, logout and signup handlers with `/auth/email-password/signup`, `/auth/email-password/signin` and `DELETE /auth/sessions/current`. Point your form at the new routes. Set `CookieName` if you want a name other than `theauth_session`.
+
+## 5. Cut over sessions
+
+- Keep your old session table read-only for a short window if you want a grace period: a middleware that accepts either cookie, and for an old-cookie request calls `a.IssueSessionByUserID(ctx, userID, userAgent, ip)`, which returns a raw session token, and sets it as the cookie value yourself (cookie name `CookieName`, `HttpOnly`, `SameSite=Lax`, `Secure` over https). Delete that code after your longest old session lifetime.
+- Or force a re-login: delete the old cookie, drop the table, and let users sign in once.
+
+Set `SessionTTL` (absolute, default 24h) and, if you had idle expiry, `SessionIdleTimeout` (needs `SessionManagementStorage`, which memory and SQLite have).
+
+## 6. Replace hand-written checks
+
+- "Re-enter your password for this action": `a.RequireRecentAuth(5*time.Minute)` on the route, and have the client call `POST /auth/step-up` first.
+- "Log out my other devices": `POST /auth/sessions/revoke-others`. `GET /auth/sessions` lists live sessions with masked IPs.
+- "Disable this user": call `RevokeUserSessions(ctx, userID)`. For API tokens, `RevokeOwnerAPITokens`.
+- "Admin only": there is no built-in admin without RBAC. Return roles from `APITokensConfig.UserAbilities` and guard routes with `RequireAbility`, or enable RBAC where the backend supports it.
+
+## 7. Lock down signup and add what you were missing
+
+Add `Config.Bootstrap` so a fresh deployment cannot be claimed by whoever finds it first. Add `Config.TOTP` and `Config.WebAuthn` for second factors. Add `Config.APITokens` with `Device` if you have or want a CLI. The [single-binary guide](/go/guides/single-binary-go-app) shows all of these wired together.
+
+## Checklist
+
+1. Storage chosen and migrated.
+2. Users and password hashes imported, ID mapping recorded.
+3. `AllowLegacyBcrypt` on, with a plan and date to turn it off.
+4. Routes moved to `RequireAuth` or `RequireAbility`.
+5. Old session mechanism removed after the grace window.
+6. Signup closed with `Bootstrap` or an explicit policy.

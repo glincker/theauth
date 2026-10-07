@@ -1,0 +1,84 @@
+---
+title: "Migrating from v2.0 to v2.1"
+sidebarTitle: "v2.0 to v2.1"
+description: "Summary: Internal architecture reorganization."
+---
+**Summary:** Internal architecture reorganization. The public API is byte-stable: every exported type, function, method, error sentinel, and constant keeps its identifier, signature, and method set. Downstream consumers compile unchanged after a `go get -u`.
+
+## What you need to do
+
+In the typical case: nothing.
+
+```bash
+go get github.com/glincker/theauth-go/v2@latest
+go mod tidy
+go build ./...
+```
+
+If your build succeeds, you are done.
+
+## What changed (under the hood)
+
+### Internal package reorganization (PRs #20 to #28)
+
+The 1.9k-line monolithic root was split into `internal/<flow>` subpackages. The root now holds thin forwarders. The public surface is unchanged.
+
+Root non-test `.go` file count went from 49 (v2.0) to 28 (v2.1). Public surface unchanged.
+
+### Forwarder consolidation (PR G)
+
+- `forwarders_identity.go`: session, magic-link, password, TOTP, WebAuthn, audit.
+- `forwarders_oauth.go`: DCR, introspect, revoke, token, token exchange, AS metadata, protected-resource metadata, authorize.
+- `forwarders_enterprise.go`: SCIM, organizations, RBAC, delegation.
+
+### Security fixes (PR #17, shipped in v2.1.0)
+
+- POST `/oauth/register` bearer gate now validates tokens with `crypto/subtle.ConstantTimeCompare` against pre-hashed SHA-256 digests.
+- POST `/oauth/register` is now rate limited per source IP (1 req/min anonymous, 5 req/min bearer-gated).
+- Cross-org delegation admin grants now verify `body.userId` is a member of the caller's organization.
+- `X-Forwarded-For` is no longer trusted by default. Set `Config.TrustedProxies` to opt in.
+- Password signin pays full Argon2id cost on unknown-email and empty-password branches.
+
+### Cache bust on agent suspend/revoke (PR #33)
+
+`SuspendAgent` and `RevokeAgent` now immediately invalidate the `clientauthcache` entry for the agent. Before this fix a revoked agent could authenticate via cached credentials for up to 5 minutes (the cache TTL).
+
+### Performance improvements (PR #19)
+
+- `clientauthcache`: first Argon2id verify is cached by `(client_id, secret_hash)`. Hot path drops one Argon2id verify per token request.
+- JWKS key cache: AES-decrypted Ed25519 private key is cached per signing key version.
+- `mcpresource` validator switched from `sync.Mutex` to `sync.RWMutex` on JWKS and introspection caches.
+
+## Edge cases
+
+### `go doc` output formatting
+
+`go doc github.com/glincker/theauth-go/v2` now renders some v2.0 types as type aliases (e.g., `type User = models.User`). Identity, fields, methods, and JSON tags are unchanged. pkg.go.dev still renders the full struct.
+
+### Unexported root methods removed
+
+PR G deleted seven unused unexported methods on `*TheAuth`. If your code reaches any of them via `//go:linkname` or `reflect`, it will fail to build:
+
+- `(*TheAuth).currentSigningKey`
+- `(*TheAuth).publicKeyByKID`
+- `(*TheAuth).invalidateClientAuthCache`
+- `(*TheAuth).agentBySubjectClaim`
+- `(*TheAuth).authenticateClient`
+- `(*TheAuth).finishRegistrationFromRequest`
+- `(*TheAuth).finishLoginFromRequest`
+
+These are not on the public surface. The fix is to call the corresponding method on the internal service, or to vendor the helper you need.
+
+### Root file layout reshuffled
+
+If you grep across dependency trees for symbols by filename, the file each symbol lives in has moved. Symbol identifiers are unchanged; only the file location moved.
+
+## Storage interfaces
+
+`Storage` and `OAuthServerStorage` are unchanged in v2.1. Custom adapters built against v2.0 keep working without modification.
+
+## New config fields (opt-in)
+
+- `Config.TrustedProxies []netip.Prefix` (security audit H4). Default: empty (no XFF trust). **Existing deployments that relied on XFF for rate limiting must opt in explicitly.**
+- `AuthorizationServerConfig.RegistrationTokens []string` (security audit H1).
+- `AuthorizationServerConfig.RegistrationRateLimitPerMinute int` (security audit H2).

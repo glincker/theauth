@@ -1,0 +1,174 @@
+---
+title: "Migrating from v2.3 to v2.4"
+sidebarTitle: "v2.3 to v2.4"
+description: "Summary: All additions in v2.4 are fully additive."
+---
+**Summary:** All additions in v2.4 are fully additive. The public API is
+byte-stable: every exported type, function, method, error sentinel, and constant
+keeps its identifier, signature, and method set. Downstream consumers compile
+unchanged after a `go get -u`.
+
+## What you need to do
+
+In the typical case: nothing.
+
+```bash
+go get github.com/glincker/theauth-go/v2@latest
+go mod tidy
+go build ./...
+```
+
+If your build succeeds, you are done.
+
+## New optional features
+
+All v2.4 features are opt-in via new config fields. Existing deployments see
+no behaviour change unless they add the new config knobs.
+
+### MySQL storage backend
+
+If you want to run on MySQL 8.x, add the new adapter:
+
+```bash
+go get github.com/glincker/theauth-go/v2/storage/mysql
+```
+
+```go
+import "github.com/glincker/theauth-go/v2/storage/mysql"
+
+db, _ := sql.Open("mysql", os.Getenv("MYSQL_DSN"))
+store := mysql.New(db)
+```
+
+Apply the migrations under `storage/mysql/migrations/` before the first run.
+See [Storage Backends](/go/getting-started/storage-backends) for full details.
+
+### Pushed Authorization Requests (PAR, RFC 9126)
+
+```go
+AuthorizationServer: &theauth.AuthorizationServerConfig{
+    // ... existing fields unchanged ...
+    PAR: &theauth.PARConfig{
+        RequirePAR:    false, // set true to enforce PAR for all clients
+        RequestURITTL: 60 * time.Second,
+    },
+},
+```
+
+Nil (the default) disables PAR. Existing authorize flows are unaffected.
+
+### JWT-Secured Authorization Requests (JAR, RFC 9101)
+
+```go
+AuthorizationServer: &theauth.AuthorizationServerConfig{
+    // ... existing fields unchanged ...
+    JAR: &theauth.JARConfig{
+        RequireJAR:         false,
+        AcceptedAlgorithms: []string{"ES256", "RS256", "EdDSA"},
+    },
+},
+```
+
+Nil (the default) disables JAR.
+
+### JWT-Bearer client auth and grant (RFC 7523)
+
+```go
+AuthorizationServer: &theauth.AuthorizationServerConfig{
+    // ... existing fields unchanged ...
+    JWTBearer: &theauth.JWTBearerConfig{
+        TrustedJWTIssuers: []theauth.TrustedJWTIssuer{
+            {
+                Issuer:        "https://kubernetes.default.svc.cluster.local",
+                JWKSURL:       "https://kubernetes.default.svc.cluster.local/openid/v1/jwks",
+                SubjectMapper: mySubjectMapper, // implements theauth.SubjectMapper
+            },
+        },
+    },
+},
+```
+
+Nil (the default) disables JWT-Bearer. See [JWT-Bearer](/go/concepts/jwt-bearer)
+for the Kubernetes ServiceAccount use case and full config reference.
+
+### CIBA backchannel authentication (RFC 9509)
+
+```go
+AuthorizationServer: &theauth.AuthorizationServerConfig{
+    // ... existing fields unchanged ...
+    CIBA: &theauth.CIBAConfig{
+        AuthenticationDevice: myPushNotificationDevice,
+        DefaultExpiry:        300 * time.Second,
+        DefaultInterval:      5 * time.Second,
+    },
+},
+```
+
+Nil (the default) disables CIBA. See [CIBA](/go/concepts/ciba) for the
+full concept guide and interface documentation.
+
+### RequireState (RFC 9700 BCP)
+
+The `RequireState` field on `AuthorizationServerConfig` existed in v2.2 as part
+of PR #45 and is documented here for completeness. Set it to `true` to reject
+`/authorize` requests without a `state` parameter.
+
+### Auth0 bcrypt hash migration
+
+If you are migrating from Auth0 and want transparent password re-hashing, add
+the new `PasswordPolicy` field:
+
+```go
+theauth.Config{
+    // ... existing fields unchanged ...
+    // PasswordPolicy is a value field, not a pointer.
+    PasswordPolicy: theauth.PasswordPolicyConfig{
+        AllowLegacyBcrypt:    true,
+        OnLegacyHashAccepted: func(userID, newHash string) {
+            // Optional: the library already persisted newHash. Mirror it
+            // only if you keep a copy of password hashes elsewhere.
+            updatePasswordHashMirror(userID, newHash)
+        },
+    },
+}
+```
+
+See [Migrate from Auth0](/go/guides/migrate-from-auth0) for the full
+migration playbook.
+
+### storagetest contract suite
+
+If you maintain a custom storage adapter, add the contract suite to your
+test file:
+
+```go
+import "github.com/glincker/theauth-go/v2/storagetest"
+
+func TestConformance(t *testing.T) {
+    storagetest.Run(t, func() theauth.Storage { return mystore.New() })
+}
+```
+
+Gate it behind an environment variable if a live database is required.
+
+## Storage interface changes
+
+`Storage` and `OAuthServerStorage` are unchanged in v2.4. Custom adapters
+built against v2.3 keep working without modification.
+
+The new MySQL adapter adds `storage/mysql` as a new package. Importing it does
+not affect existing code.
+
+## No breaking changes
+
+v2.4 contains no breaking changes. All new features are:
+
+- Additive config fields (nil means disabled, matches prior behaviour).
+- New packages (`storage/mysql`, `cmd/theauth-migrate`, `storagetest` public
+  expansion).
+- New endpoints (`/oauth/par`, `/ciba/bc-authorize`, `/ciba/token`) that are
+  only reachable when the corresponding config is non-nil.
+- New error sentinels (`ErrCIBAAuthorizationPending`, `ErrCIBAAccessDenied`,
+  `ErrCIBAExpiredToken`) that are only returned when CIBA is enabled.
+
+Existing `go build ./...` succeeds unchanged.

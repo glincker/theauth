@@ -1,0 +1,108 @@
+---
+title: "Agent identity and revocation"
+sidebarTitle: "Agent Identity and Revocation"
+description: "Make every MCP or agent tool call attributable to a person, and make a revoke take effect on streams that are already open."
+---
+Make every MCP or agent tool call attributable to a person, and make a revoke
+take effect on streams that are already open.
+
+## Agent tokens (the short path)
+
+Needs `Config.APITokens`. An agent token is an API token with `kind=agent`,
+owned by the human it acts for.
+
+```go
+secret, tok, err := a.MintAgentToken(ctx, theauth.MintAgentTokenInput{
+    UserID:    user.ID,
+    AgentName: "claude-desktop",
+    Abilities: []string{"logs:read", "deploy:create"},
+    TTL:       30 * time.Minute, // default Config.APITokens.AgentTTL, 1h
+})
+```
+
+- At mint, every ability must be one the user holds now, otherwise
+  `ErrAbilityNotHeld`.
+- On every request the token's abilities are cut to what the user holds at
+  that moment (`Config.APITokens.UserAbilities`), so a demotion applies on the
+  next call. Effective abilities are always the intersection.
+- Lifetimes are short by default: `AgentTTL` 1h, capped by `AgentMaxTTL` 24h.
+- `POST /auth/tokens` accepts `kind: "agent"` and `agent_name`; listings
+  return `kind`, `agentName` and `delegatedBy`.
+- Storage adapters persist three new `APIToken` fields: `Kind`, `AgentName`,
+  `DelegatedBy` (all optional, empty Kind means personal). The
+  `storagetest` suite covers the round trip.
+
+`RequireAbility` attaches a `Principal`. `p.ActorChain()` returns the human
+first, then the agent. `EmitAudit` called under that context adds
+`actor_agent`, `actor_token_id`, `delegated_by` and `actor_chain` to the event
+metadata and attributes `ActorUserID` to the human, so one event records both.
+
+## Agents on the OAuth path
+
+`RegisterAgent` creates an agent under a user and, when `Resource` is set,
+the delegation grant for it in one call. Needs `Config.AgentIdentity` and
+`Config.AuthorizationServer`.
+
+```go
+reg, err := a.RegisterAgent(ctx, theauth.RegisterAgentInput{
+    OwnerID: user.ID, Name: "mcp-client",
+    Scope: []string{"read"}, Resource: "https://mcp.example.com",
+})
+// reg.Secret.Secret is shown once; reg.Grant authorises token exchange.
+```
+
+Resource servers that authenticate these tokens elsewhere can call
+`DelegatedAbilities(ctx, userID, scopes)` for the same intersection.
+
+## Revocation watcher
+
+Events fire when a session, API token, agent, agent credential or delegation
+is revoked, and when you call `NotifyOwnerDisabled` for a disabled or deleted
+user (the library cannot see your host-side flag). Internal revoke paths
+reach the bus through `EmitAudit`, so nothing needs separate wiring.
+
+```go
+unsub, _ := a.SubscribeRevocations(func(ev theauth.RevocationEvent) { ... })
+```
+
+Callbacks must not block.
+
+### Dropping long-lived connections
+
+```go
+r.Use(a.RequireAbility("logs:read"),
+      a.WatchRevocationMiddleware(theauth.WatchOptions{PollInterval: 10 * time.Second}))
+```
+
+The request context is cancelled with a cause wrapping `ErrCredentialRevoked`.
+For a gRPC stream or MCP session, call `a.WatchRevocation(ctx, target, opts)`
+with a `RevocationTarget` (`TargetForPrincipal` builds one).
+
+`PollInterval` is a backstop for a missed event. For sessions it reuses
+`WatchSession`; for bearer tokens it re-runs token authentication. Leave it
+zero to rely on the bus alone.
+
+### Across processes
+
+Set `Config.RevocationBus` to your own `RevocationBus`:
+
+```go
+type RevocationBus interface {
+    Publish(ctx context.Context, ev RevocationEvent) error
+    Subscribe(fn func(RevocationEvent)) (unsubscribe func(), err error)
+}
+```
+
+Back `Publish` with Postgres `NOTIFY` or Redis `PUBLISH`, and have your
+listener call every registered `fn`. The default `MemoryRevocationBus` is
+in-process only.
+
+Limits: `RevokeOtherSessions` does not publish (it would also match the kept
+session), so use polling for that case.
+
+## MCP resource server example
+
+`ExampleTheAuth_MintAgentToken` (root package) shows a Go tool endpoint with
+per-tool ability checks and revocation watching. `mcpresource`'s
+`ExampleValidator_Middleware` shows the same for OAuth JWT access tokens,
+where `Principal.Subject` is the human and `Principal.ActorChain` the agents.

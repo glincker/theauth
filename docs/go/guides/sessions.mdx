@@ -1,0 +1,96 @@
+---
+title: "Session management"
+sidebarTitle: "Session Management"
+description: "Optional features layered on the opaque session."
+---
+Optional features layered on the opaque session. All of them need a storage
+that implements `SessionManagementStorage` (and `SessionLinkStorage` for
+links); the memory, SQLite, Postgres and MySQL adapters do. `New` returns `ErrStorageMissingCapability`
+when a configured feature lacks its capability.
+
+## Config
+
+| Field | Default | Meaning |
+|---|---|---|
+| `SessionTTL` | 24h | Absolute lifetime. |
+| `SessionIdleTimeout` | 0 (off) | Expire a session unused this long. |
+| `SessionTouchInterval` | 1m | At most one last-seen write per session per interval. Negative disables. Must be shorter than the idle timeout. |
+| `StepUpTTL` | 5m | How long `POST /auth/step-up` elevates a session. |
+| `SessionLinks` | nil (off) | Enables session links; requires a `CredentialChecker`. |
+
+Idle precision is the touch interval: a session can outlive its idle limit by
+up to one interval.
+
+## End-user routes (RequireAuth)
+
+- `GET /auth/sessions` lists `{id, deviceLabel, ipPrefix, createdAt, lastSeenAt, expiresAt, current}`. IPs are masked to /24 (IPv4) or /48 (IPv6).
+- `DELETE /auth/sessions/{id}` revokes one of the caller's sessions (404 for anyone else's).
+- `POST /auth/sessions/revoke-others` revokes all but the current one and returns `{revoked: n}`.
+- `DELETE /auth/sessions/current` is unchanged.
+- `POST /auth/password/change` verifies the current password, revokes every session and sets a fresh cookie.
+
+Admin `GET /admin/v1/organizations/{orgID}/sessions?user_id=` now returns the user's live sessions.
+
+## Rotation
+
+A new token replaces the old one at login (unchanged), MFA completion
+(`/auth/totp/verify`, `/auth/totp/recovery`: the pending token dies and a new
+cookie is set), and password change. Password reset already revokes all
+sessions. `TheAuth.RotateSession` is exported for your own privilege changes.
+The Go methods `VerifyTOTP` and `ConsumeRecoveryCode` still return the same
+token; only the HTTP routes rotate.
+
+## Step-up
+
+`POST /auth/step-up` with one of:
+
+```json
+{"method":"password","password":"..."}
+{"method":"totp","code":"123456"}
+{"method":"passkey","challenge":"...","assertion":{...}}
+```
+
+Passkey: `POST /auth/step-up/passkey/begin` returns `{options, challenge}`; pass
+the browser's assertion back as `assertion`. A TOTP code that fails five times
+revokes the session, same as the pending-2FA path.
+
+Success sets `Session.ElevatedUntil`. Guard sensitive routes with
+`RequireRecentAuth(maxAge)`: it passes when the session logged in or stepped up
+within `maxAge`, else 403 `auth.recent_auth_required`. Sessions tied to a
+credential (session links) never count their creation time as a login.
+
+## Session links
+
+Enable with `Config.SessionLinks`. Mint on behalf of a user from your own
+authorized code:
+
+```go
+tok, _, err := a.MintSessionLink(ctx, theauth.MintSessionLinkInput{
+    UserID: uid, CredentialID: apiTokenID, // CredentialID optional
+})
+```
+
+`POST /auth/session-link/consume {"token": tok}` exchanges it, once, for a
+session cookie (`ConsumeSessionLink` is the Go form). POST, not GET, so link
+previewers cannot burn it.
+
+A session minted with a `CredentialID` is tied to it: `CredentialChecker` runs
+at mint, at exchange, and on **every** session validation, with no caching. It
+must return `ErrCredentialRevoked` for a revoked, expired or unknown
+credential; that revokes the session. Any other error fails the request closed.
+Call `RevokeSessionsByCredential` when you revoke the credential to cut
+sessions immediately instead of lazily.
+
+## Long-lived streams
+
+`WatchSession(ctx, token, interval)` returns a context cancelled (cause set)
+when the session stops validating, including idle expiry and credential
+revocation; checks do not count as activity. `WatchSessionMiddleware(interval)`
+applies it to a request. It fails closed on any validation error.
+
+## Storage contract
+
+`storagetest.RunSessionManagement` covers list, monotonic touch, bulk revoke,
+elevation and single-use link consumption (including a concurrent-consume
+race). `storagetest.Run` includes it when the backend implements both
+capabilities. The Postgres and MySQL adapters implement them (migration 0018).

@@ -1,0 +1,77 @@
+---
+title: "Auth hardening"
+sidebarTitle: "Auth Hardening"
+description: "Opt-in and on-by-default protections added on top of the core flows."
+---
+Opt-in and on-by-default protections added on top of the core flows. All
+configuration is additive; the zero `Config` keeps working.
+
+## Login throttle
+
+`Config.LoginThrottle` (nil selects defaults, `Disabled: true` opts out).
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `GraceFailures` | 3 | Failures per (IP, email) before backoff starts |
+| `BaseDelay` / `MaxDelay` | 1s / 15m | First delay, doubled per failure, capped |
+| `ResetAfter` | 15m | Idle time after which counts are forgotten |
+| `UserMaxFailures` / `UserLockout` | 10 / 15m | Failures against one email from any IP, then lockout |
+| `MFAMaxFailures` / `MFALockout` | 5 / 15m | Wrong TOTP or recovery codes per user |
+| `Store` | in-memory | Implement `LoginThrottleStore` to persist or share |
+
+The check runs before the user lookup and the password hash, so unknown and
+known emails cost the same. The in-memory store sweeps expired entries on
+writes and is capped (`MaxEntries`, default 100000). The limiter serializes
+read-modify-write inside one process; a shared store across processes is
+last-writer-wins, which is acceptable for throttling.
+
+Client IP comes from the connection address. Behind a reverse proxy every
+client shares the proxy address for the (IP, email) key, so the per-user
+lockout is the control that still bites; terminate or forward accordingly.
+
+Admin override: `a.UnlockUser(ctx, email)` clears the email lockout and the
+user's MFA lockout. `a.ResetPasswordAdmin` does the same after a reset.
+
+## MFA
+
+TOTP codes are accepted once. The last used time-step is stored via the
+optional `TOTPReplayStorage` capability (`AdvanceTOTPStep`); `storage/memory`
+implements it. Without the capability the step is tracked in process memory.
+Attempt limits are keyed by user, so opening new pending sessions does not
+reset them.
+
+## First-run bootstrap
+
+```go
+a, _ := theauth.New(theauth.Config{
+    Storage:   store, // must implement UserCountStorage
+    Bootstrap: &theauth.BootstrapConfig{},
+})
+```
+
+While no user exists, `POST /auth/email-password/signup` needs the token in the
+`X-Setup-Token` header or a `setupToken` body field. A generated token is
+logged once at startup (`SuppressSetupTokenLog` hides it; read it with
+`a.SetupToken()`). After the first user exists signup returns 403
+`signup_closed` unless `OpenSignupAfterFirstUser` is set. Magic-link account
+creation follows the same gate and cannot present a token. `OnFirstUser` is the
+place to grant an admin role. `GET /auth/bootstrap/status` returns
+`{"needsSetup":bool}`. Token guesses are throttled per client IP.
+
+Recover-admin helper: `a.ResetPasswordAdmin(ctx, email, newPassword)`.
+
+## Email canonicalization
+
+Trim and lowercase everywhere; `Config.EmailNFKC` adds Unicode NFKC folding.
+Enable NFKC before data exists: existing mixed-form rows are not rewritten.
+
+## Password policy
+
+`Config.PasswordPolicy`: `MinLength` (12), `MaxBytes` (72), `BreachChecker`
+(nil). `&theauth.HIBPBreachChecker{}` sends only a 5 character SHA-1 prefix and
+fails open on network errors.
+
+## Error bodies
+
+Auth handlers answer errors as `{"code","message"}` JSON. See `CHANGELOG.md`
+for the code list.

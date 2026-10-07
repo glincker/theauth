@@ -1,0 +1,121 @@
+---
+title: "Authorization Server"
+description: "theauth-go ships a complete OAuth 2.1 Authorization Server (AS) behind Config.AuthorizationServer."
+---
+theauth-go ships a complete OAuth 2.1 Authorization Server (AS) behind `Config.AuthorizationServer`. It is opt-in: callers who do not set this field get the v1.0 surface unchanged.
+
+## Wiring the AS
+
+```go
+import "net/netip"
+
+a, _ := theauth.New(theauth.Config{
+    Storage:       store,
+    BaseURL:       "https://as.example.com",
+    EncryptionKey: []byte(os.Getenv("ENCRYPTION_KEY")), // 32-byte AES-256
+
+    AuthorizationServer: &theauth.AuthorizationServerConfig{
+        Issuer: "https://as.example.com",
+        Resources: []theauth.ProtectedResource{
+            {
+                Identifier: "https://api.example.com",
+                Scopes:     []string{"read", "write"},
+            },
+        },
+    },
+})
+```
+
+`EncryptionKey` is required when `AuthorizationServer` is set. It protects the Ed25519 signing key at rest.
+
+## Routes mounted by `a.Mount(r)`
+
+When `AuthorizationServer` is configured:
+
+| Endpoint | RFC |
+|---|---|
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 |
+| `GET /.well-known/oauth-protected-resource` | RFC 9728 |
+| `GET /.well-known/oauth-protected-resource/{path}` | RFC 9728, per-resource |
+| `GET /oauth/jwks` | RFC 7517 |
+| `GET /oauth/authorize` | RFC 6749 / OAuth 2.1 |
+| `POST /oauth/token` | RFC 6749 / OAuth 2.1 |
+| `POST /oauth/revoke` | RFC 7009 |
+| `POST /oauth/introspect` | RFC 7662 |
+| `POST /oauth/register` | RFC 7591 |
+
+## Dynamic Client Registration
+
+```go
+AuthorizationServer: &theauth.AuthorizationServerConfig{
+    Issuer: "https://as.example.com",
+
+    // Bearer-gated DCR (recommended for production):
+    RegistrationTokens:             []string{os.Getenv("DCR_TOKEN")},
+    RegistrationRateLimitPerMinute: 5,
+
+    // OR allow anonymous registration (public MCP profile):
+    AllowAnonymousRegistration:     true,   // rate-limited to 1 req/min by default
+},
+```
+
+## Agent identities and delegation
+
+Add `Config.AgentIdentity` to enable agent CRUD and the delegation grant system:
+
+```go
+a, _ := theauth.New(theauth.Config{
+    // ...
+    AuthorizationServer: &theauth.AuthorizationServerConfig{ /* ... */ },
+    AgentIdentity: &theauth.AgentConfig{
+        MaxChainDepth: 3, // hard ceiling is 3
+    },
+    AccountUX: true, // expose /account/agents and /account/delegations
+})
+```
+
+Create an agent:
+
+```go
+agent, secret, err := a.CreateAgent(ctx, theauth.CreateAgentInput{
+    Owner: theauth.AgentOwner{UserID: &userID}, // or OrganizationID for an org-owned agent
+    Name:  "my-mcp-agent",
+    Scope: []string{"read", "write"},
+})
+```
+
+## Trusted proxies
+
+By default, `X-Forwarded-For` is not trusted. Enable it for specific proxy prefixes:
+
+```go
+Config{
+    TrustedProxies: []netip.Prefix{
+        netip.MustParsePrefix("10.0.0.0/8"),
+    },
+}
+```
+
+## Key rotation
+
+Signing keys rotate every 30 days. The JWKS endpoint always serves the current and one previous key so resource servers with a cached JWKS can verify tokens minted before the rotation. Call `a.RotateSigningKey(ctx)` to rotate ahead of schedule.
+
+## Admin surface for agents and delegations
+
+When RBAC is enabled, the admin API gains org-scoped agent and delegation management:
+
+```
+GET  /admin/v1/organizations/{orgID}/agents
+POST /admin/v1/organizations/{orgID}/agents
+GET  /admin/v1/organizations/{orgID}/delegations
+POST /admin/v1/organizations/{orgID}/delegations
+DELETE /admin/v1/organizations/{orgID}/delegations/{id}
+```
+
+These routes require the `agents:admin` and `delegations:admin` RBAC permissions respectively.
+
+## Next steps
+
+- [Resource Server (mcpresource)](/go/concepts/resource-server) - The consumption side.
+- [Configuration Reference](/go/reference/configuration) - Full config shape.
+- [Add an OAuth Provider](/go/guides/add-oauth-provider) - Add social sign-in on top of the AS.

@@ -1,0 +1,95 @@
+---
+title: "Resource Server (mcpresource)"
+description: "The mcpresource module is a zero-dependency Go module for MCP resource servers."
+---
+The `mcpresource` module is a zero-dependency Go module for MCP resource servers. It validates bearer JWTs, enforces audience claims, walks RFC 8693 actor chains via AS introspection, and emits the correct `WWW-Authenticate` response on failure.
+
+## Install
+
+```bash
+go get github.com/glincker/theauth-go/mcpresource
+```
+
+`mcpresource` has **no third-party dependencies**. Importing it does not pull in theauth core or any storage adapter.
+
+## Wire the middleware
+
+```go
+package main
+
+import (
+    "net/http"
+
+    "github.com/glincker/theauth-go/mcpresource"
+    "github.com/go-chi/chi/v5"
+)
+
+func main() {
+    v := mcpresource.New(
+        "https://mcp.example.com",       // the resource URI this server serves
+        mcpresource.WithJWKS("https://as.example.com/oauth/jwks"),
+        mcpresource.WithIntrospection(
+            "https://as.example.com/oauth/introspect",
+            "mcp-client-id",
+            "mcp-client-secret",
+        ),
+    )
+
+    r := chi.NewRouter()
+    r.Use(v.Middleware)
+
+    r.Get("/tools/run", func(w http.ResponseWriter, r *http.Request) {
+        p, _ := v.Principal(r.Context())
+        // p.Subject    -- the originating user (or root agent)
+        // p.Actor      -- the innermost agent currently acting
+        // p.ActorChain -- slice from innermost to outermost
+    })
+
+    http.ListenAndServe(":8090", r)
+}
+```
+
+## What the middleware validates
+
+On every request the middleware:
+
+1. Extracts the bearer token from the `Authorization: Bearer ...` header.
+2. Verifies the JWT signature against a cached JWKS (refreshes on `kid` miss and at the configured cache TTL).
+3. Enforces the `aud` claim against the resource URI passed to `mcpresource.New`.
+4. Checks `exp`, `nbf`, and `iat` with a 60-second clock skew tolerance (configurable).
+5. Walks the RFC 8693 `act` chain via AS introspection and returns `active: false` if any delegation grant in the chain is revoked.
+6. On any failure: emits HTTP 401 with `WWW-Authenticate: Bearer error="invalid_token", resource_metadata="..."` per RFC 6750 and RFC 9728.
+
+## The `Principal` type
+
+```go
+type Principal struct {
+    Subject    string   // sub claim: user ULID or "agent:<id>"
+    Actor      string   // innermost acting identity; equals Subject when no delegation chain
+    ActorChain []string // from innermost to outermost
+    Scope      []string // scope claim split on spaces
+    ClientID   string   // OAuth client that obtained the token
+    IssuedAt   time.Time
+    ExpiresAt  time.Time
+    // Issuer, Audience, JWTID, DelegationGrantID, and CnfJKT (DPoP jkt
+    // thumbprint) are also populated; see mcpresource/principal.go.
+}
+```
+
+## Options
+
+| Option | Default | Description |
+|---|---|---|
+| `WithJWKS(url)` | required | JWKS endpoint URL for signature verification. |
+| `WithIntrospection(url, clientID, secret)` | required | Introspection endpoint + client credentials. |
+| `WithCacheTTL(d)` | 60s | How long JWKS keys and introspection responses are cached. |
+| `WithHTTPClient(c)` | `http.DefaultClient` | Custom HTTP client (e.g., for timeouts or mTLS). |
+| `WithClockSkew(d)` | 60s | Tolerance for `exp`/`nbf`/`iat` clock drift. |
+
+## Concurrent safety
+
+The JWKS and introspection caches use `sync.RWMutex` internally so concurrent reads do not serialize. Cache writes (on miss or TTL expiry) take a write lock for the minimum duration.
+
+## Runnable example
+
+See [`examples/mcp-server/`](https://github.com/glincker/theauth-go/tree/main/examples/mcp-server) for a complete standalone demo.

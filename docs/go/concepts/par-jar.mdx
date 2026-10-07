@@ -1,0 +1,185 @@
+---
+title: "PAR + JAR: Pushed Authorization Requests and JWT-Secured Authorization Requests"
+sidebarTitle: "PAR + JAR (FAPI 2.0)"
+description: "Pushed Authorization Requests (PAR, RFC 9126) and JWT-Secured Authorization Requests (JAR, RFC 9101) are two complementary enhancements to the OAuth 2.1 authorization code flow."
+---
+Pushed Authorization Requests (PAR, RFC 9126) and JWT-Secured Authorization
+Requests (JAR, RFC 9101) are two complementary enhancements to the OAuth 2.1
+authorization code flow. Together with JWT-Bearer client authentication (RFC
+7523), they form the FAPI 2.0 Security Profile baseline required by open
+banking, healthcare, and other regulated API ecosystems.
+
+## Why PAR and JAR?
+
+In the standard authorization code flow, all authorization parameters are sent
+as query parameters in the browser redirect URL. This has two problems:
+
+1. **Integrity:** a network adversary or a compromised browser can tamper with
+   the parameters before the request reaches the authorization server.
+2. **Confidentiality:** sensitive parameters (scope, claims, resource) are
+   visible in browser history, server access logs, and referrer headers.
+
+PAR solves confidentiality and integrity by sending the request body directly
+to the AS over a back-channel HTTPS connection before the browser redirect.
+JAR solves integrity by wrapping the parameters in a signed JWT that the AS
+verifies against the client's registered public key.
+
+## Standard flow (before PAR/JAR)
+
+```
+User              Browser              Client App           Authorization Server
+ |                  |                      |                        |
+ | Click "Sign in"  |                      |                        |
+ |----------------->|                      |                        |
+ |                  | Redirect to /oauth/authorize?response_type=code
+ |                  |  &client_id=...&redirect_uri=...&scope=...&state=...
+ |                  |-------------------------------------------------------------->|
+ |                  |                      |         Render consent screen          |
+ |                  |<--------------------------------------------------------------|
+ | Approve          |                      |                        |
+ |----------------->|                      |                        |
+ |                  | Redirect to /callback?code=...&state=...      |
+ |                  |<--------------------------------------------------------------|
+ |                  | POST /oauth/token (code exchange)             |
+ |                  |--------------------->|                        |
+ |                  |                      | access_token, refresh_token            |
+```
+
+**Problem:** all parameters, including `scope` and `resource`, travel through
+the browser address bar.
+
+## Flow with PAR
+
+```
+User              Browser              Client App           Authorization Server
+ |                  |                      |                        |
+ | Click "Sign in"  |                      |                        |
+ |----------------->|                      |                        |
+ |                  |       POST /oauth/par (back-channel HTTPS)    |
+ |                  |                      |----------------------->|
+ |                  |                      |  { request_uri, expires_in: 60 }       |
+ |                  |                      |<-----------------------|
+ |                  | Redirect to /oauth/authorize?request_uri=urn:...&client_id=...
+ |                  |-------------------------------------------------------------->|
+ |                  |                      |         Render consent screen          |
+ |                  |<--------------------------------------------------------------|
+ | Approve          |                      |                        |
+ |----------------->|                      |                        |
+ |                  | Redirect to /callback?code=...&state=...      |
+ |                  |<--------------------------------------------------------------|
+ |                  | POST /oauth/token (code exchange)             |
+ |                  |--------------------->|                        |
+```
+
+**Advantage:** the browser only ever sees the opaque `request_uri` handle.
+All sensitive parameters stay server-to-server.
+
+## Flow with JAR (on top of PAR)
+
+The `/oauth/par` body includes a `request` JWT parameter instead of (or in
+addition to) plain parameters:
+
+```
+POST /oauth/par
+Content-Type: application/x-www-form-urlencoded
+
+client_id=my-client
+&request=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+The `request` JWT is signed with the client's private key. The AS verifies the
+signature against the client's registered public key (`jwks_uri` or inline
+`jwks`). A tampered request JWT fails signature verification and is rejected
+with `invalid_request_object`.
+
+**Advantage:** even if the back-channel POST is intercepted or replayed, the
+parameters cannot be altered without detection.
+
+## FAPI 2.0 baseline
+
+FAPI 2.0 (Financial-grade API Security Profile 2.0) requires:
+
+- PAR (RFC 9126): mandatory.
+- JAR (RFC 9101): mandatory.
+- PKCE S256: mandatory (already mandatory in theauth-go by default).
+- JWT-Bearer client authentication (RFC 7523): mandatory (added in v2.4, see
+  [JWT-Bearer](/go/concepts/jwt-bearer)).
+
+When all three are active, theauth-go satisfies the FAPI 2.0 Security Profile
+baseline.
+
+## Enabling PAR
+
+```go
+cfg := theauth.Config{
+    AuthorizationServer: &theauth.AuthorizationServerConfig{
+        Issuer: "https://auth.example.com",
+        PAR: &theauth.PARConfig{
+            // RequirePAR = true rejects plain /authorize requests that do
+            // not reference a request_uri. Recommended for FAPI profiles.
+            RequirePAR: false,
+            // RequestURITTL for the request_uri handle. Default: 60s.
+            RequestURITTL: 60 * time.Second,
+        },
+    },
+}
+```
+
+The AS advertises PAR support in its metadata:
+`pushed_authorization_request_endpoint: https://auth.example.com/oauth/par`.
+
+## Enabling JAR
+
+```go
+cfg := theauth.Config{
+    AuthorizationServer: &theauth.AuthorizationServerConfig{
+        Issuer: "https://auth.example.com",
+        JAR: &theauth.JARConfig{
+            // AcceptedAlgorithms lists the JWS algorithms the AS accepts on
+            // request objects. Defaults: ES256, RS256, EdDSA. HS* and "none"
+            // are always rejected regardless of this list.
+            AcceptedAlgorithms: []string{"ES256", "PS256"},
+            // RequireJAR = true rejects plain parameter requests; all
+            // parameters must be inside a signed request JWT.
+            RequireJAR: false,
+        },
+    },
+}
+```
+
+The AS advertises JAR support:
+`request_object_signing_alg_values_supported: ["ES256", "PS256"]`.
+
+## PAR endpoint reference
+
+`POST /oauth/par`
+
+| Parameter | Required | Notes |
+|---|---|---|
+| `client_id` | Yes | Client identifier. |
+| `client_secret` | Conditional | Required for `client_secret_post` auth method. |
+| `request` | No (Yes with JAR) | Signed request JWT (RFC 9101). |
+| Standard OAuth params | Yes | `response_type`, `redirect_uri`, `scope`, `code_challenge`, `code_challenge_method`, `state`. |
+
+Response (200 OK):
+
+```json
+{
+  "request_uri": "urn:ietf:params:oauth:request_uri:abc123xyz",
+  "expires_in": 60
+}
+```
+
+Then redirect the user to:
+
+```
+GET /oauth/authorize?client_id=my-client&request_uri=urn:ietf:params:oauth:request_uri:abc123xyz
+```
+
+## See also
+
+- [JWT-Bearer client auth and grants](/go/concepts/jwt-bearer)
+- [Authorization Server concepts](/go/concepts/authorization-server)
+- [Configuration reference](/go/reference/configuration)
+- RFC 9126: OAuth 2.0 Pushed Authorization Requests
+- RFC 9101: The OAuth 2.0 JWT-Secured Authorization Request (JAR)

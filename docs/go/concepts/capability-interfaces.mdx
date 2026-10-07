@@ -1,0 +1,74 @@
+---
+title: "Capability Interfaces and Choosing a Storage Backend"
+sidebarTitle: "Capability Interfaces and Storage"
+description: "theauth-go does not require one monolithic storage interface."
+---
+theauth-go does not require one monolithic storage interface. Persistence is split into small capability interfaces in `storage.go` and a few optional extensions. A backend implements the ones it can, and `New` checks that every feature you enabled has the capability it needs. A missing one fails at startup with `ErrStorageMissingCapability`, not on the first request.
+
+## Three ways to supply storage
+
+- `Config.Storage` takes the full `theauth.Storage`: users, sessions, magic links, passwords, OAuth accounts, WebAuthn, TOTP, organizations, SAML, SCIM, RBAC and audit. `memory`, `postgres` and `mysql` satisfy it.
+- `Config.CoreStorage` takes `theauth.CoreStorage`: users, sessions, magic links and passwords only. Anything else the adapter also implements is detected by type assertion. The rest are stubs that return `ErrStorageMissingCapability`. `sqlite` is used this way.
+- Optional extension interfaces are asserted against the storage you pass. If it implements one, the feature turns on. If not, the feature is off or degrades as noted below.
+
+Set exactly one of `Storage` and `CoreStorage`.
+
+## Capabilities and who implements them
+
+Verified against the adapters in this repository. "Yes" means the adapter has the methods and, where the repo declares one, a compile-time assertion or a test for it.
+
+| Capability | Interface | memory | sqlite | postgres | mysql |
+|---|---|---|---|---|---|
+| Users, sessions, magic links, passwords | `CoreStorage` | Yes | Yes | Yes | Yes |
+| OAuth provider accounts | `OAuthAccountStorage` | Yes | Yes | Yes | Yes |
+| WebAuthn passkeys | `WebAuthnStorage` | Yes | Yes | Yes | Yes |
+| TOTP and recovery codes | `TOTPStorage` | Yes | Yes | Yes | Yes |
+| Audit log | `AuditStorage` | Yes | Yes | Yes | Yes |
+| User count (first-run `Bootstrap`) | `UserCountStorage` | Yes | Yes | Yes | Yes |
+| Passkey rename | `WebAuthnRenameStorage` | Yes | Yes | Yes | Yes |
+| Recovery code count and regenerate | `RecoveryCodeStorage` | Yes | Yes | Yes | Yes |
+| Durable TOTP replay protection | `TOTPReplayStorage` | Yes | Yes | Yes | Yes |
+| Session list, idle timeout, step-up | `SessionManagementStorage` | Yes | Yes | Yes | Yes |
+| Session links | `SessionLinkStorage` | Yes | Yes | Yes | Yes |
+| Scoped API tokens | `APITokenStorage` | Yes | Yes | Yes | Yes |
+| Device grant (RFC 8628) | `DeviceCodeStorage` | Yes | Yes | Yes | Yes |
+| Shared login throttle store | `LoginThrottleStore` | In-process default | Yes | Yes | Yes |
+| Organizations, SAML, SCIM, RBAC | `OrganizationStorage`, `SAMLStorage`, `SCIMStorage`, `RBACStorage` | Yes | No | Yes | Yes |
+| OAuth 2.1 authorization server, agent identity | `OAuthServerStorage` | Yes | No | Yes | Yes |
+| CIBA backchannel auth | `CIBAStorage` | Yes | No | Yes | No |
+| Durable JWT-bearer `jti` replay | `JWTBearerStorage` | Yes | No | No | No |
+| Authorization policies ([policy engine](/go/guides/policy-engine)) | `policy.Storage` | Yes | No | No | No |
+
+Postgres and MySQL implement the token, device, session-management, TOTP replay, user-count and throttle capabilities, and the new `storagetest` suites for them pass against live PostgreSQL 16 and MySQL 8. The older shared contract gate for those two adapters (`THEAUTH_PG_CONTRACT`, `THEAUTH_MYSQL_CONTRACT`) is still off in CI because some older subtests fail; see `docs/ROADMAP.md`. Treat Postgres and MySQL support for the newer features as newly added.
+
+Notes:
+
+- Without `JWTBearerStorage`, JWT-bearer replay protection uses an in-process map and is lost on restart. Without `CIBAStorage`, `/oauth/bc-authorize` is not mounted.
+- Without `TOTPReplayStorage`, the last used TOTP step is tracked in process memory only.
+- Without `RecoveryCodeStorage` or `WebAuthnRenameStorage`, the matching routes answer 501 and everything else works.
+- The login throttle store is a separate hook, `Config.LoginThrottle.Store`. SQLite provides `Store.ThrottleStore()` so several processes on one database share counters. Others use the in-process default or a store you supply.
+
+## Which feature needs which capability
+
+| You enable | Needs |
+|---|---|
+| Email and password, magic link, cookies | `CoreStorage` |
+| `Config.Bootstrap` | `UserCountStorage` |
+| `Config.APITokens`, `RequireAbility`, `MintAPIToken` | `APITokenStorage` |
+| `APITokensConfig.Device`, `clientauth.DeviceLogin` | `APITokenStorage` and `DeviceCodeStorage` |
+| `RequireRecentAuth`, `POST /auth/step-up`, `GET /auth/sessions`, `SessionIdleTimeout` | `SessionManagementStorage` |
+| `Config.SessionLinks` | `SessionLinkStorage` |
+| `Config.WebAuthn`, `Config.TOTP` | `WebAuthnStorage`, `TOTPStorage` (and `EncryptionKey` for TOTP) |
+| `Config.Organizations`, `SAML`, `SCIM`, `RBAC`, `Admin` | The org, SAML, SCIM and RBAC interfaces |
+| `Config.AuthorizationServer`, `AgentIdentity` (OAuth agents) | `OAuthServerStorage` |
+
+Agent tokens minted with `MintAgentToken` are API tokens (`kind=agent`), so they need only `APITokenStorage`, not the OAuth server.
+
+## Choosing a backend
+
+- **memory**: tests and demos. State is lost on restart.
+- **sqlite** (`storage/sqlite`, separate module, Go 1.26): single-binary and single-host apps, CLIs with a local server, edge boxes. Covers sign-in, passkeys, TOTP, sessions with step-up, API tokens, device login and audit. It has no organizations, SAML, SCIM, RBAC or OAuth authorization server. One process should own the file.
+- **postgres**: multi-instance production with the full enterprise and OAuth server surface, plus tokens, device login and session management. No durable JWT-bearer `jti` replay store.
+- **mysql**: same coverage as Postgres except CIBA.
+
+Pick by the features you need first, host topology second. SQLite is the fit for a single-binary app without organizations, SAML, SCIM or the authorization server. If you need those, use Postgres or MySQL. You can also implement a capability on your own adapter; see [Write a Custom Storage Backend](/go/guides/custom-storage-backend) and run the `storagetest` suites (`RunAPITokens`, `RunDeviceCodes`, `RunSessionManagement`) against it.

@@ -1,0 +1,111 @@
+---
+title: "Observability"
+description: "theauth-go ships with a pluggable tracing + metrics surface."
+---
+theauth-go ships with a pluggable tracing + metrics surface. The library imports zero observability vendors: consumers wire their own Tracer and Metrics adapters via `theauth.Config.Observability`.
+
+## Why an adapter
+
+OpenTelemetry, Prometheus, OpenCensus, Datadog, and friends all want to be the one true client. Picking one inside the library would push a 5+ MB transitive dependency on every consumer, even on the ones who use a different stack or no stack at all. Worse, the OpenTelemetry Go SDK has had multiple breaking 1.x bumps; pinning to one version locks every consumer to the same.
+
+The adapter sidesteps that. The library knows the spans it wants to emit and the metrics it wants to record; the consumer knows the backend it wants to send them to. Two narrow interfaces (`Tracer`, `Metrics`) bridge the two.
+
+`mcpresource/go.mod` stays zero-dep. The observability surface lives entirely in the main theauth-go module; the MCP SDK never touches it.
+
+## Wiring
+
+```go
+import (
+    "github.com/glincker/theauth-go/v2"
+    otelbridge "github.com/glincker/theauth-go/examples/observability-otel"
+    prombridge "github.com/glincker/theauth-go/examples/observability-prom"
+    "github.com/prometheus/client_golang/prometheus"
+    "go.opentelemetry.io/otel"
+)
+
+hooks := &theauth.Hooks{
+    Tracer:  otelbridge.New(otel.Tracer("my-service")),
+    Metrics: prombridge.New(prometheus.DefaultRegisterer),
+}
+
+auth, _ := theauth.New(theauth.Config{
+    Storage:       store,
+    BaseURL:       "https://example.com",
+    Observability: hooks,
+})
+```
+
+Either field MAY be nil. The library substitutes per-field no-op adapters so existing deployments that do not configure `Observability` get exactly the pre-2026-06-21 behavior.
+
+## Span catalog
+
+Every instrumented operation opens a span at its entry point and closes it at return. The span name and the attributes it carries are listed below. On error the span receives `RecordError` plus a `status="error"` attribute and an `error_code="<stable code>"` attribute matching `models.TheAuthError.Code`.
+
+| Span name                            | Surface              | Standard attributes                            |
+| ------------------------------------ | -------------------- | ---------------------------------------------- |
+| `theauth.oauth.token`                | `/oauth/token`       | `grant_type`, `status`, `error_code` on error  |
+| `theauth.oauth.introspect`           | `/oauth/introspect`  | `status`, `error_code` on error                |
+| `theauth.oauth.revoke`               | `/oauth/revoke`      | `status`, `error_code` on error                |
+| `theauth.oauth.authorize`            | `/oauth/authorize`   | `status`, `error_code` on error                |
+| `theauth.oauth.dcr.register`         | `/oauth/register`    | `anonymous`, `status`, `error_code` on error   |
+| `theauth.session.create`             | session service      | `status`                                       |
+| `theauth.session.revoke`             | session service      | `status`                                       |
+| `theauth.password.verify`            | password service     | `status`                                       |
+| `theauth.webauthn.register.begin`    | webauthn handler     | `status`                                       |
+| `theauth.webauthn.register.finish`   | webauthn handler     | `status`                                       |
+| `theauth.webauthn.login.begin`       | webauthn handler     | `status`                                       |
+| `theauth.webauthn.login.finish`      | webauthn handler     | `status`                                       |
+| `theauth.totp.verify`                | totp handler         | `status`                                       |
+| `theauth.saml.acs`                   | SAML ACS handler     | `status`                                       |
+| `theauth.scim.users.{list,get,post,patch,delete}` | SCIM users handler | `status`                          |
+| `theauth.agent.create`               | agent service        | `status`                                       |
+| `theauth.agent.suspend`              | agent service        | `status`                                       |
+| `theauth.agent.revoke`               | agent service        | `status`                                       |
+| `theauth.delegation.grant`           | delegation service   | `status`                                       |
+| `theauth.delegation.revoke`          | delegation service   | `status`                                       |
+
+Span names are exported as `theauth.SpanOAuthToken` etc. so dashboards reference them by symbol.
+
+## Metric catalog
+
+| Metric                                          | Type      | Labels                | Buckets (histograms) |
+| ----------------------------------------------- | --------- | --------------------- | -------------------- |
+| `theauth_oauth_token_requests_total`            | Counter   | `grant_type`, `status` |                     |
+| `theauth_oauth_token_latency_seconds`           | Histogram | `grant_type`          | `LatencyBuckets`     |
+| `theauth_oauth_introspect_requests_total`       | Counter   | `status`              |                      |
+| `theauth_oauth_introspect_latency_seconds`      | Histogram | (none)                | `LatencyBuckets`     |
+| `theauth_clientauthcache_hits_total`            | Counter   | `kind`                |                      |
+| `theauth_clientauthcache_misses_total`          | Counter   | `kind`                |                      |
+| `theauth_clientauthcache_size`                  | Gauge     | `kind`                |                      |
+| `theauth_rate_limit_blocked_total`              | Counter   | `rule`                |                      |
+| `theauth_audit_dropped_total`                   | Counter   | (none)                |                      |
+| `theauth_audit_queue_depth`                     | Gauge     | (none)                |                      |
+| `theauth_session_active`                        | Gauge     | `tenant_id`           |                      |
+| `theauth_webauthn_challenges_in_flight`         | Gauge     | (none)                |                      |
+| `theauth_saml_in_flight_authnreq`               | Gauge     | (none)                |                      |
+
+`LatencyBuckets` is `[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5]` seconds. Consumers pre-registering Prometheus histograms MUST use the exact same slice.
+
+Every metric name is exported as `theauth.MetricOAuthTokenRequestsTotal` etc.
+
+## Cardinality discipline
+
+High-cardinality identifiers (`client_id`, `user_id`, `session_id`, IP) go on spans as attributes, NEVER on metric labels. The library enforces this at the call site by review; the public Labels type does not stop you putting a high-cardinality value in by hand. Prometheus operators should validate label sets via `promtool check rules`.
+
+The fixed label sets the library uses:
+
+- `grant_type`: one of `authorization_code`, `refresh_token`, `client_credentials`, `token-exchange`
+- `status`: `success` or `error`
+- `rule`: one of `ip`, `email`
+- `kind`: one of `oauth_client`
+- `tenant_id`: organization ULID or empty string
+
+## Adding a new instrument
+
+1. Add the name constant to `internal/observability/hooks.go`.
+2. Add the matching re-export in `observability.go`.
+3. Update this document with the metric / span row.
+4. Add the emit call at the service surface.
+5. Update the PR description's span+metric matrix.
+
+The catalog is exhaustively re-exported so consumers building dashboards can `grep theauth.Metric` in their config to find every name the library emits.

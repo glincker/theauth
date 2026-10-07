@@ -1,0 +1,144 @@
+---
+title: "Stream Audit Logs to Splunk"
+description: "theauth-go ships an append-only async audit log."
+---
+theauth-go ships an append-only async audit log. The default destination is the database (`audit_events` table). You can stream events to Splunk, a SIEM, or any external sink via `AuditConfig.Sinks`, a slice of `theauth.AuditSink`.
+
+## How the audit log works
+
+Every state-changing handler calls `EmitAudit(ctx, action, target, metadata)`. The call is non-blocking: the event is placed on a buffered channel. A background writer goroutine drains the channel in batches, writes them to the canonical storage layer, and then fans out each batch to every configured sink in a separate goroutine. If the channel is full, `Stats.AuditDropped` is incremented and the event is discarded (this is the documented tradeoff to protect authentication latency under spikes). A failing sink is logged, counted in `Stats.AuditSinkFailed`, and never blocks or delays storage writes.
+
+## Use the built-in Splunk HEC sink
+
+theauth-go ships a ready-made Splunk HTTP Event Collector sink under `audit/sinks/splunkhec`, so writing your own is usually unnecessary:
+
+```go
+import (
+    "github.com/glincker/theauth-go/v2"
+    "github.com/glincker/theauth-go/v2/audit/sinks/splunkhec"
+)
+
+sink, err := splunkhec.New("https://splunk.example.com:8088", os.Getenv("SPLUNK_HEC_TOKEN"))
+if err != nil {
+    log.Fatal(err)
+}
+
+a, _ := theauth.New(theauth.Config{
+    Storage: store,
+    BaseURL: "https://myapp.com",
+    Audit: &theauth.AuditConfig{
+        Sinks: []theauth.AuditSink{sink},
+    },
+})
+```
+
+`splunkhec.New` POSTs each batch to `<endpoint>/services/collector/event` with `Authorization: Splunk <token>`. Options: `WithHTTPClient`, `WithTimeout` (default 5s), `WithRedactor` (per-event transform applied on top of the canonical `DefaultRedactor`).
+
+Other built-in sinks live under `audit/sinks/`: `audit/sinks/otlp` (OTLP/HTTP logs exporter) and `audit/sinks/webhook` (generic CloudEvents 1.0 POST).
+
+## Implementing a custom sink
+
+If you need a destination other than Splunk, OTLP, or a generic webhook, implement `theauth.AuditSink` directly:
+
+```go
+type AuditSink interface {
+    // Stream sends a batch of audit events to the external system.
+    Stream(ctx context.Context, batch []AuditEvent) error
+    // Name identifies the sink for logging and metrics labels.
+    Name() string
+}
+```
+
+Example custom sink:
+
+```go
+package mysink
+
+import (
+    "bytes"
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+
+    "github.com/glincker/theauth-go/v2"
+)
+
+type Sink struct {
+    URL    string
+    Client *http.Client
+}
+
+func (s *Sink) Name() string { return "mysink" }
+
+func (s *Sink) Stream(ctx context.Context, batch []theauth.AuditEvent) error {
+    var buf bytes.Buffer
+    if err := json.NewEncoder(&buf).Encode(batch); err != nil {
+        return err
+    }
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL, &buf)
+    if err != nil {
+        return err
+    }
+    req.Header.Set("Content-Type", "application/json")
+    resp, err := s.Client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode >= 300 {
+        return fmt.Errorf("sink returned %d", resp.StatusCode)
+    }
+    return nil
+}
+```
+
+Wire it the same way, appending it to `Sinks`:
+
+```go
+Audit: &theauth.AuditConfig{
+    Sinks: []theauth.AuditSink{&mysink.Sink{URL: "...", Client: http.DefaultClient}},
+},
+```
+
+## Audit event shape
+
+```go
+type AuditEvent struct {
+    ID             ULID
+    OrganizationID *ULID
+    ActorUserID    *ULID
+    ActorSessionID *ULID
+    Action         string          // e.g. "user.login", "delegation.granted"
+    TargetType     string
+    TargetID       string
+    Metadata       map[string]any  // redacted by DefaultRedactor
+    IP             string
+    UserAgent      string
+    CreatedAt      time.Time
+}
+```
+
+## Default redactor
+
+`DefaultRedactor` masks values at any nesting depth whose key matches (case-insensitive): `password`, `secret`, `token`, `code`, `refresh_token`, `access_token`. Pass `Config.Audit.Redactor` to override.
+
+## Audit event catalog
+
+See [Audit Events Reference](/go/reference/audit-events) for the full list of emitted actions and their target types and metadata shapes.
+
+## Monitoring backpressure
+
+Monitor `theauth.Stats.AuditDropped` and `theauth.Stats.AuditFailed`:
+
+```go
+ticker := time.NewTicker(30 * time.Second)
+for range ticker.C {
+    s := a.Stats()
+    if s.AuditDropped > 0 {
+        log.Printf("audit backpressure: %d events dropped", s.AuditDropped)
+    }
+}
+```
+
+`AuditDropped` increments when the channel buffer is full. Reduce write latency (faster external sink, batching) or increase the buffer size to reduce drops.

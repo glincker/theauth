@@ -1,0 +1,47 @@
+---
+title: "HTTP security"
+sidebarTitle: "HTTP Security"
+description: "(TheAuth).Handler() returns an http.Handler with every route Mount registers, for net/http without chi:"
+---
+## Stdlib entry point
+
+`(*TheAuth).Handler()` returns an `http.Handler` with every route `Mount`
+registers, for `net/http` without chi:
+
+```go
+mux := http.NewServeMux()
+mux.Handle("/auth/", a.Handler())
+// or under a prefix: mux.Handle("/api/", http.StripPrefix("/api", a.Handler()))
+```
+
+## CSRF and Origin checks
+
+`SameSite=Lax` does not stop requests from sibling subdomains, which are
+same-site. theauth-go therefore rejects (403) any POST, PUT, PATCH or DELETE
+that carries cookies when its `Origin` (or, if absent, `Referer`) is not
+trusted. Trusted means the `BaseURL` origin or an entry in
+`Config.TrustedOrigins`. If neither header is present, a `Sec-Fetch-Site` of
+`same-site` or `cross-site` is rejected.
+
+Exempt: GET/HEAD/OPTIONS, requests with `Authorization: Bearer`, and requests
+with no cookies. Set `Config.DisableCSRFProtection` to opt out.
+
+## Secure cookies
+
+Cookies get `Secure` when `Config.SecureCookie` is true, `BaseURL` is https,
+the connection is TLS, or the peer is in `TrustedProxies` and sent
+`X-Forwarded-Proto: https`. A plain-http `BaseURL` (local dev) stays non-Secure.
+
+## Behind a reverse proxy
+
+`X-Forwarded-For` and `X-Forwarded-Proto` are honored only from peers inside
+`Config.TrustedProxies`. The default is empty, so behind Caddy, nginx or a load
+balancer every client appears as the proxy IP and the per-IP rate limit
+collapses into one shared bucket. List the proxy network:
+
+```go
+TrustedProxies: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+```
+
+A startup warning is logged when the list is empty; set
+`SuppressTrustedProxiesWarning` if the server is exposed directly.

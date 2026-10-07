@@ -1,0 +1,77 @@
+---
+title: "Metrics Reference"
+sidebarTitle: "Metrics"
+description: "theauth-go emits metrics via the pluggable Metrics adapter (see Wire OpenTelemetry Tracing for wiring details)."
+---
+theauth-go emits metrics via the pluggable `Metrics` adapter (see [Wire OpenTelemetry Tracing](/go/guides/opentelemetry-tracing) for wiring details). The metric catalog below is the authoritative list as of v2.3.0.
+
+Metric names are exported as constants (`theauth.MetricOAuthTokenRequestsTotal`, etc.) so dashboards can reference them by symbol rather than by string.
+
+## Counter metrics
+
+| Metric | Constant | Labels | Description |
+|---|---|---|---|
+| `theauth_oauth_token_requests_total` | `MetricOAuthTokenRequestsTotal` | `grant_type`, `status` | Total requests to `/oauth/token`. |
+| `theauth_oauth_introspect_requests_total` | `MetricOAuthIntrospectRequestsTotal` | `status` | Total requests to `/oauth/introspect`. |
+| `theauth_clientauthcache_hits_total` | `MetricClientAuthCacheHits` | `kind` | Client auth cache hits (avoids Argon2id verify). |
+| `theauth_clientauthcache_misses_total` | `MetricClientAuthCacheMisses` | `kind` | Client auth cache misses (Argon2id verify runs). |
+| `theauth_rate_limit_blocked_total` | `MetricRateLimitBlockedTotal` | `rule` | Requests blocked by rate limiter. |
+| `theauth_audit_dropped_total` | `MetricAuditDroppedTotal` | (none) | Audit events dropped due to channel backpressure. |
+
+## Histogram metrics
+
+| Metric | Constant | Labels | Buckets |
+|---|---|---|---|
+| `theauth_oauth_token_latency_seconds` | `MetricOAuthTokenLatency` | `grant_type` | `LatencyBuckets` |
+| `theauth_oauth_introspect_latency_seconds` | `MetricOAuthIntrospectLatency` | (none) | `LatencyBuckets` |
+
+`LatencyBuckets` is `[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5]` seconds. Consumers pre-registering Prometheus histograms MUST use this exact slice so bucket boundaries align between library call sites and consumer registrations. The slice is exported as `theauth.LatencyBuckets`.
+
+## Gauge metrics
+
+| Metric | Constant | Labels | Description |
+|---|---|---|---|
+| `theauth_clientauthcache_size` | `MetricClientAuthCacheSize` | `kind` | Current client auth cache entry count. |
+| `theauth_audit_queue_depth` | `MetricAuditQueueDepth` | (none) | Current audit channel buffer depth. |
+| `theauth_session_active` | `MetricSessionActive` | `tenant_id` | Approximate count of active sessions. |
+| `theauth_webauthn_challenges_in_flight` | `MetricWebAuthnChallengesInFlight` | (none) | WebAuthn challenges not yet consumed. |
+| `theauth_saml_in_flight_authnreq` | `MetricSAMLInFlightAuthnReq` | (none) | SAML AuthnRequests not yet responded to. |
+
+## Label values
+
+| Label | Fixed values |
+|---|---|
+| `grant_type` | `authorization_code`, `refresh_token`, `client_credentials`, `urn:ietf:params:oauth:grant-type:token-exchange`, `urn:openid:params:grant-type:ciba` -- the label carries the exact `grant_type` request parameter value, which for token exchange and CIBA is the full grant-type URN, not a short alias. |
+| `status` | `success`, `error` |
+| `rule` | `ip`, `email` |
+| `kind` | `oauth_client` |
+| `tenant_id` | Organization ULID or empty string for non-org requests |
+
+## Cardinality discipline
+
+High-cardinality identifiers (`client_id`, `user_id`, `session_id`, IP) go on spans as attributes, NEVER on metric labels. This is enforced by review at library call sites. The public `Labels` type does not prevent adding high-cardinality values manually; operators should validate label sets with `promtool check rules`.
+
+## Adding a custom metric
+
+To add a metric to your own dashboards alongside theauth metrics, implement the `Metrics` interface and record from your own handler code. Do not monkey-patch the library's internal call sites.
+
+## Prometheus wiring example
+
+A reference Prometheus adapter ships in the repository at `examples/observability-prom/`. It is not a published package; copy and adapt it.
+
+```go
+import (
+    "github.com/glincker/theauth-go/v2"
+    prombridge "myapp/internal/prombridge"
+    "github.com/prometheus/client_golang/prometheus"
+)
+
+hooks := &theauth.Hooks{
+    Metrics: prombridge.New(prometheus.DefaultRegisterer),
+}
+
+a, _ := theauth.New(theauth.Config{
+    // ...
+    Observability: hooks,
+})
+```

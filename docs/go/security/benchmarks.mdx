@@ -1,0 +1,78 @@
+---
+title: "Benchmarks"
+description: "theauth-go ships a benchmark gate that runs on every pull request and fails if any curated benchmark regresses more than 25% (the default threshold)."
+---
+theauth-go ships a benchmark gate that runs on every pull request and fails if any curated benchmark regresses more than 25% (the default threshold).
+
+## Curated benchmarks
+
+| Benchmark | Package | What it guards |
+|---|---|---|
+| `BenchmarkOAuthTokenEndpointRefreshHit` | `internal/bench` | `/oauth/token` refresh grant with Argon2 cache warm. The original 1254x regression source from the v2.0 audit. |
+| `BenchmarkOAuthCodeFlow` | `internal/bench` | End-to-end authorization code grant: PKCE S256 verify + code consume + JWT mint + refresh insert. |
+| `BenchmarkSCIMTokenAuth` | `internal/bench` | SCIM bearer auth: sha256 hash + one storage lookup. Guards the single-round-trip perf fix. |
+| `BenchmarkRateLimitReadHeavy` | root package | Rate limiter under parallel read-heavy load. Guards the shared-RLock optimization. |
+| `BenchmarkJWKSEndpoint` | `internal/bench` | JWKS endpoint: snapshot read + JSON marshal. Smoke-tests the signing-key cache. |
+| `BenchmarkAuditRedactor` | `internal/bench` | Audit redactor EqualFold key matching. Guards the no-alloc-per-key optimization. |
+| `BenchmarkArgon2Hash` | `crypto` | Argon2id hash at production work factor. |
+| `BenchmarkArgon2Verify` | `crypto` | Argon2id verify at production work factor. |
+| `BenchmarkJWTSign` | `internal/jwt` | Ed25519 JWT sign. |
+| `BenchmarkJWTVerify` | `internal/jwt` | Ed25519 JWT verify. |
+| `BenchmarkSessionLookup` | `internal/bench` | Cookie parse + token hash + map lookup. Floor cost per authenticated request. |
+| `BenchmarkOAuthCallback` | `internal/bench` | AES-GCM encrypt + in-memory upsert. Covers the social-provider callback path. |
+
+The authoritative list lives in `benchgate/curated.txt`. Edit that file to add or remove benchmarks; the gate script picks it up automatically.
+
+## Running locally
+
+```bash
+# Full gate run (matches CI: 2 s per benchmark, 10 runs each):
+./scripts/bench-gate.sh
+
+# Quick smoke run (1 iteration only):
+BENCH_TIME=1x BENCH_COUNT=1 ./scripts/bench-gate.sh
+
+# Compare a feature branch against main:
+git checkout main
+./scripts/bench-gate.sh > /tmp/base.txt
+git checkout my-feature
+./scripts/bench-gate.sh > /tmp/pr.txt
+benchstat /tmp/base.txt /tmp/pr.txt
+
+# Check whether a diff file would pass the gate:
+./scripts/bench-gate.sh --check /tmp/diff.txt
+```
+
+## Threshold
+
+The default regression threshold is 25%. To change it:
+
+- Globally for CI: update `THRESHOLD_PCT` in `.github/workflows/bench.yml`.
+- For a single local run: `THRESHOLD_PCT=10 ./scripts/bench-gate.sh --check diff.txt`.
+
+## CI workflow
+
+The `bench` workflow (`.github/workflows/bench.yml`) runs on every pull request and on pushes to `main`.
+
+Key design decisions:
+
+- **Base caching:** the base-branch benchmark output is cached by commit SHA so re-runs of the same PR do not re-benchmark the base.
+- **Cold-base fallback:** when no cache exists the workflow checks out the base commit, runs the benchmarks, saves the cache, then returns to the PR SHA.
+- **PR comment:** on pull requests the diff is posted as a PR comment so reviewers see the delta without downloading artifacts.
+- **Artifacts:** `pr-bench.txt`, `base-bench.txt`, and `diff.txt` are uploaded as workflow artifacts (retained 90 days).
+
+## Adding a benchmark
+
+1. Write the benchmark in the appropriate package following existing conventions (see `internal/bench/` for examples).
+2. Add the benchmark name to `benchgate/curated.txt` with a comment explaining what regression it catches.
+3. Run `BENCH_TIME=1x BENCH_COUNT=1 ./scripts/bench-gate.sh` locally to confirm it appears and exits 0.
+
+## Noisy benchmark skip annotation
+
+If a benchmark routinely produces more than 10% noise, add a `# gate:skip` line in `benchgate/curated.txt`:
+
+```
+# gate:skip BenchmarkFoo -- high variance on shared runners; tracked in issue #NNN
+```
+
+Do not skip a benchmark without a reference to a tracking issue.

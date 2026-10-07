@@ -1,0 +1,51 @@
+---
+title: "Use the Postgres or MySQL Backend"
+description: "storage/postgres (pgx) and storage/mysql (database/sql) implement the same optional capabilities as the memory and SQLite adapters, so tokens, device login, session management and closed signup work on either database."
+---
+`storage/postgres` (pgx) and `storage/mysql` (`database/sql`) implement the same optional capabilities as the memory and SQLite adapters, so tokens, device login, session management and closed signup work on either database.
+
+## What they cover
+
+| Capability | Postgres | MySQL |
+| --- | --- | --- |
+| Core, OAuth accounts, WebAuthn, TOTP, audit, organizations, RBAC, OAuth server | Implemented | Implemented |
+| `SessionManagementStorage`, `SessionLinkStorage` | Implemented | Implemented |
+| `APITokenStorage` (including agent token columns), `DeviceCodeStorage` | Implemented | Implemented |
+| `TOTPReplayStorage`, `UserCountStorage` | Implemented | Implemented |
+| `WebAuthnRenameStorage`, `RecoveryCodeStorage` | Implemented | Implemented |
+| Shared login throttle (`Store.ThrottleStore`, `LoginThrottleCASStore`) | Implemented | Implemented |
+
+Existing deployments pick the new tables and `sessions` columns up by running `Migrate` again: both adapters ship `0018_capabilities.up.sql`, which is forward-only and idempotent through the `theauth_schema_migrations` ledger.
+
+## Atomic claims
+
+Single-use grants must have exactly one winner under contention.
+
+| Operation | Postgres | MySQL |
+| --- | --- | --- |
+| `ClaimDeviceCode` | One `UPDATE ... RETURNING` | Conditional `UPDATE` plus a rows-affected check, then a read, in one transaction |
+| `ConsumeSessionLink` | One `UPDATE ... RETURNING` | Same as above |
+| `DecideDeviceCode` | Conditional `UPDATE` | Conditional `UPDATE` plus a rows-affected check |
+| `AdvanceTOTPStep` | `INSERT ... ON CONFLICT DO UPDATE ... WHERE` | `INSERT IGNORE`, then `UPDATE ... WHERE step < ?` |
+| Throttle `CompareAndSwap` | Conditional `UPDATE` or `INSERT ... ON CONFLICT DO NOTHING` | `SELECT ... FOR UPDATE` and compare in a transaction |
+
+MySQL reports changed rows rather than matched rows unless the DSN sets `clientFoundRows=true`. The adapter works with either setting: idempotent updates fall back to an existence check when zero rows change.
+
+## Wire the login throttle
+
+```go
+cfg.LoginThrottle = &theauth.LoginThrottleConfig{Store: store.ThrottleStore()}
+```
+
+## Run the contract suites
+
+Both adapters run the shared suites only when a database is configured.
+
+```sh
+POSTGRES_TEST_URL='postgres://postgres:pw@localhost:5432/theauth?sslmode=disable' \
+  go test ./storage/postgres/...
+
+THEAUTH_MYSQL_CONTRACT=1 \
+THEAUTH_TEST_MYSQL_DSN='root:pw@tcp(127.0.0.1:3306)/theauth?parseTime=true&loc=UTC' \
+  go test ./storage/mysql/...
+```
