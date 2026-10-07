@@ -126,8 +126,17 @@ const result = await auth.authorize(agent.id, {
 
 ## How TheAuth compares
 
-| Capability | Auth0 | Clerk | Better-Auth | NextAuth | Lucia | **TheAuth** |
-|---|---|---|---|---|---|---|
+Checked against each vendor's public docs on 2026-10-07. Vendors change fast, so verify against their docs. Full write-ups with sources: https://theauth.dev/compare/
+
+| Capability | Auth0 | Clerk | Better Auth | **TheAuth** |
+|---|---|---|---|---|
+| Source license | Proprietary | Proprietary | MIT | **MIT** |
+| Self-hostable | Managed private cloud only | No | Yes | **Yes** |
+| OAuth 2.1 server for MCP | Yes | Yes | Yes | **Yes** |
+| Agent identity as its own model | Add-on: Token Vault, CIBA | Not found in docs | Plugin, not yet stable | **Yes, core** |
+| Enterprise SSO | Yes | Yes | Plugin | **SAML 2.0, OIDC, SCIM** |
+
+---|---|---|---|---|---|---|
 | License | Proprietary | Proprietary | MIT | ISC | MIT | **MIT** |
 | Self-hosted | Partial | No | Yes | Yes | Yes | **Yes** |
 | OAuth 2.1 server | Yes | Yes | Partial | No | No | **Yes** |
