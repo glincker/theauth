@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Reference for every `createTheAuth()` option in `TheAuthConfig`. Covers database providers, agent settings, MCP OAuth, session config, and anomaly detection.
+description: Reference for the `createTheAuth()` options in `TheAuthConfig`. Covers database providers, agent settings, session config, password reset, and which options createTheAuth actually reads.
 icon: gear
 ---
 
@@ -17,22 +17,18 @@ const theauth = await createTheAuth({
 
 ## Common development setup
 
-A minimal config for local development with email/password auth and no email sending:
+A minimal config for local development with username and password sign-in, TheAuth-managed sessions, and no email sending:
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
-import { emailPassword } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: './theauth.db' },
-  plugins: [
-    emailPassword({
-      requireVerification: false, // skip in dev
-      onSendVerification: async (email, token) => {
-        console.log(`Verify: http://localhost:3000/verify?token=${token}`);
-      },
-    }),
-  ],
+  agents: { enabled: true },
+  auth: {
+    session: { secret: process.env.SESSION_SECRET! }, // at least 32 characters
+  },
+  username: {}, // enables theauth.username (signUp, signIn, ...)
 });
 ```
 
@@ -40,20 +36,31 @@ const theauth = await createTheAuth({
 
 <ParamField path="database" type="DatabaseConfig" required>Database connection config. Required.</ParamField>
 <ParamField path="agents" type="AgentConfig">Agent identity settings.</ParamField>
-<ParamField path="mcp" type="McpConfig">MCP OAuth 2.1 authorization server.</ParamField>
 <ParamField path="auth" type={`{ adapter?: AuthAdapter; session?: SessionConfig }`}>Human auth adapter and session config.</ParamField>
-<ParamField path="anomaly" type="AnomalyConfig">Anomaly detection thresholds.</ParamField>
-<ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config.</ParamField>
-<ParamField path="trust" type="TrustConfig">Graduated autonomy trust scoring.</ParamField>
-<ParamField path="telemetry" type="TelemetryConfig">OpenTelemetry integration via hooks.</ParamField>
-<ParamField path="hooks" type="AuthHooks">Lifecycle hooks for sandboxing and custom validation.</ParamField>
-<ParamField path="baseUrl" type="string">Base URL for the auth server (e.g. https://auth.example.com).</ParamField>
-<ParamField path="secret" type="string">Secret key used to sign tokens. Min 32 characters.</ParamField>
+<ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config. See [Approval flows](/approval).</ParamField>
+<ParamField path="hooks" type="TheAuthHooks">Lifecycle hooks for sandboxing and custom validation. See [Hooks](/hooks).</ParamField>
+<ParamField path="policy" type="PolicyEngineConfig">Unified policy engine cache, combine strategy, and audit sampling. See [Policy engine](/policy-engine).</ParamField>
+<ParamField path="did" type="{ web?: DidWebConfig }">did:web domain and path. See [DIDs](/did).</ParamField>
+<ParamField path="plugins" type="TheAuthPlugin[]">Plugin factories such as `gdpr()`, `rateLimit()`, `twoFactor()`. See [Plugins](#plugins).</ParamField>
+<ParamField path="baseUrl" type="string">Base URL for the auth server (e.g. https://auth.example.com). Read by plugins that build callback URLs or decide on secure cookies (OAuth, passkey, OAuth proxy).</ParamField>
+<ParamField path="sessionFreshness" type="SessionFreshnessConfig">See [Session freshness config](#session-freshness-config).</ParamField>
+<ParamField path="webhooks" type="WebhookConfig[]">Webhook endpoints to notify on auth events. See [Webhooks](/webhooks).</ParamField>
+<ParamField path="passwordReset" type="PasswordResetConfig">Password reset flow. See [Password reset config](#password-reset-config).</ParamField>
+
+Other optional top-level modules, each of which creates the matching `theauth.<name>` instance property when provided: `magicLink`, `emailOtp`, `emailVerification`, `totp`, `passkey`, `org`, `sso`, `admin`, `apiKeys`, `username`, `phone`, `captcha`, and `redirects`. Several of these require `auth.session` as noted in their own pages.
+
+Options that `TheAuthConfig` declares but `createTheAuth()` does not act on:
+
+- `mcp`: `createTheAuth()` does not read it. The OAuth 2.1 authorization server is built with `createMcpModule` from `@glinr/theauth/mcp`, which takes a `McpConfig` (see [MCP config](#mcp-config)). `theauth.mcp` on the instance is only the MCP tool server registry.
+- `secret`: not read by `createTheAuth()`. Set the session secret in `auth.session.secret` and the MCP signing secret in `McpConfig.signingSecret`.
+- `emitAgenticJwtClaims`: not read by `createTheAuth()`. See [Standards](/standards) for the places it does work.
+
+There is no `trust` or `telemetry` option. The trust module is always created with its defaults.
 
 ## Database config
 
-<ParamField path="provider" type={`"sqlite" | "postgres" | "mysql" | "d1"`} required>Database driver to use.</ParamField>
-<ParamField path="url" type="string">File path for SQLite, connection string for Postgres/MySQL. Not used with D1.</ParamField>
+<ParamField path="provider" type={`"sqlite" | "sqlite-native" | "postgres" | "mysql" | "d1"`} required>Database driver to use.</ParamField>
+<ParamField path="url" type="string">File path for SQLite, connection string for Postgres/MySQL. Required for every provider except D1.</ParamField>
 <ParamField path="binding" type="D1Database">D1Database binding from the Worker environment. Required when provider is "d1".</ParamField>
 <ParamField path="skipMigrations" type="boolean">Skip automatic CREATE TABLE IF NOT EXISTS on init. Use when you manage migrations externally (Flyway, drizzle-kit push, etc.). Defaults to false.</ParamField>
 
@@ -87,11 +94,11 @@ database: { provider: 'sqlite', url: ':memory:' }
 
 Controls the agent identity lifecycle.
 
-<ParamField path="enabled" type="boolean" required>Enable agent identity management.</ParamField>
-<ParamField path="maxPerUser" type="number">Maximum number of agents a single user can create.</ParamField>
-<ParamField path="defaultPermissions" type="string[]">Permission strings assigned to every new agent unless overridden.</ParamField>
-<ParamField path="auditAll" type="boolean">Write every agent action to the audit log regardless of permission outcome.</ParamField>
-<ParamField path="tokenExpiry" type="string">Default token expiry duration string (e.g. "7d", "24h", "30m").</ParamField>
+<ParamField path="enabled" type="boolean" required>Required by the type, but not read: agent management is always available. Set it to `true`.</ParamField>
+<ParamField path="maxPerUser" type="number" default="10">Maximum number of active agents per owner. `agent.create()` throws when the owner is at the limit.</ParamField>
+<ParamField path="defaultPermissions" type="string[]">Accepted but not applied: new agents get only the permissions you pass to `agent.create()`.</ParamField>
+<ParamField path="auditAll" type="boolean" default="true">Write every `authorize()` outcome (allowed and denied) to the audit log. When `false`, no rows are written by the permission engine at all.</ParamField>
+<ParamField path="tokenExpiry" type="string" default={`"24h"`}>Default agent lifetime when `agent.create()` is called without `expiresAt`. Format is a number followed by `s`, `m`, `h`, or `d` (for example `"30m"`, `"24h"`, `"7d"`); anything else makes `create()` throw. Every agent therefore has an expiry unless you pass `expiresAt`.</ParamField>
 
 ```typescript
 agents: {
@@ -105,12 +112,12 @@ agents: {
 
 ## MCP config
 
-Enables the OAuth 2.1 authorization server for MCP-compliant tool access.
+Options for the OAuth 2.1 authorization server for MCP-compliant tool access. These are the fields of `McpConfig`, passed to `createMcpModule` from `@glinr/theauth/mcp` (see [MCP](/mcp)). Passing them as the `mcp` option of `createTheAuth()` has no effect today.
 
 <ParamField path="enabled" type="boolean" required>Enable the MCP authorization server.</ParamField>
 <ParamField path="issuer" type="string">Token issuer URL. Appears as the iss claim in JWTs.</ParamField>
 <ParamField path="baseUrl" type="string">Base path for MCP endpoints.</ParamField>
-<ParamField path="signingSecret" type="string">Secret used to sign JWTs. Min 32 characters. Defaults to the top-level secret.</ParamField>
+<ParamField path="signingSecret" type="string" required>Secret used to sign JWTs. At least 32 characters; `createMcpModule` throws without it. It does not fall back to any other secret.</ParamField>
 <ParamField path="accessTokenTtl" type="number">Access token lifetime in seconds. Defaults to 3600 (1 hour).</ParamField>
 <ParamField path="refreshTokenTtl" type="number">Refresh token lifetime in seconds. Defaults to 604800 (7 days).</ParamField>
 <ParamField path="codeTtl" type="number">Authorization code lifetime in seconds. Defaults to 600 (10 minutes).</ParamField>
@@ -122,17 +129,21 @@ Enables the OAuth 2.1 authorization server for MCP-compliant tool access.
 <ParamField path="preRegisteredClients" type={`Array<{ clientId, clientSecret?, redirectUris, clientName?, scope? }>`}>OAuth clients registered at startup (first-party apps, CLIs, test fixtures).</ParamField>
 <ParamField path="getAdditionalClaims" type={`(userId: string, scopes: string[]) => Promise<Record<string, unknown>>`}>Async function to add custom claims to issued tokens.</ParamField>
 
+<ParamField path="emitAgenticJwtClaims" type="boolean">Emit `agent_id`, `agent_type`, and `trust_tier` on access tokens, using `getAgenticContext`. See [Standards](/standards).</ParamField>
+<ParamField path="getAgenticContext" type="(userId: string) => Promise<{ agentId?, agentType?, trustTier? }>">Supplies the values for those claims.</ParamField>
+
 ```typescript
-mcp: {
+const mcpConfig = {
   enabled: true,
   issuer: 'https://auth.example.com',
   baseUrl: 'https://auth.example.com',
+  signingSecret: process.env.THEAUTH_SIGNING_SECRET!,
   accessTokenTtl: 3600,
   refreshTokenTtl: 604800,
   enforceAuth: true,
   loginPage: 'https://example.com/login',
   consentPage: 'https://example.com/consent',
-},
+};
 ```
 
 ## Auth config
@@ -151,7 +162,7 @@ auth: {
 
 When `auth` is omitted, `theauth.auth.resolveUser()` always returns `null` (manual user management mode).
 
-See [Auth adapters](/guides/auth-adapters) for all adapter options.
+Built-in adapters exported from `@glinr/theauth/auth` include `betterAuthAdapter`, `authJsAdapter`, `clerkAdapter`, `bearerAuth`, `cookieAuth`, `headerAuth`, `apiKeyAdapter`, and `customAuth`.
 
 ## Session config
 
@@ -161,7 +172,7 @@ See [Auth adapters](/guides/auth-adapters) for all adapter options.
 
 ## Password reset config
 
-Requires `auth.session` to be configured. The caller provides an email-sending callback.
+A top-level `passwordReset` option (not nested under `auth`). It requires `auth.session`, and its flow relies on the `username` module, so configure `username` too. If `auth.session` is missing, `theauth.passwordReset` is `null`. The caller provides an email-sending callback.
 
 <ParamField path="sendResetEmail" type={`(email: string, token: string, url: string) => Promise<void>`} required>Callback to deliver the reset email. Receives email, raw token, and constructed URL.</ParamField>
 <ParamField path="resetUrl" type="string" required>Base URL for the reset page. Token is appended as ?token=...</ParamField>
@@ -181,59 +192,49 @@ auth: {
     secret: process.env.SESSION_SECRET!,
     maxAge: 60 * 60 * 24 * 7, // 7 days
   },
-  passwordReset: {
-    resetUrl: 'https://example.com/reset-password',
-    tokenTtlSeconds: 3600,
-    revokeSessionsOnReset: true,
-    minPasswordLength: 10,
-    sendResetEmail: async (email, token, url) => {
-      await mailer.send({
-        to: email,
-        subject: 'Reset your password',
-        html: `<a href="${url}">Reset password</a>`,
-      });
-    },
+},
+username: {},
+passwordReset: {
+  resetUrl: 'https://example.com/reset-password',
+  tokenTtlSeconds: 3600,
+  revokeSessionsOnReset: true,
+  minPasswordLength: 10,
+  sendResetEmail: async (email, token, url) => {
+    await mailer.send({
+      to: email,
+      subject: 'Reset your password',
+      html: `<a href="${url}">Reset password</a>`,
+    });
   },
 },
 ```
 
 ## Session freshness config
 
-Controls when sessions are considered "fresh" for sensitive operations like password changes and passkey registration.
+Controls when sessions are considered "fresh" for sensitive operations. Pass it as the top-level `sessionFreshness` option; it backs `theauth.sessionFreshness`.
 
 <ParamField path="freshAge" type="number" default="300 (5 minutes)">Maximum session age in seconds to be considered fresh.</ParamField>
 
 ## Plugins
 
-TheAuth features are composable. Enable what you need:
+Plugins are factories passed in the `plugins` array. They register HTTP endpoints and lifecycle hooks. All of these are exported from `@glinr/theauth/auth`:
 
-| Plugin | Import | What it does |
-|--------|--------|--------------|
-| `emailPassword` | `@glinr/theauth/auth` | Email + password with verification and reset |
-| `passkey` | `@glinr/theauth/auth` | WebAuthn/FIDO2 biometric auth |
-| `magicLink` | `@glinr/theauth/auth` | Passwordless email links |
-| `emailOtp` | `@glinr/theauth/auth` | One-time password codes via email |
-| `twoFactor` | `@glinr/theauth/auth` | TOTP 2FA with backup codes |
-| `multiSession` | `@glinr/theauth/auth` | Session limits and device management |
-| `organization` | `@glinr/theauth/auth` | Organizations with RBAC |
-| `apiKeys` | `@glinr/theauth/auth` | Static API key management |
-| `admin` | `@glinr/theauth/auth` | User management, banning, impersonation |
-| `stripe` | `@glinr/theauth/auth` | Stripe billing integration |
-| `polar` | `@glinr/theauth/auth` | Polar payment integration |
+| Plugin | What it does |
+|--------|--------------|
+| `passkey(config)` | WebAuthn/FIDO2 endpoints (requires a `PasskeyConfig`) |
+| `magicLink(config)` | Passwordless email links |
+| `emailOtp(config)` | One-time password codes via email |
+| `twoFactor(config?)` | TOTP two-factor endpoints |
+| `organization(config?)` | Organization endpoints with RBAC |
+| `apiKeys(config?)` | Static API key endpoints |
+| `admin(config?)` | User management, banning, impersonation |
+| `stripe(config)` | Stripe billing integration |
+| `polar(config)` | Polar payment integration |
+| `gdpr()` | Data export, delete, and anonymize endpoints |
+| `rateLimit(config?)` | Per-IP limits on `/auth/*` endpoints |
+| `oauth(config)` | Social OAuth sign-in endpoints |
 
-## Anomaly config
-
-<ParamField path="highFrequencyThreshold" type="number">Calls per agent per hour before flagging as high-frequency. Defaults to 500.</ParamField>
-<ParamField path="highDenialRateThreshold" type="number">Denial rate percentage that triggers an alert. Defaults to 50.</ParamField>
-<ParamField path="expectedHours" type="{ start: number; end: number }">Flag access outside these hours (0-23) as off-hours anomaly. Optional.</ParamField>
-
-```typescript
-anomaly: {
-  highFrequencyThreshold: 200,
-  highDenialRateThreshold: 30,
-  expectedHours: { start: 8, end: 20 },
-},
-```
+There is no `emailPassword` plugin. Username and password sign-in is the top-level `username` option (with `passwordReset` and `emailVerification` alongside it). Multi-session support lives in the session module, see [Multi-session](/multi-session).
 
 ## Environment variables pattern
 
@@ -246,10 +247,8 @@ const theauth = await createTheAuth({
     url: process.env.DATABASE_URL!,
   },
   secret: process.env.THEAUTH_SECRET!,
-  mcp: {
-    enabled: true,
-    issuer: process.env.THEAUTH_ISSUER!,
-    signingSecret: process.env.THEAUTH_SIGNING_SECRET,
+  auth: {
+    session: { secret: process.env.THEAUTH_SESSION_SECRET! },
   },
 });
 ```
@@ -265,8 +264,11 @@ export const theauth = await createTheAuth({
     ? { provider: 'sqlite', url: './theauth-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },
 
-  secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',
+
+  auth: {
+    session: { secret: process.env.THEAUTH_SESSION_SECRET! },
+  },
 
   agents: {
     enabled: true,
@@ -274,25 +276,11 @@ export const theauth = await createTheAuth({
     auditAll: true,
     tokenExpiry: '30d',
   },
-
-  mcp: {
-    enabled: true,
-    issuer: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',
-    accessTokenTtl: isDev ? 86400 : 3600,
-    enforceAuth: !isDev,
-    loginPage: '/login',
-    consentPage: '/consent',
-  },
-
-  anomaly: {
-    highFrequencyThreshold: 500,
-    highDenialRateThreshold: 50,
-  },
 });
 ```
 
 <Warning>
-  `secret` and `mcp.signingSecret` must be at least 32 characters. In production, generate them with `openssl rand -base64 32`.
+  `auth.session.secret` and the MCP `signingSecret` must be at least 32 characters. In production, generate them with `openssl rand -base64 32`.
 </Warning>
 
 ## Next steps

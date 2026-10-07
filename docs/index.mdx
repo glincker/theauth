@@ -56,7 +56,7 @@ const { allowed, auditId } = await theauth.authorize(agent.id, {
 **MCP OAuth 2.1** authorization server, PKCE and DCR built in.
 </div>
 <div>
-**Trust scoring** per agent with anomaly detection and budget caps.
+**Trust scoring** per agent from audit history, plus budget policies.
 </div>
 <div>
 **Ten adapters** for Node, edge, Workers, Deno, Bun.
@@ -133,7 +133,7 @@ TheAuth does not replace your human auth. It does not handle login forms, passwo
     Spec-compliant AS with PKCE S256, RFC 9728, RFC 7591.
   </Card>
   <Card title="Trust scoring" icon="chart-line" href="/trust">
-    Nine-factor score per agent. Anomaly detection and budget policies on top.
+    Score per agent computed from audit history. Budget policies you check and record yourself.
   </Card>
 </CardGroup>
 

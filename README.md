@@ -52,7 +52,7 @@ If any of those is a no, that gap is why theauth exists.
 
 ### Agent identity
 
-Cryptographic bearer tokens (`kv_...`), wildcard permission matching, delegation chains with depth limits, budget policies, anomaly detection, and CIBA approval flows.
+Cryptographic bearer tokens (`kv_...`), wildcard permission matching, delegation chains with depth limits, budget policies, a denial-history trust score, and CIBA-style approval flows.
 
 ### Human auth
 
@@ -68,7 +68,7 @@ Authorization server for the Model Context Protocol. PKCE S256, RFC 9728 / 8707 
 
 ### Enterprise
 
-Organizations with RBAC, SAML 2.0 and OIDC SSO, admin controls (ban/impersonate), API key management, SCIM directory sync, multi-tenant isolation, GDPR export/delete/anonymize, compliance reports for EU AI Act, NIST, SOC 2, ISO 42001.
+Organizations with RBAC, SAML 2.0 and OIDC SSO, admin controls (ban/impersonate), API key management, SCIM directory sync, multi-tenant isolation, GDPR export/delete/anonymize, audit evidence export mapped to EU AI Act, NIST, SOC 2, and ISO 42001 controls (not a certification).
 
 ### Runs on the edge
 
@@ -95,17 +95,16 @@ yarn add @glinr/theauth
 ```
 
 ```typescript
+import { Hono } from "hono";
 import { createTheAuth } from "@glinr/theauth";
-import { emailPassword, passkey } from "@glinr/theauth/auth";
-import { createHonoAdapter } from "@glinr/theauth-hono";
+import { theAuthHono } from "@glinr/theauth-hono";
 
 const auth = await createTheAuth({
-  database: { provider: "postgres", url: process.env.DATABASE_URL },
-  plugins: [emailPassword(), passkey()],
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
 });
 
 const app = new Hono();
-app.route("/api/auth", createHonoAdapter(auth));
+app.route("/api/theauth", theAuthHono(auth));
 
 // Create an AI agent with scoped MCP permissions
 const agent = await auth.agent.create({
@@ -196,7 +195,7 @@ Checked against each vendor's public docs on 2026-10-07. Vendors change fast, so
 - Wildcard permission matching
 - Delegation chains with configurable depth limits
 - Budget policies per agent
-- Anomaly detection
+- Denial-based trust scoring (no built-in anomaly detector)
 - CIBA-style approval flows for sensitive tool calls
 - Full audit trail per agent action
 
@@ -229,7 +228,7 @@ Plugin: Prisma (share an existing PrismaClient)
 - API key management
 - Multi-tenant isolation
 - GDPR: export, delete, anonymize
-- Compliance reports: EU AI Act, NIST, SOC 2, ISO 42001
+- Compliance mapping and evidence export (JSON, CSV, verifiable credentials) for EU AI Act, NIST, SOC 2, ISO 42001. Not a certification
 
 ### Edge Runtimes
 
@@ -253,30 +252,18 @@ npm install @glinr/theauth @glinr/theauth-nextjs
 ```
 
 ```typescript
-// app/api/auth/[...theauth]/route.ts
+// app/api/theauth/[...theauth]/route.ts
 import { createTheAuth } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
-import { createNextAuthHandler } from "@glinr/theauth-nextjs";
+import { theAuthNextjs } from "@glinr/theauth-nextjs";
 
 const auth = await createTheAuth({
-  database: { provider: "postgres", url: process.env.DATABASE_URL },
-  plugins: [emailPassword()],
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
 });
 
-const handler = createNextAuthHandler(auth);
-export { handler as GET, handler as POST };
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(auth);
 ```
 
-```typescript
-// app/dashboard/page.tsx (Server Component)
-import { getServerSession } from "@glinr/theauth-nextjs";
-
-export default async function Dashboard() {
-  const session = await getServerSession();
-  if (!session) redirect("/sign-in");
-  return <h1>Hello, {session.user.email}</h1>;
-}
-```
+The adapter serves the agent, authorization, delegation, and audit routes under `/api/theauth`. Human sign-in is not wired by the adapter: see the docs for the auth methods you enable.
 
 See [`examples/nextjs-app`](https://github.com/glincker/theauth/tree/main/examples/nextjs-app) for a full working example.
 
@@ -290,54 +277,36 @@ npm install @glinr/theauth @glinr/theauth-sveltekit
 ```
 
 ```typescript
-// src/hooks.server.ts
+// src/routes/api/theauth/[...path]/+server.ts
 import { createTheAuth } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
-import { createSvelteKitHandler } from "@glinr/theauth-sveltekit";
+import { theAuthSvelteKit } from "@glinr/theauth-sveltekit";
 
 const auth = await createTheAuth({
   database: { provider: "sqlite", url: "theauth.db" },
-  plugins: [emailPassword()],
 });
 
-export const handle = createSvelteKitHandler(auth);
-```
-
-```typescript
-// src/routes/+layout.server.ts
-import { getSession } from "@glinr/theauth-sveltekit";
-
-export async function load(event) {
-  const session = await getSession(event);
-  return { session };
-}
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthSvelteKit(auth);
 ```
 
 </details>
 
 <details>
-<summary><strong>Vue / Nuxt</strong></summary>
+<summary><strong>Nuxt</strong></summary>
 
 ```bash
 npm install @glinr/theauth @glinr/theauth-nuxt
 ```
 
 ```typescript
-// server/plugins/theauth.ts
+// server/api/theauth/[...].ts
 import { createTheAuth } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
+import { theAuthNuxt } from "@glinr/theauth-nuxt";
 
-export const auth = await createTheAuth({
-  database: { provider: "postgres", url: process.env.DATABASE_URL },
-  plugins: [emailPassword()],
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
 });
-```
 
-```typescript
-// nuxt.config.ts
-export default defineNuxtConfig({
-  modules: ["@glinr/theauth-nuxt"],
-});
+export default theAuthNuxt(auth);
 ```
 
 </details>
@@ -352,19 +321,14 @@ npm install @glinr/theauth @glinr/theauth-hono
 ```typescript
 import { Hono } from "hono";
 import { createTheAuth } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
-import { createHonoAdapter } from "@glinr/theauth-hono";
+import { theAuthHono } from "@glinr/theauth-hono";
 
-type Env = { DATABASE_URL: string };
-const app = new Hono<{ Bindings: Env }>();
-
-app.use("/api/auth/*", async (c, next) => {
-  const auth = await createTheAuth({
-    database: { provider: "postgres", url: c.env.DATABASE_URL },
-    plugins: [emailPassword()],
-  });
-  return createHonoAdapter(auth)(c, next);
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
 });
+
+const app = new Hono();
+app.route("/api/theauth", theAuthHono(auth));
 
 export default app;
 ```

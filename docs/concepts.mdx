@@ -37,15 +37,15 @@ permissions: [
     actions: ['read'],
     constraints: {
       maxCallsPerHour: 100,          // rate limit
-      requireApproval: true,         // human-in-the-loop gate
+      requireApproval: true,         // authorize() denies until approval is wired up
       ipAllowlist: ['10.0.0.0/8'],   // where the agent may run from
-      timeWindow: { start: '09:00', end: '18:00' },
+      timeWindow: { start: '09:00', end: '18:00' },  // server local time
     },
   },
 ]
 ```
 
-Three shapes carry most of the real work: the **resource string** (free-form, convention-driven, usually `kind:namespace:id`), the **action list** (`read`, `write`, `execute`, domain-specific verbs), and **constraints** (rate, approval, IP, time, argument patterns). `authorize()` evaluates all three in memory.
+Three shapes carry most of the real work: the **resource string** (free-form, convention-driven, usually `kind:namespace:id`), the **action list** (`read`, `write`, `execute`, domain-specific verbs), and **constraints** (rate, approval, IP, time, argument patterns). `authorize()` evaluates all three. `allowedArgPatterns` are regular expressions, and every string argument must match every pattern.
 
 <Tip>
 Resource strings are conventions, not enforced syntax. Pick `mcp:github:*`, `db:users:write`, `s3:bucket:objects`, whatever reads in logs. Consistency matters more than syntax.
@@ -53,7 +53,7 @@ Resource strings are conventions, not enforced syntax. Pick `mcp:github:*`, `db:
 
 ## Delegation
 
-An agent can hand a subset of its permissions to a sub-agent. Every hop carries a depth counter, an expiry, and can be revoked independently. Revocation cascades: revoke the parent, every delegated child loses its permissions the next time it calls `authorize()`.
+An agent can hand a subset of its permissions to a sub-agent. Every hop carries a depth counter, an expiry, and can be revoked independently. Revoking a delegation cascades: every delegation made onward from that link is revoked too, so those agents lose the delegated permissions the next time they call `authorize()`.
 
 ```ts
 await theauth.delegate({
@@ -65,24 +65,23 @@ await theauth.delegate({
 });
 ```
 
-An agent cannot delegate permissions it does not hold. Attempts to escalate are rejected at delegation time, not at the next `authorize()` call. That keeps the audit log clean.
+An agent cannot delegate permissions it does not hold. Attempts to escalate are rejected at delegation time, not at the next `authorize()` call. `maxDepth` limits chain length: the new link's depth must be less than or equal to it (default 3).
 
 ## Audit trail
 
-Every `authorize()` writes one row:
+When `agents.auditAll` is on (the default), every `authorize()` and `authorizeByToken()` call against a known agent writes one row:
 
 | Field | Meaning |
 |---|---|
 | `agentId` | Which agent asked |
 | `userId` | The human the agent belongs to |
 | `action`, `resource` | What they tried to do |
+| `parameters` | The `arguments` passed to `authorize()` |
 | `result` | `allowed` or `denied` |
-| `reason` | Why, if denied |
-| `duration` | Evaluation latency in ms |
-| `constraints` | Which constraints fired |
-| `delegationChain` | Full parent chain if the agent was delegated |
+| `reason` | Why, if denied (free text) |
+| `durationMs` | Evaluation latency in ms |
 
-The trail is append-only. Export as JSON or CSV for compliance, or stream via webhooks.
+The IP address and user agent are stored too, when the request carried them. Nothing in the API edits entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the retention window. Export as JSON or CSV for compliance.
 
 ## Agent types
 
@@ -100,15 +99,15 @@ The trail is append-only. Export as JSON or CSV for compliance, or stream via we
 
 ## Trust scoring
 
-Every agent carries a score from 0 to 100, recomputed on each `authorize()` call. Nine factors feed it: attestation strength, delegation depth, behavioral anomaly, geolocation stability, rate of denials, age, owner trust, workload binding presence, runtime attestation.
+Every agent can have a score from 0 to 100, computed from its audit log when you call `theauth.trust.computeScore(agentId)` (it is not recomputed on each `authorize()` call). The score starts at 50 and moves with successful calls (up), denials (down), flagged denials (down more), and agent age (up).
 
-The score maps to a tier used in policy templates: `unverified` (0-19), `low` (20-39), `standard` (40-59), `elevated` (60-79), `high` (80+).
+The score maps to a level: `untrusted` (below 40), `limited` (40-59), `standard` (60-79), `trusted` (80-94), `elevated` (95+).
 
-See [Trust scoring](/trust) for the full formula and [Policy templates](/policies/templates) for policies keyed off the tier.
+See [Trust scoring](/trust) for the full formula and [Policy templates](/policies/templates) for policies you can pair with the level.
 
 ## MCP OAuth
 
-TheAuth ships an OAuth 2.1 authorization server for Model Context Protocol tool servers. Your MCP servers register as OAuth clients, your agents get scoped access tokens, and TheAuth audits every tool call with the same `authorize()` loop.
+TheAuth ships an OAuth 2.1 authorization server for Model Context Protocol tool servers. Your MCP servers register as OAuth clients, and they get scoped JWT access tokens. The OAuth server comes from `createMcpModule` in `@glinr/theauth/mcp`; token validation is separate from agent `authorize()` and does not write audit entries.
 
 Three relevant standards: **PKCE S256** (RFC 7636), **Protected Resource Metadata** (RFC 9728), **Dynamic Client Registration** (RFC 7591). Full details in [MCP OAuth 2.1](/mcp).
 
