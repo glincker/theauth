@@ -4,6 +4,8 @@ Zero-dependency TypeScript REST client for the TheAuth API.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-client?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-client)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash
@@ -109,7 +111,7 @@ try {
 
 ## Docs
 
-[https://docs.theauth.dev/client](https://docs.theauth.dev/client)
+[https://docs.theauth.dev/client-sdk](https://docs.theauth.dev/client-sdk)
 
 ## Community
 

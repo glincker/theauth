@@ -24,3 +24,5 @@ const cx = { item: "flex items-center gap-3 py-2", revoke: "text-sm text-red-600
 ```
 
 Error text: each `labels.error(code)` receives a stable code such as `invalid_expiry`, `ability_not_held` or `invalid_credentials`; map it to your copy. Components also set `data-error-code` on the alert element. Peer dependencies: `react`, `@tanstack/react-query`, `@glinr/theauth-react`, `@glinr/theauth-client`.
+
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).

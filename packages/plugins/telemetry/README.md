@@ -4,6 +4,8 @@ OpenTelemetry integration plugin for TheAuth - converts auth events into OTel sp
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-plugin-telemetry?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-plugin-telemetry)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash

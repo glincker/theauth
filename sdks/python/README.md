@@ -6,6 +6,8 @@ Python SDK for [TheAuth](https://theauth.dev). Auth OS for AI agents and humans.
 [![Python](https://img.shields.io/pypi/pyversions/theauth)](https://pypi.org/project/theauth/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](../../LICENSE)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ---
 
 ## Install

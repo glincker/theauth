@@ -4,6 +4,8 @@ Fastify adapter for TheAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-fastify)](https://www.npmjs.com/package/@glinr/theauth-fastify)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash
@@ -65,7 +67,7 @@ For full docs on agent identity, permissions, delegation, and audit, see the mai
 
 ## Links
 
-- [Documentation](https://theauth.dev/docs)
+- [Documentation](https://docs.theauth.dev)
 - [GitHub](https://github.com/glincker/theauth)
 
 ## License

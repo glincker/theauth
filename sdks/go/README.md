@@ -4,6 +4,8 @@ Go client for [TheAuth](https://github.com/glincker/theauth). Auth OS for AI age
 
 Agent identity, permissions, delegation chains, audit logs, and human authentication over a single typed API.
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash

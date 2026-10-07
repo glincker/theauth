@@ -6,6 +6,8 @@ Test helpers for apps using TheAuth: mock providers, factories, and assertions s
 npm install --save-dev @glinr/theauth-test-utils
 ```
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## What's in the box
 
 - `MockTheAuthProvider`: drop-in React provider that returns a fake session, agent, and user. Pair with `@testing-library/react`.

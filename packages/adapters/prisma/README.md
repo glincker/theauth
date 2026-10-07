@@ -4,6 +4,8 @@ Prisma database adapter for TheAuth. Use PrismaClient as your TheAuth database b
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-prisma)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash
@@ -30,7 +32,7 @@ Use this adapter if your app already uses Prisma and you want TheAuth to share t
 
 ## Docs
 
-[docs.theauth.dev/docs/adapters/prisma](https://docs.theauth.dev/docs/adapters/prisma)
+[docs.theauth.dev/prisma](https://docs.theauth.dev/prisma)
 
 ## License
 

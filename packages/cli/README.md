@@ -4,6 +4,8 @@ Setup wizard and dev tools for TheAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-cli)](https://www.npmjs.com/package/@glinr/theauth-cli)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Usage
 
 No install required. Run with `npx`:
@@ -52,7 +54,7 @@ npx theauth dashboard --port 4000 --api http://localhost:3000
 
 ## Docs and support
 
-- Documentation: [theauth.dev/docs](https://theauth.dev/docs)
+- Documentation: [docs.theauth.dev](https://docs.theauth.dev)
 - GitHub: [github.com/glincker/theauth](https://github.com/glincker/theauth)
 
 ## Community
