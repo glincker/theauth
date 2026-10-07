@@ -24,8 +24,8 @@ TheAuth implements the full MCP auth stack:
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: {
     issuer: 'https://auth.yourapp.com',
@@ -47,7 +47,7 @@ Then mount the MCP module via a framework adapter. See [Framework adapters](/ada
 
 ### Endpoints
 
-Once mounted, TheAuth serves these endpoints (relative to your `basePath`, default `/api/kavach`):
+Once mounted, TheAuth serves these endpoints (relative to your `basePath`, default `/api/theauth`):
 
 | Endpoint | RFC | Purpose |
 |---|---|---|
@@ -133,10 +133,10 @@ Refresh tokens rotate on each use for public clients. Reusing an old refresh tok
 
 ### Validating tokens
 
-Call `kavach.mcp.validate(token)` to check a token before processing a tool call:
+Call `theauth.mcp.validate(token)` to check a token before processing a tool call:
 
 ```typescript
-const result = await kavach.mcp.validate(token);
+const result = await theauth.mcp.validate(token);
 
 if (!result.valid) {
   return new Response('Unauthorized', { status: 401 });
@@ -156,11 +156,11 @@ The `withMcpAuth` middleware extracts the bearer token from the `Authorization` 
 
 ```typescript
 // Hono example. See the adapters doc for other frameworks.
-import { kavachHono } from '@glinr/theauth-hono';
+import { theAuthHono } from '@glinr/theauth-hono';
 import { createMcpModule } from '@glinr/theauth';
 
-const mcp = createMcpModule(kavach);
-const { withMcpAuth } = kavachHono(kavach, { mcp });
+const mcp = createMcpModule(theauth);
+const { withMcpAuth } = theAuthHono(theauth, { mcp });
 
 app.use('/mcp/*', withMcpAuth());
 
@@ -188,7 +188,7 @@ return buildUnauthorizedResponse({
 ## Registering MCP servers
 
 ```typescript
-const server = await kavach.mcp.register({
+const server = await theauth.mcp.register({
   name: 'github-mcp',
   endpoint: 'https://mcp.yourapp.com/github',
   tools: ['list_repos', 'get_issue', 'create_comment'],

@@ -40,10 +40,10 @@ async function computeHmac(key: CryptoKey, message: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export interface WebhookHeaders {
-	"X-Kavach-Signature": string;
-	"X-Kavach-Timestamp": string;
-	"X-Kavach-Event": string;
-	"X-Kavach-Delivery-Id": string;
+	"X-TheAuth-Signature": string;
+	"X-TheAuth-Timestamp": string;
+	"X-TheAuth-Event": string;
+	"X-TheAuth-Delivery-Id": string;
 }
 
 /**
@@ -66,10 +66,10 @@ export async function buildWebhookHeaders(
 	const hex = await computeHmac(key, `${timestamp}.${rawBody}`);
 
 	return {
-		"X-Kavach-Signature": `sha256=${hex}`,
-		"X-Kavach-Timestamp": timestamp,
-		"X-Kavach-Event": event,
-		"X-Kavach-Delivery-Id": deliveryId,
+		"X-TheAuth-Signature": `sha256=${hex}`,
+		"X-TheAuth-Timestamp": timestamp,
+		"X-TheAuth-Event": event,
+		"X-TheAuth-Delivery-Id": deliveryId,
 	};
 }
 
@@ -88,7 +88,7 @@ export function generateDeliveryId(): string {
 
 /**
  * Current Unix timestamp in whole seconds, as a string.
- * Used for `X-Kavach-Timestamp`.
+ * Used for `X-TheAuth-Timestamp`.
  */
 export function currentTimestamp(): string {
 	return String(Math.floor(Date.now() / 1000));
@@ -103,8 +103,8 @@ export function currentTimestamp(): string {
  *
  * @param secret         - The shared secret for this endpoint
  * @param rawBody        - The raw request body string (do NOT parse first)
- * @param signature      - The `X-Kavach-Signature` header value (`sha256=…`)
- * @param timestamp      - The `X-Kavach-Timestamp` header value
+ * @param signature      - The `X-TheAuth-Signature` header value (`sha256=…`)
+ * @param timestamp      - The `X-TheAuth-Timestamp` header value
  * @param maxAgeSeconds  - Reject requests older than this (default: 300 = 5 min)
  * @returns true if the signature is valid and the request is not a replay
  *
@@ -115,8 +115,8 @@ export function currentTimestamp(): string {
  * const ok = await verify({
  *   secret: process.env.WEBHOOK_SECRET,
  *   rawBody: await request.text(),
- *   signature: request.headers.get('X-Kavach-Signature') ?? '',
- *   timestamp: request.headers.get('X-Kavach-Timestamp') ?? '',
+ *   signature: request.headers.get('X-TheAuth-Signature') ?? '',
+ *   timestamp: request.headers.get('X-TheAuth-Timestamp') ?? '',
  * });
  * if (!ok) return new Response('Forbidden', { status: 403 });
  * ```

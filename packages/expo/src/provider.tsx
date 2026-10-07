@@ -19,9 +19,6 @@ export const TheAuthExpoContext = createContext<TheAuthContextValue | null>(null
 /** @deprecated Use `TheAuthExpoContext` instead. Will be removed in a future major version. */
 export const AuthExpoContext = TheAuthExpoContext;
 
-/** @deprecated Use `TheAuthExpoContext` instead. Will be removed in a future major version. */
-export const KavachExpoContext = TheAuthExpoContext;
-
 export function useTheAuthContext(): TheAuthContextValue {
 	const ctx = useContext(TheAuthExpoContext);
 	if (!ctx) {
@@ -33,9 +30,6 @@ export function useTheAuthContext(): TheAuthContextValue {
 /** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
 export const useAuthContext = useTheAuthContext;
 
-/** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
-export const useKavachContext = useTheAuthContext;
-
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export interface TheAuthExpoProviderProps {
@@ -45,9 +39,6 @@ export interface TheAuthExpoProviderProps {
 
 /** @deprecated Use `TheAuthExpoProviderProps` instead. Will be removed in a future major version. */
 export type AuthExpoProviderProps = TheAuthExpoProviderProps;
-
-/** @deprecated Use `TheAuthExpoProviderProps` instead. Will be removed in a future major version. */
-export type KavachExpoProviderProps = TheAuthExpoProviderProps;
 
 export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderProps): ReactNode {
 	const [session, setSession] = useState<TheAuthSession | null>(null);
@@ -212,11 +203,8 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 }
 
 // ─── Deprecated aliases ─────────────────────────────────────────────────────
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthExpoProvider` instead. Will be removed in a future major version. */
 export const AuthExpoProvider = TheAuthExpoProvider;
-
-/** @deprecated Use `TheAuthExpoProvider` instead. Will be removed in a future major version. */
-export const KavachExpoProvider = TheAuthExpoProvider;

@@ -16,7 +16,7 @@ import { createHibpModule } from '@glinr/theauth/auth'; // [!code highlight]
 
 const hibp = createHibpModule({ threshold: 0 }); // reject any breach count above 0 // [!code highlight]
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   username: { password: { minLength: 8 } },
@@ -28,7 +28,7 @@ Call `hibp.enforce()` before delegating to the username module's `signUp`:
 ```typescript title="Sign-up handler"
 async function handleSignUp(username: string, password: string) {
   await hibp.enforce(password); // throws HibpBreachedError if compromised // [!code highlight]
-  return kavach.username?.signUp({ username, password });
+  return theauth.username?.signUp({ username, password });
 }
 ```
 

@@ -11,14 +11,14 @@ The `@glinr/theauth` package has zero framework dependencies. It operates on the
 
 | Package | Framework | Mount pattern | Guide |
 |---|---|---|---|
-| `@glinr/theauth-nextjs` | Next.js App Router | catch-all route `app/api/kavach/[...kavach]/route.ts` | [Next.js](../guides/frameworks/nextjs.md) |
-| `@glinr/theauth-hono` | Hono | `app.route('/api/kavach', kavachHono(kavach))` | [Hono](../guides/frameworks/hono.md) |
-| `@glinr/theauth-express` | Express | `app.use('/api/kavach', kavachExpress(kavach))` | [Express](../guides/frameworks/express.md) |
-| `@glinr/theauth-fastify` | Fastify | `app.register(authFastify(kavach), { prefix: '/api/kavach' })` | [Fastify](../guides/frameworks/fastify.md) |
-| `@glinr/theauth-nestjs` | NestJS | `TheAuthModule.forRoot({ kavach })` in `AppModule` | [NestJS](../guides/frameworks/nestjs.md) |
-| `@glinr/theauth-nuxt` | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` | [Nuxt](../guides/frameworks/nuxt.md) |
-| `@glinr/theauth-sveltekit` | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` | [SvelteKit](../guides/frameworks/sveltekit.md) |
-| `@glinr/theauth-astro` | Astro | catch-all page `src/pages/api/kavach/[...path].ts` | [Astro](../guides/frameworks/astro.md) |
+| `@glinr/theauth-nextjs` | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` | [Next.js](../guides/frameworks/nextjs.md) |
+| `@glinr/theauth-hono` | Hono | `app.route('/api/theauth', theAuthHono(theauth))` | [Hono](../guides/frameworks/hono.md) |
+| `@glinr/theauth-express` | Express | `app.use('/api/theauth', theAuthExpress(theauth))` | [Express](../guides/frameworks/express.md) |
+| `@glinr/theauth-fastify` | Fastify | `app.register(authFastify(theauth), { prefix: '/api/theauth' })` | [Fastify](../guides/frameworks/fastify.md) |
+| `@glinr/theauth-nestjs` | NestJS | `TheAuthModule.forRoot({ theauth })` in `AppModule` | [NestJS](../guides/frameworks/nestjs.md) |
+| `@glinr/theauth-nuxt` | Nuxt (H3) | catch-all file `server/api/theauth/[...].ts` | [Nuxt](../guides/frameworks/nuxt.md) |
+| `@glinr/theauth-sveltekit` | SvelteKit | catch-all route `src/routes/api/theauth/[...path]/+server.ts` | [SvelteKit](../guides/frameworks/sveltekit.md) |
+| `@glinr/theauth-astro` | Astro | catch-all page `src/pages/api/theauth/[...path].ts` | [Astro](../guides/frameworks/astro.md) |
 
 ## Database adapters
 
@@ -55,7 +55,7 @@ The `@glinr/theauth` package has zero framework dependencies. It operates on the
 
 ## Endpoints registered by all adapters
 
-Every framework adapter registers the same REST endpoints at its mount path (default `/api/kavach`):
+Every framework adapter registers the same REST endpoints at its mount path (default `/api/theauth`):
 
 | Method | Path | Description |
 |---|---|---|

@@ -108,9 +108,6 @@ async function apiFetch<T>(
 /** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
 export type AuthApiClient = TheAuthApiClient;
 
-/** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
-export type KavachApiClient = TheAuthApiClient;
-
 export function createApiClient(apiUrl: string): TheAuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
 

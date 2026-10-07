@@ -1,22 +1,22 @@
 import { createTheAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth-email';
 
-type KavachInstance = Awaited<ReturnType<typeof createTheAuth>>;
+type TheAuthInstance = Awaited<ReturnType<typeof createTheAuth>>;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __kavachDemo: KavachInstance | undefined;
+  var __theauthDemo: TheAuthInstance | undefined;
 }
 
-let kavachPromise: Promise<KavachInstance> | undefined;
+let theAuthPromise: Promise<TheAuthInstance> | undefined;
 
-export function getKavach(): Promise<KavachInstance> {
-  if (globalThis.__kavachDemo) {
-    return Promise.resolve(globalThis.__kavachDemo);
+export function getTheAuth(): Promise<TheAuthInstance> {
+  if (globalThis.__theauthDemo) {
+    return Promise.resolve(globalThis.__theauthDemo);
   }
 
-  if (!kavachPromise) {
-    kavachPromise = createTheAuth({
+  if (!theAuthPromise) {
+    theAuthPromise = createTheAuth({
       database: { provider: 'sqlite', url: './theauth-demo.db' },
       agents: {
         enabled: true,
@@ -39,10 +39,10 @@ export function getKavach(): Promise<KavachInstance> {
         }),
       ],
     }).then((instance) => {
-      globalThis.__kavachDemo = instance;
+      globalThis.__theauthDemo = instance;
       return instance;
     });
   }
 
-  return kavachPromise;
+  return theAuthPromise;
 }

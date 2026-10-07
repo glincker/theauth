@@ -29,11 +29,11 @@ If you use Clerk, Auth.js, or better-auth for human sign-in and are satisfied wi
 ```typescript
 // Example: keep Clerk for human auth, use TheAuth for agents
 import { auth } from '@clerk/nextjs/server';
-import { kavach } from '@/lib/kavach';
+import { theauth } from '@/lib/theauth';
 
 export async function createAgent(userId: string) {
   // userId comes from Clerk; TheAuth doesn't care where it originated
-  return kavach.agent.create({
+  return theauth.agent.create({
     ownerId: userId,
     name: 'my-agent',
     type: 'autonomous',

@@ -49,7 +49,7 @@ curl http://localhost:3001/tools/list \
 | Variable          | Required | Notes                                                                      |
 |-------------------|----------|----------------------------------------------------------------------------|
 | `THEAUTH_SECRET` | Yes      | Long random string. Signs sessions and access tokens.                      |
-| `DATABASE_URL`    | Yes      | SQLite: `file:./kavach.db`. Postgres: `postgres://user:pass@host:5432/db`. |
+| `DATABASE_URL`    | Yes      | SQLite: `file:./theauth.db`. Postgres: `postgres://user:pass@host:5432/db`. |
 | `BASE_URL`        | No       | Public URL this server is reachable at. Defaults to `http://localhost:3001`. Set it before deploying so the `.well-known` documents and access-token audience match what clients use. |
 | `PORT`            | No       | Port to bind. Defaults to `3001`.                                           |
 
@@ -60,7 +60,7 @@ src/
   server.ts            Hono app, MCP mount, protected tool routes
   tools.ts             Example MCP tool list
   lib/
-    kavach.ts          Lazy createKavach singleton
+    theauth.ts          Lazy createTheAuth singleton
 ```
 
 ## Deploying

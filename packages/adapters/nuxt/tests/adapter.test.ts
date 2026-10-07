@@ -1,17 +1,17 @@
 import { createApp, toWebHandler, use } from "h3";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { TheAuth } from "../../../core/src/kavach.js";
-import { createTheAuth } from "../../../core/src/kavach.js";
-import { kavachNuxt } from "../src/adapter.js";
+import type { TheAuth } from "../../../core/src/theauth.js";
+import { createTheAuth } from "../../../core/src/theauth.js";
+import { theAuthNuxt } from "../src/adapter.js";
 
-const BASE_URL = "http://localhost/api/auth/kavach";
+const BASE_URL = "http://localhost/api/auth/theauth";
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
 type WebHandler = ReturnType<typeof toWebHandler>;
 
-async function createTestHandler(): Promise<{ handle: WebHandler; kavach: TheAuth }> {
-	const kavach = await createTheAuth({
+async function createTestHandler(): Promise<{ handle: WebHandler; theauth: TheAuth }> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -22,7 +22,7 @@ async function createTestHandler(): Promise<{ handle: WebHandler; kavach: TheAut
 		},
 	});
 
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -34,9 +34,9 @@ async function createTestHandler(): Promise<{ handle: WebHandler; kavach: TheAut
 		.run();
 
 	const app = createApp();
-	use(app, kavachNuxt(kavach, { basePath: "/api/auth/kavach" }));
+	use(app, theAuthNuxt(theauth, { basePath: "/api/auth/theauth" }));
 
-	return { handle: toWebHandler(app), kavach };
+	return { handle: toWebHandler(app), theauth };
 }
 
 async function createTestAgent(

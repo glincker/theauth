@@ -1,5 +1,5 @@
 import { buildSetCookie } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { PasskeyConfig } from "./passkey.js";
 import { createPasskeyModule } from "./passkey.js";
 
@@ -28,9 +28,9 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function passkey(config: PasskeyConfig): KavachPlugin {
+export function passkey(config: PasskeyConfig): TheAuthPlugin {
 	return {
-		id: "kavach-passkey",
+		id: "theauth-passkey",
 
 		async init(ctx): Promise<undefined> {
 			const module = createPasskeyModule(config, ctx.db);
@@ -171,7 +171,7 @@ export function passkey(config: PasskeyConfig): KavachPlugin {
 									headers: {
 										"Content-Type": "application/json",
 										"Set-Cookie": buildSetCookie(
-											"kavach_session",
+											"theauth_session",
 											token,
 											maxAge,
 											"/",

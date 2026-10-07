@@ -1,6 +1,6 @@
 # Template 04, Budget-gated agent
 
-An agent may call the LLM gateway up to a fixed number of times per rolling hour. Beyond that cap every call is denied until the window resets. This prevents runaway loops from consuming unbounded compute budget. The counter lives in `kavach_rate_limits` and increments on each allowed call.
+An agent may call the LLM gateway up to a fixed number of times per rolling hour. Beyond that cap every call is denied until the window resets. This prevents runaway loops from consuming unbounded compute budget. The counter lives in `theauth_rate_limits` and increments on each allowed call.
 
 ## Input shape
 

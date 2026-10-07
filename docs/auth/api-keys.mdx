@@ -1,6 +1,6 @@
 ---
 title: API keys
-description: Create scoped API keys with `kavach.apiKeys.create()`, validate on every request, revoke by ID, and rotate to a new secret without changing the key's permission set.
+description: Create scoped API keys with `theauth.apiKeys.create()`, validate on every request, revoke by ID, and rotate to a new secret without changing the key's permission set.
 icon: key
 ---
 
@@ -9,8 +9,8 @@ icon: key
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   apiKeys: { // [!code highlight]
     prefix: 'kos_',          // default // [!code highlight]
     defaultExpiryDays: 90,   // default: 365 // [!code highlight]
@@ -21,7 +21,7 @@ const kavach = await createTheAuth({
 ## Creating a key
 
 ```ts
-const { key, apiKey } = await kavach.apiKeys.create({
+const { key, apiKey } = await theauth.apiKeys.create({
   userId: 'user_abc',
   name: 'CI deploy token',
   permissions: ['agents:read', 'agents:create'], // [!code highlight]
@@ -39,7 +39,7 @@ const { key, apiKey } = await kavach.apiKeys.create({
 ## Validating a key
 
 ```ts
-const result = await kavach.apiKeys.validate('kos_a3f8c2e1...');
+const result = await theauth.apiKeys.validate('kos_a3f8c2e1...');
 if (result) {
   // result.userId, result.permissions, result.keyId
 }
@@ -51,10 +51,10 @@ Validation updates `lastUsedAt` asynchronously without blocking the response.
 
 ```ts
 // All keys for a user (no secrets exposed)
-const keys = await kavach.apiKeys.list('user_abc');
+const keys = await theauth.apiKeys.list('user_abc');
 
 // Revoke by key ID
-await kavach.apiKeys.revoke('key_...');
+await theauth.apiKeys.revoke('key_...');
 ```
 
 ## Rotating a key
@@ -62,7 +62,7 @@ await kavach.apiKeys.revoke('key_...');
 Rotation revokes the existing key and creates a new one with the same name and permissions:
 
 ```ts
-const { key, apiKey } = await kavach.apiKeys.rotate('key_...');
+const { key, apiKey } = await theauth.apiKeys.rotate('key_...');
 // key = new full secret, store it now
 ```
 

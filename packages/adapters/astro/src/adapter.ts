@@ -10,7 +10,7 @@ export interface TheAuthAstroOptions {
 	mcp?: McpAuthModule;
 	/**
 	 * The URL path prefix before the `[...path]` catch-all segment.
-	 * Defaults to `/api/kavach`.
+	 * Defaults to `/api/theauth`.
 	 *
 	 * @example `/api/auth`
 	 */
@@ -19,9 +19,6 @@ export interface TheAuthAstroOptions {
 
 /** @deprecated Use `TheAuthAstroOptions` instead. Will be removed in a future major version. */
 export type AuthAstroOptions = TheAuthAstroOptions;
-
-/** @deprecated Use `TheAuthAstroOptions` instead. Will be removed in a future major version. */
-export type KavachAstroOptions = TheAuthAstroOptions;
 
 export interface TheAuthAstroHandlers {
 	GET: APIRoute;
@@ -35,13 +32,10 @@ export interface TheAuthAstroHandlers {
 /** @deprecated Use `TheAuthAstroHandlers` instead. Will be removed in a future major version. */
 export type AuthAstroHandlers = TheAuthAstroHandlers;
 
-/** @deprecated Use `TheAuthAstroHandlers` instead. Will be removed in a future major version. */
-export type KavachAstroHandlers = TheAuthAstroHandlers;
-
 /**
  * Create Astro API route handlers for all TheAuth REST API routes.
  *
- * Mount in `src/pages/api/kavach/[...path].ts`:
+ * Mount in `src/pages/api/theauth/[...path].ts`:
  *
  * @example
  * ```typescript
@@ -72,7 +66,7 @@ export type KavachAstroHandlers = TheAuthAstroHandlers;
  */
 export function theAuthAstro(auth: TheAuth, options?: TheAuthAstroOptions): TheAuthAstroHandlers {
 	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	// Astro APIRoute receives a context whose `request` property is a standard
 	// Web API Request, so we can pass it directly to dispatch.
@@ -90,6 +84,3 @@ export function theAuthAstro(auth: TheAuth, options?: TheAuthAstroOptions): TheA
 
 /** @deprecated Use `theAuthAstro` instead. Will be removed in a future major version. */
 export const authAstro = theAuthAstro;
-
-/** @deprecated Use `theAuthAstro` instead. Will be removed in a future major version. */
-export const kavachAstro = theAuthAstro;

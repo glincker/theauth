@@ -6,10 +6,10 @@
  * presenting an already-used token from a family immediately revokes every
  * token in that family, because reuse indicates the token was stolen.
  *
- * The database table `kavach_refresh_token_families` stores:
+ * The database table `theauth_refresh_token_families` stores:
  *   - family-level metadata (userId, absolute expiry, revocation status)
  *
- * Each individual refresh token row in `kavach_refresh_tokens` links back to
+ * Each individual refresh token row in `theauth_refresh_tokens` links back to
  * its family via `familyId`.
  *
  * @example

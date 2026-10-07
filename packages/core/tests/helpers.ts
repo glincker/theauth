@@ -1,18 +1,18 @@
 import * as schema from "../src/db/schema.js";
-import type { Kavach } from "../src/kavach.js";
-import { createKavach } from "../src/kavach.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTheAuth } from "../src/theauth.js";
 
-export type { Kavach };
+export type { TheAuth };
 
 /**
  * Create a test TheAuth instance with in-memory SQLite.
- * Tables are auto-created by createKavach. A seed user is inserted.
+ * Tables are auto-created by createTheAuth. A seed user is inserted.
  */
-export async function createTestKavach(options?: {
+export async function createTestTheAuth(options?: {
 	maxPerUser?: number;
 	auditAll?: boolean;
-}): Promise<Kavach> {
-	const kavach = await createKavach({
+}): Promise<TheAuth> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -24,7 +24,7 @@ export async function createTestKavach(options?: {
 	});
 
 	// Seed a test user
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -35,5 +35,5 @@ export async function createTestKavach(options?: {
 		})
 		.run();
 
-	return kavach;
+	return theauth;
 }

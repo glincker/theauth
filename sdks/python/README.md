@@ -30,7 +30,7 @@ from theauth.permissions import read, with_approval, execute
 
 async def main():
     async with TheAuthClient(
-        base_url="https://your-app.com/api/kavach",
+        base_url="https://your-app.com/api/theauth",
         token="kv_...",
     ) as client:
         # Create an agent
@@ -64,7 +64,7 @@ from theauth.types import CreateAgentInput
 from theauth.permissions import read
 
 with TheAuthSyncClient(
-    base_url="https://your-app.com/api/kavach",
+    base_url="https://your-app.com/api/theauth",
     token="kv_...",
 ) as client:
     agent = client.agents.create(
@@ -85,7 +85,7 @@ with TheAuthSyncClient(
 Sign in and sign up with email and password.
 
 ```python
-async with TheAuthClient(base_url="https://your-app.com/api/kavach") as client:
+async with TheAuthClient(base_url="https://your-app.com/api/theauth") as client:
     # Sign up
     auth = await client.auth.sign_up(
         email="user@example.com",
@@ -298,7 +298,7 @@ except TheAuthError as e:
 
 ```python
 TheAuthClient(
-    base_url="https://your-app.com/api/kavach",  # required
+    base_url="https://your-app.com/api/theauth",  # required
     token="kv_...",                               # optional bearer token
     headers={"X-Tenant": "acme"},                # extra headers on every request
     timeout=30.0,                                 # seconds (default 30)

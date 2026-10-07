@@ -14,20 +14,20 @@ description: Authenticate users via Dropbox OAuth 2.0 with `dropboxProvider`. Co
 Go to the [Dropbox App Console](https://www.dropbox.com/developers/apps) and create an app. Under **OAuth 2**, add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/dropbox
+https://your-app.com/api/theauth/auth/oauth/callback/dropbox
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 import { dropboxProvider } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

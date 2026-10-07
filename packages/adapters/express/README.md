@@ -21,12 +21,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
 // Mount all TheAuth routes at /auth
-app.use('/auth', theAuthExpress(kavach));
+app.use('/auth', theAuthExpress(theauth));
 
 app.listen(3000);
 ```
@@ -44,7 +44,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-app.use('/auth', theAuthExpress(kavach, { mcp }));
+app.use('/auth', theAuthExpress(theauth, { mcp }));
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -57,7 +57,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`theAuthExpress(kavach, options?)` returns an Express `Router`. Pass it to `app.use()` with your chosen prefix.
+`theAuthExpress(theauth, options?)` returns an Express `Router`. Pass it to `app.use()` with your chosen prefix.
 
 | Option | Type | Description |
 |--------|------|-------------|

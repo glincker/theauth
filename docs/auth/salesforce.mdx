@@ -14,19 +14,19 @@ description: Authenticate users via Salesforce OAuth 2.0 with a Connected App. C
 Go to [developer.salesforce.com](https://developer.salesforce.com) and set up a Connected App in **Setup > App Manager**. Under **OAuth Settings**, enable OAuth and add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/salesforce
+https://your-app.com/api/theauth/auth/oauth/callback/salesforce
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

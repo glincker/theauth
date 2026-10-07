@@ -23,7 +23,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Agent triggers approval**
 
-    The agent calls an action protected by `requireApproval: true`. Authorization is denied. Your application detects the denial reason and calls `kavach.approval.request()`.
+    The agent calls an action protected by `requireApproval: true`. Authorization is denied. Your application detects the denial reason and calls `theauth.approval.request()`.
   </Step>
   <Step>
     **Human gets notified**
@@ -33,7 +33,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Human approves or denies**
 
-    The human clicks a button in your UI. Your UI calls your backend, which calls `kavach.approval.approve(requestId)` or `kavach.approval.deny(requestId)`.
+    The human clicks a button in your UI. Your UI calls your backend, which calls `theauth.approval.approve(requestId)` or `theauth.approval.deny(requestId)`.
   </Step>
   <Step>
     **Agent retries**
@@ -61,8 +61,8 @@ The flow is async. The agent does not block waiting. The human can respond minut
 Pass approval config to `createTheAuth`:
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   approval: {
     ttl: 600,                                          // 10-minute window (seconds)
     webhookUrl: 'https://your-app.com/webhooks/approval',
@@ -73,8 +73,8 @@ const kavach = await createTheAuth({
 Or use a custom handler for full control over delivery:
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   approval: {
     ttl: 300,
     onApprovalNeeded: async (request) => {
@@ -118,7 +118,7 @@ Webhook delivery failures are non-fatal. The request is already persisted, your 
 ### Set up a permission that requires approval
 
 ```typescript
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'file-manager',
   type: 'autonomous',
@@ -139,14 +139,14 @@ const agent = await kavach.agent.create({
 ### Catch the denial and create a request
 
 ```typescript
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: 'delete',
   resource: 'file:prod-data/dataset.csv',
   arguments: { path: '/prod/dataset.csv' },
 });
 
 if (!result.allowed && result.reason?.includes('requires human approval')) {
-  const approvalRequest = await kavach.approval.request({
+  const approvalRequest = await theauth.approval.request({
     agentId: agent.id,
     userId: agent.ownerId,
     action: 'delete',
@@ -163,12 +163,12 @@ if (!result.allowed && result.reason?.includes('requires human approval')) {
 ```typescript
 // In your API route handler
 app.post('/approvals/:id/approve', async (req, res) => {
-  const updated = await kavach.approval.approve(req.params.id, req.user.email);
+  const updated = await theauth.approval.approve(req.params.id, req.user.email);
   res.json({ status: updated.status });
 });
 
 app.post('/approvals/:id/deny', async (req, res) => {
-  const updated = await kavach.approval.deny(req.params.id, req.user.email);
+  const updated = await theauth.approval.deny(req.params.id, req.user.email);
   res.json({ status: updated.status });
 });
 ```
@@ -177,10 +177,10 @@ app.post('/approvals/:id/deny', async (req, res) => {
 
 ```typescript
 // All pending approvals across all users
-const all = await kavach.approval.listPending();
+const all = await theauth.approval.listPending();
 
 // Pending approvals for a specific user
-const forUser = await kavach.approval.listPending('user-123');
+const forUser = await theauth.approval.listPending('user-123');
 
 console.log(`${forUser.length} approvals waiting on user-123`);
 ```
@@ -190,14 +190,14 @@ console.log(`${forUser.length} approvals waiting on user-123`);
 Requests that exceed their TTL are still stored with `status: 'pending'` until you run cleanup. Call this from a cron job:
 
 ```typescript
-const result = await kavach.approval.cleanup();
+const result = await theauth.approval.cleanup();
 console.log(`Expired ${result.expired} stale approval requests`);
 ```
 
 ### Check the status before retrying
 
 ```typescript
-const request = await kavach.approval.get('apr_...');
+const request = await theauth.approval.get('apr_...');
 
 if (request?.status === 'approved') {
   // Safe to retry the action

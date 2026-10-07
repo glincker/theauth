@@ -3,7 +3,7 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 // ============================================================
 // Users (basic human identity - integrates with external auth)
 // ============================================================
-export const users = sqliteTable("kavach_users", {
+export const users = sqliteTable("theauth_users", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull().unique(),
 	name: text("name"),
@@ -17,7 +17,7 @@ export const users = sqliteTable("kavach_users", {
 	banExpiresAt: integer("ban_expires_at", { mode: "timestamp" }),
 	forcePasswordReset: integer("force_password_reset").notNull().default(0),
 	emailVerified: integer("email_verified").notNull().default(0),
-	// Stripe integration fields (populated by kavach-stripe plugin)
+	// Stripe integration fields (populated by theauth-stripe plugin)
 	stripeCustomerId: text("stripe_customer_id").unique(),
 	stripeSubscriptionId: text("stripe_subscription_id"),
 	stripeSubscriptionStatus: text("stripe_subscription_status"),
@@ -26,7 +26,7 @@ export const users = sqliteTable("kavach_users", {
 	stripeCancelAtPeriodEnd: integer("stripe_cancel_at_period_end", { mode: "boolean" })
 		.notNull()
 		.default(false),
-	// Polar integration fields (populated by kavach-polar plugin)
+	// Polar integration fields (populated by theauth-polar plugin)
 	polarCustomerId: text("polar_customer_id").unique(),
 	polarSubscriptionId: text("polar_subscription_id"),
 	polarSubscriptionStatus: text("polar_subscription_status"),
@@ -42,7 +42,7 @@ export const users = sqliteTable("kavach_users", {
 // ============================================================
 // Tenants (multi-tenant isolation — must come before agents)
 // ============================================================
-export const tenants = sqliteTable("kavach_tenants", {
+export const tenants = sqliteTable("theauth_tenants", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	slug: text("slug").notNull().unique(),
@@ -64,7 +64,7 @@ interface TenantSettingsRow {
 // ============================================================
 // Agents (the core differentiator - AI agent identities)
 // ============================================================
-export const agents = sqliteTable("kavach_agents", {
+export const agents = sqliteTable("theauth_agents", {
 	id: text("id").primaryKey(),
 	ownerId: text("owner_id")
 		.notNull()
@@ -87,7 +87,7 @@ export const agents = sqliteTable("kavach_agents", {
 // ============================================================
 // Permissions (scoped access control per agent)
 // ============================================================
-export const permissions = sqliteTable("kavach_permissions", {
+export const permissions = sqliteTable("theauth_permissions", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -111,7 +111,7 @@ interface PermissionConstraintsRow {
 // ============================================================
 // Delegation Chains (agent-to-agent permission delegation)
 // ============================================================
-export const delegationChains = sqliteTable("kavach_delegation_chains", {
+export const delegationChains = sqliteTable("theauth_delegation_chains", {
 	id: text("id").primaryKey(),
 	fromAgentId: text("from_agent_id")
 		.notNull()
@@ -137,7 +137,7 @@ interface DelegationPermissionRow {
 // ============================================================
 // Audit Logs (immutable record of every agent action)
 // ============================================================
-export const auditLogs = sqliteTable("kavach_audit_logs", {
+export const auditLogs = sqliteTable("theauth_audit_logs", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -162,7 +162,7 @@ export const auditLogs = sqliteTable("kavach_audit_logs", {
 // ============================================================
 // Rate Limit Counters (track per-agent call rates)
 // ============================================================
-export const rateLimits = sqliteTable("kavach_rate_limits", {
+export const rateLimits = sqliteTable("theauth_rate_limits", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -175,7 +175,7 @@ export const rateLimits = sqliteTable("kavach_rate_limits", {
 // ============================================================
 // MCP Servers (registered MCP servers)
 // ============================================================
-export const mcpServers = sqliteTable("kavach_mcp_servers", {
+export const mcpServers = sqliteTable("theauth_mcp_servers", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	endpoint: text("endpoint").notNull().unique(),
@@ -192,7 +192,7 @@ export const mcpServers = sqliteTable("kavach_mcp_servers", {
 // ============================================================
 // Sessions (human user sessions managed by TheAuth)
 // ============================================================
-export const sessions = sqliteTable("kavach_sessions", {
+export const sessions = sqliteTable("theauth_sessions", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -205,7 +205,7 @@ export const sessions = sqliteTable("kavach_sessions", {
 // ============================================================
 // OAuth Clients (for MCP OAuth 2.1 - dynamic client registration)
 // ============================================================
-export const oauthClients = sqliteTable("kavach_oauth_clients", {
+export const oauthClients = sqliteTable("theauth_oauth_clients", {
 	id: text("id").primaryKey(),
 	clientId: text("client_id").notNull().unique(),
 	clientSecret: text("client_secret"), // null for public clients
@@ -235,7 +235,7 @@ export const oauthClients = sqliteTable("kavach_oauth_clients", {
 // ============================================================
 // OAuth Access Tokens (issued tokens for MCP auth)
 // ============================================================
-export const oauthAccessTokens = sqliteTable("kavach_oauth_access_tokens", {
+export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
 	id: text("id").primaryKey(),
 	accessToken: text("access_token").notNull().unique(),
 	refreshToken: text("refresh_token").unique(),
@@ -255,7 +255,7 @@ export const oauthAccessTokens = sqliteTable("kavach_oauth_access_tokens", {
 // ============================================================
 // OAuth Authorization Codes (temporary codes for code exchange)
 // ============================================================
-export const oauthAuthorizationCodes = sqliteTable("kavach_oauth_authorization_codes", {
+export const oauthAuthorizationCodes = sqliteTable("theauth_oauth_authorization_codes", {
 	id: text("id").primaryKey(),
 	code: text("code").notNull().unique(),
 	clientId: text("client_id")
@@ -276,7 +276,7 @@ export const oauthAuthorizationCodes = sqliteTable("kavach_oauth_authorization_c
 // ============================================================
 // Budget Policies (agent execution budget caps)
 // ============================================================
-export const budgetPolicies = sqliteTable("kavach_budget_policies", {
+export const budgetPolicies = sqliteTable("theauth_budget_policies", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id").references(() => agents.id, { onDelete: "cascade" }), // nullable
 	userId: text("user_id").references(() => users.id), // nullable
@@ -310,7 +310,7 @@ interface BudgetUsageRow {
 // ============================================================
 // Agent Capability Cards (A2A discovery)
 // ============================================================
-export const agentCards = sqliteTable("kavach_agent_cards", {
+export const agentCards = sqliteTable("theauth_agent_cards", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -332,7 +332,7 @@ export const agentCards = sqliteTable("kavach_agent_cards", {
 // ============================================================
 // Approval Requests (CIBA async approval flows)
 // ============================================================
-export const approvalRequests = sqliteTable("kavach_approval_requests", {
+export const approvalRequests = sqliteTable("theauth_approval_requests", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -355,7 +355,7 @@ export const approvalRequests = sqliteTable("kavach_approval_requests", {
 // ============================================================
 // Trust Scores (graduated autonomy scoring)
 // ============================================================
-export const trustScores = sqliteTable("kavach_trust_scores", {
+export const trustScores = sqliteTable("theauth_trust_scores", {
 	agentId: text("agent_id")
 		.primaryKey()
 		.references(() => agents.id, { onDelete: "cascade" }),
@@ -370,7 +370,7 @@ export const trustScores = sqliteTable("kavach_trust_scores", {
 // ============================================================
 // Magic Links (passwordless email login)
 // ============================================================
-export const magicLinks = sqliteTable("kavach_magic_links", {
+export const magicLinks = sqliteTable("theauth_magic_links", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
 	token: text("token").notNull().unique(),
@@ -382,7 +382,7 @@ export const magicLinks = sqliteTable("kavach_magic_links", {
 // ============================================================
 // Email OTPs (one-time password login)
 // ============================================================
-export const emailOtps = sqliteTable("kavach_email_otps", {
+export const emailOtps = sqliteTable("theauth_email_otps", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
 	codeHash: text("code_hash").notNull(),
@@ -394,7 +394,7 @@ export const emailOtps = sqliteTable("kavach_email_otps", {
 // ============================================================
 // TOTP (Two-Factor Authentication)
 // ============================================================
-export const totpRecords = sqliteTable("kavach_totp", {
+export const totpRecords = sqliteTable("theauth_totp", {
 	userId: text("user_id")
 		.primaryKey()
 		.references(() => users.id),
@@ -413,7 +413,7 @@ interface TotpBackupCode {
 // ============================================================
 // Organizations (multi-member org with RBAC)
 // ============================================================
-export const organizations = sqliteTable("kavach_organizations", {
+export const organizations = sqliteTable("theauth_organizations", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	slug: text("slug").notNull().unique(),
@@ -425,7 +425,7 @@ export const organizations = sqliteTable("kavach_organizations", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const orgMembers = sqliteTable("kavach_org_members", {
+export const orgMembers = sqliteTable("theauth_org_members", {
 	id: text("id").primaryKey(),
 	orgId: text("org_id")
 		.notNull()
@@ -437,7 +437,7 @@ export const orgMembers = sqliteTable("kavach_org_members", {
 	joinedAt: integer("joined_at", { mode: "timestamp" }).notNull(),
 });
 
-export const orgInvitations = sqliteTable("kavach_org_invitations", {
+export const orgInvitations = sqliteTable("theauth_org_invitations", {
 	id: text("id").primaryKey(),
 	orgId: text("org_id")
 		.notNull()
@@ -454,7 +454,7 @@ export const orgInvitations = sqliteTable("kavach_org_invitations", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-export const orgRoles = sqliteTable("kavach_org_roles", {
+export const orgRoles = sqliteTable("theauth_org_roles", {
 	id: text("id").primaryKey(),
 	orgId: text("org_id")
 		.notNull()
@@ -466,7 +466,7 @@ export const orgRoles = sqliteTable("kavach_org_roles", {
 // ============================================================
 // Passkey Credentials (WebAuthn / FIDO2)
 // ============================================================
-export const passkeyCredentials = sqliteTable("kavach_passkey_credentials", {
+export const passkeyCredentials = sqliteTable("theauth_passkey_credentials", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -483,7 +483,7 @@ export const passkeyCredentials = sqliteTable("kavach_passkey_credentials", {
 // ============================================================
 // SSO Connections (SAML / OIDC enterprise SSO)
 // ============================================================
-export const ssoConnections = sqliteTable("kavach_sso_connections", {
+export const ssoConnections = sqliteTable("theauth_sso_connections", {
 	id: text("id").primaryKey(),
 	orgId: text("org_id").notNull(),
 	providerId: text("provider_id").notNull(),
@@ -496,7 +496,7 @@ export const ssoConnections = sqliteTable("kavach_sso_connections", {
 // ============================================================
 // API Keys (static bearer tokens with permission scopes)
 // ============================================================
-export const apiKeys = sqliteTable("kavach_api_keys", {
+export const apiKeys = sqliteTable("theauth_api_keys", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -513,7 +513,7 @@ export const apiKeys = sqliteTable("kavach_api_keys", {
 // ============================================================
 // Passkey Challenges (WebAuthn challenge state — short-lived)
 // ============================================================
-export const passkeyChallenges = sqliteTable("kavach_passkey_challenges", {
+export const passkeyChallenges = sqliteTable("theauth_passkey_challenges", {
 	id: text("id").primaryKey(),
 	challenge: text("challenge").notNull().unique(),
 	userId: text("user_id"), // null for discoverable credential flows
@@ -525,7 +525,7 @@ export const passkeyChallenges = sqliteTable("kavach_passkey_challenges", {
 // ============================================================
 // Username Accounts (username + password auth)
 // ============================================================
-export const usernameAccounts = sqliteTable("kavach_username_accounts", {
+export const usernameAccounts = sqliteTable("theauth_username_accounts", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -539,7 +539,7 @@ export const usernameAccounts = sqliteTable("kavach_username_accounts", {
 // ============================================================
 // Phone Verifications (SMS OTP)
 // ============================================================
-export const phoneVerifications = sqliteTable("kavach_phone_verifications", {
+export const phoneVerifications = sqliteTable("theauth_phone_verifications", {
 	id: text("id").primaryKey(),
 	phoneNumber: text("phone_number").notNull(),
 	codeHash: text("code_hash").notNull(),
@@ -551,7 +551,7 @@ export const phoneVerifications = sqliteTable("kavach_phone_verifications", {
 // ============================================================
 // Trusted Devices (skip 2FA on known devices for a time window)
 // ============================================================
-export const trustedDevices = sqliteTable("kavach_trusted_devices", {
+export const trustedDevices = sqliteTable("theauth_trusted_devices", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -565,7 +565,7 @@ export const trustedDevices = sqliteTable("kavach_trusted_devices", {
 // ============================================================
 // One-Time Tokens (email verify, password reset, invitation, custom)
 // ============================================================
-export const oneTimeTokens = sqliteTable("kavach_one_time_tokens", {
+export const oneTimeTokens = sqliteTable("theauth_one_time_tokens", {
 	id: text("id").primaryKey(),
 	tokenHash: text("token_hash").notNull().unique(), // SHA-256 hex of the raw token
 	purpose: text("purpose", {
@@ -581,7 +581,7 @@ export const oneTimeTokens = sqliteTable("kavach_one_time_tokens", {
 // ============================================================
 // Login History (last login method tracking per user)
 // ============================================================
-export const loginHistory = sqliteTable("kavach_login_history", {
+export const loginHistory = sqliteTable("theauth_login_history", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -595,7 +595,7 @@ export const loginHistory = sqliteTable("kavach_login_history", {
 // ============================================================
 // Agent DIDs (W3C Decentralized Identifiers per agent)
 // ============================================================
-export const agentDids = sqliteTable("kavach_agent_dids", {
+export const agentDids = sqliteTable("theauth_agent_dids", {
 	agentId: text("agent_id")
 		.primaryKey()
 		.references(() => agents.id, { onDelete: "cascade" }),
@@ -609,7 +609,7 @@ export const agentDids = sqliteTable("kavach_agent_dids", {
 // ============================================================
 // OIDC Provider — Clients (apps authenticating against TheAuth IdP)
 // ============================================================
-export const oidcClients = sqliteTable("kavach_oidc_clients", {
+export const oidcClients = sqliteTable("theauth_oidc_clients", {
 	id: text("id").primaryKey(),
 	clientId: text("client_id").notNull().unique(),
 	clientSecretHash: text("client_secret_hash").notNull(), // SHA-256 hex of the raw secret
@@ -628,7 +628,7 @@ export const oidcClients = sqliteTable("kavach_oidc_clients", {
 // ============================================================
 // OIDC Provider — Authorization Codes
 // ============================================================
-export const oidcAuthCodes = sqliteTable("kavach_oidc_auth_codes", {
+export const oidcAuthCodes = sqliteTable("theauth_oidc_auth_codes", {
 	id: text("id").primaryKey(),
 	codeHash: text("code_hash").notNull().unique(), // SHA-256 hex of the raw code
 	clientId: text("client_id").notNull(),
@@ -646,7 +646,7 @@ export const oidcAuthCodes = sqliteTable("kavach_oidc_auth_codes", {
 // ============================================================
 // OIDC Provider — Refresh Tokens
 // ============================================================
-export const oidcRefreshTokens = sqliteTable("kavach_oidc_refresh_tokens", {
+export const oidcRefreshTokens = sqliteTable("theauth_oidc_refresh_tokens", {
 	id: text("id").primaryKey(),
 	tokenHash: text("token_hash").notNull().unique(), // SHA-256 hex of the raw token
 	clientId: text("client_id").notNull(),
@@ -660,7 +660,7 @@ export const oidcRefreshTokens = sqliteTable("kavach_oidc_refresh_tokens", {
 // ============================================================
 // Cost Events (per-agent cost attribution and observability)
 // ============================================================
-export const costEvents = sqliteTable("kavach_cost_events", {
+export const costEvents = sqliteTable("theauth_cost_events", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -679,7 +679,7 @@ export const costEvents = sqliteTable("kavach_cost_events", {
 // ============================================================
 // Ephemeral Sessions (short-lived agent credentials for single-task use)
 // ============================================================
-export const ephemeralSessions = sqliteTable("kavach_ephemeral_sessions", {
+export const ephemeralSessions = sqliteTable("theauth_ephemeral_sessions", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
@@ -702,7 +702,7 @@ export const ephemeralSessions = sqliteTable("kavach_ephemeral_sessions", {
 // ============================================================
 // Stream Events (persisted SSE events for replay)
 // ============================================================
-export const streamEvents = sqliteTable("kavach_stream_events", {
+export const streamEvents = sqliteTable("theauth_stream_events", {
 	id: text("id").primaryKey(),
 	type: text("type").notNull(),
 	timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
@@ -714,7 +714,7 @@ export const streamEvents = sqliteTable("kavach_stream_events", {
 // ============================================================
 // JWT Session Refresh Tokens (general-purpose session plugin)
 // ============================================================
-export const jwtRefreshTokens = sqliteTable("kavach_jwt_refresh_tokens", {
+export const jwtRefreshTokens = sqliteTable("theauth_jwt_refresh_tokens", {
 	id: text("id").primaryKey(),
 	/** SHA-256 hex of the raw refresh token. The raw token is never stored. */
 	tokenHash: text("token_hash").notNull().unique(),
@@ -731,7 +731,7 @@ export const jwtRefreshTokens = sqliteTable("kavach_jwt_refresh_tokens", {
 // ============================================================
 // ReBAC Resources (relationship-based access control — resource hierarchy)
 // ============================================================
-export const rebacResources = sqliteTable("kavach_rebac_resources", {
+export const rebacResources = sqliteTable("theauth_rebac_resources", {
 	id: text("id").notNull().primaryKey(),
 	type: text("type").notNull(), // 'org', 'workspace', 'project', 'document', etc.
 	parentId: text("parent_id"),
@@ -742,7 +742,7 @@ export const rebacResources = sqliteTable("kavach_rebac_resources", {
 // ============================================================
 // ReBAC Relationships (subject-relation-object tuples, Zanzibar style)
 // ============================================================
-export const rebacRelationships = sqliteTable("kavach_rebac_relationships", {
+export const rebacRelationships = sqliteTable("theauth_rebac_relationships", {
 	id: text("id").primaryKey(),
 	subjectType: text("subject_type").notNull(), // 'user', 'agent', 'team', 'role'
 	subjectId: text("subject_id").notNull(),
@@ -755,7 +755,7 @@ export const rebacRelationships = sqliteTable("kavach_rebac_relationships", {
 // ============================================================
 // Federation Instances (trusted remote TheAuth instances)
 // ============================================================
-export const federationInstances = sqliteTable("kavach_federation_instances", {
+export const federationInstances = sqliteTable("theauth_federation_instances", {
 	id: text("id").primaryKey(),
 	instanceId: text("instance_id").notNull().unique(),
 	instanceUrl: text("instance_url").notNull(),
@@ -771,7 +771,7 @@ export const federationInstances = sqliteTable("kavach_federation_instances", {
 // ============================================================
 // Federation Tokens (issued/received federation tokens for audit)
 // ============================================================
-export const federationTokens = sqliteTable("kavach_federation_tokens", {
+export const federationTokens = sqliteTable("theauth_federation_tokens", {
 	id: text("id").primaryKey(),
 	tokenJti: text("token_jti").notNull().unique(), // JWT ID for dedup
 	agentId: text("agent_id").notNull(),
@@ -787,7 +787,7 @@ export const federationTokens = sqliteTable("kavach_federation_tokens", {
 // ============================================================
 // Refresh Token Families (token rotation / reuse detection)
 // ============================================================
-export const refreshTokenFamilies = sqliteTable("kavach_refresh_token_families", {
+export const refreshTokenFamilies = sqliteTable("theauth_refresh_token_families", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -802,7 +802,7 @@ export const refreshTokenFamilies = sqliteTable("kavach_refresh_token_families",
 // ============================================================
 // Refresh Tokens (individual one-time-use tokens per family)
 // ============================================================
-export const refreshTokens = sqliteTable("kavach_refresh_tokens", {
+export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
 	id: text("id").primaryKey(),
 	familyId: text("family_id")
 		.notNull()

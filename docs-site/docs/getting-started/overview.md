@@ -23,9 +23,9 @@ General-purpose auth libraries do not model this. TheAuth does.
 
 ```
 Human user signs in       --> your auth library (Clerk, Auth.js, better-auth)
-User creates an agent     --> TheAuth (kavach.agent.create)
-Agent calls a tool        --> TheAuth (kavach.authorize)
-Decision is logged        --> TheAuth (kavach_audit_logs)
+User creates an agent     --> TheAuth (theauth.agent.create)
+Agent calls a tool        --> TheAuth (theauth.authorize)
+Decision is logged        --> TheAuth (theauth_audit_logs)
 ```
 
 TheAuth receives the user ID from your auth library and takes over from there.

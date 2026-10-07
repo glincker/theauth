@@ -14,7 +14,7 @@
  * - Plugin endpoints: GET /auth/session/fields returns fields
  * - Plugin endpoints: PATCH /auth/session/fields updates fields
  * - Plugin endpoints: PATCH returns 404 for unknown session
- * - Plugin context: customSession module is exposed via kavach.plugins.getContext()
+ * - Plugin context: customSession module is exposed via theauth.plugins.getContext()
  */
 
 import { randomUUID } from "node:crypto";
@@ -188,9 +188,9 @@ describe("CustomSessionModule.updateSessionFields", () => {
 
 describe("customSession plugin — onSessionCreate hook", () => {
 	it("stores defaultFields in metadata.custom when a session is created via the hook", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession({ defaultFields: { theme: "dark", beta: true } })],
@@ -199,7 +199,7 @@ describe("customSession plugin — onSessionCreate hook", () => {
 		// Create a real user first
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Hook Test",
@@ -209,7 +209,7 @@ describe("customSession plugin — onSessionCreate hook", () => {
 		});
 
 		// Run the onSessionCreate hooks manually (simulates session creation)
-		const hooks = kavach.plugins.registry.hooks.onSessionCreate;
+		const hooks = theauth.plugins.registry.hooks.onSessionCreate;
 		expect(hooks.length).toBeGreaterThan(0);
 
 		const hookFn = hooks[0];
@@ -218,16 +218,16 @@ describe("customSession plugin — onSessionCreate hook", () => {
 	});
 
 	it("calls onSessionCreate callback and includes its return value", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 		const callback = vi.fn().mockResolvedValue({ lastSeen: 1234567890 });
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession({ onSessionCreate: callback })],
 		});
 
-		const hooks = kavach.plugins.registry.hooks.onSessionCreate;
+		const hooks = theauth.plugins.registry.hooks.onSessionCreate;
 		const hookFn = hooks[0];
 		const result = hookFn ? await hookFn("user-123") : undefined;
 
@@ -236,9 +236,9 @@ describe("customSession plugin — onSessionCreate hook", () => {
 	});
 
 	it("callback fields override defaultFields when keys collide", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [
@@ -249,7 +249,7 @@ describe("customSession plugin — onSessionCreate hook", () => {
 			],
 		});
 
-		const hooks = kavach.plugins.registry.hooks.onSessionCreate;
+		const hooks = theauth.plugins.registry.hooks.onSessionCreate;
 		const hookFn = hooks[0];
 		const result = hookFn ? await hookFn("any-user") : undefined;
 
@@ -257,15 +257,15 @@ describe("customSession plugin — onSessionCreate hook", () => {
 	});
 
 	it("returns undefined when no fields are configured", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession()],
 		});
 
-		const hooks = kavach.plugins.registry.hooks.onSessionCreate;
+		const hooks = theauth.plugins.registry.hooks.onSessionCreate;
 		const hookFn = hooks[0];
 		const result = hookFn ? await hookFn("any-user") : undefined;
 
@@ -279,9 +279,9 @@ describe("customSession plugin — onSessionCreate hook", () => {
 
 describe("customSession plugin endpoints", () => {
 	it("GET /auth/session/fields returns fields for a session", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession({ defaultFields: { env: "test" } })],
@@ -290,7 +290,7 @@ describe("customSession plugin endpoints", () => {
 		// Create a user and a session with custom fields
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Test",
@@ -300,7 +300,7 @@ describe("customSession plugin endpoints", () => {
 		});
 
 		const sessionId = randomUUID();
-		await kavach.db.insert(sessions).values({
+		await theauth.db.insert(sessions).values({
 			id: sessionId,
 			userId,
 			expiresAt: new Date(now.getTime() + 3600_000),
@@ -309,9 +309,9 @@ describe("customSession plugin endpoints", () => {
 		});
 
 		// Create a real auth session to get a Bearer token
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request(`http://localhost/auth/session/fields?sessionId=${sessionId}`, {
 				headers: { Authorization: `Bearer ${token}` },
 			}),
@@ -325,9 +325,9 @@ describe("customSession plugin endpoints", () => {
 	});
 
 	it("GET /auth/session/fields returns 400 when sessionId is missing", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession()],
@@ -336,7 +336,7 @@ describe("customSession plugin endpoints", () => {
 		// Create a user and auth session to pass the requireAuth check
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Test",
@@ -344,9 +344,9 @@ describe("customSession plugin endpoints", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/session/fields", {
 				headers: { Authorization: `Bearer ${token}` },
 			}),
@@ -355,9 +355,9 @@ describe("customSession plugin endpoints", () => {
 	});
 
 	it("PATCH /auth/session/fields updates session custom fields", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession()],
@@ -365,7 +365,7 @@ describe("customSession plugin endpoints", () => {
 
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Patch Test",
@@ -375,7 +375,7 @@ describe("customSession plugin endpoints", () => {
 		});
 
 		const sessionId = randomUUID();
-		await kavach.db.insert(sessions).values({
+		await theauth.db.insert(sessions).values({
 			id: sessionId,
 			userId,
 			expiresAt: new Date(now.getTime() + 3600_000),
@@ -384,9 +384,9 @@ describe("customSession plugin endpoints", () => {
 		});
 
 		// Create a real auth session to get a Bearer token
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const patchResponse = await kavach.plugins.handleRequest(
+		const patchResponse = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/session/fields", {
 				method: "PATCH",
 				headers: {
@@ -404,9 +404,9 @@ describe("customSession plugin endpoints", () => {
 	});
 
 	it("PATCH /auth/session/fields returns 404 for unknown session", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { session: { secret: SESSION_SECRET } },
 			plugins: [customSession()],
@@ -416,7 +416,7 @@ describe("customSession plugin endpoints", () => {
 		// but use a non-existent sessionId in the body so the handler returns 404.
 		const userId = randomUUID();
 		const now = new Date();
-		await kavach.db.insert(users).values({
+		await theauth.db.insert(users).values({
 			id: userId,
 			email: `${userId}@test.com`,
 			name: "Ghost Test",
@@ -424,9 +424,9 @@ describe("customSession plugin endpoints", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		const { token } = await kavach.auth.session.create(userId);
+		const { token } = await theauth.auth.session.create(userId);
 
-		const response = await kavach.plugins.handleRequest(
+		const response = await theauth.plugins.handleRequest(
 			new Request("http://localhost/auth/session/fields", {
 				method: "PATCH",
 				headers: {
@@ -441,14 +441,14 @@ describe("customSession plugin endpoints", () => {
 	});
 
 	it("plugin context exposes the customSession module", async () => {
-		const { createKavach } = await import("../src/kavach.js");
+		const { createTheAuth } = await import("../src/theauth.js");
 
-		const kavach = await createKavach({
+		const theauth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			plugins: [customSession({ defaultFields: { foo: "bar" } })],
 		});
 
-		const ctx = kavach.plugins.getContext();
+		const ctx = theauth.plugins.getContext();
 		expect(ctx.customSession).toBeDefined();
 		const mod = ctx.customSession as CustomSessionModule;
 		expect(typeof mod.getSessionFields).toBe("function");

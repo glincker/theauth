@@ -53,14 +53,14 @@ export interface MockAuthServer extends MockAuthAdapter {
  * that specific request only.  Useful in unit tests that construct requests
  * directly.
  */
-export const MOCK_USER_ID_HEADER = "x-mock-kavach-user-id";
+export const MOCK_USER_ID_HEADER = "x-mock-theauth-user-id";
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 /**
  * Creates a lightweight in-memory auth adapter for tests.
  *
- * `resolveUser` checks the `x-mock-kavach-user-id` request header first (so
+ * `resolveUser` checks the `x-mock-theauth-user-id` request header first (so
  * you can pass per-request user IDs without calling `setActiveUser`), then
  * falls back to whatever was set via `setActiveUser()`.
  *

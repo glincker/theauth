@@ -142,11 +142,11 @@ describe("OpenApiModule.generateSpec custom config", () => {
 		}
 	});
 
-	it("default basePath prefixes all paths with /api/kavach", () => {
+	it("default basePath prefixes all paths with /api/theauth", () => {
 		const spec = mod.generateSpec();
 		const paths = Object.keys(spec.paths);
 		for (const path of paths) {
-			expect(path.startsWith("/api/kavach")).toBe(true);
+			expect(path.startsWith("/api/theauth")).toBe(true);
 		}
 	});
 });
@@ -237,7 +237,7 @@ describe("OpenApiModule.generateSpec security", () => {
 
 	it("sign-in endpoint has no security requirement (public route)", () => {
 		const spec = mod.generateSpec({ include: ["auth"] });
-		const signInOp = spec.paths["/api/kavach/sign-in/email"]?.post;
+		const signInOp = spec.paths["/api/theauth/sign-in/email"]?.post;
 		expect(signInOp).toBeDefined();
 		// Public routes have undefined security (no restriction)
 		expect(signInOp?.security).toBeUndefined();
@@ -245,7 +245,7 @@ describe("OpenApiModule.generateSpec security", () => {
 
 	it("session GET endpoint requires BearerAuth", () => {
 		const spec = mod.generateSpec({ include: ["auth"] });
-		const sessionOp = spec.paths["/api/kavach/session"]?.get;
+		const sessionOp = spec.paths["/api/theauth/session"]?.get;
 		expect(sessionOp?.security?.some((req) => "BearerAuth" in req)).toBe(true);
 	});
 });
@@ -320,21 +320,21 @@ describe("OpenApiModule.generateSpec schemas", () => {
 
 	it("agents paths include rotate endpoint", () => {
 		const spec = mod.generateSpec({ include: ["agents"] });
-		const rotatePath = spec.paths["/api/kavach/agents/{id}/rotate"];
+		const rotatePath = spec.paths["/api/theauth/agents/{id}/rotate"];
 		expect(rotatePath?.post).toBeDefined();
 		expect(rotatePath?.post?.operationId).toBe("rotateAgent");
 	});
 
 	it("api-keys rotate endpoint is present", () => {
 		const spec = mod.generateSpec({ include: ["api-keys"] });
-		const rotatePath = spec.paths["/api/kavach/api-keys/{id}/rotate"];
+		const rotatePath = spec.paths["/api/theauth/api-keys/{id}/rotate"];
 		expect(rotatePath?.post).toBeDefined();
 		expect(rotatePath?.post?.operationId).toBe("rotateApiKey");
 	});
 
 	it("mcp token endpoint uses form-encoded content type", () => {
 		const spec = mod.generateSpec({ include: ["mcp"] });
-		const tokenOp = spec.paths["/api/kavach/mcp/token"]?.post;
+		const tokenOp = spec.paths["/api/theauth/mcp/token"]?.post;
 		expect(tokenOp?.requestBody?.content["application/x-www-form-urlencoded"]).toBeDefined();
 	});
 });
@@ -347,7 +347,7 @@ describe("OpenApiModule.handleRequest", () => {
 	const mod = createOpenApiModule();
 
 	it("returns a Response for a path ending in /openapi.json", () => {
-		const req = makeRequest("https://api.example.com/api/kavach/openapi.json");
+		const req = makeRequest("https://api.example.com/api/theauth/openapi.json");
 		const res = mod.handleRequest(req);
 		expect(res).toBeInstanceOf(Response);
 	});
@@ -365,7 +365,7 @@ describe("OpenApiModule.handleRequest", () => {
 	});
 
 	it("returns null for a path that does not end in /openapi.json", () => {
-		const req = makeRequest("https://api.example.com/api/kavach/session");
+		const req = makeRequest("https://api.example.com/api/theauth/session");
 		const res = mod.handleRequest(req);
 		expect(res).toBeNull();
 	});

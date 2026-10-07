@@ -11,7 +11,7 @@ import {
 	ShieldOff,
 } from "lucide-react";
 import { useState } from "react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import type { Agent, AgentType, AuditResult, CreateAgentInput } from "../api/types.js";
 import { Badge, StatusDot } from "../components/badge.js";
 import { Button } from "../components/button.js";
@@ -344,7 +344,7 @@ interface AgentDetailModalProps {
 	open: boolean;
 	onClose: () => void;
 	agent: Agent;
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 function AgentDetailModal({ open, onClose, agent, client }: AgentDetailModalProps) {
@@ -558,7 +558,7 @@ function AgentDetailModal({ open, onClose, agent, client }: AgentDetailModalProp
 // ─── Agents Page ──────────────────────────────────────────────────────────────
 
 interface AgentsPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function AgentsPage({ client }: AgentsPageProps) {

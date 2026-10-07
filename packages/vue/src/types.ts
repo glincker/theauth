@@ -10,9 +10,6 @@ export interface TheAuthUser {
 /** @deprecated Use `TheAuthUser` instead. Will be removed in a future major version. */
 export type AuthUser = TheAuthUser;
 
-/** @deprecated Use `TheAuthUser` instead. Will be removed in a future major version. */
-export type KavachUser = TheAuthUser;
-
 export interface TheAuthSession {
 	token: string;
 	user: TheAuthUser;
@@ -21,9 +18,6 @@ export interface TheAuthSession {
 
 /** @deprecated Use `TheAuthSession` instead. Will be removed in a future major version. */
 export type AuthSession = TheAuthSession;
-
-/** @deprecated Use `TheAuthSession` instead. Will be removed in a future major version. */
-export type KavachSession = TheAuthSession;
 
 export interface TheAuthAgent {
 	id: string;
@@ -41,9 +35,6 @@ export interface TheAuthAgent {
 /** @deprecated Use `TheAuthAgent` instead. Will be removed in a future major version. */
 export type AuthAgent = TheAuthAgent;
 
-/** @deprecated Use `TheAuthAgent` instead. Will be removed in a future major version. */
-export type KavachAgent = TheAuthAgent;
-
 export interface TheAuthPermission {
 	resource: string;
 	actions: string[];
@@ -58,9 +49,6 @@ export interface TheAuthPermission {
 
 /** @deprecated Use `TheAuthPermission` instead. Will be removed in a future major version. */
 export type AuthPermission = TheAuthPermission;
-
-/** @deprecated Use `TheAuthPermission` instead. Will be removed in a future major version. */
-export type KavachPermission = TheAuthPermission;
 
 export interface CreateAgentInput {
 	ownerId: string;
@@ -89,11 +77,8 @@ export interface TheAuthContextValue {
 	refresh: () => Promise<void>;
 }
 
-// Kept for backward compatibility with the pre-rebrand "Kavach" API. Will be
+// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 
 /** @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version. */
 export type AuthContextValue = TheAuthContextValue;
-
-/** @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version. */
-export type KavachContextValue = TheAuthContextValue;

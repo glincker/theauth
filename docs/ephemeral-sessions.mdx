@@ -28,12 +28,12 @@ No extra configuration is needed, ephemeral sessions are part of the `@glinr/the
 import { createTheAuth } from '@glinr/theauth';
 import { createEphemeralSessionModule } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
 const ephemeral = createEphemeralSessionModule({
-  db: kavach.db,
+  db: theauth.db,
   defaultTtlSeconds: 300,   // 5 minutes
   maxTtlSeconds: 3600,      // 1 hour ceiling
   autoRevokeOnExpiry: true, // revoke underlying agent on expiry

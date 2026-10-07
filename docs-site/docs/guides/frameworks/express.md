@@ -1,11 +1,11 @@
 ---
 title: Express
-description: Mount TheAuth auth routes on an Express app with kavachExpress(kavach).
+description: Mount TheAuth auth routes on an Express app with theAuthExpress(theauth).
 ---
 
 # Express
 
-`kavachExpress(kavach, options?)` returns an Express router. Mount it at your preferred path.
+`theAuthExpress(theauth, options?)` returns an Express router. Mount it at your preferred path.
 
 ## Install
 
@@ -19,18 +19,18 @@ pnpm add -D @types/express
 ```typescript
 import express from 'express';
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachExpress } from '@glinr/theauth-express';
+import { theAuthExpress } from '@glinr/theauth-express';
 
-const kavach = createTheAuth({
+const theauth = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
 });
 
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule(theauth);
 
 const app = express();
 
-app.use('/api/kavach', kavachExpress(kavach, { mcp }));
+app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
 
 app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');

@@ -9,7 +9,7 @@ Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles
 | **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the TheAuth agent-management runtime with its built-in auth |
 | **Auth source** | External REST API (`/api/auth/*`) | In-process TheAuth SDK |
 | **Zero deps on** | `@glinr/theauth` core, `@glinr/theauth-nextjs` | — |
-| **Key exports** | `getServerSession`, `withAuth`, `refreshSession`, `fetchWithRefresh` | `kavachNextjs()` handler |
+| **Key exports** | `getServerSession`, `withAuth`, `refreshSession`, `fetchWithRefresh` | `theAuthNextjs()` handler |
 
 vs **next-auth**: next-auth requires a database adapter and runs auth in-process. Use `@glinr/theauth-nextjs-auth` when your backend already handles session state and you just want the FE plumbing.
 

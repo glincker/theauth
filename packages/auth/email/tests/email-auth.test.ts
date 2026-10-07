@@ -30,7 +30,7 @@ async function createTestModule(
 	const mocks = makeMocks();
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
 
-	// Run core migrations first so kavach_users + kavach_sessions exist
+	// Run core migrations first so theauth_users + theauth_sessions exist
 	await createTables(db, "sqlite");
 
 	const auth = createEmailAuth(

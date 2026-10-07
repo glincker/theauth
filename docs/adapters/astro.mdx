@@ -1,10 +1,10 @@
 ---
 title: Astro
-description: Mount TheAuth auth routes in an Astro app with `theAuthAstro(kavach)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
+description: Mount TheAuth auth routes in an Astro app with `theAuthAstro(theauth)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
 icon: "/brand-icons/astro.svg"
 ---
 
-`theAuthAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled. Use individual named exports or the `ALL` catch-all handler.
+`theAuthAstro(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled. Use individual named exports or the `ALL` catch-all handler.
 
 ## Install
 
@@ -15,13 +15,13 @@ pnpm add @glinr/theauth @glinr/theauth-astro
 ## Setup
 
 <Steps>
-<Step title="Create the kavach instance">
+<Step title="Create the theauth instance">
 
 ```typescript
-// src/lib/kavach.ts
+// src/lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
   mcp: {
@@ -30,20 +30,20 @@ export const kavach = await createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 </Step>
 <Step title="Create the catch-all route">
 
-Create `src/pages/api/kavach/[...path].ts`. The `[...path]` spread catches every sub-path under `/api/kavach/`.
+Create `src/pages/api/theauth/[...path].ts`. The `[...path]` spread catches every sub-path under `/api/theauth/`.
 
 ```typescript
-// src/pages/api/kavach/[...path].ts
+// src/pages/api/theauth/[...path].ts
 import { theAuthAstro } from '@glinr/theauth-astro';
-import { kavach, mcp } from '@/lib/kavach';
+import { theauth, mcp } from '@/lib/theauth';
 
-const handlers = theAuthAstro(kavach, { mcp });
+const handlers = theAuthAstro(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -70,7 +70,7 @@ export const ALL = handlers.ALL;
 ```typescript
 interface AuthAstroOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
-  basePath?: string;       // defaults to '/api/kavach'
+  basePath?: string;       // defaults to '/api/theauth'
 }
 ```
 
@@ -79,11 +79,11 @@ interface AuthAstroOptions {
 When `mcp` is passed, the MCP OAuth 2.1 endpoints are available at:
 
 ```
-GET  /api/kavach/.well-known/oauth-authorization-server
-GET  /api/kavach/.well-known/oauth-protected-resource
-POST /api/kavach/mcp/register
-GET  /api/kavach/mcp/authorize
-POST /api/kavach/mcp/token
+GET  /api/theauth/.well-known/oauth-authorization-server
+GET  /api/theauth/.well-known/oauth-protected-resource
+POST /api/theauth/mcp/register
+GET  /api/theauth/mcp/authorize
+POST /api/theauth/mcp/token
 ```
 
 ## Endpoint reference
@@ -107,11 +107,11 @@ POST /api/kavach/mcp/token
 ## Full example
 
 ```typescript
-// src/pages/api/kavach/[...path].ts
+// src/pages/api/theauth/[...path].ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { theAuthAstro } from '@glinr/theauth-astro';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
   mcp: {
@@ -120,9 +120,9 @@ const kavach = await createTheAuth({
   },
 });
 
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule(theauth);
 
-const handlers = theAuthAstro(kavach, { mcp });
+const handlers = theAuthAstro(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

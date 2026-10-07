@@ -1,14 +1,14 @@
 import Fastify from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { TheAuth } from "../../../core/src/kavach.js";
-import { createTheAuth } from "../../../core/src/kavach.js";
-import { kavachFastify } from "../src/adapter.js";
+import type { TheAuth } from "../../../core/src/theauth.js";
+import { createTheAuth } from "../../../core/src/theauth.js";
+import { theAuthFastify } from "../src/adapter.js";
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
-async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; kavach: TheAuth }> {
-	const kavach = await createTheAuth({
+async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; theauth: TheAuth }> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -19,7 +19,7 @@ async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; kavac
 		},
 	});
 
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -31,9 +31,9 @@ async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; kavac
 		.run();
 
 	const app = Fastify();
-	await app.register(kavachFastify(kavach), { prefix: "/api/kavach" });
+	await app.register(theAuthFastify(theauth), { prefix: "/api/theauth" });
 
-	return { app, kavach };
+	return { app, theauth };
 }
 
 async function createTestAgent(
@@ -46,7 +46,7 @@ async function createTestAgent(
 ): Promise<{ id: string; token: string }> {
 	const res = await app.inject({
 		method: "POST",
-		url: "/api/kavach/agents",
+		url: "/api/theauth/agents",
 		payload: {
 			ownerId: "user-1",
 			name: overrides.name ?? "test-agent",
@@ -75,7 +75,7 @@ describe("Fastify adapter", () => {
 
 		const listRes = await app.inject({
 			method: "GET",
-			url: "/api/kavach/agents?userId=user-1",
+			url: "/api/theauth/agents?userId=user-1",
 		});
 		expect(listRes.statusCode).toBe(200);
 		const listBody = listRes.json() as { data: Array<{ id: string; name: string }> };
@@ -84,7 +84,7 @@ describe("Fastify adapter", () => {
 
 		const getRes = await app.inject({
 			method: "GET",
-			url: `/api/kavach/agents/${id}`,
+			url: `/api/theauth/agents/${id}`,
 		});
 		expect(getRes.statusCode).toBe(200);
 		const getBody = getRes.json() as { data: { id: string; name: string; token: string } };
@@ -98,7 +98,7 @@ describe("Fastify adapter", () => {
 
 		const allowRes = await app.inject({
 			method: "POST",
-			url: "/api/kavach/authorize/token",
+			url: "/api/theauth/authorize/token",
 			headers: {
 				authorization: `Bearer ${token}`,
 				"content-type": "application/json",
@@ -110,20 +110,20 @@ describe("Fastify adapter", () => {
 
 		const revokeRes = await app.inject({
 			method: "DELETE",
-			url: `/api/kavach/agents/${id}`,
+			url: `/api/theauth/agents/${id}`,
 		});
 		expect(revokeRes.statusCode).toBe(204);
 
 		const getRes = await app.inject({
 			method: "GET",
-			url: `/api/kavach/agents/${id}`,
+			url: `/api/theauth/agents/${id}`,
 		});
 		expect(getRes.statusCode).toBe(200);
 		expect((getRes.json() as { data: { status: string } }).data.status).toBe("revoked");
 
 		const denyRes = await app.inject({
 			method: "POST",
-			url: "/api/kavach/authorize/token",
+			url: "/api/theauth/authorize/token",
 			headers: {
 				authorization: `Bearer ${token}`,
 				"content-type": "application/json",
@@ -139,7 +139,7 @@ describe("Fastify adapter", () => {
 	it("serves MCP preflight responses with CORS headers", async () => {
 		const res = await app.inject({
 			method: "OPTIONS",
-			url: "/api/kavach/mcp/register",
+			url: "/api/theauth/mcp/register",
 		});
 
 		expect(res.statusCode).toBe(204);

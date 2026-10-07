@@ -68,8 +68,8 @@ import { createTheAuth, magicLinkPlugin, createEmailTemplates } from '@glinr/the
 
 const templates = createEmailTemplates({ appName: 'MyApp', appUrl: 'https://myapp.com' });
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     magicLinkPlugin({
       async onSendMagicLink({ email, url, expiresInMinutes }) {

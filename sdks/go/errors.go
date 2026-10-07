@@ -14,9 +14,6 @@ func (e *TheAuthError) Error() string {
 	return fmt.Sprintf("theauth: [%s] %s", e.Code, e.Message)
 }
 
-// KavachError is a deprecated alias for TheAuthError. Will be removed in a
-// future major version.
-type KavachError = TheAuthError
 
 // ErrAuthentication is returned when the request lacks valid credentials (HTTP 401).
 type ErrAuthentication struct {

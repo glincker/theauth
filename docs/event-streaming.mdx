@@ -31,22 +31,22 @@ Use webhooks when you need durable delivery to an external service. Use event st
 import { createTheAuth } from '@glinr/theauth';
 import { createEventStreamModule } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
 const stream = createEventStreamModule({
-  db: kavach.db,
+  db: theauth.db,
   requireAuth: true,
   validateToken: async (token) => {
     // Return the subscriber ID (userId or agentId) on success, null on failure.
-    const session = await kavach.session.verify(token);
+    const session = await theauth.session.verify(token);
     return session?.userId ?? null;
   },
 });
 
 // Mount in your HTTP handler
-app.get('/api/kavach/events/stream', (req, res) => {
+app.get('/api/theauth/events/stream', (req, res) => {
   const response = stream.handleRequest(req);
   if (response) return response;
 });
@@ -70,7 +70,7 @@ The browser's built-in `EventSource` API handles reconnection automatically.
 
 ```typescript
 const source = new EventSource(
-  '/api/kavach/events/stream?token=your-bearer-token',
+  '/api/theauth/events/stream?token=your-bearer-token',
 );
 
 source.addEventListener('agent.created', (event) => {
@@ -99,7 +99,7 @@ If you pass the token via the `Authorization` header instead, use the `eventsour
 ```typescript
 import { EventSource } from 'eventsource';
 
-const source = new EventSource('https://your-app.com/api/kavach/events/stream', {
+const source = new EventSource('https://your-app.com/api/theauth/events/stream', {
   headers: {
     Authorization: 'Bearer your-bearer-token',
   },
@@ -137,13 +137,13 @@ source.onerror = () => {
 Pass a `types` query parameter with a comma-separated list to receive only the events you care about.
 
 ```
-GET /api/kavach/events/stream?types=anomaly.detected,budget.exceeded
+GET /api/theauth/events/stream?types=anomaly.detected,budget.exceeded
 ```
 
 ```typescript
 // From a browser
 const source = new EventSource(
-  '/api/kavach/events/stream?token=tok&types=agent.created,agent.revoked',
+  '/api/theauth/events/stream?token=tok&types=agent.created,agent.revoked',
 );
 ```
 
@@ -151,7 +151,7 @@ You can also restrict the types at the module level so no client can subscribe t
 
 ```typescript
 const stream = createEventStreamModule({
-  db: kavach.db,
+  db: theauth.db,
   requireAuth: true,
   validateToken,
   eventTypes: ['audit', 'anomaly.detected'], // only these types are ever delivered
@@ -160,10 +160,10 @@ const stream = createEventStreamModule({
 
 ## Replay and cursor
 
-Events are persisted in the `kavach_stream_events` table. If a client disconnects and reconnects, pass `since` to receive everything it missed.
+Events are persisted in the `theauth_stream_events` table. If a client disconnects and reconnects, pass `since` to receive everything it missed.
 
 ```
-GET /api/kavach/events/stream?since=2026-01-15T10:00:00Z
+GET /api/theauth/events/stream?since=2026-01-15T10:00:00Z
 ```
 
 The browser `EventSource` can also pass the last received event ID via the `Last-Event-ID` header, which the browser manages automatically when you set the `id:` field on SSE events. TheAuth uses the `Last-Event-ID` value as the replay cursor.
@@ -186,7 +186,7 @@ By default `requireAuth: true`. Every connection must present a valid Bearer tok
 
 ```
 Authorization: Bearer <token>
-GET /api/kavach/events/stream?token=<token>
+GET /api/theauth/events/stream?token=<token>
 ```
 
 When the token is invalid, the stream sends a single `error` event and closes.
@@ -199,7 +199,7 @@ To disable auth for local development or internal-only deployments:
 
 ```typescript
 const stream = createEventStreamModule({
-  db: kavach.db,
+  db: theauth.db,
   requireAuth: false,
 });
 ```
@@ -245,7 +245,7 @@ Any part of your application can emit to the stream.
 
 ```typescript
 // After revoking an agent
-await kavach.agent.revoke(agentId);
+await theauth.agent.revoke(agentId);
 
 stream.emit({
   id: crypto.randomUUID(),

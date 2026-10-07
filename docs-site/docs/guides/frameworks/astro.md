@@ -1,11 +1,11 @@
 ---
 title: Astro
-description: Mount TheAuth auth routes in an Astro app with authAstro(kavach). Returns named handlers for a catch-all API page.
+description: Mount TheAuth auth routes in an Astro app with authAstro(theauth). Returns named handlers for a catch-all API page.
 ---
 
 # Astro
 
-`authAstro(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled.
+`authAstro(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS, ALL }`. Mount them in a catch-all API page so all TheAuth paths are handled.
 
 ## Install
 
@@ -15,13 +15,13 @@ pnpm add @glinr/theauth @glinr/theauth-astro
 
 ## Setup
 
-### 1. Create the kavach instance
+### 1. Create the theauth instance
 
 ```typescript
-// src/lib/kavach.ts
+// src/lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createTheAuth({
+export const theauth = createTheAuth({
   database: { provider: 'postgres', url: import.meta.env.DATABASE_URL },
   baseUrl: import.meta.env.AUTH_BASE_URL,
   mcp: {
@@ -30,20 +30,20 @@ export const kavach = createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 ### 2. Create the catch-all route
 
-Create `src/pages/api/kavach/[...path].ts`. The `[...path]` spread catches every sub-path under `/api/kavach/`.
+Create `src/pages/api/theauth/[...path].ts`. The `[...path]` spread catches every sub-path under `/api/theauth/`.
 
 ```typescript
-// src/pages/api/kavach/[...path].ts
+// src/pages/api/theauth/[...path].ts
 import type { APIRoute } from 'astro';
 import { authAstro } from '@glinr/theauth-astro';
-import { kavach, mcp } from '../../../lib/kavach';
+import { theauth, mcp } from '../../../lib/theauth';
 
-const handlers = authAstro(kavach, { mcp });
+const handlers = authAstro(theauth, { mcp });
 
 export const GET: APIRoute = handlers.GET;
 export const POST: APIRoute = handlers.POST;

@@ -7,12 +7,12 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   apiKeys: { prefix: 'kos_', defaultExpiryDays: 90 },
  * });
  *
- * const { key, apiKey } = await kavach.apiKeys.create({
+ * const { key, apiKey } = await theauth.apiKeys.create({
  *   userId: 'user_abc',
  *   name: 'CI token',
  *   permissions: ['agents:read'],

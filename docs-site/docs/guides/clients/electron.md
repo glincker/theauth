@@ -1,6 +1,6 @@
 ---
 title: Electron
-description: Add auth to Electron apps via createKavachElectron. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and automatic token refresh.
+description: Add auth to Electron apps via createTheAuthElectron. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and automatic token refresh.
 ---
 
 # Electron
@@ -16,16 +16,16 @@ pnpm add @glinr/theauth-electron
 ## Setup (main process)
 
 ```ts
-import { createKavachElectron } from '@glinr/theauth-electron';
+import { createTheAuthElectron } from '@glinr/theauth-electron';
 import { ipcMain } from 'electron';
 
-const kavach = createKavachElectron({
-  baseUrl: 'https://api.myapp.com/api/kavach',
+const theauth = createTheAuthElectron({
+  baseUrl: 'https://api.myapp.com/api/theauth',
   appName: 'MyApp',
 });
 
 // Register IPC handlers so the renderer can call auth methods
-kavach.registerIpcHandlers(ipcMain);
+theauth.registerIpcHandlers(ipcMain);
 ```
 
 Tokens are stored in the OS keychain (Keychain on macOS, Credential Manager on Windows, libsecret on Linux). They are never written to disk in plaintext.
@@ -33,9 +33,9 @@ Tokens are stored in the OS keychain (Keychain on macOS, Credential Manager on W
 ## Usage (renderer process)
 
 ```ts
-import { useKavachElectron } from '@glinr/theauth-electron/renderer';
+import { useTheAuthElectron } from '@glinr/theauth-electron/renderer';
 
-const { signIn, signOut, getSession, getUser } = useKavachElectron();
+const { signIn, signOut, getSession, getUser } = useTheAuthElectron();
 
 const session = await getSession();
 if (!session) {
@@ -52,8 +52,8 @@ When the user initiates an OAuth flow, `@glinr/theauth-electron` opens a `Browse
 Tokens are refreshed automatically in the background before they expire. Configure the refresh buffer:
 
 ```ts
-const kavach = createKavachElectron({
-  baseUrl: 'https://api.myapp.com/api/kavach',
+const theauth = createTheAuthElectron({
+  baseUrl: 'https://api.myapp.com/api/theauth',
   appName: 'MyApp',
   refreshBufferSeconds: 300, // refresh 5 minutes before expiry
 });

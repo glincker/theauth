@@ -42,7 +42,7 @@ This starts a gateway on port 3000 that proxies all traffic to `http://localhost
 Check the health endpoint to confirm it's running:
 
 ```bash
-curl http://localhost:3000/_kavach/health
+curl http://localhost:3000/_theauth/health
 # {"status":"ok","upstream":"http://localhost:8080","timestamp":"..."}
 ```
 
@@ -54,7 +54,7 @@ curl http://localhost:3000/_kavach/health
 npx @glinr/theauth-gateway \
   --upstream http://localhost:8080 \
   --port 4000 \
-  --database ./kavach.db \
+  --database ./theauth.db \
   --config gateway.json \
   --strip-auth \
   --no-audit
@@ -121,13 +121,13 @@ Use the gateway inside your own Node.js application without starting a separate 
 import { createTheAuth } from '@glinr/theauth';
 import { createGateway } from '@glinr/theauth-gateway';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
 const gateway = createGateway({
   upstream: 'http://localhost:8080',
-  kavach,
+  theauth,
   audit: true,
   cors: { origins: '*' },
   rateLimit: { windowMs: 60_000, max: 100 },
@@ -182,7 +182,7 @@ Patterns use standard glob syntax via [micromatch](https://github.com/micromatch
 
 ### Auth flow per request
 
-1. Check if the path is `/_kavach/health`, serve locally, no upstream
+1. Check if the path is `/_theauth/health`, serve locally, no upstream
 2. Handle CORS preflight if `cors` is configured
 3. Match the request against policies (path + method)
 4. If the matched policy is `public: true` or `requireAuth: false`, skip auth
@@ -244,14 +244,14 @@ In Docker, the standalone mode works as a sidecar:
 CMD ["node", "server.js"]
 
 # Or start the gateway in front of it
-CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--port", "3000", "--database", "/data/kavach.db"]
+CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--port", "3000", "--database", "/data/theauth.db"]
 ```
 
 ## Configuration reference
 
 <ParamField path="upstream" type="string">URL of the upstream service to proxy to</ParamField>
 <ParamField path="basePath" type="string" default="&quot;/&quot;">Base path prefix. Default: "/"</ParamField>
-<ParamField path="kavach" type="TheAuth">TheAuth instance created with createTheAuth()</ParamField>
+<ParamField path="theauth" type="TheAuth">TheAuth instance created with createTheAuth()</ParamField>
 <ParamField path="policies" type="GatewayPolicy[]">Array of path-based access policies</ParamField>
 <ParamField path="cors" type="CorsConfig">CORS configuration</ParamField>
 <ParamField path="rateLimit" type="{ windowMs: number; max: number }">Global rate limit applied to all requests</ParamField>

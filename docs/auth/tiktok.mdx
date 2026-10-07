@@ -14,19 +14,19 @@ description: Authenticate users with TikTok via the `oauth` plugin. Covers Login
 Go to the [TikTok for Developers](https://developers.tiktok.com) portal and create an app. Under **Login Kit**, add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/tiktok
+https://your-app.com/api/theauth/auth/oauth/callback/tiktok
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

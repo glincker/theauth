@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { buildSetCookie } from "../../plugin/helpers.js";
-import type { KavachPlugin } from "../../plugin/types.js";
+import type { TheAuthPlugin } from "../../plugin/types.js";
 import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
 import { createOAuthModule } from "./module.js";
@@ -43,9 +43,9 @@ function redirectResponse(url: string): Response {
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function oauth(config: OAuthPluginConfig): KavachPlugin {
+export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 	return {
-		id: "kavach-oauth",
+		id: "theauth-oauth",
 
 		async init(ctx): Promise<undefined> {
 			const module = createOAuthModule(ctx.db, config);
@@ -55,7 +55,7 @@ export function oauth(config: OAuthPluginConfig): KavachPlugin {
 			const sessionManager = ctx.sessionManager;
 			if (!sessionManager) {
 				throw new Error(
-					"kavach-oauth plugin requires auth.session to be configured so that sessions can be issued on successful OAuth callback.",
+					"theauth-oauth plugin requires auth.session to be configured so that sessions can be issued on successful OAuth callback.",
 				);
 			}
 
@@ -122,7 +122,7 @@ export function oauth(config: OAuthPluginConfig): KavachPlugin {
 					try {
 						const result = await module.handleCallback(provider, code, state, redirectUri);
 
-						// Find or create a kavach user by email
+						// Find or create a theauth user by email
 						const email = result.userInfo.email;
 						let userId = result.account.userId;
 
@@ -159,7 +159,7 @@ export function oauth(config: OAuthPluginConfig): KavachPlugin {
 							const { session, token } = await sessionManager.create(userId);
 							const maxAge = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
 							const isSecure = baseUrl.startsWith("https://");
-							const cookie = buildSetCookie("kavach_session", token, maxAge, "/", isSecure);
+							const cookie = buildSetCookie("theauth_session", token, maxAge, "/", isSecure);
 
 							// Pass user info (not the token) as a URL param for the frontend
 							const userInfo = encodeURIComponent(JSON.stringify({ id: userId, email }));

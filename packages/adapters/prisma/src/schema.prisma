@@ -16,7 +16,7 @@ datasource db {
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-model KavachUser {
+model TheAuthUser {
   id                       String    @id
   email                    String    @unique
   name                     String?
@@ -43,12 +43,12 @@ model KavachUser {
   createdAt                DateTime  @map("created_at")
   updatedAt                DateTime  @map("updated_at")
 
-  @@map("kavach_users")
+  @@map("theauth_users")
 }
 
 // ─── Tenants ──────────────────────────────────────────────────────────────────
 
-model KavachTenant {
+model TheAuthTenant {
   id        String   @id
   name      String
   slug      String   @unique
@@ -57,12 +57,12 @@ model KavachTenant {
   createdAt DateTime @map("created_at")
   updatedAt DateTime @map("updated_at")
 
-  @@map("kavach_tenants")
+  @@map("theauth_tenants")
 }
 
 // ─── Agents ───────────────────────────────────────────────────────────────────
 
-model KavachAgent {
+model TheAuthAgent {
   id           String    @id
   ownerId      String    @map("owner_id")
   tenantId     String?   @map("tenant_id")
@@ -77,12 +77,12 @@ model KavachAgent {
   createdAt    DateTime  @map("created_at")
   updatedAt    DateTime  @map("updated_at")
 
-  @@map("kavach_agents")
+  @@map("theauth_agents")
 }
 
 // ─── Permissions ──────────────────────────────────────────────────────────────
 
-model KavachPermission {
+model TheAuthPermission {
   id          String   @id
   agentId     String   @map("agent_id")
   resource    String
@@ -90,12 +90,12 @@ model KavachPermission {
   constraints Json?
   createdAt   DateTime @map("created_at")
 
-  @@map("kavach_permissions")
+  @@map("theauth_permissions")
 }
 
 // ─── Delegation Chains ────────────────────────────────────────────────────────
 
-model KavachDelegationChain {
+model TheAuthDelegationChain {
   id          String   @id
   fromAgentId String   @map("from_agent_id")
   toAgentId   String   @map("to_agent_id")
@@ -106,12 +106,12 @@ model KavachDelegationChain {
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @map("created_at")
 
-  @@map("kavach_delegation_chains")
+  @@map("theauth_delegation_chains")
 }
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 
-model KavachAuditLog {
+model TheAuthAuditLog {
   id         String   @id
   agentId    String   @map("agent_id")
   userId     String   @map("user_id")
@@ -126,27 +126,27 @@ model KavachAuditLog {
   userAgent  String?  @map("user_agent")
   timestamp  DateTime
 
-  @@index([agentId], map: "kavach_audit_logs_agent_id_idx")
-  @@index([userId], map: "kavach_audit_logs_user_id_idx")
-  @@index([timestamp], map: "kavach_audit_logs_timestamp_idx")
-  @@map("kavach_audit_logs")
+  @@index([agentId], map: "theauth_audit_logs_agent_id_idx")
+  @@index([userId], map: "theauth_audit_logs_user_id_idx")
+  @@index([timestamp], map: "theauth_audit_logs_timestamp_idx")
+  @@map("theauth_audit_logs")
 }
 
 // ─── Rate Limits ──────────────────────────────────────────────────────────────
 
-model KavachRateLimit {
+model TheAuthRateLimit {
   id          String   @id
   agentId     String   @map("agent_id")
   resource    String
   windowStart DateTime @map("window_start")
   count       Int      @default(0)
 
-  @@map("kavach_rate_limits")
+  @@map("theauth_rate_limits")
 }
 
 // ─── MCP Servers ──────────────────────────────────────────────────────────────
 
-model KavachMcpServer {
+model TheAuthMcpServer {
   id            String   @id
   name          String
   endpoint      String   @unique
@@ -157,24 +157,24 @@ model KavachMcpServer {
   createdAt     DateTime @map("created_at")
   updatedAt     DateTime @map("updated_at")
 
-  @@map("kavach_mcp_servers")
+  @@map("theauth_mcp_servers")
 }
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────
 
-model KavachSession {
+model TheAuthSession {
   id        String   @id
   userId    String   @map("user_id")
   expiresAt DateTime @map("expires_at")
   metadata  Json?
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_sessions")
+  @@map("theauth_sessions")
 }
 
 // ─── OAuth Clients ────────────────────────────────────────────────────────────
 
-model KavachOAuthClient {
+model TheAuthOAuthClient {
   id                     String   @id
   clientId               String   @unique @map("client_id")
   clientSecret           String?  @map("client_secret")
@@ -190,12 +190,12 @@ model KavachOAuthClient {
   createdAt              DateTime @map("created_at")
   updatedAt              DateTime @map("updated_at")
 
-  @@map("kavach_oauth_clients")
+  @@map("theauth_oauth_clients")
 }
 
 // ─── OAuth Access Tokens ──────────────────────────────────────────────────────
 
-model KavachOAuthAccessToken {
+model TheAuthOAuthAccessToken {
   id                    String    @id
   accessToken           String    @unique @map("access_token")
   refreshToken          String?   @unique @map("refresh_token")
@@ -207,12 +207,12 @@ model KavachOAuthAccessToken {
   refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
   createdAt             DateTime  @map("created_at")
 
-  @@map("kavach_oauth_access_tokens")
+  @@map("theauth_oauth_access_tokens")
 }
 
 // ─── OAuth Authorization Codes ────────────────────────────────────────────────
 
-model KavachOAuthAuthorizationCode {
+model TheAuthOAuthAuthorizationCode {
   id                  String   @id
   code                String   @unique
   clientId            String   @map("client_id")
@@ -225,12 +225,12 @@ model KavachOAuthAuthorizationCode {
   expiresAt           DateTime @map("expires_at")
   createdAt           DateTime @map("created_at")
 
-  @@map("kavach_oauth_authorization_codes")
+  @@map("theauth_oauth_authorization_codes")
 }
 
 // ─── Budget Policies ──────────────────────────────────────────────────────────
 
-model KavachBudgetPolicy {
+model TheAuthBudgetPolicy {
   id           String   @id
   agentId      String?  @map("agent_id")
   userId       String?  @map("user_id")
@@ -241,12 +241,12 @@ model KavachBudgetPolicy {
   status       String   @default("active")
   createdAt    DateTime @map("created_at")
 
-  @@map("kavach_budget_policies")
+  @@map("theauth_budget_policies")
 }
 
 // ─── Agent Cards ──────────────────────────────────────────────────────────────
 
-model KavachAgentCard {
+model TheAuthAgentCard {
   id               String   @id
   agentId          String   @map("agent_id")
   name             String
@@ -260,12 +260,12 @@ model KavachAgentCard {
   createdAt        DateTime @map("created_at")
   updatedAt        DateTime @map("updated_at")
 
-  @@map("kavach_agent_cards")
+  @@map("theauth_agent_cards")
 }
 
 // ─── Approval Requests ────────────────────────────────────────────────────────
 
-model KavachApprovalRequest {
+model TheAuthApprovalRequest {
   id          String    @id
   agentId     String    @map("agent_id")
   userId      String    @map("user_id")
@@ -278,24 +278,24 @@ model KavachApprovalRequest {
   respondedBy String?   @map("responded_by")
   createdAt   DateTime  @map("created_at")
 
-  @@map("kavach_approval_requests")
+  @@map("theauth_approval_requests")
 }
 
 // ─── Trust Scores ─────────────────────────────────────────────────────────────
 
-model KavachTrustScore {
+model TheAuthTrustScore {
   agentId    String   @id @map("agent_id")
   score      Int
   level      String
   factors    Json
   computedAt DateTime @map("computed_at")
 
-  @@map("kavach_trust_scores")
+  @@map("theauth_trust_scores")
 }
 
 // ─── Magic Links ──────────────────────────────────────────────────────────────
 
-model KavachMagicLink {
+model TheAuthMagicLink {
   id        String   @id
   email     String
   token     String   @unique
@@ -303,12 +303,12 @@ model KavachMagicLink {
   used      Boolean  @default(false)
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_magic_links")
+  @@map("theauth_magic_links")
 }
 
 // ─── Email OTPs ───────────────────────────────────────────────────────────────
 
-model KavachEmailOtp {
+model TheAuthEmailOtp {
   id        String   @id
   email     String
   codeHash  String   @map("code_hash")
@@ -316,12 +316,12 @@ model KavachEmailOtp {
   attempts  Int      @default(0)
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_email_otps")
+  @@map("theauth_email_otps")
 }
 
 // ─── TOTP ─────────────────────────────────────────────────────────────────────
 
-model KavachTotp {
+model TheAuthTotp {
   userId      String   @id @map("user_id")
   secret      String
   enabled     Boolean  @default(false)
@@ -329,12 +329,12 @@ model KavachTotp {
   createdAt   DateTime @map("created_at")
   updatedAt   DateTime @map("updated_at")
 
-  @@map("kavach_totp")
+  @@map("theauth_totp")
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────
 
-model KavachOrganization {
+model TheAuthOrganization {
   id        String   @id
   name      String
   slug      String   @unique
@@ -343,20 +343,20 @@ model KavachOrganization {
   createdAt DateTime @map("created_at")
   updatedAt DateTime @map("updated_at")
 
-  @@map("kavach_organizations")
+  @@map("theauth_organizations")
 }
 
-model KavachOrgMember {
+model TheAuthOrgMember {
   id       String   @id
   orgId    String   @map("org_id")
   userId   String   @map("user_id")
   role     String   @default("member")
   joinedAt DateTime @map("joined_at")
 
-  @@map("kavach_org_members")
+  @@map("theauth_org_members")
 }
 
-model KavachOrgInvitation {
+model TheAuthOrgInvitation {
   id        String   @id
   orgId     String   @map("org_id")
   email     String
@@ -366,21 +366,21 @@ model KavachOrgInvitation {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_org_invitations")
+  @@map("theauth_org_invitations")
 }
 
-model KavachOrgRole {
+model TheAuthOrgRole {
   id          String @id
   orgId       String @map("org_id")
   name        String
   permissions Json
 
-  @@map("kavach_org_roles")
+  @@map("theauth_org_roles")
 }
 
 // ─── Passkey Credentials ──────────────────────────────────────────────────────
 
-model KavachPasskeyCredential {
+model TheAuthPasskeyCredential {
   id           String   @id
   userId       String   @map("user_id")
   credentialId String   @unique @map("credential_id")
@@ -391,12 +391,12 @@ model KavachPasskeyCredential {
   createdAt    DateTime @map("created_at")
   lastUsedAt   DateTime @map("last_used_at")
 
-  @@map("kavach_passkey_credentials")
+  @@map("theauth_passkey_credentials")
 }
 
 // ─── SSO Connections ──────────────────────────────────────────────────────────
 
-model KavachSsoConnection {
+model TheAuthSsoConnection {
   id         String   @id
   orgId      String   @map("org_id")
   providerId String   @map("provider_id")
@@ -405,12 +405,12 @@ model KavachSsoConnection {
   enabled    Boolean  @default(true)
   createdAt  DateTime @map("created_at")
 
-  @@map("kavach_sso_connections")
+  @@map("theauth_sso_connections")
 }
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
-model KavachApiKey {
+model TheAuthApiKey {
   id          String    @id
   userId      String    @map("user_id")
   name        String
@@ -421,12 +421,12 @@ model KavachApiKey {
   lastUsedAt  DateTime? @map("last_used_at")
   createdAt   DateTime  @map("created_at")
 
-  @@map("kavach_api_keys")
+  @@map("theauth_api_keys")
 }
 
 // ─── Passkey Challenges ───────────────────────────────────────────────────────
 
-model KavachPasskeyChallenge {
+model TheAuthPasskeyChallenge {
   id        String   @id
   challenge String   @unique
   userId    String?  @map("user_id")
@@ -434,12 +434,12 @@ model KavachPasskeyChallenge {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_passkey_challenges")
+  @@map("theauth_passkey_challenges")
 }
 
 // ─── Username Accounts ────────────────────────────────────────────────────────
 
-model KavachUsernameAccount {
+model TheAuthUsernameAccount {
   id           String   @id
   userId       String   @map("user_id")
   username     String   @unique
@@ -447,12 +447,12 @@ model KavachUsernameAccount {
   createdAt    DateTime @map("created_at")
   updatedAt    DateTime @map("updated_at")
 
-  @@map("kavach_username_accounts")
+  @@map("theauth_username_accounts")
 }
 
 // ─── Phone Verifications ──────────────────────────────────────────────────────
 
-model KavachPhoneVerification {
+model TheAuthPhoneVerification {
   id          String   @id
   phoneNumber String   @map("phone_number")
   codeHash    String   @map("code_hash")
@@ -460,12 +460,12 @@ model KavachPhoneVerification {
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @map("created_at")
 
-  @@map("kavach_phone_verifications")
+  @@map("theauth_phone_verifications")
 }
 
 // ─── Trusted Devices ──────────────────────────────────────────────────────────
 
-model KavachTrustedDevice {
+model TheAuthTrustedDevice {
   id          String   @id
   userId      String   @map("user_id")
   fingerprint String
@@ -473,12 +473,12 @@ model KavachTrustedDevice {
   trustedAt   DateTime @map("trusted_at")
   expiresAt   DateTime @map("expires_at")
 
-  @@map("kavach_trusted_devices")
+  @@map("theauth_trusted_devices")
 }
 
 // ─── One-Time Tokens ──────────────────────────────────────────────────────────
 
-model KavachOneTimeToken {
+model TheAuthOneTimeToken {
   id         String   @id
   tokenHash  String   @unique @map("token_hash")
   purpose    String
@@ -488,12 +488,12 @@ model KavachOneTimeToken {
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @map("created_at")
 
-  @@map("kavach_one_time_tokens")
+  @@map("theauth_one_time_tokens")
 }
 
 // ─── Login History ────────────────────────────────────────────────────────────
 
-model KavachLoginHistory {
+model TheAuthLoginHistory {
   id        String   @id
   userId    String   @map("user_id")
   method    String
@@ -501,13 +501,13 @@ model KavachLoginHistory {
   userAgent String?  @map("user_agent")
   timestamp DateTime
 
-  @@index([userId], map: "kavach_login_history_user_id_idx")
-  @@map("kavach_login_history")
+  @@index([userId], map: "theauth_login_history_user_id_idx")
+  @@map("theauth_login_history")
 }
 
 // ─── Agent DIDs ───────────────────────────────────────────────────────────────
 
-model KavachAgentDid {
+model TheAuthAgentDid {
   agentId      String   @id @map("agent_id")
   did          String   @unique
   method       String
@@ -515,12 +515,12 @@ model KavachAgentDid {
   didDocument  String   @map("did_document")
   createdAt    DateTime @map("created_at")
 
-  @@map("kavach_agent_dids")
+  @@map("theauth_agent_dids")
 }
 
 // ─── OIDC Clients ─────────────────────────────────────────────────────────────
 
-model KavachOidcClient {
+model TheAuthOidcClient {
   id                     String   @id
   clientId               String   @unique @map("client_id")
   clientSecretHash       String   @map("client_secret_hash")
@@ -533,12 +533,12 @@ model KavachOidcClient {
   createdAt              DateTime @map("created_at")
   updatedAt              DateTime @map("updated_at")
 
-  @@map("kavach_oidc_clients")
+  @@map("theauth_oidc_clients")
 }
 
 // ─── OIDC Auth Codes ──────────────────────────────────────────────────────────
 
-model KavachOidcAuthCode {
+model TheAuthOidcAuthCode {
   id                  String   @id
   codeHash            String   @unique @map("code_hash")
   clientId            String   @map("client_id")
@@ -552,12 +552,12 @@ model KavachOidcAuthCode {
   expiresAt           DateTime @map("expires_at")
   createdAt           DateTime @map("created_at")
 
-  @@map("kavach_oidc_auth_codes")
+  @@map("theauth_oidc_auth_codes")
 }
 
 // ─── OIDC Refresh Tokens ──────────────────────────────────────────────────────
 
-model KavachOidcRefreshToken {
+model TheAuthOidcRefreshToken {
   id        String   @id
   tokenHash String   @unique @map("token_hash")
   clientId  String   @map("client_id")
@@ -567,12 +567,12 @@ model KavachOidcRefreshToken {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_oidc_refresh_tokens")
+  @@map("theauth_oidc_refresh_tokens")
 }
 
 // ─── Cost Events ──────────────────────────────────────────────────────────────
 
-model KavachCostEvent {
+model TheAuthCostEvent {
   id               String   @id
   agentId          String   @map("agent_id")
   tool             String
@@ -584,12 +584,12 @@ model KavachCostEvent {
   delegationChainId String? @map("delegation_chain_id")
   recordedAt       DateTime @map("recorded_at")
 
-  @@map("kavach_cost_events")
+  @@map("theauth_cost_events")
 }
 
 // ─── Ephemeral Sessions ───────────────────────────────────────────────────────
 
-model KavachEphemeralSession {
+model TheAuthEphemeralSession {
   id           String   @id
   agentId      String   @map("agent_id")
   ownerId      String   @map("owner_id")
@@ -602,12 +602,12 @@ model KavachEphemeralSession {
   createdAt    DateTime @map("created_at")
   updatedAt    DateTime @map("updated_at")
 
-  @@map("kavach_ephemeral_sessions")
+  @@map("theauth_ephemeral_sessions")
 }
 
 // ─── JWT Refresh Tokens ───────────────────────────────────────────────────────
 
-model KavachJwtRefreshToken {
+model TheAuthJwtRefreshToken {
   id        String   @id
   tokenHash String   @unique @map("token_hash")
   userId    String   @map("user_id")
@@ -615,5 +615,5 @@ model KavachJwtRefreshToken {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @map("created_at")
 
-  @@map("kavach_jwt_refresh_tokens")
+  @@map("theauth_jwt_refresh_tokens")
 }

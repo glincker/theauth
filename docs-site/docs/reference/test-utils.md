@@ -52,7 +52,7 @@ const resolved = await server.resolveUser(new Request('https://example.com'));
 
 ## Per-request user override
 
-Set the `x-mock-kavach-user-id` header on a `Request` to override the active user for that specific request only, without calling `setActiveUser`:
+Set the `x-mock-theauth-user-id` header on a `Request` to override the active user for that specific request only, without calling `setActiveUser`:
 
 ```ts
 import { MOCK_USER_ID_HEADER } from '@glinr/theauth-test-utils';
@@ -62,27 +62,27 @@ const req = new Request('https://example.com', {
 });
 ```
 
-## In-memory kavach instance
+## In-memory theauth instance
 
 For integration tests, use SQLite in-memory mode with `createTheAuth`:
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createTheAuth({
+const theauth = createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
   agents: { enabled: true, auditAll: true },
 });
 
 // Tests run against a fresh in-memory database
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'test-user',
   name: 'test-agent',
   type: 'autonomous',
   permissions: [{ resource: 'mcp:*', actions: ['read'] }],
 });
 
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'mcp:github:repos',
 });

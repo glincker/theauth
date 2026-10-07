@@ -1,10 +1,10 @@
 ---
 title: SvelteKit
-description: Mount TheAuth auth routes in SvelteKit with `theAuthSvelteKit(kavach)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
+description: Mount TheAuth auth routes in SvelteKit with `theAuthSvelteKit(theauth)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
 icon: "/brand-icons/svelte.svg"
 ---
 
-`theAuthSvelteKit(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all TheAuth paths are handled.
+`theAuthSvelteKit(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all TheAuth paths are handled.
 
 ## Install
 
@@ -15,13 +15,13 @@ pnpm add @glinr/theauth @glinr/theauth-sveltekit
 ## Setup
 
 <Steps>
-<Step title="Create the kavach instance">
+<Step title="Create the theauth instance">
 
 ```typescript
-// src/lib/kavach.ts
+// src/lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -30,20 +30,20 @@ export const kavach = await createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 </Step>
 <Step title="Create the catch-all route">
 
-Create `src/routes/api/kavach/[...path]/+server.ts`. The `[...path]` segment catches every sub-path under `/api/kavach/`.
+Create `src/routes/api/theauth/[...path]/+server.ts`. The `[...path]` segment catches every sub-path under `/api/theauth/`.
 
 ```typescript
-// src/routes/api/kavach/[...path]/+server.ts
+// src/routes/api/theauth/[...path]/+server.ts
 import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
-import { kavach, mcp } from '$lib/kavach';
+import { theauth, mcp } from '$lib/theauth';
 
-const handlers = theAuthSvelteKit(kavach, { mcp });
+const handlers = theAuthSvelteKit(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -64,7 +64,7 @@ export const OPTIONS = handlers.OPTIONS;
 ```typescript
 interface AuthSvelteKitOptions {
   mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
-  basePath?: string;       // defaults to '/api/kavach'
+  basePath?: string;       // defaults to '/api/theauth'
 }
 ```
 
@@ -73,11 +73,11 @@ interface AuthSvelteKitOptions {
 When `mcp` is passed, the MCP OAuth 2.1 endpoints are available at:
 
 ```
-GET  /api/kavach/.well-known/oauth-authorization-server
-GET  /api/kavach/.well-known/oauth-protected-resource
-POST /api/kavach/mcp/register
-GET  /api/kavach/mcp/authorize
-POST /api/kavach/mcp/token
+GET  /api/theauth/.well-known/oauth-authorization-server
+GET  /api/theauth/.well-known/oauth-protected-resource
+POST /api/theauth/mcp/register
+GET  /api/theauth/mcp/authorize
+POST /api/theauth/mcp/token
 ```
 
 ## Endpoint reference
@@ -101,11 +101,11 @@ POST /api/kavach/mcp/token
 ## Full example
 
 ```typescript
-// src/routes/api/kavach/[...path]/+server.ts
+// src/routes/api/theauth/[...path]/+server.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -114,9 +114,9 @@ const kavach = await createTheAuth({
   },
 });
 
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule(theauth);
 
-const handlers = theAuthSvelteKit(kavach, { mcp });
+const handlers = theAuthSvelteKit(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

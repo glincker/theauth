@@ -1,26 +1,26 @@
-// Singleton kavach instance for Next.js.
+// Singleton theauth instance for Next.js.
 //
 // Next.js hot-reloads modules in dev, so we store the instance on `globalThis`
 // to avoid re-creating the database connection on every reload.
 
 import { createTheAuth } from "@glinr/theauth";
 
-type KavachInstance = Awaited<ReturnType<typeof createTheAuth>>;
+type TheAuthInstance = Awaited<ReturnType<typeof createTheAuth>>;
 
 declare global {
 	// eslint-disable-next-line no-var
-	var __kavach: KavachInstance | undefined;
+	var __theauth: TheAuthInstance | undefined;
 }
 
-let kavachPromise: Promise<KavachInstance> | undefined;
+let theAuthPromise: Promise<TheAuthInstance> | undefined;
 
-export function getKavach(): Promise<KavachInstance> {
-	if (globalThis.__kavach) {
-		return Promise.resolve(globalThis.__kavach);
+export function getTheAuth(): Promise<TheAuthInstance> {
+	if (globalThis.__theauth) {
+		return Promise.resolve(globalThis.__theauth);
 	}
 
-	if (!kavachPromise) {
-		kavachPromise = createTheAuth({
+	if (!theAuthPromise) {
+		theAuthPromise = createTheAuth({
 			database: {
 				provider: "sqlite",
 				url: process.env.THEAUTH_DB_URL ?? "theauth.db",
@@ -33,10 +33,10 @@ export function getKavach(): Promise<KavachInstance> {
 				tokenExpiry: "24h",
 			},
 		}).then((instance) => {
-			globalThis.__kavach = instance;
+			globalThis.__theauth = instance;
 			return instance;
 		});
 	}
 
-	return kavachPromise;
+	return theAuthPromise;
 }

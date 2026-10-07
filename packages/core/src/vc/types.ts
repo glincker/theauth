@@ -28,13 +28,6 @@ export const AUTH_PERMISSION_CREDENTIAL = THEAUTH_PERMISSION_CREDENTIAL;
 /** @deprecated Use `THEAUTH_DELEGATION_CREDENTIAL` instead. Will be removed in a future major version. */
 export const AUTH_DELEGATION_CREDENTIAL = THEAUTH_DELEGATION_CREDENTIAL;
 
-/** @deprecated Use `THEAUTH_AGENT_CREDENTIAL` instead. Will be removed in a future major version. */
-export const KAVACH_AGENT_CREDENTIAL = THEAUTH_AGENT_CREDENTIAL;
-/** @deprecated Use `THEAUTH_PERMISSION_CREDENTIAL` instead. Will be removed in a future major version. */
-export const KAVACH_PERMISSION_CREDENTIAL = THEAUTH_PERMISSION_CREDENTIAL;
-/** @deprecated Use `THEAUTH_DELEGATION_CREDENTIAL` instead. Will be removed in a future major version. */
-export const KAVACH_DELEGATION_CREDENTIAL = THEAUTH_DELEGATION_CREDENTIAL;
-
 // ─── Proof Types ─────────────────────────────────────────────────────────────
 
 export const ProofSchema = z.object({

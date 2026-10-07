@@ -52,9 +52,6 @@ export interface TheAuthHooks {
 /** @deprecated Use `TheAuthHooks` instead. Will be removed in a future major version. */
 export type AuthHooks = TheAuthHooks;
 
-/** @deprecated Use `TheAuthHooks` instead. Will be removed in a future major version. */
-export type KavachHooks = TheAuthHooks;
-
 export type ViolationType =
 	| "permission_denied"
 	| "rate_limited"

@@ -11,27 +11,27 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { gdpr } from '@glinr/theauth/auth';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   plugins: [gdpr()],
  * });
  * ```
  */
 
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import { createGdprModule } from "./gdpr.js";
 
 // ---------------------------------------------------------------------------
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function gdpr(): KavachPlugin {
+export function gdpr(): TheAuthPlugin {
 	return {
-		id: "kavach-gdpr",
+		id: "theauth-gdpr",
 
 		async init(ctx): Promise<undefined> {
 			const module = createGdprModule(ctx.db);

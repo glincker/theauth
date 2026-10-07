@@ -65,7 +65,7 @@ function getLocale(req: Request): string {
 
 app.post('/login', async (req, res) => {
   const locale = getLocale(req);
-  const result = await kavach.auth.login(credentials);
+  const result = await theauth.auth.login(credentials);
   if (!result.success) {
     const message = i18n.t(`errors.${result.error.code}`, { locale });
     return res.status(401).json({ error: message });

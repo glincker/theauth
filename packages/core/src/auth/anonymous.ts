@@ -4,7 +4,7 @@
  * Lets users start as guests without providing credentials. The anonymous
  * user can later be upgraded to a real account by supplying an email.
  *
- * Anonymous users are stored in `kavach_users` with a synthetic placeholder
+ * Anonymous users are stored in `theauth_users` with a synthetic placeholder
  * email (`anon_<uuid>@theauth.anonymous`) and a metadata flag
  * `{ anonymous: true }`. This satisfies the NOT NULL UNIQUE constraint on
  * the email column while keeping them easily identifiable.

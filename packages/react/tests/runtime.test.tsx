@@ -3,12 +3,12 @@ import { act, useEffect } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { KavachProvider, useKavachContext } from "../src/context.js";
+import { TheAuthProvider, useTheAuthContext } from "../src/context.js";
 import { useAgents, useSession, useSignIn, useSignOut, useSignUp, useUser } from "../src/hooks.js";
-import type { ActionResult, KavachAgent, KavachSession } from "../src/types.js";
+import type { ActionResult, TheAuthAgent, TheAuthSession } from "../src/types.js";
 
 type Snapshot = {
-	context: ReturnType<typeof useKavachContext>;
+	context: ReturnType<typeof useTheAuthContext>;
 	session: ReturnType<typeof useSession>;
 	user: ReturnType<typeof useUser>;
 	signIn: ReturnType<typeof useSignIn>;
@@ -17,7 +17,7 @@ type Snapshot = {
 	agents: ReturnType<typeof useAgents>;
 };
 
-const SESSION_KEY = "kavach_session";
+const SESSION_KEY = "theauth_session";
 
 let root: Root | null = null;
 let latest: Snapshot | null = null;
@@ -47,13 +47,13 @@ async function flush() {
 }
 
 function Probe() {
-	const context = useKavachContext();
+	const context = useTheAuthContext();
 	const session = useSession();
 	const user = useUser();
 	const signIn = useSignIn();
 	const signUp = useSignUp();
 	const signOut = useSignOut();
-	const agents = useAgents("/api/kavach");
+	const agents = useAgents("/api/theauth");
 
 	useEffect(() => {
 		latest = { context, session, user, signIn, signUp, signOut, agents };
@@ -73,7 +73,7 @@ beforeEach(() => {
 		const url = typeof input === "string" ? input : input.toString();
 		const parsed = new URL(url, "http://localhost");
 
-		if (parsed.pathname === "/api/kavach/auth/sign-up" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/sign-up" && init?.method === "POST") {
 			return jsonResponse({
 				user: {
 					id: "user-2",
@@ -84,7 +84,7 @@ beforeEach(() => {
 			});
 		}
 
-		if (parsed.pathname === "/api/kavach/auth/sign-in" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/sign-in" && init?.method === "POST") {
 			return jsonResponse({
 				user: {
 					id: "user-1",
@@ -98,14 +98,14 @@ beforeEach(() => {
 			});
 		}
 
-		if (parsed.pathname === "/api/kavach/agents" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/agents" && init?.method === "POST") {
 			const payload = JSON.parse(String(init.body ?? "{}")) as {
 				ownerId: string;
 				name: string;
-				type: KavachAgent["type"];
-				permissions: KavachAgent["permissions"];
+				type: TheAuthAgent["type"];
+				permissions: TheAuthAgent["permissions"];
 			};
-			const agent: KavachAgent = {
+			const agent: TheAuthAgent = {
 				id: `agent-${payload.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
 				ownerId: payload.ownerId,
 				name: payload.name,
@@ -121,7 +121,7 @@ beforeEach(() => {
 			return jsonResponse({ data: agent });
 		}
 
-		if (parsed.pathname.startsWith("/api/kavach/agents/") && parsed.pathname.endsWith("/rotate")) {
+		if (parsed.pathname.startsWith("/api/theauth/agents/") && parsed.pathname.endsWith("/rotate")) {
 			const agentId = parsed.pathname.split("/")[4];
 			agentsState = agentsState.map((agent) =>
 				agent.id === agentId
@@ -133,13 +133,13 @@ beforeEach(() => {
 			return jsonResponse({ data: agent });
 		}
 
-		if (parsed.pathname.startsWith("/api/kavach/agents/") && init?.method === "DELETE") {
+		if (parsed.pathname.startsWith("/api/theauth/agents/") && init?.method === "DELETE") {
 			const agentId = parsed.pathname.split("/")[4];
 			agentsState = agentsState.filter((agent) => agent.id !== agentId);
 			return new Response(null, { status: 204 });
 		}
 
-		if (parsed.pathname === "/api/kavach/agents" && init?.method !== "POST") {
+		if (parsed.pathname === "/api/theauth/agents" && init?.method !== "POST") {
 			return jsonResponse({ data: agentsState });
 		}
 
@@ -159,11 +159,11 @@ afterEach(() => {
 	agentsState = [];
 });
 
-let agentsState: KavachAgent[] = [];
+let agentsState: TheAuthAgent[] = [];
 
 describe("@glinr/theauth-react runtime smoke", () => {
 	it("restores the provider session from localStorage and loads agents", async () => {
-		const storedSession: KavachSession = {
+		const storedSession: TheAuthSession = {
 			token: "stored-token",
 			user: {
 				id: "user-1",
@@ -195,9 +195,9 @@ describe("@glinr/theauth-react runtime smoke", () => {
 		window.localStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
 
 		render(
-			<KavachProvider>
+			<TheAuthProvider>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 		await flush();
 
@@ -206,7 +206,7 @@ describe("@glinr/theauth-react runtime smoke", () => {
 		expect(latest?.user.user?.id).toBe("user-1");
 		expect(latest?.agents.agents).toHaveLength(1);
 		expect(fetchMock).toHaveBeenCalledWith(
-			expect.stringContaining("/api/kavach/agents?userId=user-1"),
+			expect.stringContaining("/api/theauth/agents?userId=user-1"),
 			expect.objectContaining({ credentials: "include" }),
 		);
 	});
@@ -215,9 +215,9 @@ describe("@glinr/theauth-react runtime smoke", () => {
 		agentsState = [];
 
 		render(
-			<KavachProvider>
+			<TheAuthProvider>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 		await flush();
 
@@ -246,7 +246,7 @@ describe("@glinr/theauth-react runtime smoke", () => {
 	});
 
 	it("creates, rotates, and revokes agents through the public hook", async () => {
-		const storedSession: KavachSession = {
+		const storedSession: TheAuthSession = {
 			token: "stored-token",
 			user: {
 				id: "user-1",
@@ -272,13 +272,13 @@ describe("@glinr/theauth-react runtime smoke", () => {
 		window.localStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
 
 		render(
-			<KavachProvider>
+			<TheAuthProvider>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 		await flush();
 
-		let created: ActionResult<KavachAgent> | undefined;
+		let created: ActionResult<TheAuthAgent> | undefined;
 		await act(async () => {
 			created = await latest!.agents.create({
 				ownerId: "user-1",
@@ -297,7 +297,7 @@ describe("@glinr/theauth-react runtime smoke", () => {
 		expect(created?.success).toBe(true);
 		expect(latest?.agents.agents).toHaveLength(2);
 
-		let rotated: ActionResult<KavachAgent> | undefined;
+		let rotated: ActionResult<TheAuthAgent> | undefined;
 		await act(async () => {
 			rotated = await latest!.agents.rotate("agent-reporter");
 		});

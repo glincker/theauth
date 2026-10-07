@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { ApiKeyManagerConfig } from "./api-key-manager.js";
 import { createApiKeyManagerModule } from "./api-key-manager.js";
 
@@ -9,9 +9,9 @@ export type { ApiKeyManagerConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function apiKeys(config?: ApiKeyManagerConfig): KavachPlugin {
+export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 	return {
-		id: "kavach-api-key",
+		id: "theauth-api-key",
 
 		async init(ctx): Promise<undefined> {
 			const module = createApiKeyManagerModule(config ?? {}, ctx.db);

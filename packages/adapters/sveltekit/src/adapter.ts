@@ -10,7 +10,7 @@ export interface TheAuthSvelteKitOptions {
 	mcp?: McpAuthModule;
 	/**
 	 * The URL path prefix before the `[...path]` catch-all segment.
-	 * Defaults to `/api/kavach`.
+	 * Defaults to `/api/theauth`.
 	 *
 	 * @example `/api/auth`
 	 */
@@ -19,9 +19,6 @@ export interface TheAuthSvelteKitOptions {
 
 /** @deprecated Use `TheAuthSvelteKitOptions` instead. Will be removed in a future major version. */
 export type AuthSvelteKitOptions = TheAuthSvelteKitOptions;
-
-/** @deprecated Use `TheAuthSvelteKitOptions` instead. Will be removed in a future major version. */
-export type KavachSvelteKitOptions = TheAuthSvelteKitOptions;
 
 export interface TheAuthSvelteKitHandlers {
 	GET: RequestHandler;
@@ -34,20 +31,17 @@ export interface TheAuthSvelteKitHandlers {
 /** @deprecated Use `TheAuthSvelteKitHandlers` instead. Will be removed in a future major version. */
 export type AuthSvelteKitHandlers = TheAuthSvelteKitHandlers;
 
-/** @deprecated Use `TheAuthSvelteKitHandlers` instead. Will be removed in a future major version. */
-export type KavachSvelteKitHandlers = TheAuthSvelteKitHandlers;
-
 /**
  * Create SvelteKit route handlers for all TheAuth REST API routes.
  *
- * Mount in `src/routes/api/kavach/[...path]/+server.ts`:
+ * Mount in `src/routes/api/theauth/[...path]/+server.ts`:
  *
  * @example
  * ```typescript
  * import { createTheAuth } from '@glinr/theauth';
  * import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
  *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
+ * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
  * const handlers = theAuthSvelteKit(auth);
  *
  * export const GET = handlers.GET;
@@ -69,7 +63,7 @@ export function theAuthSvelteKit(
 	options?: TheAuthSvelteKitOptions,
 ): TheAuthSvelteKitHandlers {
 	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/kavach";
+	const basePath = options?.basePath ?? "/api/theauth";
 
 	// SvelteKit RequestHandler receives an event whose `request` property is a
 	// standard Web API Request, so we can pass it directly to dispatch.
@@ -86,6 +80,3 @@ export function theAuthSvelteKit(
 
 /** @deprecated Use `theAuthSvelteKit` instead. Will be removed in a future major version. */
 export const authSvelteKit = theAuthSvelteKit;
-
-/** @deprecated Use `theAuthSvelteKit` instead. Will be removed in a future major version. */
-export const kavachSvelteKit = theAuthSvelteKit;

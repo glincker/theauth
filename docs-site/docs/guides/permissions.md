@@ -130,7 +130,7 @@ TheAuth ships named templates for common patterns. Import them from `@glinr/thea
 ```typescript
 import { permissionTemplates, getPermissionTemplate } from '@glinr/theauth';
 
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'readonly-agent',
   type: 'autonomous',

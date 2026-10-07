@@ -18,7 +18,7 @@ Create a gateway with route policies, then call `handle` on every incoming reque
 import { createGateway, loadConfigFile } from '@glinr/theauth-gateway';
 
 const gateway = createGateway({
-  kavachApiUrl: 'https://auth.yourapp.com',
+  theAuthApiUrl: 'https://auth.yourapp.com',
   tenantId: 'your-tenant-id',
   upstream: 'http://localhost:3001',
   policies: [
@@ -38,7 +38,7 @@ createServer((req, res) => gateway.handle(req, res)).listen(8080);
 ### File-based config
 
 ```ts
-const config = await loadConfigFile('./kavach-gateway.json');
+const config = await loadConfigFile('./theauth-gateway.json');
 const gateway = createGateway(config);
 ```
 

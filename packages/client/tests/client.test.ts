@@ -3,10 +3,10 @@ import { createAuthClient } from "../src/client.js";
 import { AuthApiError } from "../src/error.js";
 import type { Agent, CreateAgentInput } from "../src/types.js";
 
-// Renamed from Kavach* to Auth* -- use new names throughout
-const createKavachClient = createAuthClient;
-const KavachApiError = AuthApiError;
-type KavachApiError = AuthApiError;
+// Renamed from TheAuth* to Auth* -- use new names throughout
+const createTheAuthClient = createAuthClient;
+const TheAuthApiError = AuthApiError;
+type TheAuthApiError = AuthApiError;
 
 // ---------------------------------------------------------------------------
 // Mock helpers
@@ -51,13 +51,13 @@ const AGENT_FIXTURE: Agent = {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("createKavachClient", () => {
+describe("createTheAuthClient", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
 
 	it("returns a client object with the expected shape", () => {
-		const client = createKavachClient({ baseUrl: BASE_URL });
+		const client = createTheAuthClient({ baseUrl: BASE_URL });
 		expect(typeof client.agents.create).toBe("function");
 		expect(typeof client.agents.get).toBe("function");
 		expect(typeof client.agents.list).toBe("function");
@@ -83,7 +83,7 @@ describe("createKavachClient", () => {
 		});
 
 		it("sends POST /agents with the input body", async () => {
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			const input: CreateAgentInput = {
 				ownerId: "user-1",
 				name: "Test Agent",
@@ -103,7 +103,7 @@ describe("createKavachClient", () => {
 		});
 
 		it("includes Authorization header when token is provided", async () => {
-			const client = createKavachClient({
+			const client = createTheAuthClient({
 				baseUrl: BASE_URL,
 				token: "my-token",
 			});
@@ -121,7 +121,7 @@ describe("createKavachClient", () => {
 		});
 
 		it("does not include Authorization header when no token is provided", async () => {
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			await client.agents.create({
 				ownerId: "user-1",
 				name: "Test Agent",
@@ -139,14 +139,14 @@ describe("createKavachClient", () => {
 	describe("agents.get", () => {
 		it("returns the agent when found", async () => {
 			mockFetch(200, AGENT_FIXTURE);
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			const result = await client.agents.get("agent-1");
 			expect(result).toEqual(AGENT_FIXTURE);
 		});
 
 		it("returns null on 404", async () => {
 			mockFetch(404, { code: "NOT_FOUND", message: "Agent not found" });
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			const result = await client.agents.get("missing-id");
 			expect(result).toBeNull();
 		});
@@ -155,7 +155,7 @@ describe("createKavachClient", () => {
 	describe("agents.list", () => {
 		it("sends GET /agents without filters", async () => {
 			mockFetch(200, [AGENT_FIXTURE]);
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			const result = await client.agents.list();
 
 			const [url] = capturedFetch().mock.calls[0] as [string, RequestInit];
@@ -165,7 +165,7 @@ describe("createKavachClient", () => {
 
 		it("appends query string when filters are provided", async () => {
 			mockFetch(200, []);
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			await client.agents.list({ status: "active", type: "autonomous" });
 
 			const [url] = capturedFetch().mock.calls[0] as [string, RequestInit];
@@ -177,7 +177,7 @@ describe("createKavachClient", () => {
 	describe("agents.revoke", () => {
 		it("sends DELETE and returns void", async () => {
 			mockFetch(204, "");
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			const result = await client.agents.revoke("agent-1");
 
 			const [url, init] = capturedFetch().mock.calls[0] as [string, RequestInit];
@@ -191,7 +191,7 @@ describe("createKavachClient", () => {
 		it("sends POST to the rotate endpoint and returns the updated agent", async () => {
 			const rotated = { ...AGENT_FIXTURE, token: "new-token-xyz" };
 			mockFetch(200, rotated);
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 			const result = await client.agents.rotate("agent-1");
 
 			const [url, init] = capturedFetch().mock.calls[0] as [string, RequestInit];
@@ -202,11 +202,11 @@ describe("createKavachClient", () => {
 	});
 
 	describe("error handling", () => {
-		it("throws KavachApiError with status and code on non-ok responses", async () => {
+		it("throws TheAuthApiError with status and code on non-ok responses", async () => {
 			mockFetch(403, { code: "PERMISSION_DENIED", message: "Access denied" });
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 
-			await expect(client.agents.list()).rejects.toThrow(KavachApiError);
+			await expect(client.agents.list()).rejects.toThrow(TheAuthApiError);
 
 			mockFetch(403, { code: "PERMISSION_DENIED", message: "Access denied" });
 			try {
@@ -232,9 +232,9 @@ describe("createKavachClient", () => {
 				}),
 			);
 
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 
-			await expect(client.agents.list()).rejects.toThrow(KavachApiError);
+			await expect(client.agents.list()).rejects.toThrow(TheAuthApiError);
 
 			vi.stubGlobal(
 				"fetch",
@@ -248,7 +248,7 @@ describe("createKavachClient", () => {
 			try {
 				await client.agents.list();
 			} catch (err) {
-				const apiErr = err as KavachApiError;
+				const apiErr = err as TheAuthApiError;
 				expect(apiErr.status).toBe(500);
 				expect(apiErr.code).toBe("API_ERROR");
 				expect(apiErr.message).toBe("HTTP 500");
@@ -259,12 +259,12 @@ describe("createKavachClient", () => {
 			mockFetch(422, {
 				error: { code: "VALIDATION_FAILED", message: "Invalid input" },
 			});
-			const client = createKavachClient({ baseUrl: BASE_URL });
+			const client = createTheAuthClient({ baseUrl: BASE_URL });
 
 			try {
 				await client.agents.list();
 			} catch (err) {
-				const apiErr = err as KavachApiError;
+				const apiErr = err as TheAuthApiError;
 				expect(apiErr.status).toBe(422);
 				expect(apiErr.code).toBe("VALIDATION_FAILED");
 				expect(apiErr.message).toBe("Invalid input");
@@ -275,7 +275,7 @@ describe("createKavachClient", () => {
 	describe("authorize", () => {
 		it("sends POST to /agents/:id/authorize", async () => {
 			mockFetch(200, { allowed: true, auditId: "audit-1" });
-			const client = createKavachClient({ baseUrl: BASE_URL, token: "tok" });
+			const client = createTheAuthClient({ baseUrl: BASE_URL, token: "tok" });
 			const result = await client.authorize("agent-1", {
 				action: "read",
 				resource: "files",
@@ -291,7 +291,7 @@ describe("createKavachClient", () => {
 	describe("authorizeByToken", () => {
 		it("overrides Authorization header with the agent token", async () => {
 			mockFetch(200, { allowed: false, reason: "denied", auditId: "audit-2" });
-			const client = createKavachClient({
+			const client = createTheAuthClient({
 				baseUrl: BASE_URL,
 				token: "client-token",
 			});
@@ -310,7 +310,7 @@ describe("createKavachClient", () => {
 	describe("extra headers", () => {
 		it("merges extra headers into every request", async () => {
 			mockFetch(200, []);
-			const client = createKavachClient({
+			const client = createTheAuthClient({
 				baseUrl: BASE_URL,
 				headers: { "X-Tenant-Id": "tenant-42" },
 			});
@@ -325,7 +325,7 @@ describe("createKavachClient", () => {
 	describe("baseUrl trailing slash", () => {
 		it("normalises a trailing slash in baseUrl", async () => {
 			mockFetch(200, []);
-			const client = createKavachClient({
+			const client = createTheAuthClient({
 				baseUrl: "https://api.example.com/",
 			});
 			await client.agents.list();

@@ -13,8 +13,8 @@ The JWT session plugin issues short-lived access tokens (JWTs) and long-lived re
 import { createTheAuth } from '@glinr/theauth';
 import { jwtSession } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     jwtSession({
       secret: process.env.JWT_SECRET, // min 32 chars for HS256
@@ -32,7 +32,7 @@ const kavach = await createTheAuth({
 ### Create a session
 
 ```ts
-const { accessToken, refreshToken, expiresIn } = await kavach.jwt.createSession({
+const { accessToken, refreshToken, expiresIn } = await theauth.jwt.createSession({
   userId: user.id,
   email: user.email,
   name: user.name,
@@ -43,22 +43,22 @@ const { accessToken, refreshToken, expiresIn } = await kavach.jwt.createSession(
 ### Verify an access token
 
 ```ts
-const payload = await kavach.jwt.verifyAccessToken(accessToken);
+const payload = await theauth.jwt.verifyAccessToken(accessToken);
 // { sub: 'user-123', email: '...', role: 'admin', exp: ..., iss: '...' }
 ```
 
 ### Refresh
 
 ```ts
-const { accessToken: newAccess, refreshToken: newRefresh } = await kavach.jwt.refreshSession(refreshToken);
+const { accessToken: newAccess, refreshToken: newRefresh } = await theauth.jwt.refreshSession(refreshToken);
 // Old refresh token is revoked (rotation)
 ```
 
 ### Revoke
 
 ```ts
-await kavach.jwt.revokeSession(refreshToken);
-await kavach.jwt.revokeAllSessions(userId);
+await theauth.jwt.revokeSession(refreshToken);
+await theauth.jwt.revokeAllSessions(userId);
 ```
 
 ## Algorithms

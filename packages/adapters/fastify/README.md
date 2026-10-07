@@ -15,16 +15,16 @@ pnpm add theauth @glinr/@glinr/theauth-fastify
 ```typescript
 import Fastify from 'fastify';
 import { createTheAuth } from '@glinr/theauth';
-import { kavachFastify } from '@glinr/theauth-fastify';
+import { theAuthFastify } from '@glinr/theauth-fastify';
 
 const app = Fastify();
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-// Register all TheAuth routes under /api/kavach
-await app.register(kavachFastify(kavach), { prefix: '/api/kavach' });
+// Register all TheAuth routes under /api/theauth
+await app.register(theAuthFastify(theauth), { prefix: '/api/theauth' });
 
 await app.listen({ port: 3000 });
 ```
@@ -35,14 +35,14 @@ This registers the full TheAuth REST API: agent CRUD, authorization, delegations
 
 ```typescript
 import { createMcpModule } from '@glinr/theauth/mcp';
-import { kavachFastify } from '@glinr/theauth-fastify';
+import { theAuthFastify } from '@glinr/theauth-fastify';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
   // ...
 });
 
-await app.register(kavachFastify(kavach, { mcp }), { prefix: '/api/kavach' });
+await app.register(theAuthFastify(theauth, { mcp }), { prefix: '/api/theauth' });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -55,7 +55,7 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`kavachFastify(kavach, options?)` returns an async Fastify plugin. Pass it to `app.register()` and use Fastify's built-in `prefix` option to choose your mount path.
+`theAuthFastify(theauth, options?)` returns an async Fastify plugin. Pass it to `app.register()` and use Fastify's built-in `prefix` option to choose your mount path.
 
 | Option | Type | Description |
 |--------|------|-------------|

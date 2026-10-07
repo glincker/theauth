@@ -38,7 +38,7 @@ export default function RootLayout() {
   return (
     <TheAuthExpoProvider
       config={{
-        basePath: 'https://api.myapp.com/api/kavach',
+        basePath: 'https://api.myapp.com/api/theauth',
         storage: AsyncStorage,
       }}
     >
@@ -105,7 +105,7 @@ For OAuth flows in Expo, use the `oauth-proxy` plugin on your server alongside `
 import { Linking } from 'react-native';
 
 async function signInWithGitHub() {
-  const authUrl = 'https://api.myapp.com/api/kavach/auth/oauth/github/authorize';
+  const authUrl = 'https://api.myapp.com/api/theauth/auth/oauth/github/authorize';
   await Linking.openURL(authUrl);
   // Handle the redirect via Linking.addEventListener or expo-linking
 }

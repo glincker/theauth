@@ -15,7 +15,7 @@ In the Okta Admin Console, go to **Applications > Create App Integration** and c
 Set the **Sign-in redirect URI** to:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/okta
+https://your-app.com/api/theauth/auth/oauth/callback/okta
 ```
 </Step>
 
@@ -28,13 +28,13 @@ From the app settings, copy the **Client ID** and **Client Secret**. Your domain
 
 ## Configuration
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth, oktaProvider } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com',
   plugins: [
     oauth({

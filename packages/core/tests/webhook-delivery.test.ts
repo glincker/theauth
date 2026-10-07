@@ -139,16 +139,16 @@ describe("createDeliveryEngine: basic dispatch", () => {
 // ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: signature headers", () => {
-	it("sets X-Kavach-Event header", async () => {
+	it("sets X-TheAuth-Event header", async () => {
 		const fetchMock = stubFetchOk();
 
 		const engine = createDeliveryEngine();
 		await engine.deliver(TEST_ENDPOINT, "agent.created", {});
 
-		expect(getHeaders(fetchMock)["X-Kavach-Event"]).toBe("agent.created");
+		expect(getHeaders(fetchMock)["X-TheAuth-Event"]).toBe("agent.created");
 	});
 
-	it("sets X-Kavach-Timestamp header as unix seconds string", async () => {
+	it("sets X-TheAuth-Timestamp header as unix seconds string", async () => {
 		const fetchMock = stubFetchOk();
 
 		const before = Math.floor(Date.now() / 1000);
@@ -156,27 +156,27 @@ describe("createDeliveryEngine: signature headers", () => {
 		await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 		const after = Math.floor(Date.now() / 1000);
 
-		const ts = Number(getHeaders(fetchMock)["X-Kavach-Timestamp"]);
+		const ts = Number(getHeaders(fetchMock)["X-TheAuth-Timestamp"]);
 		expect(ts).toBeGreaterThanOrEqual(before);
 		expect(ts).toBeLessThanOrEqual(after);
 	});
 
-	it("sets X-Kavach-Signature with sha256= prefix and 64-char hex", async () => {
+	it("sets X-TheAuth-Signature with sha256= prefix and 64-char hex", async () => {
 		const fetchMock = stubFetchOk();
 
 		const engine = createDeliveryEngine();
 		await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
-		expect(getHeaders(fetchMock)["X-Kavach-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
+		expect(getHeaders(fetchMock)["X-TheAuth-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
 	});
 
-	it("sets X-Kavach-Delivery-Id as a 32-char hex string", async () => {
+	it("sets X-TheAuth-Delivery-Id as a 32-char hex string", async () => {
 		const fetchMock = stubFetchOk();
 
 		const engine = createDeliveryEngine();
 		await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
-		expect(getHeaders(fetchMock)["X-Kavach-Delivery-Id"]).toMatch(/^[0-9a-f]{32}$/);
+		expect(getHeaders(fetchMock)["X-TheAuth-Delivery-Id"]).toMatch(/^[0-9a-f]{32}$/);
 	});
 
 	it("HMAC signature is correct and verifiable with the endpoint secret", async () => {
@@ -192,8 +192,8 @@ describe("createDeliveryEngine: signature headers", () => {
 		const valid = await verify({
 			secret: TEST_ENDPOINT.secret,
 			rawBody,
-			signature: headers["X-Kavach-Signature"],
-			timestamp: headers["X-Kavach-Timestamp"],
+			signature: headers["X-TheAuth-Signature"],
+			timestamp: headers["X-TheAuth-Timestamp"],
 			maxAgeSeconds: 60,
 		});
 		expect(valid).toBe(true);
@@ -210,8 +210,8 @@ describe("createDeliveryEngine: signature headers", () => {
 		const valid = await verify({
 			secret: TEST_ENDPOINT.secret,
 			rawBody: '{"userId":"tampered"}',
-			signature: headers["X-Kavach-Signature"],
-			timestamp: headers["X-Kavach-Timestamp"],
+			signature: headers["X-TheAuth-Signature"],
+			timestamp: headers["X-TheAuth-Timestamp"],
 			maxAgeSeconds: 60,
 		});
 		expect(valid).toBe(false);
@@ -402,8 +402,8 @@ describe("createDeliveryEngine: delivery ID uniqueness", () => {
 		const record = await engine.deliver(TEST_ENDPOINT, "user.signIn", {});
 
 		const calls = fetchMock.mock.calls as [string, RequestInit][];
-		const id1 = (calls[0]?.[1].headers as Record<string, string>)["X-Kavach-Delivery-Id"];
-		const id2 = (calls[1]?.[1].headers as Record<string, string>)["X-Kavach-Delivery-Id"];
+		const id1 = (calls[0]?.[1].headers as Record<string, string>)["X-TheAuth-Delivery-Id"];
+		const id2 = (calls[1]?.[1].headers as Record<string, string>)["X-TheAuth-Delivery-Id"];
 		expect(id1).toBe(id2);
 		expect(id1).toBe(record.deliveryId);
 
@@ -424,10 +424,10 @@ describe("buildWebhookHeaders", () => {
 			"abc123",
 			"1700000000",
 		);
-		expect(headers["X-Kavach-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
-		expect(headers["X-Kavach-Timestamp"]).toBe("1700000000");
-		expect(headers["X-Kavach-Event"]).toBe("user.signIn");
-		expect(headers["X-Kavach-Delivery-Id"]).toBe("abc123");
+		expect(headers["X-TheAuth-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
+		expect(headers["X-TheAuth-Timestamp"]).toBe("1700000000");
+		expect(headers["X-TheAuth-Event"]).toBe("user.signIn");
+		expect(headers["X-TheAuth-Delivery-Id"]).toBe("abc123");
 	});
 });
 
@@ -453,7 +453,7 @@ describe("verify()", () => {
 		const ok = await verify({
 			secret,
 			rawBody,
-			signature: headers["X-Kavach-Signature"],
+			signature: headers["X-TheAuth-Signature"],
 			timestamp,
 			maxAgeSeconds: 60,
 		});
@@ -474,7 +474,7 @@ describe("verify()", () => {
 		const ok = await verify({
 			secret: "wrong-secret",
 			rawBody,
-			signature: headers["X-Kavach-Signature"],
+			signature: headers["X-TheAuth-Signature"],
 			timestamp,
 			maxAgeSeconds: 60,
 		});
@@ -490,7 +490,7 @@ describe("verify()", () => {
 		const ok = await verify({
 			secret,
 			rawBody: JSON.stringify({ userId: "tampered" }),
-			signature: headers["X-Kavach-Signature"],
+			signature: headers["X-TheAuth-Signature"],
 			timestamp,
 			maxAgeSeconds: 60,
 		});
@@ -507,7 +507,7 @@ describe("verify()", () => {
 		const ok = await verify({
 			secret,
 			rawBody,
-			signature: headers["X-Kavach-Signature"],
+			signature: headers["X-TheAuth-Signature"],
 			timestamp: oldTimestamp,
 			maxAgeSeconds: 300,
 		});

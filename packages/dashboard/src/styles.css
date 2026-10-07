@@ -19,7 +19,7 @@ body {
 }
 
 /* Gold button gradient */
-.kavach-btn-gold {
+.theauth-btn-gold {
 	background: linear-gradient(
 		145deg,
 		#c5943a 0%,
@@ -29,7 +29,7 @@ body {
 		#b8862e 100%
 	);
 }
-.kavach-btn-gold:hover {
+.theauth-btn-gold:hover {
 	background: linear-gradient(
 		145deg,
 		#d4a348 0%,
@@ -39,7 +39,7 @@ body {
 		#c5943a 100%
 	);
 }
-.kavach-btn-gold::after {
+.theauth-btn-gold::after {
 	content: "";
 	position: absolute;
 	inset: 0;
@@ -54,7 +54,7 @@ body {
 	transform: translateX(-100%);
 	pointer-events: none;
 }
-.kavach-btn-gold:hover::after {
+.theauth-btn-gold:hover::after {
 	animation: gold-shimmer 0.8s ease-in-out;
 }
 @keyframes gold-shimmer {

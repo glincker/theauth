@@ -113,14 +113,14 @@ export interface RefreshSessionConfig {
 
 	/**
 	 * Name of the httpOnly cookie that carries the refresh token.
-	 * Defaults to `"kavach_refresh"`.
+	 * Defaults to `"theauth_refresh"`.
 	 */
 	refreshCookieName?: string;
 
 	/**
 	 * Name of the httpOnly cookie that carries the access token (when cookie
 	 * transport is used for the access token too).
-	 * Defaults to `"kavach_access"`.
+	 * Defaults to `"theauth_access"`.
 	 */
 	accessCookieName?: string;
 }
@@ -223,8 +223,8 @@ export class RefreshTokenError extends Error {
 const DEFAULT_ACCESS_TOKEN_TTL = "15m";
 const DEFAULT_REFRESH_TOKEN_TTL = "30d";
 const DEFAULT_ABSOLUTE_TIMEOUT = "90d";
-const DEFAULT_REFRESH_COOKIE = "kavach_refresh";
-const DEFAULT_ACCESS_COOKIE = "kavach_access";
+const DEFAULT_REFRESH_COOKIE = "theauth_refresh";
+const DEFAULT_ACCESS_COOKIE = "theauth_access";
 
 // ---------------------------------------------------------------------------
 // Factory

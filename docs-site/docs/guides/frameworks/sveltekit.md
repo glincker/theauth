@@ -1,11 +1,11 @@
 ---
 title: SvelteKit
-description: Mount TheAuth auth routes in SvelteKit with authSvelteKit(kavach). Returns named server route handlers, fully edge-compatible with no conversion layer.
+description: Mount TheAuth auth routes in SvelteKit with authSvelteKit(theauth). Returns named server route handlers, fully edge-compatible with no conversion layer.
 ---
 
 # SvelteKit
 
-`authSvelteKit(kavach, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all TheAuth paths are handled.
+`authSvelteKit(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all TheAuth paths are handled.
 
 ## Install
 
@@ -15,13 +15,13 @@ pnpm add @glinr/theauth @glinr/theauth-sveltekit
 
 ## Setup
 
-### 1. Create the kavach instance
+### 1. Create the theauth instance
 
 ```typescript
-// src/lib/kavach.ts
+// src/lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createTheAuth({
+export const theauth = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -30,19 +30,19 @@ export const kavach = createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 ### 2. Create the catch-all route
 
-Create `src/routes/api/kavach/[...path]/+server.ts`. The `[...path]` segment catches every sub-path.
+Create `src/routes/api/theauth/[...path]/+server.ts`. The `[...path]` segment catches every sub-path.
 
 ```typescript
-// src/routes/api/kavach/[...path]/+server.ts
+// src/routes/api/theauth/[...path]/+server.ts
 import { authSvelteKit } from '@glinr/theauth-sveltekit';
-import { kavach, mcp } from '$lib/kavach';
+import { theauth, mcp } from '$lib/theauth';
 
-const handlers = authSvelteKit(kavach, { mcp });
+const handlers = authSvelteKit(theauth, { mcp });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

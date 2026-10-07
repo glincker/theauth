@@ -66,9 +66,9 @@ function configTemplate(answers: InitAnswers): string {
 			? `  provider: "sqlite",\n  url: "${answers.dbUrl}",`
 			: `  provider: "postgres",\n  url: process.env.DATABASE_URL ?? "${answers.dbUrl}",`;
 
-	return `import { type KavachConfig } from "@glinr/theauth";
+	return `import { type TheAuthConfig } from "@glinr/theauth";
 
-const config: KavachConfig = {
+const config: TheAuthConfig = {
   database: {
 ${dbConfig}
   },
@@ -92,23 +92,23 @@ function exampleTemplate(answers: InitAnswers): string {
 	};
 
 	const frameworkComment: Record<Framework, string> = {
-		hono: "// Hono example — mount kavach middleware on your app",
-		express: "// Express example — mount kavach middleware on your app",
+		hono: "// Hono example — mount theauth middleware on your app",
+		express: "// Express example — mount theauth middleware on your app",
 		nextjs: "// Next.js example — use in API routes or middleware",
-		fastify: "// Fastify example — register kavach as a plugin",
+		fastify: "// Fastify example — register theauth as a plugin",
 	};
 
 	const dbSetup =
 		answers.database === "sqlite"
-			? `  database: { provider: "sqlite", url: "kavach.db" },`
+			? `  database: { provider: "sqlite", url: "theauth.db" },`
 			: `  database: { provider: "postgres", url: process.env.DATABASE_URL! },`;
 
-	return `import { createKavach } from "@glinr/theauth";
+	return `import { createTheAuth } from "@glinr/theauth";
 ${frameworkComment[answers.framework]}
 // Adapter: npm install ${adapterPkg[answers.framework]}
 
-// 1. Create the kavach instance (do this once at startup)
-const kavach = await createKavach({
+// 1. Create the theauth instance (do this once at startup)
+const theauth = await createTheAuth({
 ${dbSetup}
   agents: {
     maxPerUser: 10,
@@ -118,7 +118,7 @@ ${dbSetup}
 });
 
 // 2. Create an agent for a user
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: "user_123",
   name: "my-first-agent",
   type: "autonomous",
@@ -134,7 +134,7 @@ console.log("Agent created:", agent.id);
 console.log("Agent token:", agent.token); // store this securely
 
 // 3. Authorize a request
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: "read",
   resource: "documents",
 });
@@ -146,7 +146,7 @@ if (result.allowed) {
 }
 
 // 4. Rotate a token when needed
-const rotated = await kavach.agent.rotate(agent.id);
+const rotated = await theauth.agent.rotate(agent.id);
 console.log("New token:", rotated.token);
 `;
 }
@@ -178,10 +178,10 @@ export async function runInit(): Promise<InitResult | InitError> {
 		let dbUrlDefault: string;
 		let dbUrlPrompt: string;
 		if (database === "sqlite") {
-			dbUrlDefault = "kavach.db";
+			dbUrlDefault = "theauth.db";
 			dbUrlPrompt = `SQLite file path [${dbUrlDefault}]: `;
 		} else {
-			dbUrlDefault = "postgresql://localhost:5432/kavach";
+			dbUrlDefault = "postgresql://localhost:5432/theauth";
 			dbUrlPrompt = `PostgreSQL connection URL [${dbUrlDefault}]: `;
 		}
 
@@ -193,8 +193,8 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		// Write files
 		const cwd = process.cwd();
-		const configPath = join(cwd, "kavach.config.ts");
-		const examplePath = join(cwd, "kavach.example.ts");
+		const configPath = join(cwd, "theauth.config.ts");
+		const examplePath = join(cwd, "theauth.example.ts");
 
 		// Warn if files already exist
 		const [configExists, exampleExists] = await Promise.all([
@@ -204,8 +204,8 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		if (configExists || exampleExists) {
 			stdout.write("\nThe following files already exist:\n");
-			if (configExists) stdout.write(`  kavach.config.ts\n`);
-			if (exampleExists) stdout.write(`  kavach.example.ts\n`);
+			if (configExists) stdout.write(`  theauth.config.ts\n`);
+			if (exampleExists) stdout.write(`  theauth.example.ts\n`);
 			const overwrite = await rl.question("Overwrite? [y/N]: ");
 			if (overwrite.trim().toLowerCase() !== "y") {
 				rl.close();
@@ -225,8 +225,8 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		// Print next steps
 		stdout.write("\n  Files written\n");
-		stdout.write(`  kavach.config.ts   — your TheAuth configuration\n`);
-		stdout.write(`  kavach.example.ts  — minimal agent + authorization example\n`);
+		stdout.write(`  theauth.config.ts   — your TheAuth configuration\n`);
+		stdout.write(`  theauth.example.ts  — minimal agent + authorization example\n`);
 
 		stdout.write("\nNext steps\n");
 		stdout.write("──────────\n");
@@ -248,7 +248,7 @@ export async function runInit(): Promise<InitResult | InitError> {
 		stdout.write("  2. Set DATABASE_URL in your environment (if using Postgres).\n");
 		stdout.write("  3. Run your app — TheAuth creates tables automatically on first start.\n");
 		stdout.write(
-			"  4. Open kavach.example.ts to see how to create agents and authorize requests.\n",
+			"  4. Open theauth.example.ts to see how to create agents and authorize requests.\n",
 		);
 		stdout.write("\n  Docs: https://theauth.dev/docs\n\n");
 

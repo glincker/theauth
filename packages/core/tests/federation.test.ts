@@ -228,13 +228,13 @@ describe("federation – token verification", () => {
 		// Create a token that expired 10 seconds ago
 		const now = Math.floor(Date.now() / 1000);
 		const expiredToken = await new SignJWT({
-			kavach_instance: "instance-a",
-			kavach_instance_url: "https://a.example.com",
+			theauth_instance: "instance-a",
+			theauth_instance_url: "https://a.example.com",
 			permissions: [],
 			trust_score: 0,
 			delegation_scope: [],
 		})
-			.setProtectedHeader({ alg: "EdDSA", typ: "kavach-federation+jwt" })
+			.setProtectedHeader({ alg: "EdDSA", typ: "theauth-federation+jwt" })
 			.setIssuer("instance-a")
 			.setSubject("agent-1")
 			.setIssuedAt(now - 600)
@@ -586,7 +586,7 @@ describe("federation – instance discovery", () => {
 
 		const mockFetch = async (url: string | URL | Request) => {
 			const urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-			if (urlStr.includes("/.well-known/kavach-federation.json")) {
+			if (urlStr.includes("/.well-known/theauth-federation.json")) {
 				return new Response(JSON.stringify(wellKnown), {
 					status: 200,
 					headers: { "Content-Type": "application/json" },
@@ -664,7 +664,7 @@ describe("federation – instance discovery", () => {
 		const { federation } = await createTestInstance();
 		await federation.discoverInstance("https://trailing.example.com/", mockFetch);
 
-		expect(requestedUrl).toBe("https://trailing.example.com/.well-known/kavach-federation.json");
+		expect(requestedUrl).toBe("https://trailing.example.com/.well-known/theauth-federation.json");
 	});
 });
 

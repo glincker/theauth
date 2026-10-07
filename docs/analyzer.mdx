@@ -1,6 +1,6 @@
 ---
 title: Privilege analyzer
-description: Scan agent permissions with `kavach.analyzer` to surface over-privileged identities, unused scopes, wildcard risks, and stale agents across your deployment.
+description: Scan agent permissions with `theauth.analyzer` to surface over-privileged identities, unused scopes, wildcard risks, and stale agents across your deployment.
 icon: magnifying-glass
 ---
 
@@ -10,7 +10,7 @@ The privilege analyzer scans agent permissions to find over-privileged agents, u
 ## Usage
 
 ```ts
-const analysis = await kavach.analyzer.analyzeAgent(agentId);
+const analysis = await theauth.analyzer.analyzeAgent(agentId);
 
 console.log(analysis.overPrivileged);  // permissions broader than needed
 console.log(analysis.unusedPermissions); // granted but never exercised
@@ -21,7 +21,7 @@ console.log(analysis.recommendations); // suggested permission changes
 ## Scan all agents
 
 ```ts
-const report = await kavach.analyzer.scanAll();
+const report = await theauth.analyzer.scanAll();
 
 for (const finding of report.findings) {
   console.log(`${finding.agentId}: ${finding.type} - ${finding.description}`);
@@ -42,7 +42,7 @@ for (const finding of report.findings) {
 ## Configuration
 
 ```ts
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   analyzer: {
     unusedThresholdDays: 30,  // flag permissions unused for 30+ days
     maxRecommendedDepth: 3,   // flag delegation chains deeper than 3

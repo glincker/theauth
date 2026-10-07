@@ -12,17 +12,17 @@ pnpm add theauth @glinr/@glinr/theauth-nextjs
 
 ## Usage
 
-Create `app/api/kavach/[...kavach]/route.ts`:
+Create `app/api/theauth/[...theauth]/route.ts`:
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const handlers = kavachNextjs(kavach);
+const handlers = theAuthNextjs(theauth);
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -31,20 +31,20 @@ export const DELETE = handlers.DELETE;
 export const OPTIONS = handlers.OPTIONS;
 ```
 
-This handles the full TheAuth REST API under `/api/kavach`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This handles the full TheAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 
 ```typescript
 import { createMcpModule } from '@glinr/theauth/mcp';
-import { kavachNextjs } from '@glinr/theauth-nextjs';
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
   // ...
 });
 
-const handlers = kavachNextjs(kavach, { mcp });
+const handlers = theAuthNextjs(theauth, { mcp });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -57,12 +57,12 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`kavachNextjs(kavach, options?)` returns an object with `GET`, `POST`, `PATCH`, `DELETE`, and `OPTIONS` handlers for the Next.js App Router.
+`theAuthNextjs(theauth, options?)` returns an object with `GET`, `POST`, `PATCH`, `DELETE`, and `OPTIONS` handlers for the Next.js App Router.
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
-| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/kavach` |
+| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/theauth` |
 
 For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
 

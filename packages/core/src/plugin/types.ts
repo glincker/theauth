@@ -74,6 +74,3 @@ export interface PluginInitResult {
 
 /** @deprecated Use `TheAuthPlugin` instead. Will be removed in a future major version. */
 export type AuthPlugin = TheAuthPlugin;
-
-/** @deprecated Use `TheAuthPlugin` instead. Will be removed in a future major version. */
-export type KavachPlugin = TheAuthPlugin;

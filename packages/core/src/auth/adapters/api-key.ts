@@ -9,8 +9,8 @@
  * ```typescript
  * import { apiKeyAdapter } from '@glinr/theauth/auth';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: apiKeyAdapter({
  *     validateKey: async (key) => {
  *       const record = await db.apiKeys.findUnique({ where: { key } });

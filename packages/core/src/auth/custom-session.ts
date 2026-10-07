@@ -14,11 +14,11 @@
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { customSession } from '@glinr/theauth/auth';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   plugins: [
  *     customSession({
@@ -28,8 +28,8 @@
  *   ],
  * });
  *
- * // After a session is created via kavach.auth.session.create(...)
- * const mod = kavach.plugins.getContext().customSession as CustomSessionModule;
+ * // After a session is created via theauth.auth.session.create(...)
+ * const mod = theauth.plugins.getContext().customSession as CustomSessionModule;
  * const fields = await mod.getSessionFields(session.id);
  * // => { theme: 'dark', lastSeen: 1234567890 }
  * ```
@@ -38,7 +38,7 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -71,7 +71,7 @@ export interface CustomSessionModule {
 }
 
 // ---------------------------------------------------------------------------
-// Module factory (used directly or via the KavachPlugin wrapper below)
+// Module factory (used directly or via the TheAuthPlugin wrapper below)
 // ---------------------------------------------------------------------------
 
 export function createCustomSessionModule(
@@ -135,9 +135,9 @@ export function createCustomSessionModule(
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function customSession(config: CustomSessionConfig = {}): KavachPlugin {
+export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 	return {
-		id: "kavach-custom-session",
+		id: "theauth-custom-session",
 
 		hooks: {
 			/**

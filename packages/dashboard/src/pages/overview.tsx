@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Bot, CalendarClock, ShieldCheck, Users } from "lucide-react";
 import { useEffect } from "react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import type { AuditResult } from "../api/types.js";
 import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
@@ -10,7 +10,7 @@ import type { Page } from "../types.js";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OverviewPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 	onNavigate: (page: Page) => void;
 }
 
@@ -99,7 +99,7 @@ function SkeletonCard() {
 // ─── Activity Feed ────────────────────────────────────────────────────────────
 
 interface ActivityFeedProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 function ActivityFeed({ client }: ActivityFeedProps) {

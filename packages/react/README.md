@@ -12,16 +12,16 @@ npm install @glinr/@glinr/theauth-react
 
 ## Usage
 
-Wrap your app with `KavachProvider`, then use hooks anywhere in the tree.
+Wrap your app with `TheAuthProvider`, then use hooks anywhere in the tree.
 
 ```tsx
-import { KavachProvider, useSession, useUser, useSignIn, useSignOut } from '@glinr/theauth-react';
+import { TheAuthProvider, useSession, useUser, useSignIn, useSignOut } from '@glinr/theauth-react';
 
 function App() {
   return (
-    <KavachProvider apiUrl="https://auth.yourapp.com" tenantId="your-tenant-id">
+    <TheAuthProvider apiUrl="https://auth.yourapp.com" tenantId="your-tenant-id">
       <Dashboard />
-    </KavachProvider>
+    </TheAuthProvider>
   );
 }
 
@@ -45,7 +45,7 @@ function Dashboard() {
 
 ## Exports
 
-- `KavachProvider`: context provider, wrap your app root
+- `TheAuthProvider`: context provider, wrap your app root
 - `useSession`: current session and loading state
 - `useUser`: authenticated user object
 - `useSignIn`: sign-in action
@@ -53,7 +53,7 @@ function Dashboard() {
 - `useSignUp`: sign-up action
 - `useAgents`: manage AI agents for the current user
 - `useRotateSession`: trigger / observe access-token rotation (v0.5+)
-- `useKavachContext`: raw context access
+- `useTheAuthContext`: raw context access
 
 ## TanStack Query hooks (theauth-go)
 
@@ -98,11 +98,11 @@ loop — proactive refresh, exponential-backoff retries, online/offline
 recovery, and reuse-detection callbacks all come along for the ride.
 
 ```tsx
-import { KavachProvider, useRotateSession } from "@glinr/theauth-react";
+import { TheAuthProvider, useRotateSession } from "@glinr/theauth-react";
 
 function App() {
   return (
-    <KavachProvider
+    <TheAuthProvider
       external={{
         apiUrl: "https://api.example.com",
         mePath: "/api/auth/me",
@@ -137,7 +137,7 @@ function App() {
       }}
     >
       <Dashboard />
-    </KavachProvider>
+    </TheAuthProvider>
   );
 }
 
@@ -187,7 +187,7 @@ this contract verbatim.
 If you have a bespoke refresher (e.g. `token-refresh-service.ts`):
 
 1. Delete the in-app retry/queue/timer code.
-2. Add `refreshPath` and `onAuthError` to your `<KavachProvider external>` config.
+2. Add `refreshPath` and `onAuthError` to your `<TheAuthProvider external>` config.
 3. Optional: pass `onSessionRotated` to refetch your data layer.
 4. Replace direct `triggerRefresh()` calls with `useRotateSession().rotate()`.
 

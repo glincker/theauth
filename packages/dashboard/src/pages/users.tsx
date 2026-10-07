@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
@@ -9,7 +9,7 @@ import type { Page } from "../types.js";
 // ─── Users Page ───────────────────────────────────────────────────────────────
 
 interface UsersPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 	onNavigate: (page: Page) => void;
 }
 

@@ -167,7 +167,7 @@ async function parseJsonBody(
 
 // ─── Route Handlers ──────────────────────────────────────────────────────────
 
-async function handleAgentList(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAgentList(request: Request, theauth: TheAuth): Promise<Response> {
 	const url = new URL(request.url);
 	const userId = getSearchParam(url, "userId");
 	const statusRaw = getSearchParam(url, "status");
@@ -183,7 +183,7 @@ async function handleAgentList(request: Request, kavach: TheAuth): Promise<Respo
 	}
 
 	try {
-		const agents = await kavach.agent.list(filter);
+		const agents = await theauth.agent.list(filter);
 		return ok(agents);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -191,7 +191,7 @@ async function handleAgentList(request: Request, kavach: TheAuth): Promise<Respo
 	}
 }
 
-async function handleAgentCreate(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAgentCreate(request: Request, theauth: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -203,7 +203,7 @@ async function handleAgentCreate(request: Request, kavach: TheAuth): Promise<Res
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		const agent = await kavach.agent.create(input);
+		const agent = await theauth.agent.create(input);
 		return created(agent);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to create agent";
@@ -211,9 +211,9 @@ async function handleAgentCreate(request: Request, kavach: TheAuth): Promise<Res
 	}
 }
 
-async function handleAgentGet(id: string, kavach: TheAuth): Promise<Response> {
+async function handleAgentGet(id: string, theauth: TheAuth): Promise<Response> {
 	try {
-		const agent = await kavach.agent.get(id);
+		const agent = await theauth.agent.get(id);
 		if (!agent) return notFound(`Agent "${id}" not found`);
 		return ok(agent);
 	} catch (err) {
@@ -222,7 +222,11 @@ async function handleAgentGet(id: string, kavach: TheAuth): Promise<Response> {
 	}
 }
 
-async function handleAgentUpdate(id: string, request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAgentUpdate(
+	id: string,
+	request: Request,
+	theauth: TheAuth,
+): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -234,7 +238,7 @@ async function handleAgentUpdate(id: string, request: Request, kavach: TheAuth):
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[] | undefined,
 		};
-		const agent = await kavach.agent.update(id, input);
+		const agent = await theauth.agent.update(id, input);
 		return ok(agent);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to update agent";
@@ -243,9 +247,9 @@ async function handleAgentUpdate(id: string, request: Request, kavach: TheAuth):
 	}
 }
 
-async function handleAgentRevoke(id: string, kavach: TheAuth): Promise<Response> {
+async function handleAgentRevoke(id: string, theauth: TheAuth): Promise<Response> {
 	try {
-		await kavach.agent.revoke(id);
+		await theauth.agent.revoke(id);
 		return new Response(null, { status: 204 });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to revoke agent";
@@ -254,9 +258,9 @@ async function handleAgentRevoke(id: string, kavach: TheAuth): Promise<Response>
 	}
 }
 
-async function handleAgentRotate(id: string, kavach: TheAuth): Promise<Response> {
+async function handleAgentRotate(id: string, theauth: TheAuth): Promise<Response> {
 	try {
-		const agent = await kavach.agent.rotate(id);
+		const agent = await theauth.agent.rotate(id);
 		return ok(agent);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to rotate agent token";
@@ -274,7 +278,7 @@ function extractRequestContext(request: Request): { ip?: string; userAgent?: str
 	return { ip, userAgent };
 }
 
-async function handleAuthorize(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAuthorize(request: Request, theauth: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -283,7 +287,7 @@ async function handleAuthorize(request: Request, kavach: TheAuth): Promise<Respo
 
 	try {
 		const context = extractRequestContext(request);
-		const result = await kavach.authorize(
+		const result = await theauth.authorize(
 			parsed.data.agentId,
 			{
 				action: parsed.data.action,
@@ -303,7 +307,7 @@ async function handleAuthorize(request: Request, kavach: TheAuth): Promise<Respo
 	}
 }
 
-async function handleAuthorizeByToken(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAuthorizeByToken(request: Request, theauth: TheAuth): Promise<Response> {
 	const authHeader = request.headers.get("Authorization");
 	if (!authHeader?.startsWith("Bearer ")) {
 		return unauthorized("Missing or invalid Authorization header");
@@ -318,7 +322,7 @@ async function handleAuthorizeByToken(request: Request, kavach: TheAuth): Promis
 
 	try {
 		const context = extractRequestContext(request);
-		const result = await kavach.authorizeByToken(
+		const result = await theauth.authorizeByToken(
 			token,
 			{
 				action: parsed.data.action,
@@ -338,7 +342,7 @@ async function handleAuthorizeByToken(request: Request, kavach: TheAuth): Promis
 	}
 }
 
-async function handleDelegationCreate(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleDelegationCreate(request: Request, theauth: TheAuth): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -350,7 +354,7 @@ async function handleDelegationCreate(request: Request, kavach: TheAuth): Promis
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		const chain = await kavach.delegate(input);
+		const chain = await theauth.delegate(input);
 		return created(chain);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to create delegation";
@@ -360,9 +364,9 @@ async function handleDelegationCreate(request: Request, kavach: TheAuth): Promis
 	}
 }
 
-async function handleDelegationRevoke(id: string, kavach: TheAuth): Promise<Response> {
+async function handleDelegationRevoke(id: string, theauth: TheAuth): Promise<Response> {
 	try {
-		await kavach.delegation.revoke(id);
+		await theauth.delegation.revoke(id);
 		return new Response(null, { status: 204 });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to revoke delegation";
@@ -371,9 +375,9 @@ async function handleDelegationRevoke(id: string, kavach: TheAuth): Promise<Resp
 	}
 }
 
-async function handleDelegationList(agentId: string, kavach: TheAuth): Promise<Response> {
+async function handleDelegationList(agentId: string, theauth: TheAuth): Promise<Response> {
 	try {
-		const chains = await kavach.delegation.listChains(agentId);
+		const chains = await theauth.delegation.listChains(agentId);
 		return ok(chains);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to list delegation chains";
@@ -419,12 +423,12 @@ function buildAuditFilter(url: URL): AuditFilter {
 	return filter;
 }
 
-async function handleAuditQuery(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAuditQuery(request: Request, theauth: TheAuth): Promise<Response> {
 	const url = new URL(request.url);
 	const filter = buildAuditFilter(url);
 
 	try {
-		const entries = await kavach.audit.query(filter);
+		const entries = await theauth.audit.query(filter);
 		return ok(entries);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to query audit logs";
@@ -432,7 +436,7 @@ async function handleAuditQuery(request: Request, kavach: TheAuth): Promise<Resp
 	}
 }
 
-async function handleAuditExport(request: Request, kavach: TheAuth): Promise<Response> {
+async function handleAuditExport(request: Request, theauth: TheAuth): Promise<Response> {
 	const url = new URL(request.url);
 	const format = getSearchParam(url, "format") ?? "json";
 	if (format !== "json" && format !== "csv") {
@@ -453,7 +457,7 @@ async function handleAuditExport(request: Request, kavach: TheAuth): Promise<Res
 	}
 
 	try {
-		const exported = await kavach.audit.export(options);
+		const exported = await theauth.audit.export(options);
 		const contentType = format === "csv" ? "text/csv" : "application/json";
 		return new Response(exported, {
 			status: 200,
@@ -468,11 +472,11 @@ async function handleAuditExport(request: Request, kavach: TheAuth): Promise<Res
 	}
 }
 
-async function handleDashboardStats(kavach: TheAuth): Promise<Response> {
+async function handleDashboardStats(theauth: TheAuth): Promise<Response> {
 	try {
 		const [agents, recentAudit] = await Promise.all([
-			kavach.agent.list(),
-			kavach.audit.query({
+			theauth.agent.list(),
+			theauth.audit.query({
 				since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 				limit: 1000,
 			}),
@@ -514,11 +518,11 @@ async function handleDashboardStats(kavach: TheAuth): Promise<Response> {
  * on the request's pathname (relative to the catch-all segment base).
  *
  * The `basePath` is the URL prefix before the catch-all segment, e.g.
- * `/api/kavach`. Segments after that prefix are used to match routes.
+ * `/api/theauth`. Segments after that prefix are used to match routes.
  */
 export async function dispatch(
 	request: Request,
-	kavach: TheAuth,
+	theauth: TheAuth,
 	mcp: McpAuthModule | undefined,
 	basePath: string,
 ): Promise<Response> {
@@ -617,8 +621,8 @@ export async function dispatch(
 	// ── Agents ──────────────────────────────────────────────────────
 
 	if (pathname === "/agents") {
-		if (method === "GET") return handleAgentList(request, kavach);
-		if (method === "POST") return handleAgentCreate(request, kavach);
+		if (method === "GET") return handleAgentList(request, theauth);
+		if (method === "POST") return handleAgentCreate(request, theauth);
 		return methodNotAllowed();
 	}
 
@@ -627,7 +631,7 @@ export async function dispatch(
 	if (rotateMatch) {
 		const id = rotateMatch[1];
 		if (!id) return badRequest("Missing agent id");
-		if (method === "POST") return handleAgentRotate(id, kavach);
+		if (method === "POST") return handleAgentRotate(id, theauth);
 		return methodNotAllowed();
 	}
 
@@ -636,28 +640,28 @@ export async function dispatch(
 	if (agentMatch) {
 		const id = agentMatch[1];
 		if (!id) return badRequest("Missing agent id");
-		if (method === "GET") return handleAgentGet(id, kavach);
-		if (method === "PATCH") return handleAgentUpdate(id, request, kavach);
-		if (method === "DELETE") return handleAgentRevoke(id, kavach);
+		if (method === "GET") return handleAgentGet(id, theauth);
+		if (method === "PATCH") return handleAgentUpdate(id, request, theauth);
+		if (method === "DELETE") return handleAgentRevoke(id, theauth);
 		return methodNotAllowed();
 	}
 
 	// ── Authorization ───────────────────────────────────────────────
 
 	if (pathname === "/authorize") {
-		if (method === "POST") return handleAuthorize(request, kavach);
+		if (method === "POST") return handleAuthorize(request, theauth);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/authorize/token") {
-		if (method === "POST") return handleAuthorizeByToken(request, kavach);
+		if (method === "POST") return handleAuthorizeByToken(request, theauth);
 		return methodNotAllowed();
 	}
 
 	// ── Delegations ─────────────────────────────────────────────────
 
 	if (pathname === "/delegations") {
-		if (method === "POST") return handleDelegationCreate(request, kavach);
+		if (method === "POST") return handleDelegationCreate(request, theauth);
 		return methodNotAllowed();
 	}
 
@@ -666,43 +670,43 @@ export async function dispatch(
 	if (delegationMatch) {
 		const id = delegationMatch[1];
 		if (!id) return badRequest("Missing delegation id");
-		if (method === "DELETE") return handleDelegationRevoke(id, kavach);
-		if (method === "GET") return handleDelegationList(id, kavach);
+		if (method === "DELETE") return handleDelegationRevoke(id, theauth);
+		if (method === "GET") return handleDelegationList(id, theauth);
 		return methodNotAllowed();
 	}
 
 	// ── Audit ───────────────────────────────────────────────────────
 
 	if (pathname === "/audit/export") {
-		if (method === "GET") return handleAuditExport(request, kavach);
+		if (method === "GET") return handleAuditExport(request, theauth);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/audit") {
-		if (method === "GET") return handleAuditQuery(request, kavach);
+		if (method === "GET") return handleAuditQuery(request, theauth);
 		return methodNotAllowed();
 	}
 
 	// ── Dashboard ───────────────────────────────────────────────────
 
 	if (pathname === "/dashboard/stats") {
-		if (method === "GET") return handleDashboardStats(kavach);
+		if (method === "GET") return handleDashboardStats(theauth);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/dashboard/agents") {
-		if (method === "GET") return handleAgentList(request, kavach);
+		if (method === "GET") return handleAgentList(request, theauth);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/dashboard/audit") {
-		if (method === "GET") return handleAuditQuery(request, kavach);
+		if (method === "GET") return handleAuditQuery(request, theauth);
 		return methodNotAllowed();
 	}
 
 	// ── Plugin Endpoints ────────────────────────────────────────────
 
-	const pluginResponse = await kavach.plugins.handleRequest(request, basePath);
+	const pluginResponse = await theauth.plugins.handleRequest(request, basePath);
 	if (pluginResponse !== null) {
 		return pluginResponse;
 	}

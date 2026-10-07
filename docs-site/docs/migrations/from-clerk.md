@@ -29,14 +29,14 @@ When to wait:
 | `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
 | `useSession()` | `useSession()` from `@glinr/theauth-react` |
 | `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@glinr/theauth-react` |
-| `auth()` in server components | `kavach.auth.getSession()` using the request cookies |
-| `currentUser()` | `kavach.auth.getUser()` using the request cookies |
+| `auth()` in server components | `theauth.auth.getSession()` using the request cookies |
+| `currentUser()` | `theauth.auth.getUser()` using the request cookies |
 | `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
-| `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the Kavach event hooks. |
+| `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the TheAuth event hooks. |
 | Hosted sign-in at `/sign-in` | Build your own page against `useSignIn()`. |
 | Hosted org switcher | Build your own against the `organization` plugin. |
 | JWT templates | `jwt` plugin with claim customization. |
-| Clerk backend SDK `@clerk/backend` | Kavach server instance directly. |
+| Clerk backend SDK `@clerk/backend` | TheAuth server instance directly. |
 | `Organization`, `Membership` | `organization` plugin (same model, similar shape). |
 
 ## Middleware replacement
@@ -46,17 +46,17 @@ Clerk's `clerkMiddleware()` reads the `__session` cookie from Clerk's CDN. TheAu
 ```ts
 // middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { kavach } from './lib/kavach';
+import { theauth } from './lib/theauth';
 
 export async function middleware(req: NextRequest) {
-  const sessionCookie = req.cookies.get('kavach_session')?.value;
+  const sessionCookie = req.cookies.get('theauth_session')?.value;
 
   if (!sessionCookie && req.nextUrl.pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
   try {
-    const session = await kavach.auth.verifySession(sessionCookie!);
+    const session = await theauth.auth.verifySession(sessionCookie!);
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-user-id', session.userId);
     return NextResponse.next({ request: { headers: requestHeaders } });
@@ -96,10 +96,10 @@ await fs.writeFile('clerk-users.json', JSON.stringify(allUsers, null, 2));
 Then seed the users into TheAuth:
 
 ```typescript
-import { kavach } from './lib/kavach';
+import { theauth } from './lib/theauth';
 
 for (const clerkUser of allUsers) {
-  await kavach.db.insert(users).values({
+  await theauth.db.insert(users).values({
     id: clerkUser.id,
     email: clerkUser.emailAddresses[0]?.emailAddress ?? '',
     name: `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim(),
@@ -118,7 +118,7 @@ If users have passwords in Clerk, they use bcrypt. Configure TheAuth to accept t
 import { createTheAuth } from '@glinr/theauth';
 import { compare as bcryptCompare } from 'bcrypt';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -144,9 +144,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(req: NextRequest) {
   const userHint = req.cookies.get('migration_cohort')?.value ?? '';
-  const onKavach = userHint === 'kavach' || hashBucket(userHint) < Number(process.env.THEAUTH_ROLLOUT ?? '0');
+  const onTheAuth = userHint === 'theauth' || hashBucket(userHint) < Number(process.env.THEAUTH_ROLLOUT ?? '0');
 
-  if (onKavach) {
+  if (onTheAuth) {
     return NextResponse.next();
   }
 

@@ -30,19 +30,19 @@ You also need a storage library:
 
 ```tsx
 // app/_layout.tsx (Expo Router) or App.tsx
-import { KavachExpoProvider } from '@glinr/theauth-expo';
+import { TheAuthExpoProvider } from '@glinr/theauth-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
   return (
-    <KavachExpoProvider
+    <TheAuthExpoProvider
       config={{
-        baseUrl: 'https://api.yourapp.com/api/kavach',
+        baseUrl: 'https://api.yourapp.com/api/theauth',
         storage: AsyncStorage,
       }}
     >
       {/* your app */}
-    </KavachExpoProvider>
+    </TheAuthExpoProvider>
   );
 }
 ```
@@ -58,9 +58,9 @@ const storage = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-<KavachExpoProvider config={{ baseUrl: '...', storage }}>
+<TheAuthExpoProvider config={{ baseUrl: '...', storage }}>
   {/* your app */}
-</KavachExpoProvider>
+</TheAuthExpoProvider>
 ```
 
 ## Hooks

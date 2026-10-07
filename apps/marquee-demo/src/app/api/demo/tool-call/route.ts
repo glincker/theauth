@@ -7,8 +7,8 @@
 import { generateId } from "@glinr/theauth";
 import { NextResponse } from "next/server";
 import { getSessionId } from "@/lib/cookie";
-import { getKavach } from "@/lib/kavach-instance";
 import { getSession, setSession } from "@/lib/session-store";
+import { getTheAuth } from "@/lib/theauth-instance";
 
 // Mock calendar tool responses
 const MOCK_TOOLS: Record<string, (args: Record<string, unknown>) => unknown> = {
@@ -81,10 +81,10 @@ export async function POST(): Promise<NextResponse> {
 
 		const { tool, args, resource } = TOOL_SEQUENCE[callIndex] as (typeof TOOL_SEQUENCE)[number];
 
-		const kavach = await getKavach();
+		const theauth = await getTheAuth();
 		const start = Date.now();
 
-		const authResult = await kavach.authorize(session.agentId, {
+		const authResult = await theauth.authorize(session.agentId, {
 			action: "read",
 			resource,
 			arguments: args,
@@ -130,7 +130,7 @@ export async function POST(): Promise<NextResponse> {
 			allComplete: session.toolCalls.length >= TOOL_SEQUENCE.length,
 			apiRequest: {
 				method: "POST",
-				path: "/kavach/authorize",
+				path: "/theauth/authorize",
 				body: {
 					agentId: session.agentId,
 					action: "read",

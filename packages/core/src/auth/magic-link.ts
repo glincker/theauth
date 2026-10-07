@@ -8,8 +8,8 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   magicLink: {
  *     appUrl: 'https://app.example.com',
@@ -20,7 +20,7 @@
  * });
  *
  * // In your route handler
- * const response = await kavach.magicLink.handleRequest(request);
+ * const response = await theauth.magicLink.handleRequest(request);
  * if (response) return response;
  * ```
  */

@@ -7,8 +7,8 @@
  * filters on `expiresAt > now()`.
  *
  * Seeding:
- *   1. Insert principalPermissions into kavach_permissions (agentId = principal).
- *   2. Insert a row into kavach_delegation_chains:
+ *   1. Insert principalPermissions into theauth_permissions (agentId = principal).
+ *   2. Insert a row into theauth_delegation_chains:
  *        fromAgentId = principal, toAgentId = delegate,
  *        permissions = delegatedPermissions, status = "active",
  *        expiresAt = <future date>.
@@ -26,8 +26,8 @@ export const principalPermissions: Permission[] = [
 
 /**
  * Subset of permissions the principal delegates to another agent.
- * These are stored in kavach_delegation_chains.permissions, not in
- * kavach_permissions directly.
+ * These are stored in theauth_delegation_chains.permissions, not in
+ * theauth_permissions directly.
  */
 export const delegatedPermissions: Permission[] = [
 	{

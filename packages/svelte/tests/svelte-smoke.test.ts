@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { createAgentStore, createKavachClient } from "../src/index.js";
-import type { KavachSession } from "../src/types.js";
+import { createAgentStore, createTheAuthClient } from "../src/index.js";
+import type { TheAuthSession } from "../src/types.js";
 
-const SESSION_KEY = "kavach_session";
+const SESSION_KEY = "theauth_session";
 
 const restoredSession = {
 	token: "session-token-1",
@@ -102,8 +102,8 @@ afterEach(() => {
 test("restores a stored session and clears it on sign out", async () => {
 	window.localStorage.setItem(SESSION_KEY, JSON.stringify(restoredSession));
 
-	const client = createKavachClient({ basePath: "/api/kavach" });
-	let sessionValue: KavachSession | null = null;
+	const client = createTheAuthClient({ basePath: "/api/theauth" });
+	let sessionValue: TheAuthSession | null = null;
 	let isLoading = true;
 
 	const unsubscribeSession = client.session.subscribe((value) => {
@@ -144,7 +144,7 @@ test("auto-loads agents after sign-in and refreshes them after create", async ()
 			const url = new URL(String(input), "http://localhost");
 			const method = init?.method ?? "GET";
 
-			if (url.pathname === "/api/kavach/auth/sign-in") {
+			if (url.pathname === "/api/theauth/auth/sign-in") {
 				signInCalls += 1;
 				return {
 					ok: true,
@@ -153,7 +153,7 @@ test("auto-loads agents after sign-in and refreshes them after create", async ()
 				};
 			}
 
-			if (url.pathname === "/api/kavach/agents" && method === "GET") {
+			if (url.pathname === "/api/theauth/agents" && method === "GET") {
 				agentListCalls += 1;
 				return {
 					ok: true,
@@ -164,7 +164,7 @@ test("auto-loads agents after sign-in and refreshes them after create", async ()
 				};
 			}
 
-			if (url.pathname === "/api/kavach/agents" && method === "POST") {
+			if (url.pathname === "/api/theauth/agents" && method === "POST") {
 				return {
 					ok: true,
 					status: 200,
@@ -178,7 +178,7 @@ test("auto-loads agents after sign-in and refreshes them after create", async ()
 		}) as typeof fetch,
 	);
 
-	const client = createKavachClient({ basePath: "/api/kavach" });
+	const client = createTheAuthClient({ basePath: "/api/theauth" });
 	const agentStore = createAgentStore({ user: client.user });
 
 	let sessionValue = null as unknown;

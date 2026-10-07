@@ -5,15 +5,12 @@ export type {
 	AgentStoreOptions,
 	AuthClient,
 	AuthClientOptions,
-	KavachClient,
-	KavachClientOptions,
 	TheAuthClient,
 	TheAuthClientOptions,
 } from "./stores.js";
 export {
 	createAgentStore,
 	createAuthClient,
-	createKavachClient,
 	createTheAuthClient,
 } from "./stores.js";
 
@@ -25,10 +22,6 @@ export type {
 	AuthSession,
 	AuthUser,
 	CreateAgentInput,
-	KavachAgent,
-	KavachPermission,
-	KavachSession,
-	KavachUser,
 	TheAuthAgent,
 	TheAuthPermission,
 	TheAuthSession,

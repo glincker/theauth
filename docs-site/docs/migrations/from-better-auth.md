@@ -11,7 +11,7 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 
 | better-auth | TheAuth |
 |---|---|
-| `auth = betterAuth({...})` | `kavach = createTheAuth({...})` |
+| `auth = betterAuth({...})` | `theauth = createTheAuth({...})` |
 | `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
 | `Session` | `Session` + `AgentSession` + `EphemeralAgentSession` |
 | `organization` plugin | `organization` plugin (same name, similar shape) |
@@ -48,13 +48,13 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
     ```
 === "After (TheAuth)"
     ```ts
-    // lib/kavach.ts
+    // lib/theauth.ts
     import { createTheAuth } from '@glinr/theauth';
     import { organization, twoFactor } from '@glinr/theauth/plugins';
 
-    export const kavach = createTheAuth({
+    export const theauth = createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      secret: process.env.KAVACH_SECRET!,
+      secret: process.env.THEAUTH_SECRET!,
       baseUrl: process.env.AUTH_BASE_URL!,
       emailAndPassword: { enabled: true },
       plugins: [organization(), twoFactor()],
@@ -62,11 +62,11 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
     ```
 
     ```ts
-    // app/api/kavach/[...kavach]/route.ts
+    // app/api/theauth/[...theauth]/route.ts
     import { authNextjs } from '@glinr/theauth-nextjs';
-    import { kavach } from '@/lib/kavach';
+    import { theauth } from '@/lib/theauth';
 
-    const handlers = authNextjs(kavach);
+    const handlers = authNextjs(theauth);
 
     export const GET = handlers.GET;
     export const POST = handlers.POST;
@@ -89,12 +89,12 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 === "After (TheAuth)"
     ```ts
     import { Hono } from 'hono';
-    import { kavachHono } from '@glinr/theauth-hono';
-    import { kavach } from './lib/kavach.js';
+    import { theAuthHono } from '@glinr/theauth-hono';
+    import { theauth } from './lib/theauth.js';
 
     const app = new Hono();
 
-    app.route('/api/kavach', kavachHono(kavach));
+    app.route('/api/theauth', theAuthHono(theauth));
     ```
 
 ## Data migration SQL
@@ -103,7 +103,7 @@ Copy users, accounts, and sessions from better-auth tables to TheAuth tables:
 
 ```sql
 -- Users
-INSERT INTO kavach_user (id, email, name, email_verified, created_at, updated_at)
+INSERT INTO theauth_user (id, email, name, email_verified, created_at, updated_at)
 SELECT
   id,
   email,
@@ -115,7 +115,7 @@ FROM "user"           -- better-auth default table name
 ON CONFLICT (id) DO NOTHING;
 
 -- Accounts (OAuth connections)
-INSERT INTO kavach_account (
+INSERT INTO theauth_account (
   id, user_id, provider_id, provider_account_id,
   access_token, refresh_token, expires_at, created_at, updated_at
 )
@@ -133,7 +133,7 @@ FROM account
 ON CONFLICT (id) DO NOTHING;
 
 -- Sessions (active sessions)
-INSERT INTO kavach_session (
+INSERT INTO theauth_session (
   id, user_id, token, expires_at, ip_address, user_agent, created_at, updated_at
 )
 SELECT
@@ -166,7 +166,7 @@ export function middleware(req: NextRequest) {
   const rolloutPercent = Number(process.env.THEAUTH_ROLLOUT ?? '0');
 
   if (bucket < rolloutPercent) {
-    return NextResponse.rewrite(new URL(req.url.replace('/api/auth', '/api/kavach'), req.url));
+    return NextResponse.rewrite(new URL(req.url.replace('/api/auth', '/api/theauth'), req.url));
   }
 
   return NextResponse.next();

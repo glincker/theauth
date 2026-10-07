@@ -38,13 +38,13 @@ import { z } from "zod";
 import { generateId, randomBytesHex, sha256, sha256Raw } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { oidcAuthCodes, oidcClients, oidcRefreshTokens } from "../db/schema.js";
-import type { AuthError, KavachError, Result, TheAuthError } from "../mcp/types.js";
+import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
 // ---------------------------------------------------------------------------
 
-export type { AuthError, KavachError, Result, TheAuthError };
+export type { AuthError, Result, TheAuthError };
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -322,7 +322,7 @@ export function createOidcProviderModule(
 				}
 				// Strip private key components — only expose the public key
 				const { d, p, q, dp, dq, qi, k, ...publicComponents } = jwk;
-				return { ...publicComponents, alg: signingAlg, use: "sig", kid: "kavach-oidc-1" };
+				return { ...publicComponents, alg: signingAlg, use: "sig", kid: "theauth-oidc-1" };
 			})();
 		}
 		return publicJwkPromise;
@@ -762,7 +762,7 @@ export function createOidcProviderModule(
 			scope: scopes.join(" "),
 			client_id: clientId,
 		})
-			.setProtectedHeader({ alg: signingAlg, kid: "kavach-oidc-1" })
+			.setProtectedHeader({ alg: signingAlg, kid: "theauth-oidc-1" })
 			.setIssuer(issuer)
 			.setSubject(userId)
 			.setAudience(clientId)
@@ -787,7 +787,7 @@ export function createOidcProviderModule(
 		idTokenPayload.at_hash = jose.base64url.encode(atHashHalf);
 
 		const idToken = await new jose.SignJWT(idTokenPayload)
-			.setProtectedHeader({ alg: signingAlg, kid: "kavach-oidc-1" })
+			.setProtectedHeader({ alg: signingAlg, kid: "theauth-oidc-1" })
 			.setIssuer(issuer)
 			.setSubject(userId)
 			.setAudience(clientId)

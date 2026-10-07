@@ -15,13 +15,13 @@ pnpm add @glinr/theauth @glinr/theauth-nestjs
 ## Setup
 
 <Steps>
-<Step title="Create the kavach instance">
+<Step title="Create the theauth instance">
 
 ```typescript
-// lib/kavach.ts
+// lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -30,7 +30,7 @@ export const kavach = await createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 </Step>
@@ -40,14 +40,14 @@ export const mcp = createMcpModule(kavach);
 // app.module.ts
 import { Module } from '@nestjs/common';
 import { AuthModule } from '@glinr/theauth-nestjs';
-import { kavach, mcp } from './lib/kavach.js';
+import { theauth, mcp } from './lib/theauth.js';
 
 @Module({
   imports: [
     AuthModule.forRoot({
-      kavach,
+      theauth,
       mcp,
-      basePath: '/api/kavach', // default
+      basePath: '/api/theauth', // default
     }),
   ],
 })
@@ -79,10 +79,10 @@ bootstrap();
 
 ## Route prefix
 
-The default mount path is `/api/kavach`. Change it with the `basePath` option:
+The default mount path is `/api/theauth`. Change it with the `basePath` option:
 
 ```typescript
-AuthModule.forRoot({ kavach, basePath: '/auth' })
+AuthModule.forRoot({ theauth, basePath: '/auth' })
 ```
 
 All TheAuth routes will then be available under `/auth/*`.
@@ -96,11 +96,11 @@ If you prefer to mount routes imperatively in `main.ts` rather than importing a 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { theAuthMiddleware } from '@glinr/theauth-nestjs';
-import { kavach, mcp } from './lib/kavach.js';
+import { theauth, mcp } from './lib/theauth.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.use('/api/kavach', theAuthMiddleware({ kavach, mcp }));
+  app.use('/api/theauth', theAuthMiddleware({ theauth, mcp }));
   await app.listen(3000);
 }
 
@@ -112,13 +112,13 @@ bootstrap();
 Pass `mcp` to enable the MCP OAuth 2.1 authorization server:
 
 ```typescript
-AuthModule.forRoot({ kavach, mcp, basePath: '/api/kavach' })
+AuthModule.forRoot({ theauth, mcp, basePath: '/api/theauth' })
 // registers:
-// GET  /api/kavach/.well-known/oauth-authorization-server
-// GET  /api/kavach/.well-known/oauth-protected-resource
-// POST /api/kavach/mcp/register
-// GET  /api/kavach/mcp/authorize
-// POST /api/kavach/mcp/token
+// GET  /api/theauth/.well-known/oauth-authorization-server
+// GET  /api/theauth/.well-known/oauth-protected-resource
+// POST /api/theauth/mcp/register
+// GET  /api/theauth/mcp/authorize
+// POST /api/theauth/mcp/token
 ```
 
 ## Endpoint reference

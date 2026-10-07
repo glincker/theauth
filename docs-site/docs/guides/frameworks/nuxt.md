@@ -1,11 +1,11 @@
 ---
 title: Nuxt
-description: Mount TheAuth auth routes in Nuxt with authNuxt(kavach). Returns an H3 EventHandler for a catch-all server route.
+description: Mount TheAuth auth routes in Nuxt with authNuxt(theauth). Returns an H3 EventHandler for a catch-all server route.
 ---
 
 # Nuxt
 
-`authNuxt(kavach, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
+`authNuxt(theauth, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
 
 ## Install
 
@@ -15,15 +15,15 @@ pnpm add @glinr/theauth @glinr/theauth-nuxt
 
 ## Setup
 
-### 1. Create the kavach instance
+### 1. Create the theauth instance
 
 Create this outside the event handler so it is initialized once at server startup:
 
 ```typescript
-// server/utils/kavach.ts
+// server/utils/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createTheAuth({
+export const theauth = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -32,17 +32,17 @@ export const kavach = createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 ### 2. Create the catch-all route
 
 ```typescript
-// server/api/kavach/[...].ts
+// server/api/theauth/[...].ts
 import { authNuxt } from '@glinr/theauth-nuxt';
-import { kavach, mcp } from '~/server/utils/kavach';
+import { theauth, mcp } from '~/server/utils/theauth';
 
-export default authNuxt(kavach, { mcp });
+export default authNuxt(theauth, { mcp });
 ```
 
 ## Related pages

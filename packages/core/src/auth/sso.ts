@@ -18,15 +18,15 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   sso: {
  *     saml: [{ id: 'okta', name: 'Okta', entryPoint: '...', issuer: '...', cert: '...', callbackUrl: '...' }],
  *   },
  * });
  *
  * // Get SAML auth URL (redirect user to this)
- * const url = await kavach.sso.getSamlAuthUrl(connectionId);
+ * const url = await theauth.sso.getSamlAuthUrl(connectionId);
  * ```
  */
 

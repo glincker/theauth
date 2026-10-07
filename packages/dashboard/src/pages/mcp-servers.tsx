@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Server } from "lucide-react";
 import { useState } from "react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import type { McpServerInfo, RegisterMcpServerInput } from "../api/types.js";
 import { Badge, StatusDot } from "../components/badge.js";
 import { Button } from "../components/button.js";
@@ -187,7 +187,7 @@ function RegisterMcpServerModal({ open, onClose, onSubmit, loading }: RegisterMo
 // ─── MCP Servers Page ─────────────────────────────────────────────────────────
 
 interface McpServersPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function McpServersPage({ client }: McpServersPageProps) {

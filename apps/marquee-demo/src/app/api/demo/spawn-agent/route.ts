@@ -5,8 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { getSessionId } from "@/lib/cookie";
-import { getKavach } from "@/lib/kavach-instance";
 import { getSession, setSession } from "@/lib/session-store";
+import { getTheAuth } from "@/lib/theauth-instance";
 
 export async function POST(): Promise<NextResponse> {
 	try {
@@ -20,11 +20,11 @@ export async function POST(): Promise<NextResponse> {
 			return NextResponse.json({ error: "Complete step 1 first" }, { status: 400 });
 		}
 
-		const kavach = await getKavach();
+		const theauth = await getTheAuth();
 
 		const agentName = `${session.userName}'s calendar-reader`;
 
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: session.userId,
 			name: agentName,
 			type: "autonomous",

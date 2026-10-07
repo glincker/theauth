@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrismaAdapter } from "../src/adapter.js";
-import type { KavachPrismaAdapter } from "../src/types.js";
+import type { TheAuthPrismaAdapter } from "../src/types.js";
 
 // ─── Mock PrismaClient ────────────────────────────────────────────────────────
 
@@ -20,24 +20,24 @@ function makeModelMock() {
 
 function createMockPrisma() {
 	const mocks = {
-		kavachUser: makeModelMock(),
-		kavachAgent: makeModelMock(),
-		kavachPermission: makeModelMock(),
-		kavachDelegationChain: makeModelMock(),
-		kavachAuditLog: makeModelMock(),
-		kavachSession: makeModelMock(),
-		kavachRateLimit: makeModelMock(),
-		kavachOAuthClient: makeModelMock(),
-		kavachOAuthAccessToken: makeModelMock(),
-		kavachOAuthAuthorizationCode: makeModelMock(),
-		kavachMcpServer: makeModelMock(),
-		kavachApiKey: makeModelMock(),
-		kavachOrganization: makeModelMock(),
-		kavachOrgMember: makeModelMock(),
-		kavachOrgInvitation: makeModelMock(),
-		kavachJwtRefreshToken: makeModelMock(),
-		kavachTrustScore: makeModelMock(),
-		kavachApprovalRequest: makeModelMock(),
+		theAuthUser: makeModelMock(),
+		theAuthAgent: makeModelMock(),
+		theAuthPermission: makeModelMock(),
+		theAuthDelegationChain: makeModelMock(),
+		theAuthAuditLog: makeModelMock(),
+		theAuthSession: makeModelMock(),
+		theAuthRateLimit: makeModelMock(),
+		theAuthOAuthClient: makeModelMock(),
+		theAuthOAuthAccessToken: makeModelMock(),
+		theAuthOAuthAuthorizationCode: makeModelMock(),
+		theAuthMcpServer: makeModelMock(),
+		theAuthApiKey: makeModelMock(),
+		theAuthOrganization: makeModelMock(),
+		theAuthOrgMember: makeModelMock(),
+		theAuthOrgInvitation: makeModelMock(),
+		theAuthJwtRefreshToken: makeModelMock(),
+		theAuthTrustScore: makeModelMock(),
+		theAuthApprovalRequest: makeModelMock(),
 		$transaction: vi.fn(),
 	};
 	return mocks;
@@ -130,7 +130,7 @@ const SESSION = {
 
 describe("createPrismaAdapter", () => {
 	let prisma: MockPrisma;
-	let db: KavachPrismaAdapter;
+	let db: TheAuthPrismaAdapter;
 
 	beforeEach(() => {
 		prisma = createMockPrisma();
@@ -141,40 +141,40 @@ describe("createPrismaAdapter", () => {
 
 	describe("users", () => {
 		it("findUserById calls findUnique with the correct where clause", async () => {
-			prisma.kavachUser.findUnique.mockResolvedValue(USER);
+			prisma.theAuthUser.findUnique.mockResolvedValue(USER);
 			const result = await db.findUserById("user-1");
-			expect(prisma.kavachUser.findUnique).toHaveBeenCalledWith({ where: { id: "user-1" } });
+			expect(prisma.theAuthUser.findUnique).toHaveBeenCalledWith({ where: { id: "user-1" } });
 			expect(result).toEqual(USER);
 		});
 
 		it("findUserById returns null when not found", async () => {
-			prisma.kavachUser.findUnique.mockResolvedValue(null);
+			prisma.theAuthUser.findUnique.mockResolvedValue(null);
 			const result = await db.findUserById("missing");
 			expect(result).toBeNull();
 		});
 
 		it("findUserByEmail calls findUnique with email", async () => {
-			prisma.kavachUser.findUnique.mockResolvedValue(USER);
+			prisma.theAuthUser.findUnique.mockResolvedValue(USER);
 			const result = await db.findUserByEmail("alice@example.com");
-			expect(prisma.kavachUser.findUnique).toHaveBeenCalledWith({
+			expect(prisma.theAuthUser.findUnique).toHaveBeenCalledWith({
 				where: { email: "alice@example.com" },
 			});
 			expect(result).toEqual(USER);
 		});
 
 		it("createUser calls create with input data", async () => {
-			prisma.kavachUser.create.mockResolvedValue(USER);
+			prisma.theAuthUser.create.mockResolvedValue(USER);
 			const input = { id: "user-1", email: "alice@example.com", createdAt: NOW, updatedAt: NOW };
 			const result = await db.createUser(input);
-			expect(prisma.kavachUser.create).toHaveBeenCalledWith({ data: input });
+			expect(prisma.theAuthUser.create).toHaveBeenCalledWith({ data: input });
 			expect(result).toEqual(USER);
 		});
 
 		it("updateUser calls update with id and data", async () => {
 			const updated = { ...USER, name: "Alice Updated" };
-			prisma.kavachUser.update.mockResolvedValue(updated);
+			prisma.theAuthUser.update.mockResolvedValue(updated);
 			const result = await db.updateUser("user-1", { name: "Alice Updated" });
-			expect(prisma.kavachUser.update).toHaveBeenCalledWith({
+			expect(prisma.theAuthUser.update).toHaveBeenCalledWith({
 				where: { id: "user-1" },
 				data: { name: "Alice Updated" },
 			});
@@ -182,9 +182,9 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("deleteUser calls delete with id", async () => {
-			prisma.kavachUser.delete.mockResolvedValue(USER);
+			prisma.theAuthUser.delete.mockResolvedValue(USER);
 			await db.deleteUser("user-1");
-			expect(prisma.kavachUser.delete).toHaveBeenCalledWith({ where: { id: "user-1" } });
+			expect(prisma.theAuthUser.delete).toHaveBeenCalledWith({ where: { id: "user-1" } });
 		});
 	});
 
@@ -192,29 +192,29 @@ describe("createPrismaAdapter", () => {
 
 	describe("agents", () => {
 		it("findAgentById returns the agent", async () => {
-			prisma.kavachAgent.findUnique.mockResolvedValue(AGENT);
+			prisma.theAuthAgent.findUnique.mockResolvedValue(AGENT);
 			const result = await db.findAgentById("agent-1");
 			expect(result).toEqual(AGENT);
 		});
 
 		it("findAgentById returns null when not found", async () => {
-			prisma.kavachAgent.findUnique.mockResolvedValue(null);
+			prisma.theAuthAgent.findUnique.mockResolvedValue(null);
 			expect(await db.findAgentById("nope")).toBeNull();
 		});
 
 		it("findAgentByTokenHash calls findFirst with tokenHash", async () => {
-			prisma.kavachAgent.findFirst.mockResolvedValue(AGENT);
+			prisma.theAuthAgent.findFirst.mockResolvedValue(AGENT);
 			const result = await db.findAgentByTokenHash("abc123hash");
-			expect(prisma.kavachAgent.findFirst).toHaveBeenCalledWith({
+			expect(prisma.theAuthAgent.findFirst).toHaveBeenCalledWith({
 				where: { tokenHash: "abc123hash" },
 			});
 			expect(result).toEqual(AGENT);
 		});
 
 		it("listAgents with no filter returns all agents", async () => {
-			prisma.kavachAgent.findMany.mockResolvedValue([AGENT]);
+			prisma.theAuthAgent.findMany.mockResolvedValue([AGENT]);
 			const result = await db.listAgents();
-			expect(prisma.kavachAgent.findMany).toHaveBeenCalledWith({
+			expect(prisma.theAuthAgent.findMany).toHaveBeenCalledWith({
 				where: {},
 				orderBy: { createdAt: "desc" },
 			});
@@ -222,16 +222,16 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("listAgents with filter passes where clause", async () => {
-			prisma.kavachAgent.findMany.mockResolvedValue([AGENT]);
+			prisma.theAuthAgent.findMany.mockResolvedValue([AGENT]);
 			await db.listAgents({ ownerId: "user-1", status: "active" });
-			expect(prisma.kavachAgent.findMany).toHaveBeenCalledWith({
+			expect(prisma.theAuthAgent.findMany).toHaveBeenCalledWith({
 				where: { ownerId: "user-1", status: "active" },
 				orderBy: { createdAt: "desc" },
 			});
 		});
 
 		it("createAgent calls create with input", async () => {
-			prisma.kavachAgent.create.mockResolvedValue(AGENT);
+			prisma.theAuthAgent.create.mockResolvedValue(AGENT);
 			const result = await db.createAgent({
 				id: "agent-1",
 				ownerId: "user-1",
@@ -247,15 +247,15 @@ describe("createPrismaAdapter", () => {
 
 		it("updateAgent calls update with id and data", async () => {
 			const updated = { ...AGENT, status: "revoked" };
-			prisma.kavachAgent.update.mockResolvedValue(updated);
+			prisma.theAuthAgent.update.mockResolvedValue(updated);
 			const result = await db.updateAgent("agent-1", { status: "revoked" });
 			expect(result.status).toBe("revoked");
 		});
 
 		it("deleteAgent calls delete with id", async () => {
-			prisma.kavachAgent.delete.mockResolvedValue(AGENT);
+			prisma.theAuthAgent.delete.mockResolvedValue(AGENT);
 			await db.deleteAgent("agent-1");
-			expect(prisma.kavachAgent.delete).toHaveBeenCalledWith({ where: { id: "agent-1" } });
+			expect(prisma.theAuthAgent.delete).toHaveBeenCalledWith({ where: { id: "agent-1" } });
 		});
 	});
 
@@ -263,16 +263,16 @@ describe("createPrismaAdapter", () => {
 
 	describe("permissions", () => {
 		it("findPermissionsByAgentId returns permissions list", async () => {
-			prisma.kavachPermission.findMany.mockResolvedValue([PERMISSION]);
+			prisma.theAuthPermission.findMany.mockResolvedValue([PERMISSION]);
 			const result = await db.findPermissionsByAgentId("agent-1");
-			expect(prisma.kavachPermission.findMany).toHaveBeenCalledWith({
+			expect(prisma.theAuthPermission.findMany).toHaveBeenCalledWith({
 				where: { agentId: "agent-1" },
 			});
 			expect(result).toHaveLength(1);
 		});
 
 		it("createPermission calls create with input", async () => {
-			prisma.kavachPermission.create.mockResolvedValue(PERMISSION);
+			prisma.theAuthPermission.create.mockResolvedValue(PERMISSION);
 			const result = await db.createPermission({
 				id: "perm-1",
 				agentId: "agent-1",
@@ -284,17 +284,17 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("deletePermissionsByAgentId calls deleteMany with agentId", async () => {
-			prisma.kavachPermission.deleteMany.mockResolvedValue({ count: 2 });
+			prisma.theAuthPermission.deleteMany.mockResolvedValue({ count: 2 });
 			await db.deletePermissionsByAgentId("agent-1");
-			expect(prisma.kavachPermission.deleteMany).toHaveBeenCalledWith({
+			expect(prisma.theAuthPermission.deleteMany).toHaveBeenCalledWith({
 				where: { agentId: "agent-1" },
 			});
 		});
 
 		it("deletePermission calls delete with id", async () => {
-			prisma.kavachPermission.delete.mockResolvedValue(PERMISSION);
+			prisma.theAuthPermission.delete.mockResolvedValue(PERMISSION);
 			await db.deletePermission("perm-1");
-			expect(prisma.kavachPermission.delete).toHaveBeenCalledWith({ where: { id: "perm-1" } });
+			expect(prisma.theAuthPermission.delete).toHaveBeenCalledWith({ where: { id: "perm-1" } });
 		});
 	});
 
@@ -302,7 +302,7 @@ describe("createPrismaAdapter", () => {
 
 	describe("audit logs", () => {
 		it("createAuditLog calls create with input", async () => {
-			prisma.kavachAuditLog.create.mockResolvedValue(AUDIT_LOG);
+			prisma.theAuthAuditLog.create.mockResolvedValue(AUDIT_LOG);
 			const result = await db.createAuditLog({
 				id: "audit-1",
 				agentId: "agent-1",
@@ -317,9 +317,9 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("queryAuditLogs with agentId filter builds correct where", async () => {
-			prisma.kavachAuditLog.findMany.mockResolvedValue([AUDIT_LOG]);
+			prisma.theAuthAuditLog.findMany.mockResolvedValue([AUDIT_LOG]);
 			const result = await db.queryAuditLogs({ agentId: "agent-1" });
-			expect(prisma.kavachAuditLog.findMany).toHaveBeenCalledWith(
+			expect(prisma.theAuthAuditLog.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({
 					where: expect.objectContaining({ agentId: "agent-1" }),
 				}),
@@ -328,11 +328,11 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("queryAuditLogs with date range builds timestamp filter", async () => {
-			prisma.kavachAuditLog.findMany.mockResolvedValue([]);
+			prisma.theAuthAuditLog.findMany.mockResolvedValue([]);
 			const since = new Date("2025-01-01");
 			const until = new Date("2025-02-01");
 			await db.queryAuditLogs({ since, until });
-			expect(prisma.kavachAuditLog.findMany).toHaveBeenCalledWith(
+			expect(prisma.theAuthAuditLog.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({
 					where: expect.objectContaining({
 						timestamp: { gte: since, lte: until },
@@ -342,17 +342,17 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("queryAuditLogs applies default limit of 100", async () => {
-			prisma.kavachAuditLog.findMany.mockResolvedValue([]);
+			prisma.theAuthAuditLog.findMany.mockResolvedValue([]);
 			await db.queryAuditLogs({});
-			expect(prisma.kavachAuditLog.findMany).toHaveBeenCalledWith(
+			expect(prisma.theAuthAuditLog.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({ take: 100, skip: 0 }),
 			);
 		});
 
 		it("queryAuditLogs respects custom limit and offset", async () => {
-			prisma.kavachAuditLog.findMany.mockResolvedValue([]);
+			prisma.theAuthAuditLog.findMany.mockResolvedValue([]);
 			await db.queryAuditLogs({ limit: 25, offset: 50 });
-			expect(prisma.kavachAuditLog.findMany).toHaveBeenCalledWith(
+			expect(prisma.theAuthAuditLog.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({ take: 25, skip: 50 }),
 			);
 		});
@@ -362,13 +362,13 @@ describe("createPrismaAdapter", () => {
 
 	describe("sessions", () => {
 		it("findSessionById returns session", async () => {
-			prisma.kavachSession.findUnique.mockResolvedValue(SESSION);
+			prisma.theAuthSession.findUnique.mockResolvedValue(SESSION);
 			const result = await db.findSessionById("sess-1");
 			expect(result).toEqual(SESSION);
 		});
 
 		it("createSession calls create with input", async () => {
-			prisma.kavachSession.create.mockResolvedValue(SESSION);
+			prisma.theAuthSession.create.mockResolvedValue(SESSION);
 			const result = await db.createSession({
 				id: "sess-1",
 				userId: "user-1",
@@ -379,16 +379,16 @@ describe("createPrismaAdapter", () => {
 		});
 
 		it("deleteSession calls delete with id", async () => {
-			prisma.kavachSession.delete.mockResolvedValue(SESSION);
+			prisma.theAuthSession.delete.mockResolvedValue(SESSION);
 			await db.deleteSession("sess-1");
-			expect(prisma.kavachSession.delete).toHaveBeenCalledWith({ where: { id: "sess-1" } });
+			expect(prisma.theAuthSession.delete).toHaveBeenCalledWith({ where: { id: "sess-1" } });
 		});
 
 		it("deleteExpiredSessions calls deleteMany and returns count", async () => {
-			prisma.kavachSession.deleteMany.mockResolvedValue({ count: 3 });
+			prisma.theAuthSession.deleteMany.mockResolvedValue({ count: 3 });
 			const count = await db.deleteExpiredSessions();
 			expect(count).toBe(3);
-			expect(prisma.kavachSession.deleteMany).toHaveBeenCalled();
+			expect(prisma.theAuthSession.deleteMany).toHaveBeenCalled();
 		});
 	});
 
@@ -408,15 +408,15 @@ describe("createPrismaAdapter", () => {
 		};
 
 		it("findDelegationChain returns chain by id", async () => {
-			prisma.kavachDelegationChain.findUnique.mockResolvedValue(CHAIN);
+			prisma.theAuthDelegationChain.findUnique.mockResolvedValue(CHAIN);
 			const result = await db.findDelegationChain("chain-1");
 			expect(result).toEqual(CHAIN);
 		});
 
 		it("findDelegationChainsByAgent filters by fromAgentId", async () => {
-			prisma.kavachDelegationChain.findMany.mockResolvedValue([CHAIN]);
+			prisma.theAuthDelegationChain.findMany.mockResolvedValue([CHAIN]);
 			const result = await db.findDelegationChainsByAgent("agent-1");
-			expect(prisma.kavachDelegationChain.findMany).toHaveBeenCalledWith(
+			expect(prisma.theAuthDelegationChain.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({ where: { fromAgentId: "agent-1" } }),
 			);
 			expect(result).toHaveLength(1);
@@ -424,7 +424,7 @@ describe("createPrismaAdapter", () => {
 
 		it("updateDelegationChain revokes a chain", async () => {
 			const revoked = { ...CHAIN, status: "revoked" };
-			prisma.kavachDelegationChain.update.mockResolvedValue(revoked);
+			prisma.theAuthDelegationChain.update.mockResolvedValue(revoked);
 			const result = await db.updateDelegationChain("chain-1", { status: "revoked" });
 			expect(result.status).toBe("revoked");
 		});
@@ -444,14 +444,16 @@ describe("createPrismaAdapter", () => {
 		};
 
 		it("findOrgBySlug returns org", async () => {
-			prisma.kavachOrganization.findFirst.mockResolvedValue(ORG);
+			prisma.theAuthOrganization.findFirst.mockResolvedValue(ORG);
 			const result = await db.findOrgBySlug("acme");
-			expect(prisma.kavachOrganization.findFirst).toHaveBeenCalledWith({ where: { slug: "acme" } });
+			expect(prisma.theAuthOrganization.findFirst).toHaveBeenCalledWith({
+				where: { slug: "acme" },
+			});
 			expect(result).toEqual(ORG);
 		});
 
 		it("createOrg calls create with input", async () => {
-			prisma.kavachOrganization.create.mockResolvedValue(ORG);
+			prisma.theAuthOrganization.create.mockResolvedValue(ORG);
 			const result = await db.createOrg({
 				id: "org-1",
 				name: "Acme Corp",
@@ -465,18 +467,18 @@ describe("createPrismaAdapter", () => {
 
 		it("findOrgMember queries by orgId and userId", async () => {
 			const MEMBER = { id: "m-1", orgId: "org-1", userId: "user-1", role: "owner", joinedAt: NOW };
-			prisma.kavachOrgMember.findFirst.mockResolvedValue(MEMBER);
+			prisma.theAuthOrgMember.findFirst.mockResolvedValue(MEMBER);
 			const result = await db.findOrgMember("org-1", "user-1");
-			expect(prisma.kavachOrgMember.findFirst).toHaveBeenCalledWith({
+			expect(prisma.theAuthOrgMember.findFirst).toHaveBeenCalledWith({
 				where: { orgId: "org-1", userId: "user-1" },
 			});
 			expect(result).toEqual(MEMBER);
 		});
 
 		it("deleteOrgMember calls deleteMany with orgId and userId", async () => {
-			prisma.kavachOrgMember.deleteMany.mockResolvedValue({ count: 1 });
+			prisma.theAuthOrgMember.deleteMany.mockResolvedValue({ count: 1 });
 			await db.deleteOrgMember("org-1", "user-1");
-			expect(prisma.kavachOrgMember.deleteMany).toHaveBeenCalledWith({
+			expect(prisma.theAuthOrgMember.deleteMany).toHaveBeenCalledWith({
 				where: { orgId: "org-1", userId: "user-1" },
 			});
 		});
@@ -494,15 +496,15 @@ describe("createPrismaAdapter", () => {
 		};
 
 		it("findTrustScore returns score", async () => {
-			prisma.kavachTrustScore.findUnique.mockResolvedValue(TRUST);
+			prisma.theAuthTrustScore.findUnique.mockResolvedValue(TRUST);
 			const result = await db.findTrustScore("agent-1");
 			expect(result).toEqual(TRUST);
 		});
 
 		it("upsertTrustScore calls upsert with agentId where", async () => {
-			prisma.kavachTrustScore.upsert.mockResolvedValue(TRUST);
+			prisma.theAuthTrustScore.upsert.mockResolvedValue(TRUST);
 			const result = await db.upsertTrustScore(TRUST);
-			expect(prisma.kavachTrustScore.upsert).toHaveBeenCalledWith(
+			expect(prisma.theAuthTrustScore.upsert).toHaveBeenCalledWith(
 				expect.objectContaining({ where: { agentId: "agent-1" } }),
 			);
 			expect(result).toEqual(TRUST);
@@ -527,9 +529,9 @@ describe("createPrismaAdapter", () => {
 		};
 
 		it("listPendingApprovals filters by agentId and pending status", async () => {
-			prisma.kavachApprovalRequest.findMany.mockResolvedValue([APPROVAL]);
+			prisma.theAuthApprovalRequest.findMany.mockResolvedValue([APPROVAL]);
 			const result = await db.listPendingApprovals("agent-1");
-			expect(prisma.kavachApprovalRequest.findMany).toHaveBeenCalledWith(
+			expect(prisma.theAuthApprovalRequest.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({ where: { agentId: "agent-1", status: "pending" } }),
 			);
 			expect(result).toHaveLength(1);
@@ -537,7 +539,7 @@ describe("createPrismaAdapter", () => {
 
 		it("updateApprovalRequest approves a request", async () => {
 			const approved = { ...APPROVAL, status: "approved", respondedAt: NOW, respondedBy: "user-1" };
-			prisma.kavachApprovalRequest.update.mockResolvedValue(approved);
+			prisma.theAuthApprovalRequest.update.mockResolvedValue(approved);
 			const result = await db.updateApprovalRequest("approval-1", {
 				status: "approved",
 				respondedAt: NOW,
@@ -565,7 +567,7 @@ describe("createPrismaAdapter", () => {
 			prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
 				fn(prisma),
 			);
-			let innerAdapter: KavachPrismaAdapter | undefined;
+			let innerAdapter: TheAuthPrismaAdapter | undefined;
 			await db.transaction(async (adapter) => {
 				innerAdapter = adapter;
 			});
@@ -579,9 +581,9 @@ describe("createPrismaAdapter", () => {
 	describe("rate limits", () => {
 		it("upsertRateLimit calls upsert with a derived id", async () => {
 			const RATE = { id: "xxx", agentId: "agent-1", resource: "mcp:*", windowStart: NOW, count: 5 };
-			prisma.kavachRateLimit.upsert.mockResolvedValue(RATE);
+			prisma.theAuthRateLimit.upsert.mockResolvedValue(RATE);
 			const result = await db.upsertRateLimit("agent-1", "mcp:*", NOW, 5);
-			expect(prisma.kavachRateLimit.upsert).toHaveBeenCalledWith(
+			expect(prisma.theAuthRateLimit.upsert).toHaveBeenCalledWith(
 				expect.objectContaining({
 					create: expect.objectContaining({ agentId: "agent-1", resource: "mcp:*", count: 5 }),
 					update: { count: 5 },
@@ -611,18 +613,18 @@ describe("createPrismaAdapter", () => {
 				createdAt: NOW,
 				updatedAt: NOW,
 			};
-			prisma.kavachOAuthClient.findFirst.mockResolvedValue(CLIENT);
+			prisma.theAuthOAuthClient.findFirst.mockResolvedValue(CLIENT);
 			const result = await db.findOAuthClientById("my-client");
-			expect(prisma.kavachOAuthClient.findFirst).toHaveBeenCalledWith({
+			expect(prisma.theAuthOAuthClient.findFirst).toHaveBeenCalledWith({
 				where: { clientId: "my-client" },
 			});
 			expect(result?.clientId).toBe("my-client");
 		});
 
 		it("revokeOAuthAccessToken calls deleteMany with accessToken", async () => {
-			prisma.kavachOAuthAccessToken.deleteMany.mockResolvedValue({ count: 1 });
+			prisma.theAuthOAuthAccessToken.deleteMany.mockResolvedValue({ count: 1 });
 			await db.revokeOAuthAccessToken("tok_abc");
-			expect(prisma.kavachOAuthAccessToken.deleteMany).toHaveBeenCalledWith({
+			expect(prisma.theAuthOAuthAccessToken.deleteMany).toHaveBeenCalledWith({
 				where: { accessToken: "tok_abc" },
 			});
 		});

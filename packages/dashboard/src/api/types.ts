@@ -114,9 +114,6 @@ export interface TheAuthSettings {
 /** @deprecated Use `TheAuthSettings` instead. Will be removed in a future major version. */
 export type AuthSettings = TheAuthSettings;
 
-/** @deprecated Use `TheAuthSettings` instead. Will be removed in a future major version. */
-export type KavachSettings = TheAuthSettings;
-
 // ─── Dashboard Stats Types ────────────────────────────────────────────────────
 
 export interface DashboardStats {

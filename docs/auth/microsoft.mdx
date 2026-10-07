@@ -43,13 +43,13 @@ From the app overview, copy the **Application (client) ID** and the **Directory 
 
 <Tabs>
   <Tab title="Personal + work accounts">
-    ```typescript title="lib/kavach.ts"
+    ```typescript title="lib/theauth.ts"
     import { createTheAuth } from '@glinr/theauth';
     import { oauth } from '@glinr/theauth/auth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      secret: process.env.KAVACH_SECRET!,
+      secret: process.env.THEAUTH_SECRET!,
       baseUrl: 'https://auth.example.com',
       plugins: [
         oauth({
@@ -67,7 +67,7 @@ From the app overview, copy the **Application (client) ID** and the **Directory 
     ```
   </Tab>
   <Tab title="Work accounts only (single tenant)">
-    ```typescript title="lib/kavach.ts"
+    ```typescript title="lib/theauth.ts"
     oauth({
       providers: [
         {

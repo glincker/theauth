@@ -1,7 +1,7 @@
 /**
- * MockKavachProvider
+ * MockTheAuthProvider
  *
- * Wraps `KavachContext.Provider` with controlled fake data so component tests
+ * Wraps `TheAuthContext.Provider` with controlled fake data so component tests
  * can exercise auth-dependent UI without making any network requests.
  *
  * All action methods (signIn, signUp, signOut, refresh) are `vi.fn()` spies
@@ -10,22 +10,22 @@
 
 import type {
 	ActionResult,
-	KavachContextValue,
-	KavachSession,
-	KavachUser,
+	TheAuthContextValue,
+	TheAuthSession,
+	TheAuthUser,
 } from "@glinr/theauth-react";
-import { KavachContext } from "@glinr/theauth-react";
+import { TheAuthContext } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface MockKavachProviderProps {
+export interface MockTheAuthProviderProps {
 	children: ReactNode;
 	/** The user to expose via `useUser()`. Defaults to `null`. */
-	user?: KavachUser | null;
+	user?: TheAuthUser | null;
 	/** The session to expose via `useSession()`. Defaults to `null`. */
-	session?: KavachSession | null;
+	session?: TheAuthSession | null;
 	/** Override `isAuthenticated`. Defaults to `session !== null`. */
 	isAuthenticated?: boolean;
 	/** Override `isLoading`. Defaults to `false`. */
@@ -34,27 +34,27 @@ export interface MockKavachProviderProps {
 	 * Override the `signIn` spy.
 	 * Defaults to `vi.fn()` resolving `{ success: true, data: undefined }`.
 	 */
-	signIn?: KavachContextValue["signIn"];
+	signIn?: TheAuthContextValue["signIn"];
 	/**
 	 * Override the `signUp` spy.
 	 * Defaults to `vi.fn()` resolving `{ success: true, data: undefined }`.
 	 */
-	signUp?: KavachContextValue["signUp"];
+	signUp?: TheAuthContextValue["signUp"];
 	/**
 	 * Override the `signOut` spy.
 	 * Defaults to `vi.fn()` resolving `undefined`.
 	 */
-	signOut?: KavachContextValue["signOut"];
+	signOut?: TheAuthContextValue["signOut"];
 	/**
 	 * Override the `refresh` spy.
 	 * Defaults to `vi.fn()` resolving `undefined`.
 	 */
-	refresh?: KavachContextValue["refresh"];
+	refresh?: TheAuthContextValue["refresh"];
 }
 
 // ─── Default spies ────────────────────────────────────────────────────────────
 
-function makeDefaultSignIn(): KavachContextValue["signIn"] {
+function makeDefaultSignIn(): TheAuthContextValue["signIn"] {
 	const spy = vi.fn(
 		async (_email: string, _password: string): Promise<ActionResult> => ({
 			success: true,
@@ -64,7 +64,7 @@ function makeDefaultSignIn(): KavachContextValue["signIn"] {
 	return spy;
 }
 
-function makeDefaultSignUp(): KavachContextValue["signUp"] {
+function makeDefaultSignUp(): TheAuthContextValue["signUp"] {
 	const spy = vi.fn(
 		async (_email: string, _password: string, _name?: string): Promise<ActionResult> => ({
 			success: true,
@@ -74,18 +74,18 @@ function makeDefaultSignUp(): KavachContextValue["signUp"] {
 	return spy;
 }
 
-function makeDefaultSignOut(): KavachContextValue["signOut"] {
+function makeDefaultSignOut(): TheAuthContextValue["signOut"] {
 	return vi.fn(async (): Promise<void> => undefined);
 }
 
-function makeDefaultRefresh(): KavachContextValue["refresh"] {
+function makeDefaultRefresh(): TheAuthContextValue["refresh"] {
 	return vi.fn(async (): Promise<void> => undefined);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Drop-in replacement for `<KavachProvider>` in component tests.
+ * Drop-in replacement for `<TheAuthProvider>` in component tests.
  *
  * @example
  * ```tsx
@@ -93,15 +93,15 @@ function makeDefaultRefresh(): KavachContextValue["refresh"] {
  * const session = createMockSession({ user });
  *
  * render(
- *   <MockKavachProvider user={user} session={session}>
+ *   <MockTheAuthProvider user={user} session={session}>
  *     <ProfileButton />
- *   </MockKavachProvider>
+ *   </MockTheAuthProvider>
  * );
  *
  * expect(screen.getByText(user.name!)).toBeInTheDocument();
  * ```
  */
-export function MockKavachProvider({
+export function MockTheAuthProvider({
 	children,
 	user = null,
 	session = null,
@@ -111,8 +111,8 @@ export function MockKavachProvider({
 	signUp,
 	signOut,
 	refresh,
-}: MockKavachProviderProps): ReactNode {
-	const value: KavachContextValue = {
+}: MockTheAuthProviderProps): ReactNode {
+	const value: TheAuthContextValue = {
 		user,
 		session,
 		isLoading,
@@ -131,5 +131,5 @@ export function MockKavachProvider({
 		isOnline: true,
 	};
 
-	return <KavachContext.Provider value={value}>{children}</KavachContext.Provider>;
+	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }

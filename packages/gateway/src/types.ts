@@ -1,4 +1,4 @@
-import type { Kavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
 
 // ─── Gateway Configuration ───────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ export interface GatewayConfig {
 	/** Base path prefix for all proxied routes. Default: '/' */
 	basePath?: string;
 	/** TheAuth instance */
-	kavach: Kavach;
+	theauth: TheAuth;
 	/** Path-based access policies */
 	policies?: GatewayPolicy[];
 	/** CORS configuration */

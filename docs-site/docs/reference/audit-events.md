@@ -5,12 +5,12 @@ description: Immutable logging of every authorization decision, with filtering, 
 
 # Audit Events
 
-Every call to `kavach.authorize()` or `kavach.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed, denied, and rate-limited calls are all recorded. The log is append-only: entries are never updated or deleted.
+Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed, denied, and rate-limited calls are all recorded. The log is append-only: entries are never updated or deleted.
 
 `authorize()` returns an `auditId` linking the decision to its log entry:
 
 ```typescript
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
@@ -38,7 +38,7 @@ console.log(result.auditId); // "aud_3f8a..."
 All filter fields are optional and combinable. Without filters, the query returns all entries up to the `limit`.
 
 ```typescript
-const logs = await kavach.audit.query({
+const logs = await theauth.audit.query({
   agentId: 'agt_...',
   userId: 'user-123',
   result: 'denied',
@@ -67,13 +67,13 @@ const logs = await kavach.audit.query({
 
 ```typescript
 // JSON export
-const json = await kavach.audit.export({ format: 'json' });
+const json = await theauth.audit.export({ format: 'json' });
 
 // CSV export, suitable for spreadsheets and compliance tools
-const csv = await kavach.audit.export({ format: 'csv' });
+const csv = await theauth.audit.export({ format: 'csv' });
 
 // Export a specific time range
-const q4 = await kavach.audit.export({
+const q4 = await theauth.audit.export({
   format: 'csv',
   since: new Date('2024-10-01'),
   until: new Date('2025-01-01'),

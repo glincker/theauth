@@ -16,13 +16,13 @@ The device displays a short code like `BDFK-RSTV`. The user opens a URL on their
 
 ### Add the plugin
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { deviceAuth } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     deviceAuth({ // [!code highlight]

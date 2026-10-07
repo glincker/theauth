@@ -1,4 +1,4 @@
-import { KavachProvider } from "@glinr/theauth-react";
+import { TheAuthProvider } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -11,7 +11,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 	return (
 		<html lang="en">
 			<body>
-				<KavachProvider basePath="/api/auth">{children}</KavachProvider>
+				<TheAuthProvider basePath="/api/auth">{children}</TheAuthProvider>
 			</body>
 		</html>
 	);

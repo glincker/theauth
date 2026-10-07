@@ -13,19 +13,19 @@ icon: "/brand-icons/railway.svg"
 Go to [railway.com](https://railway.com) and navigate to **Account Settings > Developer > OAuth Apps**. Create an app and add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/railway
+https://your-app.com/api/theauth/auth/oauth/callback/railway
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

@@ -13,19 +13,19 @@ icon: "/brand-icons/kick.svg"
 Go to [kick.com](https://kick.com) and navigate to **Dashboard > Developer > Applications**. Create an app and set your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/kick
+https://your-app.com/api/theauth/auth/oauth/callback/kick
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

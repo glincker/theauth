@@ -53,7 +53,7 @@ score = clamp(score, 0, 100)
 ## Querying trust scores
 
 ```typescript
-const score = await kavach.trust.getScore(agentId);
+const score = await theauth.trust.getScore(agentId);
 
 console.log(score.score);   // 73
 console.log(score.level);   // "trusted"
@@ -63,14 +63,14 @@ console.log(score.factors); // { successRate: 0.94, denialRate: 0.06, ... }
 ## Using trust scores to gate behavior
 
 ```typescript
-const score = await kavach.trust.getScore(agentId);
+const score = await theauth.trust.getScore(agentId);
 
 if (score.level === 'untrusted' || score.level === 'limited') {
   // Route to a human-in-the-loop approval flow
-  await kavach.approval.request({ agentId, action, resource });
+  await theauth.approval.request({ agentId, action, resource });
 } else {
   // Proceed directly
-  const result = await kavach.authorize(agentId, { action, resource });
+  const result = await theauth.authorize(agentId, { action, resource });
 }
 ```
 

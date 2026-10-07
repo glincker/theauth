@@ -479,7 +479,7 @@ describe("createPolicyEngine - fail-closed on graph errors (security)", () => {
 		// Stub crypto.subtle.digest? No, simpler: replace the rebac module's
 		// underlying check by making rebac_relationships table unreadable.
 		// We do this by dropping the table after createTables ran.
-		await db.run(sql`DROP TABLE IF EXISTS kavach_rebac_relationships`);
+		await db.run(sql`DROP TABLE IF EXISTS theauth_rebac_relationships`);
 
 		const engine = createPolicyEngine({ db });
 

@@ -1,4 +1,4 @@
-import type { KavachPlugin, PluginContext } from "@glinr/theauth";
+import type { PluginContext, TheAuthPlugin } from "@glinr/theauth";
 import { createRateLimiter, withRateLimit } from "@glinr/theauth/auth";
 import { createEmailAuth } from "./email-auth.js";
 import { EmailAuthError, ErrorCodes } from "./errors.js";
@@ -54,14 +54,14 @@ function errorToResponse(err: unknown): Response {
  *
  * Usage:
  * ```ts
- * const kavach = createKavach({
+ * const theauth = createTheAuth({
  *   plugins: [emailPassword({ appUrl: "https://app.example.com", ... })],
  * });
  * ```
  */
-export function emailPassword(config: EmailAuthConfig): KavachPlugin {
+export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 	return {
-		id: "kavach-email-password",
+		id: "theauth-email-password",
 
 		async init(ctx: PluginContext): Promise<undefined> {
 			const emailAuth = createEmailAuth(config, ctx.db);

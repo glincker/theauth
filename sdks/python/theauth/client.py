@@ -20,7 +20,7 @@ class TheAuthClient:
 
     Args:
         base_url: Base URL of your TheAuth deployment, e.g.
-            ``"https://your-app.com/api/kavach"``.
+            ``"https://your-app.com/api/theauth"``.
         token: Optional bearer token sent with every request. Can be a user
             session token or an agent token. Individual methods that accept a
             ``token`` argument override this value for that call only.
@@ -36,7 +36,7 @@ class TheAuthClient:
 
         async def main():
             async with TheAuthClient(
-                base_url="https://my-app.com/api/kavach",
+                base_url="https://my-app.com/api/theauth",
                 token="kv_...",
             ) as client:
                 agent = await client.agents.create(
@@ -119,7 +119,7 @@ class TheAuthSyncClient:
         from theauth.permissions import read
 
         with TheAuthSyncClient(
-            base_url="https://my-app.com/api/kavach",
+            base_url="https://my-app.com/api/theauth",
             token="kv_...",
         ) as client:
             agent = client.agents.create(
@@ -171,6 +171,4 @@ class TheAuthSyncClient:
 
 
 # Deprecated: use TheAuthClient instead. Will be removed in a future major version.
-KavachClient = TheAuthClient
 # Deprecated: use TheAuthSyncClient instead. Will be removed in a future major version.
-KavachSyncClient = TheAuthSyncClient

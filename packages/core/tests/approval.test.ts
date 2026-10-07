@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalRequest } from "../src/approval/approval.js";
-import type { Kavach } from "../src/kavach.js";
-import { createTestKavach } from "./helpers.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTestTheAuth } from "./helpers.js";
 
 describe("approval – CIBA async approval flows", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 	let agentId: string;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: "user-1",
 			name: "Test Agent",
 			type: "autonomous",
@@ -20,7 +20,7 @@ describe("approval – CIBA async approval flows", () => {
 	});
 
 	it("creates a pending approval request", async () => {
-		const req = await kavach.approval.request({
+		const req = await theauth.approval.request({
 			agentId,
 			userId: "user-1",
 			action: "write",
@@ -39,7 +39,7 @@ describe("approval – CIBA async approval flows", () => {
 	});
 
 	it("includes optional arguments in the request", async () => {
-		const req = await kavach.approval.request({
+		const req = await theauth.approval.request({
 			agentId,
 			userId: "user-1",
 			action: "delete",
@@ -51,33 +51,33 @@ describe("approval – CIBA async approval flows", () => {
 	});
 
 	it("retrieves a request by id", async () => {
-		const created = await kavach.approval.request({
+		const created = await theauth.approval.request({
 			agentId,
 			userId: "user-1",
 			action: "read",
 			resource: "secret:*",
 		});
 
-		const fetched = await kavach.approval.get(created.id);
+		const fetched = await theauth.approval.get(created.id);
 		expect(fetched).not.toBeNull();
 		expect(fetched?.id).toBe(created.id);
 		expect(fetched?.status).toBe("pending");
 	});
 
 	it("returns null for unknown id", async () => {
-		const result = await kavach.approval.get("apr_nonexistent");
+		const result = await theauth.approval.get("apr_nonexistent");
 		expect(result).toBeNull();
 	});
 
 	it("approves a pending request", async () => {
-		const created = await kavach.approval.request({
+		const created = await theauth.approval.request({
 			agentId,
 			userId: "user-1",
 			action: "execute",
 			resource: "tool:deploy",
 		});
 
-		const approved = await kavach.approval.approve(created.id, "admin@example.com");
+		const approved = await theauth.approval.approve(created.id, "admin@example.com");
 
 		expect(approved.status).toBe("approved");
 		expect(approved.respondedBy).toBe("admin@example.com");
@@ -85,89 +85,89 @@ describe("approval – CIBA async approval flows", () => {
 	});
 
 	it("denies a pending request", async () => {
-		const created = await kavach.approval.request({
+		const created = await theauth.approval.request({
 			agentId,
 			userId: "user-1",
 			action: "delete",
 			resource: "tool:nuke",
 		});
 
-		const denied = await kavach.approval.deny(created.id, "security@example.com");
+		const denied = await theauth.approval.deny(created.id, "security@example.com");
 
 		expect(denied.status).toBe("denied");
 		expect(denied.respondedBy).toBe("security@example.com");
 	});
 
 	it("throws when approving an already-resolved request", async () => {
-		const created = await kavach.approval.request({
+		const created = await theauth.approval.request({
 			agentId,
 			userId: "user-1",
 			action: "read",
 			resource: "file:log",
 		});
 
-		await kavach.approval.approve(created.id);
-		await expect(kavach.approval.approve(created.id)).rejects.toThrow("approved");
+		await theauth.approval.approve(created.id);
+		await expect(theauth.approval.approve(created.id)).rejects.toThrow("approved");
 	});
 
 	describe("listPending", () => {
 		it("lists all pending requests", async () => {
-			await kavach.approval.request({
+			await theauth.approval.request({
 				agentId,
 				userId: "user-1",
 				action: "read",
 				resource: "r1",
 			});
-			await kavach.approval.request({
+			await theauth.approval.request({
 				agentId,
 				userId: "user-1",
 				action: "write",
 				resource: "r2",
 			});
 
-			const pending = await kavach.approval.listPending();
+			const pending = await theauth.approval.listPending();
 			expect(pending.length).toBe(2);
 			expect(pending.every((r) => r.status === "pending")).toBe(true);
 		});
 
 		it("filters by userId", async () => {
-			await kavach.approval.request({
+			await theauth.approval.request({
 				agentId,
 				userId: "user-1",
 				action: "read",
 				resource: "r1",
 			});
 
-			const pending = await kavach.approval.listPending("user-1");
+			const pending = await theauth.approval.listPending("user-1");
 			expect(pending.length).toBe(1);
 
-			const noPending = await kavach.approval.listPending("user-999");
+			const noPending = await theauth.approval.listPending("user-999");
 			expect(noPending.length).toBe(0);
 		});
 
 		it("excludes approved requests", async () => {
-			const req = await kavach.approval.request({
+			const req = await theauth.approval.request({
 				agentId,
 				userId: "user-1",
 				action: "execute",
 				resource: "r1",
 			});
-			await kavach.approval.approve(req.id);
+			await theauth.approval.approve(req.id);
 
-			const pending = await kavach.approval.listPending();
+			const pending = await theauth.approval.listPending();
 			expect(pending.length).toBe(0);
 		});
 	});
 
 	describe("cleanup", () => {
 		it("expires requests past their TTL", async () => {
-			// Create a kavach instance with a very short TTL
-			const _shortTtl = await createTestKavach();
-			// Use base kavach approval module but we'll test via the module directly
+			// Create a theauth instance with a very short TTL
+			const _shortTtl = await createTestTheAuth();
+			// Use base theauth approval module but we'll test via the module directly
 			// by simulating expiry: we create an approval, then we call cleanup
 
-			// Create with default kavach (TTL 300s) - won't be expired immediately
-			await kavach.approval.request({
+			// Create with default theauth (TTL 300s) - won't be expired immediately
+			await theauth.approval.request({
 				agentId,
 				userId: "user-1",
 				action: "read",
@@ -175,24 +175,24 @@ describe("approval – CIBA async approval flows", () => {
 			});
 
 			// Initially nothing expired
-			const result = await kavach.approval.cleanup();
+			const result = await theauth.approval.cleanup();
 			expect(result.expired).toBe(0);
 		});
 
 		it("returns count of zero when nothing to expire", async () => {
-			const result = await kavach.approval.cleanup();
+			const result = await theauth.approval.cleanup();
 			expect(result.expired).toBe(0);
 		});
 	});
 
 	describe("onApprovalNeeded handler", () => {
 		it("calls the handler when a request is created", async () => {
-			const { createKavach } = await import("../src/kavach.js");
+			const { createTheAuth } = await import("../src/theauth.js");
 			const schema = await import("../src/db/schema.js");
 
 			const handler = vi.fn().mockResolvedValue(undefined);
 
-			const kavachWithHook = await createKavach({
+			const theAuthWithHook = await createTheAuth({
 				database: { provider: "sqlite", url: ":memory:" },
 				agents: {
 					enabled: true,
@@ -204,7 +204,7 @@ describe("approval – CIBA async approval flows", () => {
 				approval: { onApprovalNeeded: handler },
 			});
 
-			kavachWithHook.db
+			theAuthWithHook.db
 				.insert(schema.users)
 				.values({
 					id: "user-1",
@@ -215,14 +215,14 @@ describe("approval – CIBA async approval flows", () => {
 				})
 				.run();
 
-			const agent = await kavachWithHook.agent.create({
+			const agent = await theAuthWithHook.agent.create({
 				ownerId: "user-1",
 				name: "Hook Agent",
 				type: "autonomous",
 				permissions: [],
 			});
 
-			await kavachWithHook.approval.request({
+			await theAuthWithHook.approval.request({
 				agentId: agent.id,
 				userId: "user-1",
 				action: "read",

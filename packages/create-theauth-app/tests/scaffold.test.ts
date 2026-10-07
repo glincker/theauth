@@ -48,15 +48,15 @@ describe("scaffold – next-saas", () => {
 			template: "next-saas",
 			appName: "test-app",
 			dbDriver: "better-sqlite3",
-			dbUrl: "file:./kavach.db",
+			dbUrl: "file:./theauth.db",
 		});
 
 		const expected = [
 			"package.json",
-			"src/lib/kavach.ts",
+			"src/lib/theauth.ts",
 			"src/app/layout.tsx",
 			".gitignore",
-			"src/app/api/auth/[...kavach]/route.ts",
+			"src/app/api/auth/[...theauth]/route.ts",
 			"src/app/page.tsx",
 			"src/app/agents/page.tsx",
 			".env.example",
@@ -80,7 +80,7 @@ describe("scaffold – next-saas", () => {
 			template: "next-saas",
 			appName: "my-cool-app",
 			dbDriver: "better-sqlite3",
-			dbUrl: "file:./kavach.db",
+			dbUrl: "file:./theauth.db",
 		});
 
 		const pkg = await readFile(join(targetDir, "package.json"), "utf-8");
@@ -112,7 +112,7 @@ describe("scaffold – next-saas", () => {
 			template: "next-saas",
 			appName: "placeholder-check",
 			dbDriver: "better-sqlite3",
-			dbUrl: "file:./kavach.db",
+			dbUrl: "file:./theauth.db",
 		});
 
 		const files = await collectFiles(targetDir);
@@ -142,8 +142,8 @@ describe("scaffold – next-saas", () => {
 		const pkg = await readFile(join(targetDir, "package.json"), "utf-8");
 		expect(pkg).toContain('"pg"');
 
-		const kavach = await readFile(join(targetDir, "src/lib/kavach.ts"), "utf-8");
-		expect(kavach).toContain("pg");
+		const theauth = await readFile(join(targetDir, "src/lib/theauth.ts"), "utf-8");
+		expect(theauth).toContain("pg");
 	});
 
 	it("renames _gitignore to .gitignore", async () => {
@@ -155,7 +155,7 @@ describe("scaffold – next-saas", () => {
 			template: "next-saas",
 			appName: "gitignore-test",
 			dbDriver: "better-sqlite3",
-			dbUrl: "file:./kavach.db",
+			dbUrl: "file:./theauth.db",
 		});
 
 		const hasGitignore = await fileExists(join(targetDir, ".gitignore"));

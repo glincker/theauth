@@ -15,13 +15,13 @@ pnpm add @glinr/theauth @glinr/theauth-nestjs
 
 ## Setup
 
-### 1. Create the kavach instance
+### 1. Create the theauth instance
 
 ```typescript
-// lib/kavach.ts
+// lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = createTheAuth({
+export const theauth = createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -30,7 +30,7 @@ export const kavach = createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 ### 2. Import TheAuthModule
@@ -39,14 +39,14 @@ export const mcp = createMcpModule(kavach);
 // app.module.ts
 import { Module } from '@nestjs/common';
 import { TheAuthModule } from '@glinr/theauth-nestjs';
-import { kavach, mcp } from './lib/kavach.js';
+import { theauth, mcp } from './lib/theauth.js';
 
 @Module({
   imports: [
     TheAuthModule.forRoot({
-      kavach,
+      theauth,
       mcp,
-      basePath: '/api/kavach', // default
+      basePath: '/api/theauth', // default
     }),
   ],
 })

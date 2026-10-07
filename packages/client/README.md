@@ -15,27 +15,27 @@ npm install @glinr/@glinr/theauth-client
 Works in Node.js, Cloudflare Workers, Deno, and the browser.
 
 ```ts
-import { createKavachClient, KavachApiError } from '@glinr/theauth-client';
+import { createTheAuthClient, TheAuthApiError } from '@glinr/theauth-client';
 
-const kavach = createKavachClient({
+const theauth = createTheAuthClient({
   apiUrl: 'https://auth.yourapp.com',
   tenantId: 'your-tenant-id',
-  apiKey: process.env.KAVACH_API_KEY,
+  apiKey: process.env.THEAUTH_API_KEY,
 });
 
 // Authorize a token
-const result = await kavach.authorize({ token: incomingToken, requiredPermissions: ['read:data'] });
+const result = await theauth.authorize({ token: incomingToken, requiredPermissions: ['read:data'] });
 
 if (!result.ok) {
   throw new Error('Unauthorized');
 }
 
 // Manage agents
-const agent = await kavach.createAgent({ name: 'my-bot', permissions: ['read:data'] });
-const agents = await kavach.listAgents();
+const agent = await theauth.createAgent({ name: 'my-bot', permissions: ['read:data'] });
+const agents = await theauth.listAgents();
 
 // Delegate permissions
-await kavach.delegate({ agentId: agent.id, permissions: ['read:data'], expiresIn: '1h' });
+await theauth.delegate({ agentId: agent.id, permissions: ['read:data'], expiresIn: '1h' });
 ```
 
 ## theauth-go client
@@ -99,9 +99,9 @@ await auth.apiTokens.revokeCurrent();
 
 ```ts
 try {
-  await kavach.authorize({ token });
+  await theauth.authorize({ token });
 } catch (err) {
-  if (err instanceof KavachApiError) {
+  if (err instanceof TheAuthApiError) {
     console.error(err.status, err.body.code);
   }
 }

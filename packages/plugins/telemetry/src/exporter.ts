@@ -63,33 +63,33 @@ export function createTelemetryModule(config: TelemetryConfig) {
 
 		const attributes: Record<string, string | number | boolean> = {
 			"service.name": serviceName,
-			"kavach.agent.id": entry.agentId,
-			"kavach.action": entry.action,
-			"kavach.resource": entry.resource,
-			"kavach.result": entry.result,
-			"kavach.duration_ms": entry.durationMs,
+			"theauth.agent.id": entry.agentId,
+			"theauth.action": entry.action,
+			"theauth.resource": entry.resource,
+			"theauth.result": entry.result,
+			"theauth.duration_ms": entry.durationMs,
 		};
 
 		if (entry.tokensCost !== undefined) {
-			attributes["kavach.tokens_cost"] = entry.tokensCost;
+			attributes["theauth.tokens_cost"] = entry.tokensCost;
 		}
 
 		if (entry.userId) {
-			attributes["kavach.user.id"] = entry.userId;
+			attributes["theauth.user.id"] = entry.userId;
 		}
 
 		if (entry.reason) {
-			attributes["kavach.reason"] = entry.reason;
+			attributes["theauth.reason"] = entry.reason;
 		}
 
 		if (includeArguments && Object.keys(entry.parameters).length > 0) {
-			attributes["kavach.arguments"] = JSON.stringify(entry.parameters);
+			attributes["theauth.arguments"] = JSON.stringify(entry.parameters);
 		}
 
 		emit({
 			traceId: generateId() + generateId(),
 			spanId: generateId(),
-			name: "kavach.authorize",
+			name: "theauth.authorize",
 			kind: "internal",
 			startTime: startTime.toISOString(),
 			endTime: endTime.toISOString(),
@@ -106,18 +106,18 @@ export function createTelemetryModule(config: TelemetryConfig) {
 
 		const attributes: Record<string, string | number | boolean> = {
 			"service.name": serviceName,
-			"kavach.delegation.id": chain.id,
-			"kavach.delegation.from_agent": chain.fromAgent,
-			"kavach.delegation.to_agent": chain.toAgent,
-			"kavach.delegation.depth": chain.depth,
-			"kavach.delegation.action": action,
-			"kavach.delegation.expires_at": chain.expiresAt.toISOString(),
+			"theauth.delegation.id": chain.id,
+			"theauth.delegation.from_agent": chain.fromAgent,
+			"theauth.delegation.to_agent": chain.toAgent,
+			"theauth.delegation.depth": chain.depth,
+			"theauth.delegation.action": action,
+			"theauth.delegation.expires_at": chain.expiresAt.toISOString(),
 		};
 
 		emit({
 			traceId: generateId() + generateId(),
 			spanId: generateId(),
-			name: `kavach.delegation.${action}`,
+			name: `theauth.delegation.${action}`,
 			kind: "internal",
 			startTime: now.toISOString(),
 			endTime: now.toISOString(),
@@ -134,20 +134,20 @@ export function createTelemetryModule(config: TelemetryConfig) {
 
 		const attributes: Record<string, string | number | boolean> = {
 			"service.name": serviceName,
-			"kavach.agent.id": agent.id,
-			"kavach.agent.name": agent.name,
-			"kavach.agent.type": agent.type,
-			"kavach.action": action,
+			"theauth.agent.id": agent.id,
+			"theauth.agent.name": agent.name,
+			"theauth.agent.type": agent.type,
+			"theauth.action": action,
 		};
 
 		if (agent.ownerId) {
-			attributes["kavach.user.id"] = agent.ownerId;
+			attributes["theauth.user.id"] = agent.ownerId;
 		}
 
 		emit({
 			traceId: generateId() + generateId(),
 			spanId: generateId(),
-			name: `kavach.agent.${action}`,
+			name: `theauth.agent.${action}`,
 			kind: "internal",
 			startTime: now.toISOString(),
 			endTime: now.toISOString(),

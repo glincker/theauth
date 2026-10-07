@@ -41,12 +41,12 @@ function HomeScreen() {
 
 ## Exports
 
-- `TheAuthExpoProvider`: context provider with secure storage support (formerly `KavachExpoProvider`, still exported as a deprecated alias)
+- `TheAuthExpoProvider`: context provider with secure storage support (formerly `TheAuthExpoProvider`, still exported as a deprecated alias)
 - `useSession`: current session and loading state
 - `useUser`: authenticated user object
 - `useSignIn` / `useSignOut` / `useSignUp`: auth actions
 - `useAgents`: manage AI agents for the current user
-- `useTheAuthContext`: raw context access (formerly `useKavachContext`, still exported as a deprecated alias)
+- `useTheAuthContext`: raw context access (formerly `useTheAuthContext`, still exported as a deprecated alias)
 
 ## Docs
 

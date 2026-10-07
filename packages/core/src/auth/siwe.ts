@@ -327,11 +327,11 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 
-export function siwe(config: SiweConfig): KavachPlugin {
+export function siwe(config: SiweConfig): TheAuthPlugin {
 	return {
-		id: "kavach-siwe",
+		id: "theauth-siwe",
 
 		async init(ctx): Promise<undefined> {
 			const mod = createSiweModule(config);

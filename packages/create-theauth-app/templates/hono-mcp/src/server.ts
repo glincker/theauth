@@ -16,13 +16,13 @@
 //   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
 import { serve } from "@hono/node-server";
-import { kavachHono } from "@glinr/theauth-hono";
+import { theAuthHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
 import { users } from "@glinr/theauth";
 import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
 import { createMcpModule } from "@glinr/theauth/mcp";
 
-import { getKavach } from "./lib/kavach.js";
+import { getTheAuth } from "./lib/theauth.js";
 import { MCP_TOOLS } from "./tools.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
@@ -39,11 +39,11 @@ const tokens = new Map<string, McpAccessToken>();
 const refreshTokenIndex = new Map<string, string>();
 
 async function main(): Promise<void> {
-	const kavach = await getKavach();
+	const theauth = await getTheAuth();
 
 	// Seed a demo user so the /api/agents call in the smoke test has an owner.
 	try {
-		kavach.db
+		theauth.db
 			.insert(users)
 			.values({
 				id: "user-1",
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
 
 	// Mount the full TheAuth API (agents, audit, delegation) plus the MCP
 	// OAuth endpoints (.well-known, /mcp/register, /mcp/authorize, /mcp/token).
-	app.route("/api", kavachHono(kavach, { mcp }));
+	app.route("/api", theAuthHono(theauth, { mcp }));
 
 	// Protected tool list. Accepts either a kv_ agent token or an MCP JWT.
 	app.get("/tools/list", async (c) => {
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
 		if (!token) return c.json({ error: "Missing Authorization header" }, 401);
 
 		if (token.startsWith("kv_")) {
-			const result = await kavach.authorizeByToken(token, {
+			const result = await theauth.authorizeByToken(token, {
 				action: "read",
 				resource: "mcp:tools:list",
 			});
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
 		if (!tool) return c.json({ error: `Unknown tool: ${toolName}` }, 404);
 
 		if (token.startsWith("kv_")) {
-			const result = await kavach.authorizeByToken(token, {
+			const result = await theauth.authorizeByToken(token, {
 				action: "execute",
 				resource: `mcp:tools:${toolName}`,
 				arguments: body.arguments,

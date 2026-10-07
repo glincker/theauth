@@ -3,7 +3,7 @@ import { act, useEffect } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { KavachProvider } from "../src/context.js";
+import { TheAuthProvider } from "../src/context.js";
 import { useRotateSession, useUser } from "../src/hooks.js";
 import type { ExternalAuthConfig, RotateResult } from "../src/types.js";
 
@@ -111,9 +111,9 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		render(
-			<KavachProvider external={baseConfig()}>
+			<TheAuthProvider external={baseConfig()}>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 		await flush();
 
@@ -153,9 +153,9 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		render(
-			<KavachProvider external={baseConfig()}>
+			<TheAuthProvider external={baseConfig()}>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 		await flush();
 
@@ -186,9 +186,9 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		render(
-			<KavachProvider external={baseConfig({ onAuthError })}>
+			<TheAuthProvider external={baseConfig({ onAuthError })}>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 		await flush();
 
@@ -223,14 +223,14 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		render(
-			<KavachProvider
+			<TheAuthProvider
 				external={baseConfig({
 					// Lead = 1s — schedule should fire ~4s after the first rotation.
 					proactiveRefreshLeadMs: 1_000,
 				})}
 			>
 				<Probe />
-			</KavachProvider>,
+			</TheAuthProvider>,
 		);
 
 		// Drain the /me + initial proactive rotation kicked off by the user-load
@@ -256,7 +256,7 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		// ManagedProvider uses when rotation isn't configured. We assert the
 		// shape of the returned RotateResult — i.e. SSR cannot crash.
 		const { useRotateSession: hookUnderTest } = await import("../src/hooks.js");
-		const { KavachProvider: P } = await import("../src/context.js");
+		const { TheAuthProvider: P } = await import("../src/context.js");
 
 		// Render in the JSDOM env but with no refreshPath — equivalent to
 		// SSR/managed mode behavior at the rotation boundary.

@@ -134,6 +134,3 @@ export function TheAuthDashboard({ apiUrl, theme = "dark", demo }: DashboardProp
 
 /** @deprecated Use `TheAuthDashboard` instead. Will be removed in a future major version. */
 export const AuthDashboard = TheAuthDashboard;
-
-/** @deprecated Use `TheAuthDashboard` instead. Will be removed in a future major version. */
-export const KavachDashboard = TheAuthDashboard;

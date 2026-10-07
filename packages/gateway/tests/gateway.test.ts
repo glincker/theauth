@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../core/src/db/schema.js";
-import type { Kavach } from "../../core/src/kavach.js";
-import { createKavach } from "../../core/src/kavach.js";
+import type { TheAuth } from "../../core/src/theauth.js";
+import { createTheAuth } from "../../core/src/theauth.js";
 import { createGateway } from "../src/gateway.js";
 import type { Gateway } from "../src/types.js";
 
@@ -34,8 +34,8 @@ function upstreamOk(body = '{"ok":true}', status = 200): Response {
 
 // ─── Test Helpers ─────────────────────────────────────────────────────────────
 
-async function createTestKavach(): Promise<Kavach> {
-	const kavach = await createKavach({
+async function createTestTheAuth(): Promise<TheAuth> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -46,7 +46,7 @@ async function createTestKavach(): Promise<Kavach> {
 		},
 	});
 
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -57,16 +57,16 @@ async function createTestKavach(): Promise<Kavach> {
 		})
 		.run();
 
-	return kavach;
+	return theauth;
 }
 
 async function createTestAgent(
-	kavach: Kavach,
+	theauth: TheAuth,
 	permissions: Array<{ resource: string; actions: string[] }> = [
 		{ resource: "api", actions: ["read", "write"] },
 	],
 ): Promise<{ id: string; token: string }> {
-	const agent = await kavach.agent.create({
+	const agent = await theauth.agent.create({
 		ownerId: "user-1",
 		name: "test-agent",
 		type: "autonomous",
@@ -99,12 +99,12 @@ function makeRequest(
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe("TheAuth Gateway", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 	let gateway: Gateway;
 	let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 		fetchSpy = mockFetch(() => upstreamOk());
 	});
 
@@ -115,9 +115,9 @@ describe("TheAuth Gateway", () => {
 	// ── Health Check ────────────────────────────────────────────────────────────
 
 	describe("health check", () => {
-		it("returns 200 with status ok at /_kavach/health", async () => {
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
-			const res = await gateway.handleRequest(makeRequest("/_kavach/health"));
+		it("returns 200 with status ok at /_theauth/health", async () => {
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
+			const res = await gateway.handleRequest(makeRequest("/_theauth/health"));
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { status: string; upstream: string };
 			expect(body.status).toBe("ok");
@@ -125,8 +125,8 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("does not forward health check to upstream", async () => {
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
-			await gateway.handleRequest(makeRequest("/_kavach/health"));
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
+			await gateway.handleRequest(makeRequest("/_theauth/health"));
 			expect(fetchSpy).not.toHaveBeenCalled();
 		});
 	});
@@ -135,7 +135,7 @@ describe("TheAuth Gateway", () => {
 
 	describe("auth enforcement", () => {
 		it("rejects requests with no token (401)", async () => {
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/api/data"));
 			expect(res.status).toBe(401);
 			const body = (await res.json()) as { error: { code: string } };
@@ -143,7 +143,7 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("rejects requests with an invalid token (401)", async () => {
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(
 				makeRequest("/api/data", { token: "not-a-real-token" }),
 			);
@@ -151,8 +151,8 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("allows requests with a valid token", async () => {
-			const { token } = await createTestAgent(kavach);
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			const { token } = await createTestAgent(theauth);
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/api/data", { token }));
 			expect(res.status).toBe(200);
 			expect(fetchSpy).toHaveBeenCalledOnce();
@@ -161,7 +161,7 @@ describe("TheAuth Gateway", () => {
 		it("passes requests through when no token is required (public policy)", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/public/*", public: true }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/public/page"));
@@ -176,7 +176,7 @@ describe("TheAuth Gateway", () => {
 		it("allows unauthenticated access to public paths", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/health", public: true }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/health"));
@@ -186,7 +186,7 @@ describe("TheAuth Gateway", () => {
 		it("still requires auth on non-public paths", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/health", public: true }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/api/secret"));
@@ -196,7 +196,7 @@ describe("TheAuth Gateway", () => {
 		it("requireAuth: false also bypasses auth", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/status", requireAuth: false }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/status"));
@@ -208,10 +208,10 @@ describe("TheAuth Gateway", () => {
 
 	describe("permission checks", () => {
 		it("allows access when agent has the required permission", async () => {
-			const { token } = await createTestAgent(kavach, [{ resource: "files", actions: ["read"] }]);
+			const { token } = await createTestAgent(theauth, [{ resource: "files", actions: ["read"] }]);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [
 					{
 						path: "/files/*",
@@ -224,10 +224,10 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("denies access when agent lacks the required permission (403)", async () => {
-			const { token } = await createTestAgent(kavach, [{ resource: "other", actions: ["read"] }]);
+			const { token } = await createTestAgent(theauth, [{ resource: "other", actions: ["read"] }]);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [
 					{
 						path: "/admin/*",
@@ -242,10 +242,10 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("allows when permissions are not specified on the policy", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/open/*" }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/open/data", { token }));
@@ -259,7 +259,7 @@ describe("TheAuth Gateway", () => {
 		it("matches single-level wildcard /*", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/api/*", public: true }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/api/users"));
@@ -269,7 +269,7 @@ describe("TheAuth Gateway", () => {
 		it("does not match nested paths with /*", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/api/*", public: true }],
 			});
 			// /api/users/123 has two levels beyond /api — micromatch /* matches one
@@ -280,7 +280,7 @@ describe("TheAuth Gateway", () => {
 		it("matches nested paths with /**", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/api/**", public: true }],
 			});
 			const res = await gateway.handleRequest(makeRequest("/api/users/123"));
@@ -290,7 +290,7 @@ describe("TheAuth Gateway", () => {
 		it("matches exact paths", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/ping", public: true }],
 			});
 			expect((await gateway.handleRequest(makeRequest("/ping"))).status).toBe(200);
@@ -304,7 +304,7 @@ describe("TheAuth Gateway", () => {
 		it("applies policy only to the specified method", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/api/*", method: "GET", public: true }],
 			});
 			const get = await gateway.handleRequest(makeRequest("/api/data", { method: "GET" }));
@@ -317,7 +317,7 @@ describe("TheAuth Gateway", () => {
 		it("applies policy to an array of methods", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [{ path: "/api/*", method: ["GET", "HEAD"], public: true }],
 			});
 			expect(
@@ -338,7 +338,7 @@ describe("TheAuth Gateway", () => {
 		it("uses the first matching policy", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [
 					{ path: "/api/public", public: true },
 					{ path: "/api/*", requireAuth: true },
@@ -353,10 +353,10 @@ describe("TheAuth Gateway", () => {
 
 	describe("rate limiting", () => {
 		it("enforces global rate limit", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				rateLimit: { windowMs: 60_000, max: 2 },
 			});
 
@@ -367,10 +367,10 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("rate-limited response includes Retry-After header", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				rateLimit: { windowMs: 60_000, max: 1 },
 			});
 
@@ -381,10 +381,10 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("enforces per-policy rate limit", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				policies: [
 					{
 						path: "/slow/*",
@@ -399,8 +399,8 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("rate limits by agent identity not IP when token present", async () => {
-			const agent1 = await createTestAgent(kavach);
-			const agent2 = await createKavach({
+			const agent1 = await createTestAgent(theauth);
+			const agent2 = await createTheAuth({
 				database: { provider: "sqlite", url: ":memory:" },
 				agents: {
 					enabled: true,
@@ -428,10 +428,10 @@ describe("TheAuth Gateway", () => {
 				});
 			});
 
-			// Use the same kavach instance for agent1 only
+			// Use the same theauth instance for agent1 only
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				rateLimit: { windowMs: 60_000, max: 1 },
 			});
 
@@ -443,7 +443,7 @@ describe("TheAuth Gateway", () => {
 			expect(
 				(await gateway.handleRequest(makeRequest("/api/data", { token: agent1.token }))).status,
 			).toBe(429);
-			// agent2 from a different kavach instance won't resolve, so falls back to IP-based key
+			// agent2 from a different theauth instance won't resolve, so falls back to IP-based key
 			// The test just confirms agent1 exhausting their limit doesn't exhaust agent2's slot
 			void agent2;
 		});
@@ -453,10 +453,10 @@ describe("TheAuth Gateway", () => {
 
 	describe("CORS", () => {
 		it("adds CORS headers to proxied responses", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				cors: { origins: "*" },
 			});
 			const res = await gateway.handleRequest(makeRequest("/api/data", { token }));
@@ -466,7 +466,7 @@ describe("TheAuth Gateway", () => {
 		it("returns 204 for OPTIONS preflight with CORS config", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				cors: { origins: "*" },
 			});
 			const req = makeRequest("/api/data", { method: "OPTIONS" });
@@ -478,20 +478,20 @@ describe("TheAuth Gateway", () => {
 		it("adds CORS to health check response", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				cors: { origins: "https://app.example.com" },
 			});
-			const res = await gateway.handleRequest(makeRequest("/_kavach/health"));
+			const res = await gateway.handleRequest(makeRequest("/_theauth/health"));
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
 		});
 
 		it("allows a specific origin when listed", async () => {
 			gateway = createGateway({
 				upstream: UPSTREAM,
-				kavach,
+				theauth,
 				cors: { origins: ["https://app.example.com", "https://other.example.com"] },
 			});
-			const req = new Request("http://gateway.test/_kavach/health", {
+			const req = new Request("http://gateway.test/_theauth/health", {
 				headers: { Origin: "https://app.example.com" },
 			});
 			const res = await gateway.handleRequest(req);
@@ -503,7 +503,7 @@ describe("TheAuth Gateway", () => {
 
 	describe("header forwarding", () => {
 		it("forwards custom headers to upstream", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			const capturedHeaders: Record<string, string> = {};
 
 			fetchSpy.mockImplementation((input) => {
@@ -514,7 +514,7 @@ describe("TheAuth Gateway", () => {
 				return Promise.resolve(upstreamOk());
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			await gateway.handleRequest(
 				makeRequest("/api/data", {
 					token,
@@ -526,7 +526,7 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("adds X-Forwarded-Host and X-Gateway headers", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			const capturedHeaders: Record<string, string> = {};
 
 			fetchSpy.mockImplementation((input) => {
@@ -537,7 +537,7 @@ describe("TheAuth Gateway", () => {
 				return Promise.resolve(upstreamOk());
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
 			expect(capturedHeaders["x-forwarded-host"]).toBeTruthy();
@@ -545,7 +545,7 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("strips Authorization header when stripAuthHeader is true", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			const capturedHeaders: Record<string, string> = {};
 
 			fetchSpy.mockImplementation((input) => {
@@ -556,14 +556,14 @@ describe("TheAuth Gateway", () => {
 				return Promise.resolve(upstreamOk());
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach, stripAuthHeader: true });
+			gateway = createGateway({ upstream: UPSTREAM, theauth, stripAuthHeader: true });
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
 			expect(capturedHeaders.authorization).toBeUndefined();
 		});
 
 		it("keeps Authorization header when stripAuthHeader is false (default)", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			const capturedHeaders: Record<string, string> = {};
 
 			fetchSpy.mockImplementation((input) => {
@@ -574,7 +574,7 @@ describe("TheAuth Gateway", () => {
 				return Promise.resolve(upstreamOk());
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
 			expect(capturedHeaders.authorization).toBeTruthy();
@@ -586,8 +586,8 @@ describe("TheAuth Gateway", () => {
 	describe("upstream error handling", () => {
 		it("returns 502 when upstream is unreachable", async () => {
 			fetchSpy.mockRejectedValue(new Error("ECONNREFUSED"));
-			const { token } = await createTestAgent(kavach);
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			const { token } = await createTestAgent(theauth);
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/api/data", { token }));
 			expect(res.status).toBe(502);
 			const body = (await res.json()) as { error: { code: string } };
@@ -596,16 +596,16 @@ describe("TheAuth Gateway", () => {
 
 		it("passes upstream 4xx and 5xx status codes through", async () => {
 			fetchSpy.mockResolvedValue(new Response("not found", { status: 404 }));
-			const { token } = await createTestAgent(kavach);
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			const { token } = await createTestAgent(theauth);
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/api/missing", { token }));
 			expect(res.status).toBe(404);
 		});
 
 		it("passes upstream 5xx status through", async () => {
 			fetchSpy.mockResolvedValue(new Response("server error", { status: 500 }));
-			const { token } = await createTestAgent(kavach);
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			const { token } = await createTestAgent(theauth);
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/api/broken", { token }));
 			expect(res.status).toBe(500);
 		});
@@ -615,7 +615,7 @@ describe("TheAuth Gateway", () => {
 
 	describe("proxy behaviour", () => {
 		it("forwards request path and query string to upstream", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			let capturedUrl = "";
 
 			fetchSpy.mockImplementation((input) => {
@@ -624,7 +624,7 @@ describe("TheAuth Gateway", () => {
 				return Promise.resolve(upstreamOk());
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			await gateway.handleRequest(makeRequest("/api/search?q=test&limit=10", { token }));
 
 			expect(capturedUrl).toContain("/api/search");
@@ -633,7 +633,7 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("forwards POST body to upstream", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			let capturedBody = "";
 
 			fetchSpy.mockImplementation(async (input) => {
@@ -642,7 +642,7 @@ describe("TheAuth Gateway", () => {
 				return upstreamOk();
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			await gateway.handleRequest(
 				makeRequest("/api/create", {
 					token,
@@ -655,7 +655,7 @@ describe("TheAuth Gateway", () => {
 		});
 
 		it("returns upstream response body unchanged", async () => {
-			const { token } = await createTestAgent(kavach);
+			const { token } = await createTestAgent(theauth);
 			fetchSpy.mockResolvedValue(
 				new Response(JSON.stringify({ result: 42 }), {
 					status: 200,
@@ -663,7 +663,7 @@ describe("TheAuth Gateway", () => {
 				}),
 			);
 
-			gateway = createGateway({ upstream: UPSTREAM, kavach });
+			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/api/data", { token }));
 			const body = (await res.json()) as { result: number };
 			expect(body.result).toBe(42);
@@ -674,23 +674,23 @@ describe("TheAuth Gateway", () => {
 
 	describe("audit trail", () => {
 		it("records audit entries for allowed requests", async () => {
-			const { token } = await createTestAgent(kavach);
-			gateway = createGateway({ upstream: UPSTREAM, kavach, audit: true });
+			const { token } = await createTestAgent(theauth);
+			gateway = createGateway({ upstream: UPSTREAM, theauth, audit: true });
 
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
-			const entries = await kavach.audit.query({ limit: 10 });
+			const entries = await theauth.audit.query({ limit: 10 });
 			expect(entries.length).toBeGreaterThan(0);
 		});
 
 		it("does not record audit when audit: false", async () => {
-			const { token } = await createTestAgent(kavach);
-			gateway = createGateway({ upstream: UPSTREAM, kavach, audit: false });
+			const { token } = await createTestAgent(theauth);
+			gateway = createGateway({ upstream: UPSTREAM, theauth, audit: false });
 
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
 			// Without audit, the only log entries would come from the initial agent creation
-			const entries = await kavach.audit.query({ limit: 100 });
+			const entries = await theauth.audit.query({ limit: 100 });
 			// There may be 0 gateway-specific entries — just verify no crash
 			expect(Array.isArray(entries)).toBe(true);
 		});

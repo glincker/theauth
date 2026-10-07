@@ -60,7 +60,7 @@ export interface ExportAuditOptions {
 	output?: "individual" | "presentation";
 	/** Optional filter applied after the time range query. */
 	filter?: (record: AuditRecord) => boolean;
-	/** Records to export. Pass the results of `listAuditRecords` or `kavach.audit.query()`. */
+	/** Records to export. Pass the results of `listAuditRecords` or `theauth.audit.query()`. */
 	records: AuditRecord[];
 }
 
@@ -217,7 +217,7 @@ async function signPresentationAsJsonLd(
 /**
  * Export a set of audit records as Verifiable Credentials.
  *
- * Pass `records` from `kavach.audit.query()` or `listAuditRecords`.
+ * Pass `records` from `theauth.audit.query()` or `listAuditRecords`.
  * The function applies the optional `filter`, signs each record with
  * the issuer keypair, and returns either individual VCs or a single
  * Verifiable Presentation.
@@ -326,7 +326,7 @@ export async function exportAuditAsVC(options: ExportAuditOptions): Promise<Audi
  * and want to slice them before passing to `exportAuditAsVC`.
  *
  * ```ts
- * const records = await kavach.audit.query({ since, until });
+ * const records = await theauth.audit.query({ since, until });
  * const denyRecords = listAuditRecords(records, since, until, r => r.result === 'denied');
  * ```
  */

@@ -3,15 +3,15 @@
  * Uses in-memory SQLite, state resets on cold start (acceptable for a demo).
  */
 
-import type { Kavach } from "@glinr/theauth";
-import { createKavach } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 
-let instance: Kavach | null = null;
+let instance: TheAuth | null = null;
 
-export async function getKavach(): Promise<Kavach> {
+export async function getTheAuth(): Promise<TheAuth> {
 	if (instance) return instance;
 
-	instance = await createKavach({
+	instance = await createTheAuth({
 		database: {
 			provider: "sqlite",
 			url: ":memory:",

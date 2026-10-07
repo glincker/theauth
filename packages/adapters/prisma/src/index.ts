@@ -8,7 +8,6 @@ export type {
 	CreatePermissionInput,
 	CreateSessionInput,
 	CreateUserInput,
-	KavachPrismaAdapter,
 	PrismaAgent,
 	PrismaApiKey,
 	PrismaApprovalRequest,

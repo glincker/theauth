@@ -5,7 +5,7 @@
  * else is denied by default because the engine is fail-closed
  * (no matching permission → DENY).
  *
- * Usage: seed these rows into kavach_permissions for the agent, then call
+ * Usage: seed these rows into theauth_permissions for the agent, then call
  * engine.evaluate({ subject: { agentId }, action, resource }).
  */
 

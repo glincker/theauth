@@ -39,13 +39,13 @@ After creating the app, copy the **Client ID**. Click **Generate a new client se
 
 <Tabs>
   <Tab title="Basic">
-    ```typescript title="lib/kavach.ts"
+    ```typescript title="lib/theauth.ts"
     import { createTheAuth } from '@glinr/theauth';
     import { oauth } from '@glinr/theauth/auth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-      secret: process.env.KAVACH_SECRET!,
+      secret: process.env.THEAUTH_SECRET!,
       baseUrl: 'https://auth.example.com',
       plugins: [
         oauth({
@@ -62,7 +62,7 @@ After creating the app, copy the **Client ID**. Click **Generate a new client se
     ```
   </Tab>
   <Tab title="With extra scopes">
-    ```typescript title="lib/kavach.ts"
+    ```typescript title="lib/theauth.ts"
     oauth({
       providers: [
         {

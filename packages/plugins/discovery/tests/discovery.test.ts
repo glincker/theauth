@@ -1,11 +1,11 @@
-import type { Kavach } from "@glinr/theauth";
-import { createKavach, users } from "@glinr/theauth";
+import type { TheAuth } from "@glinr/theauth";
+import { createTheAuth, users } from "@glinr/theauth";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DiscoveryModule } from "../src/cards.js";
 import { createDiscoveryModule } from "../src/cards.js";
 
-async function createTestKavach(): Promise<Kavach> {
-	const kavach = await createKavach({
+async function createTestTheAuth(): Promise<TheAuth> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -17,7 +17,7 @@ async function createTestKavach(): Promise<Kavach> {
 	});
 
 	// Seed a test user
-	kavach.db
+	theauth.db
 		.insert(users)
 		.values({
 			id: "user-1",
@@ -28,19 +28,19 @@ async function createTestKavach(): Promise<Kavach> {
 		})
 		.run();
 
-	return kavach;
+	return theauth;
 }
 
 describe("discovery – agent capability cards", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 	let discovery: DiscoveryModule;
 	let agentId: string;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
-		discovery = createDiscoveryModule(kavach.db);
+		theauth = await createTestTheAuth();
+		discovery = createDiscoveryModule(theauth.db);
 
-		const agent = await kavach.agent.create({
+		const agent = await theauth.agent.create({
 			ownerId: "user-1",
 			name: "Test Agent",
 			type: "autonomous",
@@ -143,7 +143,7 @@ describe("discovery – agent capability cards", () => {
 		let agent2Id: string;
 
 		beforeEach(async () => {
-			const agent2 = await kavach.agent.create({
+			const agent2 = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "Agent Two",
 				type: "service",

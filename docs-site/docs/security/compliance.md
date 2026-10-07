@@ -1,6 +1,6 @@
 ---
 title: Compliance Overview
-description: Audit infrastructure for EU AI Act, NIST AI RMF, SOC 2, and ISO 42001. Agent actions write immutable records to kavach_audit_logs with identity, resource, and action.
+description: Audit infrastructure for EU AI Act, NIST AI RMF, SOC 2, and ISO 42001. Agent actions write immutable records to theauth_audit_logs with identity, resource, and action.
 ---
 
 # Compliance Overview
@@ -14,11 +14,11 @@ TheAuth is built with compliance requirements in mind. Every agent action produc
 
 | Requirement | TheAuth feature |
 |---|---|
-| Immutable audit log | `kavach_audit_logs` table with result, reason, duration, IP, user-agent |
+| Immutable audit log | `theauth_audit_logs` table with result, reason, duration, IP, user-agent |
 | Human oversight | Approval flows (CIBA), delegation depth limits, permission constraints |
 | Access control | Resource+action permission model with constraints (IP, time window, rate) |
 | Identity traceability | Every action links `agentId`, `userId`, resource, action, parameters |
-| Export | `kavach.audit.export()` as JSON or CSV |
+| Export | `theauth.audit.export()` as JSON or CSV |
 | Anomaly detection | High-frequency, high-denial-rate, off-hours, privilege escalation |
 
 ## EU AI Act (August 2, 2026 enforcement)
@@ -35,7 +35,7 @@ TheAuth supports Article 9 through:
 
 **Article 12 - Record-keeping**
 
-The `kavach_audit_logs` table is append-only. Entries record agent ID, user ID, action, resource, outcome, duration, and timestamp. Export via `kavach.audit.export({ format: 'csv' })` to produce records for regulators.
+The `theauth_audit_logs` table is append-only. Entries record agent ID, user ID, action, resource, outcome, duration, and timestamp. Export via `theauth.audit.export({ format: 'csv' })` to produce records for regulators.
 
 **Article 14 - Human oversight**
 

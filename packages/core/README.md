@@ -38,16 +38,16 @@ npm install @glinr/theauth
 ## Quick start
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword } from "@glinr/theauth/auth";
 
-const kavach = createKavach({
-  database: { provider: "sqlite", url: "kavach.db" },
+const theauth = createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
   plugins: [emailPassword()],
 });
 
 // Create an AI agent with scoped permissions
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: "user-123",
   name: "github-reader",
   type: "autonomous",
@@ -59,7 +59,7 @@ const agent = await kavach.agent.create({
 });
 
 // Authorize and audit (< 1ms)
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: "read",
   resource: "mcp:github:repos",
 });
@@ -146,7 +146,7 @@ Works with every major framework:
 
 | Package | What |
 |---------|------|
-| `@glinr/theauth-react` | KavachProvider + hooks |
+| `@glinr/theauth-react` | TheAuthProvider + hooks |
 | `@glinr/theauth-vue` | Vue 3 plugin + composables |
 | `@glinr/theauth-svelte` | Svelte stores |
 | `@glinr/theauth-ui` | 7 pre-built auth components (SignIn, SignUp, UserButton...) |
@@ -160,10 +160,10 @@ SQLite, PostgreSQL, MySQL, Cloudflare D1, libSQL (Turso). Tables are auto-create
 
 ```typescript
 // Cloudflare Workers + D1
-createKavach({ database: { provider: "d1", binding: env.THEAUTH_DB } });
+createTheAuth({ database: { provider: "d1", binding: env.THEAUTH_DB } });
 
 // PostgreSQL
-createKavach({ database: { provider: "postgres", url: process.env.DATABASE_URL } });
+createTheAuth({ database: { provider: "postgres", url: process.env.DATABASE_URL } });
 ```
 
 ## Plugins
@@ -176,8 +176,8 @@ import {
   organizations, sso, admin, apiKeys, webhooks,
 } from "@glinr/theauth/auth";
 
-createKavach({
-  database: { provider: "sqlite", url: "kavach.db" },
+createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
   plugins: [emailPassword(), magicLink({ sendMagicLink }), passkey(), totp()],
 });
 ```

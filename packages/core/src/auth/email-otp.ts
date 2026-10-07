@@ -7,8 +7,8 @@
  *
  * @example
  * ```typescript
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   emailOtp: {
  *     sendOtp: async (email, code) => {

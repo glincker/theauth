@@ -41,8 +41,8 @@ Pass a `hooks` object to `createTheAuth`:
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   hooks: {
     async beforeAuthorize({ agentId, action, resource }) {
       // Example: block calls outside business hours
@@ -58,7 +58,7 @@ const kavach = await createTheAuth({
 
     async afterAuthorize({ agentId, action, resource, result }) {
       if (!result.allowed) {
-        console.warn(`[kavach] Denied: agent=${agentId} action=${action} resource=${resource} reason=${result.reason}`);
+        console.warn(`[theauth] Denied: agent=${agentId} action=${action} resource=${resource} reason=${result.reason}`);
       }
     },
   },
@@ -68,8 +68,8 @@ const kavach = await createTheAuth({
 ## Logging every denial
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   hooks: {
     async afterAuthorize({ agentId, action, resource, result }) {
       if (!result.allowed) {
@@ -91,8 +91,8 @@ The `result.auditId` links this log line to the immutable audit entry. You can u
 ## Enforcing a sandbox check
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   hooks: {
     async beforeAgentCreate(input) {
       // Require sandbox metadata on all autonomous agents
@@ -107,15 +107,15 @@ const kavach = await createTheAuth({
 });
 ```
 
-Returning `{ allow: false }` from `beforeAgentCreate` causes the `kavach.agent.create()` call to throw a `TheAuthError` with the reason you provided.
+Returning `{ allow: false }` from `beforeAgentCreate` causes the `theauth.agent.create()` call to throw a `TheAuthError` with the reason you provided.
 
 ## Reacting to violations
 
 The `onViolation` hook fires for any denial that fits a known violation category. Use it to send alerts or update your observability platform.
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   hooks: {
     async onViolation({ type, agentId, action, resource, reason }) {
       // Send to your alerting system
@@ -127,7 +127,7 @@ const kavach = await createTheAuth({
 
       // For repeat offenders, you could revoke here
       if (type === 'ip_blocked') {
-        await kavach.agent.revoke(agentId);
+        await theauth.agent.revoke(agentId);
       }
     },
   },
@@ -137,12 +137,12 @@ const kavach = await createTheAuth({
 ## Cleaning up after revocation
 
 ```typescript
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   hooks: {
     async onAgentRevoke(agentId) {
       // Remove the agent's discovery card
-      await kavach.discovery.removeCard(agentId);
+      await theauth.discovery.removeCard(agentId);
 
       // Notify your own systems
       await internalApi.notifyAgentRevoked(agentId);

@@ -18,12 +18,12 @@
 //   GET             /api/theauth/dashboard/audit
 
 import { theAuthNextjs } from "@glinr/theauth-nextjs";
-import { getKavach } from "@/lib/kavach";
+import { getTheAuth } from "@/lib/theauth";
 
 // Build handlers lazily so the singleton is created on first request, not at
 // module evaluation time (which would run during the build step).
 async function getHandlers() {
-	const auth = await getKavach();
+	const auth = await getTheAuth();
 	return theAuthNextjs(auth, { basePath: "/api/theauth" });
 }
 

@@ -13,11 +13,6 @@ export interface TheAuthError {
  */
 export type AuthError = TheAuthError;
 
-/**
- * @deprecated Use `TheAuthError` instead. Will be removed in a future major version.
- */
-export type KavachError = TheAuthError;
-
 export type Result<T> = { success: true; data: T } | { success: false; error: TheAuthError };
 
 // ─── MCP Module Configuration ───────────────────────────────────────────────
@@ -80,7 +75,7 @@ export interface McpConfig {
 	 * Called only when `emitAgenticJwtClaims` is true. Return only the claims
 	 * you can populate; absent fields are skipped rather than fabricated.
 	 *
-	 * TODO(v3): wire this through kavach.ts so the trust module can provide
+	 * TODO(v3): wire this through theauth.ts so the trust module can provide
 	 * trust_tier automatically without requiring the caller to implement it.
 	 */
 	getAgenticContext?: (userId: string) => Promise<{

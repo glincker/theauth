@@ -1,10 +1,10 @@
 ---
 title: Express
-description: Mount TheAuth auth routes on Express with `kavachExpress(kavach)`. Returns a Router with agent identity, delegation, audit, and MCP OAuth 2.1 endpoints pre-mounted.
+description: Mount TheAuth auth routes on Express with `theAuthExpress(theauth)`. Returns a Router with agent identity, delegation, audit, and MCP OAuth 2.1 endpoints pre-mounted.
 icon: "/brand-icons/express.svg"
 ---
 
-`kavachExpress(kavach, options?)` returns an Express `Router` with all TheAuth routes pre-mounted. Use `app.use` to attach it at your chosen path.
+`theAuthExpress(theauth, options?)` returns an Express `Router` with all TheAuth routes pre-mounted. Use `app.use` to attach it at your chosen path.
 
 ## Install
 
@@ -16,13 +16,13 @@ pnpm add -D @types/express
 ## Setup
 
 <Steps>
-<Step title="Create the kavach instance">
+<Step title="Create the theauth instance">
 
 ```typescript
-// lib/kavach.ts
+// lib/theauth.ts
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -31,7 +31,7 @@ export const kavach = await createTheAuth({
   },
 });
 
-export const mcp = createMcpModule(kavach);
+export const mcp = createMcpModule(theauth);
 ```
 
 </Step>
@@ -40,8 +40,8 @@ export const mcp = createMcpModule(kavach);
 ```typescript
 // src/index.ts
 import express from 'express';
-import { kavachExpress } from '@glinr/theauth-express';
-import { kavach, mcp } from './lib/kavach.js';
+import { theAuthExpress } from '@glinr/theauth-express';
+import { theauth, mcp } from './lib/theauth.js';
 
 const app = express();
 
@@ -50,7 +50,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Mount all TheAuth routes
-app.use('/api/kavach', kavachExpress(kavach, { mcp }));
+app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
 
 app.listen(3000);
 ```
@@ -67,13 +67,13 @@ app.listen(3000);
 Pass `mcp` to enable the MCP OAuth 2.1 authorization server. All MCP endpoints are registered on the same router alongside the REST API:
 
 ```typescript
-app.use('/api/kavach', kavachExpress(kavach, { mcp }));
+app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
 // registers:
-// GET  /api/kavach/.well-known/oauth-authorization-server
-// GET  /api/kavach/.well-known/oauth-protected-resource
-// POST /api/kavach/mcp/register
-// GET  /api/kavach/mcp/authorize
-// POST /api/kavach/mcp/token
+// GET  /api/theauth/.well-known/oauth-authorization-server
+// GET  /api/theauth/.well-known/oauth-protected-resource
+// POST /api/theauth/mcp/register
+// GET  /api/theauth/mcp/authorize
+// POST /api/theauth/mcp/token
 ```
 
 ## Endpoint reference
@@ -99,9 +99,9 @@ app.use('/api/kavach', kavachExpress(kavach, { mcp }));
 ```typescript
 import express from 'express';
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
-import { kavachExpress } from '@glinr/theauth-express';
+import { theAuthExpress } from '@glinr/theauth-express';
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: {
@@ -110,13 +110,13 @@ const kavach = await createTheAuth({
   },
 });
 
-const mcp = createMcpModule(kavach);
+const mcp = createMcpModule(theauth);
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/kavach', kavachExpress(kavach, { mcp }));
+app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

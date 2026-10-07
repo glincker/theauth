@@ -20,7 +20,7 @@ class TheAuthError(Exception):
         self,
         message: str,
         *,
-        code: str = "KAVACH_ERROR",
+        code: str = "THEAUTH_ERROR",
         status_code: int = 0,
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -125,4 +125,3 @@ class NetworkError(TheAuthError):
 
 
 # Deprecated: use TheAuthError instead. Will be removed in a future major version.
-KavachError = TheAuthError

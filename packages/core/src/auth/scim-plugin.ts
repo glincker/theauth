@@ -1,4 +1,4 @@
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { ScimConfig } from "./scim.js";
 import { createScimModule } from "./scim.js";
 
@@ -18,11 +18,11 @@ export type { ScimConfig };
  *
  * @example
  * ```typescript
- * import { createKavach } from '@glinr/theauth';
+ * import { createTheAuth } from '@glinr/theauth';
  * import { scim } from '@glinr/theauth/auth';
  *
- * const kavach = await createKavach({
- *   database: { provider: 'sqlite', url: 'kavach.db' },
+ * const theauth = await createTheAuth({
+ *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   plugins: [
  *     scim({
  *       bearerToken: process.env.SCIM_TOKEN,
@@ -34,9 +34,9 @@ export type { ScimConfig };
  * });
  * ```
  */
-export function scim(config: ScimConfig): KavachPlugin {
+export function scim(config: ScimConfig): TheAuthPlugin {
 	return {
-		id: "kavach-scim",
+		id: "theauth-scim",
 
 		async init(ctx): Promise<undefined> {
 			const module = createScimModule(config, ctx.db);

@@ -5,8 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { getSessionId } from "@/lib/cookie";
-import { getKavach } from "@/lib/kavach-instance";
 import { getSession, setSession } from "@/lib/session-store";
+import { getTheAuth } from "@/lib/theauth-instance";
 
 export async function POST(): Promise<NextResponse> {
 	try {
@@ -23,12 +23,12 @@ export async function POST(): Promise<NextResponse> {
 			return NextResponse.json({ error: "Complete step 3 first" }, { status: 400 });
 		}
 
-		const kavach = await getKavach();
+		const theauth = await getTheAuth();
 
 		const subAgentName = `${session.userName}'s standup-reader (delegated)`;
 
 		// Create sub-agent with narrower scope: only list_events on one day
-		const subAgent = await kavach.agent.create({
+		const subAgent = await theauth.agent.create({
 			ownerId: session.userId,
 			name: subAgentName,
 			type: "delegated",
@@ -45,7 +45,7 @@ export async function POST(): Promise<NextResponse> {
 		});
 
 		// Create the delegation chain, sub-agent's permissions are a subset
-		const chain = await kavach.delegate({
+		const chain = await theauth.delegate({
 			fromAgent: session.agentId,
 			toAgent: subAgent.id,
 			permissions: [
@@ -83,7 +83,7 @@ export async function POST(): Promise<NextResponse> {
 			},
 			apiRequest: {
 				method: "POST",
-				path: "/kavach/delegate",
+				path: "/theauth/delegate",
 				body: {
 					fromAgent: session.agentId,
 					toAgent: subAgent.id,

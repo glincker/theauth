@@ -13,10 +13,10 @@
  * such as "doc:42" rather than "doc:*". See the README for details.
  *
  * Seeding steps:
- *   1. Insert the permission row below into kavach_permissions.
- *   2. Create the resource in kavach_rebac_resources:
+ *   1. Insert the permission row below into theauth_permissions.
+ *   2. Create the resource in theauth_rebac_resources:
  *        { id: "42", type: "doc" }
- *   3. Add a relationship tuple in kavach_rebac_relationships:
+ *   3. Add a relationship tuple in theauth_rebac_relationships:
  *        { subjectType: "agent", subjectId: <agentId>,
  *          relation: "viewer", objectType: "doc", objectId: "42" }
  */

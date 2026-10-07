@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../src/db/schema.js";
-import type { Kavach } from "../src/kavach.js";
-import { createKavach } from "../src/kavach.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTheAuth } from "../src/theauth.js";
 
-async function createTestKavach() {
-	const kavach = await createKavach({
+async function createTestTheAuth() {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -16,7 +16,7 @@ async function createTestKavach() {
 	});
 
 	// Seed a test user
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -27,18 +27,18 @@ async function createTestKavach() {
 		})
 		.run();
 
-	return kavach;
+	return theauth;
 }
 
-describe("createKavach", () => {
-	let kavach: Kavach;
+describe("createTheAuth", () => {
+	let theauth: TheAuth;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 	});
 
 	it("initializes the expected core API shape with SQLite", async () => {
-		const initialized = await createKavach({
+		const initialized = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: {
 				session: { secret: "shape-test-secret-at-least-32-chars!!" },
@@ -56,7 +56,7 @@ describe("createKavach", () => {
 
 	describe("agent lifecycle", () => {
 		it("creates an agent with permissions", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "test-agent",
 				type: "autonomous",
@@ -79,14 +79,14 @@ describe("createKavach", () => {
 		});
 
 		it("gets an agent by id", async () => {
-			const created = await kavach.agent.create({
+			const created = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "getter-agent",
 				type: "service",
 				permissions: [{ resource: "mcp:*", actions: ["read"] }],
 			});
 
-			const agent = await kavach.agent.get(created.id);
+			const agent = await theauth.agent.get(created.id);
 			expect(agent).not.toBeNull();
 			expect(agent?.name).toBe("getter-agent");
 			expect(agent?.permissions).toHaveLength(1);
@@ -94,43 +94,43 @@ describe("createKavach", () => {
 		});
 
 		it("lists agents for a user", async () => {
-			await kavach.agent.create({
+			await theauth.agent.create({
 				ownerId: "user-1",
 				name: "a1",
 				type: "autonomous",
 				permissions: [],
 			});
-			await kavach.agent.create({
+			await theauth.agent.create({
 				ownerId: "user-1",
 				name: "a2",
 				type: "service",
 				permissions: [],
 			});
 
-			const all = await kavach.agent.list({ userId: "user-1" });
+			const all = await theauth.agent.list({ userId: "user-1" });
 			expect(all).toHaveLength(2);
 
-			const services = await kavach.agent.list({ userId: "user-1", type: "service" });
+			const services = await theauth.agent.list({ userId: "user-1", type: "service" });
 			expect(services).toHaveLength(1);
 			expect(services[0]?.name).toBe("a2");
 		});
 
 		it("revokes an agent", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "revokable",
 				type: "autonomous",
 				permissions: [],
 			});
 
-			await kavach.agent.revoke(agent.id);
+			await theauth.agent.revoke(agent.id);
 
-			const revoked = await kavach.agent.get(agent.id);
+			const revoked = await theauth.agent.get(agent.id);
 			expect(revoked?.status).toBe("revoked");
 		});
 
 		it("rotates agent token", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "rotatable",
 				type: "autonomous",
@@ -138,33 +138,33 @@ describe("createKavach", () => {
 			});
 			const originalToken = agent.token;
 
-			const rotated = await kavach.agent.rotate(agent.id);
+			const rotated = await theauth.agent.rotate(agent.id);
 			expect(rotated.token).not.toBe(originalToken);
 			expect(rotated.token).toMatch(/^kv_/);
 		});
 
 		it("validates agent token", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "validatable",
 				type: "autonomous",
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
 
-			const validated = await kavach.agent.validateToken(agent.token);
+			const validated = await theauth.agent.validateToken(agent.token);
 			expect(validated).not.toBeNull();
 			expect(validated?.id).toBe(agent.id);
 			expect(validated?.permissions).toHaveLength(1);
 		});
 
 		it("rejects invalid token", async () => {
-			const result = await kavach.agent.validateToken("kv_invalid_token");
+			const result = await theauth.agent.validateToken("kv_invalid_token");
 			expect(result).toBeNull();
 		});
 
 		it("enforces max agents per user", async () => {
 			for (let i = 0; i < 5; i++) {
-				await kavach.agent.create({
+				await theauth.agent.create({
 					ownerId: "user-1",
 					name: `agent-${i}`,
 					type: "autonomous",
@@ -173,7 +173,7 @@ describe("createKavach", () => {
 			}
 
 			await expect(
-				kavach.agent.create({
+				theauth.agent.create({
 					ownerId: "user-1",
 					name: "too-many",
 					type: "autonomous",
@@ -185,14 +185,14 @@ describe("createKavach", () => {
 
 	describe("authorization", () => {
 		it("allows authorized actions", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "auth-agent",
 				type: "autonomous",
 				permissions: [{ resource: "mcp:github", actions: ["read", "write"] }],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:github",
 			});
@@ -202,14 +202,14 @@ describe("createKavach", () => {
 		});
 
 		it("denies unauthorized actions", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "restricted-agent",
 				type: "autonomous",
 				permissions: [{ resource: "mcp:github", actions: ["read"] }],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "delete",
 				resource: "mcp:github",
 			});
@@ -219,14 +219,14 @@ describe("createKavach", () => {
 		});
 
 		it("supports wildcard resource matching", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "wildcard-agent",
 				type: "autonomous",
 				permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:github:repos",
 			});
@@ -235,14 +235,14 @@ describe("createKavach", () => {
 		});
 
 		it("denies non-matching resources", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "scoped-agent",
 				type: "autonomous",
 				permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:slack:messages",
 			});
@@ -251,16 +251,16 @@ describe("createKavach", () => {
 		});
 
 		it("denies revoked agents", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "soon-revoked",
 				type: "autonomous",
 				permissions: [{ resource: "*", actions: ["*"] }],
 			});
 
-			await kavach.agent.revoke(agent.id);
+			await theauth.agent.revoke(agent.id);
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "anything",
 			});
@@ -270,14 +270,14 @@ describe("createKavach", () => {
 		});
 
 		it("authorizes by token", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "token-auth-agent",
 				type: "autonomous",
 				permissions: [{ resource: "mcp:github", actions: ["read"] }],
 			});
 
-			const result = await kavach.authorizeByToken(agent.token, {
+			const result = await theauth.authorizeByToken(agent.token, {
 				action: "read",
 				resource: "mcp:github",
 			});
@@ -288,17 +288,17 @@ describe("createKavach", () => {
 
 	describe("audit trail", () => {
 		it("logs authorization decisions", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "audited-agent",
 				type: "autonomous",
 				permissions: [{ resource: "mcp:github", actions: ["read"] }],
 			});
 
-			await kavach.authorize(agent.id, { action: "read", resource: "mcp:github" });
-			await kavach.authorize(agent.id, { action: "delete", resource: "mcp:github" });
+			await theauth.authorize(agent.id, { action: "read", resource: "mcp:github" });
+			await theauth.authorize(agent.id, { action: "delete", resource: "mcp:github" });
 
-			const logs = await kavach.audit.query({ agentId: agent.id });
+			const logs = await theauth.audit.query({ agentId: agent.id });
 			expect(logs).toHaveLength(2);
 
 			// Verify both results exist (order may vary due to same-ms timestamps)
@@ -308,16 +308,16 @@ describe("createKavach", () => {
 		});
 
 		it("exports audit logs as CSV", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "csv-agent",
 				type: "autonomous",
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
 
-			await kavach.authorize(agent.id, { action: "read", resource: "test:data" });
+			await theauth.authorize(agent.id, { action: "read", resource: "test:data" });
 
-			const csv = await kavach.audit.export({ format: "csv" });
+			const csv = await theauth.audit.export({ format: "csv" });
 			expect(csv).toContain("id,agentId,userId");
 			expect(csv).toContain("allowed");
 		});
@@ -325,7 +325,7 @@ describe("createKavach", () => {
 
 	describe("constraints", () => {
 		it("enforces human-in-the-loop", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "hitl-agent",
 				type: "autonomous",
@@ -338,7 +338,7 @@ describe("createKavach", () => {
 				],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "execute",
 				resource: "mcp:deploy",
 			});
@@ -348,7 +348,7 @@ describe("createKavach", () => {
 		});
 
 		it("allows requests from an IP in the allowlist", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "ip-allowed-agent",
 				type: "autonomous",
@@ -361,7 +361,7 @@ describe("createKavach", () => {
 				],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:internal",
 				ip: "10.20.30.40",
@@ -371,7 +371,7 @@ describe("createKavach", () => {
 		});
 
 		it("allows exact IP match in the allowlist", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "ip-exact-agent",
 				type: "autonomous",
@@ -384,7 +384,7 @@ describe("createKavach", () => {
 				],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:internal",
 				ip: "192.168.1.50",
@@ -394,7 +394,7 @@ describe("createKavach", () => {
 		});
 
 		it("denies requests from an IP not in the allowlist", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "ip-restricted-agent",
 				type: "autonomous",
@@ -407,7 +407,7 @@ describe("createKavach", () => {
 				],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:internal",
 				ip: "172.16.0.1",
@@ -418,7 +418,7 @@ describe("createKavach", () => {
 		});
 
 		it("denies when ipAllowlist is set but no IP is provided", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "ip-noip-agent",
 				type: "autonomous",
@@ -431,7 +431,7 @@ describe("createKavach", () => {
 				],
 			});
 
-			const result = await kavach.authorize(agent.id, {
+			const result = await theauth.authorize(agent.id, {
 				action: "read",
 				resource: "mcp:internal",
 			});
@@ -443,7 +443,7 @@ describe("createKavach", () => {
 
 	describe("audit cleanup", () => {
 		it("deletes entries older than retention period and keeps recent ones", async () => {
-			const agent = await kavach.agent.create({
+			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "cleanup-agent",
 				type: "autonomous",
@@ -452,7 +452,7 @@ describe("createKavach", () => {
 
 			// Insert two old audit entries directly — dated 10 days ago
 			const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-			kavach.db
+			theauth.db
 				.insert(schema.auditLogs)
 				.values([
 					{
@@ -483,23 +483,23 @@ describe("createKavach", () => {
 				.run();
 
 			// Perform a recent authorization — this entry should survive cleanup
-			await kavach.authorize(agent.id, { action: "read", resource: "test:data" });
+			await theauth.authorize(agent.id, { action: "read", resource: "test:data" });
 
-			const before = await kavach.audit.query({ agentId: agent.id });
+			const before = await theauth.audit.query({ agentId: agent.id });
 			expect(before).toHaveLength(3);
 
 			// Cleanup with a large retention window — nothing deleted
-			const noneDeleted = await kavach.audit.cleanup({ retentionDays: 9999 });
+			const noneDeleted = await theauth.audit.cleanup({ retentionDays: 9999 });
 			expect(noneDeleted.deleted).toBe(0);
 
-			const afterKeep = await kavach.audit.query({ agentId: agent.id });
+			const afterKeep = await theauth.audit.query({ agentId: agent.id });
 			expect(afterKeep).toHaveLength(3);
 
 			// Cleanup with 5-day retention — the two 10-day-old entries should be deleted
-			const someDeleted = await kavach.audit.cleanup({ retentionDays: 5 });
+			const someDeleted = await theauth.audit.cleanup({ retentionDays: 5 });
 			expect(someDeleted.deleted).toBe(2);
 
-			const afterDelete = await kavach.audit.query({ agentId: agent.id });
+			const afterDelete = await theauth.audit.query({ agentId: agent.id });
 			expect(afterDelete).toHaveLength(1);
 			// The surviving entry should be the recent one
 			expect(afterDelete[0]?.id).not.toBe("old-entry-1");

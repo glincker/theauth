@@ -10,7 +10,7 @@ An `AgentIdentity` is the primary entity in TheAuth. It represents one AI agent,
 Create one against an existing user ID, hand the token to the agent, and check every action through `authorize()`.
 
 ```ts
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: user.id,
   name: 'code-reviewer',
   type: 'autonomous',
@@ -50,7 +50,7 @@ console.log(agent.token);
 ### 1. Create
 
 ```ts
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'github-reader',
   type: 'autonomous',
@@ -86,7 +86,7 @@ When a caller only has the raw token, use `authorizeByToken` in your HTTP middle
 const token = request.headers.get('Authorization')?.replace('Bearer ', '');
 if (!token) return new Response('Unauthorized', { status: 401 });
 
-const result = await kavach.authorizeByToken(token, {
+const result = await theauth.authorizeByToken(token, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
@@ -103,7 +103,7 @@ One database lookup (hash compare), then in-memory permission evaluation. No JWT
 Rotation issues a new token and immediately invalidates the old one. Atomic: no window where both are valid.
 
 ```ts
-const rotated = await kavach.agent.rotate(agentId);
+const rotated = await theauth.agent.rotate(agentId);
 // rotated.token is the new plaintext token
 ```
 
@@ -114,12 +114,12 @@ Rotate on a schedule, or any time you suspect a token has been exposed.
 Permission updates take effect immediately. In-flight requests that already passed authorization are not affected.
 
 ```ts
-await kavach.agent.update(agentId, {
+await theauth.agent.update(agentId, {
   name: 'github-reader-v2',
   permissions: [{ resource: 'mcp:github:*', actions: ['read', 'comment'] }],
 });
 
-const active = await kavach.agent.list({
+const active = await theauth.agent.list({
   userId: 'user-123',
   status: 'active',
   type: 'autonomous',
@@ -129,7 +129,7 @@ const active = await kavach.agent.list({
 ### 6. Revoke
 
 ```ts
-await kavach.agent.revoke(agentId);
+await theauth.agent.revoke(agentId);
 // All future authorize() calls return allowed: false
 // The agent's token is rejected immediately
 ```
@@ -142,8 +142,8 @@ await kavach.agent.revoke(agentId);
 The default is 10 active agents per user. Raise at initialization:
 
 ```ts
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   agents: {
     maxPerUser: 50,
   },

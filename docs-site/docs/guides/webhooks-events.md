@@ -12,14 +12,14 @@ Webhooks push signed HTTP POST requests to a URL you control whenever a TheAuth 
 ```typescript
 import { createTheAuth, createWebhookModule } from '@glinr/theauth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     createWebhookModule({
-      secret: process.env.KAVACH_WEBHOOK_SECRET,
+      secret: process.env.THEAUTH_WEBHOOK_SECRET,
       endpoints: [
         {
-          url: 'https://myapp.com/webhooks/kavach',
+          url: 'https://myapp.com/webhooks/theauth',
           events: ['user.created', 'auth.login', 'agent.created'],
         },
       ],
@@ -37,7 +37,7 @@ Each endpoint subscribes to one or more event types. Use `'*'` to receive all ev
 
 ```typescript
 createWebhookModule({
-  secret: process.env.KAVACH_WEBHOOK_SECRET,
+  secret: process.env.THEAUTH_WEBHOOK_SECRET,
   endpoints: [
     {
       url: 'https://myapp.com/webhooks/all',
@@ -69,10 +69,10 @@ createWebhookModule({
 
 | Header | Value |
 |---|---|
-| `X-Kavach-Signature` | `sha256=<HMAC-SHA256 of raw body>` |
-| `X-Kavach-Event` | Event type, e.g. `user.created` |
-| `X-Kavach-Delivery` | Unique UUID for this delivery attempt |
-| `X-Kavach-Timestamp` | Unix timestamp (seconds) of delivery |
+| `X-TheAuth-Signature` | `sha256=<HMAC-SHA256 of raw body>` |
+| `X-TheAuth-Event` | Event type, e.g. `user.created` |
+| `X-TheAuth-Delivery` | Unique UUID for this delivery attempt |
+| `X-TheAuth-Timestamp` | Unix timestamp (seconds) of delivery |
 
 ## Verifying signatures
 
@@ -88,9 +88,9 @@ Always verify the signature before trusting the payload.
     }
 
     // Express handler
-    app.post('/webhooks/kavach', express.raw({ type: 'application/json' }), (req, res) => {
-      const sig = req.headers['x-kavach-signature'] as string;
-      if (!verifyWebhook(req.body, sig, process.env.KAVACH_WEBHOOK_SECRET!)) {
+    app.post('/webhooks/theauth', express.raw({ type: 'application/json' }), (req, res) => {
+      const sig = req.headers['x-theauth-signature'] as string;
+      if (!verifyWebhook(req.body, sig, process.env.THEAUTH_WEBHOOK_SECRET!)) {
         return res.status(401).send('Invalid signature');
       }
       const event = JSON.parse(req.body.toString());
@@ -131,7 +131,7 @@ After three failures the delivery is marked `failed` and no further retries occu
 ## Testing a webhook URL
 
 ```typescript
-await kavach.webhooks.test('https://myapp.com/webhooks/kavach');
+await theauth.webhooks.test('https://myapp.com/webhooks/theauth');
 ```
 
 The test delivery sends `{ event: 'ping', timestamp: '...' }` and respects the same signing and retry logic as real events.

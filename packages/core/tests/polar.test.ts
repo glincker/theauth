@@ -34,7 +34,7 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
-import type { KavachPlugin, PluginContext } from "../src/plugin/types.js";
+import type { PluginContext, TheAuthPlugin } from "../src/plugin/types.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -218,7 +218,7 @@ describe("createCheckout", () => {
 		expect(result.id).toBe("checkout_abc123");
 	});
 
-	it("includes kavach_user_id in metadata", async () => {
+	it("includes theauth_user_id in metadata", async () => {
 		const db = await createTestDb();
 		await seedUser(db, "user_meta_01", "meta@polar.test");
 
@@ -236,7 +236,7 @@ describe("createCheckout", () => {
 		await mod.createCheckout("user_meta_01", "product_meta");
 
 		const parsed = JSON.parse(capturedBody) as Record<string, unknown>;
-		expect(parsed.metadata).toMatchObject({ kavach_user_id: "user_meta_01" });
+		expect(parsed.metadata).toMatchObject({ theauth_user_id: "user_meta_01" });
 	});
 
 	it("includes organizationId when configured", async () => {
@@ -352,7 +352,7 @@ describe("handleWebhook event dispatch", () => {
 					customer_id: CUSTOMER_ID,
 					current_period_end: "2025-12-31T00:00:00.000Z",
 					cancel_at_period_end: false,
-					metadata: { kavach_user_id: USER_ID },
+					metadata: { theauth_user_id: USER_ID },
 				},
 			},
 			db,
@@ -387,7 +387,7 @@ describe("handleWebhook event dispatch", () => {
 					customer_id: CUSTOMER_ID,
 					current_period_end: "2026-01-15T00:00:00.000Z",
 					cancel_at_period_end: true,
-					metadata: { kavach_user_id: USER_ID },
+					metadata: { theauth_user_id: USER_ID },
 				},
 			},
 			db,
@@ -429,7 +429,7 @@ describe("handleWebhook event dispatch", () => {
 					customer_id: CUSTOMER_ID,
 					current_period_end: "2025-12-31T00:00:00.000Z",
 					cancel_at_period_end: false,
-					metadata: { kavach_user_id: USER_ID },
+					metadata: { theauth_user_id: USER_ID },
 				},
 			},
 			db,
@@ -472,7 +472,7 @@ describe("handleWebhook event dispatch", () => {
 					customer_id: CUSTOMER_ID,
 					current_period_end: "2025-12-31T00:00:00.000Z",
 					cancel_at_period_end: false,
-					metadata: { kavach_user_id: USER_ID },
+					metadata: { theauth_user_id: USER_ID },
 				},
 			},
 			db,
@@ -502,7 +502,7 @@ describe("handleWebhook event dispatch", () => {
 
 describe("polar plugin — endpoint access", () => {
 	let db: Database;
-	let plugin: KavachPlugin;
+	let plugin: TheAuthPlugin;
 
 	type EndpointEntry = {
 		method: string;

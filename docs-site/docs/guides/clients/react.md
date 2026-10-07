@@ -29,7 +29,7 @@ import { TheAuthProvider } from '@glinr/theauth-react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <TheAuthProvider basePath="/api/kavach">
+    <TheAuthProvider basePath="/api/theauth">
       {children}
     </TheAuthProvider>
   );
@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `basePath` | `string` | `"/api/kavach"` | Path to your TheAuth API handler. Must match the route you mounted in the adapter. |
+| `basePath` | `string` | `"/api/theauth"` | Path to your TheAuth API handler. Must match the route you mounted in the adapter. |
 | `fetchOptions` | `RequestInit` | undefined | Merged into every fetch call. Use this to add custom headers or credentials mode. |
 
 ## useUser

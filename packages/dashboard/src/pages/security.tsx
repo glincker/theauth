@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, ShieldAlert, ShieldOff, Timer, XCircle } from "lucide-react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
@@ -64,7 +64,7 @@ function SkeletonCard() {
 // ─── Security Page ────────────────────────────────────────────────────────────
 
 interface SecurityPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function SecurityPage({ client }: SecurityPageProps) {

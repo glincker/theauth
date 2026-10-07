@@ -14,19 +14,19 @@ description: Authenticate users with VK via the `oauth` plugin. Covers dev.vk.co
 Go to [dev.vk.com](https://dev.vk.com) and create an application. Set the platform to **Website** and add your redirect URI:
 
 ```
-https://your-app.com/api/kavach/auth/oauth/callback/vk
+https://your-app.com/api/theauth/auth/oauth/callback/vk
 ```
 </Step>
 
 <Step>
 ### Configure
 
-```ts title="lib/kavach.ts"
+```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     oauth({
       providers: [

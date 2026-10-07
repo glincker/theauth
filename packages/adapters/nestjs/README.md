@@ -16,12 +16,12 @@ npm install theauth @glinr/@glinr/theauth-nestjs
 
 ```typescript
 import { Module } from "@nestjs/common";
-import { KavachModule } from "@glinr/theauth-nestjs";
+import { TheAuthModule } from "@glinr/theauth-nestjs";
 
 @Module({
   imports: [
-    KavachModule.forRoot({
-      database: { provider: "sqlite", url: "kavach.db" },
+    TheAuthModule.forRoot({
+      database: { provider: "sqlite", url: "theauth.db" },
     }),
   ],
 })
@@ -32,14 +32,14 @@ export class AppModule {}
 
 ```typescript
 import { createTheAuth } from "@glinr/theauth";
-import { kavachMiddleware } from "@glinr/theauth-nestjs";
+import { theAuthMiddleware } from "@glinr/theauth-nestjs";
 
-const kavach = createTheAuth({
+const theauth = createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
 });
 
 // Apply as NestJS middleware
-app.use("/api/kavach", kavachMiddleware(kavach));
+app.use("/api/theauth", theAuthMiddleware(theauth));
 ```
 
 ## Docs

@@ -1,4 +1,4 @@
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { OAuthProvider } from "./oauth/types.js";
 import type { OAuthProxyConfig } from "./oauth-proxy.js";
 import { createOAuthProxyModule } from "./oauth-proxy.js";
@@ -23,9 +23,9 @@ export interface OAuthProxyPluginConfig extends OAuthProxyConfig {
 	providers: Record<string, OAuthProvider>;
 }
 
-export function oauthProxy(config: OAuthProxyPluginConfig): KavachPlugin {
+export function oauthProxy(config: OAuthProxyPluginConfig): TheAuthPlugin {
 	return {
-		id: "kavach-oauth-proxy",
+		id: "theauth-oauth-proxy",
 
 		async init(ctx): Promise<undefined> {
 			const baseUrl = (ctx.config as unknown as { baseUrl?: string }).baseUrl;

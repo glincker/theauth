@@ -10,7 +10,7 @@ TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js
 
 | Attribute | Value |
 |---|---|
-| Name | `kavach_session` |
+| Name | `theauth_session` |
 | `HttpOnly` | `true` |
 | `Secure` | inferred from `baseUrl` scheme |
 | `SameSite` | `Lax` |
@@ -23,7 +23,7 @@ TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js
 ## Overriding
 
 ```ts
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
@@ -74,14 +74,14 @@ Absolute expiry pairs with high-trust-tier policies. See [Trust scoring](/trust)
 
 ## Reading the cookie yourself
 
-Most code never needs to. Use `kavach.auth.getSession({ request })` and let TheAuth handle it. If you do want the raw string (for a custom route that bypasses the SDK), the cookie value is the opaque session token; hand it back to `kavach.auth.verifySession(token)` to get the user.
+Most code never needs to. Use `theauth.auth.getSession({ request })` and let TheAuth handle it. If you do want the raw string (for a custom route that bypasses the SDK), the cookie value is the opaque session token; hand it back to `theauth.auth.verifySession(token)` to get the user.
 
 ```ts
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
 export async function GET(req: Request) {
-  const kavach = await getKavach();
-  const result = await kavach.auth.getSession({ request: req });
+  const theauth = await getTheAuth();
+  const result = await theauth.auth.getSession({ request: req });
 
   if (!result.success || !result.data) {
     return new Response('Unauthorized', { status: 401 });

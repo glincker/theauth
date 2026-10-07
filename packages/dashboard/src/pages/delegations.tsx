@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Network, XCircle } from "lucide-react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import type { DelegationChain, DelegationStatus } from "../api/types.js";
 import { Badge } from "../components/badge.js";
 import { Button } from "../components/button.js";
@@ -77,7 +77,7 @@ function PermissionsCell({ permissions }: PermissionsCellProps) {
 // ─── Delegations Page ─────────────────────────────────────────────────────────
 
 interface DelegationsPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function DelegationsPage({ client }: DelegationsPageProps) {

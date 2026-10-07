@@ -17,13 +17,13 @@ The `captcha` plugin adds bot protection to any TheAuth endpoint. It validates a
 
 ## Setup
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { captcha } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     captcha({ // [!code highlight]
@@ -64,7 +64,7 @@ The `captchaToken` field is stripped from the request before it reaches other pl
 
 For reCAPTCHA v3, set a minimum score (0.0–1.0). Requests below the threshold are rejected:
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 captcha({
   provider: 'recaptcha-v3',
   secretKey: process.env.RECAPTCHA_SECRET!,

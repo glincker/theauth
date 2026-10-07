@@ -9,7 +9,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import type { KavachApiClient } from "../api/client.js";
+import type { TheAuthApiClient } from "../api/client.js";
 import type { CreatePermissionTemplateInput, PermissionTemplate } from "../api/types.js";
 import { Button } from "../components/button.js";
 import { ConflictWarning } from "../components/conflict-warning.js";
@@ -318,7 +318,7 @@ function TemplateEditor({
 // ─── Permissions Page ─────────────────────────────────────────────────────────
 
 interface PermissionsPageProps {
-	client: KavachApiClient;
+	client: TheAuthApiClient;
 }
 
 export function PermissionsPage({ client }: PermissionsPageProps) {

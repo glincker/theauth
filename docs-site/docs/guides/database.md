@@ -24,10 +24,10 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'sqlite',
-        url: './kavach.db',
+        url: './theauth.db',
       },
     });
     ```
@@ -35,7 +35,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     For in-memory SQLite (tests and CI), use `:memory:` as the URL:
 
     ```typescript
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'sqlite',
         url: ':memory:',
@@ -59,7 +59,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'postgres',
         url: process.env.DATABASE_URL!, // postgresql://user:pass@host:5432/db
@@ -76,7 +76,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    const kavach = await createTheAuth({
+    const theauth = await createTheAuth({
       database: {
         provider: 'mysql',
         url: process.env.DATABASE_URL!, // mysql://user:pass@host:3306/db
@@ -89,14 +89,14 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```typescript
     import { createTheAuth } from '@glinr/theauth';
 
-    type Env = { KAVACH_DB: D1Database };
+    type Env = { THEAUTH_DB: D1Database };
 
     export default {
       async fetch(request: Request, env: Env) {
-        const kavach = await createTheAuth({
+        const theauth = await createTheAuth({
           database: {
             provider: 'd1',
-            binding: env.KAVACH_DB,
+            binding: env.THEAUTH_DB,
           },
         });
         // ...
@@ -108,8 +108,8 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 
     ```toml
     [[d1_databases]]
-    binding = "KAVACH_DB"
-    database_name = "kavach"
+    binding = "THEAUTH_DB"
+    database_name = "theauth"
     database_id = "<your-database-id>"
     ```
 
@@ -120,7 +120,7 @@ By default, TheAuth runs `CREATE TABLE IF NOT EXISTS` for all its tables on firs
 To skip auto-migrations (for example, when managing migrations with Flyway or drizzle-kit):
 
 ```typescript
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: {
     provider: 'postgres',
     url: process.env.DATABASE_URL!,
@@ -144,7 +144,7 @@ import { prismaAdapter } from '@glinr/theauth-prisma';
 
 const prisma = new PrismaClient();
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: prismaAdapter(prisma),
 });
 ```

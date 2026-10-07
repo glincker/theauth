@@ -57,8 +57,8 @@ Pass a database config to `createTheAuth`. Use SQLite for local development and 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   agents: {
     enabled: true,
     maxPerUser: 10,
@@ -76,7 +76,7 @@ const kavach = createTheAuth({
 An agent always has an owner: the user ID from your existing auth system. TheAuth does not manage human authentication.
 
 ```ts
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: 'user-123',          // from your auth provider
   name: 'github-reader',
   type: 'autonomous',
@@ -113,10 +113,10 @@ Three agent types are available:
 
 ### 4. Authorize an action
 
-Call `kavach.authorize` before any sensitive operation. It returns `{ allowed, reason?, auditId }`.
+Call `theauth.authorize` before any sensitive operation. It returns `{ allowed, reason?, auditId }`.
 
 ```ts
-const result = await kavach.authorize(agent.id, {
+const result = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
@@ -131,7 +131,7 @@ if (!result.allowed) {
 If you only have the raw bearer token (from an incoming HTTP request, for example), use `authorizeByToken` instead:
 
 ```ts
-const result = await kavach.authorizeByToken(bearerToken, {
+const result = await theauth.authorizeByToken(bearerToken, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
@@ -143,16 +143,16 @@ Every authorization decision is logged. Query by agent, filter by result, or exp
 
 ```ts
 // All decisions for an agent
-const logs = await kavach.audit.query({ agentId: agent.id });
+const logs = await theauth.audit.query({ agentId: agent.id });
 
 // Only the denials
-const denied = await kavach.audit.query({
+const denied = await theauth.audit.query({
   agentId: agent.id,
   result: 'denied',
 });
 
 // Export everything as CSV
-const csv = await kavach.audit.export({ format: 'csv' });
+const csv = await theauth.audit.export({ format: 'csv' });
 ```
 
 ## Delegation
@@ -160,14 +160,14 @@ const csv = await kavach.audit.export({ format: 'csv' });
 An orchestrator agent can delegate a subset of its permissions to a sub-agent. The delegation has its own expiry and a `maxDepth` to prevent unbounded chains.
 
 ```ts
-const sub = await kavach.agent.create({
+const sub = await theauth.agent.create({
   ownerId: 'user-123',
   name: 'sub-reader',
   type: 'delegated',
   permissions: [],  // starts empty; receives permissions via delegation
 });
 
-await kavach.delegate({
+await theauth.delegate({
   fromAgent: agent.id,
   toAgent: sub.id,
   permissions: [{ resource: 'mcp:github:issues', actions: ['read'] }],
@@ -176,7 +176,7 @@ await kavach.delegate({
 });
 
 // Resolves the full effective permission set, including delegated ones
-const perms = await kavach.delegation.getEffectivePermissions(sub.id);
+const perms = await theauth.delegation.getEffectivePermissions(sub.id);
 ```
 
 !!! info
@@ -190,16 +190,16 @@ TheAuth runs on Workers with no changes. Pass a D1 binding as the database and u
 import { createTheAuth } from '@glinr/theauth';
 import { Hono } from 'hono';
 
-type Env = { KAVACH_DB: D1Database };
+type Env = { THEAUTH_DB: D1Database };
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/health', async (c) => {
-  const kavach = await createTheAuth({
-    database: { provider: 'd1', binding: c.env.KAVACH_DB },
+  const theauth = await createTheAuth({
+    database: { provider: 'd1', binding: c.env.THEAUTH_DB },
   });
 
-  const agent = await kavach.agent.create({
+  const agent = await theauth.agent.create({
     ownerId: 'user-1',
     name: 'my-agent',
     type: 'autonomous',
@@ -216,8 +216,8 @@ Bind a D1 database in your `wrangler.toml`:
 
 ```toml
 [[d1_databases]]
-binding = "KAVACH_DB"
-database_name = "kavach"
+binding = "THEAUTH_DB"
+database_name = "theauth"
 database_id = "<your-database-id>"
 ```
 
@@ -229,10 +229,10 @@ Sign-in requires email verification by default. Either verify the email using th
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-You need a user in the `kavach_users` table before creating agents. Sign up via the email auth plugin, or seed a user manually:
+You need a user in the `theauth_users` table before creating agents. Sign up via the email auth plugin, or seed a user manually:
 
 ```typescript
-kavach.db.insert(users).values({
+theauth.db.insert(users).values({
   id: 'user-1',
   email: 'test@example.com',
   name: 'Test',

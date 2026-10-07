@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createCostAttributionModule } from "../src/auth/cost-attribution.js";
 import * as schema from "../src/db/schema.js";
-import { createKavach } from "../src/kavach.js";
+import { createTheAuth } from "../src/theauth.js";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
-async function createTestKavach() {
-	const kavach = await createKavach({
+async function createTestTheAuth() {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -18,7 +18,7 @@ async function createTestKavach() {
 	});
 
 	// Seed a test user
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -29,14 +29,14 @@ async function createTestKavach() {
 		})
 		.run();
 
-	return kavach;
+	return theauth;
 }
 
 async function seedAgent(
-	kavach: Awaited<ReturnType<typeof createTestKavach>>,
+	theauth: Awaited<ReturnType<typeof createTestTheAuth>>,
 	name = "test-agent",
 ) {
-	return kavach.agent.create({
+	return theauth.agent.create({
 		ownerId: "user-1",
 		name,
 		type: "autonomous",
@@ -47,18 +47,18 @@ async function seedAgent(
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("cost attribution module", () => {
-	let kavach: Awaited<ReturnType<typeof createTestKavach>>;
+	let theauth: Awaited<ReturnType<typeof createTestTheAuth>>;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 	});
 
 	// ─── recordCost ────────────────────────────────────────────────────────────
 
 	describe("recordCost", () => {
 		it("records a cost event and returns success", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.recordCost({
 				agentId: agent.id,
@@ -72,8 +72,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("records cost event without tokens", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.recordCost({
 				agentId: agent.id,
@@ -85,8 +85,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("records cost with delegation chain id", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.recordCost({
 				agentId: agent.id,
@@ -99,8 +99,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("records cost with custom metadata", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.recordCost({
 				agentId: agent.id,
@@ -113,8 +113,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("stores cost as integer microdollars to avoid float drift", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({
 				agentId: agent.id,
@@ -129,9 +129,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("fires warn alert when threshold is crossed", async () => {
-			const agent = await seedAgent(kavach);
+			const agent = await seedAgent(theauth);
 			const alerts: unknown[] = [];
-			const module = createCostAttributionModule(kavach.db, {
+			const module = createCostAttributionModule(theauth.db, {
 				alertThresholds: { warn: 1.0, critical: 5.0 },
 				onAlert: (alert) => {
 					alerts.push(alert);
@@ -146,9 +146,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("fires critical alert when critical threshold is crossed", async () => {
-			const agent = await seedAgent(kavach);
+			const agent = await seedAgent(theauth);
 			const alerts: unknown[] = [];
-			const module = createCostAttributionModule(kavach.db, {
+			const module = createCostAttributionModule(theauth.db, {
 				alertThresholds: { warn: 1.0, critical: 5.0 },
 				onAlert: (alert) => {
 					alerts.push(alert);
@@ -162,17 +162,17 @@ describe("cost attribution module", () => {
 		});
 
 		it("fires budget_exceeded alert when over monthly budget policy", async () => {
-			const agent = await seedAgent(kavach);
+			const agent = await seedAgent(theauth);
 			const alerts: unknown[] = [];
 
 			// Create a budget policy with a low limit
-			await kavach.policies.create({
+			await theauth.policies.create({
 				agentId: agent.id,
 				limits: { maxTokensCostPerMonth: 1 }, // $1 limit (in token cost units)
 				action: "block",
 			});
 
-			const module = createCostAttributionModule(kavach.db, {
+			const module = createCostAttributionModule(theauth.db, {
 				onAlert: (alert) => {
 					alerts.push(alert);
 				},
@@ -192,8 +192,8 @@ describe("cost attribution module", () => {
 
 	describe("getAgentCost", () => {
 		it("returns empty report for agent with no costs", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.getAgentCost(agent.id);
 
@@ -205,8 +205,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("aggregates total cost across multiple events", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.2 });
@@ -223,8 +223,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("breaks down cost by tool", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.15 });
@@ -244,8 +244,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("sorts byTool descending by cost", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "cheap-tool", costUsd: 0.01 });
 			await module.recordCost({ agentId: agent.id, tool: "expensive-tool", costUsd: 1.0 });
@@ -257,8 +257,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("groups costs by day", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.5 });
 
@@ -271,8 +271,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("filters by period", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 
@@ -287,8 +287,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("returns period in report", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 			const start = new Date("2025-01-01");
 			const end = new Date("2025-01-31");
 
@@ -300,9 +300,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("does not include costs from other agents", async () => {
-			const agent1 = await seedAgent(kavach, "agent-1");
-			const agent2 = await seedAgent(kavach, "agent-2");
-			const module = createCostAttributionModule(kavach.db);
+			const agent1 = await seedAgent(theauth, "agent-1");
+			const agent2 = await seedAgent(theauth, "agent-2");
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent1.id, tool: "openai:gpt-4o", costUsd: 1.0 });
 			await module.recordCost({ agentId: agent2.id, tool: "openai:gpt-4o", costUsd: 2.0 });
@@ -318,7 +318,7 @@ describe("cost attribution module", () => {
 
 	describe("getOwnerCost", () => {
 		it("returns empty report for owner with no agents", async () => {
-			const module = createCostAttributionModule(kavach.db);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.getOwnerCost("user-unknown");
 			expect(result.success).toBe(true);
@@ -327,9 +327,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("aggregates costs across all agents for an owner", async () => {
-			const agent1 = await seedAgent(kavach, "owner-agent-1");
-			const agent2 = await seedAgent(kavach, "owner-agent-2");
-			const module = createCostAttributionModule(kavach.db);
+			const agent1 = await seedAgent(theauth, "owner-agent-1");
+			const agent2 = await seedAgent(theauth, "owner-agent-2");
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent1.id, tool: "openai:gpt-4o", costUsd: 0.5 });
 			await module.recordCost({
@@ -345,8 +345,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("uses ownerId as agentId placeholder in report", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 
@@ -357,8 +357,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("accepts a custom period for owner cost query", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 1.0 });
 
@@ -376,7 +376,7 @@ describe("cost attribution module", () => {
 
 	describe("getTopAgentsByCost", () => {
 		it("returns empty array when no costs exist", async () => {
-			const module = createCostAttributionModule(kavach.db);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.getTopAgentsByCost();
 			expect(result.success).toBe(true);
@@ -385,9 +385,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("ranks agents by total cost descending", async () => {
-			const cheap = await seedAgent(kavach, "cheap-agent");
-			const expensive = await seedAgent(kavach, "expensive-agent");
-			const module = createCostAttributionModule(kavach.db);
+			const cheap = await seedAgent(theauth, "cheap-agent");
+			const expensive = await seedAgent(theauth, "expensive-agent");
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: cheap.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 			await module.recordCost({ agentId: expensive.id, tool: "openai:gpt-4o", costUsd: 5.0 });
@@ -401,12 +401,12 @@ describe("cost attribution module", () => {
 
 		it("respects the limit parameter", async () => {
 			for (let i = 0; i < 5; i++) {
-				const agent = await seedAgent(kavach, `limit-agent-${i}`);
-				const module = createCostAttributionModule(kavach.db);
+				const agent = await seedAgent(theauth, `limit-agent-${i}`);
+				const module = createCostAttributionModule(theauth.db);
 				await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: i * 0.1 });
 			}
 
-			const module = createCostAttributionModule(kavach.db);
+			const module = createCostAttributionModule(theauth.db);
 			const result = await module.getTopAgentsByCost(3);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -414,8 +414,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("filters by period", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 
@@ -433,7 +433,7 @@ describe("cost attribution module", () => {
 
 	describe("getDelegationChainCost", () => {
 		it("returns empty report for chain with no events", async () => {
-			const module = createCostAttributionModule(kavach.db);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.getDelegationChainCost("chain-nonexistent");
 			expect(result.success).toBe(true);
@@ -442,9 +442,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("aggregates costs attributed to a delegation chain", async () => {
-			const agent1 = await seedAgent(kavach, "chain-agent-1");
-			const agent2 = await seedAgent(kavach, "chain-agent-2");
-			const module = createCostAttributionModule(kavach.db);
+			const agent1 = await seedAgent(theauth, "chain-agent-1");
+			const agent2 = await seedAgent(theauth, "chain-agent-2");
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({
 				agentId: agent1.id,
@@ -473,8 +473,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("uses chainId as agentId in the report", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({
 				agentId: agent.id,
@@ -494,8 +494,8 @@ describe("cost attribution module", () => {
 
 	describe("checkBudget", () => {
 		it("returns withinBudget: true when no budget policy exists", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.checkBudget(agent.id);
 			expect(result.success).toBe(true);
@@ -506,10 +506,10 @@ describe("cost attribution module", () => {
 		});
 
 		it("returns withinBudget: true when spend is below limit", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
-			await kavach.policies.create({
+			await theauth.policies.create({
 				agentId: agent.id,
 				limits: { maxTokensCostPerMonth: 100 },
 				action: "block",
@@ -527,10 +527,10 @@ describe("cost attribution module", () => {
 		});
 
 		it("returns withinBudget: false when spend exceeds limit", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
-			await kavach.policies.create({
+			await theauth.policies.create({
 				agentId: agent.id,
 				limits: { maxTokensCostPerMonth: 5 },
 				action: "block",
@@ -546,15 +546,15 @@ describe("cost attribution module", () => {
 		});
 
 		it("uses the tightest limit when multiple policies exist", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
-			await kavach.policies.create({
+			await theauth.policies.create({
 				agentId: agent.id,
 				limits: { maxTokensCostPerMonth: 100 },
 				action: "warn",
 			});
-			await kavach.policies.create({
+			await theauth.policies.create({
 				agentId: agent.id,
 				limits: { maxTokensCostPerMonth: 20 },
 				action: "block",
@@ -570,11 +570,11 @@ describe("cost attribution module", () => {
 		});
 
 		it("returns withinBudget: true when policy has no cost limit", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			// Policy only limits calls, not cost
-			await kavach.policies.create({
+			await theauth.policies.create({
 				agentId: agent.id,
 				limits: { maxCallsPerDay: 100 },
 				action: "block",
@@ -594,8 +594,8 @@ describe("cost attribution module", () => {
 
 	describe("cleanup", () => {
 		it("returns 0 deleted when no old events exist", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 
@@ -606,7 +606,7 @@ describe("cost attribution module", () => {
 		});
 
 		it("uses configured retention days by default", async () => {
-			const module = createCostAttributionModule(kavach.db, { retentionDays: 90 });
+			const module = createCostAttributionModule(theauth.db, { retentionDays: 90 });
 
 			const result = await module.cleanup();
 			expect(result.success).toBe(true);
@@ -619,9 +619,9 @@ describe("cost attribution module", () => {
 
 	describe("alert system", () => {
 		it("does not fire alerts when no thresholds configured", async () => {
-			const agent = await seedAgent(kavach);
+			const agent = await seedAgent(theauth);
 			const onAlert = vi.fn();
-			const module = createCostAttributionModule(kavach.db, { onAlert });
+			const module = createCostAttributionModule(theauth.db, { onAlert });
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 999 });
 
@@ -633,9 +633,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("includes agentId, currentCostUsd, threshold, and period in alert", async () => {
-			const agent = await seedAgent(kavach);
+			const agent = await seedAgent(theauth);
 			const alerts: unknown[] = [];
-			const module = createCostAttributionModule(kavach.db, {
+			const module = createCostAttributionModule(theauth.db, {
 				alertThresholds: { warn: 0.01, critical: 10.0 },
 				onAlert: (alert) => {
 					alerts.push(alert);
@@ -659,9 +659,9 @@ describe("cost attribution module", () => {
 		});
 
 		it("uses critical over warn when both thresholds exceeded", async () => {
-			const agent = await seedAgent(kavach);
+			const agent = await seedAgent(theauth);
 			const alerts: unknown[] = [];
-			const module = createCostAttributionModule(kavach.db, {
+			const module = createCostAttributionModule(theauth.db, {
 				alertThresholds: { warn: 1.0, critical: 2.0 },
 				onAlert: (alert) => {
 					alerts.push(alert);
@@ -681,8 +681,8 @@ describe("cost attribution module", () => {
 
 	describe("currency config", () => {
 		it("defaults to USD currency", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db);
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db);
 
 			const result = await module.recordCost({
 				agentId: agent.id,
@@ -693,8 +693,8 @@ describe("cost attribution module", () => {
 		});
 
 		it("accepts custom currency in config", async () => {
-			const agent = await seedAgent(kavach);
-			const module = createCostAttributionModule(kavach.db, { currency: "EUR" });
+			const agent = await seedAgent(theauth);
+			const module = createCostAttributionModule(theauth.db, { currency: "EUR" });
 
 			const result = await module.recordCost({
 				agentId: agent.id,

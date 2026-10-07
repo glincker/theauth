@@ -14,7 +14,7 @@ export function OAuthButtons({
 	classNames,
 	components,
 	providers,
-	basePath = "/api/kavach",
+	basePath = "/api/theauth",
 	mode = "signin",
 	layout = "list",
 	disabled,
@@ -33,7 +33,10 @@ export function OAuthButtons({
 	if (layout === "grid") {
 		return (
 			<div
-				className={cx("kavach-oauth-buttons grid grid-cols-4 gap-2", classNames?.root ?? className)}
+				className={cx(
+					"theauth-oauth-buttons grid grid-cols-4 gap-2",
+					classNames?.root ?? className,
+				)}
 			>
 				{providers.map((p) => (
 					<Btn
@@ -42,13 +45,13 @@ export function OAuthButtons({
 						disabled={disabled}
 						onClick={() => handleClick(p.id)}
 						className={cx(
-							"kavach-oauth-btn flex items-center justify-center rounded-lg border border-zinc-200 p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800",
+							"theauth-oauth-btn flex items-center justify-center rounded-lg border border-zinc-200 p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800",
 							classNames?.button,
 						)}
 					>
 						<span
 							className={cx(
-								"kavach-oauth-icon flex h-5 w-5 items-center justify-center",
+								"theauth-oauth-icon flex h-5 w-5 items-center justify-center",
 								classNames?.icon,
 							)}
 						>
@@ -61,7 +64,7 @@ export function OAuthButtons({
 	}
 
 	return (
-		<div className={cx("kavach-oauth-buttons flex flex-col gap-2", classNames?.root ?? className)}>
+		<div className={cx("theauth-oauth-buttons flex flex-col gap-2", classNames?.root ?? className)}>
 			{providers.map((p) => (
 				<Btn
 					key={p.id}
@@ -69,19 +72,19 @@ export function OAuthButtons({
 					disabled={disabled}
 					onClick={() => handleClick(p.id)}
 					className={cx(
-						"kavach-oauth-btn flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800",
+						"theauth-oauth-btn flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800",
 						classNames?.button,
 					)}
 				>
 					<span
 						className={cx(
-							"kavach-oauth-icon flex h-5 w-5 items-center justify-center",
+							"theauth-oauth-icon flex h-5 w-5 items-center justify-center",
 							classNames?.icon,
 						)}
 					>
 						{p.icon ?? <FallbackIcon name={p.name} />}
 					</span>
-					<span className={cx("kavach-oauth-label", classNames?.label)}>
+					<span className={cx("theauth-oauth-label", classNames?.label)}>
 						{mode === "signin" ? `Continue with ${p.name}` : `Sign up with ${p.name}`}
 					</span>
 				</Btn>

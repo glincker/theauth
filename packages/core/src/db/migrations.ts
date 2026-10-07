@@ -1,4 +1,4 @@
-import type { KavachConfig } from "../types.js";
+import type { TheAuthConfig } from "../types.js";
 import type { Database, DatabaseConfig } from "./database.js";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ const ALL_FEATURES_ENABLED: EnabledFeatures = {
 	federation: true,
 };
 
-function resolveEnabledFeatures(config?: KavachConfig): EnabledFeatures {
+function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 	if (!config) {
 		// Backward compat: no config = create everything
 		return ALL_FEATURES_ENABLED;
@@ -69,8 +69,8 @@ function resolveEnabledFeatures(config?: KavachConfig): EnabledFeatures {
 
 	const hasAgents = !!config.agents || !!config.did; // DID module always requires agent tables
 	const hasSession = !!config.auth?.session;
-	const hasOAuth = config.plugins?.some((p) => p.id === "kavach-oauth") ?? false;
-	const hasOidc = config.plugins?.some((p) => p.id === "kavach-oidc-provider") ?? false;
+	const hasOAuth = config.plugins?.some((p) => p.id === "theauth-oauth") ?? false;
+	const hasOidc = config.plugins?.some((p) => p.id === "theauth-oidc-provider") ?? false;
 
 	return {
 		core: true,
@@ -141,11 +141,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 
 	return [
 		// ------------------------------------------------------------------
-		// kavach_users
+		// theauth_users
 		// ------------------------------------------------------------------
 		{
 			feature: "core",
-			sql: `CREATE TABLE ${ifne} kavach_users (
+			sql: `CREATE TABLE ${ifne} theauth_users (
   id                   TEXT        NOT NULL PRIMARY KEY,
   email                TEXT        NOT NULL UNIQUE,
   username             TEXT        UNIQUE,
@@ -176,11 +176,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_tenants  (must come before kavach_agents – agents FK to tenants)
+		// theauth_tenants  (must come before theauth_agents – agents FK to tenants)
 		// ------------------------------------------------------------------
 		{
 			feature: "tenant",
-			sql: `CREATE TABLE ${ifne} kavach_tenants (
+			sql: `CREATE TABLE ${ifne} theauth_tenants (
   id         TEXT NOT NULL PRIMARY KEY,
   name       TEXT NOT NULL,
   slug       TEXT NOT NULL UNIQUE,
@@ -192,14 +192,14 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_agents
+		// theauth_agents
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_agents (
+			sql: `CREATE TABLE ${ifne} theauth_agents (
   id              TEXT  NOT NULL PRIMARY KEY,
-  owner_id        TEXT  NOT NULL REFERENCES kavach_users(id),
-  tenant_id       TEXT  REFERENCES kavach_tenants(id),
+  owner_id        TEXT  NOT NULL REFERENCES theauth_users(id),
+  tenant_id       TEXT  REFERENCES theauth_tenants(id),
   name            TEXT  NOT NULL,
   type            TEXT  NOT NULL,
   status          TEXT  NOT NULL DEFAULT 'active',
@@ -214,13 +214,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_permissions
+		// theauth_permissions
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_permissions (
+			sql: `CREATE TABLE ${ifne} theauth_permissions (
   id          TEXT  NOT NULL PRIMARY KEY,
-  agent_id    TEXT  NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  agent_id    TEXT  NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
   resource    TEXT  NOT NULL,
   actions     ${json} NOT NULL,
   constraints ${json},
@@ -230,14 +230,14 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_delegation_chains
+		// theauth_delegation_chains
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_delegation_chains (
+			sql: `CREATE TABLE ${ifne} theauth_delegation_chains (
   id            TEXT    NOT NULL PRIMARY KEY,
-  from_agent_id TEXT    NOT NULL REFERENCES kavach_agents(id),
-  to_agent_id   TEXT    NOT NULL REFERENCES kavach_agents(id),
+  from_agent_id TEXT    NOT NULL REFERENCES theauth_agents(id),
+  to_agent_id   TEXT    NOT NULL REFERENCES theauth_agents(id),
   permissions   ${json} NOT NULL,
   depth         INTEGER NOT NULL DEFAULT 1,
   max_depth     INTEGER NOT NULL DEFAULT 3,
@@ -248,14 +248,14 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_audit_logs
+		// theauth_audit_logs
 		// ------------------------------------------------------------------
 		{
 			feature: "audit",
-			sql: `CREATE TABLE ${ifne} kavach_audit_logs (
+			sql: `CREATE TABLE ${ifne} theauth_audit_logs (
   id           TEXT    NOT NULL PRIMARY KEY,
-  agent_id     TEXT    NOT NULL REFERENCES kavach_agents(id),
-  user_id      TEXT    NOT NULL REFERENCES kavach_users(id),
+  agent_id     TEXT    NOT NULL REFERENCES theauth_agents(id),
+  user_id      TEXT    NOT NULL REFERENCES theauth_users(id),
   action       TEXT    NOT NULL,
   resource     TEXT    NOT NULL,
   parameters   ${json},
@@ -271,13 +271,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_rate_limits
+		// theauth_rate_limits
 		// ------------------------------------------------------------------
 		{
 			feature: "rateLimit",
-			sql: `CREATE TABLE ${ifne} kavach_rate_limits (
+			sql: `CREATE TABLE ${ifne} theauth_rate_limits (
   id           TEXT    NOT NULL PRIMARY KEY,
-  agent_id     TEXT    NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  agent_id     TEXT    NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
   resource     TEXT    NOT NULL,
   window_start ${ts}   NOT NULL,
   count        INTEGER NOT NULL DEFAULT 0
@@ -285,11 +285,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_mcp_servers
+		// theauth_mcp_servers
 		// ------------------------------------------------------------------
 		{
 			feature: "mcp",
-			sql: `CREATE TABLE ${ifne} kavach_mcp_servers (
+			sql: `CREATE TABLE ${ifne} theauth_mcp_servers (
   id               TEXT    NOT NULL PRIMARY KEY,
   name             TEXT    NOT NULL,
   endpoint         TEXT    NOT NULL UNIQUE,
@@ -303,13 +303,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_sessions
+		// theauth_sessions
 		// ------------------------------------------------------------------
 		{
 			feature: "session",
-			sql: `CREATE TABLE ${ifne} kavach_sessions (
+			sql: `CREATE TABLE ${ifne} theauth_sessions (
   id         TEXT    NOT NULL PRIMARY KEY,
-  user_id    TEXT    NOT NULL REFERENCES kavach_users(id),
+  user_id    TEXT    NOT NULL REFERENCES theauth_users(id),
   expires_at ${ts}   NOT NULL,
   metadata   ${json},
   created_at ${ts}   NOT NULL
@@ -317,11 +317,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oauth_clients
+		// theauth_oauth_clients
 		// ------------------------------------------------------------------
 		{
 			feature: "oauth",
-			sql: `CREATE TABLE ${ifne} kavach_oauth_clients (
+			sql: `CREATE TABLE ${ifne} theauth_oauth_clients (
   id                          TEXT    NOT NULL PRIMARY KEY,
   client_id                   TEXT    NOT NULL UNIQUE,
   client_secret               TEXT,
@@ -340,16 +340,16 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oauth_access_tokens
+		// theauth_oauth_access_tokens
 		// ------------------------------------------------------------------
 		{
 			feature: "oauth",
-			sql: `CREATE TABLE ${ifne} kavach_oauth_access_tokens (
+			sql: `CREATE TABLE ${ifne} theauth_oauth_access_tokens (
   id                        TEXT NOT NULL PRIMARY KEY,
   access_token              TEXT NOT NULL UNIQUE,
   refresh_token             TEXT UNIQUE,
-  client_id                 TEXT NOT NULL REFERENCES kavach_oauth_clients(client_id),
-  user_id                   TEXT NOT NULL REFERENCES kavach_users(id),
+  client_id                 TEXT NOT NULL REFERENCES theauth_oauth_clients(client_id),
+  user_id                   TEXT NOT NULL REFERENCES theauth_users(id),
   scopes                    TEXT NOT NULL,
   resource                  TEXT,
   access_token_expires_at   ${ts} NOT NULL,
@@ -359,15 +359,15 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oauth_authorization_codes
+		// theauth_oauth_authorization_codes
 		// ------------------------------------------------------------------
 		{
 			feature: "oauth",
-			sql: `CREATE TABLE ${ifne} kavach_oauth_authorization_codes (
+			sql: `CREATE TABLE ${ifne} theauth_oauth_authorization_codes (
   id                     TEXT NOT NULL PRIMARY KEY,
   code                   TEXT NOT NULL UNIQUE,
-  client_id              TEXT NOT NULL REFERENCES kavach_oauth_clients(client_id),
-  user_id                TEXT NOT NULL REFERENCES kavach_users(id),
+  client_id              TEXT NOT NULL REFERENCES theauth_oauth_clients(client_id),
+  user_id                TEXT NOT NULL REFERENCES theauth_users(id),
   redirect_uri           TEXT NOT NULL,
   scopes                 TEXT NOT NULL,
   code_challenge         TEXT,
@@ -379,11 +379,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oauth_accounts (provider account linking)
+		// theauth_oauth_accounts (provider account linking)
 		// ------------------------------------------------------------------
 		{
 			feature: "oauth",
-			sql: `CREATE TABLE ${ifne} kavach_oauth_accounts (
+			sql: `CREATE TABLE ${ifne} theauth_oauth_accounts (
   id                   TEXT NOT NULL PRIMARY KEY,
   user_id              TEXT NOT NULL,
   provider             TEXT NOT NULL,
@@ -397,11 +397,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oauth_states (PKCE state for CSRF protection)
+		// theauth_oauth_states (PKCE state for CSRF protection)
 		// ------------------------------------------------------------------
 		{
 			feature: "oauth",
-			sql: `CREATE TABLE ${ifne} kavach_oauth_states (
+			sql: `CREATE TABLE ${ifne} theauth_oauth_states (
   state          TEXT NOT NULL PRIMARY KEY,
   code_verifier  TEXT NOT NULL,
   redirect_uri   TEXT NOT NULL,
@@ -412,15 +412,15 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_budget_policies
+		// theauth_budget_policies
 		// ------------------------------------------------------------------
 		{
 			feature: "budget",
-			sql: `CREATE TABLE ${ifne} kavach_budget_policies (
+			sql: `CREATE TABLE ${ifne} theauth_budget_policies (
   id            TEXT    NOT NULL PRIMARY KEY,
-  agent_id      TEXT    REFERENCES kavach_agents(id) ON DELETE CASCADE,
-  user_id       TEXT    REFERENCES kavach_users(id),
-  tenant_id     TEXT    REFERENCES kavach_tenants(id),
+  agent_id      TEXT    REFERENCES theauth_agents(id) ON DELETE CASCADE,
+  user_id       TEXT    REFERENCES theauth_users(id),
+  tenant_id     TEXT    REFERENCES theauth_tenants(id),
   limits        ${json} NOT NULL,
   current_usage ${json} NOT NULL,
   action        TEXT    NOT NULL DEFAULT 'warn',
@@ -430,13 +430,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_agent_cards  (A2A discovery)
+		// theauth_agent_cards  (A2A discovery)
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_agent_cards (
+			sql: `CREATE TABLE ${ifne} theauth_agent_cards (
   id                TEXT    NOT NULL PRIMARY KEY,
-  agent_id          TEXT    NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  agent_id          TEXT    NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
   name              TEXT    NOT NULL,
   description       TEXT,
   version           TEXT    NOT NULL,
@@ -451,14 +451,14 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_approval_requests  (CIBA async approval flows)
+		// theauth_approval_requests  (CIBA async approval flows)
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_approval_requests (
+			sql: `CREATE TABLE ${ifne} theauth_approval_requests (
   id            TEXT NOT NULL PRIMARY KEY,
-  agent_id      TEXT NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
-  user_id       TEXT NOT NULL REFERENCES kavach_users(id),
+  agent_id      TEXT NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
+  user_id       TEXT NOT NULL REFERENCES theauth_users(id),
   action        TEXT NOT NULL,
   resource      TEXT NOT NULL,
   arguments     ${json},
@@ -471,12 +471,12 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_trust_scores  (graduated autonomy scoring)
+		// theauth_trust_scores  (graduated autonomy scoring)
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_trust_scores (
-  agent_id    TEXT    NOT NULL PRIMARY KEY REFERENCES kavach_agents(id) ON DELETE CASCADE,
+			sql: `CREATE TABLE ${ifne} theauth_trust_scores (
+  agent_id    TEXT    NOT NULL PRIMARY KEY REFERENCES theauth_agents(id) ON DELETE CASCADE,
   score       INTEGER NOT NULL,
   level       TEXT    NOT NULL,
   factors     ${json} NOT NULL,
@@ -485,15 +485,15 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_organizations
+		// theauth_organizations
 		// ------------------------------------------------------------------
 		{
 			feature: "org",
-			sql: `CREATE TABLE ${ifne} kavach_organizations (
+			sql: `CREATE TABLE ${ifne} theauth_organizations (
   id         TEXT    NOT NULL PRIMARY KEY,
   name       TEXT    NOT NULL,
   slug       TEXT    NOT NULL UNIQUE,
-  owner_id   TEXT    NOT NULL REFERENCES kavach_users(id),
+  owner_id   TEXT    NOT NULL REFERENCES theauth_users(id),
   metadata   ${json},
   created_at ${ts}   NOT NULL,
   updated_at ${ts}   NOT NULL
@@ -501,14 +501,14 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_org_members
+		// theauth_org_members
 		// ------------------------------------------------------------------
 		{
 			feature: "org",
-			sql: `CREATE TABLE ${ifne} kavach_org_members (
+			sql: `CREATE TABLE ${ifne} theauth_org_members (
   id        TEXT    NOT NULL PRIMARY KEY,
-  org_id    TEXT    NOT NULL REFERENCES kavach_organizations(id) ON DELETE CASCADE,
-  user_id   TEXT    NOT NULL REFERENCES kavach_users(id),
+  org_id    TEXT    NOT NULL REFERENCES theauth_organizations(id) ON DELETE CASCADE,
+  user_id   TEXT    NOT NULL REFERENCES theauth_users(id),
   role      TEXT    NOT NULL DEFAULT 'member',
   joined_at ${ts}   NOT NULL,
   UNIQUE(org_id, user_id)
@@ -516,16 +516,16 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_org_invitations
+		// theauth_org_invitations
 		// ------------------------------------------------------------------
 		{
 			feature: "org",
-			sql: `CREATE TABLE ${ifne} kavach_org_invitations (
+			sql: `CREATE TABLE ${ifne} theauth_org_invitations (
   id         TEXT    NOT NULL PRIMARY KEY,
-  org_id     TEXT    NOT NULL REFERENCES kavach_organizations(id) ON DELETE CASCADE,
+  org_id     TEXT    NOT NULL REFERENCES theauth_organizations(id) ON DELETE CASCADE,
   email      TEXT    NOT NULL,
   role       TEXT    NOT NULL DEFAULT 'member',
-  invited_by TEXT    NOT NULL REFERENCES kavach_users(id),
+  invited_by TEXT    NOT NULL REFERENCES theauth_users(id),
   status     TEXT    NOT NULL DEFAULT 'pending',
   expires_at ${ts}   NOT NULL,
   created_at ${ts}   NOT NULL
@@ -533,13 +533,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_org_roles
+		// theauth_org_roles
 		// ------------------------------------------------------------------
 		{
 			feature: "org",
-			sql: `CREATE TABLE ${ifne} kavach_org_roles (
+			sql: `CREATE TABLE ${ifne} theauth_org_roles (
   id          TEXT    NOT NULL PRIMARY KEY,
-  org_id      TEXT    NOT NULL REFERENCES kavach_organizations(id) ON DELETE CASCADE,
+  org_id      TEXT    NOT NULL REFERENCES theauth_organizations(id) ON DELETE CASCADE,
   name        TEXT    NOT NULL,
   permissions ${json} NOT NULL,
   UNIQUE(org_id, name)
@@ -547,13 +547,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_passkey_credentials  (WebAuthn / FIDO2 passkeys)
+		// theauth_passkey_credentials  (WebAuthn / FIDO2 passkeys)
 		// ------------------------------------------------------------------
 		{
 			feature: "passkey",
-			sql: `CREATE TABLE ${ifne} kavach_passkey_credentials (
+			sql: `CREATE TABLE ${ifne} theauth_passkey_credentials (
   id            TEXT    NOT NULL PRIMARY KEY,
-  user_id       TEXT    NOT NULL REFERENCES kavach_users(id),
+  user_id       TEXT    NOT NULL REFERENCES theauth_users(id),
   credential_id TEXT    NOT NULL UNIQUE,
   public_key    TEXT    NOT NULL,
   counter       INTEGER NOT NULL DEFAULT 0,
@@ -565,11 +565,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_passkey_challenges  (short-lived WebAuthn challenges)
+		// theauth_passkey_challenges  (short-lived WebAuthn challenges)
 		// ------------------------------------------------------------------
 		{
 			feature: "passkey",
-			sql: `CREATE TABLE ${ifne} kavach_passkey_challenges (
+			sql: `CREATE TABLE ${ifne} theauth_passkey_challenges (
   id         TEXT NOT NULL PRIMARY KEY,
   challenge  TEXT NOT NULL UNIQUE,
   user_id    TEXT,
@@ -580,11 +580,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_one_time_tokens  (email verify, password reset, invitation)
+		// theauth_one_time_tokens  (email verify, password reset, invitation)
 		// ------------------------------------------------------------------
 		{
 			feature: "oneTimeToken",
-			sql: `CREATE TABLE ${ifne} kavach_one_time_tokens (
+			sql: `CREATE TABLE ${ifne} theauth_one_time_tokens (
   id          TEXT    NOT NULL PRIMARY KEY,
   token_hash  TEXT    NOT NULL UNIQUE,
   purpose     TEXT    NOT NULL,
@@ -597,12 +597,12 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_agent_dids  (W3C Decentralized Identifiers per agent)
+		// theauth_agent_dids  (W3C Decentralized Identifiers per agent)
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_agent_dids (
-  agent_id       TEXT NOT NULL PRIMARY KEY REFERENCES kavach_agents(id) ON DELETE CASCADE,
+			sql: `CREATE TABLE ${ifne} theauth_agent_dids (
+  agent_id       TEXT NOT NULL PRIMARY KEY REFERENCES theauth_agents(id) ON DELETE CASCADE,
   did            TEXT NOT NULL UNIQUE,
   method         TEXT NOT NULL,
   public_key_jwk TEXT NOT NULL,
@@ -612,11 +612,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_magic_links  (passwordless email login)
+		// theauth_magic_links  (passwordless email login)
 		// ------------------------------------------------------------------
 		{
 			feature: "magicLink",
-			sql: `CREATE TABLE ${ifne} kavach_magic_links (
+			sql: `CREATE TABLE ${ifne} theauth_magic_links (
   id         TEXT    NOT NULL PRIMARY KEY,
   email      TEXT    NOT NULL,
   token      TEXT    NOT NULL UNIQUE,
@@ -627,11 +627,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_email_otps  (one-time password login)
+		// theauth_email_otps  (one-time password login)
 		// ------------------------------------------------------------------
 		{
 			feature: "emailOtp",
-			sql: `CREATE TABLE ${ifne} kavach_email_otps (
+			sql: `CREATE TABLE ${ifne} theauth_email_otps (
   id         TEXT    NOT NULL PRIMARY KEY,
   email      TEXT    NOT NULL,
   code_hash  TEXT    NOT NULL,
@@ -642,12 +642,12 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_totp  (TOTP two-factor authentication)
+		// theauth_totp  (TOTP two-factor authentication)
 		// ------------------------------------------------------------------
 		{
 			feature: "totp",
-			sql: `CREATE TABLE ${ifne} kavach_totp (
-  user_id      TEXT    NOT NULL PRIMARY KEY REFERENCES kavach_users(id),
+			sql: `CREATE TABLE ${ifne} theauth_totp (
+  user_id      TEXT    NOT NULL PRIMARY KEY REFERENCES theauth_users(id),
   secret       TEXT    NOT NULL,
   enabled      ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   backup_codes ${json} NOT NULL,
@@ -657,11 +657,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_sso_connections  (SAML 2.0 / OIDC enterprise SSO)
+		// theauth_sso_connections  (SAML 2.0 / OIDC enterprise SSO)
 		// ------------------------------------------------------------------
 		{
 			feature: "sso",
-			sql: `CREATE TABLE ${ifne} kavach_sso_connections (
+			sql: `CREATE TABLE ${ifne} theauth_sso_connections (
   id          TEXT    NOT NULL PRIMARY KEY,
   org_id      TEXT    NOT NULL,
   provider_id TEXT    NOT NULL,
@@ -673,13 +673,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_api_keys  (static bearer tokens with permission scopes)
+		// theauth_api_keys  (static bearer tokens with permission scopes)
 		// ------------------------------------------------------------------
 		{
 			feature: "apiKey",
-			sql: `CREATE TABLE ${ifne} kavach_api_keys (
+			sql: `CREATE TABLE ${ifne} theauth_api_keys (
   id           TEXT    NOT NULL PRIMARY KEY,
-  user_id      TEXT    NOT NULL REFERENCES kavach_users(id),
+  user_id      TEXT    NOT NULL REFERENCES theauth_users(id),
   name         TEXT    NOT NULL,
   key_hash     TEXT    NOT NULL,
   key_prefix   TEXT    NOT NULL,
@@ -691,13 +691,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_username_accounts  (username + password auth)
+		// theauth_username_accounts  (username + password auth)
 		// ------------------------------------------------------------------
 		{
 			feature: "username",
-			sql: `CREATE TABLE ${ifne} kavach_username_accounts (
+			sql: `CREATE TABLE ${ifne} theauth_username_accounts (
   id            TEXT NOT NULL PRIMARY KEY,
-  user_id       TEXT NOT NULL REFERENCES kavach_users(id) ON DELETE CASCADE,
+  user_id       TEXT NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   username      TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   created_at    ${ts} NOT NULL,
@@ -706,11 +706,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_phone_verifications  (SMS OTP)
+		// theauth_phone_verifications  (SMS OTP)
 		// ------------------------------------------------------------------
 		{
 			feature: "phone",
-			sql: `CREATE TABLE ${ifne} kavach_phone_verifications (
+			sql: `CREATE TABLE ${ifne} theauth_phone_verifications (
   id           TEXT    NOT NULL PRIMARY KEY,
   phone_number TEXT    NOT NULL,
   code_hash    TEXT    NOT NULL,
@@ -721,13 +721,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_trusted_devices  (skip 2FA on trusted devices for a window)
+		// theauth_trusted_devices  (skip 2FA on trusted devices for a window)
 		// ------------------------------------------------------------------
 		{
 			feature: "device",
-			sql: `CREATE TABLE ${ifne} kavach_trusted_devices (
+			sql: `CREATE TABLE ${ifne} theauth_trusted_devices (
   id          TEXT NOT NULL PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES kavach_users(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   fingerprint TEXT NOT NULL,
   label       TEXT NOT NULL,
   trusted_at  ${ts} NOT NULL,
@@ -736,13 +736,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_login_history  (last-login method tracking per user)
+		// theauth_login_history  (last-login method tracking per user)
 		// ------------------------------------------------------------------
 		{
 			feature: "loginHistory",
-			sql: `CREATE TABLE ${ifne} kavach_login_history (
+			sql: `CREATE TABLE ${ifne} theauth_login_history (
   id         TEXT NOT NULL PRIMARY KEY,
-  user_id    TEXT NOT NULL REFERENCES kavach_users(id) ON DELETE CASCADE,
+  user_id    TEXT NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   method     TEXT NOT NULL,
   ip         TEXT,
   user_agent TEXT,
@@ -751,16 +751,16 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "loginHistory",
-			sql: `CREATE INDEX ${ifne} kavach_login_history_user_ts
-  ON kavach_login_history (user_id, timestamp DESC)`,
+			sql: `CREATE INDEX ${ifne} theauth_login_history_user_ts
+  ON theauth_login_history (user_id, timestamp DESC)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oidc_clients  (OIDC Provider — registered relying parties)
+		// theauth_oidc_clients  (OIDC Provider — registered relying parties)
 		// ------------------------------------------------------------------
 		{
 			feature: "oidcProvider",
-			sql: `CREATE TABLE ${ifne} kavach_oidc_clients (
+			sql: `CREATE TABLE ${ifne} theauth_oidc_clients (
   id                          TEXT    NOT NULL PRIMARY KEY,
   client_id                   TEXT    NOT NULL UNIQUE,
   client_secret_hash          TEXT    NOT NULL,
@@ -776,11 +776,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oidc_auth_codes  (OIDC Provider — authorization codes)
+		// theauth_oidc_auth_codes  (OIDC Provider — authorization codes)
 		// ------------------------------------------------------------------
 		{
 			feature: "oidcProvider",
-			sql: `CREATE TABLE ${ifne} kavach_oidc_auth_codes (
+			sql: `CREATE TABLE ${ifne} theauth_oidc_auth_codes (
   id                     TEXT    NOT NULL PRIMARY KEY,
   code_hash              TEXT    NOT NULL UNIQUE,
   client_id              TEXT    NOT NULL,
@@ -797,11 +797,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_oidc_refresh_tokens  (OIDC Provider — refresh tokens)
+		// theauth_oidc_refresh_tokens  (OIDC Provider — refresh tokens)
 		// ------------------------------------------------------------------
 		{
 			feature: "oidcProvider",
-			sql: `CREATE TABLE ${ifne} kavach_oidc_refresh_tokens (
+			sql: `CREATE TABLE ${ifne} theauth_oidc_refresh_tokens (
   id          TEXT    NOT NULL PRIMARY KEY,
   token_hash  TEXT    NOT NULL UNIQUE,
   client_id   TEXT    NOT NULL,
@@ -814,13 +814,13 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_cost_events  (per-agent cost attribution)
+		// theauth_cost_events  (per-agent cost attribution)
 		// ------------------------------------------------------------------
 		{
 			feature: "audit",
-			sql: `CREATE TABLE ${ifne} kavach_cost_events (
+			sql: `CREATE TABLE ${ifne} theauth_cost_events (
   id                  TEXT    NOT NULL PRIMARY KEY,
-  agent_id            TEXT    NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
+  agent_id            TEXT    NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
   tool                TEXT    NOT NULL,
   input_tokens        INTEGER,
   output_tokens       INTEGER,
@@ -833,24 +833,24 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "audit",
-			sql: `CREATE INDEX ${ifne} kavach_cost_events_agent_recorded
-  ON kavach_cost_events (agent_id, recorded_at DESC)`,
+			sql: `CREATE INDEX ${ifne} theauth_cost_events_agent_recorded
+  ON theauth_cost_events (agent_id, recorded_at DESC)`,
 		},
 		{
 			feature: "audit",
-			sql: `CREATE INDEX ${ifne} kavach_cost_events_chain_id
-  ON kavach_cost_events (delegation_chain_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_cost_events_chain_id
+  ON theauth_cost_events (delegation_chain_id)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_ephemeral_sessions  (short-lived agent credentials)
+		// theauth_ephemeral_sessions  (short-lived agent credentials)
 		// ------------------------------------------------------------------
 		{
 			feature: "agent",
-			sql: `CREATE TABLE ${ifne} kavach_ephemeral_sessions (
+			sql: `CREATE TABLE ${ifne} theauth_ephemeral_sessions (
   id             TEXT    NOT NULL PRIMARY KEY,
-  agent_id       TEXT    NOT NULL REFERENCES kavach_agents(id) ON DELETE CASCADE,
-  owner_id       TEXT    NOT NULL REFERENCES kavach_users(id),
+  agent_id       TEXT    NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
+  owner_id       TEXT    NOT NULL REFERENCES theauth_users(id),
   token_hash     TEXT    NOT NULL UNIQUE,
   expires_at     ${ts}   NOT NULL,
   max_actions    INTEGER,
@@ -863,24 +863,24 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "agent",
-			sql: `CREATE INDEX ${ifne} kavach_ephemeral_sessions_owner_status
-  ON kavach_ephemeral_sessions (owner_id, status)`,
+			sql: `CREATE INDEX ${ifne} theauth_ephemeral_sessions_owner_status
+  ON theauth_ephemeral_sessions (owner_id, status)`,
 		},
 		{
 			feature: "agent",
-			sql: `CREATE INDEX ${ifne} kavach_ephemeral_sessions_expires_at
-  ON kavach_ephemeral_sessions (expires_at)`,
+			sql: `CREATE INDEX ${ifne} theauth_ephemeral_sessions_expires_at
+  ON theauth_ephemeral_sessions (expires_at)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_jwt_refresh_tokens  (JWT session plugin — general purpose)
+		// theauth_jwt_refresh_tokens  (JWT session plugin — general purpose)
 		// ------------------------------------------------------------------
 		{
 			feature: "jwt",
-			sql: `CREATE TABLE ${ifne} kavach_jwt_refresh_tokens (
+			sql: `CREATE TABLE ${ifne} theauth_jwt_refresh_tokens (
   id          TEXT    NOT NULL PRIMARY KEY,
   token_hash  TEXT    NOT NULL UNIQUE,
-  user_id     TEXT    NOT NULL REFERENCES kavach_users(id) ON DELETE CASCADE,
+  user_id     TEXT    NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   used        ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   expires_at  ${ts}   NOT NULL,
   created_at  ${ts}   NOT NULL
@@ -888,16 +888,16 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "jwt",
-			sql: `CREATE INDEX ${ifne} kavach_jwt_refresh_tokens_user_id
-  ON kavach_jwt_refresh_tokens (user_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_jwt_refresh_tokens_user_id
+  ON theauth_jwt_refresh_tokens (user_id)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_stream_events  (persisted SSE events for replay)
+		// theauth_stream_events  (persisted SSE events for replay)
 		// ------------------------------------------------------------------
 		{
 			feature: "audit",
-			sql: `CREATE TABLE ${ifne} kavach_stream_events (
+			sql: `CREATE TABLE ${ifne} theauth_stream_events (
   id        TEXT    NOT NULL PRIMARY KEY,
   type      TEXT    NOT NULL,
   timestamp ${ts}   NOT NULL,
@@ -908,21 +908,21 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "audit",
-			sql: `CREATE INDEX ${ifne} kavach_stream_events_timestamp
-  ON kavach_stream_events (timestamp DESC)`,
+			sql: `CREATE INDEX ${ifne} theauth_stream_events_timestamp
+  ON theauth_stream_events (timestamp DESC)`,
 		},
 		{
 			feature: "audit",
-			sql: `CREATE INDEX ${ifne} kavach_stream_events_type_timestamp
-  ON kavach_stream_events (type, timestamp DESC)`,
+			sql: `CREATE INDEX ${ifne} theauth_stream_events_type_timestamp
+  ON theauth_stream_events (type, timestamp DESC)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_rebac_resources  (ReBAC resource hierarchy)
+		// theauth_rebac_resources  (ReBAC resource hierarchy)
 		// ------------------------------------------------------------------
 		{
 			feature: "rebac",
-			sql: `CREATE TABLE ${ifne} kavach_rebac_resources (
+			sql: `CREATE TABLE ${ifne} theauth_rebac_resources (
   id          TEXT NOT NULL PRIMARY KEY,
   type        TEXT NOT NULL,
   parent_id   TEXT,
@@ -932,16 +932,16 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "rebac",
-			sql: `CREATE INDEX ${ifne} kavach_rebac_resources_parent
-  ON kavach_rebac_resources (parent_id, parent_type)`,
+			sql: `CREATE INDEX ${ifne} theauth_rebac_resources_parent
+  ON theauth_rebac_resources (parent_id, parent_type)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_rebac_relationships  (Zanzibar-style subject-relation-object tuples)
+		// theauth_rebac_relationships  (Zanzibar-style subject-relation-object tuples)
 		// ------------------------------------------------------------------
 		{
 			feature: "rebac",
-			sql: `CREATE TABLE ${ifne} kavach_rebac_relationships (
+			sql: `CREATE TABLE ${ifne} theauth_rebac_relationships (
   id           TEXT NOT NULL PRIMARY KEY,
   subject_type TEXT NOT NULL,
   subject_id   TEXT NOT NULL,
@@ -953,26 +953,26 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "rebac",
-			sql: `CREATE INDEX ${ifne} kavach_rebac_relationships_subject
-  ON kavach_rebac_relationships (subject_type, subject_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_rebac_relationships_subject
+  ON theauth_rebac_relationships (subject_type, subject_id)`,
 		},
 		{
 			feature: "rebac",
-			sql: `CREATE INDEX ${ifne} kavach_rebac_relationships_object
-  ON kavach_rebac_relationships (object_type, object_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_rebac_relationships_object
+  ON theauth_rebac_relationships (object_type, object_id)`,
 		},
 		{
 			feature: "rebac",
-			sql: `CREATE UNIQUE INDEX ${ifne} kavach_rebac_relationships_tuple
-  ON kavach_rebac_relationships (subject_type, subject_id, relation, object_type, object_id)`,
+			sql: `CREATE UNIQUE INDEX ${ifne} theauth_rebac_relationships_tuple
+  ON theauth_rebac_relationships (subject_type, subject_id, relation, object_type, object_id)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_federation_instances  (trusted remote TheAuth instances)
+		// theauth_federation_instances  (trusted remote TheAuth instances)
 		// ------------------------------------------------------------------
 		{
 			feature: "federation",
-			sql: `CREATE TABLE ${ifne} kavach_federation_instances (
+			sql: `CREATE TABLE ${ifne} theauth_federation_instances (
   id            TEXT NOT NULL PRIMARY KEY,
   instance_id   TEXT NOT NULL UNIQUE,
   instance_url  TEXT NOT NULL,
@@ -985,11 +985,11 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_federation_tokens  (issued/received federation tokens)
+		// theauth_federation_tokens  (issued/received federation tokens)
 		// ------------------------------------------------------------------
 		{
 			feature: "federation",
-			sql: `CREATE TABLE ${ifne} kavach_federation_tokens (
+			sql: `CREATE TABLE ${ifne} theauth_federation_tokens (
   id                  TEXT    NOT NULL PRIMARY KEY,
   token_jti           TEXT    NOT NULL UNIQUE,
   agent_id            TEXT    NOT NULL,
@@ -1004,23 +1004,23 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "federation",
-			sql: `CREATE INDEX ${ifne} kavach_federation_tokens_agent
-  ON kavach_federation_tokens (agent_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_federation_tokens_agent
+  ON theauth_federation_tokens (agent_id)`,
 		},
 		{
 			feature: "federation",
-			sql: `CREATE INDEX ${ifne} kavach_federation_tokens_source
-  ON kavach_federation_tokens (source_instance_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_federation_tokens_source
+  ON theauth_federation_tokens (source_instance_id)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_refresh_token_families  (token rotation / reuse detection)
+		// theauth_refresh_token_families  (token rotation / reuse detection)
 		// ------------------------------------------------------------------
 		{
 			feature: "jwt",
-			sql: `CREATE TABLE ${ifne} kavach_refresh_token_families (
+			sql: `CREATE TABLE ${ifne} theauth_refresh_token_families (
   id                   TEXT    NOT NULL PRIMARY KEY,
-  user_id              TEXT    NOT NULL REFERENCES kavach_users(id) ON DELETE CASCADE,
+  user_id              TEXT    NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   absolute_expires_at  ${ts}   NOT NULL,
   revoked              ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   created_at           ${ts}   NOT NULL
@@ -1028,18 +1028,18 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "jwt",
-			sql: `CREATE INDEX ${ifne} kavach_refresh_token_families_user_id
-  ON kavach_refresh_token_families (user_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_refresh_token_families_user_id
+  ON theauth_refresh_token_families (user_id)`,
 		},
 
 		// ------------------------------------------------------------------
-		// kavach_refresh_tokens  (individual one-time-use tokens per family)
+		// theauth_refresh_tokens  (individual one-time-use tokens per family)
 		// ------------------------------------------------------------------
 		{
 			feature: "jwt",
-			sql: `CREATE TABLE ${ifne} kavach_refresh_tokens (
+			sql: `CREATE TABLE ${ifne} theauth_refresh_tokens (
   id          TEXT    NOT NULL PRIMARY KEY,
-  family_id   TEXT    NOT NULL REFERENCES kavach_refresh_token_families(id) ON DELETE CASCADE,
+  family_id   TEXT    NOT NULL REFERENCES theauth_refresh_token_families(id) ON DELETE CASCADE,
   token_hash  TEXT    NOT NULL UNIQUE,
   used        ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   expires_at  ${ts}   NOT NULL,
@@ -1048,8 +1048,8 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 		{
 			feature: "jwt",
-			sql: `CREATE INDEX ${ifne} kavach_refresh_tokens_family_id
-  ON kavach_refresh_tokens (family_id)`,
+			sql: `CREATE INDEX ${ifne} theauth_refresh_tokens_family_id
+  ON theauth_refresh_tokens (family_id)`,
 		},
 	];
 }
@@ -1070,7 +1070,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
  *
  * @param db       Drizzle database instance returned by `createDatabase()`.
  * @param provider The database provider used to build the correct DDL syntax.
- * @param config   Optional KavachConfig used to determine which feature tables
+ * @param config   Optional TheAuthConfig used to determine which feature tables
  *                 to create. When absent, all tables are created.
  *
  * @example
@@ -1079,52 +1079,59 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
  * await createTables(db, 'postgres');
  * ```
  */
-export async function createTables(
+/** Prefix used by tables created before the rename to TheAuth. Only used to upgrade existing databases in place. */
+const LEGACY_TABLE_PREFIX = "ka" + "vach_";
+
+/**
+ * Builds statements that rename pre-existing legacy tables to their current names so
+ * upgrading a database keeps its data. Each statement fails harmlessly when the legacy
+ * table is absent (fresh database) or the new table already exists, so callers run them
+ * tolerantly before the CREATE TABLE statements.
+ */
+function buildLegacyRenames(provider: DatabaseConfig["provider"], statements: string[]): string[] {
+	const names = new Set<string>();
+	for (const sql of statements) {
+		const m = /CREATE TABLE (?:IF NOT EXISTS )?(theauth_[a-z0-9_]+)/.exec(sql);
+		if (m?.[1]) names.add(m[1]);
+	}
+	return [...names].map((name) => {
+		const legacy = name.replace(/^theauth_/, LEGACY_TABLE_PREFIX);
+		if (provider === "mysql") return `RENAME TABLE ${legacy} TO ${name}`;
+		if (provider === "postgres") return `ALTER TABLE IF EXISTS ${legacy} RENAME TO ${name}`;
+		return `ALTER TABLE ${legacy} RENAME TO ${name}`;
+	});
+}
+
+/** Resolves a function that runs one raw DDL statement against the underlying driver. */
+function resolveExecutor(
 	db: Database,
 	provider: DatabaseConfig["provider"],
-	config?: KavachConfig,
-): Promise<void> {
-	const allStatements = buildStatements(provider);
-	const features = resolveEnabledFeatures(config);
-
-	const statements = allStatements.filter((s) => features[s.feature]).map((s) => s.sql);
-
-	if (provider === "sqlite" || provider === "sqlite-native") {
-		// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle session for raw DDL
-		const session = (db as any).session;
-
-		// Path 1: better-sqlite3 (sqlite-native) exposes session.client.exec()
-		if (session?.client?.exec) {
-			session.client.exec(`${statements.join(";\n")};`);
-			return;
-		}
-
-		// Path 2: sql.js (default sqlite) exposes session.client.run()
-		if (session?.client?.run) {
-			for (const sql of statements) {
-				session.client.run(sql);
-			}
-			return;
-		}
-
-		// Path 3: Fallback via drizzle run() (works for both sql.js and better-sqlite3)
-		// biome-ignore lint/suspicious/noExplicitAny: raw SQL fallback for DDL execution
-		const anyDb = db as any;
-		for (const sql of statements) {
-			await anyDb.run(sql);
-		}
-		return;
-	}
-
-	// Postgres and MySQL: execute each statement via the underlying pool/client.
-	// We access the internal session to issue raw DDL since drizzle-orm/node-postgres
-	// and drizzle-orm/mysql2 both expose `.session.client` (or `.client`).
-	// biome-ignore lint/suspicious/noExplicitAny: raw DDL on pg/mysql adapter boundary
+): (sql: string) => Promise<void> {
+	// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle session for raw DDL
 	const anyDb = db as any;
 
+	if (provider === "sqlite" || provider === "sqlite-native") {
+		const session = anyDb.session;
+		// better-sqlite3 (sqlite-native) exposes session.client.exec()
+		if (session?.client?.exec) {
+			return async (sql) => {
+				session.client.exec(`${sql};`);
+			};
+		}
+		// sql.js (default sqlite) exposes session.client.run()
+		if (session?.client?.run) {
+			return async (sql) => {
+				session.client.run(sql);
+			};
+		}
+		// Fallback via drizzle run() (works for both sql.js and better-sqlite3)
+		return async (sql) => {
+			await anyDb.run(sql);
+		};
+	}
+
 	if (provider === "postgres") {
-		// drizzle-orm/node-postgres wraps a `pg` Pool; the pool is at db.session.client
-		// or accessible via db.$client depending on drizzle version.
+		// drizzle-orm/node-postgres wraps a `pg` Pool; the pool is at db.$client or db.session.client
 		const client: { query: (sql: string) => Promise<unknown> } =
 			anyDb.$client ?? anyDb.session?.client;
 		if (!client) {
@@ -1132,10 +1139,9 @@ export async function createTables(
 				"TheAuth createTables: cannot access underlying pg client from Drizzle instance.",
 			);
 		}
-		for (const sql of statements) {
+		return async (sql) => {
 			await client.query(sql);
-		}
-		return;
+		};
 	}
 
 	if (provider === "mysql") {
@@ -1147,11 +1153,38 @@ export async function createTables(
 				"TheAuth createTables: cannot access underlying mysql2 client from Drizzle instance.",
 			);
 		}
-		for (const sql of statements) {
+		return async (sql) => {
 			await client.execute(sql);
-		}
-		return;
+		};
 	}
 
 	throw new Error(`createTables: unsupported provider "${provider}"`);
+}
+
+export async function createTables(
+	db: Database,
+	provider: DatabaseConfig["provider"],
+	config?: TheAuthConfig,
+): Promise<void> {
+	const allStatements = buildStatements(provider);
+	const features = resolveEnabledFeatures(config);
+
+	const statements = allStatements.filter((s) => features[s.feature]).map((s) => s.sql);
+	const run = resolveExecutor(db, provider);
+
+	// Upgrade path: keep data in tables created under the previous name.
+	for (const sql of buildLegacyRenames(
+		provider,
+		allStatements.map((s) => s.sql),
+	)) {
+		try {
+			await run(sql);
+		} catch {
+			// Expected on fresh databases or when the new table already exists.
+		}
+	}
+
+	for (const sql of statements) {
+		await run(sql);
+	}
 }

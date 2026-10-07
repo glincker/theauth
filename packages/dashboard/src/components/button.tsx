@@ -12,7 +12,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 	primary:
-		"kavach-btn-gold text-[#1a1000] border-0 shadow-[0_2px_8px_-2px_rgba(154,114,40,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_2px_12px_-2px_rgba(154,114,40,0.4)] relative overflow-hidden",
+		"theauth-btn-gold text-[#1a1000] border-0 shadow-[0_2px_8px_-2px_rgba(154,114,40,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_2px_12px_-2px_rgba(154,114,40,0.4)] relative overflow-hidden",
 	secondary:
 		"bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-600",
 	ghost:

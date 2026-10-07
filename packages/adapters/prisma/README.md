@@ -13,14 +13,14 @@ npm install theauth @glinr/@glinr/theauth-prisma @prisma/client
 ## Usage
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { PrismaClient } from "@prisma/client";
-import { kavachPrisma } from "@glinr/theauth-prisma";
+import { theAuthPrisma } from "@glinr/theauth-prisma";
 
 const prisma = new PrismaClient();
 
-const kavach = createKavach({
-  database: kavachPrisma(prisma),
+const theauth = createTheAuth({
+  database: theAuthPrisma(prisma),
 });
 ```
 

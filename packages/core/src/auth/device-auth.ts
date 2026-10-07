@@ -393,11 +393,11 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 
-export function deviceAuth(config: DeviceAuthConfig): KavachPlugin {
+export function deviceAuth(config: DeviceAuthConfig): TheAuthPlugin {
 	return {
-		id: "kavach-device-auth",
+		id: "theauth-device-auth",
 
 		async init(ctx): Promise<undefined> {
 			const mod = createDeviceAuthModule(config);

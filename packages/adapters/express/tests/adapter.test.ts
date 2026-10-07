@@ -3,14 +3,14 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../../core/src/db/schema.js";
-import type { TheAuth } from "../../../core/src/kavach.js";
-import { createTheAuth } from "../../../core/src/kavach.js";
-import { kavachExpress } from "../src/adapter.js";
+import type { TheAuth } from "../../../core/src/theauth.js";
+import { createTheAuth } from "../../../core/src/theauth.js";
+import { theAuthExpress } from "../src/adapter.js";
 
 // ─── Test Setup ──────────────────────────────────────────────────────────────
 
-async function createTestApp(): Promise<{ app: Express; kavach: TheAuth }> {
-	const kavach = await createTheAuth({
+async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -22,7 +22,7 @@ async function createTestApp(): Promise<{ app: Express; kavach: TheAuth }> {
 	});
 
 	// Seed a test user
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -36,9 +36,9 @@ async function createTestApp(): Promise<{ app: Express; kavach: TheAuth }> {
 	const app = express();
 	app.use(express.json());
 	app.use(express.urlencoded({ extended: true }));
-	app.use(kavachExpress(kavach));
+	app.use(theAuthExpress(theauth));
 
-	return { app, kavach };
+	return { app, theauth };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -70,10 +70,10 @@ async function createTestAgent(
 
 describe("Express adapter", () => {
 	let app: Express;
-	let kavach: TheAuth;
+	let theauth: TheAuth;
 
 	beforeEach(async () => {
-		({ app, kavach } = await createTestApp());
+		({ app, theauth } = await createTestApp());
 	});
 
 	// ── Agent CRUD ─────────────────────────────────────────────────────────────
@@ -581,7 +581,7 @@ describe("Express adapter", () => {
 			const { id } = await createTestAgent(app, {
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
-			await kavach.authorize(id, { action: "read", resource: "test:data" });
+			await theauth.authorize(id, { action: "read", resource: "test:data" });
 
 			const res = await request(app).get("/audit/export?format=json");
 
@@ -594,7 +594,7 @@ describe("Express adapter", () => {
 			const { id } = await createTestAgent(app, {
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
-			await kavach.authorize(id, { action: "read", resource: "test:data" });
+			await theauth.authorize(id, { action: "read", resource: "test:data" });
 
 			const res = await request(app).get("/audit/export?format=csv");
 

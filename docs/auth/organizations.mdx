@@ -12,8 +12,8 @@ Add the `organization` plugin to your TheAuth instance:
 import { createTheAuth } from '@glinr/theauth';
 import { organization } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
   plugins: [
     organization({ // [!code highlight]
       maxMembers: 100, // [!code highlight]
@@ -27,7 +27,7 @@ const kavach = await createTheAuth({
 ## Creating organizations
 
 ```ts
-const org = await kavach.org.create({
+const org = await theauth.org.create({
   name: 'Acme Corp',
   slug: 'acme-corp',   // lowercase letters, numbers, hyphens only
   ownerId: 'user_abc',
@@ -41,7 +41,7 @@ The creator is automatically added as a member with the `owner` role.
 ## Inviting members
 
 ```ts
-const invitation = await kavach.org.invite({
+const invitation = await theauth.org.invite({
   orgId: org.id,
   email: 'alice@acme.com',
   role: 'admin',
@@ -53,20 +53,20 @@ const invitation = await kavach.org.invite({
 Accept on the invited user's side:
 
 ```ts
-const member = await kavach.org.acceptInvitation(invitation.id, 'user_xyz');
+const member = await theauth.org.acceptInvitation(invitation.id, 'user_xyz');
 ```
 
 ## Managing members
 
 ```ts
 // List all members
-const members = await kavach.org.getMembers(org.id);
+const members = await theauth.org.getMembers(org.id);
 
 // Change a member's role
-await kavach.org.updateMemberRole(org.id, 'user_xyz', 'member');
+await theauth.org.updateMemberRole(org.id, 'user_xyz', 'member');
 
 // Remove a member
-await kavach.org.removeMember(org.id, 'user_xyz');
+await theauth.org.removeMember(org.id, 'user_xyz');
 ```
 
 ## Roles and permissions
@@ -83,13 +83,13 @@ Four built-in roles ship by default:
 Check permissions at runtime:
 
 ```ts
-const allowed = await kavach.org.hasPermission(org.id, userId, 'agents:create'); // [!code highlight]
+const allowed = await theauth.org.hasPermission(org.id, userId, 'agents:create'); // [!code highlight]
 ```
 
 ### Custom roles
 
 ```ts
-await kavach.org.createRole(org.id, {
+await theauth.org.createRole(org.id, {
   name: 'billing',
   permissions: ['invoices:read', 'invoices:pay'],
 });

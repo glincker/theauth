@@ -21,13 +21,13 @@ The `oauth()` plugin adds social sign-in to TheAuth using OAuth 2.0 authorizatio
 
 ## Generic setup
 
-```typescript title="lib/kavach.ts"
+```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth'; // [!code highlight]
 
-const kavach = await createTheAuth({
+const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.KAVACH_SECRET!,
+  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
   plugins: [
     oauth({ // [!code highlight]
@@ -56,7 +56,7 @@ https://auth.example.com/auth/oauth/{providerId}/callback
 3. TheAuth exchanges the code for tokens, fetches the user profile, and creates or updates the user record.
 4. A session cookie is set and the user lands on your redirect destination.
 
-The user ID is stable: the same provider account always resolves to the same row in `kavach_users`.
+The user ID is stable: the same provider account always resolves to the same row in `theauth_users`.
 
 ## Account linking
 
@@ -64,10 +64,10 @@ When a sign-in email matches an existing user, TheAuth links the OAuth identity 
 
 ```typescript
 // Check connected providers
-const connections = await kavach.auth.getOAuthConnections(userId);
+const connections = await theauth.auth.getOAuthConnections(userId);
 
 // Disconnect a provider (requires at least one remaining sign-in method)
-await kavach.auth.disconnectOAuth(userId, 'github');
+await theauth.auth.disconnectOAuth(userId, 'github');
 ```
 
 <Warning>

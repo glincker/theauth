@@ -29,8 +29,8 @@ When to wait:
 | `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
 | `useSession()` | `useSession()` from `@glinr/theauth-react` |
 | `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@glinr/theauth-react` |
-| `auth()` in server components | `kavach.auth.getSession()` using the request cookies |
-| `currentUser()` | `kavach.auth.getUser()` using the request cookies |
+| `auth()` in server components | `theauth.auth.getSession()` using the request cookies |
+| `currentUser()` | `theauth.auth.getUser()` using the request cookies |
 | `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
 | `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the TheAuth event hooks. |
 | Hosted sign-in at `/sign-in` | Build your own page against `useSignIn()`. |
@@ -48,13 +48,13 @@ When to wait:
 ```
 
 ```ts
-// AFTER: lib/kavach.ts (TheAuth)
+// AFTER: lib/theauth.ts (TheAuth)
 import { createTheAuth } from '@glinr/theauth';
 import { organization } from '@glinr/theauth/auth';
 
 let instance: Awaited<ReturnType<typeof createTheAuth>> | null = null;
 
-export async function getKavach() {
+export async function getTheAuth() {
   if (!instance) {
     instance = await createTheAuth({
       database: {
@@ -82,11 +82,11 @@ Clerk hides its route handling behind the middleware. TheAuth exposes an explici
 ```
 
 ```ts
-// AFTER: app/api/auth/[...kavach]/route.ts (TheAuth)
+// AFTER: app/api/auth/[...theauth]/route.ts (TheAuth)
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
-const { GET, POST } = theAuthNextjs(getKavach);
+const { GET, POST } = theAuthNextjs(getTheAuth);
 
 export { GET, POST };
 ```
@@ -115,7 +115,7 @@ export const config = {
 ```ts
 // AFTER: middleware.ts (TheAuth)
 import { NextRequest, NextResponse } from 'next/server';
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
 const PROTECTED = [/^\/dashboard/, /^\/api\/private/];
 
@@ -123,8 +123,8 @@ export async function middleware(req: NextRequest) {
   const needsAuth = PROTECTED.some((r) => r.test(req.nextUrl.pathname));
   if (!needsAuth) return NextResponse.next();
 
-  const kavach = await getKavach();
-  const session = await kavach.auth.getSession({ request: req });
+  const theauth = await getTheAuth();
+  const session = await theauth.auth.getSession({ request: req });
 
   if (!session.success || !session.data) {
     const signInUrl = new URL('/sign-in', req.url);
@@ -283,14 +283,14 @@ await clerkClient().organizations.createOrganizationMembership({
 
 ```ts
 // AFTER (TheAuth)
-import { getKavach } from '@/lib/kavach';
+import { getTheAuth } from '@/lib/theauth';
 
-const kavach = await getKavach();
-const org = await kavach.organizations.create({
+const theauth = await getTheAuth();
+const org = await theauth.organizations.create({
   name: 'Acme',
   ownerId: userId,
 });
-await kavach.organizations.addMember({
+await theauth.organizations.addMember({
   organizationId: org.data!.id,
   userId: otherUserId,
   role: 'member',
@@ -314,7 +314,7 @@ Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side
 import { createTheAuth } from '@glinr/theauth';
 import { oauth } from '@glinr/theauth/auth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -375,7 +375,7 @@ TheAuth uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes a
 ```sql
 -- Users. Run after you have loaded clerk-users.json into a staging table
 -- called clerk_user_import with the fields below.
-INSERT INTO kavach_user (
+INSERT INTO theauth_user (
   id, email, name, email_verified, image, created_at, updated_at
 )
 SELECT
@@ -390,7 +390,7 @@ FROM clerk_user_import
 ON CONFLICT (id) DO NOTHING;
 
 -- External OAuth connections, one row per provider link.
-INSERT INTO kavach_account (
+INSERT INTO theauth_account (
   id, user_id, provider_id, provider_account_id,
   access_token, refresh_token, created_at, updated_at
 )
@@ -427,13 +427,13 @@ async function signInWithLegacyBridge(usernameInput: string, password: string) {
 
   if (legacy && await bcryptCompare(password, legacy.bcryptHash)) {
     // Legacy hash verified, create (or update) the TheAuth credential with a fresh PBKDF2 hash
-    await kavach.username?.signUp({ username: usernameInput, password }).catch(() => {
+    await theauth.username?.signUp({ username: usernameInput, password }).catch(() => {
       // already migrated, fall through to a normal sign-in
     });
     await db.delete(legacyClerkHashes).where(eq(legacyClerkHashes.username, usernameInput));
   }
 
-  return kavach.username?.signIn({ username: usernameInput, password });
+  return theauth.username?.signIn({ username: usernameInput, password });
 }
 ```
 
@@ -458,9 +458,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(req: NextRequest) {
   const userHint = req.cookies.get('migration_cohort')?.value ?? '';
-  const onKavach = userHint === 'kavach' || hashBucket(userHint) < Number(process.env.THEAUTH_ROLLOUT ?? '0');
+  const onTheAuth = userHint === 'theauth' || hashBucket(userHint) < Number(process.env.THEAUTH_ROLLOUT ?? '0');
 
-  if (onKavach) {
+  if (onTheAuth) {
     return NextResponse.next();
   }
 

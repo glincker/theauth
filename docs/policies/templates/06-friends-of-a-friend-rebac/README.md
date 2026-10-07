@@ -1,6 +1,6 @@
 # Template 06, ReBAC document sharing
 
-Document access is decided by the relationship graph, not a static list of agent IDs. A permission row carries a `relation` field ("viewer"). The engine asks the ReBAC bridge whether the requesting agent holds that relation on the specific document. Add or remove tuples in `kavach_rebac_relationships` to grant or revoke access without touching permission rows.
+Document access is decided by the relationship graph, not a static list of agent IDs. A permission row carries a `relation` field ("viewer"). The engine asks the ReBAC bridge whether the requesting agent holds that relation on the specific document. Add or remove tuples in `theauth_rebac_relationships` to grant or revoke access without touching permission rows.
 
 ## Input shape
 

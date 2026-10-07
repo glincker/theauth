@@ -2,8 +2,8 @@
  * Organizations + RBAC module for TheAuth.
  *
  * Provides organization CRUD, membership management, invitation flows,
- * and role-based permission checking. Uses the kavach_organizations,
- * kavach_org_members, kavach_org_invitations, and kavach_org_roles tables.
+ * and role-based permission checking. Uses the theauth_organizations,
+ * theauth_org_members, theauth_org_invitations, and theauth_org_roles tables.
  */
 
 import { and, eq } from "drizzle-orm";

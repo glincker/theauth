@@ -12,17 +12,17 @@ pnpm add theauth @glinr/@glinr/theauth-sveltekit
 
 ## Usage
 
-Create `src/routes/api/kavach/[...path]/+server.ts`:
+Create `src/routes/api/theauth/[...path]/+server.ts`:
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
-import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
+import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
 
-const kavach = createTheAuth({
-  database: { provider: 'sqlite', url: 'kavach.db' },
+const theauth = createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const handlers = kavachSvelteKit(kavach);
+const handlers = theAuthSvelteKit(theauth);
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -31,20 +31,20 @@ export const DELETE = handlers.DELETE;
 export const OPTIONS = handlers.OPTIONS;
 ```
 
-This handles the full TheAuth REST API under `/api/kavach`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This handles the full TheAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 
 ```typescript
 import { createMcpModule } from '@glinr/theauth/mcp';
-import { kavachSvelteKit } from '@glinr/theauth-sveltekit';
+import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
 
 const mcp = createMcpModule({
   issuer: 'https://your-app.com',
   // ...
 });
 
-const handlers = kavachSvelteKit(kavach, { mcp });
+const handlers = theAuthSvelteKit(theauth, { mcp });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
@@ -57,12 +57,12 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 
 ## API surface
 
-`kavachSvelteKit(kavach, options?)` returns an object with `GET`, `POST`, `PATCH`, `DELETE`, and `OPTIONS` handlers for SvelteKit's `+server.ts` files.
+`theAuthSvelteKit(theauth, options?)` returns an object with `GET`, `POST`, `PATCH`, `DELETE`, and `OPTIONS` handlers for SvelteKit's `+server.ts` files.
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
-| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/kavach` |
+| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/theauth` |
 
 For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
 

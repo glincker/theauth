@@ -13,7 +13,7 @@ function DefaultButton({ loading, children, ...rest }: ButtonSlotProps): ReactNo
 			disabled={rest.disabled ?? loading}
 			className={
 				rest.className ??
-				"kavach-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+				"theauth-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
 			}
 		>
 			{loading ? (
@@ -33,7 +33,7 @@ function DefaultError({ message, className }: ErrorSlotProps): ReactNode {
 		<div
 			className={
 				className ??
-				"kavach-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+				"theauth-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
 			}
 		>
 			{message}
@@ -59,7 +59,7 @@ function Spinner(): ReactNode {
 export function TwoFactorVerify({
 	classNames,
 	components,
-	basePath = "/api/kavach",
+	basePath = "/api/theauth",
 	onSuccess,
 	onCancel,
 	digits = 6,
@@ -175,7 +175,7 @@ export function TwoFactorVerify({
 			<div className="flex flex-col gap-4">
 				<p
 					className={cx(
-						"kavach-2fa-desc text-center text-sm text-zinc-500 dark:text-zinc-400",
+						"theauth-2fa-desc text-center text-sm text-zinc-500 dark:text-zinc-400",
 						classNames?.description,
 					)}
 				>
@@ -196,7 +196,7 @@ export function TwoFactorVerify({
 							autoComplete="one-time-code"
 							disabled={isLoading}
 							className={cx(
-								"kavach-input w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-center font-mono text-sm tracking-widest text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:ring-zinc-400",
+								"theauth-input w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-center font-mono text-sm tracking-widest text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:ring-zinc-400",
 								classNames?.input,
 							)}
 						/>
@@ -218,7 +218,7 @@ export function TwoFactorVerify({
 									onPaste={i === 0 ? handlePaste : undefined}
 									disabled={isLoading}
 									className={cx(
-										"kavach-2fa-digit h-12 w-10 rounded-lg border border-zinc-300 bg-white text-center font-mono text-lg text-zinc-900 outline-none transition-colors focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:ring-zinc-400",
+										"theauth-2fa-digit h-12 w-10 rounded-lg border border-zinc-300 bg-white text-center font-mono text-lg text-zinc-900 outline-none transition-colors focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:ring-zinc-400",
 										classNames?.input,
 									)}
 								/>
@@ -240,7 +240,7 @@ export function TwoFactorVerify({
 								setError(null);
 							}}
 							className={cx(
-								"kavach-backup-link text-xs text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
+								"theauth-backup-link text-xs text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
 								classNames?.backupLink,
 							)}
 						>

@@ -46,10 +46,10 @@ npm install @glinr/theauth
 ```
 
 ```typescript
-import { createKavach } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 import { emailPassword } from "@glinr/theauth/auth";
 
-const kavach = createKavach({
+const theauth = createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL },
   plugins: [emailPassword()],
 });
@@ -75,7 +75,7 @@ export function App() {
 Create an agent:
 
 ```typescript
-const agent = await kavach.agents.create({
+const agent = await theauth.agents.create({
   userId: user.id,
   name: "assistant",
   capabilities: ["read:documents", "write:messages"],

@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { EventStreamModule, StreamEvent } from "../src/auth/event-stream.js";
 import { createEventStreamModule, EVENT_TYPES } from "../src/auth/event-stream.js";
 import * as schema from "../src/db/schema.js";
-import { createKavach } from "../src/kavach.js";
+import { createTheAuth } from "../src/theauth.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function createTestDb() {
-	const kavach = await createKavach({
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -17,7 +17,7 @@ async function createTestDb() {
 			tokenExpiry: "24h",
 		},
 	});
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -27,7 +27,7 @@ async function createTestDb() {
 			updatedAt: new Date(),
 		})
 		.run();
-	return kavach.db;
+	return theauth.db;
 }
 
 function makeEvent(overrides: Partial<StreamEvent> = {}): StreamEvent {
@@ -47,7 +47,7 @@ function makeSseRequest(
 		searchParams?: Record<string, string>;
 	} = {},
 ): Request {
-	const path = overrides.path ?? "/api/kavach/events/stream";
+	const path = overrides.path ?? "/api/theauth/events/stream";
 	const url = new URL(`http://localhost${path}`);
 	for (const [k, v] of Object.entries(overrides.searchParams ?? {})) {
 		url.searchParams.set(k, v);
@@ -138,19 +138,19 @@ describe("event stream: request matching", () => {
 	});
 
 	it("returns null for non-SSE requests (missing accept header)", () => {
-		const req = new Request("http://localhost/api/kavach/events/stream", {
+		const req = new Request("http://localhost/api/theauth/events/stream", {
 			method: "GET",
 		});
 		expect(stream.handleRequest(req)).toBeNull();
 	});
 
 	it("returns null for wrong path", () => {
-		const req = makeSseRequest({ path: "/api/kavach/other" });
+		const req = makeSseRequest({ path: "/api/theauth/other" });
 		expect(stream.handleRequest(req)).toBeNull();
 	});
 
 	it("returns null for POST requests", () => {
-		const req = new Request("http://localhost/api/kavach/events/stream", {
+		const req = new Request("http://localhost/api/theauth/events/stream", {
 			method: "POST",
 			headers: { accept: "text/event-stream" },
 		});

@@ -24,13 +24,13 @@ The `@glinr/theauth` package has zero framework dependencies. It operates on the
 
 | Package | Framework | Mount pattern |
 |---|---|---|
-| `@glinr/theauth-hono` | Hono | `app.route('/api/kavach', kavachHono(kavach))` |
-| `@glinr/theauth-express` | Express | `app.use('/api/kavach', kavachExpress(kavach))` |
-| `@glinr/theauth-nextjs` | Next.js App Router | catch-all route `app/api/kavach/[...kavach]/route.ts` |
-| `@glinr/theauth-fastify` | Fastify | `app.register(authFastify(kavach), { prefix: '/api/kavach' })` |
-| `@glinr/theauth-nuxt` | Nuxt (H3) | catch-all file `server/api/kavach/[...].ts` |
-| `@glinr/theauth-sveltekit` | SvelteKit | catch-all route `src/routes/api/kavach/[...path]/+server.ts` |
-| `@glinr/theauth-astro` | Astro | catch-all page `src/pages/api/kavach/[...path].ts` |
+| `@glinr/theauth-hono` | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
+| `@glinr/theauth-express` | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
+| `@glinr/theauth-nextjs` | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` |
+| `@glinr/theauth-fastify` | Fastify | `app.register(authFastify(theauth), { prefix: '/api/theauth' })` |
+| `@glinr/theauth-nuxt` | Nuxt (H3) | catch-all file `server/api/theauth/[...].ts` |
+| `@glinr/theauth-sveltekit` | SvelteKit | catch-all route `src/routes/api/theauth/[...path]/+server.ts` |
+| `@glinr/theauth-astro` | Astro | catch-all page `src/pages/api/theauth/[...path].ts` |
 
 ## Edge compatibility
 

@@ -32,7 +32,7 @@ import { ipcMain } from 'electron';
 import { openOAuthWindow } from '@glinr/theauth-electron';
 
 ipcMain.handle('theauth:sign-in-oauth', async (_event, providerId: string) => {
-  return openOAuthWindow(providerId, { basePath: 'https://api.myapp.com/api/kavach' });
+  return openOAuthWindow(providerId, { basePath: 'https://api.myapp.com/api/theauth' });
 });
 ```
 
@@ -47,7 +47,7 @@ const storage = createIpcStorage();
 
 export function App() {
   return (
-    <ElectronTheAuthProvider basePath="/api/kavach" storage={storage}>
+    <ElectronTheAuthProvider basePath="/api/theauth" storage={storage}>
       <SignedInView />
     </ElectronTheAuthProvider>
   );

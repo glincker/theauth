@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../src/db/schema.js";
-import type { Kavach } from "../src/kavach.js";
-import { createKavach } from "../src/kavach.js";
+import type { TheAuth } from "../src/theauth.js";
+import { createTheAuth } from "../src/theauth.js";
 
-async function createTestKavach(): Promise<Kavach> {
-	const kavach = await createKavach({
+async function createTestTheAuth(): Promise<TheAuth> {
+	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			maxPerUser: 10,
@@ -14,7 +14,7 @@ async function createTestKavach(): Promise<Kavach> {
 		},
 	});
 
-	kavach.db
+	theauth.db
 		.insert(schema.users)
 		.values({
 			id: "user-1",
@@ -25,18 +25,18 @@ async function createTestKavach(): Promise<Kavach> {
 		})
 		.run();
 
-	return kavach;
+	return theauth;
 }
 
 describe("agent smoke", () => {
-	let kavach: Kavach;
+	let theauth: TheAuth;
 
 	beforeEach(async () => {
-		kavach = await createTestKavach();
+		theauth = await createTestTheAuth();
 	});
 
 	it("creates, reads, lists, updates, and revokes an agent", async () => {
-		const created = await kavach.agent.create({
+		const created = await theauth.agent.create({
 			ownerId: "user-1",
 			name: "smoke-agent",
 			type: "autonomous",
@@ -48,33 +48,33 @@ describe("agent smoke", () => {
 		expect(created.type).toBe("autonomous");
 		expect(created.permissions).toEqual([{ resource: "mcp:github:repos", actions: ["read"] }]);
 
-		const fetched = await kavach.agent.get(created.id);
+		const fetched = await theauth.agent.get(created.id);
 		expect(fetched?.id).toBe(created.id);
 		expect(fetched?.name).toBe("smoke-agent");
 
-		const listed = await kavach.agent.list({ userId: "user-1" });
+		const listed = await theauth.agent.list({ userId: "user-1" });
 		expect(listed.map((agent) => agent.id)).toContain(created.id);
 
-		const updated = await kavach.agent.update(created.id, { name: "renamed-agent" });
+		const updated = await theauth.agent.update(created.id, { name: "renamed-agent" });
 		expect(updated.name).toBe("renamed-agent");
 
-		await kavach.agent.revoke(created.id);
+		await theauth.agent.revoke(created.id);
 
-		const revoked = await kavach.agent.get(created.id);
+		const revoked = await theauth.agent.get(created.id);
 		expect(revoked?.status).toBe("revoked");
 	});
 
 	it("prevents a revoked agent from performing actions", async () => {
-		const created = await kavach.agent.create({
+		const created = await theauth.agent.create({
 			ownerId: "user-1",
 			name: "revoked-agent",
 			type: "service",
 			permissions: [{ resource: "mcp:github:repos", actions: ["read"] }],
 		});
 
-		await kavach.agent.revoke(created.id);
+		await theauth.agent.revoke(created.id);
 
-		const result = await kavach.authorize(created.id, {
+		const result = await theauth.authorize(created.id, {
 			action: "read",
 			resource: "mcp:github:repos",
 		});

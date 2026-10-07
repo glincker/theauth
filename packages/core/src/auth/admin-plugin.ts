@@ -1,5 +1,5 @@
 import { json, parseBody } from "../plugin/helpers.js";
-import type { KavachPlugin } from "../plugin/types.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
 import type { AdminConfig } from "./admin.js";
 import { createAdminModule } from "./admin.js";
 
@@ -9,9 +9,9 @@ export type { AdminConfig };
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-export function admin(config?: AdminConfig): KavachPlugin {
+export function admin(config?: AdminConfig): TheAuthPlugin {
 	return {
-		id: "kavach-admin",
+		id: "theauth-admin",
 
 		async init(ctx): Promise<undefined> {
 			const module = createAdminModule(config ?? {}, ctx.db, ctx.sessionManager ?? null);

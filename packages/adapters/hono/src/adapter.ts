@@ -156,8 +156,8 @@ function mcpNoStore<T>(data: T, status = 200) {
  * import { theAuthHono } from '@glinr/theauth-hono';
  * import { serve } from '@hono/node-server';
  *
- * const kavach = createTheAuth({ database: { provider: 'sqlite', url: 'kavach.db' } });
- * const app = theAuthHono(kavach);
+ * const theauth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
+ * const app = theAuthHono(theauth);
  * serve({ fetch: app.fetch, port: 3000 });
  * ```
  *
@@ -165,10 +165,10 @@ function mcpNoStore<T>(data: T, status = 200) {
  * ```typescript
  * import { createMcpModule } from '@glinr/theauth/mcp';
  * const mcp = createMcpModule({ ... });
- * const app = theAuthHono(kavach, { mcp });
+ * const app = theAuthHono(theauth, { mcp });
  * ```
  */
-export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }): Hono {
+export function theAuthHono(theauth: TheAuth, options?: { mcp?: McpAuthModule }): Hono {
 	const app = new Hono();
 	const mcp = options?.mcp;
 
@@ -193,7 +193,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 				...parsed.data,
 				permissions: parsed.data.permissions as Permission[],
 			};
-			const agent = await kavach.agent.create(input);
+			const agent = await theauth.agent.create(input);
 			const res = created(agent);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -219,7 +219,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 		}
 
 		try {
-			const agents = await kavach.agent.list(filter);
+			const agents = await theauth.agent.list(filter);
 			const res = ok(agents);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -233,7 +233,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 	app.get("/agents/:id", async (c) => {
 		const id = c.req.param("id");
 		try {
-			const agent = await kavach.agent.get(id);
+			const agent = await theauth.agent.get(id);
 			if (!agent) {
 				const res = notFound(`Agent "${id}" not found`);
 				return c.newResponse(res.body, res);
@@ -267,7 +267,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 				...parsed.data,
 				permissions: parsed.data.permissions as Permission[] | undefined,
 			};
-			const agent = await kavach.agent.update(id, input);
+			const agent = await theauth.agent.update(id, input);
 			const res = ok(agent);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -285,7 +285,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 	app.delete("/agents/:id", async (c) => {
 		const id = c.req.param("id");
 		try {
-			await kavach.agent.revoke(id);
+			await theauth.agent.revoke(id);
 			return new Response(null, { status: 204 });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to revoke agent";
@@ -302,7 +302,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 	app.post("/agents/:id/rotate", async (c) => {
 		const id = c.req.param("id");
 		try {
-			const agent = await kavach.agent.rotate(id);
+			const agent = await theauth.agent.rotate(id);
 			const res = ok(agent);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -338,7 +338,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 				c.req.header("x-real-ip") ??
 				undefined;
 			const userAgent = c.req.header("user-agent") ?? undefined;
-			const result = await kavach.authorize(
+			const result = await theauth.authorize(
 				parsed.data.agentId,
 				{
 					action: parsed.data.action,
@@ -387,7 +387,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 				c.req.header("x-real-ip") ??
 				undefined;
 			const userAgent = c.req.header("user-agent") ?? undefined;
-			const result = await kavach.authorizeByToken(
+			const result = await theauth.authorizeByToken(
 				token,
 				{
 					action: parsed.data.action,
@@ -430,7 +430,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 				...parsed.data,
 				permissions: parsed.data.permissions as Permission[],
 			};
-			const chain = await kavach.delegate(input);
+			const chain = await theauth.delegate(input);
 			const res = created(chain);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -452,7 +452,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 	app.delete("/delegations/:id", async (c) => {
 		const id = c.req.param("id");
 		try {
-			await kavach.delegation.revoke(id);
+			await theauth.delegation.revoke(id);
 			return new Response(null, { status: 204 });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to revoke delegation";
@@ -469,7 +469,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 	app.get("/delegations/:agentId", async (c) => {
 		const agentId = c.req.param("agentId");
 		try {
-			const chains = await kavach.delegation.listChains(agentId);
+			const chains = await theauth.delegation.listChains(agentId);
 			const res = ok(chains);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -518,7 +518,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 		}
 
 		try {
-			const entries = await kavach.audit.query(filter);
+			const entries = await theauth.audit.query(filter);
 			const res = ok(entries);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -550,7 +550,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 		}
 
 		try {
-			const exported = await kavach.audit.export(options);
+			const exported = await theauth.audit.export(options);
 			const contentType = format === "csv" ? "text/csv" : "application/json";
 			return new Response(exported, {
 				status: 200,
@@ -691,8 +691,8 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 	app.get("/dashboard/stats", async (c) => {
 		try {
 			const [agents, recentAudit] = await Promise.all([
-				kavach.agent.list(),
-				kavach.audit.query({
+				theauth.agent.list(),
+				theauth.audit.query({
 					since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 					limit: 1000,
 				}),
@@ -745,7 +745,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 		}
 
 		try {
-			const agents = await kavach.agent.list(filter);
+			const agents = await theauth.agent.list(filter);
 			const res = ok(agents);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -792,7 +792,7 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 		}
 
 		try {
-			const entries = await kavach.audit.query(filter);
+			const entries = await theauth.audit.query(filter);
 			const res = ok(entries);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -806,12 +806,12 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 
 	// POST /auth/forgot-password - request a reset link
 	app.post("/auth/forgot-password", async (c) => {
-		if (!kavach.passwordReset) {
+		if (!theauth.passwordReset) {
 			const res = notFound("Password reset not configured");
 			return c.newResponse(res.body, res);
 		}
 		try {
-			const response = await kavach.passwordReset.handleRequest(c.req.raw);
+			const response = await theauth.passwordReset.handleRequest(c.req.raw);
 			if (response) return c.newResponse(response.body, response);
 			const res = notFound("Not found");
 			return c.newResponse(res.body, res);
@@ -824,12 +824,12 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 
 	// POST /auth/reset-password - confirm a reset with token + new password
 	app.post("/auth/reset-password", async (c) => {
-		if (!kavach.passwordReset) {
+		if (!theauth.passwordReset) {
 			const res = notFound("Password reset not configured");
 			return c.newResponse(res.body, res);
 		}
 		try {
-			const response = await kavach.passwordReset.handleRequest(c.req.raw);
+			const response = await theauth.passwordReset.handleRequest(c.req.raw);
 			if (response) return c.newResponse(response.body, response);
 			const res = notFound("Not found");
 			return c.newResponse(res.body, res);
@@ -844,12 +844,12 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 
 	// POST /auth/verify-email/send - send a verification email
 	app.post("/auth/verify-email/send", async (c) => {
-		if (!kavach.emailVerification) {
+		if (!theauth.emailVerification) {
 			const res = notFound("Email verification not configured");
 			return c.newResponse(res.body, res);
 		}
 		try {
-			const response = await kavach.emailVerification.handleRequest(c.req.raw);
+			const response = await theauth.emailVerification.handleRequest(c.req.raw);
 			if (response) return c.newResponse(response.body, response);
 			const res = notFound("Not found");
 			return c.newResponse(res.body, res);
@@ -862,12 +862,12 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 
 	// POST /auth/verify-email/confirm - confirm with token
 	app.post("/auth/verify-email/confirm", async (c) => {
-		if (!kavach.emailVerification) {
+		if (!theauth.emailVerification) {
 			const res = notFound("Email verification not configured");
 			return c.newResponse(res.body, res);
 		}
 		try {
-			const response = await kavach.emailVerification.handleRequest(c.req.raw);
+			const response = await theauth.emailVerification.handleRequest(c.req.raw);
 			if (response) return c.newResponse(response.body, response);
 			const res = notFound("Not found");
 			return c.newResponse(res.body, res);
@@ -880,10 +880,10 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 
 	// ── Plugin Endpoints ────────────────────────────────────────────
 
-	for (const endpoint of kavach.plugins.getEndpoints()) {
+	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		app[method](endpoint.path, async (c) => {
-			const response = await kavach.plugins.handleRequest(c.req.raw);
+			const response = await theauth.plugins.handleRequest(c.req.raw);
 			return c.newResponse(response?.body ?? null, response ?? new Response(null, { status: 404 }));
 		});
 	}
@@ -893,5 +893,3 @@ export function theAuthHono(kavach: TheAuth, options?: { mcp?: McpAuthModule }):
 
 /** @deprecated Use `theAuthHono` instead. Will be removed in a future major version. */
 export const authHono = theAuthHono;
-/** @deprecated Use `theAuthHono` instead. Will be removed in a future major version. */
-export const kavachHono = theAuthHono;

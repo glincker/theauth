@@ -3,9 +3,9 @@
  *
  * Covers:
  * - emit: sends POST to the endpoint URL
- * - emit: sets X-Kavach-Event header
- * - emit: sets X-Kavach-Signature header with sha256= prefix
- * - emit: sets X-Kavach-Timestamp header
+ * - emit: sets X-TheAuth-Event header
+ * - emit: sets X-TheAuth-Signature header with sha256= prefix
+ * - emit: sets X-TheAuth-Timestamp header
  * - emit: only sends to endpoints subscribed to the event
  * - emit: does not send when event is not in subscription list
  * - addEndpoint: new endpoint receives subsequent events
@@ -41,7 +41,7 @@ describe("WebhookModule.emit", () => {
 
 		mod = createWebhookModule([
 			{
-				url: "https://hooks.example.com/kavach",
+				url: "https://hooks.example.com/theauth",
 				secret: "super-secret",
 				events: ["user.created", "session.created"],
 			},
@@ -57,32 +57,32 @@ describe("WebhookModule.emit", () => {
 		await waitForEmit();
 		expect(fetchMock).toHaveBeenCalledOnce();
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(url).toBe("https://hooks.example.com/kavach");
+		expect(url).toBe("https://hooks.example.com/theauth");
 		expect(init.method).toBe("POST");
 	});
 
-	it("sets X-Kavach-Event header to the event name", async () => {
+	it("sets X-TheAuth-Event header to the event name", async () => {
 		mod.emit("user.created", { userId: "u1" });
 		await waitForEmit();
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["X-Kavach-Event"]).toBe("user.created");
+		expect(headers["X-TheAuth-Event"]).toBe("user.created");
 	});
 
-	it("sets X-Kavach-Signature header with sha256= prefix", async () => {
+	it("sets X-TheAuth-Signature header with sha256= prefix", async () => {
 		mod.emit("user.created", { userId: "u1" });
 		await waitForEmit();
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["X-Kavach-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
+		expect(headers["X-TheAuth-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
 	});
 
-	it("sets X-Kavach-Timestamp header", async () => {
+	it("sets X-TheAuth-Timestamp header", async () => {
 		mod.emit("user.created", { userId: "u1" });
 		await waitForEmit();
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["X-Kavach-Timestamp"]).toMatch(/^\d+$/);
+		expect(headers["X-TheAuth-Timestamp"]).toMatch(/^\d+$/);
 	});
 
 	it("only sends to endpoints subscribed to the event", async () => {
@@ -116,8 +116,8 @@ describe("WebhookModule.emit", () => {
 		await waitForEmit();
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		const signature = headers["X-Kavach-Signature"].replace("sha256=", "");
-		const timestamp = headers["X-Kavach-Timestamp"];
+		const signature = headers["X-TheAuth-Signature"].replace("sha256=", "");
+		const timestamp = headers["X-TheAuth-Timestamp"];
 		const body = init.body as string;
 
 		const expected = createHmac("sha256", "super-secret")

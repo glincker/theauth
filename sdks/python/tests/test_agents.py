@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from theauth import KavachClient, KavachSyncClient
+from theauth import TheAuthClient, TheAuthSyncClient
 from theauth.errors import NotFoundError
 from theauth.types import (
     Agent,
@@ -24,7 +24,7 @@ from tests.conftest import AGENT_FIXTURE, AUTHORIZE_RESULT_FIXTURE, BASE_URL
 
 class TestAsyncAgentCreate:
     @pytest.mark.asyncio
-    async def test_create_returns_agent(self, async_client: KavachClient) -> None:
+    async def test_create_returns_agent(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=AGENT_FIXTURE)
@@ -48,7 +48,7 @@ class TestAsyncAgentCreate:
         assert agent.permissions[0].resource == "mcp:github:*"
 
     @pytest.mark.asyncio
-    async def test_create_sends_correct_body(self, async_client: KavachClient) -> None:
+    async def test_create_sends_correct_body(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=AGENT_FIXTURE)
@@ -71,7 +71,7 @@ class TestAsyncAgentCreate:
         assert body["permissions"][0]["resource"] == "mcp:github:*"
 
     @pytest.mark.asyncio
-    async def test_create_sends_authorization_header(self, async_client: KavachClient) -> None:
+    async def test_create_sends_authorization_header(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=AGENT_FIXTURE)
@@ -91,7 +91,7 @@ class TestAsyncAgentCreate:
 
 class TestAsyncAgentList:
     @pytest.mark.asyncio
-    async def test_list_returns_agents(self, async_client: KavachClient) -> None:
+    async def test_list_returns_agents(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=[AGENT_FIXTURE])
@@ -102,7 +102,7 @@ class TestAsyncAgentList:
         assert agents[0].id == "agent-abc123"
 
     @pytest.mark.asyncio
-    async def test_list_empty(self, async_client: KavachClient) -> None:
+    async def test_list_empty(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=[])
@@ -112,7 +112,7 @@ class TestAsyncAgentList:
         assert agents == []
 
     @pytest.mark.asyncio
-    async def test_list_with_filters(self, async_client: KavachClient) -> None:
+    async def test_list_with_filters(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=[AGENT_FIXTURE])
@@ -127,7 +127,7 @@ class TestAsyncAgentList:
         assert params["type"] == "autonomous"
 
     @pytest.mark.asyncio
-    async def test_list_no_filters_no_params(self, async_client: KavachClient) -> None:
+    async def test_list_no_filters_no_params(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.get(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=[])
@@ -139,7 +139,7 @@ class TestAsyncAgentList:
 
 class TestAsyncAgentGet:
     @pytest.mark.asyncio
-    async def test_get_returns_agent(self, async_client: KavachClient) -> None:
+    async def test_get_returns_agent(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/agents/agent-abc123").mock(
                 return_value=httpx.Response(200, json=AGENT_FIXTURE)
@@ -150,7 +150,7 @@ class TestAsyncAgentGet:
         assert agent.id == "agent-abc123"
 
     @pytest.mark.asyncio
-    async def test_get_returns_none_on_404(self, async_client: KavachClient) -> None:
+    async def test_get_returns_none_on_404(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/agents/missing").mock(
                 return_value=httpx.Response(
@@ -165,7 +165,7 @@ class TestAsyncAgentGet:
 
 class TestAsyncAgentUpdate:
     @pytest.mark.asyncio
-    async def test_update_returns_updated_agent(self, async_client: KavachClient) -> None:
+    async def test_update_returns_updated_agent(self, async_client: TheAuthClient) -> None:
         updated = {**AGENT_FIXTURE, "name": "updated-name"}
         with respx.mock:
             respx.patch(f"{BASE_URL}/agents/agent-abc123").mock(
@@ -179,7 +179,7 @@ class TestAsyncAgentUpdate:
         assert agent.name == "updated-name"
 
     @pytest.mark.asyncio
-    async def test_update_sends_only_provided_fields(self, async_client: KavachClient) -> None:
+    async def test_update_sends_only_provided_fields(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.patch(f"{BASE_URL}/agents/agent-abc123").mock(
                 return_value=httpx.Response(200, json=AGENT_FIXTURE)
@@ -196,7 +196,7 @@ class TestAsyncAgentUpdate:
 
 class TestAsyncAgentRevoke:
     @pytest.mark.asyncio
-    async def test_revoke_returns_none(self, async_client: KavachClient) -> None:
+    async def test_revoke_returns_none(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.delete(f"{BASE_URL}/agents/agent-abc123").mock(
                 return_value=httpx.Response(204)
@@ -206,7 +206,7 @@ class TestAsyncAgentRevoke:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_revoke_raises_not_found(self, async_client: KavachClient) -> None:
+    async def test_revoke_raises_not_found(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.delete(f"{BASE_URL}/agents/missing").mock(
                 return_value=httpx.Response(
@@ -220,7 +220,7 @@ class TestAsyncAgentRevoke:
 
 class TestAsyncAgentRotate:
     @pytest.mark.asyncio
-    async def test_rotate_returns_new_token(self, async_client: KavachClient) -> None:
+    async def test_rotate_returns_new_token(self, async_client: TheAuthClient) -> None:
         rotated = {**AGENT_FIXTURE, "token": "kv_new_token"}
         with respx.mock:
             respx.post(f"{BASE_URL}/agents/agent-abc123/rotate").mock(
@@ -233,7 +233,7 @@ class TestAsyncAgentRotate:
 
 class TestAsyncAgentAuthorize:
     @pytest.mark.asyncio
-    async def test_authorize_allowed(self, async_client: KavachClient) -> None:
+    async def test_authorize_allowed(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/agents/agent-abc123/authorize").mock(
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
@@ -247,7 +247,7 @@ class TestAsyncAgentAuthorize:
         assert result.audit_id == "aud-abc123"
 
     @pytest.mark.asyncio
-    async def test_authorize_denied(self, async_client: KavachClient) -> None:
+    async def test_authorize_denied(self, async_client: TheAuthClient) -> None:
         denied = {"allowed": False, "auditId": "aud-denied", "reason": "Permission not granted"}
         with respx.mock:
             respx.post(f"{BASE_URL}/agents/agent-abc123/authorize").mock(
@@ -262,7 +262,7 @@ class TestAsyncAgentAuthorize:
         assert result.reason == "Permission not granted"
 
     @pytest.mark.asyncio
-    async def test_authorize_includes_arguments(self, async_client: KavachClient) -> None:
+    async def test_authorize_includes_arguments(self, async_client: TheAuthClient) -> None:
         with respx.mock:
             route = respx.post(f"{BASE_URL}/agents/agent-abc123/authorize").mock(
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
@@ -283,7 +283,7 @@ class TestAsyncAgentAuthorize:
 class TestSyncAgents:
     """Spot-check the sync agent resource mirrors the async one."""
 
-    def test_create(self, sync_client: KavachSyncClient) -> None:
+    def test_create(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.post(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=AGENT_FIXTURE)
@@ -299,7 +299,7 @@ class TestSyncAgents:
 
         assert agent.id == "agent-abc123"
 
-    def test_list(self, sync_client: KavachSyncClient) -> None:
+    def test_list(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/agents").mock(
                 return_value=httpx.Response(200, json=[AGENT_FIXTURE])
@@ -308,7 +308,7 @@ class TestSyncAgents:
 
         assert len(agents) == 1
 
-    def test_revoke(self, sync_client: KavachSyncClient) -> None:
+    def test_revoke(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.delete(f"{BASE_URL}/agents/agent-abc123").mock(
                 return_value=httpx.Response(204)
@@ -317,7 +317,7 @@ class TestSyncAgents:
 
         assert result is None
 
-    def test_rotate(self, sync_client: KavachSyncClient) -> None:
+    def test_rotate(self, sync_client: TheAuthSyncClient) -> None:
         rotated = {**AGENT_FIXTURE, "token": "kv_new_token"}
         with respx.mock:
             respx.post(f"{BASE_URL}/agents/agent-abc123/rotate").mock(
@@ -327,7 +327,7 @@ class TestSyncAgents:
 
         assert agent.token == "kv_new_token"
 
-    def test_get_returns_none_on_404(self, sync_client: KavachSyncClient) -> None:
+    def test_get_returns_none_on_404(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:
             respx.get(f"{BASE_URL}/agents/missing").mock(
                 return_value=httpx.Response(

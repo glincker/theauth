@@ -12,7 +12,7 @@ Quickstart (async)::
 
     async def main():
         async with TheAuthClient(
-            base_url="https://your-app.com/api/kavach",
+            base_url="https://your-app.com/api/theauth",
             token="kv_...",
         ) as client:
             agent = await client.agents.create(
@@ -34,7 +34,7 @@ Quickstart (sync)::
     from theauth.permissions import read
 
     with TheAuthSyncClient(
-        base_url="https://your-app.com/api/kavach",
+        base_url="https://your-app.com/api/theauth",
         token="kv_...",
     ) as client:
         agent = client.agents.create(
@@ -49,14 +49,14 @@ Quickstart (sync)::
 """
 
 from theauth.client import (
-    KavachClient,
-    KavachSyncClient,
+    TheAuthClient,
+    TheAuthSyncClient,
     TheAuthClient,
     TheAuthSyncClient,
 )
 from theauth.errors import (
     AuthenticationError,
-    KavachError,
+    TheAuthError,
     NetworkError,
     NotFoundError,
     PermissionError,
@@ -90,12 +90,12 @@ __all__ = [
     "TheAuthClient",
     "TheAuthSyncClient",
     # Clients (deprecated aliases, use TheAuthClient / TheAuthSyncClient instead)
-    "KavachClient",
-    "KavachSyncClient",
+    "TheAuthClient",
+    "TheAuthSyncClient",
     # Errors
     "TheAuthError",
     # Errors (deprecated alias, use TheAuthError instead)
-    "KavachError",
+    "TheAuthError",
     "AuthenticationError",
     "PermissionError",
     "NotFoundError",

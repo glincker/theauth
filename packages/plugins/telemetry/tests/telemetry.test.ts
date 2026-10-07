@@ -72,15 +72,15 @@ describe("createTelemetryModule", () => {
 			expect(span).toBeDefined();
 			if (!span) return;
 
-			expect(span.name).toBe("kavach.authorize");
+			expect(span.name).toBe("theauth.authorize");
 			expect(span.kind).toBe("internal");
 			expect(span.status).toBe("ok");
-			expect(span.attributes["kavach.agent.id"]).toBe("agent-1");
-			expect(span.attributes["kavach.action"]).toBe("execute");
-			expect(span.attributes["kavach.resource"]).toBe("mcp:github:create_issue");
-			expect(span.attributes["kavach.result"]).toBe("allowed");
-			expect(span.attributes["kavach.duration_ms"]).toBe(100);
-			expect(span.attributes["kavach.user.id"]).toBe("user-1");
+			expect(span.attributes["theauth.agent.id"]).toBe("agent-1");
+			expect(span.attributes["theauth.action"]).toBe("execute");
+			expect(span.attributes["theauth.resource"]).toBe("mcp:github:create_issue");
+			expect(span.attributes["theauth.result"]).toBe("allowed");
+			expect(span.attributes["theauth.duration_ms"]).toBe(100);
+			expect(span.attributes["theauth.user.id"]).toBe("user-1");
 		});
 
 		it("sets status to error when result is denied", () => {
@@ -110,21 +110,21 @@ describe("createTelemetryModule", () => {
 			const telemetry = createTelemetryModule({ onSpan });
 			telemetry.emitAuthorizeSpan(makeAuditEntry({ tokensCost: 1500 }));
 
-			expect(spans[0]?.attributes["kavach.tokens_cost"]).toBe(1500);
+			expect(spans[0]?.attributes["theauth.tokens_cost"]).toBe(1500);
 		});
 
 		it("omits arguments by default (privacy)", () => {
 			const telemetry = createTelemetryModule({ onSpan });
 			telemetry.emitAuthorizeSpan(makeAuditEntry({ parameters: { repo: "my-repo" } }));
 
-			expect(spans[0]?.attributes["kavach.arguments"]).toBeUndefined();
+			expect(spans[0]?.attributes["theauth.arguments"]).toBeUndefined();
 		});
 
 		it("includes arguments when includeArguments is true", () => {
 			const telemetry = createTelemetryModule({ onSpan, includeArguments: true });
 			telemetry.emitAuthorizeSpan(makeAuditEntry({ parameters: { repo: "my-repo" } }));
 
-			expect(spans[0]?.attributes["kavach.arguments"]).toBe('{"repo":"my-repo"}');
+			expect(spans[0]?.attributes["theauth.arguments"]).toBe('{"repo":"my-repo"}');
 		});
 
 		it("generates unique trace and span IDs", () => {
@@ -151,12 +151,12 @@ describe("createTelemetryModule", () => {
 
 			expect(spans).toHaveLength(1);
 			const span = spans[0];
-			expect(span?.name).toBe("kavach.delegation.create");
-			expect(span?.attributes["kavach.delegation.id"]).toBe(chain.id);
-			expect(span?.attributes["kavach.delegation.from_agent"]).toBe("agent-1");
-			expect(span?.attributes["kavach.delegation.to_agent"]).toBe("agent-2");
-			expect(span?.attributes["kavach.delegation.depth"]).toBe(1);
-			expect(span?.attributes["kavach.delegation.action"]).toBe("create");
+			expect(span?.name).toBe("theauth.delegation.create");
+			expect(span?.attributes["theauth.delegation.id"]).toBe(chain.id);
+			expect(span?.attributes["theauth.delegation.from_agent"]).toBe("agent-1");
+			expect(span?.attributes["theauth.delegation.to_agent"]).toBe("agent-2");
+			expect(span?.attributes["theauth.delegation.depth"]).toBe(1);
+			expect(span?.attributes["theauth.delegation.action"]).toBe("create");
 			expect(span?.status).toBe("ok");
 		});
 
@@ -164,7 +164,7 @@ describe("createTelemetryModule", () => {
 			const telemetry = createTelemetryModule({ onSpan });
 			telemetry.emitDelegationSpan(makeChain(), "revoke");
 
-			expect(spans[0]?.name).toBe("kavach.delegation.revoke");
+			expect(spans[0]?.name).toBe("theauth.delegation.revoke");
 		});
 	});
 
@@ -177,11 +177,11 @@ describe("createTelemetryModule", () => {
 
 			expect(spans).toHaveLength(1);
 			const span = spans[0];
-			expect(span?.name).toBe("kavach.agent.create");
-			expect(span?.attributes["kavach.agent.id"]).toBe("agent-1");
-			expect(span?.attributes["kavach.agent.name"]).toBe("test-agent");
-			expect(span?.attributes["kavach.agent.type"]).toBe("autonomous");
-			expect(span?.attributes["kavach.user.id"]).toBe("user-1");
+			expect(span?.name).toBe("theauth.agent.create");
+			expect(span?.attributes["theauth.agent.id"]).toBe("agent-1");
+			expect(span?.attributes["theauth.agent.name"]).toBe("test-agent");
+			expect(span?.attributes["theauth.agent.type"]).toBe("autonomous");
+			expect(span?.attributes["theauth.user.id"]).toBe("user-1");
 			expect(span?.status).toBe("ok");
 		});
 
@@ -189,14 +189,14 @@ describe("createTelemetryModule", () => {
 			const telemetry = createTelemetryModule({ onSpan });
 			telemetry.emitAgentSpan(makeAgent(), "revoke");
 
-			expect(spans[0]?.name).toBe("kavach.agent.revoke");
+			expect(spans[0]?.name).toBe("theauth.agent.revoke");
 		});
 
 		it("emits a span for token rotation", () => {
 			const telemetry = createTelemetryModule({ onSpan });
 			telemetry.emitAgentSpan(makeAgent(), "rotate");
 
-			expect(spans[0]?.name).toBe("kavach.agent.rotate");
+			expect(spans[0]?.name).toBe("theauth.agent.rotate");
 		});
 	});
 });

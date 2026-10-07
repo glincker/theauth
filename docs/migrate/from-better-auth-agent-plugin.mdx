@@ -28,19 +28,19 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 | `@better-auth/agent-auth` | TheAuth |
 |---|---|
 | `agentPlugin()` added to `betterAuth` | Built into `createTheAuth`. No plugin needed for the core agent surface. |
-| `auth.api.createAgent({ userId, scopes })` | `kavach.agent.create({ ownerId, name, type, permissions })` |
+| `auth.api.createAgent({ userId, scopes })` | `theauth.agent.create({ ownerId, name, type, permissions })` |
 | `agent.accessToken` | `agent.token` (prefix `kv_`, returned once, SHA-256 hashed at rest) |
 | `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
 | `agent.kind: 'service' \| 'user-agent'` | `agent.type: 'autonomous' \| 'delegated' \| 'service'` |
-| `auth.api.verifyAgentToken(token)` | `kavach.agent.verifyToken(token)` or `kavach.authorizeByToken(token, req)` |
-| Single-hop delegation via second `createAgent` call | `kavach.delegation.create({ fromAgent, toAgent, permissions, maxDepth })` |
+| `auth.api.verifyAgentToken(token)` | `theauth.agent.verifyToken(token)` or `theauth.authorizeByToken(token, req)` |
+| Single-hop delegation via second `createAgent` call | `theauth.delegation.create({ fromAgent, toAgent, permissions, maxDepth })` |
 | No cascading revocation | Revoking a parent cascades down the chain. Immediate. |
-| No audit module (relies on generic logs) | `kavach.audit.query()` + structured CSV and JSON export |
-| No trust score | `kavach.trust.computeScore(agentId)` |
+| No audit module (relies on generic logs) | `theauth.audit.query()` + structured CSV and JSON export |
+| No trust score | `theauth.trust.computeScore(agentId)` |
 | No MCP server | Built-in OAuth 2.1 authorization server, PKCE S256, RFC 9728 / 8707 / 8414 / 7591 |
 | No per-agent rate cap | Permission constraint: `maxCallsPerHour` |
 | No approval gate | Permission constraint: `requireApproval: true`, surfaces a CIBA-style approval flow |
-| No ephemeral sessions | `kavach.ephemeral.create({ agentId, ttlMs })` |
+| No ephemeral sessions | `theauth.ephemeral.create({ agentId, ttlMs })` |
 
 ## Server setup
 
@@ -57,10 +57,10 @@ export const auth = betterAuth({
 ```
 
 ```ts
-// AFTER: lib/kavach.ts
+// AFTER: lib/theauth.ts
 import { createTheAuth } from '@glinr/theauth';
 
-export const kavach = await createTheAuth({
+export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
@@ -88,7 +88,7 @@ const agent = await auth.api.createAgent({
 
 ```ts
 // AFTER (TheAuth)
-const agent = await kavach.agent.create({
+const agent = await theauth.agent.create({
   ownerId: user.id,
   name: 'github-reader',
   type: 'service',
@@ -102,7 +102,7 @@ const agent = await kavach.agent.create({
 });
 
 // agent.token (prefix kv_) is the bearer. Returned once. Rotate with
-// kavach.agent.rotate(agent.id) to cut a new one; the old token is invalidated
+// theauth.agent.rotate(agent.id) to cut a new one; the old token is invalidated
 // atomically.
 ```
 
@@ -122,7 +122,7 @@ if (!result.scopes.includes('github:read')) {
 
 ```ts
 // AFTER (TheAuth)
-const result = await kavach.authorizeByToken(token, {
+const result = await theauth.authorizeByToken(token, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
@@ -150,7 +150,7 @@ const child = await auth.api.createAgent({
 
 ```ts
 // AFTER: explicit chain with depth and expiry
-const chain = await kavach.delegation.create({
+const chain = await theauth.delegation.create({
   fromAgent: parent.id,
   toAgent: child.id,
   permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
@@ -168,11 +168,11 @@ The depth limit matters when agents delegate to sub-agents. A run-away loop cann
 `@better-auth/agent-auth` does not ship scoring. TheAuth computes a 0-100 score from the audit history, mapped to five named levels. Useful as a gate for sensitive actions that should only run for agents with a clean track record.
 
 ```ts
-const score = await kavach.trust.computeScore(agent.id);
+const score = await theauth.trust.computeScore(agent.id);
 
 if (score.level === 'untrusted' || score.level === 'limited') {
   // Route through the approval flow instead of auto-execute.
-  await kavach.approval.request({
+  await theauth.approval.request({
     agentId: agent.id,
     userId: agent.ownerId,
     action: 'delete',
@@ -190,10 +190,10 @@ If you were running a separate MCP OAuth server alongside better-auth (because t
 import { createTheAuth, createMcpModule } from '@glinr/theauth';
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
-const kavach = await createTheAuth({ /* ... */ });
-const mcp = createMcpModule(kavach);
+const theauth = await createTheAuth({ /* ... */ });
+const mcp = createMcpModule(theauth);
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(kavach, { mcp });
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { mcp });
 ```
 
 The `.well-known` documents, dynamic client registration, authorize endpoint, and token endpoint all come up under the same mount path.
@@ -226,8 +226,8 @@ Permissions need mapping from `scopes` (flat strings) to `Permission[]` objects.
 ## Cutover plan
 
 1. Stand up TheAuth next to better-auth against the same database (or a shadow copy). Do not delete the better-auth schema yet.
-2. Import agents. Validate one service token with `kavach.authorizeByToken(token, {...})`. It should succeed against the imported rows.
-3. Flip a single non-critical service to call `kavach.authorizeByToken` instead of `auth.api.verifyAgentToken`.
+2. Import agents. Validate one service token with `theauth.authorizeByToken(token, {...})`. It should succeed against the imported rows.
+3. Flip a single non-critical service to call `theauth.authorizeByToken` instead of `auth.api.verifyAgentToken`.
 4. Watch the audit log for `allowed: false` entries. Fix permission mappings.
 5. Expand the TheAuth-guarded agent surface one service at a time.
 6. Remove the `@better-auth/agent-auth` plugin from `lib/auth.ts` once no service still calls it.

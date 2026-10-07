@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createApp, defineComponent, nextTick } from "vue";
-import { createKavachPlugin, useSession, useSignIn, useSignOut, useUser } from "../src/index.js";
+import { createTheAuthPlugin, useSession, useSignIn, useSignOut, useUser } from "../src/index.js";
 
-const SESSION_KEY = "kavach_session";
+const SESSION_KEY = "theauth_session";
 
 const restoredSession = {
 	token: "session-token-1",
@@ -81,7 +81,7 @@ test("restores session from localStorage when the plugin installs", async () => 
 	});
 
 	const app = createApp(Harness);
-	app.use(createKavachPlugin({ basePath: "/api/kavach" }));
+	app.use(createTheAuthPlugin({ basePath: "/api/theauth" }));
 	app.mount(document.createElement("div"));
 
 	await flush();
@@ -149,7 +149,7 @@ test("sign in updates state and writes the session to localStorage", async () =>
 	});
 
 	const app = createApp(Harness);
-	app.use(createKavachPlugin({ basePath: "/api/kavach" }));
+	app.use(createTheAuthPlugin({ basePath: "/api/theauth" }));
 	app.mount(document.createElement("div"));
 
 	await flush();
