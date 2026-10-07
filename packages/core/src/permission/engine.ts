@@ -50,7 +50,8 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 					subjectId: agent.id,
 					resource: request.resource,
 					arguments: request.arguments,
-					ip: request.ip,
+					// Adapters pass the client IP via context; direct callers may set request.ip.
+					ip: request.context?.ip ?? request.ip,
 				},
 				matchingPermission.constraints,
 			);
@@ -98,7 +99,7 @@ async function writeAuditLog(
 		reason: result.reason ?? null,
 		durationMs,
 		timestamp: new Date(),
-		ip: request.context?.ip ?? null,
+		ip: request.context?.ip ?? request.ip ?? null,
 		userAgent: request.context?.userAgent ?? null,
 	});
 }

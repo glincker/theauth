@@ -417,6 +417,30 @@ describe("createTheAuth", () => {
 			expect(result.reason).toContain("IP_NOT_ALLOWED");
 		});
 
+		it("enforces ipAllowlist using context.ip when request.ip is absent", async () => {
+			const agent = await theauth.agent.create({
+				ownerId: "user-1",
+				name: "ip-context-agent",
+				type: "autonomous",
+				permissions: [
+					{
+						resource: "mcp:internal",
+						actions: ["read"],
+						constraints: { ipAllowlist: ["10.0.0.0/8"] },
+					},
+				],
+			});
+			const req = { action: "read", resource: "mcp:internal" };
+
+			expect((await theauth.authorize(agent.id, req, { ip: "10.1.2.3" })).allowed).toBe(true);
+			expect((await theauth.authorize(agent.id, req, { ip: "172.16.0.1" })).allowed).toBe(false);
+			// context IP wins over request.ip
+			expect(
+				(await theauth.authorize(agent.id, { ...req, ip: "172.16.0.1" }, { ip: "10.1.2.3" }))
+					.allowed,
+			).toBe(true);
+		});
+
 		it("denies when ipAllowlist is set but no IP is provided", async () => {
 			const agent = await theauth.agent.create({
 				ownerId: "user-1",

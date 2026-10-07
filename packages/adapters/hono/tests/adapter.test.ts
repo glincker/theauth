@@ -44,7 +44,11 @@ async function createTestAgent(
 	overrides: Partial<{
 		name: string;
 		type: string;
-		permissions: Array<{ resource: string; actions: string[] }>;
+		permissions: Array<{
+			resource: string;
+			actions: string[];
+			constraints?: { ipAllowlist?: string[] };
+		}>;
 	}> = {},
 ): Promise<{ id: string; token: string }> {
 	const res = await app.request("/agents", {
@@ -305,6 +309,27 @@ describe("Hono adapter", () => {
 			const body = (await res.json()) as { data: { allowed: boolean; auditId: string } };
 			expect(body.data.allowed).toBe(true);
 			expect(body.data.auditId).toBeDefined();
+		});
+
+		it("enforces ipAllowlist using the client IP passed by the adapter", async () => {
+			const { id } = await createTestAgent(app, {
+				permissions: [
+					{
+						resource: "mcp:github",
+						actions: ["read"],
+						constraints: { ipAllowlist: ["203.0.113.0/24"] },
+					},
+				],
+			});
+			const call = (ip: string) =>
+				app.request("/authorize", {
+					method: "POST",
+					headers: { "Content-Type": "application/json", "X-Forwarded-For": ip },
+					body: JSON.stringify({ agentId: id, action: "read", resource: "mcp:github" }),
+				});
+
+			expect((await call("203.0.113.9")).status).toBe(200);
+			expect((await call("198.51.100.1")).status).toBe(403);
 		});
 
 		it("denies an unauthorized action with 403", async () => {

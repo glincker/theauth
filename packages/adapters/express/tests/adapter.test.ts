@@ -50,7 +50,11 @@ async function createTestAgent(
 	overrides: Partial<{
 		name: string;
 		type: string;
-		permissions: Array<{ resource: string; actions: string[] }>;
+		permissions: Array<{
+			resource: string;
+			actions: string[];
+			constraints?: { ipAllowlist?: string[] };
+		}>;
 	}> = {},
 ): Promise<{ id: string; token: string }> {
 	const res = await request(app)
@@ -311,6 +315,30 @@ describe("Express adapter", () => {
 			const body = res.body as { data: { allowed: boolean; auditId: string } };
 			expect(body.data.allowed).toBe(true);
 			expect(body.data.auditId).toBeDefined();
+		});
+
+		it("enforces ipAllowlist using the client IP passed by the adapter", async () => {
+			const { id } = await createTestAgent(app, {
+				permissions: [
+					{
+						resource: "mcp:github",
+						actions: ["read"],
+						constraints: { ipAllowlist: ["203.0.113.0/24"] },
+					},
+				],
+			});
+
+			const allowed = await request(app)
+				.post("/authorize")
+				.set("X-Forwarded-For", "203.0.113.9")
+				.send({ agentId: id, action: "read", resource: "mcp:github" });
+			expect(allowed.status).toBe(200);
+
+			const denied = await request(app)
+				.post("/authorize")
+				.set("X-Forwarded-For", "198.51.100.1")
+				.send({ agentId: id, action: "read", resource: "mcp:github" });
+			expect(denied.status).toBe(403);
 		});
 
 		it("denies an unauthorized action with 403", async () => {
