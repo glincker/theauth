@@ -25,7 +25,10 @@
 
 import { and, eq, like, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
-import { organizations, orgMembers, users } from "../db/schema.js";
+import { auditLogs, organizations, orgMembers, users } from "../db/schema.js";
+import type { FilterAst } from "./scim-filter.js";
+import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
+import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -42,6 +45,26 @@ export interface ScimConfig {
 	onProvision?: (user: ScimUser) => Promise<void>;
 	/** Callback when user is deprovisioned */
 	onDeprovision?: (userId: string) => Promise<void>;
+	/**
+	 * Resolves the user id the current request speaks for. Required to enable
+	 * `GET /scim/v2/Me`. If omitted, `/Me` returns 501 with a clear detail.
+	 * The resolver should derive the id from the bearer token or associated
+	 * session and return `null` when the caller is not tied to a user.
+	 */
+	resolveSelf?: (request: Request) => Promise<string | null>;
+	/**
+	 * Audit every SCIM provisioning write. When configured, each
+	 * POST/PUT/PATCH/DELETE on /Users or /Groups writes an `auditLogs` row
+	 * attributed to `agentId`. The caller is responsible for pre-creating a
+	 * system agent and passing its id. Set `enabled: false` to turn off
+	 * writes without deleting the agent (useful in tests).
+	 */
+	audit?: {
+		/** FK to kavach_agents.id — typically a dedicated "scim-provisioner" system agent. */
+		agentId: string;
+		/** Defaults to true when `audit` is set. */
+		enabled?: boolean;
+	};
 }
 
 export interface ScimUser {
@@ -113,6 +136,7 @@ const SCHEMA_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
 
 const SCHEMA_SP_CONFIG = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig";
 const SCHEMA_RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType";
+const SCHEMA_ENTERPRISE = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -163,8 +187,14 @@ function userRowToScim(row: UserRow, baseUrl: string): Record<string, unknown> {
 	const meta = row.metadata ?? {};
 	const active = meta["scim:active"] !== false && row.banned === 0;
 
-	return {
-		schemas: [SCHEMA_USER],
+	const enterprise = meta["scim:enterprise"];
+	const schemas = [SCHEMA_USER];
+	if (enterprise && typeof enterprise === "object" && Object.keys(enterprise).length > 0) {
+		schemas.push("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+	}
+
+	const body: Record<string, unknown> = {
+		schemas,
 		id: row.id,
 		externalId: row.externalId ?? undefined,
 		userName: row.username ?? row.email,
@@ -183,6 +213,12 @@ function userRowToScim(row: UserRow, baseUrl: string): Record<string, unknown> {
 			location: `${baseUrl}/scim/v2/Users/${row.id}`,
 		},
 	};
+
+	if (enterprise && typeof enterprise === "object") {
+		body["urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"] = enterprise;
+	}
+
+	return body;
 }
 
 function orgRowToScim(
@@ -214,39 +250,68 @@ function orgRowToScim(
 
 // ---------------------------------------------------------------------------
 // Filter parsing (RFC 7644 §3.4.2.2)
-// Only supports simple attribute eq/co/sw/pr comparisons joined by "and"
+// Full grammar lives in scim-filter.ts. We keep a legacy clause-array shape
+// here so the SQL translator below stays simple for the common Okta filters
+// (pure "and" of eq/co/sw/pr). For expressions that do not flatten to that
+// shape (or / not / value-paths / ne / ew / gt / ge / lt / le) the caller
+// falls back to in-memory evaluation against the serialized resource.
 // ---------------------------------------------------------------------------
 
-type FilterOp = "eq" | "co" | "sw" | "pr";
+type LegacyFilterOp = "eq" | "co" | "sw" | "pr";
 
 interface FilterClause {
 	attribute: string;
-	op: FilterOp;
+	op: LegacyFilterOp;
 	value?: string;
 }
 
-function parseScimFilter(filter: string): FilterClause[] {
+/**
+ * Try to express the AST as a flat `and` of clauses the SQL translator
+ * understands. Returns `null` when the filter is richer than that.
+ */
+function flattenToLegacyClauses(ast: FilterAst): FilterClause[] | null {
 	const clauses: FilterClause[] = [];
-	// Split by " and " (case-insensitive)
-	const parts = filter.split(/\s+and\s+/i);
-	for (const part of parts) {
-		const trimmed = part.trim();
-		// Match: attribute op "value" or attribute pr
-		const matchWithValue = trimmed.match(/^(\S+)\s+(eq|co|sw)\s+"([^"]*)"$/i);
-		if (matchWithValue) {
+	const stack: FilterAst[] = [ast];
+	while (stack.length > 0) {
+		const node = stack.pop() as FilterAst;
+		if (node.kind === "and") {
+			stack.push(node.right, node.left);
+			continue;
+		}
+		if (node.kind === "pr") {
+			clauses.push({ attribute: attrKey(node.attr.path), op: "pr" });
+			continue;
+		}
+		if (node.kind === "cmp") {
+			if (node.op !== "eq" && node.op !== "co" && node.op !== "sw") return null;
+			if (typeof node.value !== "string" && typeof node.value !== "boolean") return null;
 			clauses.push({
-				attribute: (matchWithValue[1] as string).toLowerCase(),
-				op: (matchWithValue[2] as string).toLowerCase() as FilterOp,
-				value: matchWithValue[3] as string,
+				attribute: attrKey(node.attr.path),
+				op: node.op,
+				value: typeof node.value === "boolean" ? String(node.value) : node.value,
 			});
 			continue;
 		}
-		const matchPr = trimmed.match(/^(\S+)\s+pr$/i);
-		if (matchPr) {
-			clauses.push({ attribute: (matchPr[1] as string).toLowerCase(), op: "pr" });
-		}
+		return null;
 	}
 	return clauses;
+}
+
+function attrKey(path: string[]): string {
+	return path.join(".").toLowerCase();
+}
+
+/**
+ * Parse a SCIM filter string via the RFC 7644 AST and attempt to flatten it
+ * to a legacy clause list. Returns `{ clauses: null }` when the filter is
+ * structurally fine but too rich for the SQL path.
+ *
+ * @throws ScimFilterError when the filter is malformed.
+ */
+function parseScimFilter(filter: string): { ast: FilterAst; clauses: FilterClause[] | null } {
+	const ast = parseFilter(filter);
+	const clauses = flattenToLegacyClauses(ast);
+	return { ast, clauses };
 }
 
 // ---------------------------------------------------------------------------
@@ -275,7 +340,47 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		autoDeactivateUsers = true,
 		onProvision,
 		onDeprovision,
+		resolveSelf,
+		audit,
 	} = config;
+
+	// ---------------------------------------------------------------------------
+	// Audit helper
+	// ---------------------------------------------------------------------------
+	// Writes one `auditLogs` row per successful provisioning write. Intentionally
+	// tolerant: a failed audit write must never corrupt the response path, so
+	// errors are swallowed after logging. Every call site records its own
+	// start-timestamp so durationMs reflects the actual DB work, not the audit.
+
+	async function writeScimAudit(
+		action: string,
+		resource: string,
+		subjectUserId: string,
+		durationMs: number,
+		result: "allowed" | "denied" = "allowed",
+		reason?: string,
+	): Promise<void> {
+		if (!audit || audit.enabled === false) return;
+		try {
+			await db.insert(auditLogs).values({
+				id: generateId(),
+				agentId: audit.agentId,
+				userId: subjectUserId,
+				action,
+				resource,
+				parameters: {},
+				result,
+				reason: reason ?? null,
+				durationMs,
+				timestamp: new Date(),
+				ip: null,
+				userAgent: null,
+			});
+		} catch {
+			// Audit is best-effort. A missing system agent FK or a transient DB
+			// error must not fail the SCIM request itself.
+		}
+	}
 
 	// -------------------------------------------------------------------------
 	// Auth guard
@@ -298,6 +403,71 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	// -------------------------------------------------------------------------
+	// Sort helper
+	// -------------------------------------------------------------------------
+	// RFC 7644 §3.4.2.3. sortBy is a dotted attribute path into the serialized
+	// SCIM resource. sortOrder is "ascending" (default) or "descending". Ties
+	// break on `id` for determinism across pages.
+
+	interface SortSpec {
+		by: string[];
+		order: "ascending" | "descending";
+	}
+
+	function parseSortSpec(url: URL): SortSpec | null {
+		const by = url.searchParams.get("sortBy");
+		if (!by) return null;
+		const order = url.searchParams.get("sortOrder")?.toLowerCase();
+		return {
+			by: by.split(".").filter((p) => p.length > 0),
+			order: order === "descending" ? "descending" : "ascending",
+		};
+	}
+
+	function sortResources<T extends { scim: Record<string, unknown> }>(
+		items: T[],
+		spec: SortSpec,
+	): T[] {
+		const direction = spec.order === "descending" ? -1 : 1;
+		return [...items].sort((a, b) => {
+			const av = readAttr(a.scim, spec.by);
+			const bv = readAttr(b.scim, spec.by);
+			const primary = compareSortValues(av, bv);
+			if (primary !== 0) return primary * direction;
+			// Stable tie-break on id keeps pages consistent.
+			const ida = (a.scim.id as string | undefined) ?? "";
+			const idb = (b.scim.id as string | undefined) ?? "";
+			return ida < idb ? -1 : ida > idb ? 1 : 0;
+		});
+	}
+
+	function readAttr(resource: Record<string, unknown>, path: string[]): unknown {
+		let current: unknown = resource;
+		for (const segment of path) {
+			if (current === undefined || current === null) return undefined;
+			if (typeof current !== "object") return undefined;
+			current = (current as Record<string, unknown>)[segment];
+		}
+		return current;
+	}
+
+	function compareSortValues(a: unknown, b: unknown): number {
+		if (a === undefined && b === undefined) return 0;
+		if (a === undefined) return 1; // sort undefined to the end
+		if (b === undefined) return -1;
+		if (typeof a === "string" && typeof b === "string") {
+			return a.toLowerCase().localeCompare(b.toLowerCase());
+		}
+		if (typeof a === "number" && typeof b === "number") {
+			return a - b;
+		}
+		if (typeof a === "boolean" && typeof b === "boolean") {
+			return a === b ? 0 : a ? 1 : -1;
+		}
+		return String(a).localeCompare(String(b));
+	}
+
+	// -------------------------------------------------------------------------
 	// User handlers
 	// -------------------------------------------------------------------------
 
@@ -307,73 +477,119 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const startIndex = Math.max(1, parseInt(url.searchParams.get("startIndex") ?? "1", 10));
 		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
 		const baseUrl = getBaseUrl(request);
+		const sortSpec = parseSortSpec(url);
 
-		// Build filter conditions
-		const conditions = [];
+		// Parse filter AST once. Simple and-of-clauses filters take a fast SQL
+		// path. Complex filters (or / not / value-paths / advanced ops) fall
+		// back to broad fetch + in-memory evaluation.
+		let ast: FilterAst | null = null;
+		let clauses: FilterClause[] | null = null;
 		if (filterParam) {
-			const clauses = parseScimFilter(filterParam);
-			for (const clause of clauses) {
-				if (clause.attribute === "username" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(
-							sql`(${users.username} = ${clause.value} OR ${users.email} = ${clause.value})`,
-						);
-					} else if (clause.op === "co") {
-						conditions.push(
-							sql`(${users.username} LIKE ${`%${clause.value}%`} OR ${users.email} LIKE ${`%${clause.value}%`})`,
-						);
-					} else if (clause.op === "sw") {
-						conditions.push(
-							sql`(${users.username} LIKE ${`${clause.value}%`} OR ${users.email} LIKE ${`${clause.value}%`})`,
-						);
-					}
-				} else if (clause.attribute === "emails.value" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(eq(users.email, clause.value));
-					} else if (clause.op === "co") {
-						conditions.push(like(users.email, `%${clause.value}%`));
-					} else if (clause.op === "sw") {
-						conditions.push(like(users.email, `${clause.value}%`));
-					}
-				} else if (clause.attribute === "externalid" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(eq(users.externalId, clause.value));
-					}
-				} else if (clause.attribute === "active") {
-					if (clause.op === "eq" && clause.value === "false") {
-						conditions.push(eq(users.banned, 1));
-					} else if (clause.op === "eq" && clause.value === "true") {
-						conditions.push(eq(users.banned, 0));
-					}
+			try {
+				const parsed = parseScimFilter(filterParam);
+				ast = parsed.ast;
+				clauses = parsed.clauses;
+			} catch (err) {
+				if (err instanceof ScimFilterError) {
+					return scimError(err.message, 400, "invalidFilter");
 				}
+				throw err;
 			}
 		}
 
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		const conditions = clauses ? buildUserSqlConditions(clauses) : null;
+		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		// Count query
-		const countRows = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(users)
-			.where(whereClause);
-		const totalResults = Number(countRows[0]?.count ?? 0);
+		// When sort is requested we must order the full filtered set before
+		// paginating. SQL ORDER BY cannot reach into JSON-embedded metadata
+		// attributes, so force the in-memory path whenever sortBy is set.
+		if (conditions !== null && !sortSpec) {
+			// Fast path — SQL filter covers the entire expression.
+			const countRows = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(users)
+				.where(whereClause);
+			const totalResults = Number(countRows[0]?.count ?? 0);
 
-		// Data query with pagination (startIndex is 1-based)
-		const offset = startIndex - 1;
-		const rows = (await db
-			.select()
-			.from(users)
-			.where(whereClause)
-			.limit(count)
-			.offset(offset)) as UserRow[];
+			const offset = startIndex - 1;
+			const rows = (await db
+				.select()
+				.from(users)
+				.where(whereClause)
+				.limit(count)
+				.offset(offset)) as UserRow[];
+
+			return scimResponse({
+				schemas: [SCHEMA_LIST],
+				totalResults,
+				startIndex,
+				itemsPerPage: rows.length,
+				Resources: rows.map((r) => userRowToScim(r, baseUrl)),
+			});
+		}
+
+		// Fallback — evaluate AST against the SCIM-shaped resource in memory.
+		const allRows = (await db.select().from(users)) as UserRow[];
+		const mapped = allRows.map((r) => ({ row: r, scim: userRowToScim(r, baseUrl) }));
+		const matched = ast
+			? mapped.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
+			: mapped;
+		const sorted = sortSpec ? sortResources(matched, sortSpec) : matched;
+		const totalResults = sorted.length;
+		const page = sorted.slice(startIndex - 1, startIndex - 1 + count);
 
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
 			totalResults,
 			startIndex,
-			itemsPerPage: rows.length,
-			Resources: rows.map((r) => userRowToScim(r, baseUrl)),
+			itemsPerPage: page.length,
+			Resources: page.map((p) => p.scim),
 		});
+	}
+
+	function buildUserSqlConditions(list: FilterClause[]): ReturnType<typeof eq>[] | null {
+		const conds: ReturnType<typeof eq>[] = [];
+		for (const clause of list) {
+			if (clause.attribute === "username" && clause.value !== undefined) {
+				if (clause.op === "eq") {
+					conds.push(
+						sql`(${users.username} = ${clause.value} OR ${users.email} = ${clause.value})`,
+					);
+				} else if (clause.op === "co") {
+					conds.push(
+						sql`(${users.username} LIKE ${`%${clause.value}%`} OR ${users.email} LIKE ${`%${clause.value}%`})`,
+					);
+				} else if (clause.op === "sw") {
+					conds.push(
+						sql`(${users.username} LIKE ${`${clause.value}%`} OR ${users.email} LIKE ${`${clause.value}%`})`,
+					);
+				} else {
+					return null;
+				}
+				continue;
+			}
+			if (clause.attribute === "emails.value" && clause.value !== undefined) {
+				if (clause.op === "eq") conds.push(eq(users.email, clause.value));
+				else if (clause.op === "co") conds.push(like(users.email, `%${clause.value}%`));
+				else if (clause.op === "sw") conds.push(like(users.email, `${clause.value}%`));
+				else return null;
+				continue;
+			}
+			if (clause.attribute === "externalid" && clause.value !== undefined) {
+				if (clause.op === "eq") conds.push(eq(users.externalId, clause.value));
+				else return null;
+				continue;
+			}
+			if (clause.attribute === "active") {
+				if (clause.op === "eq" && clause.value === "false") conds.push(eq(users.banned, 1));
+				else if (clause.op === "eq" && clause.value === "true") conds.push(eq(users.banned, 0));
+				else return null;
+				continue;
+			}
+			// Unknown attribute — cannot SQL-translate, request in-memory fallback.
+			return null;
+		}
+		return conds;
 	}
 
 	async function handleGetUser(request: Request, userId: string): Promise<Response> {
@@ -385,6 +601,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	async function handleCreateUser(request: Request): Promise<Response> {
+		const auditStart = performance.now();
 		if (!autoCreateUsers) {
 			return scimError("User provisioning is disabled", 403);
 		}
@@ -439,6 +656,11 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		if (givenName) metadata["scim:givenName"] = givenName;
 		if (familyName) metadata["scim:familyName"] = familyName;
 
+		const enterpriseExt = body[SCHEMA_ENTERPRISE];
+		if (enterpriseExt && typeof enterpriseExt === "object") {
+			metadata["scim:enterprise"] = enterpriseExt;
+		}
+
 		await db.insert(users).values({
 			id,
 			email: primaryEmail,
@@ -473,10 +695,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.user.create",
+			`scim:users:${id}`,
+			id,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(userRowToScim(created, baseUrl), 201);
 	}
 
 	async function handleReplaceUser(request: Request, userId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
 		const existing = rows[0];
 		if (!existing) return scimError("User not found", 404, "noTarget");
@@ -512,6 +741,11 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		if (givenName !== undefined) metadata["scim:givenName"] = givenName;
 		if (familyName !== undefined) metadata["scim:familyName"] = familyName;
 
+		const enterpriseExt = body[SCHEMA_ENTERPRISE];
+		if (enterpriseExt && typeof enterpriseExt === "object") {
+			metadata["scim:enterprise"] = enterpriseExt;
+		}
+
 		const now = new Date();
 		await db
 			.update(users)
@@ -532,10 +766,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.where(eq(users.id, userId))
 			.limit(1)) as UserRow[];
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.user.replace",
+			`scim:users:${userId}`,
+			userId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrl));
 	}
 
 	async function handlePatchUser(request: Request, userId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
 		const current = rows[0];
 		if (!current) return scimError("User not found", 404, "noTarget");
@@ -555,78 +796,73 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return scimError("Invalid PATCH body: missing Operations", 400, "invalidValue");
 		}
 
+		// Serialize the current row to SCIM form, apply the PATCH ops against
+		// that representation, then map the mutated fields back to DB columns.
+		// This routes through the RFC 7644 §3.5.2 path engine in scim-patch.ts
+		// which handles value-filter selectors (emails[type eq "work"].value)
+		// and enforces immutable-attribute protections.
+		const baseUrlForPatch = getBaseUrl(request);
+		const scimView = userRowToScim(current, baseUrlForPatch) as Record<string, unknown>;
+
+		try {
+			applyPatchOps(scimView, body.Operations as Parameters<typeof applyPatchOps>[1], {
+				readonlyPaths: ["id", "externalid"],
+			});
+		} catch (err) {
+			if (err instanceof ScimPatchError) {
+				return scimError(err.message, err.status, err.scimType);
+			}
+			throw err;
+		}
+
 		const updatedMeta: Record<string, unknown> = { ...(current.metadata ?? {}) };
 		let email = current.email;
 		let name = current.name;
 		let username = current.username;
 		let banned = current.banned;
-		let externalId = current.externalId;
+		const externalId = current.externalId;
 
-		for (const op of body.Operations) {
-			const opLower = op.op?.toLowerCase() as "add" | "replace" | "remove" | undefined;
-			if (!opLower || !["add", "replace", "remove"].includes(opLower)) continue;
+		// Extract mutated fields back from the SCIM view.
+		const scimUserName = scimView.userName;
+		if (typeof scimUserName === "string") username = scimUserName;
 
-			const path = op.path?.toLowerCase();
+		const scimDisplay = scimView.displayName;
+		if (typeof scimDisplay === "string") name = scimDisplay;
 
-			if (opLower === "remove") {
-				if (path === "active") {
-					updatedMeta["scim:active"] = false;
-					banned = autoDeactivateUsers ? 1 : 0;
-				}
-				continue;
+		const scimName = scimView.name as { givenName?: unknown; familyName?: unknown } | undefined;
+		if (scimName) {
+			if (scimName.givenName !== undefined) updatedMeta["scim:givenName"] = scimName.givenName;
+			if (scimName.familyName !== undefined) updatedMeta["scim:familyName"] = scimName.familyName;
+		}
+
+		const scimActive = scimView.active;
+		if (typeof scimActive === "boolean") {
+			updatedMeta["scim:active"] = scimActive;
+			banned = scimActive ? 0 : autoDeactivateUsers ? 1 : 0;
+		} else if (scimActive === undefined && scimView.active === undefined) {
+			updatedMeta["scim:active"] = false;
+			banned = autoDeactivateUsers ? 1 : 0;
+		}
+
+		const scimEmails = scimView.emails;
+		if (Array.isArray(scimEmails)) {
+			const primary =
+				(scimEmails.find(
+					(entry): entry is { value?: unknown; primary?: unknown } =>
+						typeof entry === "object" &&
+						entry !== null &&
+						(entry as { primary?: unknown }).primary === true,
+				)?.value as string | undefined) ??
+				(scimEmails[0] as { value?: unknown } | undefined)?.value;
+			if (typeof primary === "string" && primary.length > 0) {
+				email = primary;
 			}
+		}
 
-			// add / replace
-			if (path === "active" || path === "urn:ietf:params:scim:schemas:core:2.0:user:active") {
-				const active = op.value === true || op.value === "true";
-				updatedMeta["scim:active"] = active;
-				banned = active ? 0 : autoDeactivateUsers ? 1 : 0;
-			} else if (
-				path === "username" ||
-				path === "urn:ietf:params:scim:schemas:core:2.0:user:username"
-			) {
-				username = typeof op.value === "string" ? op.value : username;
-			} else if (path === "displayname") {
-				name = typeof op.value === "string" ? op.value : name;
-			} else if (path === "name.givenname") {
-				updatedMeta["scim:givenName"] = op.value;
-			} else if (path === "name.familyname") {
-				updatedMeta["scim:familyName"] = op.value;
-			} else if (path === "externalid") {
-				externalId = typeof op.value === "string" ? op.value : externalId;
-			} else if (path === "emails" || path?.startsWith("emails[")) {
-				// Handle emails array replacement
-				const emailsVal = op.value as Array<{ value: string; primary?: boolean }> | undefined;
-				if (Array.isArray(emailsVal)) {
-					const primary = emailsVal.find((e) => e.primary)?.value ?? emailsVal[0]?.value;
-					if (primary) email = primary;
-				}
-			} else if (!path) {
-				// No path: value is an object with attributes to set
-				const val = op.value as Record<string, unknown> | undefined;
-				if (val && typeof val === "object") {
-					if ("active" in val) {
-						const active = val.active === true || val.active === "true";
-						updatedMeta["scim:active"] = active;
-						banned = active ? 0 : autoDeactivateUsers ? 1 : 0;
-					}
-					if ("displayName" in val && typeof val.displayName === "string") {
-						name = val.displayName;
-					}
-					if ("userName" in val && typeof val.userName === "string") {
-						username = val.userName;
-					}
-					if ("externalId" in val && typeof val.externalId === "string") {
-						externalId = val.externalId;
-					}
-					const nameVal = val.name as { givenName?: string; familyName?: string } | undefined;
-					if (nameVal) {
-						if (nameVal.givenName !== undefined) updatedMeta["scim:givenName"] = nameVal.givenName;
-						if (nameVal.familyName !== undefined)
-							updatedMeta["scim:familyName"] = nameVal.familyName;
-					}
-				}
-			}
+		const extKey = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+		const enterpriseExt = scimView[extKey];
+		if (enterpriseExt && typeof enterpriseExt === "object") {
+			updatedMeta["scim:enterprise"] = enterpriseExt;
 		}
 
 		const now = new Date();
@@ -640,11 +876,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.from(users)
 			.where(eq(users.id, userId))
 			.limit(1)) as UserRow[];
-		const baseUrl = getBaseUrl(request);
-		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrl));
+		await writeScimAudit(
+			"scim.user.update",
+			`scim:users:${userId}`,
+			userId,
+			Math.round(performance.now() - auditStart),
+		);
+		return scimResponse(userRowToScim(updatedRows[0] as UserRow, baseUrlForPatch));
 	}
 
 	async function handleDeleteUser(_request: Request, userId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
 		const row = rows[0];
 		if (!row) return scimError("User not found", 404, "noTarget");
@@ -665,6 +907,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			await onDeprovision(userId);
 		}
 
+		await writeScimAudit(
+			"scim.user.delete",
+			`scim:users:${userId}`,
+			userId,
+			Math.round(performance.now() - auditStart),
+		);
 		return new Response(null, { status: 204 });
 	}
 
@@ -695,55 +943,93 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const startIndex = Math.max(1, parseInt(url.searchParams.get("startIndex") ?? "1", 10));
 		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
 		const baseUrl = getBaseUrl(request);
+		const sortSpec = parseSortSpec(url);
 
-		const conditions = [];
+		let ast: FilterAst | null = null;
+		let clauses: FilterClause[] | null = null;
 		if (filterParam) {
-			const clauses = parseScimFilter(filterParam);
-			for (const clause of clauses) {
-				if (clause.attribute === "displayname" && clause.value !== undefined) {
-					if (clause.op === "eq") {
-						conditions.push(eq(organizations.name, clause.value));
-					} else if (clause.op === "co") {
-						conditions.push(like(organizations.name, `%${clause.value}%`));
-					} else if (clause.op === "sw") {
-						conditions.push(like(organizations.name, `${clause.value}%`));
-					}
+			try {
+				const parsed = parseScimFilter(filterParam);
+				ast = parsed.ast;
+				clauses = parsed.clauses;
+			} catch (err) {
+				if (err instanceof ScimFilterError) {
+					return scimError(err.message, 400, "invalidFilter");
 				}
+				throw err;
 			}
 		}
 
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		const conditions = clauses ? buildGroupSqlConditions(clauses) : null;
+		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		const countRows = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(organizations)
-			.where(whereClause);
-		const totalResults = Number(countRows[0]?.count ?? 0);
+		if (conditions !== null && !sortSpec) {
+			const countRows = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(organizations)
+				.where(whereClause);
+			const totalResults = Number(countRows[0]?.count ?? 0);
 
-		const offset = startIndex - 1;
-		const orgRows = (await db
-			.select()
-			.from(organizations)
-			.where(whereClause)
-			.limit(count)
-			.offset(offset)) as OrgRow[];
+			const offset = startIndex - 1;
+			const orgRows = (await db
+				.select()
+				.from(organizations)
+				.where(whereClause)
+				.limit(count)
+				.offset(offset)) as OrgRow[];
 
-		// Fetch members for each org
+			const resources = await Promise.all(
+				orgRows.map(async (org) => {
+					const members = await getMembersForOrg(org.id);
+					const memberEmails = await getMemberEmails(members);
+					return orgRowToScim(org, members, memberEmails, baseUrl);
+				}),
+			);
+
+			return scimResponse({
+				schemas: [SCHEMA_LIST],
+				totalResults,
+				startIndex,
+				itemsPerPage: orgRows.length,
+				Resources: resources,
+			});
+		}
+
+		// In-memory fallback for complex filters.
+		const allOrgs = (await db.select().from(organizations)) as OrgRow[];
 		const resources = await Promise.all(
-			orgRows.map(async (org) => {
+			allOrgs.map(async (org) => {
 				const members = await getMembersForOrg(org.id);
 				const memberEmails = await getMemberEmails(members);
-				return orgRowToScim(org, members, memberEmails, baseUrl);
+				return { org, scim: orgRowToScim(org, members, memberEmails, baseUrl) };
 			}),
 		);
+		const matched = ast
+			? resources.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
+			: resources;
+		const sorted = sortSpec ? sortResources(matched, sortSpec) : matched;
+		const totalResults = sorted.length;
+		const page = sorted.slice(startIndex - 1, startIndex - 1 + count);
 
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
 			totalResults,
 			startIndex,
-			itemsPerPage: orgRows.length,
-			Resources: resources,
+			itemsPerPage: page.length,
+			Resources: page.map((p) => p.scim),
 		});
+	}
+
+	function buildGroupSqlConditions(list: FilterClause[]): ReturnType<typeof eq>[] | null {
+		const conds: ReturnType<typeof eq>[] = [];
+		for (const clause of list) {
+			if (clause.attribute !== "displayname" || clause.value === undefined) return null;
+			if (clause.op === "eq") conds.push(eq(organizations.name, clause.value));
+			else if (clause.op === "co") conds.push(like(organizations.name, `%${clause.value}%`));
+			else if (clause.op === "sw") conds.push(like(organizations.name, `${clause.value}%`));
+			else return null;
+		}
+		return conds;
 	}
 
 	async function handleGetGroup(request: Request, groupId: string): Promise<Response> {
@@ -762,6 +1048,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	async function handleCreateGroup(request: Request): Promise<Response> {
+		const auditStart = performance.now();
 		let body: Record<string, unknown>;
 		try {
 			body = (await request.json()) as Record<string, unknown>;
@@ -854,6 +1141,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const createdMembers = await getMembersForOrg(id);
 		const memberEmails = await getMemberEmails(createdMembers);
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.group.create",
+			`scim:groups:${id}`,
+			ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(
 			orgRowToScim(orgRows[0] as OrgRow, createdMembers, memberEmails, baseUrl),
 			201,
@@ -861,6 +1154,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	async function handleReplaceGroup(request: Request, groupId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const orgRows = (await db
 			.select()
 			.from(organizations)
@@ -914,10 +1208,17 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const members = await getMembersForOrg(groupId);
 		const memberEmails = await getMemberEmails(members);
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.group.replace",
+			`scim:groups:${groupId}`,
+			(updatedOrg[0] as OrgRow).ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(orgRowToScim(updatedOrg[0] as OrgRow, members, memberEmails, baseUrl));
 	}
 
 	async function handlePatchGroup(request: Request, groupId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const orgRows = (await db
 			.select()
 			.from(organizations)
@@ -1019,20 +1320,34 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const members = await getMembersForOrg(groupId);
 		const memberEmails = await getMemberEmails(members);
 		const baseUrl = getBaseUrl(request);
+		await writeScimAudit(
+			"scim.group.update",
+			`scim:groups:${groupId}`,
+			(updatedOrg[0] as OrgRow).ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return scimResponse(orgRowToScim(updatedOrg[0] as OrgRow, members, memberEmails, baseUrl));
 	}
 
 	async function handleDeleteGroup(_request: Request, groupId: string): Promise<Response> {
+		const auditStart = performance.now();
 		const orgRows = (await db
 			.select()
 			.from(organizations)
 			.where(eq(organizations.id, groupId))
 			.limit(1)) as OrgRow[];
-		if (orgRows.length === 0) return scimError("Group not found", 404, "noTarget");
+		const existing = orgRows[0];
+		if (!existing) return scimError("Group not found", 404, "noTarget");
 
 		await db.delete(orgMembers).where(eq(orgMembers.orgId, groupId));
 		await db.delete(organizations).where(eq(organizations.id, groupId));
 
+		await writeScimAudit(
+			"scim.group.delete",
+			`scim:groups:${groupId}`,
+			existing.ownerId,
+			Math.round(performance.now() - auditStart),
+		);
 		return new Response(null, { status: 204 });
 	}
 
@@ -1049,7 +1364,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
 			filter: { supported: true, maxResults: 200 },
 			changePassword: { supported: false },
-			sort: { supported: false },
+			sort: { supported: true },
 			etag: { supported: false },
 			authenticationSchemes: [
 				{
@@ -1071,9 +1386,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const baseUrl = getBaseUrl(request);
 		return scimResponse({
 			schemas: [SCHEMA_LIST],
-			totalResults: 2,
+			totalResults: 3,
 			startIndex: 1,
-			itemsPerPage: 2,
+			itemsPerPage: 3,
 			Resources: [
 				{
 					schemas: ["urn:ietf:params:scim:schemas:core:2.0:Schema"],
@@ -1117,6 +1432,40 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 						location: `${baseUrl}/scim/v2/Schemas/${SCHEMA_GROUP}`,
 					},
 				},
+				{
+					schemas: ["urn:ietf:params:scim:schemas:core:2.0:Schema"],
+					id: SCHEMA_ENTERPRISE,
+					name: "EnterpriseUser",
+					description:
+						"Enterprise User extension (RFC 7643 §4.3). Carries employeeNumber, department, and manager.",
+					attributes: [
+						{
+							name: "employeeNumber",
+							type: "string",
+							required: false,
+							mutability: "readWrite",
+						},
+						{ name: "department", type: "string", required: false, mutability: "readWrite" },
+						{ name: "costCenter", type: "string", required: false, mutability: "readWrite" },
+						{ name: "organization", type: "string", required: false, mutability: "readWrite" },
+						{ name: "division", type: "string", required: false, mutability: "readWrite" },
+						{
+							name: "manager",
+							type: "complex",
+							required: false,
+							mutability: "readWrite",
+							subAttributes: [
+								{ name: "value", type: "string" },
+								{ name: "$ref", type: "reference" },
+								{ name: "displayName", type: "string" },
+							],
+						},
+					],
+					meta: {
+						resourceType: "Schema",
+						location: `${baseUrl}/scim/v2/Schemas/${SCHEMA_ENTERPRISE}`,
+					},
+				},
 			],
 		});
 	}
@@ -1158,6 +1507,67 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	}
 
 	// -------------------------------------------------------------------------
+	// /Bulk endpoint (RFC 7644 §3.7)
+	// -------------------------------------------------------------------------
+	// Bulk is advertised as unsupported in /ServiceProviderConfig. We still
+	// handle the route so clients that probe `/Bulk` get a spec-correct 501
+	// rather than a generic 404 or an HTML error page.
+
+	const SCHEMA_BULK_REQUEST = "urn:ietf:params:scim:api:messages:2.0:BulkRequest";
+
+	function handleBulk(request: Request): Response {
+		const contentType = request.headers.get("Content-Type") ?? "";
+		if (!contentType.toLowerCase().startsWith(SCIM_CONTENT_TYPE)) {
+			return scimError(`Bulk requires Content-Type "${SCIM_CONTENT_TYPE}"`, 415, "invalidValue");
+		}
+
+		// We intentionally do not parse the body — bulk is unsupported and we
+		// return the same error regardless of content. Rejecting here keeps
+		// an attacker from using this endpoint as an echo/oracle surface.
+		return scimResponse(
+			{
+				schemas: [SCHEMA_ERROR],
+				status: "501",
+				detail: `Bulk operations are not supported by this server. See /scim/v2/ServiceProviderConfig for supported features. Requested schema: ${SCHEMA_BULK_REQUEST}`,
+			},
+			501,
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// /Me endpoint (RFC 7644 §3.11)
+	// -------------------------------------------------------------------------
+
+	async function handleMe(request: Request): Promise<Response> {
+		if (!resolveSelf) {
+			return scimError(
+				"Me endpoint requires a resolveSelf configuration callback",
+				501,
+				"invalidValue",
+			);
+		}
+
+		let userId: string | null;
+		try {
+			userId = await resolveSelf(request);
+		} catch {
+			return scimError("resolveSelf threw while resolving the current user", 500);
+		}
+
+		if (!userId) {
+			return scimError("No user is associated with this bearer token", 404, "noTarget");
+		}
+
+		const rows = (await db.select().from(users).where(eq(users.id, userId)).limit(1)) as UserRow[];
+		const row = rows[0];
+		if (!row) {
+			return scimError("Resolved user does not exist", 404, "noTarget");
+		}
+
+		return scimResponse(userRowToScim(row, getBaseUrl(request)));
+	}
+
+	// -------------------------------------------------------------------------
 	// Request router
 	// -------------------------------------------------------------------------
 
@@ -1184,6 +1594,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 		if (method === "GET" && pathname.endsWith("/scim/v2/ResourceTypes")) {
 			return handleResourceTypes(request);
+		}
+		if (method === "GET" && pathname.endsWith("/scim/v2/Me")) {
+			return handleMe(request);
+		}
+		if (method === "POST" && pathname.endsWith("/scim/v2/Bulk")) {
+			return handleBulk(request);
 		}
 
 		// Users collection
