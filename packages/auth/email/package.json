@@ -26,9 +26,9 @@
     "@glinr/theauth": "workspace:*",
     "better-sqlite3": "^12.9.0",
     "@types/better-sqlite3": "^7.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.6.4",
     "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^3.0.0"
   },
   "homepage": "https://docs.theauth.dev/auth/email-password",

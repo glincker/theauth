@@ -43,9 +43,9 @@
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.6.4",
     "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^3.0.0"
   },
   "homepage": "https://docs.theauth.dev/prisma",
