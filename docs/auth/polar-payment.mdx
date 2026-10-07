@@ -1,10 +1,10 @@
 ---
 title: Polar payments
-description: Wire Polar subscription billing into TheAuth with the `polar()` plugin or `createPolarModule`. Set an access token and webhook secret to sync checkout and subscription state.
+description: Wire Polar subscription billing into theAuth with the `polar()` plugin or `createPolarModule`. Set an access token and webhook secret to sync checkout and subscription state.
 icon: "/brand-icons/polar.svg"
 ---
 
-Polar is an open-source funding platform for developers. The TheAuth plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required. The plugin exposes HTTP endpoints only. It does not add `theauth.polar` or `theauth.plugins.polar` to the instance, so to call the methods from your own code you create the module yourself (see Usage).
+Polar is an open-source funding platform for developers. The theAuth plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required. The plugin exposes HTTP endpoints only. It does not add `theauth.polar` or `theauth.plugins.polar` to the instance, so to call the methods from your own code you create the module yourself (see Usage).
 
 ## Setup
 
@@ -82,7 +82,7 @@ if (sub?.status === 'active') {
 
 ## HTTP endpoints
 
-The plugin registers three routes under your TheAuth base path.
+The plugin registers three routes under your theAuth base path.
 
 ### POST /auth/polar/checkout
 
@@ -161,7 +161,7 @@ polar({
 | `cancelAtPeriodEnd` | `boolean` | Whether cancellation is scheduled |
 
 <Info>
-TheAuth stores Polar subscription data in `polar_*` columns of the users table (`polar_customer_id`, `polar_subscription_id`, `polar_subscription_status`, `polar_product_id`, `polar_current_period_end`, `polar_cancel_at_period_end`). You can query them directly with Drizzle or any SQL client.
+theAuth stores Polar subscription data in `polar_*` columns of the users table (`polar_customer_id`, `polar_subscription_id`, `polar_subscription_status`, `polar_product_id`, `polar_current_period_end`, `polar_cancel_at_period_end`). You can query them directly with Drizzle or any SQL client.
 </Info>
 
 ## Related

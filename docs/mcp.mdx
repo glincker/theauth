@@ -1,6 +1,6 @@
 ---
 title: MCP OAuth 2.1
-description: Configure TheAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
+description: Configure theAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
 icon: globe
 ---
 
@@ -11,7 +11,7 @@ icon: globe
 
 The Model Context Protocol defines how AI clients connect to tool servers. The 2025-03 revision added an auth layer: MCP servers can now require OAuth 2.1 tokens before accepting tool calls.
 
-TheAuth implements the full MCP auth stack:
+theAuth implements the full MCP auth stack:
 
 - OAuth 2.1 with PKCE (S256 code challenge method only)
 - Protected Resource Metadata (RFC 9728)
@@ -141,7 +141,7 @@ So with the default mount, the token endpoint is `https://auth.yourapp.com/api/t
 
 ### PKCE flow
 
-TheAuth only accepts `S256`. Plain PKCE is rejected at the authorization endpoint.
+theAuth only accepts `S256`. Plain PKCE is rejected at the authorization endpoint.
 
 <Steps>
   <Step>

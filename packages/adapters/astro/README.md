@@ -1,6 +1,6 @@
 # @glinr/theauth-astro
 
-Astro adapter for TheAuth.
+Astro adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-astro)](https://www.npmjs.com/package/@glinr/theauth-astro)
 
@@ -39,7 +39,7 @@ Or use the catch-all handler to avoid listing each method:
 export const ALL = handlers.ALL;
 ```
 
-This handles the full TheAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This handles the full theAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 

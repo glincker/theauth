@@ -2,7 +2,7 @@
 icon: apple
 iconType: brands
 title: Apple
-description: Add Sign in with Apple to your TheAuth application. Covers credentials, client secret generation, iOS apps, and local development.
+description: Add Sign in with Apple to your theAuth application. Covers credentials, client secret generation, iOS apps, and local development.
 ---
 
 Sign in with Apple uses OAuth 2.0 with a few Apple-specific requirements: the client secret is a JWT you generate from a private key, and Apple only returns the user's name on the very first authorization.
@@ -118,7 +118,7 @@ console.log(clientSecret); // paste into APPLE_CLIENT_SECRET
 Run this script locally once, copy the output JWT, and set it as your `APPLE_CLIENT_SECRET` environment variable. Re-run before the 6-month window closes.
 
 <Info>
-  The `jose` library is a dependency of TheAuth. Install it in your own project if your script imports it directly.
+  The `jose` library is a dependency of theAuth. Install it in your own project if your script imports it directly.
 </Info>
 
 ## Environment variables
@@ -184,6 +184,6 @@ The `oauth()` plugin registers the same routes for every provider:
     Sign in with Microsoft Entra ID for personal and work accounts.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
 </CardGroup>

@@ -1,6 +1,6 @@
 # @glinr/theauth-expo
 
-Expo / React Native provider and hooks for TheAuth authentication.
+Expo / React Native provider and hooks for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-expo?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-expo)
 

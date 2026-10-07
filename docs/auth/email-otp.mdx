@@ -57,9 +57,9 @@ You can also pass the same options as a top-level `emailOtp` key to `createTheAu
 ## How it works
 
 1. User submits their email to `POST /auth/email-otp/send`.
-2. TheAuth generates a cryptographically random code and calls your `sendOtp` function with the email and code.
+2. theAuth generates a cryptographically random code and calls your `sendOtp` function with the email and code.
 3. User enters the code in your UI and submits to `POST /auth/email-otp/verify`.
-4. On success, the response contains the user and a session token. TheAuth does not set a cookie, so your app stores the token.
+4. On success, the response contains the user and a session token. theAuth does not set a cookie, so your app stores the token.
 
 If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created on successful verification.
 
@@ -124,6 +124,6 @@ A wrong, expired, or exhausted code returns `401`. After `maxAttempts` verificat
     Password-based auth that can run alongside OTP.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
 </CardGroup>

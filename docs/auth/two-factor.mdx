@@ -6,7 +6,7 @@ icon: mobile-screen
 
 The `twoFactor()` plugin adds TOTP (time-based one-time password) support compatible with Google Authenticator, Authy, 1Password, and any RFC 6238 app. Users enroll once by scanning a QR code, then provide a 6-digit code as a second factor.
 
-TheAuth stores and verifies the TOTP secret and backup codes. It does not sit inside your sign-in flow: there is no built-in "two factor required" challenge on the primary sign-in endpoints. You decide in your own sign-in code when to ask for a code, and call the verify endpoint (or `theauth.totp.verify`) to check it.
+theAuth stores and verifies the TOTP secret and backup codes. It does not sit inside your sign-in flow: there is no built-in "two factor required" challenge on the primary sign-in endpoints. You decide in your own sign-in code when to ask for a code, and call the verify endpoint (or `theauth.totp.verify`) to check it.
 
 ## Setup
 

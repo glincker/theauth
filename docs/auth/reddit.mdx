@@ -93,12 +93,12 @@ Default scope: `identity`. Scopes you pass are added on top of the default.
 </Warning>
 
 <Info>
-  Reddit's token endpoint uses HTTP Basic authentication rather than posting credentials in the request body. TheAuth handles this automatically.
+  Reddit's token endpoint uses HTTP Basic authentication rather than posting credentials in the request body. theAuth handles this automatically.
 </Info>
 
 ## Handling missing email
 
-The `oauth()` plugin matches or creates a TheAuth user by email. Because Reddit returns none, a Reddit callback does not produce a session: the provider account is stored without a user, and the callback responds with JSON (`isNewAccount`, `account`, `userInfo`) instead of redirecting. The same happens on later sign-ins with that account.
+The `oauth()` plugin matches or creates a theAuth user by email. Because Reddit returns none, a Reddit callback does not produce a session: the provider account is stored without a user, and the callback responds with JSON (`isNewAccount`, `account`, `userInfo`) instead of redirecting. The same happens on later sign-ins with that account.
 
 To support Reddit sign-in you need to collect an email yourself and attach the account to a user, for example with `POST /auth/oauth/link` from an authenticated session or `linkAccount` on a module built with `createOAuthModule`.
 
@@ -115,6 +115,6 @@ To support Reddit sign-in you need to collect an email yourself and attach the a
     Developer-focused OAuth provider with similar setup.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
 </CardGroup>

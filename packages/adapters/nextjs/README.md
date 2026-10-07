@@ -1,6 +1,6 @@
 # @glinr/theauth-nextjs
 
-Next.js adapter for TheAuth.
+Next.js adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs)](https://www.npmjs.com/package/@glinr/theauth-nextjs)
 
@@ -33,7 +33,7 @@ export const DELETE = handlers.DELETE;
 export const OPTIONS = handlers.OPTIONS;
 ```
 
-This handles the full TheAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This handles the full theAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 

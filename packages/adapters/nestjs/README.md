@@ -1,6 +1,6 @@
 # @glinr/theauth-nestjs
 
-NestJS adapter for TheAuth.
+NestJS adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-nestjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nestjs)
 

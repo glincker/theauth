@@ -1,11 +1,11 @@
 # __APP_NAME__
 
-A Next.js SaaS starter with [TheAuth](https://theauth.dev) auth built in.
+A Next.js SaaS starter with [theAuth](https://theauth.dev) auth built in.
 
 ## What's included
 
 - **Next.js 15** with App Router and TypeScript
-- **TheAuth** for agent identity, session management, and auth
+- **theAuth** for agent identity, session management, and auth
 - **Drizzle ORM** with **__DB_DRIVER__**: schema-first, type-safe
 - Sign-in / sign-out flow wired to `/api/auth/[...theauth]`
 - An agents list page at `/agents`

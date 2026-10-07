@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: Drop TheAuth into Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, Astro, NestJS, SolidStart, or TanStack with one adapter import.
+description: Drop theAuth into Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, Astro, NestJS, SolidStart, or TanStack with one adapter import.
 icon: code
 ---
 
@@ -8,7 +8,7 @@ icon: code
 
 The `@glinr/theauth` package has zero framework dependencies. It operates entirely on the Web platform `Request`/`Response` API. Adapter packages wrap the core and expose framework-idiomatic handlers for authentication, authorization, and MCP OAuth routes.
 
-Because the core uses only Web platform APIs, TheAuth runs on edge runtimes without modification: Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, Vercel Edge Functions, and Bun. The Hono and SvelteKit adapters are fully edge-compatible out of the box. The Next.js adapter works on edge when you use `export const runtime = 'edge'` in your route file.
+Because the core uses only Web platform APIs, theAuth runs on edge runtimes without modification: Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, Vercel Edge Functions, and Bun. The Hono and SvelteKit adapters are fully edge-compatible out of the box. The Next.js adapter works on edge when you use `export const runtime = 'edge'` in your route file.
 
 Each adapter follows the same pattern: accept a `theauth` instance, optionally accept a config object, and return something your framework knows how to mount.
 
@@ -145,7 +145,7 @@ You would also route `/mcp/register`, `/mcp/authorize`, and `/mcp/token` to `mcp
     Full endpoint reference for all routes the adapters mount.
   </Card>
   <Card title="Configuration" href="/configuration" icon="gear">
-    Core TheAuth instance options passed to every adapter.
+    Core theAuth instance options passed to every adapter.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
     Creating and managing agents via the mounted REST endpoints.

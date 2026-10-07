@@ -1,6 +1,6 @@
 ---
 title: Terraform provider
-description: Manage TheAuth agents, permissions, API keys, and organizations as Terraform resources.
+description: Manage theAuth agents, permissions, API keys, and organizations as Terraform resources.
 icon: server
 ---
 
@@ -74,16 +74,16 @@ export THEAUTH_BASE_URL=https://your-app.com/api/theauth
 export THEAUTH_TOKEN=<your token>
 ```
 
-<ParamField path="base_url" type="string" required>Base URL of your TheAuth deployment, including the path where the adapter is mounted (for example `https://your-app.com/auth`). Falls back to the `THEAUTH_BASE_URL` env var.</ParamField>
+<ParamField path="base_url" type="string" required>Base URL of your theAuth deployment, including the path where the adapter is mounted (for example `https://your-app.com/auth`). Falls back to the `THEAUTH_BASE_URL` env var.</ParamField>
 <ParamField path="token" type="string" required>Bearer token sent on every request. Falls back to the `THEAUTH_TOKEN` env var. Marked sensitive.</ParamField>
 
-Both are required; the provider errors at configure time if neither the argument nor the env var is set. The token is sent as `Authorization: Bearer <token>`. How the server authenticates that token is up to your adapter configuration, TheAuth does not mint a "provider token" for you.
+Both are required; the provider errors at configure time if neither the argument nor the env var is set. The token is sent as `Authorization: Bearer <token>`. How the server authenticates that token is up to your adapter configuration, theAuth does not mint a "provider token" for you.
 
 ## Resources
 
 ### theauth_agent
 
-Manages an agent identity, the primary entity in TheAuth. Destroying the resource revokes the agent (`DELETE /agents/:id`), it does not remove the row. `owner_id` and `type` force replacement when changed.
+Manages an agent identity, the primary entity in theAuth. Destroying the resource revokes the agent (`DELETE /agents/:id`), it does not remove the row. `owner_id` and `type` force replacement when changed.
 
 ```hcl
 resource "theauth_agent" "github_reader" {
@@ -126,7 +126,7 @@ terraform output -raw github_reader_token
 The token is also stored in Terraform state, so protect the state backend.
 
 <Warning>
-The raw token is only returned once, at creation time. TheAuth does not store it in recoverable form, and the provider leaves `token` empty for imported agents. If you lose it, rotate the agent's token with `POST /agents/:id/rotate` (the provider has no rotation attribute, so the new token will not appear in Terraform state).
+The raw token is only returned once, at creation time. theAuth does not store it in recoverable form, and the provider leaves `token` empty for imported agents. If you lose it, rotate the agent's token with `POST /agents/:id/rotate` (the provider has no rotation attribute, so the new token will not appear in Terraform state).
 </Warning>
 
 <ParamField path="owner_id" type="string" required>ID of the user who owns this agent.</ParamField>
@@ -284,7 +284,7 @@ Importing an API key restores the ID and metadata but not the raw key value, tha
 
 ## GitOps workflow
 
-Manage TheAuth configuration alongside your application infrastructure:
+Manage theAuth configuration alongside your application infrastructure:
 
 ```
 infra/
@@ -351,6 +351,6 @@ Every permission change ships as a pull request diff. The plan output shows what
     Visual alternative to Terraform for one-off agent management.
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
-    Log of authorization decisions. Terraform changes are not audited by TheAuth, so keep the Terraform history alongside it.
+    Log of authorization decisions. Terraform changes are not audited by theAuth, so keep the Terraform history alongside it.
   </Card>
 </CardGroup>

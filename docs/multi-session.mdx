@@ -4,7 +4,7 @@ description: Let users hold multiple active sessions and manage them from an acc
 icon: key
 ---
 
-By default, TheAuth allows unlimited concurrent sessions per user. The multi-session module adds a cap with a configurable overflow strategy, plus functions for listing and revoking sessions, useful for building an "active devices" settings page.
+By default, theAuth allows unlimited concurrent sessions per user. The multi-session module adds a cap with a configurable overflow strategy, plus functions for listing and revoking sessions, useful for building an "active devices" settings page.
 
 It is a plain module exported from `@glinr/theauth`, not a plugin. It registers no HTTP routes and does not hook into sign-in on its own: you call `enforceSessionLimit` before creating a session, and you expose the list and revoke operations from your own routes.
 

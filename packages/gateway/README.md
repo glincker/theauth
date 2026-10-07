@@ -1,6 +1,6 @@
 # @glinr/theauth-gateway
 
-Standalone auth proxy that enforces TheAuth policies in front of any HTTP service.
+Standalone auth proxy that enforces theAuth policies in front of any HTTP service.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway)
 

@@ -1,6 +1,6 @@
 # @glinr/theauth-cli
 
-Setup wizard and dev tools for TheAuth.
+Setup wizard and dev tools for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-cli)](https://www.npmjs.com/package/@glinr/theauth-cli)
 
@@ -18,7 +18,7 @@ npx theauth <command>
 
 ### `init`
 
-Prints setup instructions for adding TheAuth to a project, including install steps, configuration scaffold, and adapter options:
+Prints setup instructions for adding theAuth to a project, including install steps, configuration scaffold, and adapter options:
 
 ```bash
 npx theauth init
@@ -48,7 +48,7 @@ npx theauth dashboard --port 4000 --api http://localhost:3000
 | Flag | Default | Description |
 |---|---|---|
 | `--port` | `3100` | Port for the dashboard server |
-| `--api` | `http://localhost:3000` | TheAuth API URL |
+| `--api` | `http://localhost:3000` | theAuth API URL |
 | `--help, -h` | | Show help |
 | `--version` | | Show version |
 

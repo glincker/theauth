@@ -1,6 +1,6 @@
 # @glinr/theauth-test-utils
 
-Test helpers for apps using TheAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
+Test helpers for apps using theAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
 
 ```bash
 npm install --save-dev @glinr/theauth-test-utils
@@ -38,7 +38,7 @@ test("dashboard greets the signed-in user", () => {
 
 ## Links
 
-- TheAuth repo: <https://github.com/glincker/theauth>
+- theAuth repo: <https://github.com/glincker/theauth>
 - Docs: <https://docs.theauth.dev>
 
 ## Community

@@ -73,9 +73,9 @@ magicLink({
 ## How it works
 
 1. User submits their email to `POST /auth/magic-link/send`.
-2. TheAuth generates a signed token and calls your `sendMagicLink` function with the email address, the raw token, and the full URL.
+2. theAuth generates a signed token and calls your `sendMagicLink` function with the email address, the raw token, and the full URL.
 3. User clicks the link in their inbox.
-4. TheAuth validates the token, creates or retrieves the user, and returns the user and a session token as JSON. It does not set a cookie or redirect, so your app stores the session token (for example in a cookie) and navigates the user.
+4. theAuth validates the token, creates or retrieves the user, and returns the user and a session token as JSON. It does not set a cookie or redirect, so your app stores the session token (for example in a cookie) and navigates the user.
 
 If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created automatically.
 
@@ -131,6 +131,6 @@ The send endpoint is limited to **5 requests per minute per IP address** (taken 
     WebAuthn biometrics as an alternative passwordless method.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
 </CardGroup>

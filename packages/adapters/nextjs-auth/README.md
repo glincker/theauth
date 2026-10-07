@@ -8,8 +8,8 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 | | `@glinr/theauth-nextjs-auth` | `@glinr/theauth-nextjs` |
 |---|---|---|
-| **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the TheAuth agent-management runtime with its built-in auth |
-| **Auth source** | External REST API (`/api/auth/*`) | In-process TheAuth SDK |
+| **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the theAuth agent-management runtime with its built-in auth |
+| **Auth source** | External REST API (`/api/auth/*`) | In-process theAuth SDK |
 | **Zero deps on** | `@glinr/theauth` core, `@glinr/theauth-nextjs` | — |
 | **Key exports** | `getServerSession`, `withAuth`, `refreshSession`, `fetchWithRefresh` | `theAuthNextjs()` handler |
 
@@ -220,7 +220,7 @@ Uses the double-submit cookie pattern:
 3. The backend compares header value vs. cookie value; they must match.
 4. An attacker on a different origin cannot read the cookie → cannot forge the header.
 
-`buildAuthHeaders` includes both `X-CSRF-Token` and a `Cookie` echo of the plain (non-`__Host-`) CSRF cookie name, matching TheAuth Spring backends that use a `CsrfDoubleSubmitFilter`.
+`buildAuthHeaders` includes both `X-CSRF-Token` and a `Cookie` echo of the plain (non-`__Host-`) CSRF cookie name, matching theAuth Spring backends that use a `CsrfDoubleSubmitFilter`.
 
 ## Cookie prefix policy
 

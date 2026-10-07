@@ -1,6 +1,6 @@
 # @glinr/theauth-fastify
 
-Fastify adapter for TheAuth.
+Fastify adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-fastify)](https://www.npmjs.com/package/@glinr/theauth-fastify)
 
@@ -31,7 +31,7 @@ await app.register(theAuthFastify(theauth), { prefix: '/api/theauth' });
 await app.listen({ port: 3000 });
 ```
 
-This registers the full TheAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This registers the full theAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 

@@ -1,18 +1,18 @@
 ---
-title: TheAuth vs better-auth
-description: A feature-by-feature comparison of TheAuth and better-auth for TypeScript applications.
+title: theAuth vs better-auth
+description: A feature-by-feature comparison of theAuth and better-auth for TypeScript applications.
 icon: code-compare
 ---
 
 better-auth is a solid, well-maintained TypeScript auth library. It has more OAuth providers today, a mature Prisma integration, and a large ecosystem of community plugins. If you're building a standard web app where human auth is the entire story, it gets you there fast.
 
-TheAuth starts from a different premise: agents are first-class entities, not OAuth clients. The comparison below reflects that split honestly. Where better-auth ships something, we say so. Where it doesn't, we say that too.
+theAuth starts from a different premise: agents are first-class entities, not OAuth clients. The comparison below reflects that split honestly. Where better-auth ships something, we say so. Where it doesn't, we say that too.
 
 A migration guide from better-auth is coming soon.
 
 ## Feature matrix
 
-| Capability | TheAuth | better-auth |
+| Capability | theAuth | better-auth |
 |---|---|---|
 | Language | TypeScript, MIT | TypeScript, MIT |
 | Named OAuth providers | 24 | 37 |
@@ -30,7 +30,7 @@ A migration guide from better-auth is coming soon.
 | DB adapters | Drizzle (core) plus Prisma (`@glinr/theauth-prisma`) | Prisma, Drizzle, Kysely, Mongo, Redis |
 | Client libraries | React, Vue, Svelte, Electron, Expo, plain fetch | React, Vue, Svelte, Solid, Electron, Expo |
 
-## Pick TheAuth if
+## Pick theAuth if
 
 - Your app runs AI agents with their own identity, permissions, or audit requirements.
 - You need MCP OAuth 2.1 with proper agent delegation, not just an OIDC wrapper.
@@ -39,7 +39,7 @@ A migration guide from better-auth is coming soon.
 ## Pick better-auth if
 
 - You're building a human-facing web app with no agent workloads.
-- You need one of the 13 additional OAuth providers it ships that TheAuth doesn't yet cover.
+- You need one of the 13 additional OAuth providers it ships that theAuth doesn't yet cover.
 - You want a Mongo or Redis adapter and Prisma first-class support right now.
 
 Both are MIT, both are TypeScript. The question is whether agents are part of your architecture.
@@ -50,11 +50,11 @@ Both are MIT, both are TypeScript. The question is whether agents are part of yo
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
     Step-by-step migration with before and after code diffs.
   </Card>
-  <Card title="TheAuth vs Hanko" href="/compare/vs-hanko" icon="fingerprint">
-    How TheAuth compares to the passkey-first auth library.
+  <Card title="theAuth vs Hanko" href="/compare/vs-hanko" icon="fingerprint">
+    How theAuth compares to the passkey-first auth library.
   </Card>
-  <Card title="TheAuth vs paid platforms" href="/compare/vs-paid" icon="building">
-    TheAuth versus Clerk and Auth0 across cost and agent support.
+  <Card title="theAuth vs paid platforms" href="/compare/vs-paid" icon="building">
+    theAuth versus Clerk and Auth0 across cost and agent support.
   </Card>
   <Card title="Core concepts" href="/concepts" icon="lightbulb">
     The mental model behind agents, permissions, and audit.

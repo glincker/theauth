@@ -6,10 +6,10 @@ icon: shield-halved
 
 Mobile apps cannot safely store OAuth client secrets. Embedding a secret in an iOS or Android binary is not safe, it can be extracted. The standard workaround (PKCE without a secret) works for some providers but not all.
 
-The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through TheAuth, which holds the client secret and performs the code exchange on the device's behalf. The app gets back the provider's tokens via its custom URL scheme, never touching the secret directly.
+The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through theAuth, which holds the client secret and performs the code exchange on the device's behalf. The app gets back the provider's tokens via its custom URL scheme, never touching the secret directly.
 
 <Info>
-  `oauthProxy()` takes its own `providers` map of provider instances (the same factories used by `oauth()`, such as `createGoogleProvider`), so it works with any provider you list there. The mobile app only needs to know the provider key and its own redirect URI. The proxy returns the provider's tokens as-is: it does not create a TheAuth user or a TheAuth session, and it does not need `auth.session`.
+  `oauthProxy()` takes its own `providers` map of provider instances (the same factories used by `oauth()`, such as `createGoogleProvider`), so it works with any provider you list there. The mobile app only needs to know the provider key and its own redirect URI. The proxy returns the provider's tokens as-is: it does not create a theAuth user or a theAuth session, and it does not need `auth.session`.
 </Info>
 
 ## How it works
@@ -81,13 +81,13 @@ const theauth = await createTheAuth({
 
 ### Register the server callback URI with your provider
 
-When registering the OAuth application with your provider (Google, GitHub, etc.), add the TheAuth callback URL as an allowed redirect URI:
+When registering the OAuth application with your provider (Google, GitHub, etc.), add the theAuth callback URL as an allowed redirect URI:
 
 ```
 https://auth.example.com/auth/oauth-proxy/callback
 ```
 
-The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only TheAuth's server URL is. If you mount TheAuth under an adapter prefix such as `/api/theauth`, include it in `baseUrl` and in the URL you register.
+The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only theAuth's server URL is. If you mount theAuth under an adapter prefix such as `/api/theauth`, include it in `baseUrl` and in the URL you register.
 
 </Step>
 
@@ -205,10 +205,10 @@ The proxy generates a PKCE code verifier and challenge for every flow. The verif
     Standard browser-based OAuth 2.0 flow with PKCE.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
-    How TheAuth manages session lifetime and cookie settings.
+    How theAuth manages session lifetime and cookie settings.
   </Card>
   <Card title="Passkey" href="/auth/passkey" icon="fingerprint">
     A fully on-device alternative to OAuth for mobile apps.

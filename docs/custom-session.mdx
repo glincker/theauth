@@ -7,7 +7,7 @@ icon: sliders
 The `customSession` plugin lets you store application-specific data on a session without adding database columns. Fields live in `session.metadata.custom`, and you read and update them with the module or the REST endpoints below.
 
 <Warning>
-  `defaultFields` and `onSessionCreate` are registered as a plugin `onSessionCreate` hook, but TheAuth's session managers and sign-in modules do not currently invoke plugin hooks. Creating a session through `theauth.auth.session.create(...)` does not populate `metadata.custom` by itself. Until that wiring exists, write the initial fields yourself with `updateSessionFields` right after you create the session.
+  `defaultFields` and `onSessionCreate` are registered as a plugin `onSessionCreate` hook, but theAuth's session managers and sign-in modules do not currently invoke plugin hooks. Creating a session through `theauth.auth.session.create(...)` does not populate `metadata.custom` by itself. Until that wiring exists, write the initial fields yourself with `updateSessionFields` right after you create the session.
 </Warning>
 
 ## Install
@@ -60,7 +60,7 @@ await mod.updateSessionFields(session.id, { beta: true, lastPage: '/dashboard' }
 
 ## Hook behaviour
 
-The plugin declares an `onSessionCreate` hook that merges `defaultFields` and the result of your `onSessionCreate` callback (callback wins on a key clash) into `{ custom: ... }`. The hook is collected into the plugin registry, but TheAuth does not call it when sessions are created today (see the warning above). Treat `defaultFields` and `onSessionCreate` as inert until it is wired up.
+The plugin declares an `onSessionCreate` hook that merges `defaultFields` and the result of your `onSessionCreate` callback (callback wins on a key clash) into `{ custom: ... }`. The hook is collected into the plugin registry, but theAuth does not call it when sessions are created today (see the warning above). Treat `defaultFields` and `onSessionCreate` as inert until it is wired up.
 
 ## REST endpoints
 

@@ -4,7 +4,7 @@ description: The mental model you need before touching code. Agents, permissions
 icon: lightbulb
 ---
 
-A TheAuth app has one loop: a user signs in, creates agents, agents call `authorize()` before acting, and every decision lands in the audit trail. Everything else is detail on top of that loop.
+A theAuth app has one loop: a user signs in, creates agents, agents call `authorize()` before acting, and every decision lands in the audit trail. Everything else is detail on top of that loop.
 
 ```mermaid
 flowchart LR
@@ -18,7 +18,7 @@ flowchart LR
 
 ## User vs agent
 
-A **user** is a human. They have email, password, sessions, OAuth accounts. TheAuth can run human auth for you (see [Authentication](/auth)) or plug into Clerk, Auth.js, better-auth.
+A **user** is a human. They have email, password, sessions, OAuth accounts. theAuth can run human auth for you (see [Authentication](/auth)) or plug into Clerk, Auth.js, better-auth.
 
 An **agent** is a program acting on a user's behalf. One human can own many agents. Agents do not sign in. They authenticate with a bearer token (`kv_...`) that is issued once and hashed at rest. No password, no session, no OAuth.
 
@@ -107,7 +107,7 @@ See [Trust scoring](/trust) for the full formula and [Policy templates](/policie
 
 ## MCP OAuth
 
-TheAuth ships an OAuth 2.1 authorization server for Model Context Protocol tool servers. Your MCP servers register as OAuth clients, and they get scoped JWT access tokens. The OAuth server comes from `createMcpModule` in `@glinr/theauth/mcp`; token validation is separate from agent `authorize()` and does not write audit entries.
+theAuth ships an OAuth 2.1 authorization server for Model Context Protocol tool servers. Your MCP servers register as OAuth clients, and they get scoped JWT access tokens. The OAuth server comes from `createMcpModule` in `@glinr/theauth/mcp`; token validation is separate from agent `authorize()` and does not write audit entries.
 
 Three relevant standards: **PKCE S256** (RFC 7636), **Protected Resource Metadata** (RFC 9728), **Dynamic Client Registration** (RFC 7591). Full details in [MCP OAuth 2.1](/mcp).
 
@@ -118,7 +118,7 @@ Three relevant standards: **PKCE S256** (RFC 7636), **Protected Resource Metadat
     Five minutes to a working agent.
   </Card>
   <Card title="Add to an existing app" icon="screwdriver-wrench" href="/add-to-existing-app">
-    Drop TheAuth next to Clerk, Auth.js, or better-auth.
+    Drop theAuth next to Clerk, Auth.js, or better-auth.
   </Card>
   <Card title="Permissions" icon="shield-halved" href="/permissions">
     Resource strings, constraints, approval gates.

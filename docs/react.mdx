@@ -1,18 +1,18 @@
 ---
 title: React hooks
-description: Wire TheAuth into React 18 apps via TheAuthProvider and hooks from @glinr/theauth-react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
+description: Wire theAuth into React 18 apps via TheAuthProvider and hooks from @glinr/theauth-react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
 icon: code
 ---
 
 
 ## Overview
 
-`@glinr/theauth-react` provides React hooks and a context provider for building auth UIs on top of TheAuth. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup (the package declares React 18 or later as a peer dependency).
+`@glinr/theauth-react` provides React hooks and a context provider for building auth UIs on top of theAuth. It works with Next.js App Router, Next.js Pages Router, Vite, and any React 18+ setup (the package declares React 18 or later as a peer dependency).
 
-The package itself has no Node.js dependencies, it runs entirely in the browser. Your TheAuth API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
+The package itself has no Node.js dependencies, it runs entirely in the browser. Your theAuth API handler can sit behind Next.js Edge Runtime, Cloudflare Workers, Deno Deploy, or any other edge runtime, and the hooks talk to it over standard `fetch`.
 
 <Info>
-  All hooks must be rendered inside `TheAuthProvider`. The provider talks to your TheAuth API route, no direct database access from the browser.
+  All hooks must be rendered inside `TheAuthProvider`. The provider talks to your theAuth API route, no direct database access from the browser.
 </Info>
 
 ## Installation
@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-<ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your TheAuth API handler. Must match the route you mounted in the adapter.</ParamField>
+<ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your theAuth API handler. Must match the route you mounted in the adapter.</ParamField>
 <ParamField path="external" type="ExternalAuthConfig" default="undefined">Delegate authentication to an external API instead of the managed mode described below. See "External auth mode".</ParamField>
 <ParamField path="debug" type="boolean" default="false">Enable verbose auth state logging (also enabled when `localStorage.DEBUG === "theauth"`).</ParamField>
 
@@ -63,7 +63,7 @@ In managed mode (no `external` prop) the session is stored in `localStorage` und
 </Info>
 
 <Warning>
-The managed provider signs in and up by calling `POST {basePath}/auth/sign-in` and `POST {basePath}/auth/sign-up` with a JSON body of `{ email, password }` (plus `name` for sign-up). TheAuth core does not ship email-and-password routes at those paths (its built-in password module is [username based](/auth/username)), so you need to serve them from your own handler, returning `{ user, session: { token, expiresAt } }` for sign-in and `{ user, token }` for sign-up, or use `external` mode instead.
+The managed provider signs in and up by calling `POST {basePath}/auth/sign-in` and `POST {basePath}/auth/sign-up` with a JSON body of `{ email, password }` (plus `name` for sign-up). theAuth core does not ship email-and-password routes at those paths (its built-in password module is [username based](/auth/username)), so you need to serve them from your own handler, returning `{ user, session: { token, expiresAt } }` for sign-in and `{ user, token }` for sign-up, or use `external` mode instead.
 </Warning>
 
 ## useSession
@@ -208,7 +208,7 @@ function NavBar() {
 
 ## useAgents
 
-Lets your UI list, create, revoke, and rotate agents through your TheAuth API. `useAgents(basePath = '/api/theauth')` takes its own base path and reads the user from the provider.
+Lets your UI list, create, revoke, and rotate agents through your theAuth API. `useAgents(basePath = '/api/theauth')` takes its own base path and reads the user from the provider.
 
 ```tsx
 import { useAgents, useUser } from '@glinr/theauth-react';
@@ -287,6 +287,6 @@ Pass `external` to delegate authentication to an API you already run, for exampl
   How agents are modelled and what fields they carry.
 </Card>
   <Card title="Adapters" href="/adapters">
-  Mount the TheAuth handler in Next.js, Express, Hono, and others.
+  Mount the theAuth handler in Next.js, Express, Hono, and others.
 </Card>
 </CardGroup>

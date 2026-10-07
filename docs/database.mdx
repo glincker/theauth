@@ -1,11 +1,11 @@
 ---
 title: Database setup
-description: Configure TheAuth with SQLite, native SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for native SQLite, and skipping auto-migrations.
+description: Configure theAuth with SQLite, native SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for native SQLite, and skipping auto-migrations.
 icon: database
 ---
 
 
-TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a provider and pass the connection URL; TheAuth handles the rest.
+theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a provider and pass the connection URL; theAuth handles the rest.
 
 ## Choosing a provider
 
@@ -45,7 +45,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     });
     ```
 
-    `sql.js` keeps the database in memory. For a file path, TheAuth loads the file at startup if it exists and rewrites the whole file after each write statement. That is fine for development and small apps, but it is a single-process setup: do not point several processes at the same file. TheAuth turns on foreign keys (`PRAGMA foreign_keys = ON`). It does not enable WAL mode for this provider.
+    `sql.js` keeps the database in memory. For a file path, theAuth loads the file at startup if it exists and rewrites the whole file after each write statement. That is fine for development and small apps, but it is a single-process setup: do not point several processes at the same file. theAuth turns on foreign keys (`PRAGMA foreign_keys = ON`). It does not enable WAL mode for this provider.
   </Tab>
   <Tab title="SQLite (native)">
     The `sqlite-native` provider uses `better-sqlite3`. Install it yourself, it is an optional peer dependency and needs C++ build tools:
@@ -65,7 +65,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     });
     ```
 
-    TheAuth enables WAL mode and foreign keys automatically for this provider:
+    theAuth enables WAL mode and foreign keys automatically for this provider:
     ```sql
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -91,7 +91,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     });
     ```
 
-    TheAuth uses `drizzle-orm/node-postgres` with a connection pool via `pg.Pool`. The `pg` package is loaded with a dynamic import, so it stays an optional peer dep.
+    theAuth uses `drizzle-orm/node-postgres` with a connection pool via `pg.Pool`. The `pg` package is loaded with a dynamic import, so it stays an optional peer dep.
   </Tab>
   <Tab title="MySQL">
     Install the `mysql2` peer dependency:
@@ -112,7 +112,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     });
     ```
 
-    TheAuth uses `drizzle-orm/mysql2` with a connection pool. `mysql2` is loaded via dynamic import and stays an optional peer dep.
+    theAuth uses `drizzle-orm/mysql2` with a connection pool. `mysql2` is loaded via dynamic import and stays an optional peer dep.
   </Tab>
   <Tab title="Cloudflare D1">
     Pass the D1 binding from your Worker environment. The `drizzle-orm/d1` driver is loaded with a dynamic import.
@@ -139,7 +139,7 @@ TheAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 
 ## Auto-migration
 
-By default, TheAuth calls `CREATE TABLE IF NOT EXISTS` for all its tables on startup. This is safe to run on every start, but it only creates missing tables, it does not alter existing ones. This means your database is always ready to use without any manual migration step.
+By default, theAuth calls `CREATE TABLE IF NOT EXISTS` for all its tables on startup. This is safe to run on every start, but it only creates missing tables, it does not alter existing ones. This means your database is always ready to use without any manual migration step.
 
 To disable this (e.g. when you manage migrations externally with Flyway, Liquibase, or `drizzle-kit push`), set `skipMigrations: true`:
 
@@ -152,12 +152,12 @@ database: {
 ```
 
 <Warning>
-  When `skipMigrations: true`, you are responsible for keeping the schema in sync. TheAuth will fail at runtime if expected tables or columns are missing.
+  When `skipMigrations: true`, you are responsible for keeping the schema in sync. theAuth will fail at runtime if expected tables or columns are missing.
 </Warning>
 
 ## Schema overview
 
-TheAuth creates the following tables in your database:
+theAuth creates the following tables in your database:
 
 | Table | Purpose |
 |-------|---------|
@@ -169,7 +169,7 @@ TheAuth creates the following tables in your database:
 | `theauth_audit_logs` | Log of every agent action |
 | `theauth_rate_limits` | Per-agent call-rate counters |
 | `theauth_mcp_servers` | Registered MCP servers |
-| `theauth_sessions` | TheAuth-managed human user sessions |
+| `theauth_sessions` | theAuth-managed human user sessions |
 | `theauth_oauth_clients`, `theauth_oauth_access_tokens`, `theauth_oauth_authorization_codes` | OAuth 2.1 client registrations, issued tokens, and short-lived PKCE codes |
 | `theauth_agent_cards` | A2A capability discovery cards |
 | `theauth_approval_requests` | CIBA async approval flow records |
@@ -196,7 +196,7 @@ All table and column names use `snake_case`. IDs are `text`. In the SQLite schem
 | `mysql` | `mysql2` |
 | `d1` | `drizzle-orm/d1` (a Cloudflare Workers binding, no extra install) |
 
-TheAuth uses dynamic imports for the SQLite, Postgres, and MySQL drivers so they remain optional. You will get a clear error message at startup if the required package is missing, for example:
+theAuth uses dynamic imports for the SQLite, Postgres, and MySQL drivers so they remain optional. You will get a clear error message at startup if the required package is missing, for example:
 
 ```
 TheAuth: provider "postgres" requires the "pg" package.
@@ -238,7 +238,7 @@ Each `createTheAuth()` call with `:memory:` gets a completely isolated database,
 
 <CardGroup cols={2}>
   <Card title="Prisma adapter" href="/prisma" icon="database">
-    Read TheAuth tables through an existing PrismaClient.
+    Read theAuth tables through an existing PrismaClient.
   </Card>
   <Card title="Configuration" href="/configuration" icon="sliders">
     Full createTheAuth() options including database and secrets.

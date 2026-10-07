@@ -1,6 +1,6 @@
 # @glinr/theauth-tanstack
 
-TanStack Start adapter for TheAuth.
+TanStack Start adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-tanstack?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-tanstack)
 

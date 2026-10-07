@@ -46,7 +46,7 @@ Optional config: `autoCreateUsers` (default `true`), `autoDeactivateUsers` (defa
 
 ## User endpoints
 
-The plugin exposes SCIM 2.0 user CRUD endpoints. Your IdP calls these automatically. Users map to TheAuth's users table.
+The plugin exposes SCIM 2.0 user CRUD endpoints. Your IdP calls these automatically. Users map to theAuth's users table.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -57,11 +57,11 @@ The plugin exposes SCIM 2.0 user CRUD endpoints. Your IdP calls these automatica
 | PATCH | `/scim/v2/Users/:id` | Update specific attributes |
 | DELETE | `/scim/v2/Users/:id` | Deprovision a user |
 
-Deprovisioning (`DELETE`, or `active: false` in a `PUT` or `PATCH`) deactivates the user by setting their `banned` flag and a `scim:deprovisioned` metadata marker when `autoDeactivateUsers` is on. With it off, `DELETE` removes the user row. TheAuth's sign-in modules do not check the `banned` flag, so check it in your own sign-in flow (see [Admin](/auth/admin)) for deprovisioning to cut off access.
+Deprovisioning (`DELETE`, or `active: false` in a `PUT` or `PATCH`) deactivates the user by setting their `banned` flag and a `scim:deprovisioned` metadata marker when `autoDeactivateUsers` is on. With it off, `DELETE` removes the user row. theAuth's sign-in modules do not check the `banned` flag, so check it in your own sign-in flow (see [Admin](/auth/admin)) for deprovisioning to cut off access.
 
 ## Group endpoints
 
-Groups are mapped to TheAuth organizations.
+Groups are mapped to theAuth organizations.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -100,7 +100,7 @@ Rotate `SCIM_TOKEN` immediately if it is exposed. The module rejects requests wi
 
 <CardGroup cols={2}>
   <Card title="Organizations" href="/auth/organizations" icon="users">
-    SCIM groups are mapped to TheAuth organizations.
+    SCIM groups are mapped to theAuth organizations.
   </Card>
   <Card title="SSO" href="/auth/sso" icon="shield-halved">
     Enterprise SSO via SAML 2.0 and OIDC, often paired with SCIM.
@@ -109,6 +109,6 @@ Rotate `SCIM_TOKEN` immediately if it is exposed. The module rejects requests wi
     Manual user management tools alongside automated provisioning.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
 </CardGroup>

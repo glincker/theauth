@@ -1,6 +1,6 @@
 # @glinr/theauth-email
 
-Email and password authentication plugin for TheAuth.
+Email and password authentication plugin for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-email?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-email)
 

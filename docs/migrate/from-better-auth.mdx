@@ -1,14 +1,14 @@
 ---
 title: Migrate from better-auth
-description: Switch a better-auth app to TheAuth. Maps betterAuth config, plugins, session types, and client hooks to TheAuth equivalents with before and after diffs.
+description: Switch a better-auth app to theAuth. Maps betterAuth config, plugins, session types, and client hooks to theAuth equivalents with before and after diffs.
 icon: arrow-right-arrow-left
 ---
 
-better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR data export tooling, or trust scoring per agent, TheAuth is worth the switch. If you rely on an OAuth provider that better-auth covers but TheAuth does not ship first-class (we have 17 plus a generic OIDC factory as of 2026-04), you may want to wait.
+better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR data export tooling, or trust scoring per agent, theAuth is worth the switch. If you rely on an OAuth provider that better-auth covers but theAuth does not ship first-class (we have 17 plus a generic OIDC factory as of 2026-04), you may want to wait.
 
 ## Concepts map
 
-| better-auth | TheAuth |
+| better-auth | theAuth |
 |---|---|
 | `auth = betterAuth({...})` | `theauth = await createTheAuth({...})` |
 | `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
@@ -18,7 +18,7 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 | `two-factor`, `passkey`, `magic-link`, `username`, `email-otp`, `phone-number`, `anonymous`, `siwe`, `device-authorization`, `one-tap` | All present, mostly as `twoFactor()`, `passkey()`, `magicLink()` style plugins or config keys. The shapes differ, check each page under Auth. |
 | `api-key` plugin | `apiKeys` config key and `theauth.apiKeys` |
 | `mcp` plugin (thin wrapper) | MCP OAuth 2.1 server from `createMcpModule` in `@glinr/theauth/mcp`, passed to your framework adapter. You supply the storage callbacks. |
-| `@better-auth/agent-auth` | TheAuth core (`theauth.agent`), no separate package |
+| `@better-auth/agent-auth` | theAuth core (`theauth.agent`), no separate package |
 | `sso`, `saml`, `scim`, `oidc-provider`, `openapi`, `jwt`, `custom-session`, `additional-fields`, `bearer` | Present under similar names (`sso`, `scim()`, `createOidcProviderModule`, `createOpenApiModule`, `createJwtSessionModule`, `additionalFields`, `bearerAuth`) |
 
 ## Server migration
@@ -56,7 +56,7 @@ export const theauth = await createTheAuth({
 ```
 
 <Info>
-  TheAuth has no `emailAndPassword` config key. Its built-in password module authenticates by username, see [Username and password](/auth/username) for the real shape and how to pair it with email verification if you need an email-first flow.
+  theAuth has no `emailAndPassword` config key. Its built-in password module authenticates by username, see [Username and password](/auth/username) for the real shape and how to pair it with email verification if you need an email-first flow.
 </Info>
 
 ```ts
@@ -106,7 +106,7 @@ app.route('/api/theauth', theAuthHono(theauth));
 
 ## Database adapter
 
-better-auth supports Prisma, Drizzle, Mongoose, and others. `createTheAuth` always runs on its own Drizzle layer. `@glinr/theauth-prisma` lets you query TheAuth tables through an existing `PrismaClient`, but it is a standalone query layer, not a database backend for `createTheAuth`, see [Prisma adapter](/prisma).
+better-auth supports Prisma, Drizzle, Mongoose, and others. `createTheAuth` always runs on its own Drizzle layer. `@glinr/theauth-prisma` lets you query theAuth tables through an existing `PrismaClient`, but it is a standalone query layer, not a database backend for `createTheAuth`, see [Prisma adapter](/prisma).
 
 ```ts
 // BEFORE: better-auth with Drizzle adapter
@@ -128,7 +128,7 @@ export const theauth = await createTheAuth({
 });
 ```
 
-TheAuth runs its own schema migrations. You do not pass your Drizzle `db` instance; pass the connection URL and TheAuth manages its own tables. See [data migration](#data-migration) below for how to move existing rows.
+theAuth runs its own schema migrations. You do not pass your Drizzle `db` instance; pass the connection URL and theAuth manages its own tables. See [data migration](#data-migration) below for how to move existing rows.
 
 ## Client SDK
 
@@ -260,7 +260,7 @@ const linear = genericOIDC({
 
 ### Session tokens
 
-better-auth and TheAuth use different token structures. An existing session token from better-auth will not be accepted by TheAuth and vice versa. `auth.adapter` only accepts a single adapter, there is no built-in multi-adapter "accept both" mode, so bridge the transition window yourself with `customAuth`, which wraps a function that reads the old better-auth cookie:
+better-auth and theAuth use different token structures. An existing session token from better-auth will not be accepted by theAuth and vice versa. `auth.adapter` only accepts a single adapter, there is no built-in multi-adapter "accept both" mode, so bridge the transition window yourself with `customAuth`, which wraps a function that reads the old better-auth cookie:
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
@@ -284,11 +284,11 @@ export const theauth = await createTheAuth({
 });
 ```
 
-You can configure both. For the endpoints that TheAuth plugins register, the user is resolved by trying `legacyAdapter` first and then falling back to a TheAuth session (`auth.session`) cookie. Note that `theauth.auth.resolveUser(request)` consults only the adapter, so in your own server code check `theauth.auth.session` too if you need to accept both. Once traffic drops to near-zero on the old cookie, drop the adapter and keep `auth.session` only.
+You can configure both. For the endpoints that theAuth plugins register, the user is resolved by trying `legacyAdapter` first and then falling back to a theAuth session (`auth.session`) cookie. Note that `theauth.auth.resolveUser(request)` consults only the adapter, so in your own server code check `theauth.auth.session` too if you need to accept both. Once traffic drops to near-zero on the old cookie, drop the adapter and keep `auth.session` only.
 
 ### Cookie defaults
 
-| Setting | better-auth default | TheAuth default |
+| Setting | better-auth default | theAuth default |
 |---|---|---|
 | Cookie name | `better-auth.session_token` | `theauth_session` (change with `auth.session.cookieName`) |
 | `Secure` | Depends on `NODE_ENV` | Depends on the code path (see below) |
@@ -299,11 +299,11 @@ You can configure both. For the endpoints that TheAuth plugins register, the use
 
 ### `@better-auth/agent-auth`
 
-If you use `@better-auth/agent-auth`, none of its config maps 1:1. That package is a thin wrapper; TheAuth replaces it with a native `AgentIdentity` entity, built-in delegation, ephemeral sessions, and the MCP OAuth server. Start with the [agents quickstart](/agents) rather than trying to adapt your existing `agent-auth` config.
+If you use `@better-auth/agent-auth`, none of its config maps 1:1. That package is a thin wrapper; theAuth replaces it with a native `AgentIdentity` entity, built-in delegation, ephemeral sessions, and the MCP OAuth server. Start with the [agents quickstart](/agents) rather than trying to adapt your existing `agent-auth` config.
 
 ## Data migration
 
-TheAuth keeps its own tables, all prefixed `theauth_`. Run `createTheAuth` once so it creates them, then copy rows across. Users go into `theauth_users` and provider links into `theauth_oauth_accounts`. Adjust the source column names to your better-auth schema (Postgres setups often use camelCase such as `"emailVerified"` and `"createdAt"`).
+theAuth keeps its own tables, all prefixed `theauth_`. Run `createTheAuth` once so it creates them, then copy rows across. Users go into `theauth_users` and provider links into `theauth_oauth_accounts`. Adjust the source column names to your better-auth schema (Postgres setups often use camelCase such as `"emailVerified"` and `"createdAt"`).
 
 ```sql
 -- Users
@@ -344,12 +344,12 @@ Column names in better-auth can vary depending on your adapter and any custom fi
 
 Two things do not migrate:
 
-- **Sessions.** A TheAuth session row (`theauth_sessions`) holds only `id`, `user_id`, `expires_at`, and metadata. The token is a signed JWT that references that row, so better-auth session tokens cannot be copied across. Use the `legacyAdapter` above to keep people signed in, or have them sign in again.
+- **Sessions.** A theAuth session row (`theauth_sessions`) holds only `id`, `user_id`, `expires_at`, and metadata. The token is a signed JWT that references that row, so better-auth session tokens cannot be copied across. Use the `legacyAdapter` above to keep people signed in, or have them sign in again.
 - **Passwords.** The `username` module verifies PBKDF2 hashes in the format `pbkdf2:<iterations>:<saltHex>:<hashHex>` only. better-auth's `credential` account hashes are not in that format and will not verify. Follow the forced reset or lazy rehash approach in [Migrate from Auth0](/migrate/from-auth0#user-data-migration), which applies the same way here.
 
 ## Rollback
 
-Keep better-auth running behind a feature flag while you roll out TheAuth to a percentage of traffic.
+Keep better-auth running behind a feature flag while you roll out theAuth to a percentage of traffic.
 
 ```ts
 // middleware.ts (Next.js)
@@ -381,36 +381,36 @@ function hashToPercent(str: string): number {
 export const config = { matcher: '/api/auth/:path*' };
 ```
 
-Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the TheAuth tables. The `customAuth`-based `legacyAdapter` described above keeps existing users resolvable during the overlap.
+Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the theAuth tables. The `customAuth`-based `legacyAdapter` described above keeps existing users resolvable during the overlap.
 
 ## FAQ
 
-**Does TheAuth support all the OAuth providers better-auth has?**
+**Does theAuth support all the OAuth providers better-auth has?**
 No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
-Partly. `createTheAuth` itself takes `database: { provider, url }` and runs on Drizzle. `@glinr/theauth-prisma` gives you `createPrismaAdapter(prisma)` to read and write TheAuth tables from code that already uses Prisma, it does not replace the core instance. See the [Prisma adapter docs](/prisma).
+Partly. `createTheAuth` itself takes `database: { provider, url }` and runs on Drizzle. `@glinr/theauth-prisma` gives you `createPrismaAdapter(prisma)` to read and write theAuth tables from code that already uses Prisma, it does not replace the core instance. See the [Prisma adapter docs](/prisma).
 
 **Do I need to install an MCP plugin?**
 No separate package. Build the OAuth server with `createMcpModule` from `@glinr/theauth/mcp` and pass it to your adapter as the `mcp` option, see [MCP](/mcp). The `mcp` key on `createTheAuth` only creates the MCP tables.
 
-**Can I run better-auth and TheAuth side by side?**
+**Can I run better-auth and theAuth side by side?**
 Yes. Use `customAuth` to wrap your existing better-auth instance's session check as a `legacyAdapter`, and route traffic with a feature flag as shown above.
 
 **Will my users have to sign in again?**
-With the `legacyAdapter`, not right away: TheAuth plugin endpoints keep resolving the better-auth session. The adapter does not mint TheAuth sessions, so users move onto TheAuth sessions when they next sign in through TheAuth. Without the adapter, yes, existing tokens will be rejected.
+With the `legacyAdapter`, not right away: theAuth plugin endpoints keep resolving the better-auth session. The adapter does not mint theAuth sessions, so users move onto theAuth sessions when they next sign in through theAuth. Without the adapter, yes, existing tokens will be rejected.
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="TheAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
+  <Card title="theAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
     Feature-by-feature comparison before committing to a migration.
   </Card>
   <Card title="Database setup" href="/database" icon="database">
-    Configure the Drizzle-based database layer TheAuth uses.
+    Configure the Drizzle-based database layer theAuth uses.
   </Card>
   <Card title="Prisma adapter" href="/prisma" icon="database">
-    Query TheAuth tables from an existing PrismaClient.
+    Query theAuth tables from an existing PrismaClient.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
     The agent primitives that motivated the switch from better-auth.

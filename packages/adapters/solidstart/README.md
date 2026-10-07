@@ -1,6 +1,6 @@
 # @glinr/theauth-solidstart
 
-SolidStart adapter for TheAuth.
+SolidStart adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-solidstart?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-solidstart)
 

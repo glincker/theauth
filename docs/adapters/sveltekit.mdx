@@ -1,10 +1,10 @@
 ---
 title: SvelteKit
-description: Mount TheAuth auth routes in SvelteKit with `theAuthSvelteKit(theauth)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
+description: Mount theAuth auth routes in SvelteKit with `theAuthSvelteKit(theauth)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
 icon: "/brand-icons/svelte.svg"
 ---
 
-`theAuthSvelteKit(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all TheAuth paths are handled.
+`theAuthSvelteKit(theauth, options?)` returns named route handlers `{ GET, POST, PATCH, DELETE, OPTIONS }`. Mount them in a catch-all server route file so all theAuth paths are handled.
 
 ## Install
 
@@ -64,7 +64,7 @@ export const OPTIONS = handlers.OPTIONS;
 </Steps>
 
 <Info>
-  SvelteKit passes a standard Web API `Request` to route handlers, so the adapter delegates directly to the TheAuth dispatcher without any conversion.
+  SvelteKit passes a standard Web API `Request` to route handlers, so the adapter delegates directly to the theAuth dispatcher without any conversion.
 </Info>
 
 ## Options

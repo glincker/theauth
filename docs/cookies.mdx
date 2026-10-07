@@ -1,10 +1,10 @@
 ---
 title: Cookie options
-description: How TheAuth sets session cookies, how to customize them, and the defaults for cross-subdomain and cross-origin setups.
+description: How theAuth sets session cookies, how to customize them, and the defaults for cross-subdomain and cross-origin setups.
 icon: cookie-bite
 ---
 
-TheAuth only sets cookies when you use its human-auth session features. If Clerk, Auth.js, or better-auth runs your sign-in, TheAuth is cookie-free, it authenticates agents with bearer tokens instead.
+theAuth only sets cookies when you use its human-auth session features. If Clerk, Auth.js, or better-auth runs your sign-in, theAuth is cookie-free, it authenticates agents with bearer tokens instead.
 
 Cookie handling is configured on the cookie session manager (`createCookieSessionManager`, exported from `@glinr/theauth`), not through a top-level `cookies` option on `createTheAuth`. See [Sessions](/sessions) for the full manager API.
 
@@ -113,7 +113,7 @@ Default cookies are host-only. Set `cookieOptions.domain: '.your-domain.com'` (w
 </Accordion>
 
 <Accordion title="User signed out after every deploy" icon="bug">
-You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The `secret` option takes a single string, so keep it stable across deploys. TheAuth does not support a list of secrets for rotation.
+You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The `secret` option takes a single string, so keep it stable across deploys. theAuth does not support a list of secrets for rotation.
 </Accordion>
 
 <Accordion title="SameSite=Lax rejected by a mobile webview" icon="bug">

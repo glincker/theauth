@@ -5,7 +5,7 @@ icon: table-columns
 ---
 
 
-`@glinr/theauth-ui` provides drop-in React components for auth flows. Each component renders inside `TheAuthProvider` from `@glinr/theauth-react` and wires up to your TheAuth API route automatically, no manual fetch calls required.
+`@glinr/theauth-ui` provides drop-in React components for auth flows. Each component renders inside `TheAuthProvider` from `@glinr/theauth-react` and wires up to your theAuth API route automatically, no manual fetch calls required.
 
 <Info>
   Components require `@glinr/theauth-react` to be installed and a `TheAuthProvider` wrapping your app. See the [React hooks](/react) page for provider setup.
@@ -68,7 +68,7 @@ export default function LoginPage() {
 <ParamField path="forgotPasswordUrl" type="string">URL for the "Forgot password?" link.</ParamField>
 <ParamField path="onSuccess" type="() => void">Called on successful sign-in.</ParamField>
 <ParamField path="title" type="string" default="&quot;Sign in&quot;">Heading text.</ParamField>
-<ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Must match your TheAuth API route.</ParamField>
+<ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Must match your theAuth API route.</ParamField>
 
 ## SignUp
 
@@ -228,7 +228,7 @@ export function SignInPage() {
   useSession, useUser, useSignIn, and more.
 </Card>
   <Card title="Adapters" href="/adapters">
-  Mount the TheAuth handler in Next.js, Express, Hono, and others.
+  Mount the theAuth handler in Next.js, Express, Hono, and others.
 </Card>
   <Card title="Auth" href="/auth">
   Configure email/password, magic links, OAuth, and 2FA.

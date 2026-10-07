@@ -9,7 +9,7 @@ icon: user-check
 
 Some agent actions are too sensitive to run without a human saying yes first. File deletions, financial transfers, permission escalations, these benefit from a checkpoint before execution.
 
-TheAuth supports this with a permission constraint called `requireApproval`. When the permission engine sees it, authorization is denied with the reason `"This action requires human approval before execution"`. Your application catches that signal, creates an approval request, notifies a human, and retries the action after a response comes back.
+theAuth supports this with a permission constraint called `requireApproval`. When the permission engine sees it, authorization is denied with the reason `"This action requires human approval before execution"`. Your application catches that signal, creates an approval request, notifies a human, and retries the action after a response comes back.
 
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
@@ -18,7 +18,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
 </Warning>
 
 <Info>
-  TheAuth creates the approval request and persists it. Delivering the notification to the human, email, Slack, push notification, is your application's job. Use `webhookUrl` or `onApprovalNeeded` to hook into your existing notification stack.
+  theAuth creates the approval request and persists it. Delivering the notification to the human, email, Slack, push notification, is your application's job. Use `webhookUrl` or `onApprovalNeeded` to hook into your existing notification stack.
 </Info>
 
 ## How the flow works
@@ -32,7 +32,7 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Human gets notified**
 
-    When you call `theauth.approval.request()`, TheAuth persists the request and fires your `webhookUrl` or `onApprovalNeeded` handler with the request details. Your app sends an email, opens a Slack DM, or surfaces a notification in your dashboard.
+    When you call `theauth.approval.request()`, theAuth persists the request and fires your `webhookUrl` or `onApprovalNeeded` handler with the request details. Your app sends an email, opens a Slack DM, or surfaces a notification in your dashboard.
   </Step>
   <Step>
     **Human approves or denies**
@@ -96,7 +96,7 @@ Both `webhookUrl` and `onApprovalNeeded` fire asynchronously (not awaited) so th
 
 ## How webhooks work
 
-When `webhookUrl` is set, TheAuth sends a `POST` to that URL with a JSON body:
+When `webhookUrl` is set, theAuth sends a `POST` to that URL with a JSON body:
 
 ```json
 {

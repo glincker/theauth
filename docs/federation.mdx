@@ -1,13 +1,13 @@
 ---
 title: Agent identity federation
-description: Issue and verify short-lived federation tokens so an AgentIdentity can authenticate at a remote TheAuth instance without re-registration or shared databases.
+description: Issue and verify short-lived federation tokens so an AgentIdentity can authenticate at a remote theAuth instance without re-registration or shared databases.
 icon: network-wired
 ---
 
 
 ## What federation does
 
-When two services both run TheAuth, an agent created at Service A can authenticate at Service B without creating a new account. The agent's identity, trust score, permissions, and delegation scope travel with it in a short-lived, signed JWT called a federation token.
+When two services both run theAuth, an agent created at Service A can authenticate at Service B without creating a new account. The agent's identity, trust score, permissions, and delegation scope travel with it in a short-lived, signed JWT called a federation token.
 
 This is useful when:
 
@@ -35,7 +35,7 @@ The source instance signs tokens with an EdDSA keypair. The target instance only
 
 ### Generate a keypair for each instance
 
-Each TheAuth instance needs its own signing key.
+Each theAuth instance needs its own signing key.
 
 ```typescript
 import { generateKeyPair } from "jose";
@@ -203,7 +203,7 @@ On the receiving side, `result.data.credential` will contain the VC JWT, which y
 
 ## Discovery protocol
 
-Each TheAuth instance can publish its identity at:
+Each theAuth instance can publish its identity at:
 
 ```
 GET /.well-known/theauth-federation.json
@@ -331,7 +331,7 @@ app.use("/agents/federated/*", async (req, res, next) => {
     Embed W3C Verifiable Credentials in federation tokens for offline proof.
   </Card>
   <Card title="Delegation" href="/delegation" icon="link">
-    Delegate permissions within a single TheAuth instance.
+    Delegate permissions within a single theAuth instance.
   </Card>
   <Card title="Multi-tenant" href="/multi-tenant" icon="building">
     Isolate tenants within a single instance instead of federating.

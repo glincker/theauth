@@ -1,27 +1,27 @@
 ---
 title: Migrate from Clerk
-description: Move a Clerk app to TheAuth. Maps ClerkProvider, clerkMiddleware, useAuth, and Organizations to TheAuth, with Next.js middleware sample and data export steps.
+description: Move a Clerk app to theAuth. Maps ClerkProvider, clerkMiddleware, useAuth, and Organizations to theAuth, with Next.js middleware sample and data export steps.
 icon: arrow-right-arrow-left
 ---
 
-Clerk is a hosted identity service with a strong Next.js story and paid tiers that scale with MAU. TheAuth is open source, self-hosted, and treats AI agents as a first-class entity next to users. The two trade-offs are real: you give up Clerk's hosted sign-in UI and org management console, you take back your data, your cookie domain, your rate limits, and your bill. Read this before you cut over.
+Clerk is a hosted identity service with a strong Next.js story and paid tiers that scale with MAU. theAuth is open source, self-hosted, and treats AI agents as a first-class entity next to users. The two trade-offs are real: you give up Clerk's hosted sign-in UI and org management console, you take back your data, your cookie domain, your rate limits, and your bill. Read this before you cut over.
 
 When the switch makes sense:
 
 - You are hitting Clerk's MAU pricing tiers and the cost stops matching the value.
 - Your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, or per-agent trust scoring. Clerk does not model any of that.
 - You want full control over session cookies, token issuance, and audit logs.
-- Data-handling needs (GDPR export tooling, self-hosted data residency) are easier with a service you run yourself. TheAuth supplies building blocks, it does not certify your deployment.
+- Data-handling needs (GDPR export tooling, self-hosted data residency) are easier with a service you run yourself. theAuth supplies building blocks, it does not certify your deployment.
 
 When to wait:
 
-- You rely heavily on Clerk's hosted sign-in / sign-up components and have no designer bandwidth to rebuild them. TheAuth ships headless building blocks, not a dashboard you drop in.
-- You use Clerk's B2B Organizations extensively with their admin UI. TheAuth has an organization plugin but no hosted admin console yet.
+- You rely heavily on Clerk's hosted sign-in / sign-up components and have no designer bandwidth to rebuild them. theAuth ships headless building blocks, not a dashboard you drop in.
+- You use Clerk's B2B Organizations extensively with their admin UI. theAuth has an organization plugin but no hosted admin console yet.
 - You need Clerk-specific features like device attestation at the sign-in edge or their waitlist product.
 
 ## Concepts map
 
-| Clerk | TheAuth |
+| Clerk | theAuth |
 |---|---|
 | `clerkClient` (server) | instance from `createTheAuth({...})` |
 | `<ClerkProvider>` | `<TheAuthProvider>` from `@glinr/theauth-react` |
@@ -36,7 +36,7 @@ When to wait:
 | Hosted sign-in at `/sign-in` | Build your own page against `useSignIn()`. |
 | Hosted org switcher | Build your own against the `organization` plugin. |
 | JWT templates | `createJwtSessionModule` with the `customClaims` option. |
-| Clerk backend SDK `@clerk/backend` | TheAuth server instance directly. |
+| Clerk backend SDK `@clerk/backend` | theAuth server instance directly. |
 | `Organization`, `Membership` | `org: {...}` config and `theauth.org` (plus the `organization()` plugin for HTTP endpoints). Same model, similar shape. |
 
 ## Server setup
@@ -75,7 +75,7 @@ export async function getTheAuth() {
 
 ### Next.js App Router route handler
 
-Clerk hides its route handling behind the middleware. TheAuth exposes an explicit handler so you can see and control what runs.
+Clerk hides its route handling behind the middleware. theAuth exposes an explicit handler so you can see and control what runs.
 
 ```ts
 // BEFORE: no route handler needed. Clerk handles /sign-in, /sign-up, and session refresh
@@ -97,7 +97,7 @@ export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, {
 
 ### middleware.ts
 
-Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. TheAuth does not ship an equivalent wrapper. Next.js middleware runs on the Edge runtime by default, where you cannot open a Postgres connection to validate a session. So keep middleware to a cheap cookie presence check, and validate the session in server code (pages, route handlers, server actions).
+Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. theAuth does not ship an equivalent wrapper. Next.js middleware runs on the Edge runtime by default, where you cannot open a Postgres connection to validate a session. So keep middleware to a cheap cookie presence check, and validate the session in server code (pages, route handlers, server actions).
 
 ```ts
 // BEFORE: middleware.ts (Clerk)
@@ -221,7 +221,7 @@ function Profile() {
 
 ## Sign-in and sign-up pages
 
-Clerk ships `<SignIn />` and `<SignUp />` components that render their hosted flow inside your layout. TheAuth gives you hooks and expects you to build the form.
+Clerk ships `<SignIn />` and `<SignUp />` components that render their hosted flow inside your layout. theAuth gives you hooks and expects you to build the form.
 
 <Warning>
   The `useSignIn` hook POSTs `{ email, password }` to `${basePath}/auth/sign-in`, and `useSignUp` POSTs to `${basePath}/auth/sign-up`. The TypeScript core and adapters do not register those two routes. The `username` module serves `/auth/username/sign-in` and `/auth/username/sign-up` with `{ username, password }` instead, and you have to call `theauth.username.handleRequest(request)` from your own route handler. Until you add a route that answers the paths the hook calls, build the form against the username endpoints (or `theauth.username.signIn` in a server action).
@@ -309,11 +309,11 @@ if (org) {
 }
 ```
 
-Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in TheAuth. If you have code reading `orgMembership.role`, search for `org:` and strip the prefix.
+Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in theAuth. If you have code reading `orgMembership.role`, search for `org:` and strip the prefix.
 
 ## OAuth providers
 
-Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side by side for GitHub and Google:
+Clerk configures OAuth providers in its dashboard. theAuth does it in code. Side by side for GitHub and Google:
 
 ```ts
 // BEFORE (Clerk dashboard)
@@ -381,9 +381,9 @@ writeFileSync('./clerk-users.json', JSON.stringify(out, null, 2));
 console.log(`exported ${out.length} users`);
 ```
 
-### Step 2: import into the TheAuth tables
+### Step 2: import into the theAuth tables
 
-TheAuth uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through a password reset or a rehash that you write yourself (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth sign-ins work once the provider is configured. TheAuth's tables are named `theauth_users`, `theauth_oauth_accounts`, and `theauth_username_accounts`, and `createTheAuth` creates them for you.
+theAuth uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through a password reset or a rehash that you write yourself (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth sign-ins work once the provider is configured. theAuth's tables are named `theauth_users`, `theauth_oauth_accounts`, and `theauth_username_accounts`, and `createTheAuth` creates them for you.
 
 ```sql
 -- Users. Run after you have loaded clerk-users.json into a staging table
@@ -427,7 +427,7 @@ Clerk exports historical metadata, not live OAuth tokens. Users will re-authoris
 ### Next sign-in rehash
 
 <Warning>
-  TheAuth's [username module](/auth/username) has no legacy-hash bridging hook, `verifyLegacyHash` and similar options do not exist, and there is no API to set a password hash for an existing user. `theauth.username.signUp` always creates a brand new user row, so calling it for an imported user would create a duplicate account. If you want password sign-in to keep working without a forced reset, you have to check the Clerk hash yourself in front of TheAuth and write a PBKDF2 hash into `theauth_username_accounts` yourself.
+  theAuth's [username module](/auth/username) has no legacy-hash bridging hook, `verifyLegacyHash` and similar options do not exist, and there is no API to set a password hash for an existing user. `theauth.username.signUp` always creates a brand new user row, so calling it for an imported user would create a duplicate account. If you want password sign-in to keep working without a forced reset, you have to check the Clerk hash yourself in front of theAuth and write a PBKDF2 hash into `theauth_username_accounts` yourself.
 </Warning>
 
 Import each password user with a placeholder row in `theauth_username_accounts` (any value that is not in `pbkdf2:<iterations>:<saltHex>:<hashHex>` form never verifies), set `theauth_users.force_password_reset`, and keep Clerk's bcrypt hash in your own `legacy_password_hashes` table. [Migrate from Auth0](/migrate/from-auth0#user-data-migration) shows that import script. Then verify the legacy hash in your own sign-in handler:
@@ -476,10 +476,10 @@ After 30 to 60 days, drop the `legacy_password_hashes` table and force a passwor
 
 ## Session cookies
 
-Clerk sets the `__session` cookie signed by Clerk's keys. TheAuth cannot read those cookies without calling Clerk. That means one of two things:
+Clerk sets the `__session` cookie signed by Clerk's keys. theAuth cannot read those cookies without calling Clerk. That means one of two things:
 
-1. **Hard cutover.** All signed-in users sign in once on the TheAuth flow. Simpler. Set an expectation with a banner for a few days.
-2. **Side-by-side with a rollout flag.** Keep Clerk running for a percentage of traffic while TheAuth takes the rest. Each user picks one stack until you flip them to 100% TheAuth. Sample middleware below.
+1. **Hard cutover.** All signed-in users sign in once on the theAuth flow. Simpler. Set an expectation with a banner for a few days.
+2. **Side-by-side with a rollout flag.** Keep Clerk running for a percentage of traffic while theAuth takes the rest. Each user picks one stack until you flip them to 100% theAuth. Sample middleware below.
 
 Unlike a library-to-library migration, there is no cookie adapter that verifies Clerk tokens locally. Clerk session tokens require round-trips to Clerk's backend.
 
@@ -516,33 +516,33 @@ Start at `THEAUTH_ROLLOUT=10`, watch error rates and sign-in conversions, raise 
 ## FAQ
 
 **Will my users be signed out on cutover day?**
-Yes, unless you run a side-by-side rollout. Clerk session cookies cannot be verified without Clerk, so TheAuth cannot accept them. A one-time sign-in is the simplest story. Tell users ahead of time and keep the old subdomain alive as a fallback.
+Yes, unless you run a side-by-side rollout. Clerk session cookies cannot be verified without Clerk, so theAuth cannot accept them. A one-time sign-in is the simplest story. Tell users ahead of time and keep the old subdomain alive as a fallback.
 
 **Do OAuth tokens survive the migration?**
 No. Clerk does not export live OAuth access or refresh tokens. Users re-authorise the provider on first sign-in after migration. If your app calls provider APIs using those tokens, plan for a grace period.
 
-**Does TheAuth have an equivalent of Clerk's Organizations UI?**
+**Does theAuth have an equivalent of Clerk's Organizations UI?**
 Not hosted. The `organization` plugin has the same model (organization, membership, role). You build the UI. The [example app](https://github.com/glincker/theauth/tree/main/packages/create-theauth-app/templates/next-saas) has a minimal organization page to copy.
 
 **What about Clerk's waitlist, age gate, or impersonation features?**
-- Waitlist: not in TheAuth core. Gate sign-up in your own route handler.
+- Waitlist: not in theAuth core. Gate sign-up in your own route handler.
 - Age gate: the `additionalFields` module (`createAdditionalFieldsModule`) can define and validate a date-of-birth field. Enforce the rule in your own sign-up handler.
 - Impersonation with TTL: the `admin` config on `createTheAuth` enables `theauth.admin.impersonate(adminUserId, targetUserId)`, with `impersonationTtlSeconds` to set the lifetime.
 
 **Will my Clerk webhooks still fire?**
-No. Clerk webhooks are driven by Clerk's internal events. TheAuth can send signed webhooks and stream events from your own process, see [Webhooks](/webhooks) and [event streaming](/event-streaming). If you used Clerk webhooks to sync users to Stripe, port that to a webhook consumer or a call in your own sign-up handler.
+No. Clerk webhooks are driven by Clerk's internal events. theAuth can send signed webhooks and stream events from your own process, see [Webhooks](/webhooks) and [event streaming](/event-streaming). If you used Clerk webhooks to sync users to Stripe, port that to a webhook consumer or a call in your own sign-up handler.
 
 **I use Clerk's JWT templates. What replaces them?**
 The JWT session module (`createJwtSessionModule`) takes a `customClaims` callback that runs at token issuance. It receives `{ id, email, name }` for the user and returns any extra claims you want in the access token. See [JWT sessions](/jwt-sessions).
 
-**Can I keep Clerk for B2B and use TheAuth for B2C in the same app?**
+**Can I keep Clerk for B2B and use theAuth for B2C in the same app?**
 Technically yes, but you will spend more time on the boundary than on the migration itself. Pick one.
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="TheAuth vs paid platforms" href="/compare/vs-paid" icon="building">
-    Structural comparison of TheAuth versus Clerk and Auth0.
+  <Card title="theAuth vs paid platforms" href="/compare/vs-paid" icon="building">
+    Structural comparison of theAuth versus Clerk and Auth0.
   </Card>
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
     Migration guide if you are coming from better-auth instead.

@@ -22,7 +22,7 @@ Key differences from a regular agent:
 
 ## Setup
 
-No extra configuration is needed, ephemeral sessions are part of the `@glinr/theauth` core package and share the same database as the rest of TheAuth.
+No extra configuration is needed, ephemeral sessions are part of the `@glinr/theauth` core package and share the same database as the rest of theAuth.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -166,7 +166,7 @@ setInterval(async () => {
 
 ## Audit grouping
 
-When `auditGrouping: true` (the default), the session gets its own `auditGroupId`. With `auditGrouping: false`, `auditGroupId` is set to the session ID instead. TheAuth returns the ID from `validateSession` but does not stamp it onto audit entries for you, so attach it to the entries you record. That makes it straightforward to reconstruct the full activity trace for a single task.
+When `auditGrouping: true` (the default), the session gets its own `auditGroupId`. With `auditGrouping: false`, `auditGroupId` is set to the session ID instead. theAuth returns the ID from `validateSession` but does not stamp it onto audit entries for you, so attach it to the entries you record. That makes it straightforward to reconstruct the full activity trace for a single task.
 
 ```typescript
 const validated = await ephemeral.validateSession(token);

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://theauth.dev/logo.svg" height="64" alt="TheAuth" />
+  <img src="https://theauth.dev/logo.svg" height="64" alt="theAuth" />
 </p>
 
 <h2 align="center"><em>Type-safe authentication for TypeScript. OAuth 2.1, MCP, passkeys, agents.</em></h2>
@@ -34,15 +34,15 @@
 
 <p align="center">
   <a href="https://theauth.dev">
-    <img src="https://theauth.dev/og.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
+    <img src="https://theauth.dev/og.png" alt="theAuth, auth OS for AI agents and humans" width="960" />
   </a>
 </p>
 
 ---
 
-## Why TheAuth
+## Why theAuth
 
-Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. TheAuth handles both in one place.
+Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. theAuth handles both in one place.
 
 ### How it differs
 
@@ -128,11 +128,11 @@ const result = await auth.authorize(agent.id, {
 
 ---
 
-## How TheAuth compares
+## How theAuth compares
 
 Checked against each vendor's public docs on 2026-10-07. Vendors change fast, so verify against their docs. Full write-ups with sources: https://theauth.dev/compare/
 
-| Capability | Auth0 | Clerk | Better Auth | **TheAuth** |
+| Capability | Auth0 | Clerk | Better Auth | **theAuth** |
 |---|---|---|---|---|
 | Source license | Proprietary | Proprietary | MIT | **MIT** |
 | Self-hostable | Managed private cloud only | No | Yes | **Yes** |
@@ -409,7 +409,7 @@ SQLite, PostgreSQL, MySQL, and Cloudflare D1 are built into the core package. Us
 
 ---
 
-## TheAuth Cloud
+## theAuth Cloud
 
 Hosted version with dashboard, billing, and zero infrastructure. Early access: [theauth.dev/pricing](https://theauth.dev/pricing/)
 

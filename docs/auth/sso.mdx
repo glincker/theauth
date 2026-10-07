@@ -6,7 +6,7 @@ icon: shield-halved
 
 ## Setup
 
-Configure your identity providers when creating the TheAuth instance. `theauth.sso` is `null` unless the `sso` key is passed, so use `theauth.sso!.` (or `?.`) in your code. There is no SSO plugin: routes are served through `theauth.sso.handleRequest`.
+Configure your identity providers when creating the theAuth instance. `theauth.sso` is `null` unless the `sso` key is passed, so use `theauth.sso!.` (or `?.`) in your code. There is no SSO plugin: routes are served through `theauth.sso.handleRequest`.
 
 <Tabs>
 <Tab title="SAML 2.0">
@@ -79,7 +79,7 @@ await theauth.sso!.removeConnection(connection.id);
 
 ## Identity mapping
 
-After a successful SAML or OIDC login, TheAuth returns the identity from the IdP response: `{ user: { id, email, name? }, orgId }`. Email and name come from the SAML assertion or the OIDC `email` and `name` claims. An OIDC `id_token` without an `email` claim is rejected.
+After a successful SAML or OIDC login, theAuth returns the identity from the IdP response: `{ user: { id, email, name? }, orgId }`. Email and name come from the SAML assertion or the OIDC `email` and `name` claims. An OIDC `id_token` without an `email` claim is rejected.
 
 The `user.id` is derived deterministically, so the same IdP user always maps to the same ID: `saml_` plus a SHA-256 hash of `providerId:email` for SAML, and `oidc_` plus a SHA-256 hash of `providerId:sub` for OIDC.
 
@@ -146,7 +146,7 @@ Failed logins return `401` (or `429` when rate limited, by default 10 attempts p
     Automated user provisioning that pairs with SSO connections.
   </Card>
   <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
-    Turn TheAuth into an OIDC identity provider for downstream apps.
+    Turn theAuth into an OIDC identity provider for downstream apps.
   </Card>
   <Card title="Admin" href="/auth/admin" icon="gear">
     User management tools.

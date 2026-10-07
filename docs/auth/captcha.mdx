@@ -4,7 +4,7 @@ description: Protect sign-up and sign-in endpoints with Cloudflare Turnstile, hC
 icon: shield-halved
 ---
 
-TheAuth verifies captcha tokens against Cloudflare Turnstile, hCaptcha, or Google reCAPTCHA. It ships as a verification module, not a plugin: there is no `captcha()` plugin export, and TheAuth does not intercept your auth endpoints. You pass the `captcha` config key, then call `theauth.captcha` from your own route handlers before you process a sign-up or sign-in request.
+theAuth verifies captcha tokens against Cloudflare Turnstile, hCaptcha, or Google reCAPTCHA. It ships as a verification module, not a plugin: there is no `captcha()` plugin export, and theAuth does not intercept your auth endpoints. You pass the `captcha` config key, then call `theauth.captcha` from your own route handlers before you process a sign-up or sign-in request.
 
 ## Supported providers
 
@@ -92,7 +92,7 @@ const theauth = await createTheAuth({
 <ParamField path="provider" type={`'recaptcha' | 'hcaptcha' | 'turnstile'`} required>Captcha provider to use.</ParamField>
 <ParamField path="secretKey" type="string" required>Server-side secret key from the provider dashboard.</ParamField>
 <ParamField path="minScore" type="number" default={0.5}>Minimum score for reCAPTCHA v3. Ignored for other providers.</ParamField>
-<ParamField path="protectedEndpoints" type="string[]">Endpoint names intended to require captcha (documented default: `sign-up`, `sign-in`, `reset-password`). Accepted in the config type, but TheAuth does not currently read it, so enforcement is up to your own handlers.</ParamField>
+<ParamField path="protectedEndpoints" type="string[]">Endpoint names intended to require captcha (documented default: `sign-up`, `sign-in`, `reset-password`). Accepted in the config type, but theAuth does not currently read it, so enforcement is up to your own handlers.</ParamField>
 
 ## Related
 

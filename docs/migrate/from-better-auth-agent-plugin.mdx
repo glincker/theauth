@@ -1,10 +1,10 @@
 ---
 title: Migrate from the better-auth agent plugin
-description: Switch from @better-auth/agent-auth to TheAuth AgentIdentity. Maps scopes to Permission objects and delegation chains, with cascading revocation support.
+description: Switch from @better-auth/agent-auth to theAuth AgentIdentity. Maps scopes to Permission objects and delegation chains, with cascading revocation support.
 icon: arrow-right-arrow-left
 ---
 
-`@better-auth/agent-auth` is better-auth's attempt to add AI-agent support alongside a human-first auth library. It is marked "heavy development, not yet stable" in their repo as of 2026-03. If you started there to get agent identity with the broader better-auth feature set, moving to TheAuth gives you a single codebase where agents are a first-class entity instead of a separate package bolted onto the user model.
+`@better-auth/agent-auth` is better-auth's attempt to add AI-agent support alongside a human-first auth library. It is marked "heavy development, not yet stable" in their repo as of 2026-03. If you started there to get agent identity with the broader better-auth feature set, moving to theAuth gives you a single codebase where agents are a first-class entity instead of a separate package bolted onto the user model.
 
 Both libraries share the same ancestor on the human-auth side. Most of the familiar hooks keep their names. The agent story is the part that changes materially.
 
@@ -14,7 +14,7 @@ If you use the human-auth half of better-auth and not the agent plugin yet, read
 
 better-auth treats an agent as an OAuth client attached to a user. A single-hop delegation is possible. There is no delegation chain tracking, no trust score, no cost attribution, no ephemeral session type, and no MCP OAuth 2.1 authorization server built in.
 
-TheAuth treats an agent as a primary database entity with its own lifecycle:
+theAuth treats an agent as a primary database entity with its own lifecycle:
 
 - `AgentIdentity` row in the schema, owned by a user, with status transitions (`active`, `revoked`, `expired`).
 - Multi-hop delegation chains with a per-call depth limit and cascading revocation of chains.
@@ -25,7 +25,7 @@ TheAuth treats an agent as a primary database entity with its own lifecycle:
 
 ## Concepts map
 
-| `@better-auth/agent-auth` | TheAuth |
+| `@better-auth/agent-auth` | theAuth |
 |---|---|
 | `agentPlugin()` added to `betterAuth` | Built into `createTheAuth`. No plugin needed for the core agent surface. |
 | `auth.api.createAgent({ userId, scopes })` | `theauth.agent.create({ ownerId, name, type, permissions })` |
@@ -70,7 +70,7 @@ export const theauth = await createTheAuth({
 });
 ```
 
-TheAuth has no `emailAndPassword` config key, its built-in password module authenticates by username (see [Username and password](/auth/username)). The rest of the human-auth config (`organization`, `twoFactor`, etc.) keeps a similar plugin shape, imported from `@glinr/theauth/auth` rather than `@glinr/theauth/plugins`. Check each feature's page, the option names are not identical.
+theAuth has no `emailAndPassword` config key, its built-in password module authenticates by username (see [Username and password](/auth/username)). The rest of the human-auth config (`organization`, `twoFactor`, etc.) keeps a similar plugin shape, imported from `@glinr/theauth/auth` rather than `@glinr/theauth/plugins`. Check each feature's page, the option names are not identical.
 
 ## Creating an agent
 
@@ -170,7 +170,7 @@ Revocation works on chains, not on the parent agent. `theauth.agent.revoke(paren
 
 ## Trust scoring
 
-`@better-auth/agent-auth` does not ship scoring. TheAuth computes a 0-100 score from the audit history, mapped to five named levels. Useful as a gate for sensitive actions that should only run for agents with a clean track record.
+`@better-auth/agent-auth` does not ship scoring. theAuth computes a 0-100 score from the audit history, mapped to five named levels. Useful as a gate for sensitive actions that should only run for agents with a clean track record.
 
 ```ts
 const score = await theauth.trust.computeScore(agent.id);
@@ -189,7 +189,7 @@ if (score.level === 'untrusted' || score.level === 'limited') {
 
 ## MCP server
 
-If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. TheAuth's OAuth 2.1 server is a module you create with `createMcpModule` from `@glinr/theauth/mcp` and pass to your framework adapter. It does not take the `theauth` instance, and it has no built-in database: you supply the storage callbacks. [MCP](/mcp) has a complete in-memory example of those callbacks.
+If you were running a separate MCP OAuth server alongside better-auth (because the `@better-auth/mcp` plugin is a thin OIDC wrapper without agent semantics), you can retire it. theAuth's OAuth 2.1 server is a module you create with `createMcpModule` from `@glinr/theauth/mcp` and pass to your framework adapter. It does not take the `theauth` instance, and it has no built-in database: you supply the storage callbacks. [MCP](/mcp) has a complete in-memory example of those callbacks.
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
@@ -220,7 +220,7 @@ export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { mc
 
 ## Data migration
 
-Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration). TheAuth stores agents in `theauth_agents` and their permissions in `theauth_permissions`, and it keeps only the SHA-256 hash of the full `kv_...` token. A better-auth token hash cannot be reused: the bearer would have to be a `kv_` token whose SHA-256 matches, which no old token is. So do not copy token hashes with SQL. Recreate each agent through the API and hand the owner a new token:
+Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration). theAuth stores agents in `theauth_agents` and their permissions in `theauth_permissions`, and it keeps only the SHA-256 hash of the full `kv_...` token. A better-auth token hash cannot be reused: the bearer would have to be a `kv_` token whose SHA-256 matches, which no old token is. So do not copy token hashes with SQL. Recreate each agent through the API and hand the owner a new token:
 
 ```ts
 // scripts/import-agents.ts
@@ -257,11 +257,11 @@ The scope mapping above is only a starting point. Decide per scope what resource
 
 ## Cutover plan
 
-1. Stand up TheAuth next to better-auth against the same database (or a shadow copy). Do not delete the better-auth schema yet.
+1. Stand up theAuth next to better-auth against the same database (or a shadow copy). Do not delete the better-auth schema yet.
 2. Import agents with `theauth.agent.create`. Validate one new service token with `theauth.authorizeByToken(token, {...})`.
 3. Give a single non-critical service its new token and switch it to `theauth.authorizeByToken` instead of `auth.api.verifyAgentToken`.
 4. Watch the audit log for `allowed: false` entries. Fix permission mappings.
-5. Expand the TheAuth-guarded agent surface one service at a time.
+5. Expand the theAuth-guarded agent surface one service at a time.
 6. Remove the `@better-auth/agent-auth` plugin from `lib/auth.ts` once no service still calls it.
 
 The human-auth side can move in the same PR or stay on better-auth during the transition, see the [general better-auth migration guide](/migrate/from-better-auth).
@@ -272,7 +272,7 @@ Keep the better-auth agent plugin wired for at least one rotation cycle after th
 
 1. Re-enable the `agent()` plugin in `lib/auth.ts`.
 2. Point services back at `auth.api.verifyAgentToken`.
-3. TheAuth agent rows remain, they just stop being read. Old better-auth bearers keep working on better-auth because you never revoked them there, new `kv_` tokens only work against TheAuth.
+3. theAuth agent rows remain, they just stop being read. Old better-auth bearers keep working on better-auth because you never revoked them there, new `kv_` tokens only work against theAuth.
 
 ## Runnable example
 

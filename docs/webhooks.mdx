@@ -10,7 +10,7 @@ icon: globe
 Webhooks push signed HTTP POST requests to a URL you control. Use them to sync user records, trigger onboarding flows, alert on suspicious logins, or feed events into your analytics pipeline.
 
 <Warning>
-  Webhooks are a delivery mechanism, not an event source. The TheAuth core does not call `emit` for you when a user signs up or an agent is created. Your code (or a lifecycle hook) calls `theauth.webhooks?.emit(event, payload)` at the points where you want a delivery to happen.
+  Webhooks are a delivery mechanism, not an event source. The theAuth core does not call `emit` for you when a user signs up or an agent is created. Your code (or a lifecycle hook) calls `theauth.webhooks?.emit(event, payload)` at the points where you want a delivery to happen.
 </Warning>
 
 ## Setup
@@ -36,7 +36,7 @@ theauth.webhooks?.emit('user.created', { userId: 'user_123' });
 ```
 
 <Warning>
-  Store the webhook secret in an environment variable, not in source code. TheAuth uses it to sign every request with HMAC-SHA256.
+  Store the webhook secret in an environment variable, not in source code. theAuth uses it to sign every request with HMAC-SHA256.
 </Warning>
 
 ### Endpoint options
@@ -154,7 +154,7 @@ async function verifyWebhook(
 
 ## Retry behavior
 
-If your endpoint returns a non-2xx status, errors, or times out, TheAuth retries up to `retries` times (default 3) after the first attempt, with exponential backoff:
+If your endpoint returns a non-2xx status, errors, or times out, theAuth retries up to `retries` times (default 3) after the first attempt, with exponential backoff:
 
 | Retry | Delay before it |
 |---------|-------|

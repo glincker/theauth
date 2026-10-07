@@ -1,6 +1,6 @@
 # @glinr/theauth-express
 
-Express adapter for TheAuth.
+Express adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-express)](https://www.npmjs.com/package/@glinr/theauth-express)
 
@@ -33,7 +33,7 @@ app.use('/auth', theAuthExpress(theauth));
 app.listen(3000);
 ```
 
-This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This mounts the full theAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 

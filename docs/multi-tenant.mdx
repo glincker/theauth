@@ -1,13 +1,13 @@
 ---
 title: Multi-tenant isolation
-description: Tenant records and tenant-scoped agents on one TheAuth instance. Tenant settings and suspension are stored but not enforced by the SDK.
+description: Tenant records and tenant-scoped agents on one theAuth instance. Tenant settings and suspension are stored but not enforced by the SDK.
 icon: building
 ---
 
 
 ## What tenants are
 
-A tenant represents an organization or workspace that shares one TheAuth deployment. The tenant module stores tenant records (name, slug, settings, status), and agents and budget policies can carry a `tenantId`.
+A tenant represents an organization or workspace that shares one theAuth deployment. The tenant module stores tenant records (name, slug, settings, status), and agents and budget policies can carry a `tenantId`.
 
 <Warning>
   Tenants are a data model, not an enforcement layer. What exists today: `agent.create({ tenantId })` stores the tenant on the agent, and `agent.list({ tenantId })` filters by it. Nothing else reads it: `authorize()` does not compare tenants, a suspended tenant does not block authorization, the `settings` values are not applied when agents or delegations are created, and the audit log and REST endpoints have no tenant filter. If you need isolation, enforce it in your own code, for example by checking `agent.tenantId` against the caller's tenant before acting.
@@ -36,7 +36,7 @@ A tenant represents an organization or workspace that shares one TheAuth deploym
 
 ## Creating a tenant
 
-Slugs must be unique and match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. TheAuth rejects duplicate slugs at creation time.
+Slugs must be unique and match `^[a-z0-9]+(?:-[a-z0-9]+)*$`. theAuth rejects duplicate slugs at creation time.
 
 ```typescript
 const tenant = await theauth.tenant.create({

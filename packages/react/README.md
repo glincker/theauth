@@ -1,6 +1,6 @@
 # @glinr/theauth-react
 
-React provider and hooks for TheAuth authentication.
+React provider and hooks for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-react?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-react)
 
@@ -93,7 +93,7 @@ Failures are `AuthQueryError` with a stable `code` (for example `rate_limited`, 
 
 ## External mode with rotation (v0.5+)
 
-When TheAuth sits behind another auth API (Java/Go/Python), you can run the
+When theAuth sits behind another auth API (Java/Go/Python), you can run the
 provider in **external mode**. Pass an `external` config object instead of
 relying on the local managed flow. Set `refreshPath` to opt into the rotation
 loop — proactive refresh, exponential-backoff retries, online/offline

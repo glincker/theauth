@@ -4,7 +4,7 @@ description: "`oauth()` adds social sign-in via OAuth 2.0 with PKCE. Covers prov
 icon: lock
 ---
 
-The `oauth()` plugin adds social sign-in to TheAuth using the OAuth 2.0 authorization code flow with PKCE (S256). It handles the token exchange, account linking, and session creation.
+The `oauth()` plugin adds social sign-in to theAuth using the OAuth 2.0 authorization code flow with PKCE (S256). It handles the token exchange, account linking, and session creation.
 
 <Info>
   `oauth()` issues a session on a successful callback, so `auth.session` must be configured in `createTheAuth`. Without it the plugin throws on startup.
@@ -59,7 +59,7 @@ The callback URL you register with each provider is:
 {baseUrl}/auth/oauth/callback/{provider}
 ```
 
-`baseUrl` is the public URL where TheAuth is served. When you mount TheAuth under an adapter prefix such as `/api/theauth`, include the prefix in `baseUrl` (for example `https://your-app.com/api/theauth`), so the URL registered with the provider is `https://your-app.com/api/theauth/auth/oauth/callback/google`. To compute a different redirect URI, pass `buildRedirectUri: (provider, baseUrl) => string` to `oauth()`. A provider can also carry its own `redirectUri` override.
+`baseUrl` is the public URL where theAuth is served. When you mount theAuth under an adapter prefix such as `/api/theauth`, include the prefix in `baseUrl` (for example `https://your-app.com/api/theauth`), so the URL registered with the provider is `https://your-app.com/api/theauth/auth/oauth/callback/google`. To compute a different redirect URI, pass `buildRedirectUri: (provider, baseUrl) => string` to `oauth()`. A provider can also carry its own `redirectUri` override.
 
 ## Endpoints
 
@@ -74,10 +74,10 @@ The plugin registers these routes (relative to the adapter prefix):
 
 ## The sign-in flow
 
-1. Your frontend navigates to `/auth/oauth/authorize/{provider}`. TheAuth generates a random state and a PKCE verifier, stores both in the database (default lifetime 10 minutes, set with `stateTtlSeconds`), and redirects to the provider with the S256 challenge.
+1. Your frontend navigates to `/auth/oauth/authorize/{provider}`. theAuth generates a random state and a PKCE verifier, stores both in the database (default lifetime 10 minutes, set with `stateTtlSeconds`), and redirects to the provider with the S256 challenge.
 2. The provider redirects back to `/auth/oauth/callback/{provider}` with an authorization code and the state.
-3. TheAuth validates and consumes the state, exchanges the code for tokens, and fetches the user profile.
-4. TheAuth finds the user by email or creates one, links the provider account, sets the `theauth_session` cookie, and redirects to `{baseUrl}/?auth_user=<url-encoded JSON with id and email>`.
+3. theAuth validates and consumes the state, exchanges the code for tokens, and fetches the user profile.
+4. theAuth finds the user by email or creates one, links the provider account, sets the `theauth_session` cookie, and redirects to `{baseUrl}/?auth_user=<url-encoded JSON with id and email>`.
 
 The provider account is identified by the provider's own user ID, so the same provider account always resolves to the same linked row.
 
@@ -87,7 +87,7 @@ The provider account is identified by the provider's own user ID, so the same pr
 
 ## Account linking
 
-When the email returned by the provider matches an existing user, TheAuth links the provider account to that user. Otherwise it creates a new user with the email marked as verified. A user can have several linked providers. Only the email and name are copied onto the user record; the avatar is not stored.
+When the email returned by the provider matches an existing user, theAuth links the provider account to that user. Otherwise it creates a new user with the email marked as verified. A user can have several linked providers. Only the email and name are copied onto the user record; the avatar is not stored.
 
 If a provider returns no email (Reddit, for example), the callback cannot match or create a user. The account row stays unassigned and the callback responds with JSON (`isNewAccount`, `account`, `userInfo`) instead of a session.
 
@@ -131,9 +131,9 @@ oauth({
     OAuth 2.0 for GitHub with optional org and email scopes.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
   <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
-    Turn TheAuth itself into an OpenID Connect identity provider.
+    Turn theAuth itself into an OpenID Connect identity provider.
   </Card>
 </CardGroup>

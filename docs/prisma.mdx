@@ -1,22 +1,22 @@
 ---
 title: Prisma adapter
-description: Read and write the main TheAuth tables through an existing PrismaClient via @glinr/theauth-prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
+description: Read and write the main theAuth tables through an existing PrismaClient via @glinr/theauth-prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
 icon: database
 ---
 
 
-TheAuth ships a Drizzle-based database layer by default. If your project already uses [Prisma](https://www.prisma.io), the `@glinr/theauth-prisma` adapter lets you query the core TheAuth tables through your existing `PrismaClient`, without using Drizzle in your own code.
+theAuth ships a Drizzle-based database layer by default. If your project already uses [Prisma](https://www.prisma.io), the `@glinr/theauth-prisma` adapter lets you query the core theAuth tables through your existing `PrismaClient`, without using Drizzle in your own code.
 
 <Info>
   The Prisma adapter is a standalone query layer. It does not replace or wrap
-  the core TheAuth instance. Use it to read and write TheAuth data from
+  the core theAuth instance. Use it to read and write theAuth data from
   the parts of your codebase that already work with Prisma.
 </Info>
 
 ## When to use it
 
 - You have an existing Prisma project and want to avoid running two ORM clients.
-- You need to query TheAuth tables inside Prisma transactions that span your own models.
+- You need to query theAuth tables inside Prisma transactions that span your own models.
 - You prefer generated Prisma types over Drizzle's schema for editor autocomplete.
 - Your team finds Prisma's DSL easier to maintain than raw SQL DDL.
 
@@ -35,7 +35,7 @@ The package declares `@glinr/theauth` and `@prisma/client` (5.0 or later) as pee
 <Steps>
 <Step>
 
-### Add the TheAuth models to your Prisma schema
+### Add the theAuth models to your Prisma schema
 
 Copy the models from `node_modules/@glinr/theauth-prisma/src/schema.prisma` into your `prisma/schema.prisma`, or use it as a reference to add only the tables you need. The schema declares no relations, so add relations and `onDelete` rules yourself if you want them.
 
@@ -244,7 +244,7 @@ await theAuthDb.deletePermissionsByAgentId('agent-123');
 
 ### Transactions
 
-The adapter wraps Prisma's `$transaction` to let you compose TheAuth operations with your own Prisma queries:
+The adapter wraps Prisma's `$transaction` to let you compose theAuth operations with your own Prisma queries:
 
 ```typescript
 import { PrismaClient } from '@prisma/client';
@@ -303,10 +303,10 @@ await theAuthDb.updateApprovalRequest(requestId, {
 
 If you started with the built-in Drizzle backend and want to switch to Prisma:
 
-1. Keep the same table names, all TheAuth tables use the `theauth_` prefix and the same column names in both Drizzle and Prisma.
+1. Keep the same table names, all theAuth tables use the `theauth_` prefix and the same column names in both Drizzle and Prisma.
 2. Run `npx prisma db pull` against your existing database to generate a Prisma schema from the Drizzle-created tables, or copy the reference schema.
 3. Replace calls to the Drizzle `db` directly with `createPrismaAdapter(prisma)`.
-4. Set `database.skipMigrations: true` in `createTheAuth(...)` if the core TheAuth instance is still used for other features (agents, MCP, etc.), so Drizzle does not conflict with Prisma.
+4. Set `database.skipMigrations: true` in `createTheAuth(...)` if the core theAuth instance is still used for other features (agents, MCP, etc.), so Drizzle does not conflict with Prisma.
 
 ```typescript
 const theauth = await createTheAuth({
@@ -322,7 +322,7 @@ const db = createPrismaAdapter(prisma);
 ```
 
 <Warning>
-  The core TheAuth instance (`createTheAuth`) still uses Drizzle internally
+  The core theAuth instance (`createTheAuth`) still uses Drizzle internally
   for agent creation, authorization, MCP flows, and other built-in features.
   `@glinr/theauth-prisma` gives you a Prisma-native way to read and write the same
   tables, it does not replace `createTheAuth`.
@@ -330,7 +330,7 @@ const db = createPrismaAdapter(prisma);
 
 ## Reference schema
 
-The full reference schema is in `node_modules/@glinr/theauth-prisma/src/schema.prisma`. It includes 39 TheAuth models with column mappings, indexes, and default values.
+The full reference schema is in `node_modules/@glinr/theauth-prisma/src/schema.prisma`. It includes 39 theAuth models with column mappings, indexes, and default values.
 
 Every model name follows `TheAuthPascalCase` and maps to a `theauth_snake_case` table, keeping your Prisma namespace clean and your SQL tables clearly scoped.
 

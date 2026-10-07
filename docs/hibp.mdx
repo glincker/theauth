@@ -1,10 +1,10 @@
 ---
 title: Password breach checking
-description: Reject or warn on passwords found in known data breaches using the HaveIBeenPwned Pwned Passwords API and TheAuth's createHibpModule.
+description: Reject or warn on passwords found in known data breaches using the HaveIBeenPwned Pwned Passwords API and theAuth's createHibpModule.
 icon: shield-halved
 ---
 
-TheAuth integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model, only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.
+theAuth integrates with the [HaveIBeenPwned Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to detect compromised passwords at sign-up and password change. It uses the k-anonymity model, only the first 5 characters of the SHA-1 hash are sent to the API. Your users' actual passwords never leave your server.
 
 `createHibpModule` is standalone, it does not hook automatically into the [username](/auth/username) module or any other password flow. Call `check()` or `enforce()` yourself wherever you accept a new password.
 
@@ -112,7 +112,7 @@ const hibp = createHibpModule({
     Skip 2FA on devices you have marked as trusted.
   </Card>
   <Card title="Username and password" href="/auth/username" icon="key">
-    TheAuth's built-in password module that HIBP enforcement typically guards.
+    theAuth's built-in password module that HIBP enforcement typically guards.
   </Card>
   <Card title="Compliance" href="/compliance" icon="file-lines">
     Audit trail, GDPR tooling, and the other compliance-related features.

@@ -32,7 +32,7 @@ export function AdminPage() {
 }
 ```
 
-The component connects to your TheAuth API and renders the full admin interface, including agent management, permission inspection, and audit log queries.
+The component connects to your theAuth API and renders the full admin interface, including agent management, permission inspection, and audit log queries.
 
 ### Standalone server
 
@@ -45,13 +45,13 @@ npx theauth dashboard
 npx theauth dashboard --port 4000 --api http://localhost:3000
 ```
 
-This starts a Hono server that serves the dashboard UI and proxies API requests to your TheAuth backend.
+This starts a Hono server that serves the dashboard UI and proxies API requests to your theAuth backend.
 
 ## Options
 
 | Prop / Flag | Default | Description |
 |---|---|---|
-| `apiUrl` / `--api` | `http://localhost:3000` | URL of your TheAuth API |
+| `apiUrl` / `--api` | `http://localhost:3000` | URL of your theAuth API |
 | `--port` | `3100` | Port for the standalone server |
 
 ## Built with
