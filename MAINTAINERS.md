@@ -1,6 +1,6 @@
 # Maintainers Guide
 
-TheAuth is maintained by GLINR STUDIOS, a GLINCKER LLC project. This document defines maintainer responsibilities and the release workflow.
+TheAuth is maintained by [GLINR STUDIOS](https://glinr.com). This document defines maintainer responsibilities and the release workflow.
 
 Related docs:
 

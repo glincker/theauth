@@ -498,7 +498,7 @@ By contributing, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](LICENSE) (c) GLINCKER LLC
+[MIT](LICENSE) (c) 2026 TheAuth
 
 ---
 
