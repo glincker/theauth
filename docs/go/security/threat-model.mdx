@@ -51,6 +51,7 @@ theauth-go trusts the reverse proxy layer only when `Config.TrustedProxies` is e
 - Audience binding (RFC 8707) is mandatory. Tokens are bound to a specific resource URI at mint time and verified at introspection.
 - Refresh token family revocation: if a used (rotated) refresh token is presented again, the entire family is invalidated (RFC 9700).
 - DCR bearer tokens are compared with `crypto/subtle.ConstantTimeCompare` against pre-hashed SHA-256 digests. Timing oracle on token presence is closed.
+- Remote JWKS documents (a client's `jwks_uri` for `private_key_jwt`, or a trusted issuer's `JWKSURL`) are fetched through a guarded client since v2.7.1: https only, non-public addresses refused at dial time, no redirects, a 5 second timeout, a 512 KiB cap, and a bounded cache with a TTL. `JWTBearerConfig.AllowPrivateJWKSNetworks` relaxes this for local development only.
 - Signing keys are AES-256-GCM encrypted at rest (requires `Config.EncryptionKey`).
 
 ## Agent and delegation
@@ -101,7 +102,7 @@ See [SECURITY.md](https://github.com/glincker/theauth-go/blob/main/.github/SECUR
 
 **Scope:** theauth-go library, as deployed by an operator in a Go HTTP application.
 **Method:** STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege).
-**Last reviewed:** 2026-10-06, against v2.7.0 and the CHANGELOG since v2.4.0. Re-checked claims are those about cookies, OAuth state, CIMD fetching, login throttling, storage backends, SAML and dependency versions; the rest was spot-checked against the code, not re-derived. This is a design document, not an audit report or a certification.
+**Last reviewed:** 2026-10-07, against v2.7.1 and the CHANGELOG since v2.4.0. Re-checked claims are those about cookies, OAuth state, CIMD fetching, login throttling, storage backends, SAML and dependency versions; the rest was spot-checked against the code, not re-derived. This is a design document, not an audit report or a certification.
 
 ---
 
@@ -584,3 +585,4 @@ The following threats are referenced in the summary above. For procurement, this
 | T-21 | Apple .p8 key leak | Operator responsibility (documented) | `provider/apple/apple.go` |
 | T-22 | SSRF via CIMD metadata URL | Mitigated for non-public addresses since v2.6.0 (dial-time guard, no redirects); host allowlist still recommended | `internal/cimd/service.go`, `internal/cimd/safefetch.go` |
 | T-23 | Delegation scope escalation | Mitigated (scope intersection) | `internal/delegation/service.go` |
+| T-24 | SSRF via client `jwks_uri` or trusted issuer JWKS URL | Mitigated since v2.7.1 (dial-time address guard, https only, no redirects, timeout, size cap, TTL cache). Before v2.7.1 the fetch had no address check | `internal/as/jwks_fetcher.go`, `internal/safehttp/safehttp.go` |
