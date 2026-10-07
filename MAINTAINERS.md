@@ -60,8 +60,7 @@ Releases are mostly automatic. A maintainer only reviews and merges two kinds of
 
 | Secret | Used by | Scope |
 | --- | --- | --- |
-| `RELEASE_TOKEN` | `version-packages` | Contents and pull requests write. Must be a GitHub App or fine-grained PAT, because tags pushed with the default token do not trigger `release.yml`. |
-| `DISCUSSIONS_TOKEN` | `release-discussion` (and `theauth-go`) | Discussions write on `glincker/theauth`. Optional here, required in `theauth-go`. |
+| `GLINR_BOT_TOKEN` | `version-packages`, `release-discussion` | Org secret shared by GLINR repos. Fine-grained PAT (or GitHub App) with Contents, Pull requests and Discussions read and write. Must not be the default token, because tags pushed with it do not trigger `release.yml`. |
 | `NPM_TOKEN` | `release.yml` | npm publish. |
 
 Rotate tokens at least yearly. If a release did not reach the discussion, rerun `release-discussion` from the Actions tab with the tag.
