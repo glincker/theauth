@@ -1,10 +1,10 @@
 ---
 title: Nuxt
-description: Mount TheAuth auth routes in Nuxt with `theAuthNuxt(theauth)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
+description: Mount theAuth auth routes in Nuxt with `theAuthNuxt(theauth)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
 icon: "/brand-icons/nuxt.svg"
 ---
 
-`theAuthNuxt(theauth, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all TheAuth paths are handled.
+`theAuthNuxt(theauth, options?)` returns an H3 `EventHandler`. Mount it in a catch-all server route so all theAuth paths are handled.
 
 ## Install
 
@@ -131,7 +131,7 @@ const mcp = createMcpModule({
 export default theAuthNuxt(theauth, { mcp });
 ```
 
-All TheAuth routes are then available at `/api/theauth/...` within your Nuxt server.
+All theAuth routes are then available at `/api/theauth/...` within your Nuxt server.
 
 ## Related
 

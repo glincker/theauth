@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://theauth.dev/logo.svg" height="64" alt="TheAuth" />
+  <img src="https://theauth.dev/logo.svg" height="64" alt="theAuth" />
 </p>
 
 <h1 align="center">theauth</h1>
@@ -32,7 +32,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 ## Why theauth?
 
-Every auth library handles human login. None of them handle **AI agent identity**. TheAuth gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
+Every auth library handles human login. None of them handle **AI agent identity**. theAuth gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
 npm install @glinr/theauth
@@ -185,9 +185,9 @@ createTheAuth({
 });
 ```
 
-## TheAuth Cloud
+## theAuth Cloud
 
-Don't want to self-host? [TheAuth Cloud](https://theauth.dev/pricing/) (early access) is the managed version with dashboard, billing, and zero infrastructure.
+Don't want to self-host? [theAuth Cloud](https://theauth.dev/pricing/) (early access) is the managed version with dashboard, billing, and zero infrastructure.
 
 | | Free | Starter | Growth | Scale |
 |---|---|---|---|---|

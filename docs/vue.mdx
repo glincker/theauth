@@ -1,6 +1,6 @@
 ---
 title: Vue
-description: Register TheAuth auth in Vue 3 via createTheAuthPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
+description: Register theAuth auth in Vue 3 via createTheAuthPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
 icon: code
 ---
 
@@ -120,14 +120,14 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 
 ## Plugin configuration reference
 
-<ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your TheAuth handler is mounted.</ParamField>
+<ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
 <ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call (e.g. custom headers).</ParamField>
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Nuxt adapter" href="/adapters/nuxt" icon="code">
-    Server-side TheAuth handler for Nuxt server routes and middleware.
+    Server-side theAuth handler for Nuxt server routes and middleware.
   </Card>
   <Card title="Svelte" href="/svelte" icon="code">
     Svelte stores and SvelteKit hooks integration.

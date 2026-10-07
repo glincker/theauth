@@ -1,10 +1,10 @@
 ---
 title: NestJS
-description: Wire TheAuth into NestJS with `AuthModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
+description: Wire theAuth into NestJS with `AuthModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
 icon: "/brand-icons/nestjs.svg"
 ---
 
-`AuthModule.forRoot(options)` is a NestJS dynamic module that mounts all TheAuth routes as Express middleware. Import it once in your root `AppModule`.
+`AuthModule.forRoot(options)` is a NestJS dynamic module that mounts all theAuth routes as Express middleware. Import it once in your root `AppModule`.
 
 ## Install
 
@@ -93,7 +93,7 @@ The default mount path is `/api/theauth`. Change it with the `basePath` option:
 AuthModule.forRoot({ theauth, basePath: '/auth' })
 ```
 
-All TheAuth routes will then be available under `/auth/*`.
+All theAuth routes will then be available under `/auth/*`.
 
 ## Without a module
 

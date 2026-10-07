@@ -1,6 +1,6 @@
 # @glinr/theauth-hono
 
-Hono adapter for TheAuth.
+Hono adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-hono)](https://www.npmjs.com/package/@glinr/theauth-hono)
 
@@ -32,7 +32,7 @@ app.route('/api/theauth', theAuthHono(theauth));
 serve({ fetch: app.fetch, port: 3000 });
 ```
 
-This mounts the full TheAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
+This mounts the full theAuth REST API: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
 
 ### With MCP OAuth 2.1
 

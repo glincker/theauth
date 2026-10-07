@@ -1,6 +1,6 @@
 # theauth
 
-Python SDK for [TheAuth](https://theauth.dev). Auth OS for AI agents and humans.
+Python SDK for [theAuth](https://theauth.dev). Auth OS for AI agents and humans.
 
 [![PyPI](https://img.shields.io/pypi/v/theauth)](https://pypi.org/project/theauth/)
 [![Python](https://img.shields.io/pypi/pyversions/theauth)](https://pypi.org/project/theauth/)

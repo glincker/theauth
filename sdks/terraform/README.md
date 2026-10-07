@@ -1,6 +1,6 @@
 # terraform-provider-theauth
 
-Terraform provider for [TheAuth](https://theauth.dev). Manages agent identities, permissions, API keys, and organizations as infrastructure.
+Terraform provider for [theAuth](https://theauth.dev). Manages agent identities, permissions, API keys, and organizations as infrastructure.
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
 
@@ -12,7 +12,7 @@ Auth config drifts. An agent created by hand in a dashboard has no audit trail, 
 
 - Terraform 1.5 or later
 - Go 1.21 or later (to build from source)
-- A running TheAuth deployment
+- A running theAuth deployment
 
 ## Build and install
 
@@ -69,14 +69,14 @@ export THEAUTH_TOKEN=kv_live_...
 
 | Argument   | Env var              | Required | Description                              |
 |------------|----------------------|----------|------------------------------------------|
-| `base_url` | `THEAUTH_BASE_URL`  | yes      | Base URL of your TheAuth deployment     |
+| `base_url` | `THEAUTH_BASE_URL`  | yes      | Base URL of your theAuth deployment     |
 | `token`    | `THEAUTH_TOKEN`     | yes      | API token (admin scope recommended)      |
 
 ## Resources
 
 ### `theauth_agent`
 
-Manages a TheAuth agent identity.
+Manages a theAuth agent identity.
 
 ```hcl
 resource "theauth_agent" "github_reader" {
@@ -172,7 +172,7 @@ resource "theauth_permission" "extra_access" {
 
 ### `theauth_api_key`
 
-Manages a TheAuth API key for server-to-server authentication.
+Manages a theAuth API key for server-to-server authentication.
 
 ```hcl
 resource "theauth_api_key" "ci_key" {
@@ -210,7 +210,7 @@ Note: the raw key value is not recoverable via import. Only the ID and metadata 
 
 ### `theauth_organization`
 
-Manages a TheAuth organization for multi-tenant isolation.
+Manages a theAuth organization for multi-tenant isolation.
 
 ```hcl
 resource "theauth_organization" "engineering" {
@@ -300,7 +300,7 @@ After importing, run `terraform plan` to verify state matches your configuration
 
 ## GitOps workflow
 
-A minimal setup for managing TheAuth configuration alongside application code:
+A minimal setup for managing theAuth configuration alongside application code:
 
 ```
 .

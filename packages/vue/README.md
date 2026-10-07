@@ -1,6 +1,6 @@
 # @glinr/theauth-vue
 
-Vue plugin and composables for TheAuth authentication.
+Vue plugin and composables for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-vue?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-vue)
 

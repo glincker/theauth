@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Install TheAuth, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with @glinr/create-theauth-app in one command.
+description: Install theAuth, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with @glinr/create-theauth-app in one command.
 icon: rocket
 ---
 
@@ -12,7 +12,7 @@ Two paths. Pick whichever fits your day.
 
 <CardGroup cols={1}>
   <Card title="Start from a template" icon="wand-magic-sparkles" href="#start-from-a-template">
-    One command, a running Next.js SaaS, TheAuth wired up.
+    One command, a running Next.js SaaS, theAuth wired up.
   </Card>
   <Card title="Add to an existing app" icon="screwdriver-wrench" href="#your-first-agent">
     Install, create, authorize, audit. Six steps.
@@ -29,7 +29,7 @@ cd my-theauth-app && pnpm install && pnpm db:push && pnpm dev
 
 ## Start from a template
 
-The fastest path is the scaffolder. One command, four prompts, a running Next.js SaaS with TheAuth wired up.
+The fastest path is the scaffolder. One command, four prompts, a running Next.js SaaS with theAuth wired up.
 
 <Tabs>
   <Tab title="pnpm">
@@ -118,7 +118,7 @@ For in-memory storage (useful in tests), pass `url: ':memory:'` instead.
 
 ### Create an agent
 
-An agent always has an owner: a user ID that already exists as a row in `theauth_users` (the `owner_id` column is a foreign key). The row can come from TheAuth's own auth modules or be inserted yourself, as shown in [Troubleshooting](#foreign-key-constraint-failed-when-creating-agents).
+An agent always has an owner: a user ID that already exists as a row in `theauth_users` (the `owner_id` column is a foreign key). The row can come from theAuth's own auth modules or be inserted yourself, as shown in [Troubleshooting](#foreign-key-constraint-failed-when-creating-agents).
 
 ```ts
 const agent = await theauth.agent.create({
@@ -319,7 +319,7 @@ const csv = await theauth.audit.export({ format: 'csv' });
 
 ## Cloudflare Workers
 
-TheAuth runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
+theAuth runs on Workers with no changes. Pass a D1 binding as the database and use the Hono adapter.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -357,7 +357,7 @@ database_name = "theauth"
 database_id = "<your-database-id>"
 ```
 
-Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the schema yourself (and set `skipMigrations: true` inside `database`), or leave it at its default of `false` and TheAuth creates the tables with `CREATE TABLE IF NOT EXISTS` on startup.
+Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the schema yourself (and set `skipMigrations: true` inside `database`), or leave it at its default of `false` and theAuth creates the tables with `CREATE TABLE IF NOT EXISTS` on startup.
 
 <Info>
 `createTheAuth` is always async, not only with D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.

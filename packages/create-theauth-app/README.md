@@ -1,6 +1,6 @@
 # @glinr/create-theauth-app
 
-Scaffold a TheAuth app in one command.
+Scaffold a theAuth app in one command.
 
 ```bash
 npm create theauth-app@latest
@@ -20,7 +20,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 | Template | Status | Stack |
 | --- | --- | --- |
-| `next-saas` | available | Next.js App Router · Drizzle · TheAuth auth |
+| `next-saas` | available | Next.js App Router · Drizzle · theAuth auth |
 | `hono-mcp` | available | Hono server · MCP OAuth 2.1 |
 | `expo-mobile` | coming soon | Expo Router · React Native |
 
@@ -50,7 +50,7 @@ pnpm dev
 
 ## Links
 
-- TheAuth repo: <https://github.com/glincker/theauth>
+- theAuth repo: <https://github.com/glincker/theauth>
 - Docs: <https://docs.theauth.dev>
 
 ## Community

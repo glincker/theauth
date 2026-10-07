@@ -89,13 +89,13 @@ Both `since` and `until` are optional on exports. Exports are capped at the 10,0
 
 <AccordionGroup>
   <Accordion title="EU AI Act, Article 12. Record keeping">
-    Article 12 requires high-risk AI systems to log events automatically throughout the system lifecycle, including the period of activity and data used. TheAuth records every authorization decision with agent identity, resource, action, parameters, outcome, and timestamp.
+    Article 12 requires high-risk AI systems to log events automatically throughout the system lifecycle, including the period of activity and data used. theAuth records every authorization decision with agent identity, resource, action, parameters, outcome, and timestamp.
   </Accordion>
   <Accordion title="NIST AI RMF. GOVERN 1.7 / MANAGE 4.2">
     The NIST AI Risk Management Framework calls for documented accountability mechanisms and the ability to trace AI actions to specific identities. The append-only audit trail links every decision to a named agent and user.
   </Accordion>
   <Accordion title="SOC 2. CC6.1 through CC7.2">
-    SOC 2 trust services criteria for logical access controls and system monitoring require evidence that access is granted only to authorized identities and that access events are logged. The `allowed`/`denied` result field is evidence that maps to CC6.1 to CC6.3, and the append-only structure maps to CC7.2. TheAuth does not make you compliant on its own, and tamper-evidence needs protections at the database level.
+    SOC 2 trust services criteria for logical access controls and system monitoring require evidence that access is granted only to authorized identities and that access events are logged. The `allowed`/`denied` result field is evidence that maps to CC6.1 to CC6.3, and the append-only structure maps to CC7.2. theAuth does not make you compliant on its own, and tamper-evidence needs protections at the database level.
   </Accordion>
   <Accordion title="ISO 42001, Annex A.8. Documentation of AI system behaviour">
     ISO 42001 recommends documenting the behavior of AI systems in production. Exporting the audit log as JSON or CSV gives auditors a machine-readable record of every decision the system made.

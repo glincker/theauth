@@ -7,7 +7,7 @@ icon: tower-broadcast
 
 ## What event streaming is
 
-Event streaming gives you a persistent, real-time connection to TheAuth events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). Whenever your code calls `stream.emit()` (an agent is revoked, a budget is exceeded, and so on), connected clients receive it, no polling required.
+Event streaming gives you a persistent, real-time connection to theAuth events via [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). Whenever your code calls `stream.emit()` (an agent is revoked, a budget is exceeded, and so on), connected clients receive it, no polling required.
 
 Events are also persisted to the database so you can replay anything you missed.
 
@@ -123,7 +123,7 @@ source.onerror = () => {
 ## Event types
 
 <Warning>
-  The stream module is standalone. The TheAuth core does not call `stream.emit()` for you, so none of these events fire automatically: you emit the ones you need from your own code, hooks, or webhook handlers. `anomaly.detected` is only a reserved type name, since TheAuth has no anomaly detector.
+  The stream module is standalone. The theAuth core does not call `stream.emit()` for you, so none of these events fire automatically: you emit the ones you need from your own code, hooks, or webhook handlers. `anomaly.detected` is only a reserved type name, since theAuth has no anomaly detector.
 </Warning>
 
 The type column below describes the intended meaning of each type.
@@ -140,7 +140,7 @@ The type column below describes the intended meaning of each type.
 | `delegation.created` | A new delegation chain is created |
 | `delegation.revoked` | A delegation is revoked |
 | `budget.exceeded` | An agent exceeds its cost budget |
-| `anomaly.detected` | Reserved name. TheAuth has no anomaly detector, so this only appears if your own code emits it |
+| `anomaly.detected` | Reserved name. theAuth has no anomaly detector, so this only appears if your own code emits it |
 | `cost.recorded` | A cost event is attributed to an agent |
 
 ## Filtering events

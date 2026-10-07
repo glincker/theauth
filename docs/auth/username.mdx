@@ -4,7 +4,7 @@ description: Authenticate users with a unique username and password via the `use
 icon: key
 ---
 
-TheAuth's built-in password auth is username-based: users register with a username (not an email address) and a password. Passwords are hashed with PBKDF2 before storage so a database breach does not expose credentials. It is a headless module, you mount it yourself by forwarding requests to `theauth.username.handleRequest`.
+theAuth's built-in password auth is username-based: users register with a username (not an email address) and a password. Passwords are hashed with PBKDF2 before storage so a database breach does not expose credentials. It is a headless module, you mount it yourself by forwarding requests to `theauth.username.handleRequest`.
 
 <Info>
   There is no separate email-based password plugin. For email-first sign-in, pair this module with the email verification module and [email OTP](/auth/email-otp), or use [magic link](/auth/magic-link) for a fully passwordless flow.

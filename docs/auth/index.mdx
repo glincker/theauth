@@ -6,7 +6,7 @@ icon: key
 
 <Columns cols={2}>
 <div>
-TheAuth runs the sign-in for the humans who own agents. Each method is either a plugin or a config key on `createTheAuth` that you opt into, use only what your app needs. Methods that issue sessions (magic link, email OTP, username, phone, OAuth) need `auth.session` configured.
+theAuth runs the sign-in for the humans who own agents. Each method is either a plugin or a config key on `createTheAuth` that you opt into, use only what your app needs. Methods that issue sessions (magic link, email OTP, username, phone, OAuth) need `auth.session` configured.
 
 If you already run Clerk, Auth.js, or better-auth, keep them and skip the plugins. [Plug into an existing provider.](/migrate)
 </div>
@@ -184,7 +184,7 @@ if (!user) {
 `theauth.auth.resolveUser` uses the configured `auth.adapter`. It returns `null` when no adapter is set, even if `auth.session` is configured.
 
 <Info>
-Once the user is resolved, TheAuth is done with human auth. The rest of the stack (agents, permissions, audit) hangs off `user.id`.
+Once the user is resolved, theAuth is done with human auth. The rest of the stack (agents, permissions, audit) hangs off `user.id`.
 </Info>
 
 ## Enterprise identity
@@ -206,7 +206,7 @@ Once the user is resolved, TheAuth is done with human auth. The rest of the stac
     For machine-to-machine callers.
   </Card>
   <Card title="OIDC provider" icon="plug" href="/auth/oidc-provider">
-    Turn your TheAuth instance into an IdP for other apps.
+    Turn your theAuth instance into an IdP for other apps.
   </Card>
 </CardGroup>
 
@@ -217,10 +217,10 @@ Once the user is resolved, TheAuth is done with human auth. The rest of the stac
     The agent layer that sits on top of human authentication.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
-    How TheAuth manages session lifetime and cookie settings.
+    How theAuth manages session lifetime and cookie settings.
   </Card>
   <Card title="Quickstart" href="/quickstart" icon="bolt">
-    Get a working TheAuth instance running in minutes.
+    Get a working theAuth instance running in minutes.
   </Card>
   <Card title="Adapters overview" href="/adapters" icon="code">
     Mount auth routes on Hono, Next.js, Express, and more.

@@ -1,6 +1,6 @@
 # @glinr/theauth-ui
 
-Headless, slot-based auth UI components for TheAuth.
+Headless, slot-based auth UI components for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-ui?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-ui)
 

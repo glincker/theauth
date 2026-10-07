@@ -4,7 +4,7 @@ description: Authenticate users with SMS one-time codes through the `phone` conf
 icon: key
 ---
 
-The phone module registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. TheAuth generates the code, hashes it before storage, enforces expiry, and limits verification attempts. It ships as a config key, not a plugin: there is no `phoneAuth()` plugin export.
+The phone module registers and authenticates users with a phone number and a one-time code. You supply the SMS delivery function. theAuth generates the code, hashes it before storage, enforces expiry, and limits verification attempts. It ships as a config key, not a plugin: there is no `phoneAuth()` plugin export.
 
 ## Setup
 
@@ -61,7 +61,7 @@ const res = await fetch('/auth/phone/send-code', {
 // 200: { sent: true }
 ```
 
-Use [E.164 format](https://www.twilio.com/docs/glossary/what-e164) (`+` prefix, country code, number). TheAuth only strips whitespace and does not validate or reformat the number, so normalize it before you call. A missing `phoneNumber` returns `400`. The module has no built-in rate limit for sending, so add one in front of this route (see [rate limiting](/rate-limiting)) to limit SMS cost and abuse.
+Use [E.164 format](https://www.twilio.com/docs/glossary/what-e164) (`+` prefix, country code, number). theAuth only strips whitespace and does not validate or reformat the number, so normalize it before you call. A missing `phoneNumber` returns `400`. The module has no built-in rate limit for sending, so add one in front of this route (see [rate limiting](/rate-limiting)) to limit SMS cost and abuse.
 
 ## Verify code
 
@@ -115,6 +115,6 @@ The handler does not set a cookie, so your app stores the session token.
     Device biometric auth as a phone-free alternative.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
-    All sign-in methods available in TheAuth.
+    All sign-in methods available in theAuth.
   </Card>
 </CardGroup>

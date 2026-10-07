@@ -1,11 +1,11 @@
 # __APP_NAME__
 
-A Hono server scaffolded with [TheAuth](https://theauth.dev). Runs as an MCP OAuth 2.1 authorization server and a resource server in one process.
+A Hono server scaffolded with [theAuth](https://theauth.dev). Runs as an MCP OAuth 2.1 authorization server and a resource server in one process.
 
 ## What's included
 
 - **Hono 4** on Node.js
-- **TheAuth** for agent identity, session management, and the MCP OAuth 2.1 stack
+- **theAuth** for agent identity, session management, and the MCP OAuth 2.1 stack
 - **Drizzle ORM** with __DB_DRIVER__ backing the auth schema
 - `GET /tools/list` and `POST /tools/call/:name` protected with `withMcpAuth`
 - `.well-known` discovery documents for MCP clients, served at the root
@@ -20,7 +20,7 @@ pnpm install
 pnpm run dev
 ```
 
-TheAuth creates the auth tables on first boot, no separate migration step for SQLite or Postgres.
+theAuth creates the auth tables on first boot, no separate migration step for SQLite or Postgres.
 
 The server listens on `http://localhost:3001`. Visit the root URL to see the MCP discovery links and the list of tools.
 
@@ -67,7 +67,7 @@ src/
 
 Any Node runtime works. Set `BASE_URL` to your public URL before boot so MCP clients find the right endpoints, and set a real `THEAUTH_SECRET` out of band.
 
-If you switch to Postgres, set `DB_PROVIDER=postgres` and point `DATABASE_URL` at your connection string. TheAuth creates the tables on boot.
+If you switch to Postgres, set `DB_PROVIDER=postgres` and point `DATABASE_URL` at your connection string. theAuth creates the tables on boot.
 
 ## Next
 

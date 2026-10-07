@@ -5,7 +5,7 @@ icon: shield-halved
 ---
 
 
-The policy engine is the single decision point for all authorization in TheAuth. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
+The policy engine is the single decision point for all authorization in theAuth. One `evaluate()` call consults direct permissions, delegated permissions, role memberships, and ReBAC relationship tuples, then combines the results with a configurable combining algorithm.
 
 Use the policy engine when you need to make authorization decisions that depend on org membership, relationship graphs, or delegation chains. `theauth.authorize()` is a separate code path: it shares the ABAC primitives (resource matching and constraint checks) with the policy engine, but it evaluates only the first matching permission on the agent, then falls back to permissions received through delegation. It does not call `evaluate()`, and it does not do role expansion or ReBAC checks. Call `evaluate()` directly when you want those, combine-all semantics, or richer decision metadata.
 

@@ -1,6 +1,6 @@
 # @glinr/theauth-electron
 
-Electron integration for TheAuth: secure storage, OAuth windows, and IPC bridge.
+Electron integration for theAuth: secure storage, OAuth windows, and IPC bridge.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-electron?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-electron)
 

@@ -7,9 +7,9 @@ icon: shield-halved
 
 ## What the gateway does
 
-The TheAuth Gateway is a standalone HTTP reverse proxy. Every request to your API or MCP server passes through it first. The gateway:
+The theAuth Gateway is a standalone HTTP reverse proxy. Every request to your API or MCP server passes through it first. The gateway:
 
-- Validates Bearer tokens against a TheAuth instance
+- Validates Bearer tokens against a theAuth instance
 - Checks agent permissions before forwarding (for routes whose policy lists `requiredPermissions`)
 - Enforces global and per-route rate limits
 - Records audit entries for authenticated requests
@@ -27,7 +27,7 @@ Use the gateway when you want to add auth to something that doesn't have it. Com
 - A service you can't modify but need to wrap with auth
 - Staging environments where you want to restrict access
 
-If you own the upstream service and can add the TheAuth SDK directly, that's more flexible. The gateway is best when you can't or don't want to touch upstream code.
+If you own the upstream service and can add the theAuth SDK directly, that's more flexible. The gateway is best when you can't or don't want to touch upstream code.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ The fastest path is the one-liner:
 npx @glinr/theauth-gateway --upstream http://localhost:8080
 ```
 
-This starts a gateway on port 3000 that proxies all traffic to `http://localhost:8080`. Requests without a valid TheAuth Bearer token are rejected with 401.
+This starts a gateway on port 3000 that proxies all traffic to `http://localhost:8080`. Requests without a valid theAuth Bearer token are rejected with 401.
 
 <Warning>
 The default `--database` is `:memory:`, a fresh empty SQLite database, so no agent token can validate against it and every protected request gets 401. For real use, point `--database` at the SQLite file your application uses (the CLI itself does not create the agent tables). The CLI supports SQLite only; use embedded mode for Postgres or MySQL.
@@ -68,7 +68,7 @@ npx @glinr/theauth-gateway \
 |------|---------|-------------|
 | `--upstream`, `-u` | required (or `upstream` in the config file) | URL of the upstream service |
 | `--port`, `-p` | `3000` | Port the gateway listens on |
-| `--database`, `-d` | `:memory:` | SQLite database path for TheAuth |
+| `--database`, `-d` | `:memory:` | SQLite database path for theAuth |
 | `--config`, `-c` | none | Path to a `gateway.json` config file |
 | `--strip-auth` | false | Remove the `Authorization` header before forwarding |
 | `--no-audit` | false | Disable audit trail recording |
@@ -193,7 +193,7 @@ Patterns use standard glob syntax via [micromatch](https://github.com/micromatch
 1. Check if the path is `/_theauth/health`, serve locally, no upstream
 2. Handle CORS preflight (any `OPTIONS` request) if `cors` is configured; without `cors`, `OPTIONS` is treated like any other request
 3. Match the request against policies (path + method)
-4. If a Bearer token is present, validate it against TheAuth (an invalid token just means no identity)
+4. If a Bearer token is present, validate it against theAuth (an invalid token just means no identity)
 5. Unless the matched policy is `public: true` or `requireAuth: false`, reject with 401 when there is no valid identity
 6. Check global rate limit (keyed by agent ID, or client IP when unauthenticated), reject with 429 and `Retry-After` if exceeded
 7. Check policy-level rate limit, reject with 429 if exceeded
@@ -210,7 +210,7 @@ The gateway has no audit writer of its own. For each authenticated request it ca
 
 ## Integration with MCP servers
 
-The gateway works well in front of MCP tool servers. Agents that have been issued TheAuth tokens can call tools through the gateway, with permissions enforced per-route:
+The gateway works well in front of MCP tool servers. Agents that have been issued theAuth tokens can call tools through the gateway, with permissions enforced per-route:
 
 ```json
 {
@@ -264,7 +264,7 @@ CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--
 
 <ParamField path="upstream" type="string">URL of the upstream service to proxy to</ParamField>
 <ParamField path="basePath" type="string" default="&quot;/&quot;">Accepted in the config and in `gateway.json`, but not used by the gateway today: it has no effect on routing.</ParamField>
-<ParamField path="theauth" type="TheAuth">TheAuth instance created with createTheAuth()</ParamField>
+<ParamField path="theauth" type="theAuth">theAuth instance created with createTheAuth()</ParamField>
 <ParamField path="policies" type="GatewayPolicy[]">Array of path-based access policies</ParamField>
 <ParamField path="cors" type="CorsConfig">CORS configuration</ParamField>
 <ParamField path="rateLimit" type="{ windowMs: number; max: number }">Global rate limit applied to all requests</ParamField>

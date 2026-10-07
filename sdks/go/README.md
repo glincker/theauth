@@ -1,6 +1,6 @@
 # theauth-go
 
-Go client for [TheAuth](https://github.com/glincker/theauth). Auth OS for AI agents and humans.
+Go client for [theAuth](https://github.com/glincker/theauth). Auth OS for AI agents and humans.
 
 Agent identity, permissions, delegation chains, audit logs, and human authentication over a single typed API.
 

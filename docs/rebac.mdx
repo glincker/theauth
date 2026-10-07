@@ -10,7 +10,7 @@ Traditional RBAC assigns roles to users globally or per-org. That works until yo
 
 ReBAC models authorization as a graph. Subjects (users, agents, teams) connect to objects (orgs, workspaces, projects, documents) through typed relationships. Permission checks walk the graph, following direct relationships and parent-child inheritance. This is the same approach Google uses internally (Zanzibar) and what WorkOS FGA, Ory Keto, and SpiceDB implement.
 
-TheAuth ships a built-in ReBAC engine that works with agents as first-class subjects.
+theAuth ships a built-in ReBAC engine that works with agents as first-class subjects.
 
 ## Quick start
 
@@ -235,7 +235,7 @@ const rebac = createReBACModule({ maxDepth: 5 }, db);
 
 ## Comparison with alternatives
 
-| Feature | TheAuth ReBAC | Google Zanzibar | SpiceDB | WorkOS FGA |
+| Feature | theAuth ReBAC | Google Zanzibar | SpiceDB | WorkOS FGA |
 |---|---|---|---|---|
 | Relationship tuples | Yes | Yes | Yes | Yes |
 | Resource hierarchy | Built-in | Userland | Userland | Userland |
@@ -245,7 +245,7 @@ const rebac = createReBACModule({ maxDepth: 5 }, db);
 | Depth limiting | Configurable | Internal | Internal | Internal |
 | Database | SQLite/Postgres/MySQL | Spanner | CockroachDB/Postgres | Managed |
 
-TheAuth ReBAC is opinionated toward the common hierarchy pattern (org > workspace > project > resource) with sensible defaults. Zanzibar and SpiceDB are more general but require you to write a schema DSL. WorkOS FGA is SaaS-only.
+theAuth ReBAC is opinionated toward the common hierarchy pattern (org > workspace > project > resource) with sensible defaults. Zanzibar and SpiceDB are more general but require you to write a schema DSL. WorkOS FGA is SaaS-only.
 
 ## Related
 

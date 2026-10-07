@@ -1,6 +1,6 @@
 # @glinr/theauth-plugin-discovery
 
-A2A agent capability card discovery plugin for TheAuth.
+A2A agent capability card discovery plugin for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-plugin-discovery?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-plugin-discovery)
 

@@ -7,10 +7,10 @@ icon: plug
 
 ## What hooks are
 
-Hooks are async callbacks you register at startup. TheAuth calls them at specific points in the authorization and agent lifecycle. They let you add custom logic without patching the SDK: log denials to Slack, block agents from running in unsandboxed environments, fire webhooks, or update your own database.
+Hooks are async callbacks you register at startup. theAuth calls them at specific points in the authorization and agent lifecycle. They let you add custom logic without patching the SDK: log denials to Slack, block agents from running in unsandboxed environments, fire webhooks, or update your own database.
 
 <Warning>
-  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` are awaited and can block requests by returning `{ allow: false }`; an exception thrown inside them propagates to the caller. All other hooks (`afterAuthorize`, `afterAgentCreate`, `onAgentRevoke`, `onViolation`) are fire-and-forget: TheAuth does not await them and does not catch their errors, so a throw becomes an unhandled promise rejection (which can terminate a Node.js process). Wrap their bodies in `try/catch`.
+  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` are awaited and can block requests by returning `{ allow: false }`; an exception thrown inside them propagates to the caller. All other hooks (`afterAuthorize`, `afterAgentCreate`, `onAgentRevoke`, `onViolation`) are fire-and-forget: theAuth does not await them and does not catch their errors, so a throw becomes an unhandled promise rejection (which can terminate a Node.js process). Wrap their bodies in `try/catch`.
 </Warning>
 
 Authorization hooks run only for calls to `theauth.authorize()`. They do not run for `theauth.authorizeByToken()` or `theauth.policy.evaluate()`.
@@ -90,7 +90,7 @@ const theauth = await createTheAuth({
 });
 ```
 
-The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the TheAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Blocked-by-hook and unknown-agent denials return an empty `auditId`.
+The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Blocked-by-hook and unknown-agent denials return an empty `auditId`.
 
 ## Enforcing a sandbox check
 

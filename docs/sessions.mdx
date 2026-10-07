@@ -5,7 +5,7 @@ icon: key
 ---
 
 
-TheAuth has three session types:
+theAuth has three session types:
 
 - **Cookie sessions** for human users in browsers. A signed JWT sits in an `httpOnly` cookie. The session record lives in your database so you can revoke it instantly.
 - **JWT sessions** for SPAs, mobile apps, and server-to-server flows. Stateless access tokens paired with rotating refresh tokens.
@@ -267,7 +267,7 @@ When the client receives `SESSION_NOT_FRESH`, redirect them to a lightweight re-
 
 ## CSRF protection
 
-Cookie-based sessions are vulnerable to cross-site request forgery unless you add a second layer. TheAuth uses the double-submit cookie pattern: a random token is set in a separate readable cookie and must also appear in the request body or header. An attacker's page can trigger the cookie but cannot read it to reproduce the header value.
+Cookie-based sessions are vulnerable to cross-site request forgery unless you add a second layer. theAuth uses the double-submit cookie pattern: a random token is set in a separate readable cookie and must also appear in the request body or header. An attacker's page can trigger the cookie but cannot read it to reproduce the header value.
 
 ```typescript title="lib/csrf.ts"
 import { generateCsrfToken, parseCookies, validateCsrfToken, validateOrigin } from '@glinr/theauth'; // [!code highlight]

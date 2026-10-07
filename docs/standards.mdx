@@ -1,10 +1,10 @@
 ---
 title: Standards alignment
-description: Which IETF drafts TheAuth maps to, and how to emit the matching claims on issued tokens.
+description: Which IETF drafts theAuth maps to, and how to emit the matching claims on issued tokens.
 icon: book-open
 ---
 
-TheAuth tracks the two emerging IETF drafts for agent authorization: `draft-goswami-agentic-jwt-00` (agentic JWT claims) and `draft-liu-agent-operation-authorization-01` (three-layer user-workload-token binding). Claim names are defined in a single file so future audits are a one-file review.
+theAuth tracks the two emerging IETF drafts for agent authorization: `draft-goswami-agentic-jwt-00` (agentic JWT claims) and `draft-liu-agent-operation-authorization-01` (three-layer user-workload-token binding). Claim names are defined in a single file so future audits are a one-file review.
 
 ## The claim constants
 
@@ -75,7 +75,7 @@ Only three claims are ever written, and only from the context you provide:
 | `trust_tier` | The context has `trustTier` (`unverified`, `low`, `standard`, `elevated`, or `high`) | Same |
 | `on_behalf_of`, `act`, `may_act`, `audit_ref`, `tool_constraints`, `wit`, `operation` | Never. The names are defined as constants and typed in `AgenticJwtClaims`, but no issuer emits them | None |
 
-TheAuth does not derive these values for you. The trust module is not wired into `getAgenticContext`, and the `TrustTier` bands used for the claim (`unverified`, `low`, `standard`, `elevated`, `high`) are a separate vocabulary from the trust levels returned by `theauth.trust` (`untrusted`, `limited`, `standard`, `trusted`, `elevated`). Map between them in your own `getAgenticContext`.
+theAuth does not derive these values for you. The trust module is not wired into `getAgenticContext`, and the `TrustTier` bands used for the claim (`unverified`, `low`, `standard`, `elevated`, `high`) are a separate vocabulary from the trust levels returned by `theauth.trust` (`untrusted`, `limited`, `standard`, `trusted`, `elevated`). Map between them in your own `getAgenticContext`.
 
 ## Roadmap
 
@@ -87,7 +87,7 @@ Not implemented, listed so you do not look for them:
 
 ## What this does not aim at
 
-- OpenID for Verifiable Presentations (OID4VP). Out of scope for agent sign-in. Verifiable Credentials TheAuth issues are for audit, not for sign-in.
+- OpenID for Verifiable Presentations (OID4VP). Out of scope for agent sign-in. Verifiable Credentials theAuth issues are for audit, not for sign-in.
 - SPIFFE URI scheme. Agent identity uses DIDs (`did:key`, `did:web`) which fit the hosted path better.
 - Post-quantum signatures (ML-DSA). Tracked, not scheduled.
 

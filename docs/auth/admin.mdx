@@ -6,7 +6,7 @@ icon: gear
 
 ## Setup
 
-Pass an `admin` config when creating your TheAuth instance. `theauth.admin` is `null` unless the `admin` key is passed, so use `theauth.admin!.` (or `?.`) in your code.
+Pass an `admin` config when creating your theAuth instance. `theauth.admin` is `null` unless the `admin` key is passed, so use `theauth.admin!.` (or `?.`) in your code.
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
@@ -67,7 +67,7 @@ await theauth.admin!.unbanUser('user_xyz');
 Banning deletes all of the user's sessions and marks every agent they own as `revoked`. Unbanning clears the ban fields but does not restore revoked agents or sessions.
 
 <Warning>
-  TheAuth records the ban (`banned`, `banReason`, `banExpiresAt`) but the sign-in modules do not check it, and nothing lifts a ban when `banExpiresAt` passes. Check `theauth.admin.getUser(id)` in your own sign-in flow and call `unbanUser` yourself when a temporary ban lapses.
+  theAuth records the ban (`banned`, `banReason`, `banExpiresAt`) but the sign-in modules do not check it, and nothing lifts a ban when `banExpiresAt` passes. Check `theauth.admin.getUser(id)` in your own sign-in flow and call `unbanUser` yourself when a temporary ban lapses.
 </Warning>
 
 ## Impersonation

@@ -1,6 +1,6 @@
 # @glinr/theauth-prisma
 
-Prisma database adapter for TheAuth. Use PrismaClient as your TheAuth database backend.
+Prisma database adapter for theAuth. Use PrismaClient as your theAuth database backend.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-prisma)
 
@@ -28,7 +28,7 @@ const theauth = createTheAuth({
 
 ## When to use
 
-Use this adapter if your app already uses Prisma and you want TheAuth to share the same database connection and transaction context. For new projects, the built-in database providers (`sqlite`, `postgres`, `mysql`, `d1`) are simpler.
+Use this adapter if your app already uses Prisma and you want theAuth to share the same database connection and transaction context. For new projects, the built-in database providers (`sqlite`, `postgres`, `mysql`, `d1`) are simpler.
 
 ## Docs
 

@@ -1,13 +1,13 @@
 ---
 title: TypeScript client
-description: Issue HTTP calls to TheAuth from any runtime via `createTheAuthClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
+description: Issue HTTP calls to theAuth from any runtime via `createTheAuthClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
 icon: code
 ---
 
 
 ## Overview
 
-`@glinr/theauth-client` is a typed HTTP client for the TheAuth REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
+`@glinr/theauth-client` is a typed HTTP client for the theAuth REST API. It covers agents, authorization, delegations, audit logs, and MCP server registration.
 
 <Info>
   Zero dependencies. No Node.js builtins. Works in browser, Node.js, Deno, and Bun, anywhere the Fetch API is available.
@@ -34,7 +34,7 @@ const client = createTheAuthClient({
 });
 ```
 
-<ParamField path="baseUrl" type="string">Base URL for the TheAuth API, without a trailing slash.</ParamField>
+<ParamField path="baseUrl" type="string">Base URL for the theAuth API, without a trailing slash.</ParamField>
 <ParamField path="token" type="string" default="undefined">Bearer token sent as `Authorization: Bearer <token>` on every request.</ParamField>
 <ParamField path="headers" type={`Record<string, string>`} default="{}">Extra headers merged into every request. Useful for API gateways that require custom headers.</ParamField>
 

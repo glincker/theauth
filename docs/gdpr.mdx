@@ -4,7 +4,7 @@ description: Data export, account deletion, and account anonymization endpoints 
 icon: file-lines
 ---
 
-TheAuth includes built-in tools for three data subject requests that commonly require custom code: exporting a user's data, deleting their account on request, and anonymizing their account. Deleting an account can also anonymize the user's audit rows.
+theAuth includes built-in tools for three data subject requests that commonly require custom code: exporting a user's data, deleting their account on request, and anonymizing their account. Deleting an account can also anonymize the user's audit rows.
 
 <Info>
   These tools cover part of the technical layer and do not make a deployment compliant by themselves. Your privacy policy, data processing agreements, and response timelines are your responsibility.
@@ -72,7 +72,7 @@ What the delete does, in order: revokes the user's agents; deletes sessions, del
 </Warning>
 
 <Warning>
-  Deletion is irreversible. Any app data you store outside TheAuth that references the user ID will become orphaned, the plugin has no `onBeforeDelete` hook, cascade those deletes yourself before calling this endpoint.
+  Deletion is irreversible. Any app data you store outside theAuth that references the user ID will become orphaned, the plugin has no `onBeforeDelete` hook, cascade those deletes yourself before calling this endpoint.
 </Warning>
 
 ## Anonymize account
