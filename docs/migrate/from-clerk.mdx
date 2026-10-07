@@ -11,7 +11,7 @@ When the switch makes sense:
 - You are hitting Clerk's MAU pricing tiers and the cost stops matching the value.
 - Your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, or per-agent trust scoring. Clerk does not model any of that.
 - You want full control over session cookies, token issuance, and audit logs.
-- Compliance needs (GDPR export, self-hosted data residency) are easier with a local service.
+- Data-handling needs (GDPR export tooling, self-hosted data residency) are easier with a service you run yourself. TheAuth supplies building blocks, it does not certify your deployment.
 
 When to wait:
 
@@ -29,15 +29,15 @@ When to wait:
 | `useAuth()` | `useSession()` + `useSignOut()` from `@glinr/theauth-react` |
 | `useSession()` | `useSession()` from `@glinr/theauth-react` |
 | `useSignIn()`, `useSignUp()` | `useSignIn()`, `useSignUp()` from `@glinr/theauth-react` |
-| `auth()` in server components | `theauth.auth.getSession()` using the request cookies |
-| `currentUser()` | `theauth.auth.getUser()` using the request cookies |
+| `auth()` in server components | Read the `theauth_session` cookie and call `theauth.auth.session.validate(token)` (returns a `Session` or `null`) |
+| `currentUser()` | `theauth.auth.resolveUser(request)` when you configured an `auth.adapter`, or `GET /auth/session` over HTTP |
 | `clerkMiddleware()` | No drop-in. Read the session cookie in your own `middleware.ts` (sample below). |
-| `app/api/webhooks/clerk/route.ts` | Not applicable. User events come from your database or the TheAuth event hooks. |
+| `app/api/webhooks/clerk/route.ts` | Not applicable. Use the `webhooks` config on `createTheAuth` or the event stream, see [Webhooks](/webhooks). |
 | Hosted sign-in at `/sign-in` | Build your own page against `useSignIn()`. |
 | Hosted org switcher | Build your own against the `organization` plugin. |
-| JWT templates | `jwt` plugin with claim customisation. |
+| JWT templates | `createJwtSessionModule` with the `customClaims` option. |
 | Clerk backend SDK `@clerk/backend` | TheAuth server instance directly. |
-| `Organization`, `Membership` | `organization` plugin (same model, similar shape). |
+| `Organization`, `Membership` | `org: {...}` config and `theauth.org` (plus the `organization()` plugin for HTTP endpoints). Same model, similar shape. |
 
 ## Server setup
 
@@ -65,6 +65,7 @@ export async function getTheAuth() {
       baseUrl: process.env.AUTH_BASE_URL!,
       auth: { session: { secret: process.env.SESSION_SECRET! } },
       username: { password: { minLength: 8 } }, // TheAuth's password auth is username-based, see /auth/username
+      org: {}, // makes `theauth.org` available
       plugins: [organization()],
     });
   }
@@ -86,14 +87,17 @@ Clerk hides its route handling behind the middleware. TheAuth exposes an explici
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { getTheAuth } from '@/lib/theauth';
 
-const { GET, POST } = theAuthNextjs(getTheAuth);
+const theauth = await getTheAuth(); // theAuthNextjs takes the instance, not a function
 
-export { GET, POST };
+// basePath must match the folder the catch-all route lives in (the default is /api/theauth)
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, {
+  basePath: '/api/auth',
+});
 ```
 
 ### middleware.ts
 
-Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. TheAuth does not ship an equivalent wrapper. Roll your own, or only protect at the page level using `getSession()`.
+Clerk's `clerkMiddleware` does three things: verifies the session cookie, attaches `auth` to the request, and optionally protects routes. TheAuth does not ship an equivalent wrapper. Next.js middleware runs on the Edge runtime by default, where you cannot open a Postgres connection to validate a session. So keep middleware to a cheap cookie presence check, and validate the session in server code (pages, route handlers, server actions).
 
 ```ts
 // BEFORE: middleware.ts (Clerk)
@@ -113,26 +117,16 @@ export const config = {
 ```
 
 ```ts
-// AFTER: middleware.ts (TheAuth)
+// AFTER: middleware.ts (TheAuth), cookie presence only
 import { NextRequest, NextResponse } from 'next/server';
-import { getTheAuth } from '@/lib/theauth';
 
-const PROTECTED = [/^\/dashboard/, /^\/api\/private/];
+export function middleware(req: NextRequest) {
+  // Default cookie name, change it with auth.session.cookieName
+  if (req.cookies.get('theauth_session')) return NextResponse.next();
 
-export async function middleware(req: NextRequest) {
-  const needsAuth = PROTECTED.some((r) => r.test(req.nextUrl.pathname));
-  if (!needsAuth) return NextResponse.next();
-
-  const theauth = await getTheAuth();
-  const session = await theauth.auth.getSession({ request: req });
-
-  if (!session.success || !session.data) {
-    const signInUrl = new URL('/sign-in', req.url);
-    signInUrl.searchParams.set('next', req.nextUrl.pathname);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  return NextResponse.next();
+  const signInUrl = new URL('/sign-in', req.url);
+  signInUrl.searchParams.set('next', req.nextUrl.pathname);
+  return NextResponse.redirect(signInUrl);
 }
 
 export const config = {
@@ -140,7 +134,22 @@ export const config = {
 };
 ```
 
-Note that TheAuth's `getSession` returns a `Result` type (`{ success, data }` or `{ success: false, error }`), not a thrown exception. See the [configuration](/configuration) page for full signatures.
+```ts
+// AFTER: lib/require-user.ts (TheAuth), the real check, in Node server code
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { getTheAuth } from '@/lib/theauth';
+
+export async function requireUser() {
+  const theauth = await getTheAuth();
+  const token = (await cookies()).get('theauth_session')?.value;
+  const session = token ? await theauth.auth.session?.validate(token) : null;
+  if (!session) redirect('/sign-in');
+  return session; // { id, userId, expiresAt, createdAt, metadata? }
+}
+```
+
+`session.validate(token)` returns a `Session` or `null`, it does not throw. The `username` module methods (`signIn`, `signUp`) throw an `Error` on failure instead of returning a result object.
 
 ## Client SDK
 
@@ -199,7 +208,7 @@ import { useUser, useSignOut } from '@glinr/theauth-react';
 
 function Profile() {
   const { user, isLoading } = useUser();
-  const signOut = useSignOut();
+  const { signOut } = useSignOut();
   if (isLoading) return null;
   return (
     <div>
@@ -213,6 +222,10 @@ function Profile() {
 ## Sign-in and sign-up pages
 
 Clerk ships `<SignIn />` and `<SignUp />` components that render their hosted flow inside your layout. TheAuth gives you hooks and expects you to build the form.
+
+<Warning>
+  The `useSignIn` hook POSTs `{ email, password }` to `${basePath}/auth/sign-in`, and `useSignUp` POSTs to `${basePath}/auth/sign-up`. The TypeScript core and adapters do not register those two routes. The `username` module serves `/auth/username/sign-in` and `/auth/username/sign-up` with `{ username, password }` instead, and you have to call `theauth.username.handleRequest(request)` from your own route handler. Until you add a route that answers the paths the hook calls, build the form against the username endpoints (or `theauth.username.signIn` in a server action).
+</Warning>
 
 ```tsx
 // BEFORE: app/sign-in/[[...sign-in]]/page.tsx (Clerk)
@@ -233,7 +246,7 @@ import { useSignIn } from '@glinr/theauth-react';
 export default function SignInPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const signIn = useSignIn();
+  const { signIn } = useSignIn();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -241,9 +254,9 @@ export default function SignInPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const result = await signIn({ email, password });
+    const result = await signIn(email, password);
     if (!result.success) {
-      setError(result.error.message);
+      setError(result.error); // a string
       return;
     }
     router.push(params.get('next') ?? '/dashboard');
@@ -260,11 +273,11 @@ export default function SignInPage() {
 }
 ```
 
-If you were relying on Clerk's first-party passkey UI or phone OTP UI, you will rebuild the forms. The hooks expose the same primitives: `useSignIn({ factor: 'passkey' })`, `useSignIn({ factor: 'phone' })`. See [auth flows](/auth) for the full list.
+If you were relying on Clerk's first-party passkey UI or phone OTP UI, you will rebuild the forms. `useSignIn` only handles email and password. Passkeys and phone OTP are server modules with their own endpoints, see the pages under Auth (for example [passkey](/auth/passkey) and [phone](/auth/phone)).
 
 ## Organizations
 
-Clerk's Organizations model ports cleanly. The TheAuth organization plugin uses the same three concepts: organization, membership, role.
+Clerk's Organizations model ports cleanly. `theauth.org` uses the same three concepts: organization, membership, role. It exists only when you pass `org: {...}` to `createTheAuth` (it is `null` otherwise). Built-in roles are `owner`, `admin`, `member`, and `viewer`.
 
 ```ts
 // BEFORE (Clerk backend)
@@ -286,15 +299,14 @@ await clerkClient().organizations.createOrganizationMembership({
 import { getTheAuth } from '@/lib/theauth';
 
 const theauth = await getTheAuth();
-const org = await theauth.organizations.create({
+const org = await theauth.org?.create({
   name: 'Acme',
+  slug: 'acme',
   ownerId: userId,
 });
-await theauth.organizations.addMember({
-  organizationId: org.data!.id,
-  userId: otherUserId,
-  role: 'member',
-});
+if (org) {
+  await theauth.org?.addMember(org.id, otherUserId, 'member');
+}
 ```
 
 Clerk's `org:admin`, `org:member` role prefix becomes plain role strings in TheAuth. If you have code reading `orgMembership.role`, search for `org:` and strip the prefix.
@@ -312,32 +324,33 @@ Clerk configures OAuth providers in its dashboard. TheAuth does it in code. Side
 ```ts
 // AFTER (TheAuth)
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, createGithubProvider, createGoogleProvider } from '@glinr/theauth/auth';
 
 export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
-  baseUrl: process.env.AUTH_BASE_URL!,
+  // Include the adapter mount path: the OAuth redirect URI is built from baseUrl
+  baseUrl: 'https://app.example.com/api/auth',
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // required by the oauth plugin
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'github',
+      // A map of provider id to a provider instance
+      providers: {
+        github: createGithubProvider({
           clientId: process.env.GITHUB_CLIENT_ID!,
           clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-        },
-        {
-          id: 'google',
+        }),
+        google: createGoogleProvider({
           clientId: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        },
-      ],
+        }),
+      },
     }),
   ],
 });
 ```
 
-Update each OAuth app in the provider's console: change the callback URL from `https://<your-clerk>.clerk.accounts.dev/v1/oauth_callback/<provider>` to `https://<your-domain>/api/auth/oauth/<provider>/callback`. Do this before cutover so the first sign-in after the switch works.
+Update each OAuth app in the provider's console: change the callback URL from `https://<your-clerk>.clerk.accounts.dev/v1/oauth_callback/<provider>` to `{baseUrl}/auth/oauth/callback/<provider>`. With the config above and the adapter mounted at `/api/auth`, that is `https://app.example.com/api/auth/auth/oauth/callback/github`. If you want a different URL, pass `buildRedirectUri` to `oauth()`. Do this before cutover so the first sign-in after the switch works.
 
 ## Data migration
 
@@ -370,39 +383,39 @@ console.log(`exported ${out.length} users`);
 
 ### Step 2: import into the TheAuth tables
 
-TheAuth uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through password reset or their next sign-in (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth and passkey sign-ins work immediately.
+TheAuth uses PBKDF2-SHA256 for password hashing. Clerk uses bcrypt. The hashes are not compatible, so password sign-in will not work for imported users until they go through a password reset or a rehash that you write yourself (see [next sign-in rehash](#next-sign-in-rehash) below). OAuth sign-ins work once the provider is configured. TheAuth's tables are named `theauth_users`, `theauth_oauth_accounts`, and `theauth_username_accounts`, and `createTheAuth` creates them for you.
 
 ```sql
 -- Users. Run after you have loaded clerk-users.json into a staging table
 -- called clerk_user_import with the fields below.
-INSERT INTO theauth_user (
-  id, email, name, email_verified, image, created_at, updated_at
+INSERT INTO theauth_users (
+  id, email, name, email_verified, created_at, updated_at
 )
 SELECT
   id,                                      -- keep Clerk's id so foreign keys survive
-  (email_addresses->0->>'email_address'),
-  COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''),
-  (email_addresses->0->>'verification'->>'status') = 'verified',
-  image_url,
-  to_timestamp(created_at / 1000),
-  to_timestamp(updated_at / 1000)
+  lower(email_addresses->0->>'email_address'),
+  NULLIF(trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')), ''),
+  (email_addresses->0->'verification'->>'status') = 'verified',
+  to_timestamp(created_at / 1000.0),
+  to_timestamp(updated_at / 1000.0)
 FROM clerk_user_import
 ON CONFLICT (id) DO NOTHING;
 
 -- External OAuth connections, one row per provider link.
-INSERT INTO theauth_account (
-  id, user_id, provider_id, provider_account_id,
+-- theauth_users has no image column, so Clerk's image_url is not imported.
+INSERT INTO theauth_oauth_accounts (
+  id, user_id, provider, provider_account_id,
   access_token, refresh_token, created_at, updated_at
 )
 SELECT
-  gen_random_uuid(),
+  gen_random_uuid()::text,
   u.id,
-  e.value->>'provider',
+  replace(e.value->>'provider', 'oauth_', ''),  -- Clerk prefixes ids, e.g. oauth_github
   e.value->>'provider_user_id',
-  NULL,                                    -- Clerk does not export OAuth tokens
+  '',                                      -- access_token is NOT NULL, Clerk does not export tokens
   NULL,
-  to_timestamp(u.created_at / 1000),
-  to_timestamp(u.updated_at / 1000)
+  to_timestamp(u.created_at / 1000.0),
+  to_timestamp(u.updated_at / 1000.0)
 FROM clerk_user_import u,
      jsonb_array_elements(u.external_accounts) e;
 ```
@@ -414,30 +427,52 @@ Clerk exports historical metadata, not live OAuth tokens. Users will re-authoris
 ### Next sign-in rehash
 
 <Warning>
-  TheAuth's [username module](/auth/username) has no legacy-hash bridging hook, `verifyLegacyHash` and similar options do not exist. If you want password sign-in to keep working without a forced reset, you have to check the Clerk hash yourself in front of TheAuth.
+  TheAuth's [username module](/auth/username) has no legacy-hash bridging hook, `verifyLegacyHash` and similar options do not exist, and there is no API to set a password hash for an existing user. `theauth.username.signUp` always creates a brand new user row, so calling it for an imported user would create a duplicate account. If you want password sign-in to keep working without a forced reset, you have to check the Clerk hash yourself in front of TheAuth and write a PBKDF2 hash into `theauth_username_accounts` yourself.
 </Warning>
 
-Verify the legacy bcrypt hash in your own sign-in handler, and only fall through to TheAuth's `username.signUp` (which hashes with PBKDF2) to write a fresh credential once the legacy check passes:
+Import each password user with a placeholder row in `theauth_username_accounts` (any value that is not in `pbkdf2:<iterations>:<saltHex>:<hashHex>` form never verifies), set `theauth_users.force_password_reset`, and keep Clerk's bcrypt hash in your own `legacy_password_hashes` table. [Migrate from Auth0](/migrate/from-auth0#user-data-migration) shows that import script. Then verify the legacy hash in your own sign-in handler:
 
 ```ts
 import { compare as bcryptCompare } from 'bcrypt';
+import { pbkdf2Sync, randomBytes } from 'node:crypto';
+import { Pool } from 'pg';
+import { getTheAuth } from '@/lib/theauth';
 
-async function signInWithLegacyBridge(usernameInput: string, password: string) {
-  const legacy = await db.query.legacyClerkHashes.findFirst({ where: eq(legacyClerkHashes.username, usernameInput) });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-  if (legacy && await bcryptCompare(password, legacy.bcryptHash)) {
-    // Legacy hash verified, create (or update) the TheAuth credential with a fresh PBKDF2 hash
-    await theauth.username?.signUp({ username: usernameInput, password }).catch(() => {
-      // already migrated, fall through to a normal sign-in
-    });
-    await db.delete(legacyClerkHashes).where(eq(legacyClerkHashes.username, usernameInput));
+function pbkdf2Format(password: string): string {
+  const iterations = 600_000;
+  const salt = randomBytes(16);
+  const hash = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  return `pbkdf2:${iterations}:${salt.toString('hex')}:${hash.toString('hex')}`;
+}
+
+export async function signInWithLegacyBridge(username: string, password: string) {
+  const theauth = await getTheAuth();
+  const { rows } = await pool.query(
+    'SELECT user_id, bcrypt_hash FROM legacy_password_hashes WHERE username = $1',
+    [username.toLowerCase()],
+  );
+  const legacy = rows[0];
+
+  if (legacy && (await bcryptCompare(password, legacy.bcrypt_hash))) {
+    // Legacy hash verified: store a TheAuth-format hash and lift the reset flag.
+    await pool.query(
+      'UPDATE theauth_username_accounts SET password_hash = $1, updated_at = now() WHERE user_id = $2',
+      [pbkdf2Format(password), legacy.user_id],
+    );
+    await pool.query(
+      'UPDATE theauth_users SET force_password_reset = FALSE, updated_at = now() WHERE id = $1',
+      [legacy.user_id],
+    );
+    await pool.query('DELETE FROM legacy_password_hashes WHERE user_id = $1', [legacy.user_id]);
   }
 
-  return theauth.username?.signIn({ username: usernameInput, password });
+  return theauth.username?.signIn({ username, password });
 }
 ```
 
-After 30 to 60 days, drop the `legacyClerkHashes` table and force a password reset for any stragglers.
+After 30 to 60 days, drop the `legacy_password_hashes` table and force a password reset (the `passwordReset` module) for any stragglers.
 
 ## Session cookies
 
@@ -491,14 +526,14 @@ Not hosted. The `organization` plugin has the same model (organization, membersh
 
 **What about Clerk's waitlist, age gate, or impersonation features?**
 - Waitlist: not in TheAuth core. Gate sign-up in your own route handler.
-- Age gate: use the `additionalFields` config to collect DOB and enforce in middleware.
-- Impersonation with TTL: the `admin` plugin ships this.
+- Age gate: the `additionalFields` module (`createAdditionalFieldsModule`) can define and validate a date-of-birth field. Enforce the rule in your own sign-up handler.
+- Impersonation with TTL: the `admin` config on `createTheAuth` enables `theauth.admin.impersonate(adminUserId, targetUserId)`, with `impersonationTtlSeconds` to set the lifetime.
 
 **Will my Clerk webhooks still fire?**
-No. Clerk webhooks are driven by Clerk's internal events. TheAuth emits events from your own database via the event system (see [events](/events)). If you used Clerk webhooks to sync users to Stripe, port that to a TheAuth event hook that runs in your process.
+No. Clerk webhooks are driven by Clerk's internal events. TheAuth can send signed webhooks and stream events from your own process, see [Webhooks](/webhooks) and [event streaming](/event-streaming). If you used Clerk webhooks to sync users to Stripe, port that to a webhook consumer or a call in your own sign-up handler.
 
 **I use Clerk's JWT templates. What replaces them?**
-The `jwt` plugin exposes a `customClaims` callback that runs at token issuance. It receives the session and returns any extra claims you want in the JWT.
+The JWT session module (`createJwtSessionModule`) takes a `customClaims` callback that runs at token issuance. It receives `{ id, email, name }` for the user and returns any extra claims you want in the access token. See [JWT sessions](/jwt-sessions).
 
 **Can I keep Clerk for B2B and use TheAuth for B2C in the same app?**
 Technically yes, but you will spend more time on the boundary than on the migration itself. Pick one.
@@ -512,8 +547,8 @@ Technically yes, but you will spend more time on the boundary than on the migrat
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
     Migration guide if you are coming from better-auth instead.
   </Card>
-  <Card title="GDPR compliance" href="/gdpr" icon="file-lines">
-    Data portability and deletion that self-hosting makes straightforward.
+  <Card title="GDPR tooling" href="/gdpr" icon="file-lines">
+    Data export and deletion helpers that self-hosting makes straightforward.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
     The agent layer Clerk does not model natively.

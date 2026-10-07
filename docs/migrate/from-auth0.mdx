@@ -8,15 +8,15 @@ Auth0 is a hosted identity platform with a deep enterprise feature set, Rules, A
 
 When the switch makes sense:
 
-- Your M2M client count (or Auth0 MAU) has outgrown what the tier price pays for. Enterprise plans quoted at six figures with a 34% churn rate are a real signal, not a talking point.
+- Your M2M client count (or Auth0 MAU) has outgrown what the tier price pays for.
 - You are building AI agents and Auth0's per-connection M2M model does not give you delegation chains, per-agent rate caps, trust scoring, or cost attribution.
 - You want an MCP OAuth 2.1 server wired into the same auth instance rather than a second system.
-- You need GDPR export, self-hosted data residency, or EU AI Act reporting on the same platform that issues your tokens.
+- You want GDPR data export tooling and self-hosted data residency on the same platform that issues your tokens. TheAuth gives you the building blocks, it does not certify your deployment against any regulation.
 
 When to wait:
 
 - You rely on Auth0's Universal Login branding, device enrolment flow, or the Guardian MFA app. TheAuth ships headless building blocks, not a hosted page.
-- Your Rules or Actions logic runs heavy third-party integrations (Okta, Duo, Risk signals). You can port that logic, but it is not a copy-paste job.
+- Your Rules or Actions logic runs heavy third-party integrations (Okta, Duo, Risk signals). You can port that logic into your own route handlers, but it is not a copy-paste job.
 - You are on Enterprise with dedicated support SLAs. We do not have a 24/7 hotline.
 
 ## Concepts map
@@ -25,21 +25,21 @@ When to wait:
 |---|---|
 | Tenant | A `createTheAuth` instance. One per deployment. |
 | Application (Regular Web, SPA, Native) | `@glinr/theauth-react`, `@glinr/theauth-vue`, etc., plus the adapter for your framework. |
-| API (resource server) | The HTTP handler mounted via an adapter. Audience is bound via the `mcp` config. |
+| API (resource server) | The HTTP handler mounted via an adapter. To protect your own API, resolve the caller with `theauth.auth.resolveUser(request)` (humans) or `theauth.authorizeByToken(token, ...)` (agents). |
 | Machine-to-Machine client | `AgentIdentity` with `type: 'service'`. Scoped permissions, rotatable token, revocable. |
-| Connection (database, social, enterprise) | OAuth provider in the `oauth` plugin config, or the built-in email/password flow. |
-| Rule | Deprecated in Auth0 as well. Replace with a lifecycle hook on `createTheAuth` or a policy. |
-| Action (`onExecutePostLogin`, etc.) | Lifecycle hooks: `onSignIn`, `onSignUp`, `beforeSession`, `afterSession`. |
-| Post-login trigger on agent tokens | Policy middleware, evaluated per `authorize()` call. |
-| Organizations | `organization` plugin (same conceptual model). |
-| Roles, Permissions | `rbac` + resource-pattern matching on permissions. |
-| `authorize` endpoint (`/oauth/authorize`) | Built-in. PKCE S256 only. |
-| `userinfo` endpoint | `theauth.auth.getUser()` from a session cookie. |
+| Connection (database, social, enterprise) | A provider in the `oauth` plugin config (`createGithubProvider`, `genericOIDC`, and others), or the built-in username and password module. |
+| Rule | Deprecated in Auth0 as well. Replace with code in your own route handlers. TheAuth has no post-login hook. |
+| Action (`onExecutePostLogin`, etc.) | There is no sign-in or sign-up hook. Run the logic in your own handler after `theauth.username.signIn`, or add claims with the `customClaims` option of the JWT session module. The real `hooks` cover agents only, see below. |
+| Post-login trigger on agent tokens | The `beforeAuthorize` and `afterAuthorize` hooks, run on every `authorize()` call. |
+| Organizations | `organization` plugin for the HTTP endpoints, plus `org: {...}` on `createTheAuth` for the server-side `theauth.org` API. |
+| Roles, Permissions | Agent `Permission` objects with resource patterns, the [policy engine](/policy-engine), and org roles via `theauth.org`. |
+| `authorize` endpoint (`/oauth/authorize`) | `GET /mcp/authorize` from `createMcpModule` (PKCE S256 only), served relative to the adapter mount path. |
+| `userinfo` endpoint | `theauth.auth.resolveUser(request)` on the server, or `GET /auth/session` over HTTP. |
 | Management API | Server-side instance methods directly, no separate API. |
-| Refresh token rotation | On by default with the `jwtSession` and `refresh` plugins. |
+| Refresh token rotation | The optional JWT session module (`createJwtSessionModule`) rotates the refresh token on each refresh, see [JWT sessions](/jwt-sessions). |
 | Tenant logs | Audit trail via `theauth.audit.query()` and the audit export. |
-| Custom domain, cookie domain | Set `baseUrl` and the cookie config on `createTheAuth`. |
-| Hooks (Pre-User Registration, Post-User Registration, Send Phone Message) | Lifecycle hooks on the relevant plugins. |
+| Custom domain, cookie name | Set `baseUrl` on `createTheAuth` and `auth.session.cookieName` (default `theauth_session`). |
+| Hooks (Pre-User Registration, Post-User Registration, Send Phone Message) | No equivalent hooks. Run the logic in your own handlers, or supply the `sendSms` callback in the `phone` config. |
 
 ## Server setup
 
@@ -60,17 +60,13 @@ export const theauth = await createTheAuth({
   baseUrl: process.env.AUTH_BASE_URL!, // e.g. https://auth.example.com
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   username: { password: { minLength: 8 } }, // TheAuth's password auth is username-based, see /auth/username
-  mcp: {
-    enabled: true,
-    issuer: process.env.AUTH_BASE_URL!,
-    signingSecret: process.env.MCP_SIGNING_SECRET!, // >= 32 chars
-  },
+  org: {}, // makes `theauth.org` available, see below
   plugins: [organization()],
 });
 ```
 
 <Info>
-  Role-based access is handled by the built-in policy engine (`theauth.policy.evaluate`), there is no separate `rbac` plugin to opt into, see [Policy engine](/policy-engine). MCP OAuth 2.1 is a top-level `mcp` config key, not a `plugins: [...]` entry, see [MCP](/mcp).
+  Role-based access is handled by the built-in policy engine (`theauth.policy.evaluate`), there is no separate `rbac` plugin to opt into, see [Policy engine](/policy-engine). The MCP OAuth 2.1 server is not a `plugins: [...]` entry and not just a config key: you build it with `createMcpModule` from `@glinr/theauth/mcp` and pass it to the adapter, see [MCP](/mcp). `theauth.org` exists only when you pass `org: {...}` to `createTheAuth`; the `organization()` plugin on its own only adds the HTTP endpoints.
 </Info>
 
 ## Mounting the handler
@@ -130,11 +126,13 @@ Wrap the root in `<TheAuthProvider>`, then the hooks work the same way they do i
 
 ## Rules and Actions
 
-Auth0 Rules ran in a VM on their side. Actions replaced them with a saner runtime. Both get replaced by explicit lifecycle hooks that run in your process.
+Auth0 Rules ran in a VM on their side. Actions replaced them with a saner runtime. TheAuth has no equivalent of the post-login trigger: there is no sign-in, sign-up, or session hook. The `hooks` option on `createTheAuth` is for agents only, and the real hooks are `beforeAuthorize`, `afterAuthorize`, `beforeAgentCreate`, `afterAgentCreate`, `onAgentRevoke`, and `onViolation` (see [Lifecycle hooks](/hooks)).
+
+For the common "add a custom claim to the token" Action, use the `customClaims` option of the JWT session module:
 
 ```ts
 // BEFORE: Auth0 Action
-// onExecutePostLogin — enrich the token with a custom claim
+// onExecutePostLogin: enrich the token with a custom claim
 exports.onExecutePostLogin = async (event, api) => {
   if (event.user.email_verified) {
     api.accessToken.setCustomClaim('tenantId', event.user.app_metadata.tenantId);
@@ -143,26 +141,35 @@ exports.onExecutePostLogin = async (event, api) => {
 ```
 
 ```ts
-// AFTER: TheAuth lifecycle hook
+// AFTER: JWT session module with customClaims
+import { createJwtSessionModule } from '@glinr/theauth/auth';
+
+const sessions = createJwtSessionModule(
+  {
+    secret: process.env.JWT_SESSION_SECRET!, // >= 32 chars
+    customClaims: (user) => ({ tenantId: lookupTenantId(user.id) }),
+  },
+  theauth.db,
+);
+```
+
+`customClaims` receives `{ id, email, name }` and returns extra claims for the access token. Anything else an Action did after login (provisioning, notifications, blocking a sign-in) goes in your own route handler around `theauth.username.signIn`. For agents, `hooks.beforeAuthorize` can veto a call by returning `{ allow: false, reason }`:
+
+```ts
 import { createTheAuth } from '@glinr/theauth';
 
 export const theauth = await createTheAuth({
-  database: { /* ... */ },
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   hooks: {
-    beforeSession: async ({ user, session }) => {
-      if (user.emailVerified && user.metadata?.tenantId) {
-        session.claims = {
-          ...session.claims,
-          tenantId: user.metadata.tenantId,
-        };
+    beforeAuthorize: async ({ agentId, action, resource }) => {
+      if (resource.startsWith('mcp:billing:') && action !== 'read') {
+        return { allow: false, reason: 'billing is read-only for agents' };
       }
-      return session;
+      return undefined;
     },
   },
 });
 ```
-
-The same applies for `onExecutePreUserRegistration` (use the `emailPassword` plugin's `beforeSignUp` hook) and the other Action triggers.
 
 ## Machine-to-Machine clients
 
@@ -177,12 +184,12 @@ Auth0's M2M clients issue long-lived tokens against an API. They have a flat sco
 ```ts
 // AFTER (TheAuth agent)
 const agent = await theauth.agent.create({
-  ownerId: 'user-ops@example.com',
+  ownerId: opsUser.id, // the id of an existing row in theauth_users
   name: 'billing-pipeline',
   type: 'service',
   permissions: [
     {
-      resource: 'mcp:stripe:*',
+      resource: 'mcp:stripe:*', // `*` matches the rest of the path from that position on
       actions: ['read'],
       constraints: { maxCallsPerHour: 1000 },
     },
@@ -194,41 +201,41 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token → kv_... Bearer. Hand it to the service.
+// agent.token is a kv_... bearer (kv_ plus base64url of 32 random bytes).
+// It is returned once and only its SHA-256 hash is stored. Hand it to the service.
 // Rotate with theauth.agent.rotate(agent.id) when you need to.
-// Revoke with theauth.agent.revoke(agent.id). Everything is audited.
+// Revoke with theauth.agent.revoke(agent.id). Authorization decisions are audited.
 ```
 
 Two differences to call out:
 
 1. Rotation is atomic. Old token dies the moment the new one is issued. No gap.
-2. Per-agent rate caps, approval gates, time windows, and IP allowlists are part of the permission, not a separate rule.
+2. Per-agent rate caps (`maxCallsPerHour`), approval gates (`requireApproval`), time windows (`timeWindow`), and IP allowlists (`ipAllowlist`) are part of the permission's `constraints`, not a separate rule.
 
 ## User data migration
 
-Auth0 exports via the Management API bulk user endpoint, which delivers JSON lines. TheAuth users live in your own Postgres, SQLite, MySQL, or D1.
+Auth0 exports users via the Management API bulk export, which delivers JSON lines. TheAuth users live in your own Postgres, SQLite, MySQL, or D1, in the `theauth_users` table that `createTheAuth` creates for you. Do not create your own `users` table.
 
-```sql
--- Minimal users table (Postgres). Adjust column names to match your schema.
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  email_verified BOOLEAN NOT NULL DEFAULT false,
-  name TEXT,
-  password_hash TEXT,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-```
+<Warning>
+  There is no user import API (`theauth.auth.importUser` does not exist), and TheAuth cannot verify Auth0 bcrypt hashes. Password verification in the `username` module is PBKDF2 only, in the format `pbkdf2:<iterations>:<saltHex>:<hashHex>` (SHA-256). A bcrypt hash stored in `theauth_username_accounts.password_hash` is simply rejected at sign-in. Plan for a password reset or a lazy rehash that you write yourself, both shown below.
+</Warning>
 
-The Auth0 export delivers one JSON object per user. A small Node script is enough:
+Three things to know about the shape of the data:
+
+- Human users are rows in `theauth_users` (`id`, `email`, `name`, `email_verified`, `metadata`, `force_password_reset`, timestamps).
+- Password credentials are rows in `theauth_username_accounts` (`user_id`, `username`, `password_hash`). Sign-in looks up the `username` (lowercased by default) and does not apply the sign-up pattern check, so storing the lowercased email as the username lets users keep signing in with their email.
+- Social links are rows in `theauth_oauth_accounts` (`provider`, `provider_account_id`, `access_token` which is `NOT NULL`, so use an empty string for imported links).
+
+A small Node script that inserts directly with SQL is enough. It keeps each user's bcrypt hash in your own `legacy_password_hashes` table and writes an unusable placeholder into TheAuth, with `force_password_reset` set so nobody can sign in until they either reset or are rehashed:
 
 ```ts
 // scripts/import-auth0.ts
 import fs from 'node:fs';
 import readline from 'node:readline';
-import { theauth } from '../lib/theauth.js';
+import { randomUUID } from 'node:crypto';
+import { Pool } from 'pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const stream = readline.createInterface({
   input: fs.createReadStream('auth0-users.ndjson'),
@@ -236,18 +243,85 @@ const stream = readline.createInterface({
 
 for await (const line of stream) {
   const u = JSON.parse(line);
-  await theauth.auth.importUser({
-    email: u.email,
-    emailVerified: u.email_verified,
-    name: u.name,
-    // Auth0 stores passwords as bcrypt. TheAuth accepts bcrypt on import.
-    passwordHash: u.password_hash,
-    metadata: u.app_metadata ?? {},
-  });
+  const email = String(u.email).toLowerCase();
+
+  // Pass Auth0's id instead of randomUUID() if your foreign keys depend on it.
+  const inserted = await pool.query(
+    `INSERT INTO theauth_users
+       (id, email, name, email_verified, metadata, force_password_reset, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+     ON CONFLICT (email) DO UPDATE SET updated_at = now()
+     RETURNING id`,
+    [randomUUID(), email, u.name ?? null, Boolean(u.email_verified), JSON.stringify(u.app_metadata ?? {}), Boolean(u.passwordHash)],
+  );
+  const userId: string = inserted.rows[0].id;
+
+  if (u.passwordHash) {
+    // Auth0 releases password hashes through a support request. Social-only users have none.
+    await pool.query(
+      `INSERT INTO theauth_username_accounts
+         (id, user_id, username, password_hash, created_at, updated_at)
+       VALUES ($1, $2, $3, 'imported:unusable', now(), now())
+       ON CONFLICT DO NOTHING`,
+      [randomUUID(), userId, email],
+    );
+    await pool.query(
+      `INSERT INTO legacy_password_hashes (user_id, username, bcrypt_hash) VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+      [userId, email, u.passwordHash],
+    );
+  }
+}
+
+await pool.end();
+```
+
+Choose one of two ways to let password users back in:
+
+1. **Forced reset (simplest).** Configure the `passwordReset` module on `createTheAuth` (it needs `resetUrl` and `sendResetEmail`), then send each user through `POST /auth/forgot-password`. The placeholder account row is what lets the reset flow find them, and a successful reset clears `force_password_reset`.
+2. **Lazy rehash in your own sign-in handler.** Verify the bcrypt hash yourself, write a PBKDF2 hash in TheAuth's format, then call `theauth.username.signIn`:
+
+```ts
+import { compare as bcryptCompare } from 'bcrypt';
+import { pbkdf2Sync, randomBytes } from 'node:crypto';
+import { Pool } from 'pg';
+import { theauth } from '../lib/theauth.js';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+function pbkdf2Format(password: string): string {
+  const iterations = 600_000;
+  const salt = randomBytes(16);
+  const hash = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  return `pbkdf2:${iterations}:${salt.toString('hex')}:${hash.toString('hex')}`;
+}
+
+export async function signInWithLegacyBridge(email: string, password: string) {
+  const username = email.toLowerCase();
+  const { rows } = await pool.query(
+    'SELECT user_id, bcrypt_hash FROM legacy_password_hashes WHERE username = $1',
+    [username],
+  );
+  const legacy = rows[0];
+
+  if (legacy && (await bcryptCompare(password, legacy.bcrypt_hash))) {
+    // Legacy hash verified: store a TheAuth-format hash and lift the reset flag.
+    await pool.query(
+      'UPDATE theauth_username_accounts SET password_hash = $1, updated_at = now() WHERE user_id = $2',
+      [pbkdf2Format(password), legacy.user_id],
+    );
+    await pool.query(
+      'UPDATE theauth_users SET force_password_reset = FALSE, updated_at = now() WHERE id = $1',
+      [legacy.user_id],
+    );
+    await pool.query('DELETE FROM legacy_password_hashes WHERE user_id = $1', [legacy.user_id]);
+  }
+
+  return theauth.username?.signIn({ username, password });
 }
 ```
 
-Passwords imported from Auth0 bcrypt hashes validate on first sign-in. No password reset email required for users whose `password_hash` came across cleanly. Social-only users have no hash and must use the same social provider on TheAuth, wire it up in the `oauth` plugin before the cutover.
+After a grace period, drop `legacy_password_hashes` and force a reset for anyone who never signed in. Social-only users have no hash: wire up the same provider in the `oauth` plugin before the cutover, and insert their `theauth_oauth_accounts` link (Auth0 ids look like `google-oauth2|1234`, the part after the pipe is the `provider_account_id`).
 
 ## Cutover plan
 
@@ -273,7 +347,7 @@ Keep the Auth0 tenant active for at least one full session-refresh cycle after t
 - Attack Protection suite (bot detection, breached-password detection on their edge). TheAuth has HIBP integration and IP rate limiting, but no managed bot detection.
 - A hosted B2B customer-admin console. TheAuth has an embeddable `@glinr/theauth-dashboard` React component for operators, not a hosted SaaS console.
 
-If any of those are hard requirements, keep Auth0 on the books and read the [competitor notes](/docs/compare) before you commit to a switch.
+If any of those are hard requirements, keep Auth0 on the books and read the [competitor notes](/compare) before you commit to a switch.
 
 ## Runnable example
 
@@ -294,9 +368,9 @@ pnpm --filter @glinr/theauth-example-migrate-from-auth0 test
     The authorization server Auth0 does not ship.
   </Card>
   <Card title="Lifecycle hooks" icon="code" href="/hooks">
-    Replace Actions with explicit in-process hooks.
+    The real hook points (agent authorization and creation) that replace per-agent Actions.
   </Card>
   <Card title="Audit trail" icon="file-lines" href="/audit">
-    Tenant logs, queryable, exportable, attached to every authorize() call.
+    Tenant logs, queryable and exportable, written for every authorize() call.
   </Card>
 </CardGroup>

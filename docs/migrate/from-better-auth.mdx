@@ -4,7 +4,7 @@ description: Switch a better-auth app to TheAuth. Maps betterAuth config, plugin
 icon: arrow-right-arrow-left
 ---
 
-better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR compliance exports, or trust scoring per agent, TheAuth is worth the switch. If you rely on an OAuth provider that better-auth covers but TheAuth does not ship first-class (we have 17 plus a generic OIDC factory as of 2026-04), you may want to wait.
+better-auth is a solid human-auth library. If your product now needs AI agents as first-class entities, an MCP OAuth 2.1 server, GDPR data export tooling, or trust scoring per agent, TheAuth is worth the switch. If you rely on an OAuth provider that better-auth covers but TheAuth does not ship first-class (we have 17 plus a generic OIDC factory as of 2026-04), you may want to wait.
 
 ## Concepts map
 
@@ -12,14 +12,14 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 |---|---|
 | `auth = betterAuth({...})` | `theauth = await createTheAuth({...})` |
 | `User` | `User` + `AgentIdentity` (agents are a first-class entity, not an extension) |
-| `Session` | `Session` + `AgentSession` + `EphemeralAgentSession` |
-| `organization` plugin | `organization` plugin (same name, similar shape) |
-| `admin` plugin | `admin` plugin (adds ban + impersonate-with-TTL) |
-| `two-factor`, `passkey`, `magic-link`, `username`, `email-otp`, `phone-number`, `anonymous`, `siwe`, `device-authorization`, `one-tap` | All present with the same hook names |
-| `api-key` plugin | `api-key-plugin` |
-| `mcp` plugin (thin wrapper) | Built-in MCP OAuth 2.1 server with agent identity and delegation, no separate plugin |
-| `@better-auth/agent-auth` | TheAuth core, no separate package |
-| `sso`, `saml`, `scim`, `oidc-provider`, `openapi`, `jwt`, `custom-session`, `additional-fields`, `bearer` | All present under similar names |
+| `Session` | `Session`, plus ephemeral agent sessions (`createEphemeralSessionModule` from `@glinr/theauth/auth`) |
+| `organization` plugin | `organization()` plugin for HTTP endpoints, plus `org: {...}` on `createTheAuth` to get the server-side `theauth.org` API (it is `null` otherwise) |
+| `admin` plugin | `admin` plugin and `theauth.admin` (ban, impersonation with a TTL) |
+| `two-factor`, `passkey`, `magic-link`, `username`, `email-otp`, `phone-number`, `anonymous`, `siwe`, `device-authorization`, `one-tap` | All present, mostly as `twoFactor()`, `passkey()`, `magicLink()` style plugins or config keys. The shapes differ, check each page under Auth. |
+| `api-key` plugin | `apiKeys` config key and `theauth.apiKeys` |
+| `mcp` plugin (thin wrapper) | MCP OAuth 2.1 server from `createMcpModule` in `@glinr/theauth/mcp`, passed to your framework adapter. You supply the storage callbacks. |
+| `@better-auth/agent-auth` | TheAuth core (`theauth.agent`), no separate package |
+| `sso`, `saml`, `scim`, `oidc-provider`, `openapi`, `jwt`, `custom-session`, `additional-fields`, `bearer` | Present under similar names (`sso`, `scim()`, `createOidcProviderModule`, `createOpenApiModule`, `createJwtSessionModule`, `additionalFields`, `bearerAuth`) |
 
 ## Server migration
 
@@ -106,7 +106,7 @@ app.route('/api/theauth', theAuthHono(theauth));
 
 ## Database adapter
 
-better-auth supports Prisma, Drizzle, Mongoose, and others. TheAuth uses Drizzle exclusively. A Prisma adapter is on our roadmap; if you are Prisma-only today, that is the main blocker.
+better-auth supports Prisma, Drizzle, Mongoose, and others. `createTheAuth` always runs on its own Drizzle layer. `@glinr/theauth-prisma` lets you query TheAuth tables through an existing `PrismaClient`, but it is a standalone query layer, not a database backend for `createTheAuth`, see [Prisma adapter](/prisma).
 
 ```ts
 // BEFORE: better-auth with Drizzle adapter
@@ -200,54 +200,67 @@ export const auth = betterAuth({
 ```ts
 // AFTER: TheAuth
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import {
+  oauth,
+  createGithubProvider,
+  createGoogleProvider,
+  createDiscordProvider,
+} from '@glinr/theauth/auth';
 
 export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'github',
+      // A map of provider id to a provider instance, not an array of config objects.
+      providers: {
+        github: createGithubProvider({
           clientId: process.env.GITHUB_CLIENT_ID!,
           clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-        },
-        {
-          id: 'google',
+        }),
+        google: createGoogleProvider({
           clientId: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        },
-        {
-          id: 'discord',
+        }),
+        discord: createDiscordProvider({
           clientId: process.env.DISCORD_CLIENT_ID!,
           clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-        },
-      ],
+        }),
+      },
     }),
   ],
 });
 ```
 
-For a provider not in our first-class list, use the generic factory:
+`clientId` and `clientSecret` belong to the `createXProvider(...)` call. The `oauth()` plugin itself takes `providers` as a record of ready-made `OAuthProvider` instances, and the `oauth` plugin requires `auth.session` so it can issue a session on callback. The default callback URL is `{baseUrl}/auth/oauth/callback/{provider}`, so include your adapter mount path in `baseUrl` (or pass `buildRedirectUri`).
+
+For a provider without a `createXProvider` function, use the generic OIDC factory:
 
 ```ts
-{
+import { genericOIDC } from '@glinr/theauth/auth';
+
+const linear = genericOIDC({
   id: 'linear',
+  name: 'Linear',
+  issuer: 'https://linear.app',
   clientId: process.env.LINEAR_CLIENT_ID!,
   clientSecret: process.env.LINEAR_CLIENT_SECRET!,
-  authorizationEndpoint: 'https://linear.app/oauth/authorize',
-  tokenEndpoint: 'https://api.linear.app/oauth/token',
   scopes: ['read'],
-}
+  authorizationUrl: 'https://linear.app/oauth/authorize',
+  tokenUrl: 'https://api.linear.app/oauth/token',
+  userinfoUrl: 'https://api.linear.app/graphql',
+});
+
+// then: oauth({ providers: { linear } })
 ```
 
 ## Breaking differences
 
 ### Session tokens
 
-better-auth and TheAuth use different token structures. An existing session token from better-auth will not be accepted by TheAuth and vice versa. `auth.adapter` only accepts a single adapter, there is no built-in multi-adapter "accept both" mode, so bridge the transition window yourself with `customAuth`, checking your TheAuth session first, then falling back to a manual read of the old better-auth cookie:
+better-auth and TheAuth use different token structures. An existing session token from better-auth will not be accepted by TheAuth and vice versa. `auth.adapter` only accepts a single adapter, there is no built-in multi-adapter "accept both" mode, so bridge the transition window yourself with `customAuth`, which wraps a function that reads the old better-auth cookie:
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
@@ -264,21 +277,25 @@ export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: process.env.AUTH_BASE_URL!,
-  auth: { adapter: legacyAdapter },
+  auth: {
+    adapter: legacyAdapter,
+    session: { secret: process.env.SESSION_SECRET! },
+  },
 });
 ```
 
-Run both token paths for as long as you need, TheAuth's built-in session (`auth.session`) will take over new sign-ins while `legacyAdapter` keeps resolving pre-cutover better-auth sessions. Once traffic drops to near-zero on the old cookie, drop the adapter and switch to `auth.session` only.
+You can configure both. For the endpoints that TheAuth plugins register, the user is resolved by trying `legacyAdapter` first and then falling back to a TheAuth session (`auth.session`) cookie. Note that `theauth.auth.resolveUser(request)` consults only the adapter, so in your own server code check `theauth.auth.session` too if you need to accept both. Once traffic drops to near-zero on the old cookie, drop the adapter and keep `auth.session` only.
 
 ### Cookie defaults
 
 | Setting | better-auth default | TheAuth default |
 |---|---|---|
-| `Secure` | Depends on `NODE_ENV` | Always `true` in production |
+| Cookie name | `better-auth.session_token` | `theauth_session` (change with `auth.session.cookieName`) |
+| `Secure` | Depends on `NODE_ENV` | Depends on the code path (see below) |
 | `SameSite` | `Lax` | `Lax` |
 | `HttpOnly` | `true` | `true` |
 
-If your better-auth app set `secure: false` in a staging environment, check your `baseUrl`. TheAuth infers Secure from the URL scheme: `https://` turns the flag on, plain `http://` leaves it off.
+`Secure` is not one global setting. The OAuth callback sets it when `baseUrl` starts with `https://`. The standalone cookie session manager defaults it to on only when `NODE_ENV` is `production`, and you can override it with `cookieOptions.secure`. If your better-auth app set `secure: false` in a staging environment, check your `baseUrl` and `NODE_ENV` there.
 
 ### `@better-auth/agent-auth`
 
@@ -286,59 +303,49 @@ If you use `@better-auth/agent-auth`, none of its config maps 1:1. That package 
 
 ## Data migration
 
-better-auth and TheAuth share a similar base schema, but column names differ in a few places. Run this SQL after you have applied TheAuth migrations to the same database (adjust the schema name if needed):
+TheAuth keeps its own tables, all prefixed `theauth_`. Run `createTheAuth` once so it creates them, then copy rows across. Users go into `theauth_users` and provider links into `theauth_oauth_accounts`. Adjust the source column names to your better-auth schema (Postgres setups often use camelCase such as `"emailVerified"` and `"createdAt"`).
 
 ```sql
 -- Users
-INSERT INTO theauth_user (id, email, name, email_verified, created_at, updated_at)
+INSERT INTO theauth_users (id, email, name, email_verified, created_at, updated_at)
 SELECT
   id,
-  email,
+  lower(email),
   name,
-  email_verified,
-  created_at,
-  updated_at
+  "emailVerified",
+  "createdAt",
+  "updatedAt"
 FROM "user"           -- better-auth default table name
 ON CONFLICT (id) DO NOTHING;
 
--- Accounts (OAuth connections)
-INSERT INTO theauth_account (
-  id, user_id, provider_id, provider_account_id,
+-- Accounts (OAuth connections). Skip the password ("credential") rows.
+INSERT INTO theauth_oauth_accounts (
+  id, user_id, provider, provider_account_id,
   access_token, refresh_token, expires_at, created_at, updated_at
 )
 SELECT
   id,
-  user_id,
-  provider_id,
-  account_id,          -- better-auth calls this account_id
-  access_token,
-  refresh_token,
-  expires_at,
-  created_at,
-  updated_at
+  "userId",
+  "providerId",
+  "accountId",
+  COALESCE("accessToken", ''),   -- access_token is NOT NULL in TheAuth
+  "refreshToken",
+  "accessTokenExpiresAt",
+  "createdAt",
+  "updatedAt"
 FROM account
-ON CONFLICT (id) DO NOTHING;
-
--- Sessions (active sessions)
-INSERT INTO theauth_session (
-  id, user_id, token, expires_at, ip_address, user_agent, created_at, updated_at
-)
-SELECT
-  id,
-  user_id,
-  token,
-  expires_at,
-  ip_address,
-  user_agent,
-  created_at,
-  updated_at
-FROM session
+WHERE "providerId" <> 'credential'
 ON CONFLICT (id) DO NOTHING;
 ```
 
 <Warning>
 Column names in better-auth can vary depending on your adapter and any custom fields you added. Run `SELECT column_name FROM information_schema.columns WHERE table_name = 'user'` against your database to confirm the exact names before running the migration.
 </Warning>
+
+Two things do not migrate:
+
+- **Sessions.** A TheAuth session row (`theauth_sessions`) holds only `id`, `user_id`, `expires_at`, and metadata. The token is a signed JWT that references that row, so better-auth session tokens cannot be copied across. Use the `legacyAdapter` above to keep people signed in, or have them sign in again.
+- **Passwords.** The `username` module verifies PBKDF2 hashes in the format `pbkdf2:<iterations>:<saltHex>:<hashHex>` only. better-auth's `credential` account hashes are not in that format and will not verify. Follow the forced reset or lazy rehash approach in [Migrate from Auth0](/migrate/from-auth0#user-data-migration), which applies the same way here.
 
 ## Rollback
 
@@ -374,7 +381,7 @@ function hashToPercent(str: string): number {
 export const config = { matcher: '/api/auth/:path*' };
 ```
 
-Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the TheAuth tables. The `customAuth`-based `legacyAdapter` described above keeps existing users signed in during the overlap.
+Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validate sessions in the TheAuth tables. The `customAuth`-based `legacyAdapter` described above keeps existing users resolvable during the overlap.
 
 ## FAQ
 
@@ -382,16 +389,16 @@ Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validat
 No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
-Yes. Install `@glinr/theauth-prisma` and pass a `PrismaClient` as the database backend. See the [Prisma adapter docs](/docs/prisma) for the setup.
+Partly. `createTheAuth` itself takes `database: { provider, url }` and runs on Drizzle. `@glinr/theauth-prisma` gives you `createPrismaAdapter(prisma)` to read and write TheAuth tables from code that already uses Prisma, it does not replace the core instance. See the [Prisma adapter docs](/prisma).
 
 **Do I need to install an MCP plugin?**
-No. MCP OAuth 2.1 is built into TheAuth core. Pass a `mcp` config block to `createTheAuth` and enable it in your adapter.
+No separate package. Build the OAuth server with `createMcpModule` from `@glinr/theauth/mcp` and pass it to your adapter as the `mcp` option, see [MCP](/mcp). The `mcp` key on `createTheAuth` only creates the MCP tables.
 
 **Can I run better-auth and TheAuth side by side?**
 Yes. Use `customAuth` to wrap your existing better-auth instance's session check as a `legacyAdapter`, and route traffic with a feature flag as shown above.
 
 **Will my users have to sign in again?**
-With the `legacyAdapter`, no. TheAuth will accept existing better-auth sessions and issue new TheAuth tokens on the next request. Without the adapter, yes, existing tokens will be rejected.
+With the `legacyAdapter`, not right away: TheAuth plugin endpoints keep resolving the better-auth session. The adapter does not mint TheAuth sessions, so users move onto TheAuth sessions when they next sign in through TheAuth. Without the adapter, yes, existing tokens will be rejected.
 
 ## Related
 
