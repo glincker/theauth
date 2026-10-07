@@ -7,17 +7,19 @@ description: "How theauth-go maps to the AICPA Trust Services Criteria, and what
 This page is a mapping of library features to the Trust Services Criteria. theAuth does not hold a SOC 2 report, and nothing here states or implies certification or an audit result.
 </Warning>
 
-**Standard:** AICPA Trust Services Criteria 2017 (as updated), commonly referred to as SOC 2 Type II.
+**Standard referenced:** AICPA Trust Services Criteria (2017, as updated), the criteria used in SOC 2 reports.
 **Subject:** theauth-go library.
-**Last reviewed:** 2026-06-22.
+**Last reviewed:** 2026-10-06, against v2.7.0. The controls cited below were re-checked against the code and CHANGELOG; mappings to criteria with no library behavior are unchanged.
 
-**How to read this document:** For each criterion, we describe what SOC 2 auditors look for, how theauth-go helps satisfy it, and what the deploying **operator** must implement. A SOC 2 Type II audit covers the operator's complete system; this document covers only theauth-go's contribution to that system.
+**Status:** This is a mapping of library behavior to criteria, written by the maintainers. theauth-go is not SOC 2 certified or audited, no auditor has reviewed this document, and nothing here states that any deployment is SOC 2 compliant.
+
+**How to read this document:** For each criterion, we describe what SOC 2 auditors look for, how theauth-go helps satisfy it, and what the deploying **operator** must implement. A SOC 2 examination covers the operator's complete system; this document covers only theauth-go's contribution to that system.
 
 ---
 
 ## Disclaimer
 
-SOC 2 Type II certification is achieved by the **operator's entire service**, not by any single component or library. theauth-go is a Go authentication library. It provides controls, audit evidence, and enforcement points, but it cannot:
+A SOC 2 report is issued by an independent auditor about a service organization's entire system, not about a single component or library. theauth-go is a Go authentication library. It provides controls, audit evidence, and enforcement points, but it cannot:
 
 - Author or enforce the operator's access-review processes.
 - Generate the operator's System Description (SD-1) or Management's Assertion.
@@ -128,7 +130,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **What SOC 2 requires:** The entity identifies risks to the achievement of its objectives and analyzes them.
 
-**How theauth-go helps:** The THREAT-MODEL.md (this repository) is the risk analysis artifact for the authentication subsystem. Per-component STRIDE tables map each risk to a mitigation or a residual risk for operator action.
+**How theauth-go helps:** The [threat model](/go/security/threat-model) is the risk analysis artifact for the authentication subsystem. Per-component STRIDE tables map each risk to a mitigation or a residual risk for operator action.
 
 **What the operator must implement:** Risk register covering risks outside theauth-go (infrastructure, supply chain, business logic, third-party processors).
 
@@ -138,9 +140,9 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **What SOC 2 requires:** The entity considers the potential for fraud in assessing risks to achieving its objectives.
 
-**How theauth-go helps:** Refresh token family revocation on replay (`internal/as/token.go:150-176`) and SCIM `last_used_at` tracking (`internal/scim/service.go:117-138`) are direct defenses against credential abuse. The audit subsystem provides a stream of authentication events for anomaly detection.
+**How theauth-go helps:** Refresh token family revocation on replay (`internal/as/token.go`) and SCIM `last_used_at` tracking (`internal/scim/service.go`) help against credential abuse. Since v2.6.0 password signin is gated by a login throttle on by default (per client IP and email backoff, plus a per-user lockout). The audit subsystem provides a stream of authentication events for anomaly detection.
 
-**What the operator must implement:** Anomaly detection rules in their SIEM, account lockout policies beyond rate limits.
+**What the operator must implement:** Anomaly detection rules in their SIEM, and a shared `LoginThrottleStore` if more than one process serves signin (the default store is per process).
 
 ---
 
@@ -148,7 +150,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **What SOC 2 requires:** The entity identifies and assesses changes that could affect the system of internal controls.
 
-**How theauth-go helps:** CHANGELOG.md documents security-relevant changes per release. The library versions are pinned in `go.mod`.
+**How theauth-go helps:** CHANGELOG.md documents changes per release, with upgrade notes first for behavior changes. Release artifacts are signed and carry an SBOM and provenance attestation (see [releases](/go/security/releases)). The operator pins the library version in `go.mod`.
 
 **What the operator must implement:** Dependency update process, change-management approval gates, and a test suite that validates authentication behavior on library upgrades.
 
@@ -189,11 +191,11 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 | Risk | theauth-go Control | Reference |
 |---|---|---|
-| Unauthorized token issuance | PKCE S256 + redirect_uri binding | `internal/as/token.go:63-103` |
-| Credential theft via weak hashing | Argon2id at OWASP 2026 parameters | `crypto/password.go:14,26-28` |
-| Stolen bearer token reuse | DPoP (RFC 9449) cnf.jkt binding | `internal/as/token.go:234-245` |
-| Privilege escalation via role abuse | RBAC permission gates on admin endpoints | `internal/admin/handlers.go:115-146` |
-| Replay of refresh tokens | Family-wide revocation on replay | `internal/as/token.go:122-176` |
+| Unauthorized token issuance | PKCE S256 + redirect_uri binding | `internal/as/token.go` |
+| Credential theft via weak hashing | Argon2id (`m=64 MiB, t=3, p=4`) | `crypto/password.go` |
+| Stolen bearer token reuse | DPoP (RFC 9449) cnf.jkt binding | `internal/as/token.go` |
+| Privilege escalation via role abuse | RBAC permission gates on admin endpoints | `internal/admin/handlers.go` |
+| Replay of refresh tokens | Family-wide revocation on replay | `internal/as/token.go` |
 
 ---
 
@@ -202,9 +204,9 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity deploys control activities through policies and procedures that address technology-related risks.
 
 **How theauth-go helps:**
-- Session cookies are `HttpOnly`, `SameSite=Lax`; `Secure` flag enabled via `SecureCookie=true` (`handlers.go:147`).
-- All sensitive comparisons use `crypto/subtle.ConstantTimeCompare` (`internal/as/token.go:99-103`; `internal/clientauthcache/cache.go:118`).
-- TOTP secrets are AES-256-GCM-encrypted at rest (`internal/totp/service.go:225`).
+- Session cookies are `HttpOnly`, `SameSite=Lax`; `Secure` flag enabled via `SecureCookie=true`, or per request for an https `BaseURL`, TLS connections and trusted proxies sending `X-Forwarded-Proto: https`. Cookie-authenticated mutating requests with a foreign `Origin` are refused with 403 unless listed in `Config.TrustedOrigins`.
+- All sensitive comparisons use `crypto/subtle.ConstantTimeCompare` (`internal/as/token.go`; `internal/clientauthcache/cache.go`).
+- TOTP secrets are AES-256-GCM-encrypted at rest (`internal/totp/service.go`).
 
 **What the operator must implement:** TLS configuration at the edge, secret rotation policy for the TOTP encryption key and JWKS signing keys.
 
@@ -214,7 +216,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **What SOC 2 requires:** Management establishes policies and procedures to achieve objectives.
 
-**How theauth-go helps:** Provides configurable policy knobs: `RequireState` (CSRF protection), `RateLimitPerIP`, `RateLimitPerEmail`, `RefreshTokenTTL`, `SessionTTL`, `MagicLinkTTL`, `SecureCookie`.
+**How theauth-go helps:** Provides configurable policy knobs: `RequireState` (CSRF protection), `RateLimitPerIP`, `RateLimitPerEmail`, `LoginThrottle`, `PasswordPolicy`, `RefreshTokenTTL`, `SessionTTL`, `MagicLinkTTL`, `SecureCookie`, `TrustedOrigins`.
 
 **What the operator must implement:** Documented policy choices (which knobs are enabled and why), change-management approval to modify them.
 
@@ -227,9 +229,9 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** Restrict logical access to information assets based on authorization.
 
 **How theauth-go helps:**
-- The RBAC subsystem (`internal/rbac/`) enforces authorization on every admin endpoint. Permissions are checked before handler logic executes (`internal/admin/handlers.go:115-146`).
+- The RBAC subsystem (`internal/rbac/`) enforces authorization on every admin endpoint. Permissions are checked before handler logic executes (`internal/admin/handlers.go`).
 - Agent identity flow scopes machine credentials to a specific owner and scope list (`internal/agent/service.go`).
-- Delegation chains limit agent-on-behalf-of scope to the intersection of all delegators' scopes (`internal/delegation/service.go:263-291`).
+- Delegation chains limit agent-on-behalf-of scope to the intersection of all delegators' scopes (`internal/delegation/service.go`).
 
 **What the operator must implement:**
 - RBAC policy authoring: the library enforces; the operator defines which permissions exist and who holds which roles.
@@ -245,7 +247,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - Admin-driven user invitation is audit-logged (`user.invited`). Self-service signup (password, magic link, OAuth, SAML) is audit-logged via `user.login` on first sign-in; there is no separate `user.created` event.
-- Organization removal is exposed via the `removeUser` admin handler (`internal/admin/handlers.go:388-406`), audit-logged as `organization.member.removed`. This removes org membership only -- it does not delete or suspend the user account (see CC7.4).
+- Organization removal is exposed via the `removeUser` admin handler (`internal/admin/handlers.go`), audit-logged as `organization.member.removed`. This removes org membership only -- it does not delete or suspend the user account (see CC7.4).
 - Agent provisioning (`CreateAgent`, `MintAgentCredential`) and deprovisioning (`SuspendAgent`, `RevokeAgent`) are fully audit-logged.
 - SCIM 2.0 provisioning support for automated IdP-driven user lifecycle (`scim.user.create`, `scim.user.patch`, `scim.user.delete` audit events).
 
@@ -271,7 +273,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - The `users:admin`, `sessions:revoke`, `agents:admin`, and `scim:admin` permissions are distinct; each requires an explicit role grant.
-- Admin handler endpoints require both authentication and the appropriate permission (`internal/admin/handlers.go:115-146`).
+- Admin handler endpoints require both authentication and the appropriate permission (`internal/admin/handlers.go`).
 - All admin actions are audit-logged.
 
 **What the operator must implement:** Separation of duties (e.g., the person who creates roles should not be the same person who grants them); MFA requirement for users holding admin permissions.
@@ -284,7 +286,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - Supports password + TOTP (`internal/password/`, `internal/totp/`), WebAuthn (`internal/webauthn/`), magic link (`internal/magiclink/`), OAuth social login (`internal/oauth/`), and SAML (`internal/saml/`).
-- MFA step-up is enforced before any identity-merge or privilege-escalating operation (`internal/identitylink/service.go:72-84`).
+- MFA step-up is enforced before any identity-merge or privilege-escalating operation (`internal/identitylink/service.go`).
 - Session tokens are 32-byte crypto/rand values, stored as SHA-256 hashes.
 
 **What the operator must implement:** MFA enrollment requirement for privileged users; session revocation on suspected compromise.
@@ -296,8 +298,8 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** Logical access controls restrict network access to the system.
 
 **How theauth-go helps:**
-- CIMD metadata URL fetches are restricted to HTTPS and a `TrustPolicy`-approved host list (`internal/cimd/service.go:114-115,224-245`).
-- The library does not open inbound ports or create outbound connections except to operator-configured audit sinks and email providers.
+- CIMD metadata URL fetches are restricted to HTTPS and a `TrustPolicy`-approved host list (`internal/cimd/service.go`). Since v2.6.0 the fetch client also refuses loopback, private, link-local and similar addresses at dial time and never follows redirects (`CIMDConfig.AllowPrivateNetworks` is a development opt-in).
+- The library does not open inbound ports. Outbound connections go to operator-configured destinations: audit sinks, the email sender, OAuth and SAML identity providers, CIMD and JWT-bearer metadata or key fetches, and the optional breach-password checker.
 
 **What the operator must implement:** Network perimeter controls (firewall rules, VPC policies) to restrict who can reach the authentication endpoints.
 
@@ -308,9 +310,10 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The system protects against unauthorized transmission of information.
 
 **How theauth-go helps:**
-- Session cookies are `Secure` when `SecureCookie=true` (preventing transmission over non-HTTPS).
-- Passwords and secrets are never logged; the audit redactor strips them before any sink receives the event (`audit.go:15-40`).
-- Webhook payloads are HMAC-SHA256 signed to ensure transmission integrity (`audit/sinks/webhook/webhook.go:131`).
+- Session cookies are `Secure` when `SecureCookie=true` or when the request arrives over TLS or an https `BaseURL` applies (preventing transmission over non-HTTPS).
+- Default logs carry no email addresses (v2.7.0); lines use a `user_id` or a hashed `email_ref`.
+- Passwords and secrets are never logged; the audit redactor strips them before any sink receives the event (`internal/audit/redact.go`).
+- Webhook payloads are HMAC-SHA256 signed to ensure transmission integrity (`audit/sinks/webhook/webhook.go`).
 
 **What the operator must implement:** TLS 1.2+ on all external endpoints; HSTS headers; certificate pinning where appropriate.
 
@@ -334,7 +337,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - Configuration is centralized in the `Config` struct (`theauth.go`); all security-relevant fields have documented defaults.
-- Default values are documented: `SessionTTL=24h`, `MagicLinkTTL=15m`, `CookieName="theauth_session"` (`theauth.go:29`).
+- Default values are documented: `SessionTTL=24h`, `MagicLinkTTL=15m`, `CookieName="theauth_session"`.
 
 **What the operator must implement:** Configuration version control; diff-tracking of security-relevant config changes.
 
@@ -346,7 +349,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - OpenTelemetry spans and metrics are emitted through the `Hooks` interface for every major operation.
-- Specific metrics: `theauth_rate_limit_blocked_total` (`observability.go:111`), per-grant-type token counters, and span timing.
+- Specific metrics: `theauth_rate_limit_blocked_total`, per-grant-type token counters, and span timing.
 - Audit events provide a structured log of authentication successes and failures.
 
 **What the operator must implement:** Alerting thresholds; SIEM correlation rules; on-call escalation paths.
@@ -370,7 +373,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity responds to identified security incidents.
 
 **How theauth-go helps:**
-- `revokeSession` provides immediate session-level containment (`internal/admin/handlers.go:428-447`). There is no library-level `SuspendUser`: the `User` model and `Storage` interface have no suspension state, so account-level containment beyond revoking sessions is an operator-built control (see COMPLIANCE-GDPR.md, Article 18).
+- `revokeSession` provides immediate session-level containment (`internal/admin/handlers.go`). There is no library-level `SuspendUser`: the `User` model and `Storage` interface have no suspension state, so account-level containment beyond revoking sessions is an operator-built control (see the [GDPR page](/go/security/compliance-gdpr), Article 18).
 - `SuspendAgent` and `RevokeAgent` provide immediate machine-credential containment (`internal/agent/service.go`).
 - Session revocation is audit-logged with `session.revoked` events.
 
@@ -383,7 +386,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity recovers from identified security incidents.
 
 **How theauth-go helps:**
-- `ResumeAgent` restores a suspended agent after containment investigation (`internal/agent/service.go:407`).
+- `ResumeAgent` restores a suspended agent after containment investigation (`internal/agent/service.go`).
 - JWKS key rotation can be triggered manually to replace potentially compromised signing keys.
 
 **What the operator must implement:** Business continuity and disaster recovery plans; DB backup and restore procedures.
@@ -397,9 +400,9 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity authorizes, designs, develops, tests, approves, and deploys changes.
 
 **How theauth-go helps:**
-- All changes are tracked in CHANGELOG.md and RELEASING.md.
-- CI enforces `go vet`, `go test -race`, and benchmark regression gates before any merge.
-- STABILITY.md documents the stability guarantees and breaking-change policy.
+- All changes are tracked in CHANGELOG.md and the [releases page](/go/security/releases).
+- CI runs `go vet` and `go test -race` on pull requests. A benchmark regression gate exists but runs only on manual dispatch and a weekly schedule, not before merge (see [benchmarks](/go/security/benchmarks)).
+- The [stability policy](/go/reference/stability) documents the stability guarantees and breaking-change policy.
 
 **What the operator must implement:** Operator-side change management: staging environment, approval gates, rollback plans for theauth-go version upgrades.
 
@@ -412,8 +415,8 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity identifies, assesses, and mitigates risks associated with vendors and business partners.
 
 **How theauth-go helps:**
-- Direct third-party dependencies are minimal and security-sensitive ones are pinned (e.g., `crewjam/saml v0.5.1`, `russellhaering/goxmldsig v1.4.0`; see `go.mod`).
-- theauth-go itself introduces no external network calls except operator-configured sinks and CIMD fetches.
+- Dependency versions, including the SAML and XML signature libraries, are pinned in `go.mod` and `go.sum`; Dependabot is configured for updates.
+- theauth-go makes no outbound calls of its own; every outbound destination is operator-configured (see CC6.6).
 
 **What the operator must implement:** Software supply-chain assessment (e.g., `go mod verify`, SBOM generation, vulnerability scanning via `govulncheck`).
 
@@ -424,7 +427,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity assesses and manages risks associated with business disruption.
 
 **How theauth-go helps:**
-- Memory store available for development/testing; Postgres store for production with standard HA replication.
+- Memory store for development and testing; Postgres, MySQL and SQLite stores for persistence. Availability and replication are properties of the operator's database.
 - Session expiry and refresh token TTL are configurable to match recovery objectives.
 
 **What the operator must implement:** Multi-AZ database deployment; connection pool fallback; session state recovery procedures.
@@ -438,8 +441,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** The entity maintains, monitors, and evaluates current processing capacity.
 
 **How theauth-go helps:**
-- Benchmark suite (`internal/bench/`) provides baseline throughput figures.
-- Benchstat regression gate in CI (`benchgate/`) catches performance regressions.
+- A benchmark suite (`internal/bench/`) and a benchstat-based regression script (`benchgate/`, `scripts/bench-gate.sh`) exist. They run on demand and weekly, no throughput figures are published, and the operator needs their own load tests.
 
 **What the operator must implement:** Load testing, capacity forecasting, and autoscaling policies.
 
@@ -474,7 +476,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - Secrets (passwords, TOTP keys, session tokens) are never stored in plaintext.
-- Audit redactor removes secret-class keys from all event metadata at emission time (`audit.go:15-40`).
+- Audit redactor removes secret-class keys from all event metadata at emission time (`internal/audit/redact.go`).
 - `SecureCookie=true` prevents session tokens from traversing non-HTTPS channels.
 
 **What the operator must implement:** Data classification policy; encryption-at-rest for the database; key management procedures.
@@ -488,9 +490,9 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** Processing is complete, valid, accurate, timely, and authorized.
 
 **How theauth-go helps:**
-- All mutations (user create, session create, token issue) are transactional; partial failures are rolled back.
-- SCIM provisioning uses atomic upserts to prevent partial user state.
-- Token issuance includes a structured audit event with the full request context.
+- Storage adapters implement each mutation as a single storage call; multi-step operations such as `MergeAccounts` are not one transaction. A failure partway through a merge is safe to retry with the same IDs (see CHANGELOG, v2.5.0).
+- SCIM provisioning uses upserts keyed by `externalId`.
+- Token issuance emits a structured audit event.
 
 **What the operator must implement:** Data validation at the application layer above theauth-go; reconciliation jobs for SCIM sync.
 
@@ -502,7 +504,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **What SOC 2 requires:** The entity provides notice to data subjects about the collection and use of personal information.
 
-**How theauth-go helps:** Minimal. The library collects email, optional name, IP, user agent, and auth event data (see COMPLIANCE-GDPR.md for the full inventory).
+**How theauth-go helps:** Minimal. The library collects email, optional name, IP, user agent, and auth event data (see the [GDPR page](/go/security/compliance-gdpr) for the full inventory).
 
 **What the operator must implement:** Privacy notice (DPN) published at a discoverable URL, listing all data fields collected by theauth-go on the operator's behalf.
 
@@ -534,8 +536,8 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - Audit sinks forward event data to operator-configured destinations only.
-- CIMD fetches go outbound to operator-allowlisted HTTPS hosts only.
-- No personal data is sent to Anthropic, GitHub, or any third party by the library itself.
+- CIMD fetches go outbound to HTTPS hosts approved by the operator's `TrustPolicy` only.
+- The library sends no telemetry. Personal data leaves the process only through operator-configured integrations (audit sinks, email sender, identity providers, and the optional breach checker, which sends a hash prefix).
 
 **What the operator must implement:** DPAs with audit sink destinations (Splunk, OTLP collector vendor, webhook receiver) before enabling those sinks.
 
@@ -546,7 +548,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 **What SOC 2 requires:** Personal information is accurate, complete, and relevant.
 
 **How theauth-go helps:**
-- `UpdateUser` (`internal/admin/handlers.go:297-376`) supports correction of name and email.
+- `UpdateUser` (`internal/admin/handlers.go`) supports correction of name and email.
 - SCIM PATCH operations support incremental attribute updates.
 
 **What the operator must implement:** User-facing profile update interface; validation on updated fields.
@@ -559,7 +561,7 @@ An auditor will assess whether the operator has implemented the controls listed 
 
 **How theauth-go helps:**
 - Audit events for every authentication action enable compliance monitoring.
-- Data-access primitives (`UserByID`, session listing, `listOAuthAccounts`, `QueryAuditEvents`, etc.) that an operator can assemble into export and erasure endpoints exist (see COMPLIANCE-GDPR.md, Section 2). These are building blocks, not ready-made export/erasure endpoints: the library does not ship a data-subject export API, and erasure (Article 17) is an explicit operator gap because there is no `DeleteUser` method on the `Storage` interface.
+- Data-access primitives (`UserByID`, session listing, `listOAuthAccounts`, `QueryAuditEvents`, etc.) that an operator can assemble into export and erasure endpoints exist (see the [GDPR page](/go/security/compliance-gdpr), Section 2). These are building blocks, not ready-made export/erasure endpoints: the library does not ship a data-subject export API, and erasure (Article 17) is an explicit operator gap because there is no `DeleteUser` method on the `Storage` interface.
 
 **What the operator must implement:** Privacy compliance reviews; data subject request intake process; retention policy enforcement; the export and erasure endpoints themselves (see COMPLIANCE-GDPR.md, Section 2, "Operator gap").
 
@@ -576,4 +578,4 @@ This section is explicit about the gaps that an operator's SOC 2 scope must cove
 5. **Incident response and business continuity plans.** The library provides containment primitives (suspend, revoke); the plans are the operator's.
 6. **User training and awareness programs.** The library cannot enforce security culture.
 7. **Audit of operator's own code.** theauth-go secures authentication; the operator's application code wrapping it is not in scope for this document.
-8. **Penetration testing.** The library has been designed with the threats in THREAT-MODEL.md in mind, but periodic external penetration testing of the operator's deployed system is the operator's responsibility.
+8. **Penetration testing.** The library has been designed with the threats in the [threat model](/go/security/threat-model) in mind, but periodic external penetration testing of the operator's deployed system is the operator's responsibility.

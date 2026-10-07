@@ -9,7 +9,7 @@ This page maps library features to GDPR obligations. It is not legal advice and 
 
 **Applies to:** Deployments of theauth-go that process personal data of EU/EEA data subjects.
 **Standard:** Regulation (EU) 2016/679 (General Data Protection Regulation).
-**Last reviewed:** 2026-06-22.
+**Last reviewed:** 2026-10-06, against v2.7.0. Storage backends, retention defaults, the personal data inventory, login logging, cookie behavior and the admin endpoint references were re-checked against the code and CHANGELOG. This is an engineering reference for operators, not legal advice, and it is not a statement that any deployment is GDPR compliant.
 
 **Role clarification:** theauth-go is a Go library. It is not a service and has no data processing infrastructure of its own. When an operator deploys theauth-go, the operator is the **data controller** (and in some configurations also the **data processor**). theauth-go is tooling the operator uses; the library authors are not a sub-processor. Section 4 explains this in detail.
 
@@ -17,7 +17,7 @@ This page maps library features to GDPR obligations. It is not legal advice and 
 
 ## 1. Personal Data theauth-go Stores by Default
 
-The following table lists every personal data field stored by the library's built-in storage adapters (memory and Postgres). Operators using a custom storage adapter may vary.
+The following table lists every personal data field stored by the library's built-in storage adapters (memory, Postgres, MySQL and SQLite). Operators using a custom storage adapter may vary.
 
 | Table / Concept | Field | Classification | Notes |
 |---|---|---|---|
@@ -35,19 +35,20 @@ The following table lists every personal data field stored by the library's buil
 | `webauthn_credentials` | `public_key` | Credential | COSE public key bytes; no private key ever stored. |
 | `webauthn_credentials` | `credential_id` | Pseudonymous identifier | WebAuthn credential ID. |
 | `webauthn_credentials` | `sign_count` | Operational | Monotonic counter for replay detection. |
-| `totp_secrets` | `secret_enc` | Credential | AES-256-GCM encrypted TOTP shared secret (`internal/totp/service.go:225`). |
+| `totp_secrets` | `secret_enc` | Credential | AES-256-GCM encrypted TOTP shared secret (`internal/totp/service.go`). |
 | `saml_identities` | `name_id` | Personal identifier | SAML NameID from the IdP (often an email or opaque ID). |
 | `saml_identities` | `attributes` | Personal data | SAML attribute map as returned by the IdP. |
 | `audit_events` | `actor_user_id` | Pseudonymous identifier | Internal ULID of the acting user. |
 | `audit_events` | `ip` | Pseudonymous technical data | IP at event time. |
 | `audit_events` | `user_agent` | Pseudonymous technical data | User agent at event time. |
 | `audit_events` | `event_type` | Operational | String event name, e.g. `user.login`. |
-| `audit_events` | `metadata` | Variable | Structured JSON; secret-class keys are stripped by the default redactor (`audit.go:15-40`). |
+| `audit_events` | `metadata` | Variable | Structured JSON; secret-class keys are stripped by the default redactor (`internal/audit/redact.go`). |
 | `magic_links` | `email` | Personal identifier | Destination email for the sign-in link. |
 | `magic_links` | `token_hash` | Derived credential | SHA-256 of the raw magic-link token. |
-| `magic_links` | `expires_at` | Operational | Expiry timestamp; default 15 minutes (`wiring.go:52-53`). |
+| `magic_links` | `expires_at` | Operational | Expiry timestamp; default 15 minutes. |
 | `scim_tokens` | `token_hash` | Derived credential | SHA-256 of the SCIM bearer token. |
 | `scim_tokens` | `last_used_at` | Operational | Timestamp of last authenticated SCIM request. |
+| Login throttle entries | key (client IP and normalized email, or user ID) | Pseudonymous technical data | Failure counters for password and MFA backoff, on by default since v2.6.0. Held in process memory unless you supply a `LoginThrottleStore`; the Postgres, MySQL and SQLite adapters ship throttle stores that persist them, with a `SweepExpired` method for host-driven cleanup. |
 
 **Data not stored by theauth-go:**
 
@@ -70,13 +71,13 @@ For each GDPR right, this section describes which library API satisfies the requ
 
 | Data category | Library API | Location |
 |---|---|---|
-| User profile (email, name, avatar, status) | `GetUser` / `UserByID` | `internal/admin/handlers.go:206-232` |
-| Active sessions (IP, user agent, created_at, expires_at) | `listSessions` admin endpoint | `internal/admin/handlers.go:404-419` |
-| OAuth-linked accounts | `listOAuthAccounts` admin endpoint | `internal/admin/handlers.go:598-609` |
+| User profile (email, name, avatar) | `GetUser` / `UserByID` | `getUser` admin handler (`internal/admin/`) |
+| Active sessions (IP, user agent, created_at, expires_at) | `listSessions` admin endpoint | `internal/admin/` |
+| OAuth-linked accounts | `listOAuthAccounts` admin endpoint | `internal/admin/` |
 | WebAuthn credentials | `ListWebAuthnCredentials` (storage interface `storage.go`) | `storage.go` |
 | TOTP enrollment status | Stored as a `totp_secrets` row; operator queries storage directly | `storage/postgres/` |
 | SAML identities | `SAMLIdentityByConnectionAndNameID` and related storage methods | `storage/postgres/` |
-| Audit events for this user | `QueryAuditEvents` with `ActorUserID` filter | `internal/audit/service.go:348`; `storage.go:222` |
+| Audit events for this user | `QueryAuditEvents` with `ActorUserID` filter | `internal/audit/`; `AuditStorage` in `storage.go` |
 
 **Operator gap:** The operator must expose an export endpoint that calls these APIs, aggregates the results, and returns a structured response (JSON, CSV, or PDF as appropriate) to the authenticated data subject or their authorized representative. The library provides the data; the endpoint is the operator's responsibility.
 
@@ -86,7 +87,7 @@ For each GDPR right, this section describes which library API satisfies the requ
 
 **What the data subject can request:** Correction of inaccurate or incomplete personal data.
 
-**Library API:** `patchUser` admin endpoint accepts `name`, `email` field updates (`internal/admin/handlers.go:297-376`). SCIM PATCH operations also support incremental updates.
+**Library API:** `patchUser` admin endpoint accepts `name`, `email` field updates (`internal/admin/`). SCIM PATCH operations also support incremental updates.
 
 **Operator gap:** The operator must expose a user-facing profile update form or endpoint that calls `patchUser`. If the user's email is their login identifier, the operator must verify ownership of the new address before applying the change.
 
@@ -98,7 +99,7 @@ For each GDPR right, this section describes which library API satisfies the requ
 
 **Library behavior:**
 
-- `removeUser` admin handler (`internal/admin/handlers.go:381-403`) removes the user from their organization.
+- `removeUser` admin handler (`internal/admin/`) removes the user from their organization.
 - Database foreign key constraints cascade deletion of sessions, OAuth accounts, WebAuthn credentials, TOTP secrets, SAML identities, and magic links when a user row is deleted (cascade behavior enforced at the storage layer).
 - `audit_events` rows reference `actor_user_id` but are not automatically deleted on user removal because audit integrity requires them. The `actor_user_id` field may be replaced with a tombstone value (e.g., a zeroed ULID) by an operator-written sweep without losing the event record.
 
@@ -114,7 +115,7 @@ For each GDPR right, this section describes which library API satisfies the requ
 
 **What the data subject can request:** That their data not be actively processed while a dispute is resolved.
 
-**Library API:** None. `patchUser` (`internal/admin/handlers.go:304-387`) accepts a `status` field in its request body but the handler never persists or acts on it (it currently only applies `roleIds` changes) -- there is no user-suspension state anywhere in the `User` model, the `users` table, or the `Storage` interface. The closest built-in primitive is `revokeSession` (`internal/admin/handlers.go:428-447`), which invalidates the user's active sessions but does not prevent them from signing in again.
+**Library API:** None. The `patchUser` admin handler accepts a `status` field in its request body but never persists or acts on it (it currently only applies `roleIds` changes) -- there is no user-suspension state anywhere in the `User` model, the `users` table, or the `Storage` interface. The closest built-in primitive is `revokeSession` (`internal/admin/`), which invalidates the user's active sessions but does not prevent them from signing in again.
 
 **Operator gap (critical):** There is no built-in restriction-of-processing flag. To honor Article 18, the operator must add their own suspension state (e.g., an application-level `status` column consulted at the top of every auth flow) and revoke existing sessions via `revokeSession` when a restriction request is received. Build the review-and-lift process on top of that operator-owned state.
 
@@ -134,7 +135,7 @@ For each GDPR right, this section describes which library API satisfies the requ
 
 **What the data subject can request:** That processing stop, particularly for direct marketing or legitimate-interest grounds.
 
-**Library API:** Session revocation is available via `revokeSession` (`internal/admin/handlers.go:428-447`), which invalidates a session immediately. This stops that session but, as noted under Article 18, there is no library-level account suspension to prevent the user from signing in again with a fresh session.
+**Library API:** Session revocation is available via `revokeSession` (`internal/admin/`), which invalidates a session immediately. This stops that session but, as noted under Article 18, there is no library-level account suspension to prevent the user from signing in again with a fresh session.
 
 **Operator gap:** Build an objection intake form. Revoke active sessions via `revokeSession` as an immediate step, and layer an operator-owned suspension/deactivation flag on top if processing must stop entirely rather than just ending the current session. Log the objection and the action taken.
 
@@ -156,16 +157,16 @@ For each GDPR right, this section describes which library API satisfies the requ
 
 | Data category | Default TTL | Config field | Notes |
 |---|---|---|---|
-| Sessions | 24 hours | `Config.SessionTTL` (`theauth.go:37`) | Active sessions expire; expired rows remain until the operator runs a sweep. |
-| Magic links | 15 minutes | `Config.MagicLinkTTL` (`theauth.go:38`; `wiring.go:52-53`) | Consumed or expired links are kept in storage until swept. |
+| Sessions | 24 hours | `Config.SessionTTL` | Active sessions expire; expired rows remain until the operator runs a sweep. |
+| Magic links | 15 minutes | `Config.MagicLinkTTL` | Consumed or expired links are kept in storage until swept. |
 | OAuth authorization codes | Short-lived (minutes) | Inherent in the OAuth code flow | Codes are single-use and stored as hashes. |
 | Audit events | Indefinite (no default TTL) | None built in | See below. |
-| Refresh tokens | 30 days | `internal/as/config.go:45` | Rotated on every use; old tokens are revoked. |
-| Pushed Authorization Requests | N/A | Not yet implemented | Planned; will have a short TTL when landed. |
+| Refresh tokens | 30 days | `AuthorizationServerConfig.RefreshTokenTTL` | Rotated on every use; old tokens are revoked. |
+| Pushed Authorization Requests | 60 seconds | `PARConfig.RequestURITTL` (opt-in via `AuthorizationServerConfig.PAR`) | Pushed requests are stored by backends that implement `PARStorage`. |
 
 ### Audit Event Retention
 
-Audit events are INSERT-only (the `Storage` interface exposes no update or delete path for `audit_events`) and have no built-in TTL. This is intentional for security, but it is append-only, not cryptographically tamper-evident: nothing in the library prevents a party with direct database access from rewriting rows, and no Merkle-chaining or signing is implemented (see THREAT-MODEL.md, "Audit log tampering"). The append-only design still creates a tension with GDPR data minimization.
+Audit events are INSERT-only (the `Storage` interface exposes no update or delete path for `audit_events`) and have no built-in TTL. This is intentional for security, but it is append-only, not cryptographically tamper-evident: nothing in the library prevents a party with direct database access from rewriting rows, and no Merkle-chaining or signing is implemented (see the [threat model](/go/security/threat-model), "Audit log tampering"). The append-only design still creates a tension with GDPR data minimization.
 
 **Operator actions required:**
 
@@ -193,7 +194,7 @@ These sweeps should run as scheduled jobs, not inline on requests.
 
 ### Where theauth-go Stores Data
 
-theauth-go stores data in the **operator's chosen database** (Postgres or the in-memory store for testing). The library does not transmit personal data to any Anthropic, GitHub, or external infrastructure.
+theauth-go stores data in the **operator's chosen database** (Postgres, MySQL, SQLite, or the in-memory store for testing). The library does not run any service of its own and sends no telemetry. Personal data leaves the process only through integrations the operator configures: audit sinks, the email sender, OAuth and SAML identity providers, and the optional `BreachChecker` (the bundled Have I Been Pwned checker sends a hash prefix, not the password).
 
 The operator controls:
 - The database server location (region/AZ).
@@ -207,8 +208,8 @@ When the operator configures an audit sink, events containing personal data (use
 | Sink | Package | Cross-border risk |
 |---|---|---|
 | OTLP | `audit/sinks/otlp/` | Depends on operator's OTLP collector location. |
-| Splunk HEC | `audit/sinks/splunk/` | Depends on Splunk instance location. |
-| Webhook | `audit/sinks/webhook/webhook.go` | Depends on webhook receiver location. |
+| Splunk HEC | `audit/sinks/splunkhec/` | Depends on Splunk instance location. |
+| Webhook | `audit/sinks/webhook/` | Depends on webhook receiver location. |
 
 **Operator obligation:** Before enabling any sink that sends data to a third-party vendor, sign a Data Processing Agreement (DPA) with that vendor. Ensure the vendor's processing location is within your permitted data protection boundary, or implement an appropriate transfer mechanism (Standard Contractual Clauses, Adequacy Decision, etc.).
 
@@ -226,13 +227,13 @@ theauth-go is a Go library, not a SaaS service. It has **no sub-processors**. Th
 
 ### Credential Storage
 
-- Passwords: Argon2id with `m=64 MiB, t=3, p=4` per the OWASP 2026 baseline (`crypto/password.go:14,26-28`). Parameters are embedded in the PHC string so future work-factor increases can be applied on next login without data migration.
+- Passwords: Argon2id with `m=64 MiB, t=3, p=4` (`crypto/password.go`). Parameters are embedded in the PHC string so future work-factor increases can be applied on next login without data migration.
 - Session tokens, magic-link tokens, SCIM tokens: stored as SHA-256 hashes only; raw values are returned to clients in cookies or email links and are not persisted.
-- TOTP secrets: AES-256-GCM encrypted before storage (`internal/totp/service.go:225`). The encryption key must be supplied by the operator via `Config.EncryptionKey` or the audit config.
+- TOTP secrets: AES-256-GCM encrypted before storage (`internal/totp/service.go`). The encryption key must be supplied by the operator via `Config.EncryptionKey` or the audit config.
 
-### Secrets Never Logged
+### Secrets and Email Addresses in Logs
 
-The default audit redactor strips the following keys at any JSON nesting depth before any sink receives an event (`audit.go:15-40`):
+The default audit redactor strips the following keys at any JSON nesting depth before any sink receives an event (`internal/audit/redact.go`):
 
 - `password`
 - `secret`
@@ -241,7 +242,7 @@ The default audit redactor strips the following keys at any JSON nesting depth b
 - `refresh_token`
 - `access_token`
 
-Comparison is case-insensitive. The default redactor is applied unconditionally after any custom redactor; a custom redactor cannot re-introduce a stripped key (`internal/audit/service.go:281-283`).
+Comparison is case-insensitive. Separately, since v2.7.0 the default log lines for password signin, signup and reset, magic link and `email.Noop` no longer contain email addresses; they carry a `user_id` or a 12-hex `email_ref` hash instead. Your own logging, reverse proxy and email provider are outside this. The default redactor is applied unconditionally after any custom redactor; a custom redactor cannot re-introduce a stripped key (`internal/audit/`).
 
 ### Session Cookie Security
 
@@ -251,7 +252,7 @@ Comparison is case-insensitive. The default redactor is applied unconditionally 
 | `SameSite` | Lax | Not configurable (always Lax). |
 | `Secure` | false (dev default) | Set `Config.SecureCookie = true` for production. |
 
-A `slog.Warn` is emitted at startup when `SecureCookie=false` unless `SuppressSecureCookieWarning=true` (`theauth.go:41-45`). Production deployments must set `SecureCookie=true`.
+Since v2.6.0, cookies are also marked `Secure` per request when `BaseURL` is https, the connection is TLS, or a `TrustedProxies` peer sends `X-Forwarded-Proto: https`. A `slog.Warn` is emitted at startup when `SecureCookie=false` and `BaseURL` is not https, unless `SuppressSecureCookieWarning=true`. Production deployments should set `SecureCookie=true`.
 
 ### IP and User Agent in Sessions
 
@@ -264,7 +265,7 @@ IP address and user agent are stored on every session row for security audit pur
 
 ### Argon2id Work Factor
 
-The default work factor (`m=64 MiB, t=3, p=4`) exceeds the OWASP 2026 minimum. Operators should not lower the work factor below these values. The work factor is not exposed as a config knob for password hashing; it is a compile-time constant in `crypto/password.go:26-28` and can be increased by upgrading to a future library version.
+The default work factor is `m=64 MiB, t=3, p=4`. Check it against current OWASP guidance for your risk level. The work factor is not exposed as a config knob for password hashing; it is a constant in `crypto/password.go` and can be increased by upgrading to a future library version. `PasswordPolicy.AllowLegacyBcrypt` (v2.6.0 honors it at signin, step-up and password change) accepts older bcrypt hashes and `OnLegacyHashAccepted` fires after a successful upgrade to Argon2id.
 
 ---
 
