@@ -552,7 +552,6 @@ Since v2.6.0, CIMD fetches also refuse non-public destinations: the dialer rejec
 
 | Threat | Mitigation | Residual Risk |
 |---|---|---|
-| A registered `jwks_uri` or issuer URL points at an internal service | Response size is capped at 512 KiB and the body must parse as a JWKS document. | Through v2.7.0 this fetch uses the default Go HTTP client. It does not have the private-address dial guard that CIMD fetches have (v2.6.0), it follows redirects, and parsed keys are cached in process by URL with no expiry. A guarded fetcher with dial-time address checks, no redirects and a cache TTL is in [theauth-go pull request 213](https://github.com/glincker/theauth-go/pull/213) and is planned for the next patch release. Until you run that release, only allow dynamic client registration and trusted issuers for parties you trust, and restrict egress from the AS process at the network layer. |
 
 ---
 
@@ -585,4 +584,3 @@ The following threats are referenced in the summary above. For procurement, this
 | T-21 | Apple .p8 key leak | Operator responsibility (documented) | `provider/apple/apple.go` |
 | T-22 | SSRF via CIMD metadata URL | Mitigated for non-public addresses since v2.6.0 (dial-time guard, no redirects); host allowlist still recommended | `internal/cimd/service.go`, `internal/cimd/safefetch.go` |
 | T-23 | Delegation scope escalation | Mitigated (scope intersection) | `internal/delegation/service.go` |
-| T-24 | SSRF via client `jwks_uri` or trusted issuer JWKS URL | Affects v2.7.0 and earlier (size cap only). Fixed by the guarded JWKS fetcher planned for the next patch release (dial-time address guard, no redirects, cache TTL); operator egress controls recommended until then | `internal/as/jwtbearer.go` |
