@@ -36,7 +36,7 @@
   "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/nextjs-auth"
   },
   "peerDependencies": {
@@ -51,8 +51,10 @@
     "tsup": "^8.0.0",
     "vitest": "^3.0.0"
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth#readme",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   }

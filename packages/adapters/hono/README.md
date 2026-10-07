@@ -1,5 +1,7 @@
 # @glinr/theauth-hono
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-hono) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/hono) · [Docs](https://docs.theauth.dev/adapters/hono) · [All packages](https://github.com/glincker/theauth#packages)
+
 Hono adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-hono)](https://www.npmjs.com/package/@glinr/theauth-hono)

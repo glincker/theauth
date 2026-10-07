@@ -1,5 +1,7 @@
 # @glinr/theauth-vue
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-vue) · [Source](https://github.com/glincker/theauth/tree/main/packages/vue) · [Docs](https://docs.theauth.dev/vue) · [All packages](https://github.com/glincker/theauth#packages)
+
 Vue plugin and composables for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-vue?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-vue)

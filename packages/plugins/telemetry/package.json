@@ -33,7 +33,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/plugins/telemetry"
   },
   "peerDependencies": {
@@ -48,8 +48,10 @@
     "typescript": "^6.0.3",
     "vitest": "^3.0.0"
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://github.com/glincker/theauth/tree/main/packages/plugins/telemetry#readme",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

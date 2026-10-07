@@ -91,10 +91,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/core"
   },
-  "homepage": "https://theauth.dev",
+  "homepage": "https://docs.theauth.dev/concepts",
   "dependencies": {
     "drizzle-orm": "^0.41.0",
     "jose": "^6.0.0",
@@ -136,7 +136,9 @@
       "optional": true
     }
   },
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   }

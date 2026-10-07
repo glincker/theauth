@@ -1,5 +1,7 @@
 # @glinr/theauth-client
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-client) · [Source](https://github.com/glincker/theauth/tree/main/packages/client) · [Docs](https://docs.theauth.dev/client-sdk) · [All packages](https://github.com/glincker/theauth#packages)
+
 Zero-dependency TypeScript REST client for the theAuth API.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-client?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-client)

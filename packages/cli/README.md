@@ -1,5 +1,7 @@
 # @glinr/theauth-cli
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-cli) · [Source](https://github.com/glincker/theauth/tree/main/packages/cli) · [All packages](https://github.com/glincker/theauth#packages)
+
 Setup wizard and dev tools for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-cli)](https://www.npmjs.com/package/@glinr/theauth-cli)

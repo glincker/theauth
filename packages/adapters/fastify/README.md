@@ -1,5 +1,7 @@
 # @glinr/theauth-fastify
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-fastify) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/fastify) · [Docs](https://docs.theauth.dev/adapters/fastify) · [All packages](https://github.com/glincker/theauth#packages)
+
 Fastify adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-fastify)](https://www.npmjs.com/package/@glinr/theauth-fastify)

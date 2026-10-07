@@ -1,5 +1,7 @@
 # @glinr/theauth-react
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-react) · [Source](https://github.com/glincker/theauth/tree/main/packages/react) · [Docs](https://docs.theauth.dev/react) · [All packages](https://github.com/glincker/theauth#packages)
+
 React provider and hooks for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-react?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-react)

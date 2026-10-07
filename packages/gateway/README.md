@@ -1,5 +1,7 @@
 # @glinr/theauth-gateway
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-gateway) · [Source](https://github.com/glincker/theauth/tree/main/packages/gateway) · [Docs](https://docs.theauth.dev/gateway) · [All packages](https://github.com/glincker/theauth#packages)
+
 Standalone auth proxy that enforces theAuth policies in front of any HTTP service.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway)

@@ -1,5 +1,7 @@
 # @glinr/theauth-nextjs
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-nextjs) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs) · [Docs](https://docs.theauth.dev/adapters/nextjs) · [All packages](https://github.com/glincker/theauth#packages)
+
 Next.js adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs)](https://www.npmjs.com/package/@glinr/theauth-nextjs)

@@ -1,5 +1,7 @@
 # @glinr/theauth-ui
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-ui) · [Source](https://github.com/glincker/theauth/tree/main/packages/ui) · [Docs](https://docs.theauth.dev/ui-components) · [All packages](https://github.com/glincker/theauth#packages)
+
 Headless, slot-based auth UI components for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-ui?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-ui)
