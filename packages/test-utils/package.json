@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Test utilities for TheAuth — mock providers, factories, and assertions for auth test suites",
   "license": "MIT",
-  "author": "TheAuth <support@glincker.com>",
+  "author": "TheAuth <support@glinr.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/glincker/theauth.git",
