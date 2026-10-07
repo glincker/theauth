@@ -7,7 +7,7 @@ Nuxt adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-nuxt
+pnpm add @glinr/theauth @glinr/theauth-nuxt
 ```
 
 ## Usage

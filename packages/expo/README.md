@@ -7,7 +7,7 @@ Expo / React Native provider and hooks for TheAuth authentication.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-expo
+npm install @glinr/theauth-expo
 ```
 
 ## Usage

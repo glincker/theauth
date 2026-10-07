@@ -135,5 +135,9 @@
     "mysql2": {
       "optional": true
     }
+  },
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

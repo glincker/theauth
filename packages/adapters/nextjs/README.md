@@ -7,7 +7,7 @@ Next.js adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-nextjs
+pnpm add @glinr/theauth @glinr/theauth-nextjs
 ```
 
 ## Usage

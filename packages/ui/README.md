@@ -7,7 +7,7 @@ Headless, slot-based auth UI components for TheAuth.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-ui
+npm install @glinr/theauth-ui
 ```
 
 ## Usage

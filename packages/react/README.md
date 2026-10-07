@@ -7,7 +7,7 @@ React provider and hooks for TheAuth authentication.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-react
+npm install @glinr/theauth-react
 ```
 
 ## Usage

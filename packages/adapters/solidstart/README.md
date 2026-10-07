@@ -7,7 +7,7 @@ SolidStart adapter for TheAuth.
 ## Install
 
 ```bash
-npm install theauth @glinr/@glinr/theauth-solidstart
+npm install @glinr/theauth @glinr/theauth-solidstart
 ```
 
 ## Usage

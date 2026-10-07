@@ -7,7 +7,7 @@ Vue plugin and composables for TheAuth authentication.
 ## Install
 
 ```bash
-npm install @glinr/@glinr/theauth-vue
+npm install @glinr/theauth-vue
 ```
 
 ## Usage

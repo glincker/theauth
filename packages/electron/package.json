@@ -38,5 +38,17 @@
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^2.0.0"
-  }
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "theauth",
+    "auth",
+    "electron",
+    "desktop",
+    "typescript"
+  ]
 }

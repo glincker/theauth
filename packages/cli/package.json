@@ -39,5 +39,10 @@
     "type": "git",
     "url": "https://github.com/glincker/theauth.git",
     "directory": "packages/cli"
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": "https://github.com/glincker/theauth/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

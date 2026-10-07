@@ -7,7 +7,7 @@ Hono adapter for TheAuth.
 ## Install
 
 ```bash
-pnpm add theauth @glinr/@glinr/theauth-hono
+pnpm add @glinr/theauth @glinr/theauth-hono
 ```
 
 ## Usage

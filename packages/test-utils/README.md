@@ -3,7 +3,7 @@
 Test helpers for apps using TheAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
 
 ```bash
-npm install --save-dev @glinr/@glinr/theauth-test-utils
+npm install --save-dev @glinr/theauth-test-utils
 ```
 
 ## What's in the box
