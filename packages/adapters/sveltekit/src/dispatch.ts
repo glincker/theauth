@@ -88,6 +88,18 @@ function errorResponse(code: string, message: string, status: number): Response 
 	});
 }
 
+/**
+ * Return the machine-readable code of a typed core DelegationError, else null.
+ * Structural check so adapters do not need a runtime import of core.
+ */
+function delegationErrorCode(err: unknown): string | null {
+	if (err instanceof Error && err.name === "DelegationError") {
+		const code = (err as Error & { code?: unknown }).code;
+		if (typeof code === "string") return code;
+	}
+	return null;
+}
+
 function badRequest(message: string): Response {
 	return errorResponse("BAD_REQUEST", message, 400);
 }
@@ -340,7 +352,8 @@ async function handleDelegationCreate(request: Request, theauth: TheAuth): Promi
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to create delegation";
 		if (message.includes("not found")) return notFound(message);
-		if (message.includes("exceeds") || message.includes("depth")) return badRequest(message);
+		const delegationCode = delegationErrorCode(err);
+		if (delegationCode) return errorResponse(delegationCode, message, 400);
 		return internalError(message);
 	}
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../src/db/schema.js";
+import { DelegationError } from "../src/delegation/index.js";
 import type { TheAuth } from "../src/theauth.js";
 import { createTheAuth } from "../src/theauth.js";
 
@@ -132,6 +133,33 @@ describe("delegation chains", () => {
 				expiresAt: new Date(Date.now() + 60 * 60 * 1000),
 			}),
 		).rejects.toThrow("subset");
+	});
+
+	it("throws a typed DelegationError for a subset violation", async () => {
+		const parent = await theauth.agent.create({
+			ownerId: "user-1",
+			name: "typed-parent",
+			type: "autonomous",
+			permissions: [{ resource: "mcp:github", actions: ["read"] }],
+		});
+		const child = await theauth.agent.create({
+			ownerId: "user-1",
+			name: "typed-child",
+			type: "delegated",
+			permissions: [],
+		});
+
+		const err = await theauth
+			.delegate({
+				fromAgent: parent.id,
+				toAgent: child.id,
+				permissions: [{ resource: "mcp:github", actions: ["write"] }],
+				expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+			})
+			.catch((e: unknown) => e);
+
+		expect(err).toBeInstanceOf(DelegationError);
+		expect((err as DelegationError).code).toBe("DELEGATION_PERMISSION_SUBSET");
 	});
 
 	it("tracks effective permissions for delegated agents", async () => {
