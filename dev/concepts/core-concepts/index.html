@@ -2869,7 +2869,7 @@
 </div>
 <h2 id="delegation">Delegation<a class="headerlink" href="#delegation" title="Permanent link">&para;</a></h2>
 <p>An agent can hand a subset of its permissions to a sub-agent. Every hop carries a depth counter, an expiry, and can be revoked independently. Revocation cascades: revoke the parent, every delegated child loses its permissions the next time it calls <code>authorize()</code>.</p>
-<div class="language-ts highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">delegate</span><span class="p">({</span>
+<div class="language-ts highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">delegate</span><span class="p">({</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nx">fromAgent</span><span class="o">:</span><span class="w"> </span><span class="kt">parent.id</span><span class="p">,</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nx">toAgent</span><span class="o">:</span><span class="w"> </span><span class="kt">sub.id</span><span class="p">,</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nx">permissions</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">resource</span><span class="o">:</span><span class="w"> </span><span class="s1">'mcp:github:issues'</span><span class="p">,</span><span class="w"> </span><span class="nx">actions</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">'read'</span><span class="p">]</span><span class="w"> </span><span class="p">}],</span>
@@ -2878,7 +2878,7 @@
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">});</span>
 </span></code></pre></div>
 <h2 id="audit-trail">Audit trail<a class="headerlink" href="#audit-trail" title="Permanent link">&para;</a></h2>
-<p>Every <code>authorize()</code> call writes an entry to <code>kavach_audit_logs</code>. The log is append-only. Entries record agent ID, user ID, resource, action, result (<code>allowed</code>, <code>denied</code>, <code>rate_limited</code>), duration, and timestamp.</p>
+<p>Every <code>authorize()</code> call writes an entry to <code>theauth_audit_logs</code>. The log is append-only. Entries record agent ID, user ID, resource, action, result (<code>allowed</code>, <code>denied</code>, <code>rate_limited</code>), duration, and timestamp.</p>
 <p>The <code>auditId</code> returned by <code>authorize()</code> links the decision to its log entry.</p>
 <h2 id="trust-scoring">Trust scoring<a class="headerlink" href="#trust-scoring" title="Permanent link">&para;</a></h2>
 <p>Each agent has a TrustScore: a 0-100 number computed from the audit log. New agents start at 50. Successful calls raise the score; denials and anomalies lower it. The score maps to five named levels:</p>

@@ -2825,37 +2825,37 @@
 <tr>
 <td><code>@glinr/theauth-hono</code></td>
 <td>Hono</td>
-<td><code>app.route('/api/kavach', kavachHono(kavach))</code></td>
+<td><code>app.route('/api/theauth', theAuthHono(theauth))</code></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-express</code></td>
 <td>Express</td>
-<td><code>app.use('/api/kavach', kavachExpress(kavach))</code></td>
+<td><code>app.use('/api/theauth', theAuthExpress(theauth))</code></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-nextjs</code></td>
 <td>Next.js App Router</td>
-<td>catch-all route <code>app/api/kavach/[...kavach]/route.ts</code></td>
+<td>catch-all route <code>app/api/theauth/[...theauth]/route.ts</code></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-fastify</code></td>
 <td>Fastify</td>
-<td><code>app.register(authFastify(kavach), { prefix: '/api/kavach' })</code></td>
+<td><code>app.register(authFastify(theauth), { prefix: '/api/theauth' })</code></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-nuxt</code></td>
 <td>Nuxt (H3)</td>
-<td>catch-all file <code>server/api/kavach/[...].ts</code></td>
+<td>catch-all file <code>server/api/theauth/[...].ts</code></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-sveltekit</code></td>
 <td>SvelteKit</td>
-<td>catch-all route <code>src/routes/api/kavach/[...path]/+server.ts</code></td>
+<td>catch-all route <code>src/routes/api/theauth/[...path]/+server.ts</code></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-astro</code></td>
 <td>Astro</td>
-<td>catch-all page <code>src/pages/api/kavach/[...path].ts</code></td>
+<td>catch-all page <code>src/pages/api/theauth/[...path].ts</code></td>
 </tr>
 </tbody>
 </table>

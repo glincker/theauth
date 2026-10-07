@@ -2824,7 +2824,7 @@
 
 <h1 id="policy-templates">Policy Templates<a class="headerlink" href="#policy-templates" title="Permanent link">&para;</a></h1>
 <p>Seven pre-built templates for common agent authorization patterns. Each template is a self-contained directory under <code>docs/policies/templates/</code> in the repository. It contains a <code>policy.ts</code> file with the permission definitions and a <code>README.md</code> with the scenario, expected decisions, and notes on engine limitations where relevant.</p>
-<p>Seed the exported arrays into <code>kavach_permissions</code> (and the supporting tables noted in each README), then call <code>engine.evaluate()</code> against them.</p>
+<p>Seed the exported arrays into <code>theauth_permissions</code> (and the supporting tables noted in each README), then call <code>engine.evaluate()</code> against them.</p>
 <h2 id="templates">Templates<a class="headerlink" href="#templates" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2875,7 +2875,7 @@
 <h2 id="how-to-use-a-template">How to use a template<a class="headerlink" href="#how-to-use-a-template" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Copy <code>policy.ts</code> from the template directory into your project.</li>
-<li>Seed the exported permission arrays into <code>kavach_permissions</code> using your database adapter.</li>
+<li>Seed the exported permission arrays into <code>theauth_permissions</code> using your database adapter.</li>
 <li>For templates that need supporting rows (delegation chains, ReBAC tuples, rate-limit counters), follow the instructions in the template's <code>README.md</code>.</li>
 <li>Call <code>engine.evaluate({ subject, action, resource })</code> in your request handler.</li>
 </ol>
@@ -2893,7 +2893,7 @@
 <h2 id="template-02-principal-and-delegate">Template 02: Principal and delegate<a class="headerlink" href="#template-02-principal-and-delegate" title="Permanent link">&para;</a></h2>
 <p>An orchestrator with read+write delegates read-only to a sub-agent with a 1-hour expiry.</p>
 <div class="language-typescript highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Principal (orchestrator)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">orchestrator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">orchestrator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nx">ownerId</span><span class="o">:</span><span class="w"> </span><span class="s1">'user-123'</span><span class="p">,</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">'orchestrator'</span><span class="p">,</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">'autonomous'</span><span class="p">,</span>
@@ -2903,14 +2903,14 @@
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">});</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1">// Sub-agent (delegated)</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="kd">const</span><span class="w"> </span><span class="nx">delegate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="kd">const</span><span class="w"> </span><span class="nx">delegate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nx">ownerId</span><span class="o">:</span><span class="w"> </span><span class="s1">'user-123'</span><span class="p">,</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">'delegate'</span><span class="p">,</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">'delegated'</span><span class="p">,</span>
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="nx">permissions</span><span class="o">:</span><span class="w"> </span><span class="p">[],</span>
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">});</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">delegate</span><span class="p">({</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">delegate</span><span class="p">({</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="nx">fromAgent</span><span class="o">:</span><span class="w"> </span><span class="kt">orchestrator.id</span><span class="p">,</span>
 </span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">  </span><span class="nx">toAgent</span><span class="o">:</span><span class="w"> </span><span class="kt">delegate.id</span><span class="p">,</span>
 </span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">  </span><span class="nx">permissions</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">resource</span><span class="o">:</span><span class="w"> </span><span class="s1">'mcp:github:*'</span><span class="p">,</span><span class="w"> </span><span class="nx">actions</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">'read'</span><span class="p">]</span><span class="w"> </span><span class="p">}],</span>

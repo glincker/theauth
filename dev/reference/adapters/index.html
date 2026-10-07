@@ -2797,49 +2797,49 @@
 <tr>
 <td><code>@glinr/theauth-nextjs</code></td>
 <td>Next.js App Router</td>
-<td>catch-all route <code>app/api/kavach/[...kavach]/route.ts</code></td>
+<td>catch-all route <code>app/api/theauth/[...theauth]/route.ts</code></td>
 <td><a href="../../guides/frameworks/nextjs/">Next.js</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-hono</code></td>
 <td>Hono</td>
-<td><code>app.route('/api/kavach', kavachHono(kavach))</code></td>
+<td><code>app.route('/api/theauth', theAuthHono(theauth))</code></td>
 <td><a href="../../guides/frameworks/hono/">Hono</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-express</code></td>
 <td>Express</td>
-<td><code>app.use('/api/kavach', kavachExpress(kavach))</code></td>
+<td><code>app.use('/api/theauth', theAuthExpress(theauth))</code></td>
 <td><a href="../../guides/frameworks/express/">Express</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-fastify</code></td>
 <td>Fastify</td>
-<td><code>app.register(authFastify(kavach), { prefix: '/api/kavach' })</code></td>
+<td><code>app.register(authFastify(theauth), { prefix: '/api/theauth' })</code></td>
 <td><a href="../../guides/frameworks/fastify/">Fastify</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-nestjs</code></td>
 <td>NestJS</td>
-<td><code>TheAuthModule.forRoot({ kavach })</code> in <code>AppModule</code></td>
+<td><code>TheAuthModule.forRoot({ theauth })</code> in <code>AppModule</code></td>
 <td><a href="../../guides/frameworks/nestjs/">NestJS</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-nuxt</code></td>
 <td>Nuxt (H3)</td>
-<td>catch-all file <code>server/api/kavach/[...].ts</code></td>
+<td>catch-all file <code>server/api/theauth/[...].ts</code></td>
 <td><a href="../../guides/frameworks/nuxt/">Nuxt</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-sveltekit</code></td>
 <td>SvelteKit</td>
-<td>catch-all route <code>src/routes/api/kavach/[...path]/+server.ts</code></td>
+<td>catch-all route <code>src/routes/api/theauth/[...path]/+server.ts</code></td>
 <td><a href="../../guides/frameworks/sveltekit/">SvelteKit</a></td>
 </tr>
 <tr>
 <td><code>@glinr/theauth-astro</code></td>
 <td>Astro</td>
-<td>catch-all page <code>src/pages/api/kavach/[...path].ts</code></td>
+<td>catch-all page <code>src/pages/api/theauth/[...path].ts</code></td>
 <td><a href="../../guides/frameworks/astro/">Astro</a></td>
 </tr>
 </tbody>
@@ -2941,7 +2941,7 @@
 <p>A TypeScript equivalent of the storagetest contract suite for verifying custom database adapters is planned.</p>
 </div>
 <h2 id="endpoints-registered-by-all-adapters">Endpoints registered by all adapters<a class="headerlink" href="#endpoints-registered-by-all-adapters" title="Permanent link">&para;</a></h2>
-<p>Every framework adapter registers the same REST endpoints at its mount path (default <code>/api/kavach</code>):</p>
+<p>Every framework adapter registers the same REST endpoints at its mount path (default <code>/api/theauth</code>):</p>
 <table>
 <thead>
 <tr>

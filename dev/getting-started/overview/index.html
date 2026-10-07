@@ -2816,9 +2816,9 @@
 </ul>
 <h2 id="where-it-fits">Where it fits<a class="headerlink" href="#where-it-fits" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Human user signs in       --&gt; your auth library (Clerk, Auth.js, better-auth)
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>User creates an agent     --&gt; TheAuth (kavach.agent.create)
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Agent calls a tool        --&gt; TheAuth (kavach.authorize)
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Decision is logged        --&gt; TheAuth (kavach_audit_logs)
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>User creates an agent     --&gt; TheAuth (theauth.agent.create)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Agent calls a tool        --&gt; TheAuth (theauth.authorize)
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Decision is logged        --&gt; TheAuth (theauth_audit_logs)
 </span></code></pre></div>
 <p>TheAuth receives the user ID from your auth library and takes over from there.</p>
 <h2 id="core-entities">Core entities<a class="headerlink" href="#core-entities" title="Permanent link">&para;</a></h2>

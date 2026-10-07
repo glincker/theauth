@@ -2740,11 +2740,11 @@
 <p><strong>Auth for AI agents.</strong> TheAuth gives every agent its own identity, checks permissions at call time, and writes an audit row for every decision. Plugs in after your human auth (Clerk, Auth.js, better-auth, or your own). Runs on Node, edge, Workers, Deno, and Bun.</p>
 <div class="language-ts highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">createTheAuth</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'@glinr/theauth'</span><span class="p">;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">kavach</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">createTheAuth</span><span class="p">({</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nx">database</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">provider</span><span class="o">:</span><span class="w"> </span><span class="s1">'sqlite'</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="s1">'kavach.db'</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">theauth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">createTheAuth</span><span class="p">({</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nx">database</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">provider</span><span class="o">:</span><span class="w"> </span><span class="s1">'sqlite'</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="s1">'theauth.db'</span><span class="w"> </span><span class="p">},</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">});</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kd">const</span><span class="w"> </span><span class="nx">agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kd">const</span><span class="w"> </span><span class="nx">agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nx">ownerId</span><span class="o">:</span><span class="w"> </span><span class="kt">user.id</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">'code-reviewer'</span><span class="p">,</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">'autonomous'</span><span class="p">,</span>
@@ -2753,7 +2753,7 @@
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="p">],</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">});</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">allowed</span><span class="p">,</span><span class="w"> </span><span class="nx">auditId</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">authorize</span><span class="p">(</span><span class="nx">agent</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">allowed</span><span class="p">,</span><span class="w"> </span><span class="nx">auditId</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">authorize</span><span class="p">(</span><span class="nx">agent</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="nx">action</span><span class="o">:</span><span class="w"> </span><span class="s1">'read'</span><span class="p">,</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">  </span><span class="nx">resource</span><span class="o">:</span><span class="w"> </span><span class="s1">'mcp:github:repos'</span><span class="p">,</span>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">});</span>
@@ -2829,9 +2829,9 @@
 <h2 id="how-it-fits-your-stack">How it fits your stack<a class="headerlink" href="#how-it-fits-your-stack" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
   User([Human user]) --&gt;|signs in| HumanAuth[Clerk / Auth.js / better-auth]
-  HumanAuth --&gt;|user ID| Kavach[TheAuth]
-  Kavach --&gt;|agent.create| Agents[(Agents)]
-  Kavach --&gt;|authorize| Decision{allowed?}
+  HumanAuth --&gt;|user ID| TheAuth[TheAuth]
+  TheAuth --&gt;|agent.create| Agents[(Agents)]
+  TheAuth --&gt;|authorize| Decision{allowed?}
   Decision --&gt;|yes| Tools[MCP servers, APIs, databases]
   Decision -.-&gt;|logged either way| Audit[(Audit trail)]</code></pre>
 <div class="admonition info">
@@ -2856,12 +2856,12 @@
 <tr>
 <td><a href="guides/frameworks/hono/">Hono</a></td>
 <td><code>@glinr/theauth-hono</code></td>
-<td><code>app.route('/api/kavach', ...)</code></td>
+<td><code>app.route('/api/theauth', ...)</code></td>
 </tr>
 <tr>
 <td><a href="guides/frameworks/express/">Express</a></td>
 <td><code>@glinr/theauth-express</code></td>
-<td><code>app.use('/api/kavach', ...)</code></td>
+<td><code>app.use('/api/theauth', ...)</code></td>
 </tr>
 <tr>
 <td><a href="guides/frameworks/fastify/">Fastify</a></td>

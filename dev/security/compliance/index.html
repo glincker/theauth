@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Audit infrastructure for EU AI Act, NIST AI RMF, SOC 2, and ISO 42001. Agent actions write immutable records to kavach_audit_logs with identity, resource, and action.">
+        <meta name="description" content="Audit infrastructure for EU AI Act, NIST AI RMF, SOC 2, and ISO 42001. Agent actions write immutable records to theauth_audit_logs with identity, resource, and action.">
       
       
       
@@ -2820,7 +2820,7 @@
 <tbody>
 <tr>
 <td>Immutable audit log</td>
-<td><code>kavach_audit_logs</code> table with result, reason, duration, IP, user-agent</td>
+<td><code>theauth_audit_logs</code> table with result, reason, duration, IP, user-agent</td>
 </tr>
 <tr>
 <td>Human oversight</td>
@@ -2836,7 +2836,7 @@
 </tr>
 <tr>
 <td>Export</td>
-<td><code>kavach.audit.export()</code> as JSON or CSV</td>
+<td><code>theauth.audit.export()</code> as JSON or CSV</td>
 </tr>
 <tr>
 <td>Anomaly detection</td>
@@ -2854,7 +2854,7 @@
 <li>Trust scoring that adjusts agent autonomy based on track record</li>
 </ul>
 <p><strong>Article 12 - Record-keeping</strong></p>
-<p>The <code>kavach_audit_logs</code> table is append-only. Entries record agent ID, user ID, action, resource, outcome, duration, and timestamp. Export via <code>kavach.audit.export({ format: 'csv' })</code> to produce records for regulators.</p>
+<p>The <code>theauth_audit_logs</code> table is append-only. Entries record agent ID, user ID, action, resource, outcome, duration, and timestamp. Export via <code>theauth.audit.export({ format: 'csv' })</code> to produce records for regulators.</p>
 <p><strong>Article 14 - Human oversight</strong></p>
 <p>The <code>requireApproval</code> constraint on any permission triggers a CIBA-style approval flow. No action proceeds until a human approves it. Delegation depth limits (<code>maxDepth</code>) prevent unbounded autonomous chains.</p>
 <h2 id="nist-ai-rmf">NIST AI RMF<a class="headerlink" href="#nist-ai-rmf" title="Permanent link">&para;</a></h2>

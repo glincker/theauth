@@ -2032,10 +2032,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#in-memory-kavach-instance" class="md-nav__link">
+  <a href="#in-memory-theauth-instance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        In-memory kavach instance
+        In-memory theauth instance
       
     </span>
   </a>
@@ -2714,10 +2714,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#in-memory-kavach-instance" class="md-nav__link">
+  <a href="#in-memory-theauth-instance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        In-memory kavach instance
+        In-memory theauth instance
       
     </span>
   </a>
@@ -2837,31 +2837,31 @@
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1">// resolved.id === user.id</span>
 </span></code></pre></div>
 <h2 id="per-request-user-override">Per-request user override<a class="headerlink" href="#per-request-user-override" title="Permanent link">&para;</a></h2>
-<p>Set the <code>x-mock-kavach-user-id</code> header on a <code>Request</code> to override the active user for that specific request only, without calling <code>setActiveUser</code>:</p>
+<p>Set the <code>x-mock-theauth-user-id</code> header on a <code>Request</code> to override the active user for that specific request only, without calling <code>setActiveUser</code>:</p>
 <div class="language-ts highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">MOCK_USER_ID_HEADER</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'@glinr/theauth-test-utils'</span><span class="p">;</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">req</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Request</span><span class="p">(</span><span class="s1">'https://example.com'</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">[</span><span class="nx">MOCK_USER_ID_HEADER</span><span class="p">]</span><span class="o">:</span><span class="w"> </span><span class="nx">user</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="p">},</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">});</span>
 </span></code></pre></div>
-<h2 id="in-memory-kavach-instance">In-memory kavach instance<a class="headerlink" href="#in-memory-kavach-instance" title="Permanent link">&para;</a></h2>
+<h2 id="in-memory-theauth-instance">In-memory theauth instance<a class="headerlink" href="#in-memory-theauth-instance" title="Permanent link">&para;</a></h2>
 <p>For integration tests, use SQLite in-memory mode with <code>createTheAuth</code>:</p>
 <div class="language-ts highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">createTheAuth</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'@glinr/theauth'</span><span class="p">;</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">kavach</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">createTheAuth</span><span class="p">({</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">theauth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">createTheAuth</span><span class="p">({</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nx">database</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">provider</span><span class="o">:</span><span class="w"> </span><span class="s1">'sqlite'</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="s1">':memory:'</span><span class="w"> </span><span class="p">},</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nx">agents</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">enabled</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">auditAll</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w"> </span><span class="p">},</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">});</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1">// Tests run against a fresh in-memory database</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="kd">const</span><span class="w"> </span><span class="nx">agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="kd">const</span><span class="w"> </span><span class="nx">agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">agent</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nx">ownerId</span><span class="o">:</span><span class="w"> </span><span class="s1">'test-user'</span><span class="p">,</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">'test-agent'</span><span class="p">,</span>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">'autonomous'</span><span class="p">,</span>
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nx">permissions</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">resource</span><span class="o">:</span><span class="w"> </span><span class="s1">'mcp:*'</span><span class="p">,</span><span class="w"> </span><span class="nx">actions</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">'read'</span><span class="p">]</span><span class="w"> </span><span class="p">}],</span>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">});</span>
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">kavach</span><span class="p">.</span><span class="nx">authorize</span><span class="p">(</span><span class="nx">agent</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">theauth</span><span class="p">.</span><span class="nx">authorize</span><span class="p">(</span><span class="nx">agent</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span><span class="nx">action</span><span class="o">:</span><span class="w"> </span><span class="s1">'read'</span><span class="p">,</span>
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">  </span><span class="nx">resource</span><span class="o">:</span><span class="w"> </span><span class="s1">'mcp:github:repos'</span><span class="p">,</span>
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="p">});</span>
