@@ -53,7 +53,7 @@ If adapters are affected, confirm you tested against the relevant one.
 
 - [ ] Not needed (internal change)
 - [ ] Updated inline JSDoc / types
-- [ ] Updated `docs/` or `docs-site/`
+- [ ] Updated `docs/`
 - [ ] External docs update needed (link issue or PR)
 
 ## Em-dash check
