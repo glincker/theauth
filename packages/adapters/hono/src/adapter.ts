@@ -89,6 +89,18 @@ function errorResponse(code: string, message: string, status: number) {
 	});
 }
 
+/**
+ * Return the machine-readable code of a typed core DelegationError, else null.
+ * Structural check so adapters do not need a runtime import of core.
+ */
+function delegationErrorCode(err: unknown): string | null {
+	if (err instanceof Error && err.name === "DelegationError") {
+		const code = (err as Error & { code?: unknown }).code;
+		if (typeof code === "string") return code;
+	}
+	return null;
+}
+
 function badRequest(message: string) {
 	return errorResponse("BAD_REQUEST", message, 400);
 }
@@ -439,8 +451,9 @@ export function theAuthHono(theauth: TheAuth, options?: { mcp?: McpAuthModule })
 				const res = notFound(message);
 				return c.newResponse(res.body, res);
 			}
-			if (message.includes("exceeds") || message.includes("depth")) {
-				const res = badRequest(message);
+			const delegationCode = delegationErrorCode(err);
+			if (delegationCode) {
+				const res = errorResponse(delegationCode, message, 400);
 				return c.newResponse(res.body, res);
 			}
 			const res = internalError(message);

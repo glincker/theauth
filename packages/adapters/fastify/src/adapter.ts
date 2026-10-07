@@ -91,6 +91,18 @@ function sendError(
 		.send({ error: { code, message } });
 }
 
+/**
+ * Return the machine-readable code of a typed core DelegationError, else null.
+ * Structural check so adapters do not need a runtime import of core.
+ */
+function delegationErrorCode(err: unknown): string | null {
+	if (err instanceof Error && err.name === "DelegationError") {
+		const code = (err as Error & { code?: unknown }).code;
+		if (typeof code === "string") return code;
+	}
+	return null;
+}
+
 function sendBadRequest(reply: FastifyReply, message: string): FastifyReply {
 	return sendError(reply, "BAD_REQUEST", message, 400);
 }
@@ -449,8 +461,8 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to create delegation";
 				if (message.includes("not found")) return sendNotFound(reply, message);
-				if (message.includes("exceeds") || message.includes("depth"))
-					return sendBadRequest(reply, message);
+				const delegationCode = delegationErrorCode(err);
+				if (delegationCode) return sendError(reply, delegationCode, message, 400);
 				return sendInternalError(reply, message);
 			}
 		});

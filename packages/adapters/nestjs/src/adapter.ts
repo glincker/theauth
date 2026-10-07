@@ -88,6 +88,18 @@ function sendError(res: Response, code: string, message: string, status: number)
 	res.status(status).json({ error: { code, message } });
 }
 
+/**
+ * Return the machine-readable code of a typed core DelegationError, else null.
+ * Structural check so adapters do not need a runtime import of core.
+ */
+function delegationErrorCode(err: unknown): string | null {
+	if (err instanceof Error && err.name === "DelegationError") {
+		const code = (err as Error & { code?: unknown }).code;
+		if (typeof code === "string") return code;
+	}
+	return null;
+}
+
 function sendBadRequest(res: Response, message: string): void {
 	sendError(res, "BAD_REQUEST", message, 400);
 }
@@ -420,8 +432,9 @@ export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
 					sendNotFound(res, message);
 					return;
 				}
-				if (message.includes("exceeds") || message.includes("depth")) {
-					sendBadRequest(res, message);
+				const delegationCode = delegationErrorCode(err);
+				if (delegationCode) {
+					sendError(res, delegationCode, message, 400);
 					return;
 				}
 				sendInternalError(res, message);

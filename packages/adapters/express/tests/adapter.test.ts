@@ -480,6 +480,30 @@ describe("Express adapter", () => {
 			expect(res.status).toBe(400);
 		});
 
+		it("returns 400 DELEGATION_PERMISSION_SUBSET when child exceeds parent permissions", async () => {
+			const { id: fromId } = await createTestAgent(app, {
+				name: "narrow-parent",
+				permissions: [{ resource: "mcp:github", actions: ["read"] }],
+			});
+			const { id: toId } = await createTestAgent(app, { name: "greedy-child" });
+			const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+			const res = await request(app)
+				.post("/delegations")
+				.set("Content-Type", "application/json")
+				.send({
+					fromAgent: fromId,
+					toAgent: toId,
+					permissions: [{ resource: "mcp:github", actions: ["read", "write"] }],
+					expiresAt,
+				});
+
+			expect(res.status).toBe(400);
+			const body = res.body as { error: { code: string; message: string } };
+			expect(body.error.code).toBe("DELEGATION_PERMISSION_SUBSET");
+			expect(body.error.message).toContain("subset");
+		});
+
 		it("returns 404 when source agent does not exist", async () => {
 			const { id: toId } = await createTestAgent(app, { name: "real-child" });
 			const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();

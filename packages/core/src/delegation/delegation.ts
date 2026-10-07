@@ -53,6 +53,22 @@ function isResourceSubset(parentResource: string, childResource: string): boolea
 	return parentParts.length <= childParts.length;
 }
 
+export type DelegationErrorCode = "DELEGATION_PERMISSION_SUBSET" | "DELEGATION_DEPTH_EXCEEDED";
+
+/**
+ * Typed error for delegation requests that are invalid by caller input.
+ * Adapters map it to HTTP 400 using `code`.
+ */
+export class DelegationError extends Error {
+	readonly code: DelegationErrorCode;
+
+	constructor(code: DelegationErrorCode, message: string) {
+		super(message);
+		this.name = "DelegationError";
+		this.code = code;
+	}
+}
+
 /**
  * Create the delegation module.
  * Handles agent-to-agent permission delegation with chain tracking.
@@ -66,7 +82,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 	): Promise<DelegationChain> {
 		// Validate permissions are a subset
 		if (!isPermissionSubset(parentPermissions, input.permissions)) {
-			throw new Error(
+			throw new DelegationError(
+				"DELEGATION_PERMISSION_SUBSET",
 				"Delegated permissions must be a subset of the parent agent's permissions. " +
 					"A child agent cannot have more access than its parent.",
 			);
@@ -86,7 +103,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		const maxDepth = input.maxDepth ?? 3;
 
 		if (currentDepth > maxDepth) {
-			throw new Error(
+			throw new DelegationError(
+				"DELEGATION_DEPTH_EXCEEDED",
 				`Delegation depth ${currentDepth} exceeds maximum allowed depth of ${maxDepth}. ` +
 					"This prevents infinite delegation chains.",
 			);
