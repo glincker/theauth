@@ -4,7 +4,9 @@ description: Issue guest sessions with `anonymousAuth`, then upgrade them to rea
 icon: key
 ---
 
-The `anonymousAuth` plugin creates a lightweight guest identity on demand. The guest gets a real session and can use your app fully. When they decide to register, their data migrates to the new account without any loss.
+The `anonymousAuth` plugin creates a lightweight guest identity on demand. The guest gets a real session and can use your app. When they decide to register, the guest user is upgraded in place by setting an email, so the user ID and any data tied to it are unchanged.
+
+Anonymous users are rows in the users table with a placeholder email (`anon_<id>@theauth.anonymous`) and a `{ anonymous: true }` metadata flag.
 
 ## Setup
 
@@ -14,88 +16,95 @@ import { anonymousAuth } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // [!code highlight]
   plugins: [
     anonymousAuth({ // [!code highlight]
-      guestExpiry: 7 * 24 * 60 * 60, // 7 days in seconds // [!code highlight]
+      sessionTtlSeconds: 24 * 60 * 60, // [!code highlight]
     }), // [!code highlight]
   ],
 });
 ```
 
+The plugin throws at startup unless `auth.session` is configured. Its config is optional, `anonymousAuth()` works with defaults.
+
 ## Create guest
 
 `POST /auth/anonymous`
 
-Creates a new anonymous user and returns a session. No request body needed.
+Creates a new anonymous user and returns a session token. No request body needed.
 
 ```typescript title="Create guest (client)"
-const res = await fetch('/auth/anonymous', {
+const res = await fetch('/api/theauth/auth/anonymous', {
   method: 'POST',
-  credentials: 'include',
 });
 
-const { user, session } = await res.json();
-// user.isAnonymous === true
-// user.id is a real user ID, safe to reference in your DB
+const { userId, sessionToken } = await res.json();
+// userId is a real user ID, safe to reference in your DB
 ```
 
-The response shape is the same as any other sign-in. `user.isAnonymous` is `true` and the `email` and `name` fields are `null`.
+The response is `{ userId, sessionToken }`. The plugin does not set a cookie, so your app stores the token. The endpoint is rate limited per IP address (20 requests per window).
+
+## Check status
+
+`GET /auth/anonymous/status`
+
+Requires an authenticated request. Returns `{ anonymous: boolean }`, which is `true` while the user is an un-upgraded guest.
 
 ## Upgrade to real account
 
 `POST /auth/anonymous/upgrade`
 
-Requires an active anonymous session. Converts the guest to a permanent user. The session stays active, the user ID does not change.
+Requires an authenticated anonymous session. Sets the real email (and optionally a name) on the guest user. The session stays valid and the user ID does not change.
 
 ```typescript title="Upgrade guest (client)"
-const res = await fetch('/auth/anonymous/upgrade', {
+const res = await fetch('/api/theauth/auth/anonymous/upgrade', {
   method: 'POST',
-  credentials: 'include',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${sessionToken}`,
+  },
   body: JSON.stringify({
     email: 'user@example.com', // [!code highlight]
-    password: 'correct horse battery', // [!code highlight]
     name: 'Ada Lovelace',
   }),
 });
 
-const { user } = await res.json();
-// user.isAnonymous === false
+const { upgraded } = await res.json(); // true
 ```
 
-After upgrade, `user.isAnonymous` becomes `false` and the account is treated the same as one registered normally. If `emailPassword` is also active, the email-verification flow applies.
+The body takes `email` (required) and `name`. It does not take a password, so after upgrading you attach a sign-in method (for example magic link or email OTP) to that email. The endpoint does not check whether the email is already used by another account, and users have a unique email constraint, so a duplicate email fails with a `500` error.
 
-**Error codes**
+**Error responses**
 
-| Code | Status | Meaning |
-|------|--------|---------|
-| `EMAIL_TAKEN` | 409 | Email already registered to another account |
-| `NOT_ANONYMOUS` | 400 | The session belongs to a non-guest user |
+| Status | Meaning |
+|--------|---------|
+| 400 | `email` missing, or the user is not an anonymous user |
+| 401 | No authenticated session |
+| 500 | Any other failure, including an email that is already taken |
 
 ## Guest cleanup
 
-Expired anonymous accounts can accumulate. Schedule regular cleanup with the built-in helper:
+Anonymous accounts that are never upgraded accumulate. The plugin does not schedule cleanup and does not expose the cleanup function. Use the module directly, with the instance's database and session manager:
 
 ```typescript title="Scheduled cleanup"
-import { cleanupAnonymousUsers } from '@glinr/theauth/auth';
+import { createAnonymousAuthModule } from '@glinr/theauth/auth';
+
+const anonymous = createAnonymousAuthModule({}, theauth.db, theauth.auth.session!);
 
 // Run daily via cron, queue worker, etc.
-await cleanupAnonymousUsers(theauth, {
-  olderThan: 7 * 24 * 60 * 60, // delete guests inactive for 7+ days
-  dryRun: false,
-});
+const removed = await anonymous.cleanup(7 * 24 * 60 * 60 * 1000); // max age in milliseconds
 ```
 
+`cleanup(maxAgeMs)` deletes anonymous users created before the cutoff (default 24 hours) along with their sessions, and returns the number of users removed. It selects on creation time, not last activity.
+
 <Warning>
-  Deleting anonymous users is permanent. Any app data tied to their user ID will become orphaned unless you cascade deletes in your schema or handle cleanup in the `onBeforeDelete` hook.
+  Deleting anonymous users is permanent. Any app data tied to their user ID will become orphaned unless you cascade deletes in your schema.
 </Warning>
 
 ## Configuration reference
 
-<ParamField path="guestExpiry" type="number" default="604800 (7 days)">How long an anonymous session lasts before expiring, in seconds.</ParamField>
-<ParamField path="allowUpgrade" type="boolean" default="true">Whether guests can convert to real accounts via the upgrade endpoint.</ParamField>
+<ParamField path="sessionTtlSeconds" type="number" default="86400 (24 hours)">Intended lifetime of anonymous sessions, in seconds. Currently this value is only recorded in the session metadata. The session itself expires after `auth.session.maxAge` (7 days by default).</ParamField>
+<ParamField path="allowAgentCreation" type="boolean" default="false">Whether anonymous users may create agents. Accepted in the config type but not enforced by the plugin endpoints.</ParamField>
 
 ## Related
 
@@ -110,6 +119,6 @@ await cleanupAnonymousUsers(theauth, {
     How TheAuth manages session lifetime and cookie settings.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Run logic on guest creation and upgrade events.
+    Lifecycle hooks you can attach to your instance.
   </Card>
 </CardGroup>

@@ -4,88 +4,101 @@ description: Protect sign-up and sign-in endpoints with Cloudflare Turnstile, hC
 icon: shield-halved
 ---
 
-The `captcha` plugin adds bot protection to any TheAuth endpoint. It validates a client-side token before the request is processed, blocking automated sign-ups and credential stuffing without extra middleware.
+TheAuth verifies captcha tokens against Cloudflare Turnstile, hCaptcha, or Google reCAPTCHA. It ships as a verification module, not a plugin: there is no `captcha()` plugin export, and TheAuth does not intercept your auth endpoints. You pass the `captcha` config key, then call `theauth.captcha` from your own route handlers before you process a sign-up or sign-in request.
 
 ## Supported providers
 
-| Provider | Value |
-|----------|-------|
+| Provider | `provider` value |
+|----------|------------------|
 | Cloudflare Turnstile | `'turnstile'` |
 | hCaptcha | `'hcaptcha'` |
-| Google reCAPTCHA v2 | `'recaptcha-v2'` |
-| Google reCAPTCHA v3 | `'recaptcha-v3'` |
+| Google reCAPTCHA (v2 or v3) | `'recaptcha'` |
 
 ## Setup
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { captcha } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
-  plugins: [
-    captcha({ // [!code highlight]
-      provider: 'turnstile', // [!code highlight]
-      secretKey: process.env.TURNSTILE_SECRET_KEY!, // [!code highlight]
-      endpoints: ['/auth/sign-up', '/auth/sign-in'], // [!code highlight]
-    }), // [!code highlight]
-  ],
+  captcha: { // [!code highlight]
+    provider: 'turnstile', // [!code highlight]
+    secretKey: process.env.TURNSTILE_SECRET_KEY!, // [!code highlight]
+  }, // [!code highlight]
 });
 ```
 
-## Client-side token
+`theauth.captcha` is `null` unless the `captcha` key is passed, so use `theauth.captcha?.` or `theauth.captcha!.` in handlers.
 
-Add the provider's widget to your form. When the user completes the challenge, include the token in the request body as `captchaToken`.
+## Verify a token in your handler
 
-```typescript title="Sign up with captcha token (client)"
-const res = await fetch('/auth/sign-up', {
+Add the provider's widget to your form and send the token to your server. Check it with `verify`, passing the client IP when you have it:
+
+```typescript title="Protect a sign-up route (server)"
+export async function POST(request: Request): Promise<Response> {
+  const { captchaToken } = (await request.clone().json()) as { captchaToken?: string };
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+
+  const result = await theauth.captcha?.verify(captchaToken ?? '', ip); // [!code highlight]
+  if (!result?.success) {
+    return new Response(JSON.stringify({ error: result?.error ?? 'Captcha failed' }), { status: 403 });
+  }
+
+  // ...continue with sign-up
+  return new Response('ok');
+}
+```
+
+`verify(token, ip?)` returns `{ success: boolean, score?: number, error?: string }`. An empty token returns `{ success: false, error: 'Missing captcha token' }`. A network failure or non-2xx response from the provider also returns `success: false` with an `error` message.
+
+## Header-based check
+
+`theauth.captcha.middleware(request)` reads the token from the `X-Captcha-Token` request header and returns `{ valid: boolean, error?: string }`. It takes the client IP from `CF-Connecting-IP` or the first `X-Forwarded-For` entry.
+
+```typescript title="Header check (server)"
+const check = await theauth.captcha?.middleware(request);
+if (!check?.valid) {
+  return new Response(JSON.stringify({ error: check?.error }), { status: 403 });
+}
+```
+
+```typescript title="Client"
+await fetch('/api/sign-up', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'correct horse battery',
-    captchaToken: turnstile.getResponse(), // [!code highlight]
-  }),
+  headers: { 'Content-Type': 'application/json', 'X-Captcha-Token': token },
+  body: JSON.stringify({ username: 'ada', password: 'correct horse battery' }),
 });
 ```
-
-The `captchaToken` field is stripped from the request before it reaches other plugins. Other plugin handlers never see it.
-
-**Error codes**
-
-| Code | Status | Meaning |
-|------|--------|---------|
-| `CAPTCHA_MISSING` | 400 | Request did not include a token |
-| `CAPTCHA_INVALID` | 403 | Provider rejected the token |
 
 ## reCAPTCHA v3 score threshold
 
-For reCAPTCHA v3, set a minimum score (0.0–1.0). Requests below the threshold are rejected:
+With `provider: 'recaptcha'`, when the provider response includes a `score` (reCAPTCHA v3), `verify` rejects scores below `minScore` (0.0 to 1.0, default 0.5):
 
 ```typescript title="lib/theauth.ts"
-captcha({
-  provider: 'recaptcha-v3',
-  secretKey: process.env.RECAPTCHA_SECRET!,
-  minScore: 0.5, // [!code highlight]
-  endpoints: ['/auth/sign-up'],
-}),
+const theauth = await createTheAuth({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  captcha: {
+    provider: 'recaptcha',
+    secretKey: process.env.RECAPTCHA_SECRET!,
+    minScore: 0.5, // [!code highlight]
+  },
+});
 ```
+
+`minScore` is ignored for Turnstile and hCaptcha. For hCaptcha, a `score` from the provider is returned in the result but not compared with a threshold.
 
 ## Configuration reference
 
-<ParamField path="provider" type="" required>Captcha provider to use.</ParamField>
+<ParamField path="provider" type={`'recaptcha' | 'hcaptcha' | 'turnstile'`} required>Captcha provider to use.</ParamField>
 <ParamField path="secretKey" type="string" required>Server-side secret key from the provider dashboard.</ParamField>
-<ParamField path="endpoints" type="string[]" default="[">List of endpoint paths where captcha validation is enforced. Defaults to sign-up and sign-in.</ParamField>
 <ParamField path="minScore" type="number" default={0.5}>Minimum score for reCAPTCHA v3. Ignored for other providers.</ParamField>
-<ParamField path="fieldName" type="string">Request body field that contains the captcha token.</ParamField>
+<ParamField path="protectedEndpoints" type="string[]">Endpoint names intended to require captcha (documented default: `sign-up`, `sign-in`, `reset-password`). Accepted in the config type, but TheAuth does not currently read it, so enforcement is up to your own handlers.</ParamField>
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Email and password" href="/auth/email-password" icon="envelope">
-    Sign-up and sign-in endpoints that captcha protection applies to.
+  <Card title="Username and password" href="/auth/username" icon="key">
+    A sign-up and sign-in flow you can put captcha checks in front of.
   </Card>
   <Card title="Anonymous auth" href="/auth/anonymous" icon="user-secret">
     Guest sessions as an alternative to requiring sign-up upfront.
@@ -94,6 +107,6 @@ captcha({
     Request-level rate limiting for agent and auth endpoints.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Run custom validation logic before sign-up or sign-in.
+    Lifecycle hooks you can attach to your instance.
   </Card>
 </CardGroup>

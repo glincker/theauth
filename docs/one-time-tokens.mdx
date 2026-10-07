@@ -16,12 +16,18 @@ import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
 });
 
 // Access the module
 const tokens = theauth.oneTimeTokens;
+```
+
+`theauth.oneTimeTokens` is always available and uses the default config (one hour TTL). To change the default TTL, create your own instance with `createOneTimeTokenModule`:
+
+```typescript
+import { createOneTimeTokenModule } from '@glinr/theauth/auth';
+
+const customTokens = createOneTimeTokenModule({ defaultTtlSeconds: 1800 }, theauth.db);
 ```
 
 ## Token purposes
@@ -83,7 +89,7 @@ const result = await tokens.createToken({
   </Tab>
 </Tabs>
 
-The default TTL is **3600 seconds** (1 hour). Override it per call with `ttlSeconds`, or set `defaultTtlSeconds` on the module config to change the default for all tokens.
+The default TTL is **3600 seconds** (1 hour). Override it per call with `ttlSeconds`, or set `defaultTtlSeconds` on a module you create with `createOneTimeTokenModule` to change the default for all tokens. The raw token is 64 hex characters (32 random bytes).
 
 ## Validating a token
 
@@ -98,6 +104,7 @@ const result = await tokens.validateToken(
 if (!result.success) {
   // result.error.code is one of:
   // TOKEN_NOT_FOUND | TOKEN_ALREADY_USED | TOKEN_EXPIRED | TOKEN_PURPOSE_MISMATCH
+  // (also INVALID_INPUT and CONSUME_TOKEN_FAILED)
   return { error: result.error.message };
 }
 
@@ -126,7 +133,7 @@ if (result.success) {
 await tokens.revokeTokens(user.id);
 ```
 
-Revocation is a soft operation, tokens are marked as used, not deleted. Expired tokens are excluded from the count.
+Revocation is a soft operation, tokens are marked as used, not deleted. Only active (unused, unexpired) tokens are counted. The `purpose` argument must be one of the four purpose values.
 
 ## Attaching metadata
 
@@ -155,15 +162,16 @@ if (validation.success) {
 | `TOKEN_ALREADY_USED` | Token was consumed by a previous call |
 | `TOKEN_EXPIRED` | Token's `expiresAt` is in the past |
 | `TOKEN_PURPOSE_MISMATCH` | Purpose at validation does not match purpose at creation |
-| `INVALID_INPUT` | Empty token string or unknown purpose value |
+| `INVALID_INPUT` | Empty token, purpose or identifier, or an unknown purpose value |
 | `CREATE_TOKEN_FAILED` | Database write failed |
+| `CONSUME_TOKEN_FAILED` | Database update failed while marking the token used |
 | `REVOKE_TOKENS_FAILED` | Database update failed during revocation |
 
 ## Security notes
 
 **Tokens are hashed at rest.** Only a SHA-256 hash is stored. A database dump does not expose usable tokens.
 
-**Single-use enforcement is atomic.** The mark-as-used update runs before the result is returned, with a conditional `WHERE used = false`. Concurrent requests for the same token will fail at the database level.
+**Single-use marking.** The module reads the token, then marks it used with a conditional `WHERE used = false` update before returning. It does not check how many rows the update changed, so two truly simultaneous requests with the same token could both succeed. If that matters for your flow, make the downstream action idempotent. A purpose mismatch returns `TOKEN_PURPOSE_MISMATCH` without consuming the token.
 
 **Purpose binding prevents cross-flow reuse.** A password-reset token cannot be submitted to an email-verify endpoint.
 
@@ -171,15 +179,15 @@ if (validation.success) {
 
 <CardGroup cols={2}>
   <Card title="Sessions" href="/sessions" icon="key">
-    Sessions issued after a token validates a sign-in or reset flow.
+    Cookie and JWT sessions you can issue after a token validates.
   </Card>
   <Card title="Email templates" href="/email-templates" icon="envelope">
-    Send reset and verification emails with the generated token link.
+    Email templates for reset and verification messages.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Lifecycle hooks that fire on password reset and email verification.
+    Lifecycle hooks you can attach to your instance.
   </Card>
   <Card title="Error codes" href="/errors" icon="triangle-exclamation">
-    Token error codes with their HTTP status and meaning.
+    TheAuth error codes with their HTTP status and meaning.
   </Card>
 </CardGroup>

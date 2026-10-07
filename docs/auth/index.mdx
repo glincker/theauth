@@ -6,26 +6,42 @@ icon: key
 
 <Columns cols={2}>
 <div>
-TheAuth runs the sign-in for the humans who own agents. Each method is a plugin you opt into, use only what your app needs. Every provider is wired the same way in code.
+TheAuth runs the sign-in for the humans who own agents. Each method is either a plugin or a config key on `createTheAuth` that you opt into, use only what your app needs. Methods that issue sessions (magic link, email OTP, username, phone, OAuth) need `auth.session` configured.
 
 If you already run Clerk, Auth.js, or better-auth, keep them and skip the plugins. [Plug into an existing provider.](/migrate)
 </div>
 
 ```ts
 import { createTheAuth } from '@glinr/theauth';
-import { emailPassword, oauth } from '@glinr/theauth/auth';
+import {
+  oauth,
+  magicLink,
+  createGoogleProvider,
+  createGithubProvider,
+} from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
-    emailPassword(),
     oauth({
-      providers: [
-        { id: 'google', clientId: process.env.GOOGLE_CLIENT_ID!, clientSecret: process.env.GOOGLE_CLIENT_SECRET! },
-        { id: 'github', clientId: process.env.GITHUB_CLIENT_ID!, clientSecret: process.env.GITHUB_CLIENT_SECRET! },
-      ],
+      providers: {
+        google: createGoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        }),
+        github: createGithubProvider({
+          clientId: process.env.GITHUB_CLIENT_ID!,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        }),
+      },
+    }),
+    magicLink({
+      appUrl: 'https://auth.example.com/api/theauth',
+      sendMagicLink: async (email, _token, url) => {
+        await sendEmail(email, `Sign in: ${url}`);
+      },
     }),
   ],
 });
@@ -36,19 +52,19 @@ const theauth = await createTheAuth({
 
 <CardGroup cols={3}>
   <Card title="Email and password" icon="envelope" href="/auth/email-password">
-    PBKDF2-SHA256 hashing, verification, reset.
+    Why there is no email plus password plugin, and the options.
   </Card>
   <Card title="Username and password" icon="user" href="/auth/username">
-    For apps that prefer handles over email.
+    Built-in password auth with PBKDF2-SHA256 hashing.
   </Card>
   <Card title="Magic link" icon="link" href="/auth/magic-link">
-    One-time link in an email, no password.
+    Single-use link in an email, no password.
   </Card>
   <Card title="Email OTP" icon="hashtag" href="/auth/email-otp">
     Six-digit code via email.
   </Card>
   <Card title="Phone OTP" icon="phone" href="/auth/phone">
-    SMS code, any provider.
+    SMS code, you supply the delivery function.
   </Card>
   <Card title="Passkey" icon="fingerprint" href="/auth/passkey">
     WebAuthn / FIDO2 biometrics and security keys.
@@ -63,7 +79,7 @@ const theauth = await createTheAuth({
     TOTP with backup codes.
   </Card>
   <Card title="Captcha" icon="shield-check" href="/auth/captcha">
-    Turnstile, hCaptcha, reCAPTCHA.
+    Turnstile, hCaptcha, reCAPTCHA token verification.
   </Card>
   <Card title="Anonymous" icon="user-secret" href="/auth/anonymous">
     Throwaway sessions, upgrade on sign-up.
@@ -151,7 +167,9 @@ Don't see your provider? The [generic OAuth factory](/auth/oauth) wires any auth
 
 ## How plugins fit
 
-Every plugin registers routes, tables, and session logic at `createTheAuth()` time. The resulting instance carries `auth.*` methods you call from your handlers.
+Plugins register routes at `createTheAuth()` time, and the instance serves them through `theauth.plugins.handleRequest(request)` (framework adapters do this for you, mounted under `/api/theauth` by default). Several methods are also available as config keys that expose a module on the instance, for example `username`, `phone`, `magicLink`, `emailOtp`, `totp`, `passkey`, `org`, `sso`, `admin`, `apiKeys` and `captcha`. Those properties are `null` unless the matching config key is passed.
+
+To identify the signed-in human, configure an `auth.adapter` (for example `bearerAuth`) or `auth.session`, then resolve the user from a request:
 
 ```ts title="resolving a user from a request"
 const user = await theauth.auth.resolveUser(request);
@@ -162,6 +180,8 @@ if (!user) {
 
 // user.id is the stable owner ID for creating agents
 ```
+
+`theauth.auth.resolveUser` uses the configured `auth.adapter`. It returns `null` when no adapter is set, even if `auth.session` is configured.
 
 <Info>
 Once the user is resolved, TheAuth is done with human auth. The rest of the stack (agents, permissions, audit) hangs off `user.id`.

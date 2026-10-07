@@ -1,6 +1,6 @@
 ---
 title: Email OTP
-description: Authenticate users with a six-digit OTP sent to their email via `emailOtp`. Provide an `onSendOtp` callback to deliver the code, then verify it to open a session.
+description: Authenticate users with a six-digit OTP sent to their email via `emailOtp`. Provide a `sendOtp` callback to deliver the code, then verify it to open a session.
 icon: key
 ---
 
@@ -30,22 +30,25 @@ import { emailOtp } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // [!code highlight]
   plugins: [
     emailOtp({ // [!code highlight]
-      onSendOtp: async (email, code) => { // [!code highlight]
+      sendOtp: async (email, code) => { // [!code highlight]
         await resend.emails.send({
           from: 'auth@example.com',
           to: email,
           subject: `Your code: ${code}`,
-          html: `<p>Your sign-in code is <strong>${code}</strong>. It expires in 10 minutes.</p>`,
+          html: `<p>Your sign-in code is <strong>${code}</strong>. It expires in 5 minutes.</p>`,
         });
       }, // [!code highlight]
     }), // [!code highlight]
   ],
 });
 ```
+
+The plugin throws at startup unless `auth.session` is configured, because it issues a session on successful verification. `auth.session.secret` must be at least 32 characters.
+
+You can also pass the same options as a top-level `emailOtp` key to `createTheAuth` instead of using the plugin. That exposes `theauth.emailOtp` (`sendCode`, `verifyCode`, `handleRequest`), which is `null` when the key is absent or `auth.session` is not set.
 
 </Step>
 
@@ -54,32 +57,32 @@ const theauth = await createTheAuth({
 ## How it works
 
 1. User submits their email to `POST /auth/email-otp/send`.
-2. TheAuth generates a cryptographically random code and calls your `onSendOtp` function with the email and code.
+2. TheAuth generates a cryptographically random code and calls your `sendOtp` function with the email and code.
 3. User enters the code in your UI and submits to `POST /auth/email-otp/verify`.
-4. On success, a session cookie is set.
+4. On success, the response contains the user and a session token. TheAuth does not set a cookie, so your app stores the token.
 
-If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created automatically.
+If the email belongs to an existing account, the same user ID is returned. If it is new, an account is created on successful verification.
 
 ## Send a code
 
 `POST /auth/email-otp/send`
 
 ```typescript
-await fetch('/auth/email-otp/send', {
+await fetch('/api/theauth/auth/email-otp/send', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email: 'user@example.com' }),
 });
 ```
 
-The response is always `200` to prevent email enumeration. Codes are rate-limited to one per minute per email address, requests within the window return `429`. Build a countdown timer into your UI.
+A successful response is `200` with `{ "sent": true }`. The email is trimmed and lowercased, and a missing `email` returns `400`. Requesting a new code deletes any earlier code for that address. The endpoint is limited to 5 requests per minute per IP address, and requests over the limit return `429`. Build a countdown timer into your UI.
 
 ## Verify a code
 
 `POST /auth/email-otp/verify`
 
 ```typescript
-const res = await fetch('/auth/email-otp/verify', {
+const res = await fetch('/api/theauth/auth/email-otp/verify', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
@@ -89,10 +92,11 @@ const res = await fetch('/auth/email-otp/verify', {
   }),
 });
 
-const { userId, sessionId } = await res.json(); // [!code highlight]
+const { user, session } = await res.json(); // [!code highlight]
+// user: { id, email }, session: { token, expiresAt }
 ```
 
-After `maxAttempts` failed verifications, the code is invalidated and a new one must be requested.
+A wrong, expired, or exhausted code returns `401`. After `maxAttempts` verification attempts the stored code stops being accepted and a new one must be requested. Verification is limited to 10 requests per minute per IP address.
 
 <Warning>
   Codes are single-use. A successful verification invalidates the code immediately. Do not retry the same code after a success response.
@@ -102,11 +106,10 @@ After `maxAttempts` failed verifications, the code is invalidated and a new one 
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `onSendOtp` | `(email: string, code: string) => Promise<void>` | required | Called with the recipient email and the numeric code |
+| `sendOtp` | `(email: string, code: string) => Promise<void>` | required | Called with the recipient email and the numeric code |
 | `codeLength` | `number` | `6` | Number of digits in the OTP |
-| `codeTtl` | `number` | `600` | Code lifetime in seconds (default: 10 minutes) |
-| `maxAttempts` | `number` | `5` | Failed attempts before the code is invalidated |
-| `createUserIfNotFound` | `boolean` | `true` | Auto-create accounts for new emails |
+| `codeExpiry` | `number` | `300` | Code lifetime in seconds (5 minutes) |
+| `maxAttempts` | `number` | `5` | Verification attempts allowed per code |
 
 ## Related
 

@@ -2,7 +2,7 @@
 icon: dropbox
 iconType: brands
 title: Dropbox
-description: Authenticate users via Dropbox OAuth 2.0 with `dropboxProvider`. Covers App Console setup, redirect URI, and scopes for account info and file metadata access.
+description: Authenticate users via Dropbox OAuth 2.0 with `createDropboxProvider`. Covers App Console setup, redirect URI, and scopes for account info and file metadata access.
 ---
 
 ## Setup
@@ -23,19 +23,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/dropbox
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
-import { dropboxProvider } from '@glinr/theauth/auth';
+import { oauth, createDropboxProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        dropboxProvider(
-          process.env.DROPBOX_CLIENT_ID!,
-          process.env.DROPBOX_CLIENT_SECRET!,
-        ),
-      ],
+      providers: {
+        dropbox: createDropboxProvider({
+          clientId: process.env.DROPBOX_CLIENT_ID!,
+          clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+        }),
+      },
     }),
   ],
 });

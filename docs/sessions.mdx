@@ -27,7 +27,7 @@ Pass `createCookieSessionManager` a config object and your `theauth.db` instance
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { createCookieSessionManager } from '@glinr/theauth/auth'; // [!code highlight]
+import { createCookieSessionManager } from '@glinr/theauth'; // [!code highlight]
 
 export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
@@ -36,10 +36,11 @@ export const theauth = await createTheAuth({
 });
 
 export const sessions = createCookieSessionManager({ // [!code highlight]
+  secret: process.env.SESSION_SECRET!, // at least 32 characters // [!code highlight]
   sessionName: 'theauth_session', // [!code highlight]
   maxAge: 7 * 24 * 60 * 60, // 7 days in seconds // [!code highlight]
   autoRefresh: true, // [!code highlight]
-  cookie: {
+  cookieOptions: {
     httpOnly: true, // [!code highlight]
     secure: true, // [!code highlight]
     sameSite: 'lax', // [!code highlight]
@@ -54,7 +55,7 @@ export const sessions = createCookieSessionManager({ // [!code highlight]
 
 ### Create a session after sign-in
 
-Call `createSession` with a user ID after your authentication logic succeeds. The response includes the cookie header to send back to the browser.
+Call `createSession` with a user ID after your authentication logic succeeds. `createSession` returns the session record and a ready-made `Set-Cookie` header value to send back to the browser. It does not return a `Result`: it resolves with the data or throws.
 
 ```typescript title="routes/sign-in.ts"
 import { sessions } from '@/lib/theauth';
@@ -62,22 +63,17 @@ import { sessions } from '@/lib/theauth';
 export async function POST(req: Request): Promise<Response> {
   // ... validate credentials, look up user
 
-  const result = await sessions.createSession(user.id, { // [!code highlight]
-    metadata: {
-      ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown',
-      userAgent: req.headers.get('user-agent') ?? 'unknown',
-    },
+  // The second argument is the session metadata object
+  const { setCookieHeader } = await sessions.createSession(user.id, { // [!code highlight]
+    ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown',
+    userAgent: req.headers.get('user-agent') ?? 'unknown',
   });
-
-  if (!result.success) {
-    return Response.json({ error: result.error }, { status: 500 });
-  }
 
   return Response.json(
     { user: { id: user.id, email: user.email } },
     {
       status: 200,
-      headers: { 'Set-Cookie': result.data.setCookieHeader }, // [!code highlight]
+      headers: { 'Set-Cookie': setCookieHeader }, // [!code highlight]
     },
   );
 }
@@ -89,32 +85,31 @@ export async function POST(req: Request): Promise<Response> {
 
 ### Validate on each request
 
-Read the cookie from the incoming request and validate it. If valid, the session data is returned. If expired or revoked, `success` is `false`.
+Pass the raw `Cookie` request header to `validateSession`. It returns `{ session, refreshCookieHeader }`. `session` is `null` when the cookie is missing, invalid, expired, or revoked.
 
 ```typescript title="middleware.ts"
 import { sessions } from '@/lib/theauth';
 
 export async function middleware(req: Request): Promise<Response | null> {
   const cookieHeader = req.headers.get('cookie') ?? '';
-  const result = await sessions.validateSession(cookieHeader); // [!code highlight]
+  const { session } = await sessions.validateSession(cookieHeader); // [!code highlight]
 
-  if (!result.success) {
-    return Response.json({ error: result.error }, { status: 401 });
+  if (!session) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  const { session } = result.data; // [!code highlight]
   // session.userId, session.createdAt, session.expiresAt, session.metadata
   return null; // continue
 }
 ```
 
-When `autoRefresh: true`, validating a session that is more than halfway through its lifetime automatically extends it. The response from `validateSession` includes a `refreshedCookieHeader` field when a refresh occurred. Forward it in your response.
+When `autoRefresh` is on (the default), every successful `validateSession` call extends the session. Internally the old session row is deleted and a new one is created, so the session ID changes on each refresh. `validateSession` returns the new cookie as `refreshCookieHeader`. Forward it in your response.
 
 ```typescript title="middleware.ts"
-const result = await sessions.validateSession(cookieHeader);
+const { session, refreshCookieHeader } = await sessions.validateSession(cookieHeader);
 
-if (result.success && result.data.refreshedCookieHeader) {
-  response.headers.set('Set-Cookie', result.data.refreshedCookieHeader); // [!code highlight]
+if (session && refreshCookieHeader) {
+  response.headers.set('Set-Cookie', refreshCookieHeader); // [!code highlight]
 }
 ```
 
@@ -124,22 +119,22 @@ if (result.success && result.data.refreshedCookieHeader) {
 
 ### Revoke on sign-out
 
-Revoking a session removes it from the database immediately. Any subsequent validation attempt returns `SESSION_REVOKED`.
+Revoking a session removes it from the database immediately. Any subsequent validation attempt returns `session: null`.
 
 ```typescript title="routes/sign-out.ts"
 import { sessions } from '@/lib/theauth';
 
 export async function POST(req: Request): Promise<Response> {
   const cookieHeader = req.headers.get('cookie') ?? '';
-  const result = await sessions.validateSession(cookieHeader);
+  const { session } = await sessions.validateSession(cookieHeader);
 
-  if (result.success) {
-    await sessions.revokeSession(result.data.session.id); // [!code highlight]
+  if (session) {
+    await sessions.revokeSession(session.id); // [!code highlight]
   }
 
   return new Response(null, {
     status: 204,
-    headers: { 'Set-Cookie': sessions.clearCookieHeader() }, // [!code highlight]
+    headers: { 'Set-Cookie': sessions.buildLogoutCookie() }, // [!code highlight]
   });
 }
 ```
@@ -163,9 +158,11 @@ export const jwtSessions = createJwtSessionModule({
   audience: 'https://app.example.com',
   accessTokenTtl: 900, // 15 minutes // [!code highlight]
   refreshTokenTtl: 604_800, // 7 days // [!code highlight]
-  customClaims: (user) => ({ role: user.role, orgId: user.orgId }), // [!code highlight]
+  customClaims: (user) => ({ email: user.email }), // [!code highlight]
 }, theauth.db);
 ```
+
+`customClaims` receives only `{ id, email?, name? }`. On refresh the module re-issues tokens from `{ id }` alone, so claims that depend on `email` or `name` are not present on tokens minted by `refreshSession`.
 
 ### Create a session
 
@@ -219,7 +216,7 @@ const { accessToken, refreshToken: newRefreshToken, expiresIn } = result.data;
 ```
 
 <Warning>
-  If `refreshSession` returns `REFRESH_TOKEN_USED`, a previously-used token was replayed. This is a strong signal that the refresh token was stolen. Revoke all sessions for the affected user and force re-authentication.
+  If `refreshSession` returns `REFRESH_TOKEN_USED`, a previously-used token was replayed. This is a strong signal that the refresh token was stolen. The module only rejects the replayed token: it does not revoke the newer token it issued. Revoke the user's other refresh tokens with `revokeSession` and force re-authentication.
 </Warning>
 
 ---
@@ -228,7 +225,7 @@ const { accessToken, refreshToken: newRefreshToken, expiresIn } = result.data;
 
 Some operations should require that the user authenticated recently, not just that they hold any valid session. Changing a password, registering a passkey, or modifying billing details are examples where a session from 6 days ago is not good enough even though it is technically valid.
 
-`createSessionFreshnessModule` wraps this check. When a session is older than `freshAge` seconds, it returns a `403` response with code `SESSION_STALE`. Your handler returns it directly.
+`createSessionFreshnessModule` wraps this check. When a session is older than `freshAge` seconds, it returns a `403` response with code `SESSION_NOT_FRESH`. Your handler returns it directly.
 
 ```typescript title="lib/freshness.ts"
 import { createSessionFreshnessModule } from '@glinr/theauth'; // [!code highlight]
@@ -246,21 +243,21 @@ import { freshness } from '@/lib/freshness';
 
 export async function POST(req: Request): Promise<Response> {
   const cookieHeader = req.headers.get('cookie') ?? '';
-  const result = await sessions.validateSession(cookieHeader);
+  const { session } = await sessions.validateSession(cookieHeader);
 
-  if (!result.success) {
-    return Response.json({ error: result.error }, { status: 401 });
+  if (!session) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  const staleResponse = freshness.guard(result.data.session); // [!code highlight]
-  if (staleResponse) return staleResponse; // 403 SESSION_STALE if too old // [!code highlight]
+  const staleResponse = freshness.guard(session); // [!code highlight]
+  if (staleResponse) return staleResponse; // 403 SESSION_NOT_FRESH if too old // [!code highlight]
 
   // Session is fresh, safe to proceed with the sensitive operation
   // ...
 }
 ```
 
-When the client receives `SESSION_STALE`, redirect them to a lightweight re-authentication page (password confirmation, passkey prompt, or similar) rather than a full sign-out. After re-auth succeeds, refresh the session's `createdAt` timestamp by issuing a new session, then retry the original operation.
+When the client receives `SESSION_NOT_FRESH`, redirect them to a lightweight re-authentication page (password confirmation, passkey prompt, or similar) rather than a full sign-out. After re-auth succeeds, refresh the session's `createdAt` timestamp by issuing a new session, then retry the original operation.
 
 <Info>
   The `freshAge` threshold is separate from `maxAge`. A session can be well within its 7-day lifetime but still be considered stale for sensitive operations. Keep `freshAge` short. 5 to 15 minutes is typical.
@@ -273,7 +270,7 @@ When the client receives `SESSION_STALE`, redirect them to a lightweight re-auth
 Cookie-based sessions are vulnerable to cross-site request forgery unless you add a second layer. TheAuth uses the double-submit cookie pattern: a random token is set in a separate readable cookie and must also appear in the request body or header. An attacker's page can trigger the cookie but cannot read it to reproduce the header value.
 
 ```typescript title="lib/csrf.ts"
-import { generateCsrfToken, validateCsrfToken, validateOrigin } from '@glinr/theauth'; // [!code highlight]
+import { generateCsrfToken, parseCookies, validateCsrfToken, validateOrigin } from '@glinr/theauth'; // [!code highlight]
 
 // On page load or sign-in response, set a CSRF cookie
 const csrfToken = generateCsrfToken(); // [!code highlight]
@@ -284,8 +281,9 @@ const csrfToken = generateCsrfToken(); // [!code highlight]
 const headerToken = req.headers.get('x-csrf-token') ?? '';
 const cookieToken = parseCookies(req.headers.get('cookie') ?? '')['theauth_csrf'] ?? '';
 
-const valid = validateCsrfToken(headerToken, cookieToken); // [!code highlight]
-if (!valid) {
+// Both validators return { valid: boolean; reason?: string }, not a boolean
+const csrf = validateCsrfToken(headerToken, cookieToken); // [!code highlight]
+if (!csrf.valid) {
   return Response.json(
     { error: { code: 'CSRF_INVALID', message: 'CSRF token mismatch' } },
     { status: 403 },
@@ -293,8 +291,8 @@ if (!valid) {
 }
 
 // Also validate the Origin header to defend against subdomain takeover
-const originOk = validateOrigin(req, ['https://app.example.com']); // [!code highlight]
-if (!originOk) {
+const origin = validateOrigin(req, ['https://app.example.com']); // [!code highlight]
+if (!origin.valid) {
   return Response.json(
     { error: { code: 'ORIGIN_MISMATCH', message: 'Request origin not allowed' } },
     { status: 403 },
@@ -323,17 +321,19 @@ await sessions.revokeSession(sessionId); // [!code highlight]
 await sessions.revokeAllSessions(userId); // [!code highlight]
 ```
 
-Password reset automatically calls `revokeAllSessions` for you when using the `emailPassword` plugin. You only need to call this directly when handling a security event (suspicious login, compromised credential detected, etc.).
+Call this yourself after a password change or when handling a security event (suspicious login, compromised credential detected, etc.).
   </Tab>
   <Tab title="All except current">
 ```typescript title="Revoke all other sessions"
-// Keep the current session, revoke everything else
-// The session ID of the current request comes from validateSession
-const { session } = result.data;
-await sessions.revokeAllSessionsExcept(userId, session.id); // [!code highlight]
+// There is no revokeAllSessionsExcept. List the sessions and revoke the others.
+const { session } = await sessions.validateSession(cookieHeader);
+const all = await sessions.listSessions(userId); // [!code highlight]
+for (const other of all) {
+  if (session && other.id !== session.id) await sessions.revokeSession(other.id);
+}
 ```
 
-This is the "sign out everywhere else" pattern, common in account security settings.
+This is the "sign out everywhere else" pattern, common in account security settings. Because `autoRefresh` replaces the session row on each validation, read the current session ID from the same `validateSession` call you use for the comparison.
   </Tab>
 </Tabs>
 
@@ -341,27 +341,23 @@ This is the "sign out everywhere else" pattern, common in account security setti
 
 ## Session metadata
 
-Store arbitrary data on a session at creation time or update it later. Useful for tracking the device, IP address, or a custom attribute your app needs.
+Store arbitrary data on a session at creation time. Useful for tracking the device, IP address, or a custom attribute your app needs. The object you pass as the second argument of `createSession` is stored as the session metadata. There is no separate call to update it later.
 
 ```typescript title="Creating a session with metadata"
-const result = await sessions.createSession(userId, {
-  metadata: { // [!code highlight]
-    ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown', // [!code highlight]
-    userAgent: req.headers.get('user-agent') ?? 'unknown', // [!code highlight]
-    deviceType: parseDeviceType(req.headers.get('user-agent')), // [!code highlight]
-    appVersion: req.headers.get('x-app-version'), // [!code highlight]
-  },
+const { setCookieHeader } = await sessions.createSession(userId, {
+  ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown', // [!code highlight]
+  userAgent: req.headers.get('user-agent') ?? 'unknown', // [!code highlight]
+  appVersion: req.headers.get('x-app-version'), // [!code highlight]
 });
 ```
 
 Read it back when you validate:
 
 ```typescript title="Reading session metadata"
-const result = await sessions.validateSession(cookieHeader);
+const { session } = await sessions.validateSession(cookieHeader);
 
-if (result.success) {
-  const { session } = result.data;
-  console.log(session.metadata.deviceType, session.metadata.ipAddress);
+if (session) {
+  console.log(session.metadata?.userAgent, session.metadata?.ipAddress);
 }
 ```
 
@@ -389,8 +385,23 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 
 ## Error codes
 
+The cookie session manager does not return error codes: `validateSession` returns `session: null` for a missing, invalid, expired, or revoked cookie. The JWT session module and the helpers return the following:
+
 | Code | Status | Meaning |
 |------|--------|---------|
+| `SESSION_NOT_FRESH` | 403 | Session is valid but older than `freshAge` (from `freshness.guard`) |
+| `INVALID_TOKEN` | 401 | JWT signature is invalid or the token has no `sub` claim |
+| `TOKEN_EXPIRED` | 401 | Access token has expired |
+| `ISSUER_MISMATCH` | 401 | Access token `iss` does not match the configured issuer |
+| `AUDIENCE_MISMATCH` | 401 | Access token `aud` does not match the configured audience |
+| `REFRESH_TOKEN_NOT_FOUND` | 401 | Refresh token does not exist in the database |
+| `REFRESH_TOKEN_USED` | 401 | Refresh token was already exchanged (possible replay) |
+| `REFRESH_TOKEN_EXPIRED` | 401 | Refresh token lifetime has elapsed |
+| `INVALID_INPUT` | 400 | An empty token or user ID was passed |
+
+`validateCsrfToken` and `validateOrigin` return `{ valid: false, reason }` rather than a code. The status codes in the table are what the modules suggest, not something the library sets on a response (except the `403` from `freshness.guard`).
+
+------|--------|---------|
 | `SESSION_NOT_FOUND` | 401 | No session record matches the provided token |
 | `SESSION_EXPIRED` | 401 | Session exceeded its `maxAge` |
 | `SESSION_REVOKED` | 401 | Session was explicitly revoked |
@@ -408,14 +419,15 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 
 ### CookieSessionConfig
 
+<ParamField path="secret" type="string" required>Signing secret for the session token, at least 32 characters.</ParamField>
 <ParamField path="sessionName" type="string" default="'theauth_session'">Name of the session cookie.</ParamField>
 <ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds. After this period the session is considered expired even if it has been used recently.</ParamField>
-<ParamField path="autoRefresh" type="boolean" default="true">Automatically extend the session when validation is called and more than half the lifetime has elapsed.</ParamField>
-<ParamField path="cookie.httpOnly" type="boolean" default="true">Prevents client-side JavaScript from accessing the cookie. Always set this to true for session cookies.</ParamField>
-<ParamField path="cookie.secure" type="boolean" default="true">Only send the cookie over HTTPS. Must be true in production.</ParamField>
-<ParamField path="cookie.sameSite" type="'lax' | 'strict' | 'none'" default="'lax'">Controls cross-site cookie behavior. 'lax' works for most apps. 'strict' adds more protection. 'none' is only for cross-origin cookie transport (requires secure: true).</ParamField>
-<ParamField path="cookie.path" type="string" default="'/'">Restricts the cookie to a URL path prefix.</ParamField>
-<ParamField path="cookie.domain" type="string" default="undefined">Set a cookie domain to share sessions across subdomains. Omit for single-domain apps.</ParamField>
+<ParamField path="autoRefresh" type="boolean" default="true">When true, every successful `validateSession` extends the session by replacing the session row (the session ID changes) and returns a new cookie as `refreshCookieHeader`.</ParamField>
+<ParamField path="cookieOptions.httpOnly" type="boolean" default="true">Prevents client-side JavaScript from accessing the cookie. Always set this to true for session cookies.</ParamField>
+<ParamField path="cookieOptions.secure" type="boolean" default="true when NODE_ENV is production, otherwise false">Only send the cookie over HTTPS. Set it to true explicitly if your deployment does not set NODE_ENV=production.</ParamField>
+<ParamField path="cookieOptions.sameSite" type="'lax' | 'strict' | 'none'" default="'lax'">Controls cross-site cookie behavior. 'lax' works for most apps. 'strict' adds more protection. 'none' is only for cross-origin cookie transport (requires secure: true).</ParamField>
+<ParamField path="cookieOptions.path" type="string" default="'/'">Restricts the cookie to a URL path prefix.</ParamField>
+<ParamField path="cookieOptions.domain" type="string" default="undefined">Set a cookie domain to share sessions across subdomains. Omit for single-domain apps.</ParamField>
 
 ### JwtSessionConfig
 
@@ -429,14 +441,14 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 
 ### SessionFreshnessConfig
 
-<ParamField path="freshAge" type="number" default="300 (5 min)">Maximum session age in seconds before a sensitive operation requires re-authentication. The freshness guard returns 403 SESSION_STALE when the session is older than this.</ParamField>
+<ParamField path="freshAge" type="number" default="300 (5 min)">Maximum session age in seconds before a sensitive operation requires re-authentication. The freshness guard returns 403 SESSION_NOT_FRESH when the session is older than this.</ParamField>
 
 ---
 
 ## Security best practices
 
 <Warning>
-  Always set `cookie.httpOnly: true` and `cookie.secure: true` in production. Without `httpOnly`, a single XSS vulnerability lets an attacker read the session cookie directly. Without `secure`, the cookie travels over plain HTTP and can be intercepted on any network path.
+  Always keep `cookieOptions.httpOnly: true` and set `cookieOptions.secure: true` in production. Without `httpOnly`, a single XSS vulnerability lets an attacker read the session cookie directly. Without `secure`, the cookie travels over plain HTTP and can be intercepted on any network path.
 </Warning>
 
 <Warning>
@@ -444,7 +456,7 @@ Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw t
 </Warning>
 
 <Info>
-  Set `cookie.sameSite: 'lax'` for most apps. `'lax'` allows the cookie to be sent on top-level navigations (clicking a link) but blocks it on cross-origin subresource requests, which stops most CSRF attacks without breaking OAuth redirect flows. Only use `'strict'` if you have no external links that expect to land in an authenticated state.
+  Set `cookieOptions.sameSite: 'lax'` for most apps. `'lax'` allows the cookie to be sent on top-level navigations (clicking a link) but blocks it on cross-origin subresource requests, which stops most CSRF attacks without breaking OAuth redirect flows. Only use `'strict'` if you have no external links that expect to land in an authenticated state.
 </Info>
 
 <Info>

@@ -2,7 +2,7 @@
 icon: gitlab
 iconType: brands
 title: GitLab
-description: Authenticate users via GitLab OAuth 2.0, including self-hosted instances. Register a public application and configure `read_user` and `email` scopes.
+description: Authenticate users via GitLab OAuth 2.0, including self-hosted instances. Register an application and configure the `read_user` scope.
 ---
 
 ## Get credentials
@@ -19,7 +19,7 @@ For a **self-hosted instance**: Go to your instance URL, then **User Settings > 
 
 - **Name**: your app name
 - **Redirect URI**: `https://auth.example.com/auth/oauth/callback/gitlab`
-- **Scopes**: check `read_user` and `email`
+- **Scopes**: check `read_user` (and `email` if you request it)
 
 </Step>
 
@@ -39,40 +39,46 @@ After saving, copy the **Application ID** and **Secret**.
   <Tab title="gitlab.com">
     ```typescript title="lib/theauth.ts"
     import { createTheAuth } from '@glinr/theauth';
-    import { oauth } from '@glinr/theauth/auth';
+    import { oauth, createGitlabProvider } from '@glinr/theauth/auth';
 
     const theauth = await createTheAuth({
       database: { provider: 'postgres', url: process.env.DATABASE_URL! },
       secret: process.env.THEAUTH_SECRET!,
       baseUrl: 'https://auth.example.com',
+      auth: { session: { secret: process.env.THEAUTH_SECRET! } },
       plugins: [
         oauth({
-          providers: [
-            {
-              id: 'gitlab', // [!code highlight]
+          providers: {
+            gitlab: createGitlabProvider({ // [!code highlight]
               clientId: process.env.GITLAB_CLIENT_ID!, // [!code highlight]
               clientSecret: process.env.GITLAB_CLIENT_SECRET!, // [!code highlight]
-            },
-          ],
+            }), // [!code highlight]
+          },
         }),
       ],
     });
     ```
   </Tab>
   <Tab title="Self-hosted">
+    `createGitlabProvider` is fixed to gitlab.com. For a self-hosted instance, use the generic OIDC factory with explicit endpoints (GitLab serves OpenID Connect, so the userinfo response carries the `sub` and `email` claims the factory requires):
+
     ```typescript title="lib/theauth.ts"
+    import { oauth, genericOIDC } from '@glinr/theauth/auth';
+
     oauth({
-      providers: [
-        {
+      providers: {
+        gitlab: genericOIDC({
           id: 'gitlab',
+          name: 'GitLab',
+          issuer: 'https://gitlab.yourcompany.com', // [!code highlight]
           clientId: process.env.GITLAB_CLIENT_ID!,
           clientSecret: process.env.GITLAB_CLIENT_SECRET!,
-          // Point to your GitLab instance
+          scopes: ['openid', 'read_user', 'email'],
           authorizationUrl: 'https://gitlab.yourcompany.com/oauth/authorize', // [!code highlight]
           tokenUrl: 'https://gitlab.yourcompany.com/oauth/token', // [!code highlight]
-          userInfoUrl: 'https://gitlab.yourcompany.com/api/v4/user', // [!code highlight]
-        },
-      ],
+          userinfoUrl: 'https://gitlab.yourcompany.com/oauth/userinfo', // [!code highlight]
+        }),
+      },
     })
     ```
   </Tab>
@@ -85,12 +91,12 @@ GITLAB_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `read_user email`
+Default scope: `read_user`. Scopes you pass are added on top of the default.
 
 | Scope | What it unlocks |
 |-------|----------------|
 | `read_user` | Read the user's profile |
-| `email` | Read the user's primary email |
+| `email` | Read the user's primary email (only if you add it to `scopes`) |
 | `read_api` | Read access to the API |
 | `read_repository` | Read repository data |
 
@@ -101,7 +107,7 @@ Default scopes: `read_user email`
 | `id` | `id` field | Stable numeric GitLab user ID |
 | `email` | `email` field | Primary email |
 | `name` | `name` field | Display name |
-| `image` | `avatar_url` field | Profile picture URL |
+| `avatar` | `avatar_url` field | Profile picture URL |
 
 <Info>
   For self-hosted GitLab instances, make sure your TheAuth server can reach the GitLab API. If you are behind a VPN or firewall, the token exchange and user info calls will fail if the instance is not reachable from your server.

@@ -21,7 +21,7 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
 
 ### Enable the People API
 
-Navigate to **APIs and Services > Library**, search for "Google People API", and enable it. This lets TheAuth fetch the user's name and profile picture.
+Navigate to **APIs and Services > Library**, search for "Google People API", and enable it. This is only needed if you plan to call the People API yourself; sign-in reads the profile from the OpenID userinfo endpoint.
 
 </Step>
 
@@ -52,21 +52,21 @@ Under **OAuth consent screen**, set the app name, support email, and authorized 
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, createGoogleProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'google', // [!code highlight]
+      providers: {
+        google: createGoogleProvider({ // [!code highlight]
           clientId: process.env.GOOGLE_CLIENT_ID!, // [!code highlight]
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // [!code highlight]
-        },
-      ],
+        }), // [!code highlight]
+      },
     }),
   ],
 });
@@ -81,22 +81,23 @@ GOOGLE_CLIENT_SECRET=GOCSPX-...
 
 ## Scopes
 
-Default scopes: `openid email profile`
+Default scopes: `openid email profile`. Scopes you pass are added on top of the defaults.
 
 These give you name, email, and profile picture. To request additional permissions:
 
 ```typescript
-{
-  id: 'google',
+createGoogleProvider({
   clientId: process.env.GOOGLE_CLIENT_ID!,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-  scopes: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly'],
-}
+  scopes: ['https://www.googleapis.com/auth/calendar.readonly'], // [!code highlight]
+})
 ```
 
 <Info>
   Extra scopes beyond `openid email profile` require your app to complete Google's verification process before they work for users outside your organization.
 </Info>
+
+The provider also requests `access_type=offline` and `prompt=consent`, so Google returns a refresh token and shows the consent screen on every sign-in.
 
 ## User data returned
 
@@ -105,21 +106,17 @@ These give you name, email, and profile picture. To request additional permissio
 | `id` | `sub` claim | Stable Google user ID |
 | `email` | `email` claim | Verified by Google |
 | `name` | `name` claim | Full display name |
-| `image` | `picture` claim | Profile photo URL |
+| `avatar` | `picture` claim | Profile photo URL. Not stored on the user record |
 
 ## Initiating sign-in
 
 Redirect users to:
 
 ```
-GET /auth/oauth/google/authorize
+GET /auth/oauth/authorize/google
 ```
 
-Or add a query parameter to control the post-sign-in destination:
-
-```
-GET /auth/oauth/google/authorize?redirectTo=/dashboard
-```
+After the callback, TheAuth sets the session cookie and redirects to `{baseUrl}/`. There is no `redirectTo` parameter.
 
 ## Related
 

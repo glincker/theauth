@@ -2,7 +2,7 @@
 icon: reddit
 iconType: brands
 title: Reddit
-description: Authenticate users via Reddit OAuth 2.0. Register a web app in Reddit App Preferences, copy the client ID and secret, and configure the `reddit` provider.
+description: Authenticate users via Reddit OAuth 2.0. Register a web app in Reddit App Preferences, copy the client ID and secret, and configure `createRedditProvider`.
 ---
 
 ## Get credentials
@@ -35,21 +35,21 @@ After saving, the **client ID** appears directly under the app name (a short str
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, createRedditProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'reddit', // [!code highlight]
+      providers: {
+        reddit: createRedditProvider({ // [!code highlight]
           clientId: process.env.REDDIT_CLIENT_ID!, // [!code highlight]
           clientSecret: process.env.REDDIT_CLIENT_SECRET!, // [!code highlight]
-        },
-      ],
+        }), // [!code highlight]
+      },
     }),
   ],
 });
@@ -70,7 +70,7 @@ REDDIT_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scope: `identity`
+Default scope: `identity`. Scopes you pass are added on top of the default.
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -98,18 +98,9 @@ Default scope: `identity`
 
 ## Handling missing email
 
-Since Reddit provides no email, check for it in your callback handler before creating a user account:
+The `oauth()` plugin matches or creates a TheAuth user by email. Because Reddit returns none, a Reddit callback does not produce a session: the provider account is stored without a user, and the callback responds with JSON (`isNewAccount`, `account`, `userInfo`) instead of redirecting. The same happens on later sign-ins with that account.
 
-```typescript title="app/api/auth/[...]/route.ts"
-const { userInfo, isNewAccount } = await oauth.handleCallback(
-  'reddit', code, state, redirectUri,
-);
-
-if (isNewAccount && !userInfo.email) {
-  // Redirect to an email-collection step before finalising sign-up.
-  return redirect(`/onboarding/email?accountId=${result.account.id}`);
-}
-```
+To support Reddit sign-in you need to collect an email yourself and attach the account to a user, for example with `POST /auth/oauth/link` from an authenticated session or `linkAccount` on a module built with `createOAuthModule`.
 
 ## Related
 

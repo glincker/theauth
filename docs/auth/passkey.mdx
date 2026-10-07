@@ -1,6 +1,6 @@
 ---
 title: Passkey
-description: Authenticate users with WebAuthn passkeys via the `passkey()` plugin. Covers `rpId` setup, registration and authentication ceremonies, and credential storage.
+description: Authenticate users with WebAuthn passkeys via the `passkey()` plugin. Covers `rpId` and `origin` setup, registration and authentication ceremonies, and credential storage.
 icon: fingerprint
 ---
 
@@ -30,19 +30,24 @@ import { passkey } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     passkey({ // [!code highlight]
-      rpName: 'My App',           // Shown in the browser prompt // [!code highlight]
-      rpId: 'example.com',        // Must match your domain, no protocol // [!code highlight]
+      rpName: 'My App',                  // Shown in the browser prompt // [!code highlight]
+      rpId: 'example.com',               // Must match your domain, no protocol // [!code highlight]
+      origin: 'https://app.example.com', // Exact origin(s) the browser sends // [!code highlight]
     }), // [!code highlight]
   ],
 });
 ```
 
+`origin` is required and is compared exactly against the origin in the browser's `clientDataJSON`. Pass an array to allow several origins. Passkey registration and the credential endpoints need an authenticated user, resolved from `auth.adapter` or an `auth.session` token. The sign-in verify endpoint issues a session only when `auth.session` is configured.
+
+You can also pass the same options as a top-level `passkey` key to `createTheAuth`, which exposes `theauth.passkey` (`getRegistrationOptions`, `verifyRegistration`, `getAuthenticationOptions`, `verifyAuthentication`, `listCredentials`, `removeCredential`, `handleRequest`). It is `null` when the key is absent.
+
 <Warning>
-  `rpId` must be a registrable domain suffix of the origin. For `https://app.example.com`, valid values are `app.example.com` or `example.com`. Localhost works during development.
+  `rpId` must be a registrable domain suffix of the origin. For `https://app.example.com`, valid values are `app.example.com` or `example.com`. Localhost works during development (set `origin` to the exact dev origin, for example `http://localhost:3000`).
 </Warning>
 
 </Step>
@@ -61,10 +66,10 @@ A passkey is tied to a specific device. Users register once per device they want
 
 `POST /auth/passkey/register/options`
 
-Returns a WebAuthn challenge from the server. Requires an active session (the user must already be signed in to register a passkey).
+Returns a WebAuthn challenge from the server. Requires an authenticated user (the user must already be signed in to register a passkey). No request body is needed.
 
 ```typescript
-const res = await fetch('/auth/passkey/register/options', {
+const res = await fetch('/api/theauth/auth/passkey/register/options', {
   method: 'POST',
   credentials: 'include',
 });
@@ -95,15 +100,15 @@ const credential = await startRegistration(options);
 `POST /auth/passkey/register/verify`
 
 ```typescript
-await fetch('/auth/passkey/register/verify', {
+await fetch('/api/theauth/auth/passkey/register/verify', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(credential),
+  body: JSON.stringify({ response: credential }), // [!code highlight]
 });
 ```
 
-On success, the credential is stored and the passkey is active.
+The body wraps the browser's credential in a `response` field. On success, the credential is stored and the passkey is active, and the response is `{ credential }` with the stored record.
 
 </Step>
 
@@ -122,16 +127,16 @@ On success, the credential is stored and the passkey is active.
 Does not require a session, this is the start of sign-in.
 
 ```typescript
-const res = await fetch('/auth/passkey/authenticate/options', {
+const res = await fetch('/api/theauth/auth/passkey/authenticate/options', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'user@example.com' }), // optional
+  body: JSON.stringify({ userId: 'user_123' }), // optional
 });
 
 const options = await res.json();
 ```
 
-Omitting `email` returns options for any registered passkey on the device (useful for conditional UI).
+The optional `userId` limits `allowCredentials` to that user's passkeys. Omitting it returns options with no credential restriction, so the authenticator offers any discoverable passkey for the relying party (useful for conditional UI). The body takes a user ID, not an email.
 
 </Step>
 
@@ -154,17 +159,17 @@ const assertion = await startAuthentication(options);
 `POST /auth/passkey/authenticate/verify`
 
 ```typescript
-const res = await fetch('/auth/passkey/authenticate/verify', {
+const res = await fetch('/api/theauth/auth/passkey/authenticate/verify', {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(assertion), // [!code highlight]
+  body: JSON.stringify({ response: assertion }), // [!code highlight]
 });
 
-const { userId, sessionId } = await res.json(); // [!code highlight]
+const { user, session, credential } = await res.json(); // [!code highlight]
 ```
 
-On success, a session cookie is set.
+With `auth.session` configured, the response is `{ user: { id }, session: { token, expiresAt }, credential }` and a `theauth_session` cookie is set (marked `Secure` when `baseUrl` starts with `https://`). Without a session manager the response is the raw `{ userId, credential }` and no session is created. A failed assertion returns `401`.
 
 </Step>
 
@@ -179,12 +184,12 @@ Users can register multiple passkeys across different devices.
 `GET /auth/passkey/credentials`
 
 ```typescript
-const res = await fetch('/auth/passkey/credentials', {
+const res = await fetch('/api/theauth/auth/passkey/credentials', {
   credentials: 'include',
 });
 
 const { credentials } = await res.json();
-// [{ id, name, createdAt, lastUsedAt, deviceType }]
+// each: { id, credentialId, publicKey, counter, userId, deviceName?, transports?, createdAt, lastUsedAt }
 ```
 
 ### Delete a credential
@@ -192,14 +197,16 @@ const { credentials } = await res.json();
 `DELETE /auth/passkey/credentials/:id`
 
 ```typescript
-await fetch(`/auth/passkey/credentials/${credentialId}`, {
+await fetch(`/api/theauth/auth/passkey/credentials/${credentialId}`, {
   method: 'DELETE',
   credentials: 'include',
 });
 ```
 
+Returns `{ removed: true }`. Only the authenticated user's own credentials can be removed. Use the `id` field of the listed credential.
+
 <Warning>
-  If a user deletes their last passkey and has no other sign-in method, they will be locked out. Check the credential count before allowing deletion, or prompt the user to set a password first.
+  If a user deletes their last passkey and has no other sign-in method, they will be locked out. Check the credential count before allowing deletion, or make sure they have another sign-in method first.
 </Warning>
 
 ## Endpoints
@@ -209,7 +216,7 @@ await fetch(`/auth/passkey/credentials/${credentialId}`, {
 | `POST /auth/passkey/register/options` | Yes | Get challenge to start registration |
 | `POST /auth/passkey/register/verify` | Yes | Store the new credential |
 | `POST /auth/passkey/authenticate/options` | No | Get challenge to start sign-in |
-| `POST /auth/passkey/authenticate/verify` | No | Verify assertion, set session |
+| `POST /auth/passkey/authenticate/verify` | No | Verify assertion, issue session |
 | `GET /auth/passkey/credentials` | Yes | List registered credentials |
 | `DELETE /auth/passkey/credentials/:id` | Yes | Remove a credential |
 
@@ -219,18 +226,19 @@ await fetch(`/auth/passkey/credentials/${credentialId}`, {
 |--------|------|---------|-------------|
 | `rpName` | `string` | required | App name shown in the browser passkey prompt |
 | `rpId` | `string` | required | Relying party ID, must match your domain |
-| `timeout` | `number` | `60000` | WebAuthn operation timeout in milliseconds |
+| `origin` | `string \| string[]` | required | Expected origin(s), compared exactly against the browser's `clientDataJSON` |
 | `attestation` | `string` | `'none'` | Attestation preference: `'none'`, `'indirect'`, `'direct'` |
 | `userVerification` | `string` | `'preferred'` | Whether biometric check is required: `'required'`, `'preferred'`, `'discouraged'` |
+| `challengeTimeout` | `number` | `60000` | Challenge timeout in milliseconds (maximum 300000) |
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Email and password" href="/auth/email-password" icon="envelope">
+  <Card title="Username and password" href="/auth/username" icon="key">
     Password-based auth that passkeys can supplement or replace.
   </Card>
   <Card title="Magic link" href="/auth/magic-link" icon="link">
-    Another passwordless option using signed email links.
+    Another passwordless option using single-use email links.
   </Card>
   <Card title="Sign In with Ethereum" href="/auth/siwe" icon="wallet">
     Wallet-based auth as an alternative to device biometrics.

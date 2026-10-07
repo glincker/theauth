@@ -1,12 +1,12 @@
 ---
 title: SSO
-description: Wire enterprise SSO with SAML 2.0 and OIDC providers such as Okta and Azure AD. Includes JIT user provisioning and connection routing by email domain.
+description: Wire enterprise SSO with SAML 2.0 and OIDC providers such as Okta and Azure AD. Covers connection routing by email domain and how identities are derived from the IdP response.
 icon: shield-halved
 ---
 
 ## Setup
 
-Configure your identity providers when creating the TheAuth instance:
+Configure your identity providers when creating the TheAuth instance. `theauth.sso` is `null` unless the `sso` key is passed, so use `theauth.sso!.` (or `?.`) in your code. There is no SSO plugin: routes are served through `theauth.sso.handleRequest`.
 
 <Tabs>
 <Tab title="SAML 2.0">
@@ -22,7 +22,7 @@ const theauth = await createTheAuth({
         name: 'Okta', // [!code highlight]
         entryPoint: 'https://your-org.okta.com/app/appId/sso/saml', // [!code highlight]
         issuer: 'https://your-app.com', // [!code highlight]
-        cert: process.env.OKTA_SAML_CERT, // [!code highlight]
+        cert: process.env.OKTA_SAML_CERT!, // [!code highlight]
         callbackUrl: 'https://your-app.com/api/theauth/auth/sso/saml/conn_id/acs', // [!code highlight]
       },
     ],
@@ -42,8 +42,8 @@ const theauth = await createTheAuth({
         id: 'azure', // [!code highlight]
         name: 'Azure AD', // [!code highlight]
         issuer: 'https://login.microsoftonline.com/your-tenant-id/v2.0', // [!code highlight]
-        clientId: process.env.AZURE_CLIENT_ID, // [!code highlight]
-        clientSecret: process.env.AZURE_CLIENT_SECRET, // [!code highlight]
+        clientId: process.env.AZURE_CLIENT_ID!, // [!code highlight]
+        clientSecret: process.env.AZURE_CLIENT_SECRET!, // [!code highlight]
         callbackUrl: 'https://your-app.com/api/theauth/auth/sso/oidc/conn_id/callback', // [!code highlight]
         scopes: ['openid', 'profile', 'email'], // [!code highlight]
       },
@@ -60,7 +60,7 @@ Connections link an org to an identity provider and route by email domain.
 
 ```ts
 // Create a connection for an org
-const connection = await theauth.sso.createConnection({ // [!code highlight]
+const connection = await theauth.sso!.createConnection({ // [!code highlight]
   orgId: 'org_acme',
   providerId: 'okta',    // matches the id in your sso config // [!code highlight]
   type: 'saml',          // 'saml' | 'oidc' // [!code highlight]
@@ -68,30 +68,34 @@ const connection = await theauth.sso.createConnection({ // [!code highlight]
 });
 
 // Look up a connection by domain (e.g., to redirect on login)
-const conn = await theauth.sso.getConnectionByDomain('alice@acme.com'.split('@')[1]);
+const conn = await theauth.sso!.getConnectionByDomain('acme.com');
 
 // List all connections for an org
-const conns = await theauth.sso.listConnections('org_acme');
+const conns = await theauth.sso!.listConnections('org_acme');
 
 // Remove a connection
-await theauth.sso.removeConnection(connection.id);
+await theauth.sso!.removeConnection(connection.id);
 ```
 
-## JIT provisioning
+## Identity mapping
 
-When a user authenticates through SSO for the first time, TheAuth provisions their account automatically using the identity attributes from the IdP (email and display name from SAML `NameID` / OIDC `email` claim). No pre-registration is needed.
+After a successful SAML or OIDC login, TheAuth returns the identity from the IdP response: `{ user: { id, email, name? }, orgId }`. Email and name come from the SAML assertion or the OIDC `email` and `name` claims. An OIDC `id_token` without an `email` claim is rejected.
 
-User IDs are derived deterministically from the provider and subject, so the same IdP user always maps to the same TheAuth identity.
+The `user.id` is derived deterministically, so the same IdP user always maps to the same ID: `saml_` plus a SHA-256 hash of `providerId:email` for SAML, and `oidc_` plus a SHA-256 hash of `providerId:sub` for OIDC.
+
+<Warning>
+  The SSO module does not create a user row, a membership, or a session. Your callback code receives the verified identity and decides what to do with it: create or look up your user, add them to the org, and issue a session. Do not treat the derived ID as an existing row in the users table.
+</Warning>
 
 ## SAML flow
 
 ```ts
 // 1. Redirect the user to the IdP
-const authUrl = await theauth.sso.getSamlAuthUrl(connection.id, '/dashboard');
+const authUrl = await theauth.sso!.getSamlAuthUrl(connection.id, '/dashboard');
 // redirect to authUrl
 
 // 2. Handle the ACS callback (POST from IdP)
-const { user, orgId } = await theauth.sso.handleSamlResponse(
+const { user, orgId } = await theauth.sso!.handleSamlResponse(
   connection.id,
   samlResponseFromFormData,
 );
@@ -99,34 +103,38 @@ const { user, orgId } = await theauth.sso.handleSamlResponse(
 ```
 
 <Note>
-  SAML responses are verified against the IdP certificate. Unsigned responses are rejected.
+  SAML responses are verified against the IdP certificate. Unsigned responses are rejected unless you set `wantAuthnResponseSigned: false` on the provider. Encrypted assertions are not supported, so configure your IdP to send unencrypted assertions. Pass `expectedRequestId` as a third argument to `handleSamlResponse` to bind the response to a request you started.
 </Note>
 
 ## OIDC flow
 
 ```ts
 // 1. Redirect the user to the IdP
-const authUrl = await theauth.sso.getOidcAuthUrl(connection.id, stateParam);
+const authUrl = await theauth.sso!.getOidcAuthUrl(connection.id, stateParam);
 // redirect to authUrl
 
 // 2. Handle the callback
-const { user, orgId } = await theauth.sso.handleOidcCallback(connection.id, codeFromQuery);
+const { user, orgId } = await theauth.sso!.handleOidcCallback(connection.id, codeFromQuery);
 // user.id, user.email, user.name
 ```
 
-OIDC discovery is fetched automatically from `issuer/.well-known/openid-configuration`. The `id_token` is verified using the IdP's JWKS endpoint.
+OIDC discovery is fetched automatically from `issuer/.well-known/openid-configuration`. The `id_token` is verified using the IdP's JWKS endpoint. `getOidcAuthUrl` also accepts a `nonce` as a third argument, and `handleOidcCallback` accepts `expectedNonce` as a third argument. Use `theauth.sso.generateState()` and `validateState(state)` to create and check short-lived state tokens (`stateTtlSeconds`, default 300).
 
 ## Endpoints
 
+Served by `theauth.sso.handleRequest(request)`. The handler does no authentication of its own, so put your own admin check in front of the connection routes.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/auth/sso/connections` | Create SSO connection |
+| POST | `/auth/sso/connections` | Create SSO connection, body `{ orgId, providerId, type, domain }` |
 | GET | `/auth/sso/connections/:orgId` | List connections for org |
 | DELETE | `/auth/sso/connections/:id` | Remove connection |
-| GET | `/auth/sso/saml/:connectionId` | Initiate SAML login (redirect) |
-| POST | `/auth/sso/saml/:connectionId/acs` | SAML assertion consumer |
-| GET | `/auth/sso/oidc/:connectionId` | Initiate OIDC login (redirect) |
-| GET | `/auth/sso/oidc/:connectionId/callback` | OIDC callback |
+| GET | `/auth/sso/saml/:connectionId` | Initiate SAML login (302 redirect, optional `relayState` query) |
+| POST | `/auth/sso/saml/:connectionId/acs` | SAML assertion consumer, returns the identity as JSON |
+| GET | `/auth/sso/oidc/:connectionId` | Initiate OIDC login (302 redirect, optional `state` and `nonce` query) |
+| GET | `/auth/sso/oidc/:connectionId/callback` | OIDC callback, returns the identity as JSON |
+
+Failed logins return `401` (or `429` when rate limited, by default 10 attempts per connection per 60 seconds, set with `rateLimitMax` and `rateLimitWindowSeconds`) with `{ error, code }`. Pass `onAuditEvent` in the `sso` config to receive login success and failure events.
 
 ## Related
 
@@ -141,6 +149,6 @@ OIDC discovery is fetched automatically from `issuer/.well-known/openid-configur
     Turn TheAuth into an OIDC identity provider for downstream apps.
   </Card>
   <Card title="Admin" href="/auth/admin" icon="gear">
-    User management for enterprise accounts.
+    User management tools.
   </Card>
 </CardGroup>

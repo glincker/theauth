@@ -1,11 +1,11 @@
 ---
 title: "Last login tracking"
-description: Record every successful authentication per user via createLastLoginModule. Retrieve last sign-in timestamp, method, and IP for security pages or anomaly checks.
+description: Record every successful authentication per user via createLastLoginModule. Retrieve last sign-in timestamp, method, and IP for security pages or your own checks.
 icon: key
 ---
 
 
-The last login module records every successful authentication event per user. You can show users when and how they last signed in on a security page, or use login history to detect unusual activity.
+The last login module records every successful authentication event per user. You can show users when and how they last signed in on a security page, or build your own checks on the login history. TheAuth's sign-in modules do not call this module for you, so you call `recordLogin` yourself after each successful sign-in.
 
 ## Setup
 
@@ -25,7 +25,7 @@ const loginHistory = createLastLoginModule(
 
 ## Recording a login
 
-Call `recordLogin` after any successful authentication:
+Call `recordLogin` after any successful authentication. It validates its input (the `userId` must be non-empty and the `method` must be one of the values below) and returns a `Result` with the stored event:
 
 ```ts
 await loginHistory.recordLogin({
@@ -86,7 +86,7 @@ Events are returned newest first. The optional `limit` parameter overrides the m
 
 ## Result type
 
-All methods return `Result<T>`, either `{ success: true; data: T }` or `{ success: false; error: TheAuthError }`. No exceptions are thrown.
+All methods return `Result<T>`, either `{ success: true; data: T }` or `{ success: false; error: TheAuthError }`. Invalid input and database failures come back as `success: false` rather than thrown errors.
 
 ```ts
 const result = await loginHistory.getLastLogin(userId);
@@ -107,10 +107,10 @@ IP addresses are stored as-is. Normalise or hash them before passing if your pri
     All supported auth methods that generate login events.
   </Card>
   <Card title="Anomaly detection" href="/anomaly" icon="triangle-exclamation">
-    Automatic flagging of off-hours access and unusual login patterns.
+    What exists today for unusual behavior (TheAuth has no login anomaly detector).
   </Card>
   <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
-    Skip 2FA on devices seen in recent successful logins.
+    Skip 2FA on devices you have marked as trusted.
   </Card>
   <Card title="Audit trail" href="/audit" icon="scroll">
     Full agent-level action log for deeper activity analysis.

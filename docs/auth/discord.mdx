@@ -2,7 +2,7 @@
 icon: discord
 iconType: brands
 title: Discord
-description: Authenticate users via Discord OAuth 2.0. Register a redirect URI in the Developer Portal, pass client credentials to the `discord` provider, and request scopes.
+description: Authenticate users via Discord OAuth 2.0. Register a redirect URI in the Developer Portal, pass client credentials to `createDiscordProvider`, and request scopes.
 ---
 
 ## Get credentials
@@ -43,21 +43,21 @@ From **OAuth2 > General**, copy the **Client ID** and **Client Secret**.
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, createDiscordProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'discord', // [!code highlight]
+      providers: {
+        discord: createDiscordProvider({ // [!code highlight]
           clientId: process.env.DISCORD_CLIENT_ID!, // [!code highlight]
           clientSecret: process.env.DISCORD_CLIENT_SECRET!, // [!code highlight]
-        },
-      ],
+        }), // [!code highlight]
+      },
     }),
   ],
 });
@@ -70,7 +70,7 @@ DISCORD_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `identify email`
+Default scopes: `identify email`. Scopes you pass are added on top of the defaults.
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -85,8 +85,8 @@ Default scopes: `identify email`
 |-------|--------|-------|
 | `id` | `id` field | Stable Discord snowflake ID |
 | `email` | `email` field | Verified email |
-| `name` | `username` field | Current username (not discriminator) |
-| `image` | `avatar` hash | Constructed CDN URL |
+| `name` | `global_name`, falling back to `username` (with `#discriminator` for legacy accounts) | Display name |
+| `avatar` | `avatar` hash | Constructed CDN URL |
 
 <Info>
   Discord email addresses are verified before the account can use OAuth. You will always receive a verified email when the `email` scope is requested.

@@ -1,13 +1,13 @@
 ---
 title: Email templates
-description: Generate {subject, text, html} for every auth flow via createEmailTemplates. Covers verification, password reset, magic link, OTP, and invitation emails.
+description: Generate {subject, text, html} for auth emails via createEmailTemplates. Covers verification, password reset, magic link, OTP, invitation, and welcome emails.
 icon: file-lines
 ---
 
 
 ## Overview
 
-`createEmailTemplates` returns a set of pre-built HTML email templates for every auth flow TheAuth supports. Each template produces a `{ subject, text, html }` object you pass directly to your mail provider.
+`createEmailTemplates` returns a renderer for six pre-built HTML email templates (verification, password reset, magic link, email OTP, invitation, and welcome). `render(name, vars)` produces a `{ subject, text, html }` object you pass to your mail provider.
 
 ## Setup
 
@@ -15,65 +15,67 @@ icon: file-lines
 import { createEmailTemplates } from '@glinr/theauth';
 
 const templates = createEmailTemplates({
-  appName: 'MyApp',
-  appUrl: 'https://myapp.com',
-  supportEmail: 'support@myapp.com', // optional
+  appName: 'MyApp',               // default: 'TheAuth'
+  appUrl: 'https://myapp.com',    // default: 'http://localhost:3000'
 });
 ```
 
+`appName` appears in the subject lines and the email header and footer. `appUrl` is used for the default verification and reset links and for the welcome email button.
+
 ## Built-in templates
 
-| Template | When to use |
-|----------|------------|
-| `verification` | Email address verification on signup |
-| `passwordReset` | Password reset request |
-| `magicLink` | Passwordless login link |
-| `emailOtp` | One-time passcode for email OTP auth |
-| `invitation` | Invite a user to an organization |
-| `welcome` | Post-signup welcome message |
+| Template | Variables (all strings) | When to use |
+|----------|-------------------------|------------|
+| `verification` | `email`, `verifyUrl` (or `token`) | Email address verification on signup |
+| `passwordReset` | `email`, `resetUrl` (or `token`) | Password reset request |
+| `magicLink` | `email`, `url` | Passwordless login link |
+| `emailOtp` | `email`, `code` | One-time passcode for email OTP auth |
+| `invitation` | `email`, `orgName`, `inviteUrl` | Invite a user to an organization |
+| `welcome` | `email`, `name` | Post-signup welcome message |
+
+When `verifyUrl` or `resetUrl` is missing, the template builds `{appUrl}/verify?token={token}` or `{appUrl}/reset-password?token={token}`. Missing variables become empty strings, so check you pass what the template needs.
 
 ## Using a template
 
-Every template is a function that accepts the variables it needs and returns `{ subject, text, html }`.
+`render(name, vars)` takes the template name and a flat map of string variables and returns `{ subject, text, html }`.
 
 ```typescript
-const { subject, text, html } = templates.magicLink({
-  url: 'https://myapp.com/auth/callback?token=abc123',
-  expiresInMinutes: 15,
-  userEmail: 'alice@example.com',
+const { subject, text, html } = templates.render('magicLink', {
+  url: 'https://myapp.com/api/theauth/auth/magic-link/verify?token=abc123',
+  email: 'alice@example.com',
 });
 
 await mailer.send({ to: 'alice@example.com', subject, text, html });
 ```
 
-## All template signatures
+<Warning>
+  Variables are inserted into the HTML without escaping. If a value can contain user-controlled text (a name, an organization name), escape it before you pass it in.
+</Warning>
 
-```typescript
-templates.verification({ url: string; userEmail: string });
-templates.passwordReset({ url: string; expiresInMinutes: number; userEmail: string });
-templates.magicLink({ url: string; expiresInMinutes: number; userEmail: string });
-templates.emailOtp({ otp: string; expiresInMinutes: number; userEmail: string });
-templates.invitation({ url: string; inviterName: string; orgName: string; userEmail: string });
-templates.welcome({ userName: string; userEmail: string });
-```
+## Template expiry text
 
-## Integrating with auth plugins
+The expiry sentence in each template is fixed text, it does not read your configuration: verification says 24 hours, password reset says 1 hour, magic link says 15 minutes (matching the magic link default), and email OTP says 10 minutes. The email OTP module expires codes after 5 minutes by default, so either set `codeExpiry: 600` or provide an override with matching text.
 
-Auth plugins expose callbacks like `onSendVerification` and `onSendMagicLink`. Pass template output directly into them.
+## Integrating with auth modules
+
+The magic link and email OTP modules take a send callback and leave delivery to you. Pass template output to your mail provider inside it.
 
 <Tabs>
   <Tab title="Magic link">
 ```typescript
-import { createTheAuth, magicLinkPlugin, createEmailTemplates } from '@glinr/theauth';
+import { createTheAuth, createEmailTemplates } from '@glinr/theauth';
+import { magicLink } from '@glinr/theauth/auth';
 
 const templates = createEmailTemplates({ appName: 'MyApp', appUrl: 'https://myapp.com' });
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
-    magicLinkPlugin({
-      async onSendMagicLink({ email, url, expiresInMinutes }) {
-        const mail = templates.magicLink({ url, expiresInMinutes, userEmail: email });
+    magicLink({
+      appUrl: 'https://myapp.com/api/theauth',
+      async sendMagicLink(email, _token, url) {
+        const mail = templates.render('magicLink', { url, email });
         await mailer.send({ to: email, ...mail });
       },
     }),
@@ -83,9 +85,12 @@ const theauth = await createTheAuth({
   </Tab>
   <Tab title="Email OTP">
 ```typescript
-emailOtpPlugin({
-  async onSendOtp({ email, otp, expiresInMinutes }) {
-    const mail = templates.emailOtp({ otp, expiresInMinutes, userEmail: email });
+import { emailOtp } from '@glinr/theauth/auth';
+
+emailOtp({
+  codeExpiry: 600, // match the 10 minutes in the template text
+  async sendOtp(email, code) {
+    const mail = templates.render('emailOtp', { code, email });
     await mailer.send({ to: email, ...mail });
   },
 });
@@ -93,30 +98,28 @@ emailOtpPlugin({
   </Tab>
   <Tab title="Password reset">
 ```typescript
-emailPasswordPlugin({
-  async onSendResetPassword({ email, url }) {
-    const mail = templates.passwordReset({ url, expiresInMinutes: 60, userEmail: email });
-    await mailer.send({ to: email, ...mail });
-  },
-});
+// passwordReset config key on createTheAuth, see the password-reset module
+const mail = templates.render('passwordReset', { resetUrl, email });
+await mailer.send({ to: email, ...mail });
 ```
   </Tab>
 </Tabs>
 
 ## Customizing templates
 
-Override any template by passing your own function. Custom templates receive the same arguments as built-ins and must return `{ subject, text, html }`.
+Override any template with the `templates` option. Each override is a function that receives the same `vars` map as the built-in and must return `{ subject, text, html }`.
 
 ```typescript
 const templates = createEmailTemplates({
   appName: 'MyApp',
   appUrl: 'https://myapp.com',
-  overrides: {
-    welcome({ userName, userEmail }) {
+  templates: {
+    welcome(vars) {
+      const name = vars.name ?? vars.email;
       return {
-        subject: `Welcome to MyApp, ${userName}`,
-        text: `Hey ${userName}, your account (${userEmail}) is ready.`,
-        html: `<p>Hey <strong>${userName}</strong>, your account is ready. <a href="https://myapp.com">Get started</a>.</p>`,
+        subject: `Welcome to MyApp, ${name}`,
+        text: `Hey ${name}, your account is ready.`,
+        html: `<p>Hey <strong>${name}</strong>, your account is ready. <a href="https://myapp.com">Get started</a>.</p>`,
       };
     },
   },
@@ -137,6 +140,6 @@ const templates = createEmailTemplates({
   One-time passcodes delivered by email.
 </Card>
   <Card title="Internationalization" href="/i18n">
-  Translate email subjects and error messages.
+  Locale and message helpers.
 </Card>
 </CardGroup>

@@ -17,10 +17,10 @@ import { createTheAuth } from '@glinr/theauth';
 import { scim } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'postgres', url: process.env.DATABASE_URL },
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   plugins: [
     scim({
-      bearerToken: process.env.SCIM_TOKEN,
+      bearerToken: process.env.SCIM_TOKEN!,
     }),
   ],
 });
@@ -38,13 +38,15 @@ Auth:      Bearer token
 Token:     <your SCIM_TOKEN>
 ```
 
-The token must match `SCIM_TOKEN` exactly. Use a long random secret (32+ bytes).
+The token must match `SCIM_TOKEN` exactly. Use a long random secret (32+ bytes). The `/api/theauth` part of the base URL is the default adapter mount path, so it follows wherever you mounted the adapter.
+
+Optional config: `autoCreateUsers` (default `true`), `autoDeactivateUsers` (default `true`), `onProvision(user)` and `onDeprovision(userId)` callbacks.
 </Step>
 </Steps>
 
 ## User endpoints
 
-The plugin exposes standard SCIM 2.0 user CRUD endpoints. Your IdP calls these automatically.
+The plugin exposes SCIM 2.0 user CRUD endpoints. Your IdP calls these automatically. Users map to TheAuth's users table.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -54,6 +56,8 @@ The plugin exposes standard SCIM 2.0 user CRUD endpoints. Your IdP calls these a
 | PUT | `/scim/v2/Users/:id` | Replace a user's attributes |
 | PATCH | `/scim/v2/Users/:id` | Update specific attributes |
 | DELETE | `/scim/v2/Users/:id` | Deprovision a user |
+
+Deprovisioning (`DELETE`, or `active: false` in a `PUT` or `PATCH`) deactivates the user by setting their `banned` flag and a `scim:deprovisioned` metadata marker when `autoDeactivateUsers` is on. With it off, `DELETE` removes the user row. TheAuth's sign-in modules do not check the `banned` flag, so check it in your own sign-in flow (see [Admin](/auth/admin)) for deprovisioning to cut off access.
 
 ## Group endpoints
 
@@ -70,13 +74,13 @@ Groups are mapped to TheAuth organizations.
 
 ## Filtering
 
-All list endpoints support SCIM filter expressions. The most common one is `userName`:
+The Users and Groups list endpoints accept a SCIM `filter` query parameter. The most common one is `userName`:
 
 ```
 GET /scim/v2/Users?filter=userName eq "john@example.com"
 ```
 
-Supported filter operators: `eq`, `ne`, `co` (contains), `sw` (starts with).
+Supported filter operators: `eq`, `co` (contains), `sw` (starts with), and `pr` (present, no value). Combine clauses with `and`. `ne` and `or` are not supported.
 
 ## Discovery endpoints
 
@@ -84,12 +88,12 @@ SCIM clients use these to learn what your server supports:
 
 | Path | Description |
 |------|-------------|
-| `/scim/v2/ServiceProviderConfig` | Supported features and auth schemes |
+| `/scim/v2/ServiceProviderConfig` | Supported features and auth schemes (PATCH and filter supported, bulk not supported) |
 | `/scim/v2/Schemas` | User and Group schema definitions |
 | `/scim/v2/ResourceTypes` | Registered resource type metadata |
 
 <Warning>
-Rotate `SCIM_TOKEN` immediately if it is exposed. All SCIM endpoints reject requests without a valid `Authorization: Bearer <token>` header.
+Rotate `SCIM_TOKEN` immediately if it is exposed. The module rejects requests without a valid `Authorization: Bearer <token>` header with `401`. The token is a single static secret compared as-is.
 </Warning>
 
 ## Related

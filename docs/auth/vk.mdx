@@ -23,19 +23,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/vk
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, vkProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'vk',
-          clientId: process.env.VK_CLIENT_ID!,
-          clientSecret: process.env.VK_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        vk: vkProvider(
+          process.env.VK_CLIENT_ID!,
+          process.env.VK_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -61,6 +63,10 @@ Default scopes: `email`
 <Info>
   VK returns email as part of the access token response rather than a separate userinfo endpoint. TheAuth handles this automatically.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://id.vk.com/oauth2/user_info` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a `user.user_id` field nested under `user`, so sign-in is expected to fail with `VK userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

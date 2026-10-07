@@ -1,11 +1,11 @@
 ---
 title: Prisma adapter
-description: Query every TheAuth table through an existing PrismaClient via @glinr/theauth-prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
+description: Read and write the main TheAuth tables through an existing PrismaClient via @glinr/theauth-prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
 icon: database
 ---
 
 
-TheAuth ships a Drizzle-based database layer by default. If your project already uses [Prisma](https://www.prisma.io), the `@glinr/theauth-prisma` adapter lets you query every TheAuth table through your existing `PrismaClient`, no Drizzle installation required.
+TheAuth ships a Drizzle-based database layer by default. If your project already uses [Prisma](https://www.prisma.io), the `@glinr/theauth-prisma` adapter lets you query the core TheAuth tables through your existing `PrismaClient`, without using Drizzle in your own code.
 
 <Info>
   The Prisma adapter is a standalone query layer. It does not replace or wrap
@@ -20,7 +20,7 @@ TheAuth ships a Drizzle-based database layer by default. If your project already
 - You prefer generated Prisma types over Drizzle's schema for editor autocomplete.
 - Your team finds Prisma's DSL easier to maintain than raw SQL DDL.
 
-The adapter covers agents, users, sessions, audit logs, permissions, delegation chains, OAuth, API keys, organizations, trust scores, approval requests, and every other TheAuth table.
+The adapter has methods for users, agents, permissions, delegation chains, audit logs, sessions, rate limits, OAuth clients, tokens and authorization codes, MCP servers, API keys, organizations, members and invitations, JWT refresh tokens, trust scores, and approval requests. The reference Prisma schema defines more models than the adapter has methods for (for example magic links, passkeys, and SSO connections), so for those tables use Prisma models directly.
 
 ## Installation
 
@@ -28,7 +28,7 @@ The adapter covers agents, users, sessions, audit logs, permissions, delegation 
 pnpm add @glinr/theauth-prisma @prisma/client
 ```
 
-The adapter has no runtime dependency on `@glinr/theauth` itself, `@prisma/client` is the only peer dep.
+The package declares `@glinr/theauth` and `@prisma/client` (5.0 or later) as peer dependencies. The adapter code itself does not import the core package at runtime.
 
 ## Setup
 
@@ -37,7 +37,7 @@ The adapter has no runtime dependency on `@glinr/theauth` itself, `@prisma/clien
 
 ### Add the TheAuth models to your Prisma schema
 
-Copy the models from `node_modules/@glinr/theauth-prisma/src/schema.prisma` into your `prisma/schema.prisma`, or use it as a reference to add only the tables you need.
+Copy the models from `node_modules/@glinr/theauth-prisma/src/schema.prisma` into your `prisma/schema.prisma`, or use it as a reference to add only the tables you need. The schema declares no relations, so add relations and `onDelete` rules yourself if you want them.
 
 The schema targets Postgres by default. Switch the `datasource` provider to `sqlite` or `mysql` as appropriate.
 
@@ -54,19 +54,19 @@ datasource db {
 
 // ... your existing models ...
 
-model AuthUser {
+model TheAuthUser {
   id                 String    @id
   email              String    @unique
   name               String?
   banned             Boolean   @default(false)
   createdAt          DateTime  @map("created_at")
   updatedAt          DateTime  @map("updated_at")
-  // ... (see full schema in @glinr/theauth-prisma/src/schema.prisma)
+  // ... (see the full model in @glinr/theauth-prisma/src/schema.prisma)
 
   @@map("theauth_users")
 }
 
-model AuthAgent {
+model TheAuthAgent {
   id          String    @id
   ownerId     String    @map("owner_id")
   name        String
@@ -77,6 +77,7 @@ model AuthAgent {
   expiresAt   DateTime? @map("expires_at")
   createdAt   DateTime  @map("created_at")
   updatedAt   DateTime  @map("updated_at")
+  // ... (tenantId, lastActiveAt and metadata are in the full model)
 
   @@map("theauth_agents")
 }
@@ -165,16 +166,16 @@ const user = await theAuthDb.createUser({
   updatedAt: new Date(),
 });
 
-// Update user (e.g., link Stripe customer)
+// Update user fields (name, username, externalId, externalProvider, metadata, email)
 await theAuthDb.updateUser(userId, {
-  stripeCustomerId: 'cus_abc123',
+  name: 'Alice B.',
 });
 ```
 
 ### Session management
 
 ```typescript
-// Create a session
+// Create a session record (a row only, it does not mint a session token)
 const session = await theAuthDb.createSession({
   id: crypto.randomUUID(),
   userId: 'user-456',
@@ -206,7 +207,7 @@ const logs = await theAuthDb.queryAuditLogs({
 const denials = await theAuthDb.queryAuditLogs({
   userId: 'user-456',
   result: 'denied',
-  since: new Date('2025-01-01'),
+  since: new Date('2026-01-01'),
 });
 
 // Write an audit log entry
@@ -303,7 +304,7 @@ await theAuthDb.updateApprovalRequest(requestId, {
 If you started with the built-in Drizzle backend and want to switch to Prisma:
 
 1. Keep the same table names, all TheAuth tables use the `theauth_` prefix and the same column names in both Drizzle and Prisma.
-2. Run `npx prisma introspect` against your existing database to generate a Prisma schema from the Drizzle-created tables.
+2. Run `npx prisma db pull` against your existing database to generate a Prisma schema from the Drizzle-created tables, or copy the reference schema.
 3. Replace calls to the Drizzle `db` directly with `createPrismaAdapter(prisma)`.
 4. Set `database.skipMigrations: true` in `createTheAuth(...)` if the core TheAuth instance is still used for other features (agents, MCP, etc.), so Drizzle does not conflict with Prisma.
 
@@ -311,7 +312,7 @@ If you started with the built-in Drizzle backend and want to switch to Prisma:
 const theauth = await createTheAuth({
   database: {
     provider: 'postgres',
-    url: process.env.DATABASE_URL,
+    url: process.env.DATABASE_URL!,
     skipMigrations: true, // Prisma owns the schema now
   },
 });
@@ -329,7 +330,7 @@ const db = createPrismaAdapter(prisma);
 
 ## Reference schema
 
-The full reference schema is in `node_modules/@glinr/theauth-prisma/src/schema.prisma`. It includes all 30+ TheAuth models with correct column mappings, indexes, and default values.
+The full reference schema is in `node_modules/@glinr/theauth-prisma/src/schema.prisma`. It includes 39 TheAuth models with column mappings, indexes, and default values.
 
 Every model name follows `TheAuthPascalCase` and maps to a `theauth_snake_case` table, keeping your Prisma namespace clean and your SQL tables clearly scoped.
 
@@ -337,7 +338,7 @@ Every model name follows `TheAuthPascalCase` and maps to a `theauth_snake_case` 
 
 <CardGroup cols={2}>
   <Card title="Database setup" href="/database" icon="database">
-    Core Drizzle-based database configuration and provider options.
+    Core database configuration and provider options.
   </Card>
   <Card title="Configuration" href="/configuration" icon="sliders">
     Full createTheAuth() options including database connection setup.
@@ -346,6 +347,6 @@ Every model name follows `TheAuthPascalCase` and maps to a `theauth_snake_case` 
     Test auth-dependent code with in-memory mock factories.
   </Card>
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
-    Migration guide including notes on the Prisma adapter path.
+    Migration guide for moving from better-auth.
   </Card>
 </CardGroup>

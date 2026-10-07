@@ -6,10 +6,10 @@ icon: shield-halved
 
 Mobile apps cannot safely store OAuth client secrets. Embedding a secret in an iOS or Android binary is not safe, it can be extracted. The standard workaround (PKCE without a secret) works for some providers but not all.
 
-The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through TheAuth, which holds the client secret and performs the code exchange on the device's behalf. The app gets back tokens via its custom URL scheme, never touching the secret directly.
+The OAuth proxy sits in between: the mobile app kicks off an OAuth flow through TheAuth, which holds the client secret and performs the code exchange on the device's behalf. The app gets back the provider's tokens via its custom URL scheme, never touching the secret directly.
 
 <Info>
-  The proxy works with any provider configured in TheAuth. The mobile app only needs to know the provider name and its own redirect URI.
+  `oauthProxy()` takes its own `providers` map of provider instances (the same factories used by `oauth()`, such as `createGoogleProvider`), so it works with any provider you list there. The mobile app only needs to know the provider key and its own redirect URI. The proxy returns the provider's tokens as-is: it does not create a TheAuth user or a TheAuth session, and it does not need `auth.session`.
 </Info>
 
 ## How it works
@@ -58,7 +58,7 @@ import { oauthProxy, createGoogleProvider } from '@glinr/theauth/auth'; // [!cod
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com', // must be set for proxy callback URL
+  baseUrl: 'https://auth.example.com', // required: used to build {baseUrl}/auth/oauth-proxy/callback
   plugins: [
     oauthProxy({ // [!code highlight]
       providers: { // [!code highlight]
@@ -87,7 +87,7 @@ When registering the OAuth application with your provider (Google, GitHub, etc.)
 https://auth.example.com/auth/oauth-proxy/callback
 ```
 
-The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only TheAuth's server URL is.
+The mobile app's custom scheme (`com.example.myapp://...`) is **not** registered with the provider, only TheAuth's server URL is. If you mount TheAuth under an adapter prefix such as `/api/theauth`, include it in `baseUrl` and in the URL you register.
 
 </Step>
 
@@ -142,6 +142,7 @@ async function signInWithGoogle() {
 | `provider` | Yes | Provider ID as configured in `providers` (e.g. `google`, `github`) |
 | `redirect_uri` | Yes | Mobile app callback URI. Must be in `allowedRedirectUris` |
 | `state` | No | Opaque value forwarded to the mobile app after the flow completes |
+| `code_challenge` | No | Accepted but ignored. The server always generates its own PKCE verifier |
 
 ### `/auth/oauth-proxy/start` response
 
@@ -183,7 +184,7 @@ The proxy generates a PKCE code verifier and challenge for every flow. The verif
 
 **State TTL**, proxy state entries expire after 10 minutes by default. An expired or unknown state returns `400` and cannot be replayed.
 
-**One-time state**, the state entry is deleted before the token exchange network call, preventing replay attacks even if the callback is called twice.
+**One-time state**, the state entry is deleted before the token exchange network call, preventing replay attacks even if the callback is called twice. Proxy state is kept in the memory of the server process, so a flow must start and finish on the same instance, and pending flows are lost on restart.
 
 **No open redirects**, the final redirect destination always comes from the stored state entry, never from user-supplied query parameters at callback time.
 

@@ -38,15 +38,16 @@ import { oauth, bitbucketProvider } from '@glinr/theauth/auth';
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://your-app.com',
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        bitbucketProvider(
+      providers: {
+        bitbucket: bitbucketProvider(
           process.env.BITBUCKET_CLIENT_ID!,
           process.env.BITBUCKET_CLIENT_SECRET!,
         ),
-      ],
+      },
     }),
   ],
 });
@@ -59,7 +60,7 @@ BITBUCKET_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scope: `account`
+Default scopes: `account`, `email`
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -71,6 +72,10 @@ Default scope: `account`
 <Info>
   Bitbucket does not expose the user's email by default through the profile endpoint if it is set to private. The `email` scope fetches it from a separate endpoint. TheAuth requests both automatically.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://api.bitbucket.org/2.0/user` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns `uuid` and `account_id` fields and no email, so sign-in is expected to fail with `Bitbucket userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

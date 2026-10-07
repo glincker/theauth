@@ -1,6 +1,6 @@
 ---
 title: Notion
-description: Authenticate users via Notion OAuth 2.0. Create a public integration, configure OAuth redirect URIs in Notion settings, and wire the `notion` provider.
+description: Authenticate users via Notion OAuth 2.0. Create a public integration, configure OAuth redirect URIs in Notion settings, and wire `createNotionProvider`.
 icon: "/brand-icons/notion.svg"
 ---
 
@@ -44,21 +44,21 @@ Under **Basic Information**, copy the **OAuth client ID** and generate an **OAut
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, createNotionProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'notion', // [!code highlight]
+      providers: {
+        notion: createNotionProvider({ // [!code highlight]
           clientId: process.env.NOTION_CLIENT_ID!, // [!code highlight]
           clientSecret: process.env.NOTION_CLIENT_SECRET!, // [!code highlight]
-        },
-      ],
+        }), // [!code highlight]
+      },
     }),
   ],
 });
@@ -79,7 +79,7 @@ NOTION_CLIENT_SECRET=secret_...
 
 ## Scopes
 
-Notion does not use granular OAuth scopes. Permissions are configured at the integration level in the Notion UI. When a user authorizes your integration, they choose which pages and databases to share.
+Notion does not use granular OAuth scopes, and the provider does not send a PKCE challenge. Permissions are configured at the integration level in the Notion UI. When a user authorizes your integration, they choose which pages and databases to share.
 
 ## User data returned
 
@@ -91,27 +91,16 @@ Notion does not use granular OAuth scopes. Permissions are configured at the int
 | `avatar` | `owner.user.avatar_url` | May be null if the user has no profile photo |
 
 <Info>
-  Notion returns user identity as part of the token exchange response, there is no separate `/me` endpoint. TheAuth caches the token payload internally so no extra network call is made.
+  Notion returns user identity as part of the token exchange response, there is no separate `/me` endpoint. The provider keeps the last token payload in memory so no extra network call is made.
 </Info>
 
 <Warning>
-  The `email` field is only present when a **person** authorizes the integration. If a workspace bot is the owner (`owner.type === "workspace"`), the email will be absent. Always check for `userInfo.email` before using it.
+  The `email` field is only present when a **person** authorizes the integration. If a workspace bot is the owner (`owner.type === "workspace"`), the email will be absent. Without an email, the `oauth()` plugin cannot match or create a user, so the callback returns JSON instead of a session.
 </Warning>
 
 ## Workspace data
 
-The token response also includes workspace context, available in `userInfo.raw`:
-
-```typescript
-const { userInfo } = await oauth.handleCallback('notion', code, state, redirectUri);
-
-// Access workspace info from the raw token payload
-const raw = userInfo.raw as { workspace_id: string; workspace_name: string };
-console.log(raw.workspace_id);   // e.g. "1234abcd-..."
-console.log(raw.workspace_name); // e.g. "Acme Corp"
-```
-
-This is useful for multi-workspace SaaS apps where you want to scope data per Notion workspace.
+The token response also includes workspace context (`workspace_id`, `workspace_name`), available in `userInfo.raw` on the result of `createOAuthModule(...).handleCallback`. The `oauth()` plugin does not persist this data, so if you need the workspace per user, drive the flow with the module and store it yourself.
 
 ## Related
 

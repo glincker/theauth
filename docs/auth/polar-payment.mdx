@@ -1,10 +1,10 @@
 ---
 title: Polar payments
-description: Wire Polar subscription billing into TheAuth with the `polar()` plugin. Set an access token and webhook secret to sync checkout and subscription state.
+description: Wire Polar subscription billing into TheAuth with the `polar()` plugin or `createPolarModule`. Set an access token and webhook secret to sync checkout and subscription state.
 icon: "/brand-icons/polar.svg"
 ---
 
-Polar is an open-source funding platform for developers. The TheAuth plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required.
+Polar is an open-source funding platform for developers. The TheAuth plugin wires Polar checkout sessions and subscription webhooks to your user records, no Polar SDK required. The plugin exposes HTTP endpoints only. It does not add `theauth.polar` or `theauth.plugins.polar` to the instance, so to call the methods from your own code you create the module yourself (see Usage).
 
 ## Setup
 
@@ -23,11 +23,12 @@ import { createTheAuth } from '@glinr/theauth';
 import { polar } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'postgres', url: process.env.DATABASE_URL },
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     polar({
-      accessToken: process.env.POLAR_ACCESS_TOKEN,
-      webhookSecret: process.env.POLAR_WEBHOOK_SECRET,
+      accessToken: process.env.POLAR_ACCESS_TOKEN!,
+      webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
       sandbox: process.env.NODE_ENV !== 'production',
       onSubscriptionChange: async (userId, sub) => {
         console.log(`User ${userId}: ${sub.status}`);
@@ -36,17 +37,33 @@ const theauth = await createTheAuth({
   ],
 });
 ```
+The checkout and subscription endpoints act on the authenticated user, resolved from `auth.adapter` or an `auth.session` token.
 </Step>
 </Steps>
 
 ## Usage
 
+Create the module with the same config and your instance's database:
+
+```ts
+import { createPolarModule } from '@glinr/theauth/auth';
+
+const polarModule = createPolarModule(
+  {
+    accessToken: process.env.POLAR_ACCESS_TOKEN!,
+    webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
+  },
+  theauth.db,
+);
+```
+
 ### Create a checkout session
 
 ```ts
 // From an authenticated endpoint
-const { url } = await theauth.plugins.polar.createCheckout(userId, 'product_xxx', {
+const { url } = await polarModule.createCheckout(userId, 'product_xxx', {
   successUrl: 'https://example.com/success',
+  customerEmail: 'user@example.com', // optional
 });
 
 // Redirect the user
@@ -56,7 +73,7 @@ redirect(url);
 ### Check subscription status
 
 ```ts
-const sub = await theauth.plugins.polar.getSubscription(userId);
+const sub = await polarModule.getSubscription(userId);
 
 if (sub?.status === 'active') {
   // grant access
@@ -69,11 +86,11 @@ The plugin registers three routes under your TheAuth base path.
 
 ### POST /auth/polar/checkout
 
-Creates a checkout session. Requires an authenticated session.
+Creates a checkout session. Requires an authenticated user.
 
 ```json
 // Request body
-{ "productId": "product_xxx", "successUrl": "https://example.com/success" }
+{ "productId": "product_xxx", "successUrl": "https://example.com/success", "customerEmail": "user@example.com" }
 
 // Response
 { "url": "https://buy.polar.sh/...", "id": "checkout_xxx" }
@@ -95,11 +112,11 @@ Returns the current subscription for the authenticated user.
 }
 ```
 
-Returns `{ "subscription": null }` when the user has no active subscription.
+Returns `{ "subscription": null }` when no subscription is stored for the user.
 
 ### POST /auth/polar/webhook
 
-Receives webhook events from Polar. Signature is verified with HMAC-SHA256, no session auth needed.
+Receives webhook events from Polar. The `webhook-signature` header is verified with HMAC-SHA256 against `webhookSecret`, no session auth needed. A missing or invalid signature is rejected.
 
 Handled events:
 
@@ -107,7 +124,7 @@ Handled events:
 |---|---|
 | `subscription.created` | Links customer, stores subscription |
 | `subscription.updated` | Updates status and period end |
-| `subscription.revoked` | Clears subscription, fires callback |
+| `subscription.revoked` | Marks the stored subscription `canceled` and fires the callback with status `canceled` |
 
 ## Sandbox mode
 
@@ -115,8 +132,8 @@ Set `sandbox: true` to point at `sandbox.api.polar.sh` during development. Polar
 
 ```ts
 polar({
-  accessToken: process.env.POLAR_SANDBOX_TOKEN,
-  webhookSecret: process.env.POLAR_SANDBOX_WEBHOOK_SECRET,
+  accessToken: process.env.POLAR_SANDBOX_TOKEN!,
+  webhookSecret: process.env.POLAR_SANDBOX_WEBHOOK_SECRET!,
   sandbox: true,
 })
 ```
@@ -138,13 +155,13 @@ polar({
 | Field | Type | Description |
 |---|---|---|
 | `id` | `string` | Polar subscription ID |
-| `status` | `string` | `active`, `canceled`, `trialing`, `past_due`, etc. |
+| `status` | `string` | `active`, `canceled`, `incomplete`, `past_due`, `trialing`, or `unpaid` |
 | `productId` | `string` | Polar product ID |
 | `currentPeriodEnd` | `Date` | When the current billing period ends |
 | `cancelAtPeriodEnd` | `boolean` | Whether cancellation is scheduled |
 
 <Info>
-TheAuth stores Polar subscription data in the `theauth_users` table. You can query it directly with Drizzle or any SQL client.
+TheAuth stores Polar subscription data in `polar_*` columns of the users table (`polar_customer_id`, `polar_subscription_id`, `polar_subscription_status`, `polar_product_id`, `polar_current_period_end`, `polar_cancel_at_period_end`). You can query them directly with Drizzle or any SQL client.
 </Info>
 
 ## Related
@@ -157,7 +174,7 @@ TheAuth stores Polar subscription data in the `theauth_users` table. You can que
     User management for subscription-gated features.
   </Card>
   <Card title="Hooks" href="/hooks" icon="bolt">
-    Run logic when subscription state changes.
+    Lifecycle hooks you can attach to your instance. For subscription changes use the `onSubscriptionChange` callback.
   </Card>
   <Card title="Additional fields" href="/additional-fields" icon="puzzle-piece">
     Store subscription metadata on user records.

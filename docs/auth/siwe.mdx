@@ -22,8 +22,7 @@ import { siwe } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // for creating sessions in your own code
   plugins: [
     siwe({ // [!code highlight]
       domain: 'example.com',             // shown in the wallet prompt // [!code highlight]
@@ -40,20 +39,19 @@ const theauth = await createTheAuth({
 
 ### Add a signature verifier (production)
 
-Out of the box, the plugin validates message structure and nonce integrity but does not do on-chain secp256k1 recovery. For production, pass a `verifySignature` function using [viem](https://viem.sh) or [ethers](https://docs.ethers.org):
+Out of the box, the plugin validates message structure, domain, URI, version, and nonce but does not do secp256k1 signature recovery. For production, pass a `verifySignature` function using [viem](https://viem.sh) or [ethers](https://docs.ethers.org):
 
 <Tabs>
   <Tab title="viem">
 ```typescript title="lib/theauth.ts"
-import { verifyMessage } from 'viem';
+import { recoverMessageAddress } from 'viem';
 import { siwe } from '@glinr/theauth/auth';
 
 siwe({
   domain: 'example.com',
   uri: 'https://example.com',
   verifySignature: async (message, signature) => { // [!code highlight]
-    const address = await verifyMessage({ message, signature: signature as `0x${string}` }); // [!code highlight]
-    return address; // [!code highlight]
+    return recoverMessageAddress({ message, signature: signature as `0x${string}` }); // [!code highlight]
   }, // [!code highlight]
 })
 ```
@@ -75,7 +73,7 @@ siwe({
 </Tabs>
 
 <Warning>
-  Without `verifySignature`, the plugin trusts the address in the message body. Anyone can forge a sign-in by submitting a valid-looking message without a real signature. Always add signature recovery before going to production.
+  Without `verifySignature`, the plugin trusts the address in the message body and only checks that a signature string of at least 10 characters is present. Anyone can forge a sign-in by submitting a valid-looking message with a made-up signature. Always add signature recovery before going to production.
 </Warning>
 
 </Step>
@@ -94,10 +92,10 @@ SIWE requires three steps: get a nonce, sign a message in the wallet, then submi
 
 `GET /auth/siwe/nonce`
 
-Request a server-generated nonce before building the sign-in message. Nonces are single-use and expire after 5 minutes (configurable).
+Request a server-generated nonce before building the sign-in message. Nonces are single-use and expire after 5 minutes (configurable). They are held in memory in the server process, so run the nonce and verify requests against the same instance.
 
 ```typescript
-const res = await fetch('/auth/siwe/nonce');
+const res = await fetch('/api/theauth/auth/siwe/nonce');
 const { nonce } = await res.json(); // [!code highlight]
 ```
 
@@ -155,10 +153,10 @@ Issued At: 2025-01-01T00:00:00.000Z
 
 `POST /auth/siwe/verify`
 
-Submit the original message and the wallet signature. On success, the server returns the verified Ethereum address and chain ID. Create a session with your session management layer from here.
+Submit the original message and the wallet signature. On success, the server returns the verified Ethereum address and chain ID. The endpoint does not create a user or a session, so create those in your own code from here.
 
 ```typescript
-const res = await fetch('/auth/siwe/verify', {
+const res = await fetch('/api/theauth/auth/siwe/verify', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ message, signature }), // [!code highlight]
@@ -190,37 +188,29 @@ if (!res.ok) {
 
 Every sign-in attempt must use a fresh nonce from the server. Nonces:
 
-- Are 32 random hex bytes (256 bits of entropy)
+- Are 16 random bytes, hex encoded (32 characters, 128 bits of entropy)
 - Expire after `nonceTtlSeconds` (default: 300 seconds)
-- Are deleted immediately after a successful or failed verification, they cannot be reused
+- Are deleted as soon as the message passes the format, domain, URI, version and nonce checks, before the signature is checked, so a failed signature check also consumes the nonce
 
 The nonce is embedded in the signed message, so it cannot be stripped or replaced after signing. This prevents replay attacks: a captured `(message, signature)` pair from one session cannot be submitted again.
 
-If the nonce expires before the user signs, the verify endpoint returns `400` with `"Nonce expired"`. Request a new nonce and rebuild the message.
+If the nonce expires before the user signs, the verify endpoint returns `400` with `"Nonce expired"`. An unknown or already used nonce returns `400` with `"Nonce not found or already used"`. Request a new nonce and rebuild the message.
 
 ## Linking wallets to users
 
-SIWE verifies an address, it does not create or look up a user by itself. After a successful `/auth/siwe/verify`, use the returned `address` to find an existing user record or create a new one:
+SIWE verifies an address, it does not create or look up a user by itself. After a successful `/auth/siwe/verify`, use the returned `address` to find an existing user record or create a new one in your own storage, then create a session with the session manager (available when `auth.session` is configured):
 
 ```typescript
 const { address, chainId } = await res.json();
 
-// Look up user by wallet address
-let user = await db.query.users.findFirst({
-  where: eq(users.walletAddress, address.toLowerCase()),
-});
-
-if (!user) {
-  // First time, create account
-  user = await db.insert(users).values({
-    walletAddress: address.toLowerCase(),
-    createdAt: new Date(),
-  }).returning().get();
-}
+// Look up or create the user in your own wallet mapping (your schema)
+const userId = await findOrCreateUserByWallet(address.toLowerCase());
 
 // Create a TheAuth session for this user
-const session = await theauth.sessions.create({ userId: user.id });
+const { token, session } = await theauth.auth.session!.create(userId);
 ```
+
+`theauth.auth.session.create(userId)` returns `{ session, token }`. Send `token` to the client as a cookie or bearer token.
 
 ## Endpoints
 
@@ -237,15 +227,15 @@ const session = await theauth.sessions.create({ userId: user.id });
 | `uri` | `string` | required | Full origin URI (e.g. `https://example.com`). Must match what the wallet signed |
 | `statement` | `string` |, | Human-readable statement shown in the wallet (e.g. `Sign in to Example App`) |
 | `nonceTtlSeconds` | `number` | `300` | How long a nonce is valid before it expires |
-| `verifySignature` | `(message, signature) => Promise<string>` |, | Custom secp256k1 recovery function. Returns the recovered address. Required in production |
+| `verifySignature` | `(message, signature) => Promise<string>` |, | Custom signature recovery function. Returns the recovered address, which must match the address in the message. Required in production |
 
 ## Security considerations
 
 **Always add `verifySignature` in production.** Without it, the plugin validates message structure and nonce state, but anyone can submit a well-formed SIWE message for any address without a real signature.
 
-**Domain and URI binding.** The plugin rejects messages where `domain` or `uri` do not match the server's config. This prevents phishing attacks where a malicious site captures a signature meant for a different origin.
+**Domain and URI binding.** The plugin rejects messages where `domain` or `uri` do not match the server's config exactly. This prevents phishing attacks where a malicious site captures a signature meant for a different origin.
 
-**Nonce reuse prevention.** Nonces are deleted on first use regardless of whether verification succeeds. A second attempt with the same nonce always fails.
+**Nonce reuse prevention.** Nonces are deleted once the message passes the structural, domain, URI, version and nonce checks, including when the signature check then fails. A second attempt with the same nonce always fails.
 
 **Chain ID.** The chain ID in the message is returned to your application but is not enforced by the plugin. If your app is chain-specific (e.g. only Ethereum mainnet), check that `chainId === 1` (or your expected value) after verification.
 
@@ -256,10 +246,10 @@ const session = await theauth.sessions.create({ userId: user.id });
     Device biometric auth as another password-free option.
   </Card>
   <Card title="Magic link" href="/auth/magic-link" icon="link">
-    Email-based passwordless sign-in.
+    Email-based passwordless sign-in with single-use links.
   </Card>
   <Card title="Anonymous auth" href="/auth/anonymous" icon="user-secret">
-    Guest sessions that can be linked to a wallet address later.
+    Guest sessions you can upgrade into a real account later.
   </Card>
   <Card title="Authentication overview" href="/auth" icon="key">
     All sign-in methods available in TheAuth.

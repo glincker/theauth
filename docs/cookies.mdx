@@ -4,37 +4,46 @@ description: How TheAuth sets session cookies, how to customize them, and the de
 icon: cookie-bite
 ---
 
-TheAuth only sets cookies when you use its human-auth plugins. If Clerk, Auth.js, or better-auth runs your sign-in, TheAuth is cookie-free, it authenticates agents with bearer tokens instead.
+TheAuth only sets cookies when you use its human-auth session features. If Clerk, Auth.js, or better-auth runs your sign-in, TheAuth is cookie-free, it authenticates agents with bearer tokens instead.
+
+Cookie handling is configured on the cookie session manager (`createCookieSessionManager`, exported from `@glinr/theauth`), not through a top-level `cookies` option on `createTheAuth`. See [Sessions](/sessions) for the full manager API.
 
 ## Defaults
 
 | Attribute | Value |
 |---|---|
-| Name | `theauth_session` |
+| Name | `theauth_session` (`sessionName`) |
 | `HttpOnly` | `true` |
-| `Secure` | inferred from `baseUrl` scheme |
+| `Secure` | `true` when `NODE_ENV` is `production`, otherwise `false` |
 | `SameSite` | `Lax` |
 | `Path` | `/` |
 | `Domain` | unset (host-only) |
-| `Max-Age` | 30 days, rolling |
+| `Max-Age` | 7 days (`maxAge`), sliding by default (`autoRefresh`) |
 
-`Secure` is `true` whenever your `baseUrl` starts with `https://`. For local `http://localhost` it is `false` so the cookie survives a dev session. This is the most common source of "cookie missing in production" bug reports, so TheAuth flips it automatically.
+The `Secure` default for the cookie session manager comes from `NODE_ENV`, not from your URL. If your deployment does not set `NODE_ENV=production`, set `cookieOptions.secure: true` yourself. Cookies that the plugins set directly (for example the passkey sign-in response) mark the cookie `Secure` when `baseUrl` starts with `https://`.
 
 ## Overriding
 
 ```ts
+import { createTheAuth, createCookieSessionManager } from '@glinr/theauth';
+
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
-  baseUrl: 'https://auth.example.com',
-  cookies: {
-    name: 'myapp_session',
+});
+
+const sessions = createCookieSessionManager({
+  secret: process.env.SESSION_SECRET!, // at least 32 characters
+  sessionName: 'myapp_session',
+  maxAge: 60 * 60 * 24 * 7, // seconds; seven days
+  cookieOptions: {
+    secure: true,
     sameSite: 'strict',
     domain: '.example.com',
-    maxAge: 60 * 60 * 24 * 7,   // seconds; seven days
   },
-});
+}, theauth.db);
 ```
+
+`cookieOptions` accepts `httpOnly`, `secure`, `sameSite`, `path`, `domain`, `expires` and `partitioned`. `maxAge` comes from the top-level `maxAge` option.
 
 <Warning>
 Changing the cookie name on a live app signs every user out on the next request. Do it during a planned migration window or ship a middleware that reads both names for a transition period.
@@ -45,7 +54,7 @@ Changing the cookie name on a live app signs every user out on the next request.
 Share sessions across `app.example.com` and `auth.example.com` by setting a leading-dot domain.
 
 ```ts
-cookies: {
+cookieOptions: {
   domain: '.example.com',
   sameSite: 'lax',     // required for top-level nav; 'strict' would break redirects
 }
@@ -59,35 +68,36 @@ A leading dot is the shape browsers accept even if the spec no longer requires i
 
 If your auth server and your app live on different registrable domains (`auth.example.com` and `app.example.org`), cookies are not enough. Use the [JWT session](/jwt-sessions) path instead. Cookies do not cross registrable domains under any `SameSite` mode that browsers accept in 2026.
 
-## Rolling vs absolute expiry
+## Sliding vs absolute expiry
 
-By default, the cookie's `Max-Age` resets on every authenticated request. A user signed in thirty days ago but still active stays signed in. Flip to absolute expiry to force a re-auth on a schedule:
+By default (`autoRefresh: true`), every successful `validateSession` replaces the session row and returns a new cookie in `refreshCookieHeader` with a fresh `Max-Age`. A user signed in thirty days ago but still active stays signed in. Turn `autoRefresh` off to expire the session `maxAge` seconds after sign-in regardless of activity:
 
 ```ts
-cookies: {
+const sessions = createCookieSessionManager({
+  secret: process.env.SESSION_SECRET!,
   maxAge: 60 * 60 * 24 * 7,
-  rolling: false,          // expire seven days after sign-in, regardless of activity
-}
+  autoRefresh: false,      // expire seven days after sign-in, regardless of activity
+}, theauth.db);
 ```
 
-Absolute expiry pairs with high-trust-tier policies. See [Trust scoring](/trust).
+For sensitive actions you can additionally require a recently authenticated session, see session freshness in [Sessions](/sessions).
 
 ## Reading the cookie yourself
 
-Most code never needs to. Use `theauth.auth.getSession({ request })` and let TheAuth handle it. If you do want the raw string (for a custom route that bypasses the SDK), the cookie value is the opaque session token; hand it back to `theauth.auth.verifySession(token)` to get the user.
+Pass the raw `Cookie` header to `validateSession`. It returns `{ session, refreshCookieHeader }`, where `session` is `null` when the cookie is missing, invalid, expired, or revoked.
 
 ```ts
-import { getTheAuth } from '@/lib/theauth';
-
 export async function GET(req: Request) {
-  const theauth = await getTheAuth();
-  const result = await theauth.auth.getSession({ request: req });
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const { session, refreshCookieHeader } = await sessions.validateSession(cookieHeader);
 
-  if (!result.success || !result.data) {
+  if (!session) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  return Response.json({ userId: result.data.userId });
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  if (refreshCookieHeader) headers.set('Set-Cookie', refreshCookieHeader);
+  return new Response(JSON.stringify({ userId: session.userId }), { headers });
 }
 ```
 
@@ -95,19 +105,19 @@ export async function GET(req: Request) {
 
 <AccordionGroup>
 <Accordion title="Cookie missing in production, present in dev" icon="bug">
-Your `baseUrl` probably still points at `http://...` in production. TheAuth sets `Secure: true` when the scheme is `https`, and browsers drop `Secure` cookies sent over plain HTTP. Set `baseUrl` to `https://your-domain.com`.
+The cookie is probably being sent without `Secure` over HTTPS, or `Secure` is set but the request is plain HTTP. The cookie session manager sets `Secure` only when `NODE_ENV=production` (or when you pass `cookieOptions.secure`), and browsers drop `Secure` cookies sent over plain HTTP. Make sure production runs over HTTPS and set `cookieOptions.secure: true` explicitly.
 </Accordion>
 
 <Accordion title="Cookie missing on a subdomain" icon="bug">
-Default cookies are host-only. Set `cookies.domain: '.your-domain.com'` (with the leading dot) and re-sign the user in, or issue the cookie from the top-level domain.
+Default cookies are host-only. Set `cookieOptions.domain: '.your-domain.com'` (with the leading dot) and re-sign the user in, or issue the cookie from the top-level domain.
 </Accordion>
 
 <Accordion title="User signed out after every deploy" icon="bug">
-You are probably changing the `secret`. The cookie value is signed with it; a new secret invalidates existing cookies. Keep `secret` stable across deploys, or pass an array (`secret: [current, previous]`) during a rotation window.
+You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The `secret` option takes a single string, so keep it stable across deploys. TheAuth does not support a list of secrets for rotation.
 </Accordion>
 
 <Accordion title="SameSite=Lax rejected by a mobile webview" icon="bug">
-Some older mobile webviews treat `Lax` inconsistently across top-level POSTs. Drop to `SameSite: 'none'; Secure: true` and make sure you are on HTTPS.
+Some older mobile webviews treat `Lax` inconsistently across top-level POSTs. Set `cookieOptions: { sameSite: 'none', secure: true }` and make sure you are on HTTPS.
 </Accordion>
 </AccordionGroup>
 
@@ -121,7 +131,7 @@ Some older mobile webviews treat `Lax` inconsistently across top-level POSTs. Dr
     Stateless access tokens for cross-origin and mobile setups.
   </Card>
   <Card title="Multi-session" href="/multi-session" icon="key">
-    Cap concurrent sessions and build an active devices page.
+    List and revoke a user's sessions.
   </Card>
   <Card title="Custom session fields" href="/custom-session" icon="sliders">
     Store application-specific data inside every session.

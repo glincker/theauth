@@ -5,7 +5,11 @@ title: Apple
 description: Add Sign in with Apple to your TheAuth application. Covers credentials, client secret generation, iOS apps, and local development.
 ---
 
-Sign in with Apple uses OAuth 2.0 with a few Apple-specific requirements: the client secret is a short-lived JWT you generate from a private key, and Apple only returns the user's name on the very first authorization. Plan your data model to store it immediately.
+Sign in with Apple uses OAuth 2.0 with a few Apple-specific requirements: the client secret is a JWT you generate from a private key, and Apple only returns the user's name on the very first authorization.
+
+<Warning>
+  `createAppleProvider` does not currently complete a sign-in through the `oauth()` plugin. Apple has no userinfo endpoint, so the provider reads the user from the `id_token`, but the plugin calls `getUserInfo` with the access token only, and the provider throws `Apple getUserInfo requires the id_token from the token response`. Apple also posts the callback (`response_mode=form_post`), while the plugin registers `GET /auth/oauth/callback/apple` only. The provider builds the authorization URL and exchanges the code, so you can use it with your own callback route, but the steps below do not give you a working end-to-end flow with `oauth()` alone.
+</Warning>
 
 ## Get credentials from Apple
 
@@ -62,25 +66,27 @@ The Services ID is your OAuth `client_id` for web and non-iOS flows.
 
 ```typescript title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, createAppleProvider } from '@glinr/theauth/auth'; // [!code highlight]
 
 const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'apple', // [!code highlight]
+      providers: {
+        apple: createAppleProvider({ // [!code highlight]
           clientId: process.env.APPLE_CLIENT_ID!,       // Services ID // [!code highlight]
           clientSecret: process.env.APPLE_CLIENT_SECRET!, // Generated JWT (see below) // [!code highlight]
-        },
-      ],
+        }), // [!code highlight]
+      },
     }),
   ],
 });
 ```
+
+The provider requests the `name` and `email` scopes by default and sends a PKCE challenge. Scopes you pass are added to those.
 
 ## Generate the client secret
 
@@ -112,7 +118,7 @@ console.log(clientSecret); // paste into APPLE_CLIENT_SECRET
 Run this script locally once, copy the output JWT, and set it as your `APPLE_CLIENT_SECRET` environment variable. Re-run before the 6-month window closes.
 
 <Info>
-  The `jose` library is already a dependency of `@glinr/theauth/core`, so you do not need to install it separately.
+  The `jose` library is a dependency of TheAuth. Install it in your own project if your script imports it directly.
 </Info>
 
 ## Environment variables
@@ -129,10 +135,8 @@ Only `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET` are needed at runtime. The Team
 ## iOS native apps
 
 <Info>
-  On iOS, use the **App ID** (bundle identifier, e.g. `com.example.app`) as `clientId`, not the Services ID. The Services ID is for web only. Pass `appBundleIdentifier` in the provider config alongside `clientId` if your backend handles both flows.
+  The provider has no separate setting for native apps. A native flow would use the App ID (bundle identifier) as the client ID, but no endpoint in the `oauth()` plugin accepts a code obtained by Apple's native SDK, so native Sign in with Apple is not supported by the plugin today.
 </Info>
-
-The native Sign In with Apple flow does not go through a browser redirect. Apple's SDK returns an authorization code and a `user` object directly in the app. Forward both to your server and exchange the code for a session using the same `/auth/oauth/apple` endpoint.
 
 ## Localhost and development
 
@@ -146,26 +150,26 @@ Update both your Apple Services ID redirect URI and your `baseUrl` config to mat
 
 ## User data
 
-Apple embeds user claims in the `id_token` JWT returned from the token endpoint. TheAuth decodes this automatically.
+Apple embeds user claims in the `id_token` JWT returned from the token endpoint. The provider decodes it without verifying the signature, and throws if the `sub` or `email` claim is missing.
 
 | Field | Notes |
 |-------|-------|
-| `id` | Stable Apple user identifier, a 24-character opaque string |
-| `email` | May be a private relay address (`random@privaterelay.appleid.com`) if the user chose to hide their email |
-| `name` | Only available on the first authorization, store it on your side immediately |
+| `id` | The `sub` claim, a stable Apple user identifier |
+| `email` | May be a private relay address (`random@privaterelay.appleid.com`) if the user chose to hide their email. Absent on repeat authorizations, which makes the provider throw |
+| `name` | Not available from the `id_token`. Apple delivers it only in the `user` form field on the first authorization, and the provider does not read it |
 
 <Warning>
-  Apple returns `name` only once, on the very first sign-in, via a `user` form-post field alongside the authorization code. On every subsequent sign-in the field is absent. TheAuth stores it after first auth, but make sure your `onUserCreated` hook persists it before returning.
+  Apple returns the name only once, on the very first sign-in, in a `user` form-post field alongside the authorization code. The provider returns `name: undefined`, so you must capture that field in your own callback handler if you need it.
 </Warning>
 
 ## Endpoints
 
+The `oauth()` plugin registers the same routes for every provider:
+
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/auth/oauth/apple` | Initiate Apple sign-in. Returns a redirect URL to send the user to. |
-| `GET` | `/auth/oauth/callback/apple` | Handle the callback from Apple after the user authorizes. |
-
-Both endpoints are registered automatically when the `oauth` plugin is configured with `id: 'apple'`.
+| `GET` | `/auth/oauth/authorize/apple` | Redirect to Apple. |
+| `GET` | `/auth/oauth/callback/apple` | Callback route. Apple posts to its return URL, so this `GET` route does not receive Apple's response. |
 
 ## Related
 

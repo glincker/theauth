@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/kick
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, kickProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'kick',
-          clientId: process.env.KICK_CLIENT_ID!,
-          clientSecret: process.env.KICK_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        kick: kickProvider(
+          process.env.KICK_CLIENT_ID!,
+          process.env.KICK_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });

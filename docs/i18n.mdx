@@ -1,55 +1,62 @@
 ---
 title: Internationalization
-description: Translate auth error messages and email subjects into six built-in locales via createI18n. Supports per-request locale override and variable interpolation.
+description: Translate auth error messages and email subjects into six built-in locales via createI18n. Supports a per-call locale and variable interpolation.
 icon: globe
 ---
 
 
 ## Overview
 
-`createI18n` gives you typed access to TheAuth's built-in translation strings. Use it to return localized error messages to users, translate email subjects, or power a multi-language UI.
+`createI18n` gives you typed access to TheAuth's built-in translation strings. Use it to return localized error messages to users, translate email subjects, or power a multi-language UI. It is a standalone helper, TheAuth's own endpoints return English error text and do not call it for you.
 
 ## Setup
 
 ```typescript
-import { createI18n } from '@glinr/theauth';
+import { createI18n, es, fr } from '@glinr/theauth';
 
-const i18n = createI18n({ defaultLocale: 'en' });
+const i18n = createI18n({
+  defaultLocale: 'en',
+  translations: { es, fr }, // register the locales you need
+});
 ```
 
-The active locale defaults to `defaultLocale`. You can override it per-request (see below).
+Only English is registered by default. The other built-in locale bundles are exported separately (`es`, `fr`, `de`, `ja`, `zh`) so you only bundle what you use, and you register them through `translations` or `addLocale`. `defaultLocale` is the locale used when you do not pass one to `t`.
 
 ## Built-in locales
 
-| Code | Language |
-|------|----------|
-| `en` | English |
-| `es` | Spanish |
-| `fr` | French |
-| `de` | German |
-| `ja` | Japanese |
-| `zh` | Chinese (Simplified) |
+| Export | Language | Registered by default |
+|--------|----------|-----------------------|
+| `en` | English | Yes |
+| `es` | Spanish | No |
+| `fr` | French | No |
+| `de` | German | No |
+| `ja` | Japanese | No |
+| `zh` | Chinese | No |
 
 ## Translating a string
 
+The locale is the second argument of `t`:
+
 ```typescript
 const message = i18n.t('auth.invalidCredentials');
-// → "Invalid email or password."
+// "Invalid email or password."
 
-const localized = i18n.t('auth.invalidCredentials', { locale: 'fr' });
-// → "Adresse e-mail ou mot de passe invalide."
+const localized = i18n.t('auth.invalidCredentials', 'fr');
+// "Adresse e-mail ou mot de passe incorrect."
 ```
+
+`t(key, locale?)` and `t(key, vars, locale?)` are the two call shapes. Locale lookup tries an exact match (`fr-CA`), then the language prefix (`fr`), then `defaultLocale`, then `en`.
 
 ## Variable interpolation
 
-Pass a variables object as the second argument. Variables are referenced with `{{name}}` in translation strings.
+Pass a variables object as the second argument and the locale as the third. Variables are referenced with `{{name}}` in translation strings. Unknown variables are left as `{{name}}`.
 
 ```typescript
-i18n.t('email.welcome.subject', { name: 'Alice' });
-// → "Welcome to MyApp, Alice"
+i18n.t('email.welcome.subject', { appName: 'MyApp' });
+// "Welcome to MyApp"
 
-i18n.t('auth.rateLimited', { retryAfter: '30' });
-// → "Too many attempts. Try again in 30 seconds."
+i18n.t('auth.rateLimited', { retryAfter: '30' }, 'fr');
+// "Trop de tentatives. Réessayez dans 30 secondes."
 ```
 
 ## Per-request locale
@@ -59,41 +66,41 @@ Detect the user's locale from the `Accept-Language` header and pass it to each c
 ```typescript
 function getLocale(req: Request): string {
   const header = req.headers.get('accept-language') ?? 'en';
-  const tag = header.split(',')[0].split('-')[0].trim();
-  return ['en', 'es', 'fr', 'de', 'ja', 'zh'].includes(tag) ? tag : 'en';
+  const tag = (header.split(',')[0] ?? 'en').split('-')[0]?.trim() ?? 'en';
+  return i18n.getLocales().includes(tag) ? tag : 'en';
 }
 
-app.post('/login', async (req, res) => {
+export async function POST(req: Request): Promise<Response> {
   const locale = getLocale(req);
-  const result = await theauth.auth.login(credentials);
-  if (!result.success) {
-    const message = i18n.t(`errors.${result.error.code}`, { locale });
-    return res.status(401).json({ error: message });
-  }
-});
+  // ...your sign-in logic fails with invalid credentials
+  return Response.json({ error: i18n.t('auth.invalidCredentials', locale) }, { status: 401 });
+}
 ```
 
 ## Adding a custom locale
 
-Register additional locales at runtime by passing a `locales` map:
+Pass a `translations` map, or call `addLocale` at runtime:
 
 ```typescript
 const i18n = createI18n({
   defaultLocale: 'en',
-  locales: {
+  translations: {
     pt: {
       'auth.invalidCredentials': 'E-mail ou senha inválidos.',
       'auth.rateLimited': 'Muitas tentativas. Tente novamente em {{retryAfter}} segundos.',
-      'email.welcome.subject': 'Bem-vindo ao {{appName}}, {{name}}',
+      'email.welcome.subject': 'Bem-vindo ao {{appName}}',
     },
   },
 });
+
+i18n.addLocale('it', { 'auth.invalidCredentials': 'Email o password non validi.' });
+i18n.getLocales(); // ['en', 'pt', 'it']
 ```
 
-Custom locales merge with the built-in keys. Any key you do not supply falls back to `defaultLocale`.
+Translations you supply merge over any keys already registered for that locale.
 
 <Note>
-  Missing keys always fall back to the `defaultLocale` value rather than throwing. This means partial translations are safe to ship.
+  A key missing from a locale falls back to the English string, and an unknown key returns the key itself. Partial translations are safe to ship.
 </Note>
 
 ## Translation key reference
@@ -101,30 +108,38 @@ Custom locales merge with the built-in keys. Any key you do not supply falls bac
 | Key | Variables | Description |
 |-----|-----------|-------------|
 | `auth.invalidCredentials` |, | Wrong email or password |
-| `auth.rateLimited` | `retryAfter` | Too many login attempts |
-| `auth.sessionExpired` |, | Session has expired |
-| `auth.unauthorized` |, | Request is not authenticated |
-| `auth.forbidden` |, | Authenticated but lacks permission |
 | `auth.emailNotVerified` |, | Email address not yet verified |
-| `auth.otpInvalid` |, | OTP code is incorrect or expired |
-| `agent.notFound` | `agentId` | Agent ID does not exist |
-| `agent.revoked` | `agentId` | Agent has been revoked |
-| `delegation.expired` |, | Delegation grant has expired |
-| `errors.internal` |, | Unexpected server error |
-| `email.verification.subject` | `appName` | Email verification subject line |
-| `email.passwordReset.subject` | `appName` | Password reset subject line |
-| `email.magicLink.subject` | `appName` | Magic link subject line |
-| `email.otp.subject` | `appName` | OTP delivery subject line |
+| `auth.accountLocked` |, | Account locked |
+| `auth.rateLimited` | `retryAfter` | Too many requests |
+| `auth.emailAlreadyExists` |, | Account with that email exists |
+| `auth.weakPassword` |, | Password too weak |
+| `auth.tokenExpired` |, | Link or token expired |
+| `auth.tokenInvalid` |, | Link or token invalid or already used |
+| `auth.unauthorized` |, | Not authorized to perform the action |
+| `agent.notFound` |, | Agent does not exist |
+| `agent.revoked` |, | Agent has been revoked |
+| `agent.limitExceeded` |, | Agent limit reached |
+| `agent.permissionDenied` |, | Agent lacks permission |
+| `twoFactor.invalidCode` |, | Invalid 2FA code |
+| `twoFactor.alreadyEnabled` |, | 2FA already enabled |
+| `twoFactor.notEnabled` |, | 2FA not enabled |
+| `email.verification.subject` |, | Email verification subject line |
+| `email.passwordReset.subject` |, | Password reset subject line |
+| `email.magicLink.subject` |, | Magic link subject line |
+| `email.otp.subject` |, | OTP delivery subject line |
 | `email.invitation.subject` | `orgName` | Organization invitation subject |
-| `email.welcome.subject` | `appName`, `name` | Welcome email subject line |
+| `email.welcome.subject` | `appName` | Welcome email subject line |
+| `general.serverError` |, | Unexpected server error |
+| `general.badRequest` |, | Bad request |
+| `general.notFound` |, | Resource not found |
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Email templates" href="/email-templates">
-  Built-in HTML templates for every auth flow.
+  Built-in HTML templates for auth emails.
 </Card>
   <Card title="Error reference" href="/errors">
-  Full list of TheAuth error codes.
+  TheAuth error codes and their meanings.
 </Card>
 </CardGroup>

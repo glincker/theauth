@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/roblox
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, robloxProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'roblox',
-          clientId: process.env.ROBLOX_CLIENT_ID!,
-          clientSecret: process.env.ROBLOX_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        roblox: robloxProvider(
+          process.env.ROBLOX_CLIENT_ID!,
+          process.env.ROBLOX_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -60,6 +62,10 @@ Default scopes: `openid`, `profile`
 <Info>
   Roblox OAuth 2.0 is currently in open beta. User IDs are stable numeric values that persist across username changes.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which fails with `Roblox userinfo response missing "email"` when the response has no email. The default scopes (`openid`, `profile`) do not release an email address, so sign-in is expected to fail unless Roblox returns one. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 

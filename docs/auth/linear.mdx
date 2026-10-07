@@ -22,19 +22,21 @@ https://your-app.com/api/theauth/auth/oauth/callback/linear
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth } from '@glinr/theauth/auth';
+import { oauth, linearProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   plugins: [
     oauth({
-      providers: [
-        {
-          id: 'linear',
-          clientId: process.env.LINEAR_CLIENT_ID!,
-          clientSecret: process.env.LINEAR_CLIENT_SECRET!,
-        },
-      ],
+      providers: {
+        linear: linearProvider(
+          process.env.LINEAR_CLIENT_ID!,
+          process.env.LINEAR_CLIENT_SECRET!,
+        ),
+      },
     }),
   ],
 });
@@ -61,6 +63,10 @@ Default scopes: `read`
 <Info>
   Linear uses UUIDs as user identifiers. The user's email is always returned and is verified.
 </Info>
+
+<Warning>
+  This is a preset built on the generic OIDC factory, which reads the user from `https://api.linear.app/graphql` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a GraphQL `data.viewer` object, so sign-in is expected to fail with `Linear userinfo response missing required "sub" field`. This preset has not been verified against the live service.
+</Warning>
 
 ## Endpoints
 
