@@ -45,7 +45,7 @@ jobs:
       tag: ${{ needs.resolve.outputs.tag }}
       release_url: https://github.com/${{ github.repository }}/releases/tag/${{ needs.resolve.outputs.tag }}
     secrets:
-      DISCUSSIONS_TOKEN: ${{ secrets.DISCUSSIONS_TOKEN }}
+      BOT_TOKEN: ${{ secrets.GLINR_BOT_TOKEN }}
 
   link:
     needs: [resolve, sync]

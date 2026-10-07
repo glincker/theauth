@@ -1,7 +1,7 @@
 name: release-discussion-sync
 
 # Reusable. Keeps one "Releases YYYY-MM" Announcements discussion in
-# glincker/theauth with a section per repo. Each release only rewrites its own
+# the target repo with a section per repo. Each release only rewrites its own
 # section, so reruns are idempotent. Callers: theauth and theauth-go.
 on:
   workflow_call:
@@ -20,9 +20,24 @@ on:
       release_url:
         type: string
         required: true
+      discussion_repo:
+        description: owner/repo whose Discussions hold the monthly thread
+        type: string
+        default: glincker/theauth
+      category:
+        description: Discussion category for the monthly thread
+        type: string
+        default: Announcements
+      sections:
+        description: JSON array of [repo_key, heading] pairs, one section per repo
+        type: string
+        default: '[["theauth","theauth (TypeScript SDK)"],["theauth-go","theauth-go"]]'
     secrets:
+      BOT_TOKEN:
+        description: GLINR_BOT_TOKEN with Discussions write on discussion_repo. Required when called from another repo.
+        required: false
       DISCUSSIONS_TOKEN:
-        description: Token with Discussions write on glincker/theauth. Required when called from another repo.
+        description: Deprecated, use BOT_TOKEN.
         required: false
     outputs:
       discussion_url:
@@ -48,16 +63,15 @@ jobs:
           REPO_TITLE: ${{ inputs.repo_title }}
           TAG: ${{ inputs.tag }}
           RELEASE_URL: ${{ inputs.release_url }}
+          DISCUSSION_REPO: ${{ inputs.discussion_repo }}
+          CATEGORY: ${{ inputs.category }}
+          SECTIONS: ${{ inputs.sections }}
         with:
-          github-token: ${{ secrets.DISCUSSIONS_TOKEN || github.token }}
+          github-token: ${{ secrets.BOT_TOKEN || secrets.DISCUSSIONS_TOKEN || github.token }}
           script: |
-            const owner = 'glincker';
-            const repo = 'theauth';
-            const { REPO_KEY, REPO_TITLE, TAG, RELEASE_URL } = process.env;
-            const sections = [
-              ['theauth', 'theauth (TypeScript SDK)'],
-              ['theauth-go', 'theauth-go'],
-            ];
+            const { REPO_KEY, REPO_TITLE, TAG, RELEASE_URL, DISCUSSION_REPO, CATEGORY, SECTIONS } = process.env;
+            const [owner, repo] = DISCUSSION_REPO.split('/');
+            const sections = JSON.parse(SECTIONS);
             const markers = (key) => ({
               start: `<!-- repo:${key}:start -->`,
               end: `<!-- repo:${key}:end -->`,
@@ -116,8 +130,8 @@ jobs:
                 );
               }
             } else {
-              const category = meta.repository.discussionCategories.nodes.find((c) => c.name === 'Announcements');
-              if (!category) throw new Error('Announcements category not found');
+              const category = meta.repository.discussionCategories.nodes.find((c) => c.name === CATEGORY);
+              if (!category) throw new Error(`Category ${CATEGORY} not found`);
               const created = await github.graphql(
                 `mutation($repoId: ID!, $catId: ID!, $title: String!, $body: String!) {
                   createDiscussion(input: {repositoryId: $repoId, categoryId: $catId, title: $title, body: $body}) {
