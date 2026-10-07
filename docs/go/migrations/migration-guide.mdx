@@ -1,0 +1,138 @@
+---
+title: "General migration guide"
+sidebarTitle: "Migration guide"
+description: "This document captures the consumer-visible deltas between adjacent minor and major releases."
+---
+This document captures the consumer-visible deltas between adjacent
+minor and major releases. It complements `CHANGELOG.md` (which is
+exhaustive) by focusing on the specific changes a downstream Go module
+needs to react to when upgrading.
+
+For the v0.x to v1.0 stability promise see `STABILITY.md`.
+
+## v2.0 to v2.1
+
+**Summary**: PRs #20 through #28 reorganized the root package layout.
+The public surface is **byte-stable**: every exported type, function,
+method, error sentinel, and constant on `github.com/glincker/theauth-go/v2`
+keeps its identifier, signature, and method set. Downstream consumers
+compile unchanged after a `go get -u`.
+
+### What you need to do
+
+In the typical case: nothing.
+
+```
+go get github.com/glincker/theauth-go/v2@latest
+go mod tidy
+go build ./...
+```
+
+If your build succeeds, you are done.
+
+### What might surprise you
+
+These are the small edge cases where a consumer can notice the reorg.
+None are common; we list them so you can rule them out fast if your
+build does break.
+
+#### `go doc` output formatting differs slightly
+
+`go doc github.com/glincker/theauth-go/v2` now renders v2.0 types as type
+aliases:
+
+```
+type User = models.User
+type Session = models.Session
+type OAuthClient = models.OAuthClient
+```
+
+instead of the inlined struct body. This is the documented Go idiom for
+re-exporting a type from an internal package
+(`github.com/glincker/theauth-go/v2/internal/models` in this case). The
+identity, fields, methods, and JSON tags are unchanged. pkg.go.dev still
+renders the full struct because it follows the alias.
+
+If your build tooling parses `go doc` output to enforce API contracts,
+upgrade the parser to handle alias lines or pin against `pkg.go.dev`
+HTML instead.
+
+#### Unexported root methods removed
+
+PR G deleted seven unused unexported methods on `*TheAuth` that lost
+their last in-tree caller during the refactor:
+
+- `(*TheAuth).currentSigningKey`
+- `(*TheAuth).publicKeyByKID`
+- `(*TheAuth).invalidateClientAuthCache`
+- `(*TheAuth).agentBySubjectClaim`
+- `(*TheAuth).authenticateClient`
+- `(*TheAuth).finishRegistrationFromRequest`
+- `(*TheAuth).finishLoginFromRequest`
+
+If your code reaches any of these via `//go:linkname`, `reflect`, or
+package-local fork patches, it will fail to build. The fix is to invoke
+the corresponding method on the internal service that the forwarder
+used to call (or, when the service is in `internal/`, to vendor / fork
+the helper you need). The internal flow services
+(`internal/as.Service`, `internal/agent.Service`, etc.) expose the
+canonical implementations; the root forwarders were thin wrappers.
+
+If you depended on `(*TheAuth).agentBySubjectClaim` specifically, note
+that the `AgentLookup` adapter inside `*as.Service` is now wired
+directly to `agent.Service.AgentBySubjectClaim` at `theauth.New` time.
+Custom AS wiring outside of `theauth.New` should follow the same
+pattern.
+
+#### Root file layout reshuffled
+
+If you grep across your dependency tree for symbols defined in
+`github.com/glincker/theauth-go/v2/*.go`, the file each symbol lives in
+has moved. Examples:
+
+- Password / TOTP / WebAuthn / session / magic-link / audit forwarders
+  are in `forwarders_identity.go` (previously
+  `service_password.go`, `service_totp.go`, etc.).
+- DCR / introspect / revoke / token grants / metadata / authorize are
+  in `forwarders_oauth.go`.
+- SCIM / organizations / RBAC / delegation are in
+  `forwarders_enterprise.go`.
+- The OAuth provider, password, TOTP, WebAuthn, and AS mount adapters
+  are in `mounts_extracted.go`.
+
+The symbol identifiers are unchanged; only their file location moved.
+
+These file names describe the layout at that release. The module root was reorganised again in v2.6.0, so the current locations differ. See [REPO-LAYOUT.md](https://github.com/glincker/theauth-go/blob/main/docs/REPO-LAYOUT.md) for the move map.
+This affects code search and IDE jump-to-definition, not compilation.
+
+### Storage interfaces
+
+`Storage` and `OAuthServerStorage` are unchanged in v2.1. Custom
+adapters built against v2.0 keep working without modification.
+
+### `Mount()` signature
+
+`(*TheAuth).Mount(r chi.Router)` is unchanged. The mount tree (every
+route path, every middleware order) is byte-stable with v2.0; the only
+difference is which internal package implements each handler.
+
+## v1.0 to v2.0
+
+See `CHANGELOG.md` under `[2.0.0]` for the full additive surface
+(OAuth 2.1 AS, RFC 7591 DCR, agent identity, RFC 8693 token exchange,
+RFC 9728 protected-resource metadata, `mcpresource` validator).
+
+v2.0 is **additive**: every v1.0 program continues to compile and pass
+its tests against v2.0 without changes. The new capability surfaces
+behind `Config.AuthorizationServer`, `Config.AgentIdentity`,
+`Config.AccountUX`, and the separately-importable
+`github.com/glincker/theauth-go/mcpresource` module.
+
+## v0.7 to v1.0
+
+See `CHANGELOG.md` under `[1.0.0] -> Migrating from v0.7` for the
+breaking change: `Config.AuditHook` and the synchronous `AuditEvent`
+shape were removed; set `Config.Audit = &AuditConfig{}` to enable the
+async audit writer. `Storage` gained 16 RBAC and audit methods; custom
+implementations built on top of the in-tree `memory` or `postgres`
+adapters keep working unchanged.

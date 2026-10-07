@@ -1,0 +1,335 @@
+---
+title: "Migrating from Auth0 to theauth-go"
+sidebarTitle: "Migrate from Auth0"
+description: "This playbook walks through moving an Auth0 tenant to theauth-go."
+---
+This playbook walks through moving an Auth0 tenant to theauth-go. The process
+is two stages: export (convert the Auth0 data to the intermediate bundle format)
+then apply (write the bundle to your theauth-go storage backend).
+
+The two-stage design lets your team audit the JSON before committing to any
+production writes.
+
+## Prerequisites
+
+- `theauth-migrate` binary (build with `go build ./cmd/theauth-migrate`)
+- Auth0 Management API access token with `read:users` scope
+- Postgres DSN for your theauth-go database
+- `theauth-go` configured with `PasswordPolicy.AllowLegacyBcrypt = true`
+  during the migration window (see step 8)
+
+## Key difference from Cognito
+
+Auth0 database-connection users have bcrypt password hashes that **are**
+exportable. The migration tool preserves these hashes in the bundle. When a
+user logs in after migration, theauth-go detects the bcrypt hash, verifies the
+password using bcrypt, and on success transparently re-hashes with Argon2id.
+The user never needs to reset their password.
+
+This is the standard "hash migration" pattern. It requires the
+`AllowLegacyBcrypt` config flag during the transition window (typically 30-90
+days). Disable it once the vast majority of active users have logged in and
+had their hashes upgraded.
+
+## Step 1: Export users from Auth0
+
+### Option A: Auth0 Management API (recommended for smaller tenants)
+
+```bash
+# Obtain a Management API token. Replace YOUR_DOMAIN, CLIENT_ID, CLIENT_SECRET.
+TOKEN=$(curl -s -X POST \
+  "https://YOUR_DOMAIN.auth0.com/oauth/token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "CLIENT_ID",
+    "client_secret": "CLIENT_SECRET",
+    "audience": "https://YOUR_DOMAIN.auth0.com/api/v2/",
+    "grant_type": "client_credentials"
+  }' | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+
+# Fetch all users (paginated).
+page=0
+per_page=100
+output="auth0-users.json"
+echo '[' > "$output"
+first=true
+
+while true; do
+  result=$(curl -s -G \
+    "https://YOUR_DOMAIN.auth0.com/api/v2/users" \
+    --header "Authorization: Bearer $TOKEN" \
+    --data-urlencode "page=$page" \
+    --data-urlencode "per_page=$per_page" \
+    --data-urlencode "include_totals=false" \
+    --data-urlencode "fields=user_id,email,email_verified,name,given_name,family_name,identities,app_metadata,user_metadata,multifactor,created_at,updated_at")
+
+  count=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d))")
+  if [ "$count" -eq 0 ]; then
+    break
+  fi
+
+  # Strip the surrounding array brackets and append.
+  inner=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d)[1:-1])")
+  if [ "$first" = "true" ]; then
+    echo "$inner" >> "$output"
+    first=false
+  else
+    echo ",$inner" >> "$output"
+  fi
+
+  page=$((page + 1))
+done
+
+echo ']' >> "$output"
+```
+
+### Option B: Auth0 bulk export with password hashes
+
+For password hash export you need the Auth0 Management API bulk export job,
+which requires the **tenant to be on a paid plan** and the
+`read:user_custom_blocks` or equivalent scope.
+
+```bash
+# Create a bulk export job that includes password_hash.
+JOB_ID=$(curl -s -X POST \
+  "https://YOUR_DOMAIN.auth0.com/api/v2/jobs/users-exports" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "connection_id": "con_XXXXXXX",
+    "format": "json",
+    "fields": [
+      {"name": "user_id"},
+      {"name": "email"},
+      {"name": "email_verified"},
+      {"name": "name"},
+      {"name": "identities"},
+      {"name": "app_metadata"},
+      {"name": "user_metadata"},
+      {"name": "multifactor"},
+      {"name": "created_at"},
+      {"name": "updated_at"},
+      {"name": "custom_password_hash"}
+    ]
+  }' | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+echo "Export job: $JOB_ID"
+
+# Poll until complete.
+while true; do
+  status=$(curl -s \
+    "https://YOUR_DOMAIN.auth0.com/api/v2/jobs/$JOB_ID" \
+    -H "Authorization: Bearer $TOKEN" \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])")
+  echo "Status: $status"
+  if [ "$status" = "completed" ]; then
+    break
+  fi
+  sleep 5
+done
+
+# Download the exported file.
+location=$(curl -s \
+  "https://YOUR_DOMAIN.auth0.com/api/v2/jobs/$JOB_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['location'])")
+
+curl -s "$location" -o auth0-users.ndjson
+
+# Convert newline-delimited JSON to a JSON array.
+python3 -c "
+import json, sys
+users = [json.loads(line) for line in sys.stdin if line.strip()]
+json.dump(users, sys.stdout, indent=2)
+" < auth0-users.ndjson > auth0-users.json
+```
+
+Note: the `custom_password_hash` field is the bcrypt hash for database
+connection users. Rename or map it to `password_hash` if needed before
+running the migrate tool.
+
+### Option C: Auth0 export-users extension
+
+If you have the "Export Users to CSV" or "User Import / Export Extension"
+installed in your Auth0 dashboard:
+
+1. Open your Auth0 dashboard.
+2. Go to Extensions and click the export extension.
+3. Select "Export" and choose JSON format.
+4. Download the file.
+
+The extension output matches the Management API format.
+
+## Step 2: Convert to the intermediate bundle format
+
+```bash
+theauth-migrate auth0 --export auth0-users.json --output bundle.json
+```
+
+To force a password reset for all users (ignoring bcrypt hashes):
+
+```bash
+theauth-migrate auth0 --export auth0-users.json --output bundle.json \
+  --force-password-reset
+```
+
+## Step 3: Inspect the bundle
+
+Open `bundle.json` in your editor. Key things to review:
+
+- `notes`: human-readable caveats. Important items:
+  - `AllowLegacyBcrypt` must be enabled in theauth-go during the migration window.
+  - Auth0 rules and hooks are out of scope.
+- `passwords`: users with bcrypt hashes. Verify the count matches the number
+  of database-connection users in your tenant.
+- `oauth_accounts`: social connections (Google, GitHub, etc). Verify provider
+  names are correct.
+- `mfa_enrolled`: users who had Guardian MFA. They must re-enroll TOTP.
+
+### Social connection provider mapping
+
+Auth0 uses provider names like `google-oauth2`, `github`, `facebook`. The
+migrate tool normalizes these to the conventional short names used by
+theauth-go (`google`, `github`, `facebook`). You can verify the mapping in the
+`oauth_accounts` array of the bundle.
+
+### Auth0 rules and hooks
+
+Auth0 rules and hooks run as JavaScript functions on every authentication
+event. They are out of scope for the migrate tool. Common patterns to
+re-implement in theauth-go:
+
+- User enrichment (adding claims): use a custom token hook or middleware.
+- IP blocking: use the theauth-go rate-limiter config or middleware.
+- Progressive profiling: implement in your application layer.
+- Custom MFA: use theauth-go TOTP or WebAuthn.
+
+## Step 4: Validate the bundle
+
+```bash
+theauth-migrate validate --input bundle.json
+```
+
+Fix any reported errors before proceeding.
+
+## Step 5: Enable legacy bcrypt support in theauth-go
+
+During the migration window, add the following to your theauth-go config:
+
+```go
+auth, err := theauth.New(theauth.Config{
+    // ... existing config ...
+    PasswordPolicy: theauth.PasswordPolicyConfig{
+        AllowLegacyBcrypt: true,
+        OnLegacyHashAccepted: func(userID string, newHash string) {
+            // Optional: the library already persisted the new Argon2id hash.
+            // This runs in a separate goroutine after a successful bcrypt
+            // login; use it only to update a copy of the hash you keep elsewhere.
+            go func() {
+                ctx := context.Background()
+                uid, _ := ulid.ParseStrict(userID)
+                _ = mirrorStore.SetUserPassword(ctx, uid, newHash)
+            }()
+        },
+    },
+})
+```
+
+The library persists the new hash itself, so the callback is optional. Replace
+`mirrorStore` with whatever holds your own copy of the hash. The callback runs
+in a separate goroutine; the user's login is not delayed.
+
+## Step 6: Dry-run apply
+
+```bash
+theauth-migrate auth0 --input bundle.json --apply --dry-run
+```
+
+## Step 7: Apply to production
+
+```bash
+theauth-migrate auth0 --input bundle.json --apply \
+  --storage postgres \
+  --dsn "postgres://theauth:secret@db.example.com:5432/theauth_prod"
+```
+
+The applier:
+1. Validates the bundle.
+2. Checks for existing users by email (idempotent).
+3. Inserts users in batches of 500.
+4. Sets password hashes (bcrypt or Argon2id) for users who have them.
+5. Inserts OAuth accounts for social connections.
+6. Prints a list of emails that need password-reset tokens (only for users
+   with no hash or when `--force-password-reset` is used).
+
+## Step 8: Monitor the hash upgrade
+
+After the migration, monitor how many users still have bcrypt hashes versus
+Argon2id hashes. You can query your storage to see how many rows in the
+password hash column start with `$2b$` vs `$argon2id$`.
+
+Once the vast majority of active users have logged in (typically after 30-90
+days), disable the bcrypt fallback:
+
+```go
+PasswordPolicy: theauth.PasswordPolicyConfig{
+    AllowLegacyBcrypt: false, // back to default; bcrypt hashes will be rejected
+},
+```
+
+Any remaining users with bcrypt hashes will need to reset their password. You
+can identify them by querying for rows starting with `$2b$` and sending
+reset emails proactively.
+
+## Step 9: Update your application
+
+1. Update your sign-in flow to point at theauth-go.
+2. Update your token validation (if you used Auth0 JWTs, update your RS256
+   public key to the theauth-go JWKS endpoint).
+3. Re-implement Auth0 rules and hooks as described in step 3.
+4. Map `app_metadata` and `user_metadata` to your application's data model.
+   They are preserved in the bundle's user `metadata` field with `app:` and
+   `user:` prefixes respectively.
+
+## Step 10: Cutover and cleanup
+
+1. Test that users can log in via theauth-go.
+2. Disable Auth0 login in your application.
+3. After the hash upgrade window closes, disable `AllowLegacyBcrypt`.
+4. After 30 days, suspend your Auth0 tenant.
+
+## Rollback plan
+
+1. Point your application back at Auth0.
+2. Optionally drop and re-populate the theauth-go tables.
+
+Auth0 is unchanged by this migration; rollback is safe at any point before
+you suspend the Auth0 tenant.
+
+## Common issues
+
+### "cannot parse as array, single object, or pagination wrapper"
+
+The export file is not valid JSON. Common causes:
+- The Management API returned an error response (check for `"statusCode"` in
+  the file).
+- The bulk export was incomplete. Re-run the export job.
+- The ndjson file was not converted to a JSON array. See step 1 option B.
+
+### bcrypt hashes not appearing in the bundle
+
+The `password_hash` field is only present in bulk export jobs. The standard
+`/api/v2/users` endpoint does not return password hashes. Use option B in
+step 1 to get hashes.
+
+### Social connections not appearing in oauth_accounts
+
+Only connections with `"isSocial": true` are mapped. Enterprise connections
+(SAML, LDAP, Azure AD) are not mapped because theauth-go does not have a
+direct equivalent; use theauth-go SAML or OIDC instead.
+
+### Users are missing from the export
+
+Auth0 paginates users in alphabetical order by user ID. If the export was
+interrupted, restart from the beginning; duplicate detection in the applier
+will skip already-imported users.

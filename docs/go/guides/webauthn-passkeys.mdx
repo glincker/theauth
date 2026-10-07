@@ -1,0 +1,82 @@
+---
+title: "Enable WebAuthn Passkeys"
+description: "theauth-go ships a WebAuthn / passkey implementation that covers discoverable login, sign-count replay protection, and single-factor-strong per NIST SP 800-63B."
+---
+theauth-go ships a WebAuthn / passkey implementation that covers discoverable login, sign-count replay protection, and single-factor-strong per NIST SP 800-63B.
+
+## Configure
+
+```go
+a, _ := theauth.New(theauth.Config{
+    Storage: store,
+    BaseURL: "https://myapp.com",
+    WebAuthn: &theauth.WebAuthnConfig{
+        RPDisplayName: "My App",
+        RPID:          "myapp.com",       // must match the domain; no port, no scheme
+        RPOrigins:     []string{"https://myapp.com"},
+    },
+})
+```
+
+`WebAuthnConfig.RPID` must be the eTLD+1 of your domain. For local development use `localhost` and `https://localhost:8080` as origin.
+
+## Endpoints
+
+`a.Mount(r)` wires these routes when `Config.WebAuthn` is set:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /auth/webauthn/register/begin` | Start passkey registration, returns challenge |
+| `POST /auth/webauthn/register/finish` | Verify and store the credential |
+| `POST /auth/webauthn/login/begin` | Start discoverable login, returns challenge |
+| `POST /auth/webauthn/login/finish` | Verify assertion, issue session |
+| `GET /auth/webauthn/credentials` | List the current user's passkeys (requires auth) |
+| `DELETE /auth/webauthn/credentials/{id}` | Remove a passkey (requires auth) |
+
+## Registration flow (client side)
+
+```javascript
+// 1. Get challenge from server
+const beginResp = await fetch('/auth/webauthn/register/begin', { method: 'POST' });
+const options = await beginResp.json();
+
+// 2. Call browser WebAuthn API
+const credential = await navigator.credentials.create({ publicKey: options });
+
+// 3. Send credential back to server
+await fetch('/auth/webauthn/register/finish', {
+    method: 'POST',
+    body: JSON.stringify(credential),
+    headers: { 'Content-Type': 'application/json' },
+});
+```
+
+## Discoverable login flow (client side)
+
+```javascript
+// 1. Get challenge (no username required)
+const beginResp = await fetch('/auth/webauthn/login/begin', { method: 'POST' });
+const options = await beginResp.json();
+
+// 2. Call browser WebAuthn API (user selects passkey in browser UI)
+const assertion = await navigator.credentials.get({ publicKey: options });
+
+// 3. Send assertion to server
+const finishResp = await fetch('/auth/webauthn/login/finish', {
+    method: 'POST',
+    body: JSON.stringify(assertion),
+    headers: { 'Content-Type': 'application/json' },
+});
+```
+
+## Sign-count replay protection
+
+theauth-go checks that the new sign count is strictly greater than the stored count on every login. If not, it returns `ErrReplayDetected`. The carve-out: authenticators that do not implement counters (they return count=0 always) are allowed because the WebAuthn spec requires it.
+
+## NIST 800-63B compliance
+
+A successfully verified passkey assertion constitutes a single-factor-strong authentication event. When combined with a password (or other factor), it satisfies multi-factor authentication per NIST SP 800-63B AAL2.
+
+## Runnable example
+
+See [`examples/webauthn-passkey/`](https://github.com/glincker/theauth-go/tree/main/examples/webauthn-passkey) for a full demo with HTML UI.

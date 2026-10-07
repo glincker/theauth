@@ -1,0 +1,87 @@
+---
+title: "Migrating from v1.0 to v2.0"
+sidebarTitle: "v1.0 to v2.0"
+description: "v2.0 is additive."
+---
+v2.0 is **additive**. Every v1.0 program continues to compile and pass its tests against v2.0 without any changes. The new capability surfaces behind optional config fields.
+
+## What you need to do
+
+```bash
+go get github.com/glincker/theauth-go/v2@latest
+go mod tidy
+go build ./...
+```
+
+That is all for existing v1.0 deployments. New capability is opt-in.
+
+## What v2.0 adds
+
+### OAuth 2.1 Authorization Server (optional)
+
+Set `Config.AuthorizationServer` to enable:
+
+- `/.well-known/oauth-authorization-server` (RFC 8414)
+- `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/oauth/register`, `/oauth/jwks`
+- RFC 9068 EdDSA JWT access tokens
+- RFC 8707 mandatory audience binding
+- PKCE S256 mandatory
+- RFC 9700 refresh rotation with family revocation
+- RFC 7591 dynamic client registration
+
+Requires `Config.EncryptionKey` (32 bytes) and a storage adapter satisfying `OAuthServerStorage`.
+
+### Agent identity and delegation (optional)
+
+Set `Config.AgentIdentity` to enable:
+
+- Agent CRUD (`CreateAgent`, `MintAgentCredential`, `RotateAgentSecret`, etc.)
+- `client_credentials` grant for agent self-tokens
+- RFC 8693 token-exchange grant with actor chain (depth cap 3)
+- Delegation grant management (`GrantDelegation`, `RevokeDelegation`, etc.)
+
+Requires `Config.AuthorizationServer`.
+
+### End-user account routes (optional)
+
+Set `Config.AccountUX = true` to mount:
+
+- `GET/POST /account/agents`
+- `DELETE /account/agents/{id}`
+- `GET/POST /account/delegations`
+- `POST /account/delegations/{id}/revoke`
+
+Requires `Config.AgentIdentity`.
+
+### `mcpresource` SDK (separately importable)
+
+```bash
+go get github.com/glincker/theauth-go/mcpresource
+```
+
+Zero-dependency MCP resource server middleware. Does not pull theauth core or storage adapters.
+
+### New RBAC permissions
+
+`agents:admin` and `delegations:admin` are seeded on the next `SeedPermissions` call. Existing role definitions that did not pre-grant them stay valid.
+
+### New error sentinels
+
+See [Errors Reference](/go/reference/errors) for the full v2.0 list. All are additive; existing `errors.Is` checks are unaffected.
+
+## Storage migration
+
+The OAuth 2.1 AS requires three new migrations on the Postgres adapter:
+
+- `0011_oauth.up.sql`: `oauth_clients`, `authorization_codes`, `refresh_tokens`
+- `0012_agents.up.sql`: `agents`, `agent_credentials`
+- `0013_delegations.up.sql`: `delegation_grants`, `audit_events.actor_agent_id`
+
+Run them before enabling `Config.AuthorizationServer`. The v1.0 core tables are unchanged.
+
+## Protected resource metadata (RFC 9728)
+
+When `Config.AuthorizationServer` is set, theauth-go also mounts:
+
+- `GET /.well-known/oauth-protected-resource`
+- `GET /.well-known/oauth-protected-resource/{path}`

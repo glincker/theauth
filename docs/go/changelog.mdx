@@ -1,0 +1,1418 @@
+---
+title: "Changelog"
+description: "All notable changes to theauth-go are recorded below."
+---
+All notable changes to theauth-go are recorded below. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/) from v1.0 forward.
+
+The authoritative source file is [`CHANGELOG.md`](https://github.com/glincker/theauth-go/blob/main/CHANGELOG.md) in the repository root.
+
+All notable changes to theauth-go are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
+adheres to [Semantic Versioning](https://semver.org/) from v1.0 forward.
+
+## [Unreleased]
+
+### Fixed
+
+- `PasswordPolicy.OnLegacyHashAccepted` is now invoked (in a goroutine, after the new Argon2id hash is persisted) on signin and step-up; it was declared but never called.
+### Added
+
+- `OAuthConfig.RedirectURI`, `RedirectURIAllowedHosts` and `AllowInsecureRedirectURI` to override and validate the OAuth redirect URI, plus `(*TheAuth).OAuthStart` and `OAuthCallback` for apps hosting their own routes.
+- Default logs no longer contain email addresses (password signin/signup/reset, magic link, `email.Noop`); lines carry `user_id` or a 12-hex `email_ref` hash instead.
+- `ResetPasswordAdmin` now also clears the email's per-IP login backoff entries (new optional `LoginThrottleEntryDeleter` store capability; implemented by the memory, sqlite, postgres and mysql stores).
+
+### Added
+
+- `WebAuthnConfig.UserHandleResolver`: lets imported passkeys whose authenticator holds a foreign user handle sign in; the credential's stored owner stays authoritative and the resolver must agree with it.
+
+## [2.6.0] - 2026-10-05
+
+### Upgrade notes
+
+Read these before upgrading from v2.5.x. None changes the Go API of an
+existing call, but each changes runtime behavior.
+
+- **Module path is now `github.com/glincker/theauth-go/v2`; update imports.**
+  The v2.x tags were never resolvable by the Go toolchain because the module
+  path lacked the `/v2` suffix, so `go get github.com/glincker/theauth-go`
+  returned v1.0.0. Breaking for import paths only: the API is unchanged. See
+  [Migrating to /v2](https://github.com/glincker/theauth-go/blob/main/docs-site/docs/migrations/to-v2-module-path.md).
+  The `storage/sqlite`, `mcpresource` and `audit/sinks/otlp` modules keep their
+  paths and now require the v2 root.
+- **Login throttle is on by default.** Password signin is gated by per
+  (client IP, normalized email) backoff and a per-user lockout. Refusals return
+  429 with `Retry-After` and code `rate_limited` or `account_locked`. Tune or
+  disable with `Config.LoginThrottle`.
+- **JSON error bodies.** Handlers that returned plain-text `http.Error` bodies
+  now return `{"code","message"}` JSON with a stable code (`bad_request`,
+  `unauthorized`, `forbidden`, `not_found`, `conflict`, `rate_limited`,
+  `internal_error`). Status codes are unchanged. Clients that string-matched the
+  old plain-text body must switch to the `code` field. The OAuth provider and
+  authorization server handlers are not yet converted.
+- **TOTP verify and recovery routes rotate the session cookie.** They set a new
+  cookie and revoke the pending token, so clients must keep the cookie from the
+  response.
+- **The OAuth state cookie value no longer equals the `state` parameter.** The
+  `theauth_oauth_state` cookie carries a separate browser-binding secret; code
+  that read or compared the two values must stop.
+- **OAuth callback refuses an email matching an existing account** unless the
+  provider marks the email verified. Provider emails are lower-cased and
+  trimmed before lookup.
+- **An https `BaseURL` now yields Secure cookies**, even with
+  `SecureCookie: false`. Secure is set per request for https `BaseURL`, TLS
+  connections, or a `TrustedProxies` peer sending `X-Forwarded-Proto: https`.
+- **`EncryptionKey` is required when a `ProviderResolver` is set.**
+- **Device-request routes are restricted to the root ability by default.**
+  `GET /auth/device/requests` and the approve/deny by ID routes need a session
+  holding `APITokensConfig.DeviceRequestsAbility` (empty means root), or set
+  `DeviceRequestsAnySignedInUser`. Others get 403 `auth.forbidden`.
+- **Closed signup needs `UserCountStorage`.** `Config.Bootstrap` and closed
+  signup require the optional capability on your storage adapter.
+- **`PasswordPolicy.AllowLegacyBcrypt` is now honored** at signin, step-up and
+  password change. With it off, a bcrypt hash returns invalid credentials
+  instead of a 500.
+- **CIMD client-metadata fetches refuse non-public addresses.** Loopback,
+  private, link-local (including cloud metadata), CGNAT and similar ranges are
+  blocked at dial time, redirects are never followed and no proxy is used. A
+  localhost CIMD setup now needs `CIMDConfig.AllowPrivateNetworks` (a dev
+  opt-in); `CIMDConfig.DenyHost` adds a host deny hook.
+- **Authorization error responses and SAML `RelayState` are restricted.**
+  Authorization errors redirect only when `redirect_uri` exactly matches a
+  registered URI. SAML `RelayState` must be a same-site path, the configured
+  post-login URL or an entry in `SAMLConfig.AllowedRelayStates`; anything else
+  falls back to the default.
+- **The repository layout changed; no exported name was removed.** The module
+  root now holds 15 Go files (it held 80), feature code lives in `internal/`
+  packages and black-box tests live in `integration/`. Exported root names are
+  kept through aliases, so imports and calls are unaffected, but `%T` and
+  `reflect` print the aliased type, `go test` on the root package no longer
+  runs the integration suite (use `./...`), and `sqlc.yaml` moved. Details under
+  Changed.
+- Other changes worth a look: cookie-authenticated mutating requests with a
+  foreign `Origin` now get 403 (`Config.TrustedOrigins`,
+  `Config.DisableCSRFProtection`); passwords over `MaxBytes` (default 72) return
+  400 `weak_password`; WebAuthn credentials gain `backup_eligible` and
+  `backup_state` columns (migration 0017); Postgres and MySQL add migration
+  0018; SQLite adds migrations 0006 to 0008.
+
+### Added
+
+Module path and HTTP embedding
+
+- **`Config.PathPrefix`.** Serve the auth routes under a custom prefix (default
+  `/auth`, validated) with no `http.StripPrefix`. OAuth redirect URIs, magic and
+  reset links, the WebAuthn challenge cookie path and the authorization server
+  login URL follow it. `clientauth` takes the same prefix via `AuthPath`.
+- **`(*TheAuth).Handler()`.** Returns an `http.Handler` serving every route
+  `Mount` registers, so `net/http` ServeMux users need no chi import.
+  `examples/stdlib-app` now uses it.
+
+Storage
+
+- **Storage capability interfaces and `Config.CoreStorage`.** `Storage` is now
+  the embedding of small capability interfaces (`UserStorage`,
+  `SessionStorage`, `MagicLinkStorage`, `PasswordStorage`,
+  `OAuthAccountStorage`, `WebAuthnStorage`, `TOTPStorage`,
+  `OrganizationStorage`, `SAMLStorage`, `SCIMStorage`, `RBACStorage`,
+  `AuditStorage`) with an identical method set, so existing adapters and
+  callers compile unchanged. `Config.CoreStorage` accepts an adapter that
+  implements only users, sessions, magic links and passwords; `New` returns
+  the new `ErrStorageMissingCapability`, naming the feature and capability,
+  when an enabled feature needs more. `storagetest` gains `RunCore`,
+  `RunWebAuthn`, `RunTOTP`, `RunAudit`, `RunRBAC` and `RunOAuthServer`;
+  `storagetest.Run` still runs everything.
+- **`storage/sqlite` adapter (separate module).** Pure Go (`modernc.org/sqlite`)
+  storage for `CoreStorage` plus the OAuthAccount, WebAuthn, TOTP and Audit
+  capabilities. `New(db)` wraps a caller-owned `*sql.DB` and refuses a database
+  with foreign keys off. `Migrations()` exports numbered forward-only `.sql`
+  files for a host migrator, `Migrate` is an optional standalone runner with its
+  own version table, and `WithTablePrefix` keeps the tables clear of host ones.
+  `SweepExpired` is a method for a host ticker. Passes `storagetest.RunCore`,
+  `RunWebAuthn`, `RunTOTP` and `RunAudit` against a temp-file WAL database,
+  including concurrent access. Organizations, SAML, SCIM and RBAC are not
+  implemented and return `ErrStorageMissingCapability`.
+- **SQLite capability parity.** `storage/sqlite` now also implements
+  `APITokenStorage`, `DeviceCodeStorage`, `SessionManagementStorage`,
+  `SessionLinkStorage`, `TOTPReplayStorage`, `UserCountStorage`,
+  `WebAuthnRenameStorage` and `RecoveryCodeStorage`, with atomic single-use
+  claims for device codes and session links. Migrations 0006 to 0008.
+- **Postgres and MySQL capability parity.** Both adapters now implement
+  `APITokenStorage`, `DeviceCodeStorage`, `SessionManagementStorage`,
+  `SessionLinkStorage`, `TOTPReplayStorage`, `UserCountStorage` and a shared
+  `Store.ThrottleStore` (`LoginThrottleCASStore`), so tokens, device login,
+  session management and closed signup work on them. Migration 0018 in each
+  adapter; atomic single-use claims. MySQL `CreateUser` now defaults zero
+  `CreatedAt` and `UpdatedAt` instead of failing.
+- **Shared login throttle for SQLite.** `Store.ThrottleStore` persists
+  throttle counters. New optional `LoginThrottleCASStore` lets the limiter
+  retry on conflict across processes instead of last-writer-wins.
+- **`Storage.UpdateWebAuthnBackupFlags`.** New storage method backing the
+  login-time reconciliation write for legacy WebAuthn credentials. Implemented
+  across the Postgres, MySQL, and in-memory backends and covered by the shared
+  `storagetest` conformance suite.
+
+OAuth and OIDC
+
+- **`Config.OAuth` (`OAuthConfig`).** Pluggable `OAuthStateStore` (in-memory
+  default with expiry sweep), `StateTTL`, a `return_to` allow-list, and a
+  signup policy (`open` default, `closed`, `allowed_domains`, `invite`). The
+  default stays open so v2 callers are unchanged.
+- **`provider/oidc`.** Generic OIDC provider with issuer discovery, PKCE,
+  nonce and full ID token verification. New optional `NonceProvider`
+  interface; `ProviderToken.IDToken` field.
+- **`Config.ProviderResolver`.** Resolve OAuth/OIDC providers per request for
+  runtime add, edit and remove, with `ProviderResolverFirst`,
+  `ProviderResolverTTL`, `(*TheAuth).InvalidateProvider` and `ListProviders`.
+  Names are validated and resolver errors fail closed.
+
+Sessions, step-up and MFA
+
+- **End-user session management.** `GET /auth/sessions`,
+  `DELETE /auth/sessions/{id}`, `POST /auth/sessions/revoke-others` and
+  `POST /auth/password/change`, backed by the new optional
+  `SessionManagementStorage` capability. `Config.SessionIdleTimeout` and
+  `Config.SessionTouchInterval` add idle expiry with throttled last-seen
+  writes; `Session` gains `LastSeenAt`, `ElevatedUntil` and `CredentialID`.
+  The admin session list is now real instead of empty. See `docs/SESSIONS.md`.
+- **Step-up re-auth.** `POST /auth/step-up` (password, TOTP or passkey),
+  `RequireRecentAuth(maxAge)` and `WatchSession` /
+  `WatchSessionMiddleware` for re-checking long-lived streams.
+- **Programmatic session links.** `Config.SessionLinks`, `MintSessionLink`,
+  `ConsumeSessionLink`, `POST /auth/session-link/consume` and the optional
+  `SessionLinkStorage` capability. Sessions tied to an upstream credential are
+  re-checked through `CredentialChecker` on every use, and
+  `RevokeSessionsByCredential` cuts them at once.
+- `storagetest.RunSessionManagement` contract suite; the memory adapter
+  implements both new capabilities.
+- **Passkey policy.** `WebAuthnConfig.RequireUserVerification` and
+  `CloneWarning` (`reject` default, `flag`). RP ID stays config-only.
+- **MFA endpoints.** `GET /auth/totp`, `POST /auth/totp/recovery-codes`,
+  `PATCH /auth/webauthn/credentials/{id}`; `DELETE /auth/totp` is covered for
+  both slash forms. New optional storage capabilities
+  `WebAuthnRenameStorage` and `RecoveryCodeStorage` (memory, Postgres, MySQL)
+  with `storagetest.RunMFACaps`.
+- **Revocation watcher.** `RevocationBus` (in-process default, pluggable for
+  Postgres NOTIFY or Redis), `SubscribeRevocations`, `NotifyOwnerDisabled`,
+  `WatchRevocation` and `WatchRevocationMiddleware` cancel long-lived
+  requests within seconds of a session, token, agent, credential or
+  delegation revoke. Reuses `WatchSession` for session polling.
+
+API tokens, device grant, agents and CLI login
+
+- **Scoped API tokens and the RFC 8628 device grant.** New `Config.APITokens`
+  (backed by the optional `APITokenStorage` and `DeviceCodeStorage`
+  capabilities; the `Storage` method set is unchanged). Tokens are opaque,
+  shown once, stored only as a SHA-256 hash, carry caller-defined abilities
+  plus a reserved exclusive `root`, always expire, and record `last_used_at`.
+  Every token has an owner (a user or a service account); a user lists and
+  revokes only their own tokens, an admin can manage all. Tokens stop working
+  when the owner is deleted or reported inactive, and abilities are clamped to
+  the owner's current abilities on every request. `RequireAbility(name)`
+  accepts a session or a bearer token. Routes: `/auth/tokens` (POST, GET,
+  DELETE), `/auth/device/code`, `/auth/device/token`, `/auth/device/approve`.
+  The device grant enforces `slow_down`, expiry, per-approver user code
+  attempt limits and an atomic compare-and-set redeem, and caps minted token
+  abilities to the approver (root only when requested and held). Memory
+  implementation plus `storagetest.RunAPITokens` and `RunDeviceCodes`. See
+  `docs-site/docs/guides/api-tokens.md`.
+- **Legacy API token acceptance.** `APITokensConfig.AcceptUnprefixed` accepts
+  unprefixed bearer tokens by SHA-256 hash, and `ImportAPIToken` inserts an
+  existing token record by hash without seeing the secret.
+- **Token self-service routes.** `GET /auth/tokens/current` describes the
+  presented API bearer token and `DELETE /auth/tokens/current` revokes it, so
+  `clientauth` `Whoami` and `Logout` work against a real server. Bearer-only,
+  own record only, no secret or hash in responses.
+- **Device pending list.** `GET /auth/device/requests` lists pending device
+  requests (no codes or hashes) and `POST /auth/device/requests/{id}/approve|deny`
+  decides one by ID, session only, with the same capping and atomicity as the
+  user code route. New optional `DeviceCodeLister` storage extension for memory,
+  SQLite, Postgres and MySQL, plus `ListDeviceRequests` and
+  `DecideDeviceRequestByID`. Restricted by default (see Upgrade notes); the
+  by-code route is unchanged.
+- **`clientauth` package.** Client side of the device grant for host CLIs:
+  `DeviceLogin` (polling with `slow_down`, denial and expiry handling), a 0600
+  `FileStore` plus an injectable `KeychainStore`, and a `Client` that attaches
+  the bearer token and returns `ErrReloginRequired` on expiry or 401. See
+  `examples/cli-login` and the CLI Login guide.
+- **Agent identity on API tokens.** `MintAgentToken` mints a short-lived
+  `kind=agent` token for a human; abilities are the intersection of the
+  agent's allowed set and the user's current abilities, re-evaluated per
+  request. `APIToken` gains `Kind`, `AgentName`, `DelegatedBy` (shown in
+  listings and `POST /auth/tokens`), `Principal.ActorChain` records agent and
+  human, and audit events under an agent token carry both. `RegisterAgent`
+  creates an OAuth agent plus its delegation grant in one call. See
+  `docs/AGENT-IDENTITY.md`.
+
+Policy, posture and audit
+
+- **`policy` package.** Dependency-free JSON policy engine (allow/deny
+  statements, action and resource globs with `{var}` substitution, equality,
+  in-list, CIDR and time-window conditions), explicit-deny-wins and
+  default-deny evaluation with an auditable `Decision`, `RequirePolicy`
+  middleware (403 `policy.denied`, `policy.decision` audit event), optional
+  `policy.Storage` capability with a memory store and `storagetest.RunPolicy`,
+  and token permission boundaries that only narrow. New
+  `TheAuth.AuthenticatePrincipal`. See the Policy Engine guide.
+- **Security doctor.** `(*TheAuth).Doctor` reports posture findings (open signup,
+  bootstrap gate, proxies, cookies, CSRF, throttle, password and session policy,
+  token hygiene, encryption key, audit, WebAuthn RP ID) with stable IDs and
+  severities. `GET /auth/admin/doctor` serves it to root callers, and
+  `cmd/theauth-doctor` prints it with `--format json` and `--fail-on` for CI.
+  See `docs/SECURITY-DOCTOR.md`.
+- **`Config.AuthEventSink`.** PII-minimal `AuthEvent` stream (user id plus IP
+  prefix) for login, MFA, password, passkey, TOTP, session and token events,
+  plus `RecordTokenMinted` / `RecordTokenRevoked` hook points and
+  `AuthEventChannelSink`. Audit log gained `login.failed`, `mfa.verified`,
+  `mfa.failed`, `passkey.renamed`, `passkey.clone_warning`,
+  `totp.recovery_regenerated`, `token.minted`, `token.revoked`; client IP and
+  user agent are now attached to every audited request.
+- **CSRF / Origin protection.** Cookie-authenticated POST/PUT/PATCH/DELETE
+  requests whose `Origin` (or `Referer`) is not the `BaseURL` origin or in the
+  new `Config.TrustedOrigins` get 403, closing the sibling-subdomain gap that
+  `SameSite=Lax` leaves. Bearer requests and GET/HEAD/OPTIONS are exempt.
+  Opt out with `Config.DisableCSRFProtection`.
+- **Automatic `Secure` cookies.** `Secure` is now set per request when
+  `BaseURL` is https, the connection is TLS, or a `TrustedProxies` peer sent
+  `X-Forwarded-Proto: https`. `Config.SecureCookie: true` still forces it.
+- **`TrustedProxies` startup warning.** A WARN is logged when it is empty
+  (silence with `Config.SuppressTrustedProxiesWarning`); behind a proxy an
+  empty list collapses the per-IP rate-limit bucket. See the new HTTP security
+  doc.
+
+Importing existing data
+
+- **`sqlite.NewTx` binds the SQLite Store to a caller's `*sql.Tx`** (SAVEPOINTs,
+  no nested transactions), plus `ImportUserTo`, `ImportAPITokenTo`,
+  `ImportTOTPSecretTo` and `ImportWebAuthnCredentialTo` (and `TheAuth` method
+  forms) for one-transaction backfills.
+- Plaintext TOTP secrets are encrypted on import like enrollment; recovery codes
+  must be regenerated. See the SQLite guide.
+
+### Changed
+
+- **Repository layout.** The module root now holds only the public face of the
+  library. Feature code moved into `internal/apitokens`, `internal/revocation`,
+  `internal/doctor`, `internal/importer`, `internal/bootstrap`,
+  `internal/ratelimit`, `internal/httpsec`, `internal/authevents` and
+  `internal/rbac`, and black-box tests moved to `integration/`. Root Go files
+  went from 80 to 15. See `docs/REPO-LAYOUT.md`. Every exported root identifier
+  keeps its name through a type alias, constant or function wrapper, and the
+  exported API surface was diffed before and after with `go/types`: no root
+  name, field or method was removed or renamed. What changes:
+  - Alias targets live in `internal/` packages. `%T`, `reflect` and compiler
+    messages now print `apitokens.APIToken`, `doctor.Report`, `revocation.Event`
+    and similar instead of `theauth.APIToken`. Code that compares type names as
+    strings must be updated; code using the root names is unaffected.
+  - `RevocationEvent`, `RevocationKind`, `RevocationBus`, `MemoryRevocationBus`,
+    `RevocationTarget` and `WatchOptions` are now aliases of `internal/revocation`
+    types, as are `APIToken`, `DeviceCode`, `Principal`, `Report`, `Finding`,
+    `Severity`, `AuthEvent`, `BootstrapConfig` and `RoleSeed`. Method sets are
+    identical.
+  - `ImportUserStorage`, `DoctorAdminLister`, `DoctorSessionCounter` and the
+    storage capability interfaces remain defined at the root.
+  - The `*ForTest` helpers from `export_test.go` (never importable outside the
+    module) are gone from the root; in-repo tests use `internal/testhooks`.
+  - `go test github.com/glincker/theauth-go/v2` no longer runs the integration
+    suite: run `go test ./...` or `go test ./integration/...`. The fuzz targets
+    and the `testdata/` golden files moved with it.
+  - `sqlc.yaml` moved to `storage/postgres/sqlc.yaml`; run `sqlc generate` from
+    `storage/postgres`.
+
+- **Module path** is now `github.com/glincker/theauth-go/v2` (see Upgrade
+  notes).
+- **JSON error bodies** replace plain-text `http.Error` bodies (see Upgrade
+  notes).
+- **OAuth login CSRF closed with a real browser binding.** The `/start` cookie
+  now carries a secret distinct from the `state` parameter; the server stores
+  its hash and verifies it in constant time at `/callback`. State is burned on
+  any failed check.
+- **Session rotation on MFA completion and password change.** The TOTP verify
+  and recovery routes now set a new cookie and revoke the pending token.
+- **Password policy.** `PasswordPolicyConfig` gains `MinLength`, `MaxBytes`
+  (default 72, the bcrypt limit; longer passwords now return 400
+  `weak_password` instead of failing later) and an optional `BreachChecker`.
+  `HIBPBreachChecker` implements the Have I Been Pwned k-anonymity range API,
+  is off by default and fails open on network errors.
+- `go.mod`: `golang.org/x/text` is now a direct dependency (NFKC).
+
+### Fixed
+
+- **Synced-passkey login failure (backup-eligible flag).** WebAuthn login
+  failed with a generic "verification failed" for any credential whose
+  authenticator reports the backup-eligible (BE) flag, which is the
+  overwhelming majority of real-world passkeys (iCloud Keychain, Google
+  Password Manager, and every other synced passkey). The library never
+  persisted a credential's BE / BS flags at registration nor restored them at
+  login, so go-webauthn's `validateLogin` BE-equality check always compared
+  the asserted `true` against a stored `false` and rejected the assertion.
+  Registration now captures the flags, login restores them, and new nullable
+  `backup_eligible` / `backup_state` columns (migration 0017, Postgres +
+  MySQL) back the round trip. Credentials registered before this fix have no
+  recorded flags and are reconciled on their next login via trust-on-first
+  use, then enforced strictly thereafter. A WebAuthn validation failure of
+  any kind now also logs the underlying go-webauthn error server-side (never
+  surfaced to the client) for diagnosability. Found via production log
+  analysis from a consuming application, not this repo's issue tracker.
+- `PasswordPolicy.AllowLegacyBcrypt` is now honored at signin, step-up and
+  password change, with rehash to Argon2id on success. With it off, a bcrypt
+  hash returns invalid credentials instead of a 500.
+- Existing accounts are no longer linked by an unverified provider email: a
+  callback whose email matches an existing user fails unless the provider marks
+  it verified, and provider emails are lower-cased and trimmed before lookup (no
+  more case-split shadow accounts).
+- MySQL `CreateUser` defaults zero `CreatedAt` and `UpdatedAt` instead of
+  failing.
+
+### Security
+
+- **Login throttle.** Password signin is now gated before any credential work
+  by per (client IP, normalized email) exponential backoff after a grace
+  period, plus a per-user lockout that auto-expires and can be cleared with
+  `TheAuth.UnlockUser`. Unknown and known accounts take the same path. On by
+  default; tune or disable with `Config.LoginThrottle`, supply a persistent
+  `LoginThrottleStore` to share state across processes. Refusals return 429
+  with a `Retry-After` header and code `rate_limited` or `account_locked`.
+- **MFA hardening.** TOTP codes are single use: the last accepted time-step is
+  recorded per user and replays are rejected (RFC 6238 section 5.2). TOTP and
+  recovery-code guesses are now capped per user, not per pending session, so
+  re-entering the password for fresh pending sessions no longer resets the
+  budget. Optional `TOTPReplayStorage` makes the step durable; without it the
+  step is held in process memory.
+- **First-run bootstrap.** `Config.Bootstrap` closes public signup and requires
+  a one-time setup token (generated and logged at startup, or supplied) to
+  create the first user. New: `TheAuth.UserCount`, `TheAuth.SetupToken`,
+  `GET /auth/bootstrap/status`, `TheAuth.ResetPasswordAdmin` for a
+  recover-admin command, and `BootstrapConfig.OnFirstUser` for granting roles.
+  Needs the optional `UserCountStorage` capability.
+- **Email canonicalization.** Every email entry point (password, magic link,
+  rate-limit key, SAML, SCIM) trims and lowercases, and folds Unicode
+  compatibility forms when `Config.EmailNFKC` is set. `TheAuth.NormalizeEmail`
+  exposes the same rule.
+- **OAuth login CSRF and account takeover.** Browser-bound state cookie and
+  verified-email requirement for linking existing accounts (see Changed and
+  Fixed).
+- **CSRF / Origin protection and automatic Secure cookies** (see Added).
+- CIMD fetches refuse non-public addresses at dial time, with no redirects or
+  proxy; `CIMDConfig.AllowPrivateNetworks` (dev) and `DenyHost` added.
+- Authorization error responses redirect only to a registered `redirect_uri`;
+  SAML `RelayState` is restricted to same-site paths or
+  `SAMLConfig.AllowedRelayStates`.
+
+## [2.5.0] - 2026-07-14
+
+Stable release graduating v2.5.0-rc.1. Completes the `Config.LifecycleHooks`
+surface (#76) with all six hooks fully wired, fixes a real bug where the
+batteries-included `Mount()` HTTP routes bypassed hook dispatch entirely for
+password/TOTP/WebAuthn, and closes out a batch of storage-layer correctness
+fixes across Postgres and MySQL.
+
+### Added
+
+- **`Config.LifecycleHooks` fully wired (#76).** `OnSignup` now also fires
+  from SAML signup and a user's first WebAuthn credential (passkey
+  registration has no true account-creation moment, so the first credential
+  is the closest equivalent). `OnPasswordChange`, `OnMFAEnabled`, and
+  `OnOrgSwitch` (explicit `SetActiveOrganization` only, not auto-provisioned
+  personal orgs) now fire. `OnTokenIssued` fires immediately before signing
+  on every OAuth access-token grant (authorization_code, refresh_token,
+  client_credentials, RFC 8693 exchange, CIBA); consumer-returned claims
+  merge into the JWT, and a non-nil error aborts issuance.
+- **`AuthorizationServerConfig.Clock` (#38).** Injectable time source for
+  the introspection cache and agent-chain cache, so tests can assert
+  revocation propagation deterministically instead of sleeping past
+  `IntrospectionCacheTTL`.
+- **Password policy documented in README (#39).** Minimum length, Argon2id
+  hashing, and the anti-enumeration dummy-verify behavior.
+
+### Fixed
+
+- **`a.Mount()` bypassed `LifecycleHooks` for password, TOTP, and WebAuthn.**
+  `passwordhandlers`/`totphandlers`/`webauthnhandlers` held the raw internal
+  `Service` directly instead of a hook-aware adapter, unlike OAuth/
+  Organizations/SAML, which already routed correctly. `OnSignup`/`OnSignin`/
+  `OnPasswordChange`/`OnMFAEnabled` never fired for any consumer using the
+  batteries-included `Mount()` routes, even though `OnSignup`/`OnSignin` were
+  marked shipped in v2.5.0-rc.1. Each package now takes a root-backed
+  adapter, mirroring the already-correct pattern.
+- **SCIM `PATCH /Groups/{id}`** silently discarded member-write errors,
+  always returning 200 even when the storage write failed.
+- **Admin `GET /audit`** classified bad-cursor errors by substring-matching
+  `err.Error()` instead of `errors.Is`. Added a proper `ErrBadCursor`
+  sentinel.
+- **`storage/mysql.MoveTOTPSecret`** treated any error from its existence
+  check (not just "no rows") as "primary already has a secret," which could
+  silently delete a secondary user's real TOTP secret on a transient DB
+  error.
+- **`storage/postgres.UpdateAgentLastActive`** and **six `storage/mysql`
+  methods** (`UpdateSessionAuthLevel`, `SetSessionActiveOrganization`,
+  `UpdateSAMLConnectionRow`, `UpdateGroup`, `UpdateAgentLastActive`,
+  `UpdateAgentCredentialLastUsed`) now return `storage.ErrNotFound` instead
+  of silently succeeding on a missing row.
+- **`mysql.Migrate()` failed entirely against MySQL 8.4** (the current MySQL
+  major version): several migrations used `TEXT/BLOB DEFAULT ''`, which 8.4
+  rejects, and the statement splitter mis-handled a semicolon appearing
+  inside a SQL comment. Migrations now apply cleanly end-to-end.
+- **`identitylink.MergeAccounts`** partial-failure behavior documented and
+  tested: a failure partway through its four move steps is safe to retry
+  with the same IDs.
+
+## [2.5.0-rc.1] - 2026-06-22
+
+The "consumer feedback" release. Closes the three highest-impact friction points raised in the 2026-06-22 consumer-feedback session: the hook surface for lifecycle events, opt-in automatic tenant provisioning, and a unified RFC 7807 error envelope across all auth/RBAC middleware. All additions are fully additive: downstream code compiles unchanged.
+
+This is a release candidate so consumers can road-test the new surface (LifecycleHooks contract, TenancyConfig auto-provisioning, error envelope shape) before the stable v2.5.0 tag. The remaining hook wiring (passkey, SAML, OnPasswordChange, OnMFAEnabled, OnTokenIssued, OnOrgSwitch) and the selective re-exports work (#79) ship in subsequent v2.5.x patches without API change.
+
+### Added
+
+- **`Config.LifecycleHooks` surface (#76, partial).** New optional hook bundle
+  lets consumers react to authentication-lifecycle events without forking
+  handlers or wrapping endpoints at the HTTP boundary. Six hook fields land
+  (`OnSignup`, `OnSignin`, `OnPasswordChange`, `OnMFAEnabled`, `OnTokenIssued`,
+  `OnOrgSwitch`), plus `SignupMethod` and `MFAKind` enums. Errors and panics
+  are recovered and logged; the triggering request never fails. This release
+  wires `OnSignup` and `OnSignin` at the password, magic-link, and OAuth
+  provider callback paths. The remaining hook points (passkey, SAML
+  signup; password change; MFA enable; token issuance; org switch) ship
+  incrementally in v2.5.x without API change. Magic-link consume and OAuth
+  callback both distinguish new vs returning users via an internal flag so
+  OnSignup only fires when the user row was actually created. See
+  `LifecycleHooks` doc comment for semantics.
+- **`Auth.UserByID` (#77).** Public lookup that previously forced
+  consumers to reach into storage directly. Forwards to `Storage.UserByID`.
+- **`Config.Tenancy` auto-provisioning (#77).** New `TenancyConfig` lets
+  consumers opt into automatic personal-organization creation on signup.
+  When `Tenancy.AutoCreatePersonalOrg = true` and `Organizations` is
+  enabled, every signup automatically creates a personal organization,
+  adds the user as its owner, and sets the session's active organization
+  to it. Closes the SQL-seeding friction the consumer feedback flagged.
+  `PersonalOrgNameFn` and `PersonalOrgSlugFn` knobs override the defaults
+  (`user.Email` and `"personal-" + lowercased ULID`). Wired at the same
+  three signup paths as the hook surface (password, magic-link, OAuth).
+
+### Fixed
+
+- **`RequireAuth` now emits RFC 7807 problem+json on 401 (#78).** Previously
+  `RequireAuth` and `RequirePendingOrFull` wrote plain-text bodies (`"unauthorized"`)
+  while `RequirePermission` already emitted RFC 7807, forcing frontends to
+  special-case the 401 path. All three middlewares now share a single envelope:
+
+  ```
+  HTTP/1.1 401 Unauthorized
+  Content-Type: application/problem+json
+  WWW-Authenticate: Session realm="theauth", error="auth.unauthenticated"
+
+  {"type":"https://theauth.dev/problems/auth.unauthenticated",
+   "title":"Unauthorized","status":401,
+   "detail":"Missing or invalid session","code":"auth.unauthenticated"}
+  ```
+
+  Two distinct codes are surfaced so frontends can distinguish "log in" from
+  "complete second factor":
+
+  - `auth.unauthenticated` for no session cookie or failed validation.
+  - `auth.step_up_required` for pending_2fa sessions that still need TOTP or WebAuthn verify.
+
+  `RequirePermission` 500 paths also moved off plain text (`rbac.disabled`,
+  `rbac.internal_error`) for the same reason. Tracked in milestone v2.5.0.
+
+## [2.4.0] - 2026-06-22
+
+The "enterprise security profile, supply chain hardening, and storage portability"
+release. v2.4 closes the FAPI 2.0 baseline by combining PAR (RFC 9126), JAR
+(RFC 9101), and JWT-Bearer client authentication (RFC 7523) in a single release.
+A new MySQL 8.x backend, a public `storagetest` contract suite, CIBA backchannel
+authentication (RFC 9509), and a CLI migration tool for Cognito and Auth0 round
+out the release. All additions are fully additive: downstream code compiles
+unchanged.
+
+### Added
+
+- **MySQL 8.x storage backend (#62).** `storage/mysql` implements `theauth.Storage`
+  and `OAuthServerStorage` with full parity with the existing postgres backend.
+  The adapter uses `sqlc`-generated queries targeting MySQL 8.x dialect. All
+  dialect translations (e.g., `ILIKE` to `LIKE BINARY`, `gen_random_uuid()` to
+  `UUID()`, advisory locks to `GET_LOCK`) are handled internally. Enable the
+  contract test gate by setting `THEAUTH_MYSQL_CONTRACT=1` when running
+  `go test ./storage/mysql/...` against a live MySQL instance. The contract suite
+  (`storagetest.Run`) is the same set used by the postgres adapter, so parity
+  is enforced mechanically.
+  - Current parity caveats: `postgres.Migrate` pattern not yet mirrored; operators
+    apply the `storage/mysql/migrations/` SQL files manually or via their
+    migration runner. Advisory lock serialization is weaker than Postgres
+    serializable transactions; avoid concurrent migrations.
+
+- **Cognito + Auth0 migration CLI (#63).** New `cmd/theauth-migrate/` binary
+  with sub-commands `cognito` and `auth0` exports users from AWS Cognito (CSV
+  or JSON input) and Auth0 (Management API or bulk export) into an intermediate
+  JSON bundle, then applies the bundle to any theauth-go storage backend.
+  - Two-stage design: `export` then `apply` lets operators diff and validate
+    the bundle with `theauth-migrate validate` before touching production storage.
+  - Auth0 path preserves bcrypt password hashes and triggers transparent
+    re-hashing with Argon2id on next successful login. Enable with the new
+    `PasswordPolicy.AllowLegacyBcrypt = true` config flag during the migration
+    window; disable once active users have been re-hashed.
+  - Build: `go build ./cmd/theauth-migrate`.
+
+- **PAR (RFC 9126) + JAR (RFC 9101) for FAPI-adjacent profile (#64).**
+  Pushed Authorization Requests and JWT-Secured Authorization Requests are now
+  supported by the OAuth 2.1 AS.
+  - PAR: `POST /oauth/par` accepts the full authorization request body, stores
+    it under a `urn:ietf:params:oauth:request_uri` handle (9-character random
+    suffix), and returns the handle with a 60-second TTL. The authorize endpoint
+    accepts the `request_uri` parameter and rejects raw parameters when PAR is
+    required (`PARConfig.Required = true`).
+  - JAR: the authorize endpoint verifies `request` JWTs signed by the client's
+    registered public key (`JARConfig.AllowedAlgorithms`, default ES256/RS256).
+    The `request` JWT must contain `iss`, `aud`, `exp`, `iat`, `nbf`, and the
+    standard authorization parameters.
+  - PAR + JAR together reach the FAPI 2.0 Security Profile baseline when
+    combined with the JWT-Bearer client authentication added in #65. See
+    the PAR + JAR concept page in the docs site for the flow narrative.
+  - New config: `AuthorizationServerConfig.PAR *PARConfig`,
+    `AuthorizationServerConfig.JAR *JARConfig`.
+  - Passes the zero-dependency mcpresource contract: mcpresource gains no new
+    transitive deps from this change.
+
+- **JWT-Bearer client auth + grant + token exchange polish (#65, RFC 7523).**
+  The AS now accepts JWT client assertions (`client_assertion_type=
+  urn:ietf:params:oauth:client-assertion-type:jwt-bearer`) as a client
+  authentication method alongside `client_secret_post` and `client_secret_basic`.
+  - Issuers are registered via the new `TrustedJWTIssuer` config type; a
+    `SubjectMapper` callback maps the JWT subject to a theauth client ID.
+  - JWT-Bearer grant (`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`):
+    exchange an external JWT (e.g., a Kubernetes ServiceAccount token) for a
+    theauth access token without a prior interactive auth step.
+  - Token exchange polish: `requested_token_type` parameter is now respected
+    per RFC 8693; the response `issued_token_type` is set explicitly.
+  - Primary use case: Kubernetes workload identity. A Pod authenticates with
+    its projected ServiceAccount token; the AS verifies the OIDC issuer and
+    mints a scoped access token for the target resource. See the JWT-Bearer
+    concept page in the docs site.
+  - New config: `AuthorizationServerConfig.JWTBearer *JWTBearerConfig`.
+  - Passes the zero-dependency mcpresource contract: no new transitive deps.
+
+- **CIBA -- backchannel authentication, RFC 9509 (#66, Poll + Ping modes).**
+  The CIBA profile lets a consumption device (e.g., a call center agent or voice
+  assistant) authenticate a user via a separate authentication device (e.g., a
+  phone push notification) without a browser redirect.
+  - `AuthenticationDevice` interface: implement `Notify(ctx, req CIBARequest)
+    error` to deliver push notifications, voice prompts, or any out-of-band
+    channel.
+  - Poll mode: the client calls `POST /ciba/token` periodically using the
+    `auth_req_id` returned by `POST /ciba/bc-authorize`. Returns
+    `authorization_pending` until the user approves (or `access_denied` on
+    denial).
+  - Ping mode: client registers a `client_notification_endpoint`; theauth-go
+    POSTs the token to that endpoint when the user approves. No polling required.
+  - When to use: IoT device pairing, voice-channel step-up, call center
+    agent-assisted authentication, TV/speaker without a keyboard.
+  - New config: `AuthorizationServerConfig.CIBA *CIBAConfig`.
+
+- **`storagetest` public contract suite (#58).** Any custom storage adapter can
+  now be verified against the canonical theauth-go contract by calling
+  `storagetest.Run(t, factory)` from its test file:
+  ```go
+  func TestConformance(t *testing.T) {
+      storagetest.Run(t, func() theauth.Storage { return mystorage.New() })
+  }
+  ```
+  The suite covers 12 functional areas (sessions, passwords, oauth clients,
+  refresh tokens, JWKS rotation, agents, delegations, CIBA, storagetest
+  idempotency, error sentinel conformance, concurrent writes, and audit
+  append-only). Both in-tree adapters run this suite in CI.
+
+- **`Config.RequireState bool` (#64, RFC 9700 BCP).** When true, the AS rejects
+  `/authorize` requests without a non-empty `state` parameter. Default false
+  preserves backwards compatibility.
+
+- **`PasswordPolicy.AllowLegacyBcrypt bool` (#63).** Opt-in to accept bcrypt
+  password hashes imported from Auth0 (and similar systems). When a user
+  authenticates, theauth-go detects the bcrypt PHC prefix, verifies with bcrypt,
+  and re-hashes with Argon2id on success. Disable this flag once the migration
+  window closes.
+
+### Changed
+
+- **`AuthorizationServerConfig` extended with new optional sub-configs (additive).**
+  `PAR *PARConfig`, `JAR *JARConfig`, `JWTBearer *JWTBearerConfig`,
+  `CIBA *CIBAConfig`. All nil by default; nil means the feature is disabled.
+  Existing config structs compile and run unchanged.
+
+- **Token exchange response now sets `issued_token_type` explicitly (#65).**
+  Previously the field was omitted. It is now set to
+  `urn:ietf:params:oauth:token-type:access_token` per RFC 8693 section 2.2.1.
+  The field was not part of any guarantee in previous releases, so this is
+  classified as a bug fix rather than a breaking change.
+
+### Fixed
+
+- **`gofmt` fixup on `jwtbearer.go` and `par_serialise.go` (#68).** Two files
+  landed in #64 and #65 with minor formatting inconsistencies. No logic change.
+
+### Tests
+
+- **Root test file count: 35 to 27 (#67).** Extracted
+  `internal/theauthtest/` helper package (test fixtures, JWT minting helpers,
+  request builders) consumed by the remaining root tests. Reduces root noise
+  and makes per-package test helpers importable without init-time side effects.
+
+- **Performance regression CI gate (#59, 12 benchmarks).** `benchgate` now runs
+  on every PR. Compares benchmark results with `benchstat`; any benchmark
+  regressing beyond the 25% default threshold fails the CI check. The diff is
+  posted as a PR comment. Baseline is pinned to the `main` branch. Override
+  threshold: `BENCHGATE_THRESHOLD=0.30`.
+
+### Internal
+
+- **Goreleaser + SBOM + Sigstore keyless + SLSA provenance (#57).** Tag pushes
+  now trigger `.github/workflows/release.yml`, which runs goreleaser, generates
+  a CycloneDX SBOM, signs the SBOM and source archive with `cosign` keyless
+  signing (GitHub Actions OIDC identity), and attaches an SLSA level-3
+  provenance attestation. Consumers can verify releases with `cosign verify-blob`
+  and `gh attestation verify`. See [Releases and Verification](https://theauth.dev/go/security/releases/).
+
+- **MkDocs Material docs site with `mike` versioning (#60).** `docs-site/` now
+  builds a versioned docs site deployed to GitHub Pages. The `mike` plugin
+  manages version aliases (`latest`, `stable`). The GH Pages workflow deploys
+  on every push to `main`. Build locally: `cd docs-site && mkdocs build --strict`.
+
+### Security
+
+- **Supply chain: goreleaser + cosign + SLSA (#57).** Every release artifact
+  (source archive, SBOM) is now signed with Sigstore keyless signing via the
+  GitHub Actions OIDC identity. SLSA level-3 provenance is attached. Consumers
+  can cryptographically verify that a release was built by the official GitHub
+  Actions workflow and has not been tampered with post-build. See
+  [Releases and Verification](https://theauth.dev/go/security/releases/) for the
+  verification commands.
+
+- **Trust documentation (#61).** `docs/THREAT-MODEL.md` (STRIDE analysis across
+  all subsystems), `docs/COMPLIANCE-SOC2.md` (AICPA TSC 2017 criteria mapping),
+  and `docs/COMPLIANCE-GDPR.md` (GDPR data handling reference and
+  operator/controller role clarification) are now in the repository. These
+  documents inform operator security assessments and SOC 2 evidence packs.
+
+## [2.3.0] - 2026-06-22
+
+The "MCP wedge deepening and enterprise feature parity" release. Three major
+features land here that close the gap with Auth0, Clerk, and Better-Auth:
+account linking with mandatory step-up, eight new built-in OAuth providers
+(12 total), and pluggable SIEM streaming sinks for enterprise audit log
+shipping. Public API stays additive; downstream code compiles unchanged.
+
+### Added
+
+- **Account linking and identity merge (#55).** Users can now bind a new
+  authentication method to an existing account, or merge two accounts into
+  one, behind mandatory step-up auth.
+  - `LinkOAuthToCurrentUser(ctx, sessionID, provider, payload) error` --
+    bind a new OAuth provider to the signed-in user.
+  - `LinkPasswordToCurrentUser(ctx, sessionID, password) error` -- add a
+    backup password to an OAuth-only account.
+  - `MergeAccounts(ctx, primaryID, secondaryID, mergeInput) error` --
+    destructive merge; moves OAuth accounts, passwords, WebAuthn
+    credentials, TOTP secrets from secondary to primary; revokes
+    secondary's sessions; cross-references via `merged_into` in the audit
+    log.
+  - HTTP endpoints under `/account/identities`: POST `/oauth`, GET
+    `/oauth/callback`, POST `/password`, POST `/merge`, DELETE
+    `/{provider}`.
+  - New errors: `ErrIdentityConflict`, `ErrStepUpRequired`,
+    `ErrLastAuthMethod` (cannot unlink the last auth method).
+  - New audit event types: `identity.linked`, `identity.unlinked`,
+    `account.merged`.
+  - All methods require a fully-authenticated session (no `pending_2fa`);
+    callers receive `ErrStepUpRequired` otherwise.
+
+- **Eight new built-in OAuth providers (#54). Total provider count: 4 to 12.**
+  - `provider/apple` -- Sign in with Apple. ES256 JWT client authentication
+    minted from a .p8 private key per token exchange. Parse the .p8 file
+    with `x509.ParsePKCS8PrivateKey` after `pem.Decode`, not
+    `x509.ParseECPrivateKey` (the file is downloadable only once from
+    Apple's developer console).
+  - `provider/facebook` -- Meta OAuth 2.0 with PKCE; `email_verified`
+    conservatively false (Graph API does not attest it).
+  - `provider/slack` -- Sign in with Slack via the OpenID Connect
+    endpoint.
+  - `provider/gitlab` -- GitLab OIDC; `BaseURL` option supports
+    self-hosted instances.
+  - `provider/bitbucket` -- Bitbucket Cloud OAuth 2.0 with HTTP Basic
+    auth on the token exchange per Atlassian spec.
+  - `provider/twitch` -- Twitch OIDC; adds the `claims` parameter to
+    surface email on the userinfo response.
+  - `provider/linkedin` -- Sign In with LinkedIn using OpenID Connect
+    (post-2023 `/v2/userinfo` endpoint).
+  - `provider/x` -- X (formerly Twitter) OAuth 2.0 with mandatory PKCE;
+    `ExchangeCode` returns an error if `codeVerifier` is empty.
+  - Each provider ships with its own `examples/oauth-<provider>/`
+    minimal demo.
+
+- **SIEM audit streaming sinks (#53).** New `AuditSink` interface on the
+  root package lets operators fan out audit events to external systems
+  without a polling job. Failed sinks never block the canonical storage
+  write; failures increment `Stats.AuditSinkFailed`.
+  - `AuditSink` interface: `Stream(ctx, batch []AuditEvent) error` +
+    `Name() string`.
+  - `AuditConfig.Sinks []AuditSink` -- register zero or more sinks; root
+    package wires them through `wiring.go`.
+  - Built-in `audit/sinks/otlp` -- OTLP/HTTP logs exporter; deps in its
+    own go.mod (root gains zero new transitive deps).
+  - Built-in `audit/sinks/splunkhec` -- Splunk HEC envelope, token auth,
+    no new deps.
+  - Built-in `audit/sinks/webhook` -- generic CloudEvents 1.0 POST with
+    `X-CloudEvents-Signature` HMAC-SHA256 header.
+  - All three sinks support a `WithRedactor(func(AuditEvent) AuditEvent)`
+    option for per-sink PII stripping (stricter than the default).
+  - New stats field: `Stats.AuditSinkFailed uint64`.
+
+### Changed
+
+- **Stats counters expanded.** `Stats.AuditSinkFailed` added; existing
+  counters unchanged. Per the additive-fields contract, downstream code
+  consuming Stats does not need to change.
+
+## [2.2.0] - 2026-06-22
+
+The "production-grade observability and audit closure" release. Three RFC-level
+features (CIMD, DPoP, observability adapters), four security closures, four perf
+items, +175pp of direct handler coverage on two highest-blast-radius packages,
+and an architectural cleanup that brings `theauth.go` from 1,171 LOC under the
+500 LOC ceiling. Public API stays byte-stable; every addition is additive.
+
+### Added
+
+- **OAuth Client ID Metadata Documents (CIMD) per MCP spec 2025-11-25 (#42).**
+  Clients identify themselves by HTTPS URL; theauth-go fetches and validates
+  the metadata JSON on first use, caches with TTL, and applies a configurable
+  trust policy. Default policy is `DenyAll` (fail-closed) for fresh deployments.
+  Demotes the RFC 7591 DCR registration flow without removing it.
+
+- **RFC 9449 DPoP (Demonstrating Proof-of-Possession) support (#43).** The
+  authorization server can now mint sender-constrained access tokens.
+  Enable by setting `Config.AuthorizationServer.DPoP = &DPoPConfig{...}`.
+  When a client presents a `DPoP` header on the token request, the AS
+  verifies the proof JWT (typ, alg, jwk, htm, htu, iat, jti, optional
+  nonce) and embeds an RFC 7800 `cnf.jkt` claim in the issued access
+  token. The response carries `token_type: "DPoP"` per RFC 9449.
+  Resource servers wired with `mcpresource.WithDPoPVerification(...)`
+  re-verify the proof on every request, including the `ath` claim that
+  binds the proof to the access token. A stolen token cannot be replayed
+  without the holder's private key.
+  - New public type: `theauth.DPoPConfig` (additive on
+    `AuthorizationServerConfig`; nil by default).
+  - New mcpresource option: `mcpresource.WithDPoPVerification(algs,
+    proofMaxAge, jtiReplayWindow)`. The mcpresource module gains no new
+    transitive dependencies.
+  - AS metadata now advertises `dpop_signing_alg_values_supported`.
+  - Supported proof algs: ES256, ES384, RS256, PS256, EdDSA. HS* and
+    `none` are unconditionally rejected.
+  - Deferred (forward-compatible): authorization-code binding,
+    refresh-token DPoP rotation.
+
+- **Pluggable observability adapters (OTel + Prometheus) (#44).** New
+  `Tracer` and `Metrics` interfaces on the root package plus a coalesced
+  `Hooks` bundle wired via `Config.Observability`. 10 spans
+  (`theauth.oauth.token`, `theauth.oauth.introspect`, agent + delegation
+  lifecycle, etc.) and 10 metrics
+  (`theauth_oauth_token_latency_seconds{grant_type}`, clientauthcache
+  hits/misses/size, ratelimit blocked, audit queue depth, etc.) ship live.
+  Example bridges to `go.opentelemetry.io/otel` and `prometheus/client_golang`
+  live in `examples/observability-otel/` and `examples/observability-prom/`
+  with their own go.mod; root and `mcpresource` go.mod gain zero new deps.
+
+- **Storage migration helper (#32).** `postgres.Migrate(ctx, pool) error`
+  embeds the migration SQL files, applies pending versions under an
+  advisory lock, and is idempotent on re-run. Downstream consumers can
+  delete their own copies of the migration code.
+
+- **`Config.RequireState` knob (#45).** When true, rejects `/authorize`
+  requests without a non-empty `state` parameter. Default false preserves
+  backwards compatibility. RFC 9700 best-current-practice.
+
+- **`Config.SuppressSecureCookieWarning` knob (#48).** Opt-out for the
+  deprecation warning shipped this release ahead of v3.0 default flip of
+  `SecureCookie` from `false` to `true`.
+
+- **`mcpresource.Validator.Diagnostics()` (#48).** Returns warnings about
+  validator misconfiguration (e.g., neither JWKS URL nor introspect URL
+  set). New public types: `mcpresource.Diagnostic`, severity constants.
+
+- **`AuthorizationServerNotConfigured` sentinel error (#50).** Replaces
+  six ad-hoc `errors.New(...)` calls in `forwarders_oauth.go`. Use
+  `errors.Is(err, theauth.ErrAuthorizationServerNotConfigured)`.
+
+### Changed
+
+- **`theauth.go` LOC: 1,171 -> 383 (#50).** Wiring extracted to `wiring.go`,
+  storage interface to `storage.go`, config sub-structs to `config.go`.
+  OAuth provider state machine moved to `internal/oauth/service.go`.
+  `internal/account/handlers/` and `internal/admin/handlers/` parent
+  packages collapsed (handlers now live directly under `internal/account/`
+  and `internal/admin/`). Zero public-API impact; downstream code compiles
+  unchanged.
+
+- **JWKS rotation is now transactional (#48).** Migration `0015` adds a
+  partial unique index `WHERE state='current'`. `Service.RotateSigningKey`
+  serializes rotations within a process via a `sync.Mutex`; concurrent
+  rotations across processes are guaranteed to leave exactly one current
+  key by the database constraint. New optional storage interface
+  `JWKSAtomicRotator` lets postgres collapse the rotation into a single
+  serializable transaction.
+
+- **Audit redactor uses precomputed lowercase key set (#46).** Replaces
+  per-key `strings.ToLower` allocations with `strings.EqualFold` against a
+  set built once at construction. Allocs/op drop.
+
+- **`keyedLimiter` uses `sync.RWMutex` + atomic `lastUsed` (#46).** Read
+  path no longer needs the write lock; 8-core read-heavy throughput
+  improves 5-10x under contention.
+
+- **Chain-walk cache (5s TTL) (#46).** `chainStillActive` cached per agent;
+  3+ storage calls per 3-deep chain drop to ~0 within the TTL window.
+  Suspend / revoke invalidates the cache via the same plumbing as
+  `clientauthcache`.
+
+- **SCIM auth uses a single storage lookup (#46).** `AuthenticateSCIMToken`
+  returns the token row; middleware reads from it directly.
+  `TouchSCIMTokenLastUsed` runs async via the audit channel-writer pattern.
+
+### Fixed
+
+- **Magic-link endpoint is now rate-limited (#45).** `POST /auth/magic-link`
+  applies the same `ipLimit` and `emailLimit` middleware buckets as the
+  password endpoints. Was previously the only credential-touching route
+  without rate limiting (enumeration vector).
+
+- **PKCE verifier comparison is constant-time (#45).** Replaced `!=` with
+  `crypto/subtle.ConstantTimeCompare` in `internal/as/token.go`.
+
+- **`RevokeToken` walks the refresh family (#45).** A revoke now invalidates
+  the entire token family via the same `RevokeRefreshTokenFamily` helper
+  used by the replay-detection path. RFC 7009 "unknown token returns 200"
+  semantics preserved.
+
+- **`InsertOAuthClient` coerces nil text[] slices to empty arrays (#40).**
+  Fixes `SQLSTATE 23502 violates not-null constraint` when a caller mints
+  an OAuth client with zero-value `RedirectURIs`, `GrantTypes`,
+  `ResponseTypes`, or `Contacts`. Most common hit: `CreateAgent` calling
+  `MintAgentCredential` on a fresh schema. Same fix applied to
+  `UpdateOAuthClient`.
+
+### Tests
+
+- **`internal/saml/handlers` 0% -> 91.4% statement coverage (#47).** 20
+  direct table tests covering happy path, signature failure, expired
+  `NotOnOrAfter`, wrong audience, and replay on `/saml/acs`. Plus 15
+  tests for the 5 CRUD endpoints.
+
+- **`internal/webauthn/handlers` 0% -> 84.5% (#47).** 21 tests covering
+  challenge cookie roundtrip, single-use guarantee, register/login Begin
+  and Finish, and credentials list / delete.
+
+- **`internal/organizations/handlers` 0% -> 94.0% (#49).** 22 tests for
+  the 7 endpoints (create / list / get / activate / clear-active /
+  add-member / remove-member) with happy paths and all documented error
+  codes.
+
+- **`internal/admin/handlers` 0% -> 81.1% (#49).** 52 tests for
+  `requireOrgMatch` middleware plus the 12 admin endpoints.
+
+- **`TestSuspendAgentBustsClientAuthCache` regression guard.** Confirms a
+  suspended agent cannot re-authenticate via a cached Argon2 entry within
+  the 5-minute cache TTL.
+
+- **`TestJWKSRotationConcurrentSafe` (#48).** 8 goroutines rotate the
+  signing key; asserts exactly one `state=current` row at the end.
+
+### Internal
+
+- **PR H1 (#41) test relocation.** 19 root-level `*_test.go` files moved
+  into their proper internal packages, ahead of the architectural
+  cleanup in #50.
+
+- **`/go.work` lists all 8 examples (#44 follow-up).** Adds `chi-app`,
+  `echo-app`, `gin-app`, `mcp-server`, `oauth-multi-provider`,
+  `stdlib-app`, `observability-otel`, `observability-prom`.
+
+### Security
+
+- **N1 (security re-audit).** Cache invalidation gap: revoked / suspended
+  agents could authenticate via a cached Argon2 entry for up to 5 minutes.
+  Closed by an explicit `s.invalidate(cur.ClientID)` call in
+  `changeAgentStatus`. Regression test ships.
+
+- **L1-L3 + L5 (security re-audit).** All re-audit lows closed; see Added
+  / Fixed entries for #45 above.
+
+- **M3-M5 (security re-audit).** SecureCookie deprecation warning, JWKS
+  transactional rotation, mcpresource Diagnostics; see entries for #48.
+
+## [2.1.0] - 2026-06-21
+
+Internal architecture reorganization plus the v2.0 security audit followups.
+**The public API is byte-stable with v2.0**: every exported type, function,
+and method on `*theauth.TheAuth` keeps the same identifier, signature, and
+method set. Downstream consumers compile unchanged. Anyone relying on
+unexported symbols via `//go:linkname` or unsafe reflection may break (we
+deleted several dead unexported root methods and consolidated forwarders).
+
+### Internal package reorganization (PRs #20 through #28)
+
+The 1.9k-line monolithic root grew to 49 non-test root files at v2.0; PRs
+#20 through #28 extracted feature-by-feature implementations into
+`internal/<flow>` subpackages while the root kept the public surface as
+thin forwarders. PR G (this release) collapsed the remaining one-line
+forwarders into four grouped files and removed the dead bridges that
+earlier extractions left behind.
+
+- New internal packages added across the refactor: `internal/models`,
+  `internal/as`, `internal/as/handlers`, `internal/agent`,
+  `internal/agent/handlers`, `internal/delegation`, `internal/session`,
+  `internal/password`, `internal/password/handlers`, `internal/totp`,
+  `internal/totp/handlers`, `internal/webauthn`, `internal/webauthn/handlers`,
+  `internal/magiclink`, `internal/oauth/handlers`, `internal/saml`,
+  `internal/saml/handlers`, `internal/scim`, `internal/scim/handlers`,
+  `internal/organizations`, `internal/organizations/handlers`,
+  `internal/rbac`, `internal/audit`, `internal/account/handlers`,
+  `internal/admin/handlers`, `internal/clientauthcache`,
+  `internal/jwt`, `internal/chain`, `internal/httpx`, `internal/wavt`,
+  `internal/ulid`, `internal/bench`, `internal/samltest`.
+- Root non-test `.go` file count: 49 (v2.0) to 28 (v2.1). Public surface
+  unchanged.
+
+### Dead code purge (PR G)
+
+PR G deleted seven unused unexported root methods that lost their last
+in-tree caller during PRs B through F. Every one was forwarded to a
+`*as.Service` or `*<flow>.Service` method that handler packages now reach
+directly. None were on the public surface; consumers are unaffected.
+
+- `(*TheAuth).currentSigningKey` (was in `jwks.go`)
+- `(*TheAuth).publicKeyByKID` (was in `jwks.go`)
+- `(*TheAuth).invalidateClientAuthCache` (was in `as.go`)
+- `(*TheAuth).agentBySubjectClaim` (was in `service_agent.go`); the
+  `AgentLookup` adapter wired in `theauth.New` now points at
+  `a.agentSvc.AgentBySubjectClaim` directly.
+- `(*TheAuth).authenticateClient` (was in `service_token.go`)
+- `(*TheAuth).finishRegistrationFromRequest` (was in
+  `service_webauthn.go`); every handler now wraps the body in
+  `http.MaxBytesReader` itself.
+- `(*TheAuth).finishLoginFromRequest` (was in `service_webauthn.go`)
+
+### Forwarder consolidation (PR G)
+
+Twenty-one `service_*.go` forwarder files became three grouped files plus
+three substantive service files preserved as-is (because they still hold
+local logic, not just one-line thunks).
+
+- `forwarders_identity.go`: session, magic-link, password, TOTP,
+  WebAuthn, audit.
+- `forwarders_oauth.go`: DCR, introspect, revoke, token, token v3 / v4
+  grants, AS metadata, protected-resource metadata, authorize.
+- `forwarders_enterprise.go`: SCIM, organizations, RBAC, delegation.
+- Retained: `service_oauth.go` (OAuth state cache + GC + provider flow),
+  `service_agent.go` (`validateAgentConfig` plus the agent CRUD
+  forwarders), `service_saml.go` (`toInternal` adapter plus SAML
+  forwarders).
+
+Twelve root `handlers_*.go` files became eight: the five thinnest mount
+forwarders (oauth, password, totp, webauthn, oauth_server) collapsed
+into `mounts_extracted.go`; the six handler files that carry substantive
+service adapters (`handlers_account.go`, `handlers_admin.go`,
+`handlers_admin_agents.go`, `handlers_organizations.go`,
+`handlers_saml.go`, `handlers_scim.go`) plus the top-level `handlers.go`
+stay separate.
+
+`errors_v20.go` merged into `errors.go`; `models_v20.go` merged into
+`models.go`.
+
+### Security (audit 2026-06-20, shipped in PR #17)
+
+- H1: POST `/oauth/register` Bearer gate now validates the supplied token
+  against `AuthorizationServerConfig.RegistrationTokens` under
+  `crypto/subtle.ConstantTimeCompare` against pre-hashed sha256 digests.
+  The legacy "any non-empty bearer is accepted" behavior is gone. Empty
+  and unknown bearers return 401 access_denied. When `RegistrationTokens`
+  is empty and `AllowAnonymousRegistration` is false (the default and
+  production-recommended state), all registration requests are denied.
+- H2: POST `/oauth/register` is now rate limited per source IP. The cap
+  defaults to 1 req/min when `AllowAnonymousRegistration` is true (the
+  documented public-MCP profile) and 5 req/min otherwise. Operators can
+  override via the new
+  `AuthorizationServerConfig.RegistrationRateLimitPerMinute` field;
+  negative values disable the cap entirely.
+- H3: organization-scoped delegation admin (POST
+  `/admin/v1/organizations/{orgID}/delegations`) now verifies that
+  `body.userId` is a member of the calling admin's organization before
+  creating the grant.
+- H4: `X-Forwarded-For` is no longer trusted by default. The new
+  `Config.TrustedProxies []netip.Prefix` field gates XFF: the header is
+  consulted only when the incoming `r.RemoteAddr` is inside one of the
+  configured prefixes.
+- M2: `AddOrganizationMember` now refuses to demote the last owner of an
+  organization.
+- M6: the email + password signin path pays the Argon2id verify cost on
+  the user-not-found and password-empty branches by verifying against a
+  fixed dummy PHC hash synthesized once at `New` time.
+
+### Reliability (PR #18)
+
+- Closed the handleToken / SCIM PATCH / end-to-end AS to mcpresource
+  reliability gaps surfaced by the 2026-06 test audit.
+
+### Performance (PR #19)
+
+- `clientauthcache` interposes between the AS handlers and the Argon2id
+  client_secret verifier. First verification pays the Argon2id cost; every
+  subsequent verification of the same `(client_id, secret_hash)` pair is
+  served from the cache until the secret rotates or the entry ages out.
+- JWKS key cache: the AES-decrypted Ed25519 private key is decrypted once
+  per signing key version (rotation refreshes it) and stashed on
+  `*as.Service`. Cold path is unchanged; hot path drops one AES decrypt
+  per JWT mint.
+- `mcpresource` validator switched from `sync.Mutex` to `sync.RWMutex` on
+  the JWKS + introspection caches so concurrent reads no longer serialize.
+
+### Removed in PR G
+
+- Seven unused unexported methods on `*TheAuth` (see "Dead code purge"
+  above).
+- Twenty-one `service_*.go` files merged into three `forwarders_*.go`
+  files (see "Forwarder consolidation").
+- Five `handlers_*.go` files merged into one `mounts_extracted.go`.
+- `errors_v20.go` merged into `errors.go`.
+- `models_v20.go` merged into `models.go`.
+
+### Deferred from the 2026-06-20 audit
+
+Tracked as follow-up issues: M1 (SCIM cross-tenant email fallback), M3
+(SecureCookie default), M4 (JWKS rotation transaction), M5 (mcpresource
+missing-introspection startup warning), L1-L5, I1-I7.
+
+## [2.0.0] - 2026-06-20
+
+v2.0 ships the OAuth 2.1 Authorization Server, agent identity and
+delegation chains (RFC 8693), and the `mcpresource` validator SDK for MCP
+servers. Three alpha tags shipped phases incrementally
+(`v2.0.0-alpha.1` through `v2.0.0-alpha.3`); `v2.0.0` consolidated them.
+
+### Added in v2.0 phase 5 + 6 (targeted for `v2.0.0`)
+
+- New separately importable Go module: `github.com/glincker/theauth-go/mcpresource`.
+  Zero dependencies outside the standard library: a consumer importing the
+  package does not transitively pull theauth core or the storage adapters.
+  Public surface: `Validator`, `Principal`, `Option`, `New`,
+  `PrincipalFromContext`, `WithJWKS`, `WithIntrospection`, `WithCacheTTL`,
+  `WithHTTPClient`, `WithClockSkew`, `(*Validator).Middleware`,
+  `(*Validator).Principal`. Validates JWT signature against a cached JWKS
+  (refreshes on kid miss and at the configured cache TTL), enforces the
+  audience claim against the configured resource URI, checks expiry, nbf,
+  and iat with a 60 second skew tolerance by default, and walks the RFC 8693
+  `act` chain via the AS introspection endpoint so revocations propagate
+  inside the configured cache window. On any failure the middleware emits
+  HTTP 401 with `WWW-Authenticate: Bearer error="invalid_token",
+  resource_metadata="..."` per RFC 6750 + RFC 9728.
+- RFC 9728 OAuth 2.0 Protected Resource Metadata: the AS exposes
+  `GET /.well-known/oauth-protected-resource` (bare path returns the first
+  configured resource) and `GET /.well-known/oauth-protected-resource/{path}`
+  (per-resource discovery for multi-resource deployments). The document
+  carries `resource`, `authorization_servers`, `bearer_methods_supported`,
+  plus `scopes_supported`, `resource_name`, `jwks_uri`, and
+  `resource_signing_alg_values_supported`.
+- Organization-scoped admin UX under `/admin/v1/organizations/{orgID}`:
+  `GET/POST/PATCH/DELETE /agents` and
+  `GET/POST/DELETE /delegations`. Gated by the new seeded permissions
+  `agents:admin` and `delegations:admin`; both are added to the owner and
+  admin default org roles.
+- End-user self-service UX under `/account` (enabled via
+  `Config.AccountUX`): `GET/POST /agents`, `DELETE /agents/{id}`,
+  `GET/POST /delegations`, `POST /delegations/{id}/revoke`. Session-cookie
+  gated; cross-user calls return 404 to avoid leaking record existence.
+- New seeded RBAC permissions: `agents:admin`, `delegations:admin`.
+  Existing consumers see the additional permissions on the next
+  `SeedPermissions` call; downstream role definitions that did not pre-grant
+  them stay valid (catalog only grows).
+- New error sentinels: `ErrAccountUXRequiresAgents`.
+- Example `examples/mcp-server/`: standalone runnable demo of the
+  mcpresource middleware on a tiny chi server. Shows the one-import claim:
+  middleware wiring plus principal extraction in roughly ten lines of Go.
+- Audit emission additions: every admin and account mutation emits the same
+  events used by the service layer (`agent.created`, `agent.suspended`,
+  `agent.resumed`, `agent.revoked`, `agent_credential.minted`,
+  `agent_credential.revoked`, `delegation.granted`, `delegation.revoked`).
+  No new action names introduced in this PR; the v2.0 phase 3 + 4 catalog
+  remains the source of truth.
+
+### v2.0 capability summary
+
+- Phase 1 + 2 (`v2.0.0-alpha.1`): OAuth 2.1 Authorization Server core.
+  `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`,
+  `/oauth/register`, `/oauth/jwks`, `/.well-known/oauth-authorization-server`.
+  RFC 9068 EdDSA JWT access tokens. RFC 8707 mandatory audience binding.
+  PKCE S256 mandatory. RFC 9700 refresh rotation with family revocation.
+  RFC 7591 dynamic client registration.
+- Phase 3 + 4 (`v2.0.0-alpha.2`): agent identity and delegation chains.
+  Agents (user or org owned) with one-shot client secrets. Delegation grants
+  per `(user, agent, resource)`. `client_credentials` grant for agent
+  self-tokens. RFC 8693 token-exchange grant with strict scope narrowing,
+  strict duration tightening, and a hard chain-depth cap of 3.
+  Introspection walks the actor chain on every call.
+- Phase 5 + 6 (`v2.0.0`): the consumption side and the operator surface.
+  `mcpresource` SDK for MCP servers. RFC 9728 protected-resource metadata.
+  Admin and end-user routes for agent and delegation lifecycle.
+
+### Added in v2.0 phase 3 + 4 (released as `v2.0.0-alpha.2`)
+
+- Agents: `Agent`, `AgentCredential`, `AgentOwner`, `CreateAgentInput`,
+  `AgentSecret` models. `CreateAgent`, `MintAgentCredential`,
+  `RotateAgentSecret`, `ListAgentsByOwner`, `GetAgent`, `SuspendAgent`,
+  `ResumeAgent`, `RevokeAgent` service methods. Agent credential kinds:
+  `secret` (Argon2id-hashed), `x509`, `jwk`. The X.509 and JWK kinds return
+  `ErrNotImplemented` in this phase so callers see a typed error.
+- Delegations: `DelegationGrant`, `GrantDelegationInput` models.
+  `GrantDelegation`, `ListDelegationsForUser`, `ListDelegationsForAgent`,
+  `RevokeDelegation` service methods. Uniqueness on `(user_id, agent_id,
+  resource)` enforced at the database layer. Revoking a grant invalidates
+  every derived token at the next introspection refresh.
+- Grants on `/oauth/token`:
+  - `client_credentials` mints an agent self-token (`sub=agent:<id>`,
+    `aud` bound to the supplied resource).
+  - `urn:ietf:params:oauth:grant-type:token-exchange` (RFC 8693) accepts a
+    user (or agent) `subject_token` plus an agent `actor_token`, looks up
+    the matching delegation grant, and mints a new JWT with the nested
+    `act` chain (RFC 8693 section 4.1). Chain depth is capped at 3; deeper
+    chains are rejected with `invalid_request` "actor chain depth exceeded".
+- Introspection now walks the full `act` chain on every call and re-checks
+  the delegation grant. Any inactive actor or revoked grant flips
+  `active=false`, even on a cache hit.
+- AS metadata advertises `client_credentials` and the token-exchange URN in
+  `grant_types_supported` whenever `Config.AgentIdentity` is configured.
+- Audit emissions added: `agent.created`, `agent.suspended`, `agent.resumed`,
+  `agent.revoked`, `agent_credential.minted`, `agent_credential.revoked`,
+  `agent.token_minted`, `delegation.granted`, `delegation.revoked`,
+  `token.exchanged`.
+- Migrations: `0012_agents.up.sql` (agents + agent_credentials),
+  `0013_delegations.up.sql` (delegation_grants + audit_events.actor_agent_id).
+  Down migrations included.
+- Storage interface: `OAuthServerStorage` extended with agent + delegation
+  methods. v1.0 root `Storage` interface unchanged. Both in-tree adapters
+  (memory + postgres) implement the new methods.
+- Errors: `ErrAgentNotFound`, `ErrAgentInactive`, `ErrDelegationNotFound`,
+  `ErrDelegationRevoked`, `ErrChainDepthExceeded`, `ErrSubjectTokenInvalid`,
+  `ErrActorTokenInvalid`, `ErrNotImplemented`, `ErrAgentRequiresAS`,
+  `ErrAgentChainDepthTooHigh`.
+
+### Added in v2.0 phase 1 + 2 (released as `v2.0.0-alpha.1`)
+
+- OAuth 2.1 Authorization Server with `/.well-known/oauth-authorization-server`,
+  `/oauth/authorize`, `/oauth/token` (authorization_code + refresh_token),
+  `/oauth/revoke`, `/oauth/introspect`, `/oauth/register` (RFC 7591 dynamic
+  client registration), `/oauth/jwks` (Ed25519, 30 day rotation). Mandatory
+  PKCE S256; mandatory RFC 8707 resource binding; RFC 9068 JWT access
+  tokens; RFC 9700 refresh-token rotation with family revocation.
+- New config: `AuthorizationServer *AuthorizationServerConfig`. New
+  storage extension interface `OAuthServerStorage`. Migrations 0011
+  (oauth_clients + authorization_codes + refresh_tokens) and 0014
+  (jwks_keys); 0012 / 0013 reserved as placeholders for phase 3 + 4.
+
+## [1.0.0] - 2026-06-20
+
+First production-ready release. Public API frozen per STABILITY.md. From
+v1.0 forward, breaking changes require a major bump; minor releases add
+optional config fields, new methods, new error sentinels, new audit
+actions, and new `Stats` fields without breaking existing callers.
+
+### v0.1 to v1.0 capability summary
+
+- Magic-link sign-in, opaque sessions, pluggable `Storage` (memory + postgres).
+- Email + password with Argon2id, password reset via single-use token.
+- OAuth 2.0 + OIDC with PKCE S256; built-in GitHub, Google, Microsoft, Discord.
+- WebAuthn / passkey registration and discoverable login.
+- TOTP second factor with salted SHA-256 recovery codes; session step-up via `pending_2fa`.
+- SAML 2.0 Service Provider for enterprise IdPs (per-connection + per-org).
+- SCIM 2.0 Users + Groups with eq-only filter and RFC 7644 PATCH.
+- Organization multi-tenancy with `active_organization_id` session scope.
+- Organization-scoped RBAC with a closed permission catalog and seeded roles.
+- Append-only audit log with async batched writes, default redactor, keyset cursor read API.
+- Admin HTTP API at `/admin/v1` with RFC 7807 problem+json errors.
+- Fuzz tests, race-clean test suite, godoc with examples, finalized `STABILITY.md`.
+
+### Added in 1.0
+
+- RBAC: `permissions`, `roles`, `role_permissions`, `user_roles` tables and the
+  matching `Storage` methods. `(*TheAuth).RequirePermission` middleware with a
+  per-request cache. `SeedPermissions`, `SeedOrganizationRoles`,
+  `GrantRole`, `RevokeRole`, `CreateRole`, `UpdateRole`, `DeleteRole`,
+  `PermissionsForUser`, `HasPermission`. Twelve seeded permission constants
+  plus the system `super_admin` role (granted out-of-band only).
+- Audit log: `audit_events` table with org / actor / action DESC indexes.
+  `(*TheAuth).EmitAudit` is non-blocking; the writer goroutine drains in
+  batches and flushes on `Close` with a configurable timeout. `Stats`
+  exposes four atomic counters (`AuditEmitted`, `AuditWritten`,
+  `AuditDropped`, `AuditFailed`). `DefaultRedactor` masks
+  `password / secret / token / code / refresh_token / access_token` at any
+  nesting depth. Twenty-plus canonical actions emitted across every
+  state-changing handler in theauth.
+- Admin API: twelve endpoints under `/admin/v1` (overridable via
+  `AdminConfig.PathPrefix`). Every endpoint requires `RequireAuth` plus a
+  catalog `RequirePermission`. Errors are `application/problem+json` per
+  RFC 7807 with a stable `code` extension; keyset pagination on the audit
+  read endpoint.
+- `(*TheAuth).Start` spawns the writer goroutine; `New` invokes `Start`
+  automatically so existing callers do not change. `Close` drains the
+  writer with a default 5 second deadline.
+- New errors: `ErrAdminRequiresRBAC`, `ErrForbidden`, `ErrUnknownPermission`,
+  `ErrRoleInUse`, `ErrNoActiveOrg`, `ErrOrgMismatch`, `ErrRBACDisabled`.
+- New `admin` subpackage: RFC 7807 `Write` helper, `Problem` type, keyset
+  cursor `EncodeCursor` / `DecodeCursor` codec, reserved problem code
+  constants.
+- Migrations 0009 (rbac) and 0010 (audit) added under
+  `storage/postgres/migrations/`.
+
+### Tradeoffs documented
+
+- Audit writes are async; backpressure drops events with
+  `Stats.AuditDropped` incremented. Block-on-backpressure would degrade
+  authentication latency under spikes; this is the documented choice.
+- Audit insert failures are not retried; `Stats.AuditFailed` is the ops
+  signal. A persistent retry queue is an order of magnitude more
+  complexity than v1.0 wants to absorb; SOC 2 evidence is better served
+  by an external audit sink (planned for v1.x).
+- No wildcard permissions in v1.0 (planned for v1.1); the catalog is a
+  closed set so the permission check is a single set membership.
+- ABAC, hierarchical roles, and time-bound permissions are explicitly
+  deferred to v1.x.
+
+### Migrating from v0.7
+
+- `Config.AuditHook` and the synchronous `AuditEvent` shape are removed.
+  Set `Config.Audit = &AuditConfig{}` to enable the async writer; existing
+  no-op deployments leave it nil and see no behavior change.
+- `Storage` gains 16 new methods (14 RBAC + 2 audit). Custom adapters
+  built on top of `memory` or `postgres` keep working; in-tree custom
+  implementations must implement the new methods. Per the new
+  `Storage`-extension rule (STABILITY.md), v1.x will introduce future
+  persistence operations behind optional interfaces detected via type
+  assertion so this kind of break does not happen again.
+
+## [0.7.0] - 2026-06-20
+
+### Added (v0.7)
+
+- SAML 2.0 Service Provider on top of `github.com/crewjam/saml` v0.5.1.
+  Per-connection IdP binding stored in `saml_connections`, signed
+  assertions only (raw-XML signature gate before parse), find-or-create
+  by `(connection_id, name_id)` with an email fallback, AuthnRequest
+  replay tracking with a configurable TTL. Public-facing flow at
+  `/auth/saml/{connectionId}/{login,acs,metadata}`. Per-organization
+  connection CRUD at `/auth/orgs/{orgId}/saml/connections`.
+- SCIM 2.0 provisioning (RFC 7643 + RFC 7644). Users + Groups CRUD,
+  discovery endpoints (`ServiceProviderConfig`, `ResourceTypes`,
+  `Schemas`), eq-only filter parser, RFC 7644 PATCH (add / replace /
+  remove). Bearer auth with sha256-hashed 256-bit tokens, HTTPS
+  enforcement, per-organization isolation, idempotent upsert by
+  `externalId`. PUT returns 405 (documented deviation; Okta and Azure AD
+  default to PATCH). Endpoints live under `/scim/v2/`. Per-organization
+  token CRUD at `/auth/orgs/{orgId}/scim/tokens`.
+- Organizations multi-tenancy: `organizations`, `organization_members`,
+  `sessions.active_organization_id`. Roles: `owner`, `admin`, `member`.
+  Single-tenant deployments leave `Config.Organizations` nil and see no
+  behavior change.
+- Migrations: `0006_organizations`, `0007_saml`, `0008_scim` (additive
+  on `users.external_id`, `users.given_name`, `users.family_name`,
+  `users.display_name`).
+- Audit hook (`Config.AuditHook`): synchronous no-op stub invoked on
+  every SCIM mutation and every successful SAML assertion. v1.0 replaces
+  the default binding with the real async writer; the consumer-facing
+  signature stays stable.
+- Test fixtures: `internal/samltest` generates a fresh IdP keypair and
+  signs assertions in-process for the SAML end-to-end tests. SCIM tests
+  exercise the Okta / Azure AD provisioning cycle (create, patch,
+  deactivate, idempotent re-create, delete).
+
+### Added (v0.6 hardening)
+
+- Fuzz tests for every external byte boundary: AES-GCM encrypt and decrypt
+  round-trip, decrypt arbitrary input, PKCE verifier to challenge, PKCE
+  verifier generation, token hash round-trip, base64 URL decode, session
+  cookie parsing, OAuth state cookie parsing, email validation, OAuth
+  callback query parameters, and OAuth callback provider name routing.
+- Concurrency tests covering the OAuth state map, the in-memory rate
+  limiter (same IP and different IP fan-out), and session creation under
+  contention. All assertions hold under `go test -race`.
+- Benchmark suite under `internal/bench` measuring password sign in,
+  session lookup, OAuth callback storage cost, magic link consume, and
+  PKCE challenge derivation. Baselines are recorded in
+  `internal/bench/BASELINES.md`.
+- Four new runnable example apps: `examples/gin-app`,
+  `examples/echo-app`, `examples/stdlib-app`, and
+  `examples/oauth-multi-provider`, each with a README, single-file
+  `main.go`, `go.mod`, `docker-compose.yml`, `.env.example`, and
+  `Makefile`.
+- Package documentation: `doc.go` added for every package, doc comments
+  filled in on previously undocumented exports, runnable `Example`
+  functions for the most-used entry points.
+- `STABILITY.md` enumerating the stable surface and the rules that
+  govern future changes.
+- `golangci.yml` enables `godot` and `godox` to keep doc comments
+  punctuated and to flag stray `TODO` markers.
+- CI workflow now runs a per-target fuzz job (`-fuzztime=10s`) on every
+  PR alongside the existing race-enabled test job.
+
+### Post-G follow-up fixes (PRs #30, #31, #33)
+
+After PR G landed, three small follow-ups also shipped in v2.1.0:
+
+- **#30 chore: em-dash sweep** removed 17 surviving em or en dashes from
+  comments in `middleware_ratelimit.go`, `handlers.go`, `crypto/`,
+  `storage/memory/`, and the related tests. Brings the repo into full
+  compliance with the project rule banning em and en dashes anywhere.
+- **#31 fix(examples): go.work hygiene** added the five missing example
+  modules (`chi-app`, `echo-app`, `gin-app`, `oauth-multi-provider`,
+  `stdlib-app`) to `go.work` so all eight examples now build cleanly
+  with default workspace settings. Incidental: three SAML-related deps
+  (`beevik/etree`, `crewjam/saml`, `russellhaering/goxmldsig`) were
+  promoted from indirect to direct in root `go.mod` by `go work sync`.
+- **#33 fix(security): cache bust on agent suspend/revoke (N1)** closes
+  a v2.1 security re-audit finding: `SuspendAgent` and `RevokeAgent`
+  did not call `s.invalidate(cur.ClientID)`, so a revoked agent could
+  authenticate via the `clientauthcache` Argon2-verified snapshot for
+  up to the 5-minute TTL added in PR #19. The shared
+  `changeAgentStatus` now invalidates whenever the new status is not
+  active. Regression test:
+  `TestSuspendAgentBustsClientAuthCache`.
+
+### Notes
+
+- No new features. Hardening only.
+- No public API changes. Existing callers compile and run unchanged.
+
+## [v0.5.0] - 2026-06-19
+
+WebAuthn passkeys, TOTP second factor with recovery codes, session
+step-up via `pending_2fa`. See git history for the full set of changes.
+
+## [v0.4.0]
+
+Discord OAuth provider. PKCE-aware flow shared across all four
+providers.
+
+## [v0.3.0]
+
+GitHub, Google, and Microsoft OAuth providers. AES-256-GCM at-rest
+encryption for provider tokens. Per-IP rate limiter.
+
+## [v0.2.0]
+
+Email and password credentials with Argon2id. Password reset via
+single-use token.
+
+## [v0.1.0]
+
+Initial release: magic-link email auth, opaque session tokens with
+revocation, chi-friendly middleware, in-memory and Postgres storage
+adapters.
+
+[Unreleased]: https://github.com/glincker/theauth-go/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/glincker/theauth-go/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/glincker/theauth-go/compare/v2.5.0-rc.1...v2.5.0

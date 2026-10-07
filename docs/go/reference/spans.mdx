@@ -1,0 +1,58 @@
+---
+title: "Spans Reference"
+sidebarTitle: "Spans"
+description: "theauth-go emits spans via the pluggable Tracer adapter."
+---
+theauth-go emits spans via the pluggable `Tracer` adapter. The span catalog below is the authoritative list as of v2.3.0.
+
+Span names are exported as constants (`theauth.SpanOAuthToken`, etc.) so dashboards and alert rules can reference them by symbol.
+
+## Span catalog
+
+Every instrumented operation opens a span at its entry point and closes it at return. On error the span receives `RecordError` plus a `status="error"` attribute and an `error_code="<stable code>"` attribute matching `models.TheAuthError.Code`.
+
+| Span name | Constant | HTTP surface | Standard attributes |
+|---|---|---|---|
+| `theauth.oauth.token` | `SpanOAuthToken` | `/oauth/token` | `grant_type`, `status`, `error_code` on error |
+| `theauth.oauth.introspect` | `SpanOAuthIntrospect` | `/oauth/introspect` | `status`, `error_code` on error |
+| `theauth.oauth.revoke` | `SpanOAuthRevoke` | `/oauth/revoke` | `status`, `error_code` on error |
+| `theauth.oauth.authorize` | `SpanOAuthAuthorize` | `/oauth/authorize` | `status`, `error_code` on error |
+| `theauth.oauth.dcr.register` | `SpanOAuthDCRRegister` | `/oauth/register` | `anonymous`, `status`, `error_code` on error |
+| `theauth.session.create` | `SpanSessionCreate` | session service | `status` |
+| `theauth.session.revoke` | `SpanSessionRevoke` | session service | `status` |
+| `theauth.password.verify` | `SpanPasswordVerify` | password service | `status` |
+| `theauth.webauthn.register.begin` | `SpanWebauthnRegisterBegin` | webauthn handler | `status` |
+| `theauth.webauthn.register.finish` | `SpanWebauthnRegisterFinish` | webauthn handler | `status` |
+| `theauth.webauthn.login.begin` | `SpanWebauthnLoginBegin` | webauthn handler | `status` |
+| `theauth.webauthn.login.finish` | `SpanWebauthnLoginFinish` | webauthn handler | `status` |
+| `theauth.totp.verify` | `SpanTOTPVerify` | TOTP handler | `status` |
+| `theauth.saml.acs` | `SpanSAMLACS` | SAML ACS handler | `status` |
+| `theauth.scim.users.list` | `SpanSCIMUsersList` | SCIM users handler | `status` |
+| `theauth.scim.users.get` | `SpanSCIMUsersGet` | SCIM users handler | `status` |
+| `theauth.scim.users.post` | `SpanSCIMUsersPost` | SCIM users handler | `status` |
+| `theauth.scim.users.patch` | `SpanSCIMUsersPatch` | SCIM users handler | `status` |
+| `theauth.scim.users.delete` | `SpanSCIMUsersDelete` | SCIM users handler | `status` |
+| `theauth.agent.create` | `SpanAgentCreate` | agent service | `status` |
+| `theauth.agent.suspend` | `SpanAgentSuspend` | agent service | `status` |
+| `theauth.agent.revoke` | `SpanAgentRevoke` | agent service | `status` |
+| `theauth.delegation.grant` | `SpanDelegationGrant` | delegation service | `status` |
+| `theauth.delegation.revoke` | `SpanDelegationRevoke` | delegation service | `status` |
+
+## Standard span attributes
+
+| Attribute key | Constant | Description |
+|---|---|---|
+| `status` | `AttrStatus` | `"success"` or `"error"` |
+| `grant_type` | `AttrGrantType` | OAuth grant type string |
+| `client_id` | `AttrClientID` | OAuth client identifier (span-only, not metrics) |
+| `error_code` | `AttrErrorCode` | `TheAuthError.Code` value on error |
+| `subject` | `AttrSubject` | User or agent subject claim |
+| `scope` | `AttrScope` | Requested or granted scope string |
+| `resource` | `AttrResource` | Protected resource URI |
+| `tenant_id` | `AttrTenantID` | Organization ULID |
+| `rule` | `AttrRule` | Rate limit rule (`ip` or `email`) |
+| `kind` | `AttrKind` | Credential kind (`oauth_client`) |
+
+## Cardinality note
+
+`client_id`, `subject`, and `resource` are high-cardinality; they are attached to spans only and never used as metric labels. This is enforced by review at library call sites.

@@ -1,0 +1,155 @@
+---
+title: "Policy Engine"
+description: "The policy package adds fine-grained authorization on top of sessions and API tokens."
+---
+The `policy` package adds fine-grained authorization on top of sessions and API
+tokens. Policies are JSON documents of allow and deny statements. Evaluation is
+default-deny, and an explicit deny always wins.
+
+```go
+import "github.com/glincker/theauth-go/v2/policy"
+```
+
+## Policy documents
+
+```json
+{
+  "version": "1",
+  "statements": [
+    {
+      "id": "deploy-own-project",
+      "effect": "allow",
+      "actions": ["deploy:*", "project:read"],
+      "resources": ["project/{project_id}", "project/{project_id}/*"],
+      "conditions": [
+        {"op": "ip_cidr", "key": "ip", "values": ["10.0.0.0/8"]},
+        {"op": "daily_window", "values": ["06:00", "22:00"]}
+      ]
+    },
+    {
+      "id": "prod-freeze",
+      "effect": "deny",
+      "actions": ["deploy:*"],
+      "resources": ["project/*/env/prod"]
+    }
+  ]
+}
+```
+
+- **Globs.** `*` matches any run of characters, including `/`. A backslash
+  escapes the next character. Matching is case sensitive.
+- **Variables.** `{name}` in a resource or condition value is replaced from the
+  request attributes. Substituted values are escaped, so an attribute of `*`
+  cannot widen a statement. If a variable is missing, an allow statement does
+  not match and a deny statement still applies (fail closed).
+- **Conditions.** All must hold. Operators: `equals`, `not_equals`, `in`,
+  `not_in`, `ip_cidr`, `not_ip_cidr` (key `ip`), `time_window` (two RFC 3339
+  bounds, either may be empty) and `daily_window` (`HH:MM` UTC, may wrap
+  midnight). Positive operators are false for a missing key, negated ones are
+  true, so a "deny unless from the office network" rule blocks unknown callers.
+- **Parsing.** `policy.Parse` rejects unknown fields, unknown versions and
+  oversize documents. Use `Policy.Marshal` to write the canonical form.
+
+## Evaluating directly
+
+```go
+d := policy.Evaluator{}.Evaluate(policy.Request{
+    Action:     "deploy:create",
+    Resource:   "project/p1",
+    Attributes: map[string]string{"project_id": "p1"},
+    IP:         "10.1.2.3",
+}, p)
+// d.Allowed, d.PolicyID, d.StatementID, d.Reason
+```
+
+## HTTP middleware
+
+```go
+guard, _ := policy.New(policy.Options{
+    Auth:  auth,   // *theauth.TheAuth, needs Config.APITokens
+    Store: store,  // a policy.Storage
+    Audit: auth,
+    Subjects: func(ctx context.Context, p *theauth.Principal) ([]policy.Subject, error) {
+        ids, err := myApp.GroupIDs(ctx, p.UserID) // read fresh each request
+        ...
+    },
+})
+
+r.With(guard.RequirePolicy("deploy:create", func(r *http.Request) policy.Resource {
+    id := chi.URLParam(r, "project")
+    return policy.Resource{Name: "project/" + id, Attributes: map[string]string{"project_id": id}}
+})).Post("/projects/{project}/deploy", deploy)
+```
+
+`RequirePolicy` resolves the session, API token or agent token on every request,
+loads the policies attached to the user, the groups and roles your `Subjects`
+callback returns, and the token, then evaluates. A denial responds `403`:
+
+```json
+{"code": "policy.denied", "status": 403, "detail": "explicit deny",
+ "decision": {"allowed": false, "effect": "deny", "policyId": "freeze", "statementId": "prod-freeze", "reason": "explicit deny"}}
+```
+
+Every decision emits a `policy.decision` audit event with the action, resource,
+policy, statement and reason (set `AuditDenyOnly` to skip allows). Built-in
+attributes: `principal.id`, `principal.kind`, `token.id`, `agent.name`. Add more
+with `Options.Attributes`.
+
+## Permission boundary for tokens
+
+Policies attached to a token (`SubjectToken`) form a boundary. The request must
+be allowed by the owner's policies and by the boundary, and a boundary deny
+blocks it, so a token can only be narrower than its owner, never wider. An
+agent token is evaluated as its delegating human plus its own boundary.
+
+## Storage
+
+`policy.Storage` (alias `PolicyStorage`) is an optional capability.
+`policy.NewMemory()` is the reference implementation, and a backend proves
+conformance with `storagetest.RunPolicy`. Suggested SQL schema:
+
+```sql
+CREATE TABLE policies (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL DEFAULT '',
+  document    TEXT NOT NULL,          -- JSONB on Postgres, JSON on MySQL
+  created_at  TIMESTAMP NOT NULL,
+  updated_at  TIMESTAMP NOT NULL
+);
+CREATE TABLE policy_attachments (
+  subject_kind TEXT NOT NULL,         -- user | group | role | token
+  subject_id   TEXT NOT NULL,
+  policy_id    TEXT NOT NULL REFERENCES policies(id) ON DELETE CASCADE,
+  PRIMARY KEY (subject_kind, subject_id, policy_id)
+);
+CREATE INDEX policy_attachments_subject ON policy_attachments (subject_kind, subject_id);
+```
+
+`PutPolicy` upserts and keeps `created_at`. `PoliciesFor` orders by policy ID,
+then subject kind and ID.
+
+## Worked example: a deploy platform
+
+A project admin can do everything in their project, a developer cannot touch
+production, and CI tokens may only deploy to staging.
+
+```json
+{"version":"1","id":"project-admin","statements":[
+  {"id":"all-in-project","effect":"allow","actions":["*"],"resources":["project/{project_id}","project/{project_id}/*"]}]}
+```
+
+```json
+{"version":"1","id":"developer","statements":[
+  {"id":"dev-rw","effect":"allow","actions":["project:read","deploy:*","env:*"],"resources":["project/{project_id}/*"]},
+  {"id":"no-prod","effect":"deny","actions":["deploy:*","env:write"],"resources":["project/*/env/prod"]}]}
+```
+
+```json
+{"version":"1","id":"ci-staging","statements":[
+  {"id":"staging-only","effect":"allow","actions":["deploy:create"],"resources":["project/*/env/staging"]}]}
+```
+
+Attach `project-admin` and `developer` to groups, and `ci-staging` to a CI
+token. Even if the CI token's owner is a project admin, the token can only run
+`deploy:create` on staging. Removing a user from a group takes effect on the
+next request because group membership is resolved per request.

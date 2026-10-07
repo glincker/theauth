@@ -1,0 +1,68 @@
+---
+title: "MCP Authorization"
+description: "The Model Context Protocol (MCP) specification (2025-11-25 and the draft revision) mandates OAuth 2.1 with PKCE for any MCP server that exposes tools over HTTP."
+---
+The Model Context Protocol (MCP) specification (2025-11-25 and the draft revision) mandates OAuth 2.1 with PKCE for any MCP server that exposes tools over HTTP. The authorization layer is more involved than a typical app-login because the *caller* is an AI agent, not a human, and the chain of delegation must be auditable and revocable at every link.
+
+## What the MCP spec requires
+
+1. **An OAuth 2.1 AS** that mints RFC 9068 JWT access tokens bound to a specific resource via RFC 8707.
+2. **Agent identities:** Long-lived client credentials for the agents a user trusts (`client_credentials` grant).
+3. **Delegation grants:** A user-approved record that lets a specific agent act on a specific resource. Revoking the grant invalidates every derived token at the next introspection refresh.
+4. **Token exchange (RFC 8693):** When an agent acts on behalf of a user, the access token carries an `act` claim chain so the resource server can see the full delegation path and reject the request if any link is revoked.
+5. **Resource server validation:** The MCP tool server validates tokens, enforces audience binding, walks the actor chain, and emits the correct `WWW-Authenticate` header on failure (RFC 6750 + RFC 9728).
+6. **Discovery documents:** `/.well-known/oauth-authorization-server` (RFC 8414) and `/.well-known/oauth-protected-resource` (RFC 9728) so MCP clients can auto-configure.
+
+## How theauth-go covers the spec
+
+```
+User browser  ----[authorization code + PKCE]----> theauth AS
+                                                    |
+MCP client    ----[client_credentials]------------>  |  (agent self-token)
+                                                    |
+MCP client    ----[token-exchange]---------------->  |  (user delegates to agent)
+                                                    |
+MCP tool srv  <---[JWT with act chain]------------- |
+      |
+      v  (validates via mcpresource middleware)
+      |-- JWKS verify
+      |-- audience enforce
+      |-- act chain walk via introspection
+      |-- revocation propagate
+```
+
+Every step ships in theauth-go:
+
+| MCP requirement | theauth-go component |
+|---|---|
+| OAuth 2.1 AS | `Config.AuthorizationServer` |
+| Agent identities | `Config.AgentIdentity`, `CreateAgent`, `MintAgentCredential` |
+| Delegation grants | `GrantDelegation`, `RevokeDelegation` |
+| Token exchange | `/oauth/token` with `grant_type=urn:ietf:params:oauth:grant-type:token-exchange` |
+| Resource server middleware | `github.com/glincker/theauth-go/mcpresource` |
+| Discovery documents | `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource` |
+
+## The one-import claim
+
+The `mcpresource` module is a separately versioned, zero-dependency Go module. A consumer importing it does not transitively pull theauth core or any storage adapter. This matters for MCP tool servers that are operated independently of the AS.
+
+## Actor chain depth
+
+The RFC 8693 `act` chain is capped at 3 links (configurable via `AgentConfig.MaxChainDepth`, hard ceiling 3). Deeper chains are rejected with `invalid_request: actor chain depth exceeded`. This prevents runaway delegation trees and limits blast radius if any agent is compromised.
+
+## Revocation propagation
+
+When a user revokes a delegation grant:
+
+1. The `delegation_grants.revoked_at` field is set immediately.
+2. New introspection calls return `active: false`.
+3. The `mcpresource` validator refreshes its introspection cache within `CacheTTL` (default 60 seconds).
+4. After the TTL, every request using a derived token returns 401.
+
+There is no immediate token blacklist push; the propagation window is the cache TTL. Operators who need sub-second propagation should set `WithCacheTTL(0)` on the `mcpresource.Validator` and accept the per-request introspection cost.
+
+## Next steps
+
+- [Authorization Server](/go/concepts/authorization-server) - Wire the AS in your application.
+- [Resource Server (mcpresource)](/go/concepts/resource-server) - Wire the RS middleware.
+- [Guides: Add an OAuth Provider](/go/guides/add-oauth-provider) - Add social login on top of the AS.

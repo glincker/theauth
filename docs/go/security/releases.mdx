@@ -1,0 +1,84 @@
+---
+title: "Releases and Verification"
+description: "Every theauth-go release artifact is signed with cosign keyless signing via Sigstore OIDC (GitHub Actions identity)."
+---
+Every theauth-go release artifact is signed with `cosign` keyless signing via
+Sigstore OIDC (GitHub Actions identity). The release workflow also generates a
+CycloneDX SBOM and a SLSA provenance attestation.
+
+<Tip>
+**Operational since v2.4.0.**
+Goreleaser, SBOM generation, cosign keyless signing, and SLSA provenance
+attestation are all fully operational as of the v2.4.0 release (#57). The
+workflow that drives this is
+[`.github/workflows/release.yml`](https://github.com/glincker/theauth-go/blob/main/.github/workflows/release.yml).
+Every tag push since v2.4.0 produces a signed, attested release.
+</Tip>
+
+## Release process
+
+See [RELEASING.md](https://github.com/glincker/theauth-go/blob/main/docs/RELEASING.md) in the repository for the full maintainer process. In brief:
+
+1. Update `CHANGELOG.md`: move entries from `[Unreleased]` to a versioned section.
+2. Open and merge a PR for the changelog.
+3. Tag the release:
+
+```bash
+git tag -a vX.Y.Z -m "theauth-go vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+The tag push triggers `.github/workflows/release.yml`, which runs goreleaser, cosign, and the SLSA attestation step.
+
+## Verifying a release
+
+### Download assets
+
+```bash
+gh release download vX.Y.Z --repo glincker/theauth-go --dir /tmp/release-check
+```
+
+### Verify the SBOM signature
+
+```bash
+cosign verify-blob \
+  --certificate-identity "https://github.com/glincker/theauth-go/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  --signature /tmp/release-check/theauth-go-vX.Y.Z.tar.gz.sbom.json.sig \
+  --certificate /tmp/release-check/theauth-go-vX.Y.Z.tar.gz.sbom.json.cert \
+  /tmp/release-check/theauth-go-vX.Y.Z.tar.gz.sbom.json
+```
+
+### Verify the source archive signature
+
+```bash
+cosign verify-blob \
+  --certificate-identity "https://github.com/glincker/theauth-go/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  --signature /tmp/release-check/theauth-go-vX.Y.Z.tar.gz.sig \
+  --certificate /tmp/release-check/theauth-go-vX.Y.Z.tar.gz.cert \
+  /tmp/release-check/theauth-go-vX.Y.Z.tar.gz
+```
+
+Both commands should print `Verified OK`.
+
+### Verify SLSA provenance
+
+```bash
+gh attestation verify /tmp/release-check/theauth-go-vX.Y.Z.tar.gz \
+  --repo glincker/theauth-go
+```
+
+## Pre-release tags
+
+Tags with `-alpha`, `-beta`, or `-rc` suffixes are published as pre-releases automatically (`prerelease: auto` in `.goreleaser.yml`). Follow the same tag procedure; GitHub marks the release as a pre-release.
+
+## Rollback
+
+If a bad release is published:
+
+1. Delete the tag: `git push origin :refs/tags/vX.Y.Z`
+2. Delete the GitHub Release: `gh release delete vX.Y.Z --repo glincker/theauth-go`
+3. Fix the issue, cut a patch release (vX.Y.Z+1), and re-tag.
+
+Do not reuse a version number after publishing it. Consumers may have cached the module at that version in their module proxy.

@@ -1,0 +1,142 @@
+---
+title: "Errors Reference"
+sidebarTitle: "Errors"
+description: "theauth-go exports sentinel errors and structured TheAuthError values."
+---
+theauth-go exports sentinel errors and structured `TheAuthError` values. Use `errors.Is` for sentinel checks and `errors.As` to extract `*TheAuthError` for the `Code` field.
+
+## Sentinel errors (v1.0)
+
+| Sentinel | Description |
+|---|---|
+| `ErrInvalidToken` | Session or magic-link token is invalid (not found or malformed). |
+| `ErrSessionExpired` | Session exists but has expired. |
+| `ErrUserNotFound` | User lookup returned no row. |
+| `ErrMagicLinkExpired` | Magic-link token is past its TTL. |
+| `ErrMagicLinkUsed` | Magic-link token has already been consumed. |
+| `ErrEmailNotVerified` | Operation requires a verified email but the user has not verified. |
+| `ErrStorageNotFound` | Storage lookup returned no row (canonical "not found" from adapters). |
+| `ErrReplayDetected` | WebAuthn sign count did not advance (clone attempt). |
+| `ErrAlreadyEnrolled` | TOTP enrollment attempted when user already has a confirmed secret. |
+| `ErrSCIMRequiresOrganizations` | `Config.SCIM` is set but `Config.Organizations` is nil. |
+| `ErrSAMLRequiresOrganizations` | `Config.SAML` is set but `Config.Organizations` is nil. |
+| `ErrSAMLUnsignedAssertion` | SAML Response parsed but assertion is not signed. |
+| `ErrSAMLMissingEmail` | SAML assertion did not yield an email via the configured attribute map. |
+| `ErrSAMLInvalidAssertion` | SAML signature, conditions, or replay check failed. |
+| `ErrLastOwner` | Removing this org member would leave the organization with zero owners. |
+| `ErrUnsupportedFilter` | SCIM filter is outside the supported eq-only set. |
+| `ErrSlugTaken` | Organization slug already exists. |
+| `ErrAdminRequiresRBAC` | `Config.Admin` is set but `Config.RBAC` is nil. |
+| `ErrForbidden` | Caller lacks a required RBAC permission (maps to 403). |
+| `ErrUnknownPermission` | Permission name not in the seeded or extended catalog. |
+| `ErrRoleInUse` | Deleting this role would leave no user with `users:admin`. |
+| `ErrNoActiveOrg` | Session has no `active_organization_id` set. |
+| `ErrOrgMismatch` | Session's active org does not match the resource org. |
+| `ErrRBACDisabled` | RBAC service method called when `Config.RBAC` is nil. |
+
+## Sentinel errors (v2.0: OAuth 2.1 AS)
+
+| Sentinel | Description |
+|---|---|
+| `ErrASRequiresEncryptionKey` | `Config.AuthorizationServer` is set but `Config.EncryptionKey` is not 32 bytes. |
+| `ErrASIssuerRequired` | `AuthorizationServerConfig.Issuer` is empty. |
+| `ErrASUnsupportedAlg` | Signing algorithm other than EdDSA. |
+| `ErrOAuthInvalidRequest` | OAuth "invalid_request" error. |
+| `ErrOAuthInvalidClient` | OAuth "invalid_client" error. |
+| `ErrOAuthInvalidGrant` | OAuth "invalid_grant" (expired or replayed code/refresh token). |
+| `ErrOAuthInvalidScope` | OAuth "invalid_scope" error. |
+| `ErrOAuthUnsupportedGrantType` | OAuth "unsupported_grant_type". |
+| `ErrOAuthUnsupportedResponseType` | OAuth "unsupported_response_type". |
+| `ErrOAuthInvalidResource` | RFC 8707 "invalid_target" (audience not recognized). |
+| `ErrOAuthRegistrationDenied` | DCR attempted without a valid token and `AllowAnonymousRegistration` is false. |
+| `ErrOAuthRedirectURIMismatch` | Token request `redirect_uri` does not match the authorization code. |
+| `ErrOAuthPKCEMismatch` | `code_verifier` does not match stored `code_challenge` under S256. |
+| `ErrOAuthAudienceMismatch` | Token's `aud` claim does not match the expected resource. |
+| `ErrNotImplemented` | Stub for forward-compatible paths (e.g., `x509` and `jwk` agent credential kinds). |
+| `ErrAgentNotFound` | Agent lookup returned no row. |
+| `ErrAgentInactive` | Operation requires an active agent but the agent is suspended or revoked. |
+| `ErrDelegationNotFound` | No delegation grant matches `(user, agent, resource)`. |
+| `ErrDelegationRevoked` | Delegation grant exists but `revoked_at` is set. |
+| `ErrChainDepthExceeded` | Adding the requesting agent would exceed `AgentConfig.MaxChainDepth`. |
+| `ErrSubjectTokenInvalid` | `subject_token` fails signature, issuer, expiry, or audience checks. |
+| `ErrActorTokenInvalid` | `actor_token` fails checks or does not resolve to the authenticated agent. |
+| `ErrAgentRequiresAS` | `Config.AgentIdentity` is set but `Config.AuthorizationServer` is nil. |
+| `ErrAgentChainDepthTooHigh` | `AgentConfig.MaxChainDepth` exceeds the hard ceiling of 3. |
+| `ErrAccountUXRequiresAgents` | `Config.AccountUX` is true but `Config.AgentIdentity` is nil. |
+| `ErrStorageMissingOAuthMethods` | Storage does not satisfy `OAuthServerStorage`. |
+
+## Sentinel errors (v2.3: identity linking)
+
+| Sentinel | Description |
+|---|---|
+| `ErrIdentityConflict` | `LinkOAuthToCurrentUser` target account is already bound to a different user. `errors.As` to `*IdentityConflictError` to read `ConflictingUserID`. |
+| `ErrStepUpRequired` | An identity-linking or merge method was called on a session whose `AuthLevel` is not `AuthLevelFull`. |
+| `ErrLastAuthMethod` | An unlink operation would leave the account with zero authentication methods. |
+
+## Sentinel errors (v2.4: CIBA, RFC 9509)
+
+| Sentinel | Description |
+|---|---|
+| `ErrCIBAAuthorizationPending` | `PollBackchannelToken` called before the user approved or denied the request. |
+| `ErrCIBASlowDown` | Client polled faster than `CIBAConfig.MinPollInterval`. |
+| `ErrCIBAAccessDenied` | The user denied the backchannel request. |
+| `ErrCIBAExpiredToken` | The `auth_req_id` has expired. |
+| `ErrCIBAInvalidRequest` | Required hint parameters are missing or mutually exclusive constraints were violated. |
+| `ErrCIBADisabled` | CIBA was attempted but `AuthorizationServerConfig.CIBA` is nil or storage does not implement `CIBAStorage`. |
+| `ErrCIBAUserMismatch` | `ApproveBackchannelAuth` / `DenyBackchannelAuth` called with a `userID` that does not match the resolved subject on the pending request. |
+
+## `TheAuthError` and error codes
+
+Newer service methods return `*TheAuthError` (accessible via `errors.As`):
+
+```go
+var authErr *theauth.TheAuthError
+if errors.As(err, &authErr) {
+    switch authErr.Code {
+    case theauth.CodeWeakPassword:
+        // password too short or in breach list
+    case theauth.CodeEmailTaken:
+        // email already registered
+    case theauth.CodeRateLimited:
+        // rate limit hit; Retry-After in authErr.Message
+    }
+}
+```
+
+### Code constants
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `CodeWeakPassword` | `"weak_password"` | Password below minimum length or in breach corpus. |
+| `CodeEmailTaken` | `"email_taken"` | Email already registered on signup. |
+| `CodeInvalidCredentials` | `"invalid_credentials"` | Wrong password or email not found (anti-enumeration combined). |
+| `CodeRateLimited` | `"rate_limited"` | Per-IP or per-email rate limit exceeded. |
+| `CodePasswordResetExpired` | `"password_reset_expired"` | Reset token past TTL. |
+| `CodePasswordResetInvalid` | `"password_reset_invalid"` | Reset token not found or already used. |
+| `CodeTOTPRequired` | `"totp_required"` | Session is in `pending_2fa` state; TOTP verification required. |
+| `CodeInvalidTOTP` | `"invalid_totp"` | Wrong TOTP code. |
+| `CodeAlreadyEnrolled` | `"already_enrolled"` | TOTP already configured; must delete before re-enrolling. |
+| `CodeWebAuthn` | `"webauthn"` | WebAuthn ceremony error (see `Message` for detail). |
+| `CodeIdentityConflict` | `"identity.conflict"` | OAuth account being linked already belongs to a different user. |
+| `CodeStepUpRequired` | `"identity.step_up_required"` | Session `AuthLevel` is not `AuthLevelFull`; re-authenticate before linking/merging. |
+| `CodeLastAuthMethod` | `"identity.last_auth_method"` | Unlinking would leave the account with no authentication method. |
+
+## OAuth wire error codes
+
+These are the standard OAuth 2.1 error strings returned in JSON error bodies by the AS endpoints:
+
+| Constant | Value |
+|---|---|
+| `OAuthErrInvalidRequest` | `"invalid_request"` |
+| `OAuthErrInvalidClient` | `"invalid_client"` |
+| `OAuthErrInvalidGrant` | `"invalid_grant"` |
+| `OAuthErrInvalidScope` | `"invalid_scope"` |
+| `OAuthErrUnsupportedGrantType` | `"unsupported_grant_type"` |
+| `OAuthErrUnsupportedResponseType` | `"unsupported_response_type"` |
+| `OAuthErrAccessDenied` | `"access_denied"` |
+| `OAuthErrServerError` | `"server_error"` |
+| `OAuthErrInvalidTarget` | `"invalid_target"` |
+
+## Callers must not switch exhaustively on error codes
+
+The catalog grows with minor releases. Always include a `default` case or a fallthrough to generic error handling.

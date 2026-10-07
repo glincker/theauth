@@ -1,0 +1,113 @@
+---
+title: "Storage Interface"
+description: "The theauth.Storage interface is the single surface a custom backend must implement."
+---
+The `theauth.Storage` interface is the single surface a custom backend must implement. Three built-in adapters are provided: `storage/memory`, `storage/postgres`, and (since v2.4) `storage/mysql`.
+
+## Stability guarantee
+
+The base `Storage` interface is frozen at v1.0. Adding a method to it is a v2.0 breaking change. New persistence operations land behind optional extension interfaces (e.g., `OAuthServerStorage`) that the library detects via type assertion at `theauth.New` time.
+
+## In-tree adapters
+
+| Package | Use case |
+|---|---|
+| `github.com/glincker/theauth-go/v2/storage/memory` | Local dev, testing |
+| `github.com/glincker/theauth-go/v2/storage/postgres` | Production (`pgx/v5` + `sqlc`) |
+| `github.com/glincker/theauth-go/v2/storage/mysql` | Production, MySQL 8.x (v2.4+) |
+
+All adapters expose `New(...)` constructors that return a `*Store` satisfying
+`theauth.Storage`.
+
+## Capability interfaces and `CoreStorage`
+
+`Storage` is the embedding of small capability interfaces, so an adapter can implement only what the enabled features need.
+
+| Interface | Needed when |
+|---|---|
+| `UserStorage`, `SessionStorage`, `MagicLinkStorage`, `PasswordStorage` | Always (together they are `CoreStorage`) |
+| `OAuthAccountStorage` | `Config.Providers` or `Config.AccountUX` |
+| `WebAuthnStorage` | `Config.WebAuthn` or `Config.AccountUX` |
+| `TOTPStorage` | `Config.TOTP` or `Config.AccountUX` |
+| `OrganizationStorage` | `Config.Organizations` |
+| `SAMLStorage` | `Config.SAML` |
+| `SCIMStorage` | `Config.SCIM` |
+| `RBACStorage` | `Config.RBAC` |
+| `AuditStorage` | `Config.Audit` |
+
+Set `Config.CoreStorage` instead of `Config.Storage` (exactly one of the two) to use a smaller adapter. `New` asserts each enabled feature's capability and returns `ErrStorageMissingCapability`, naming the feature and interface, when it is missing. Verify an adapter per capability with `storagetest.RunCore`, `RunWebAuthn`, `RunTOTP`, `RunAudit`, `RunRBAC` and `RunOAuthServer`; `storagetest.Run` runs them all.
+
+## Extension interface: `OAuthServerStorage`
+
+When `Config.AuthorizationServer` is set, the storage adapter must also satisfy `OAuthServerStorage`. This interface adds methods for OAuth clients, authorization codes, refresh tokens, JWKS keys, agents, and delegation grants.
+
+Both in-tree adapters satisfy `OAuthServerStorage` when the OAuth 2.1 AS migrations have been applied.
+
+## Conformance suite (`storagetest`)
+
+Since v2.4, theauth-go ships a public contract test suite in the `storagetest`
+package. Any custom adapter (or a new in-tree adapter) can be verified by calling
+`storagetest.Run`:
+
+```go
+import "github.com/glincker/theauth-go/v2/storagetest"
+
+func TestConformance(t *testing.T) {
+    storagetest.Run(t, func() theauth.Storage {
+        return mystorage.New()
+    })
+}
+```
+
+The suite covers 12 functional areas:
+
+- Sessions (create, lookup, revoke)
+- Password hashes (set, verify, re-hash)
+- OAuth clients (CRUD, DCR)
+- Authorization codes (issue, consume, replay prevention)
+- Refresh tokens (issue, rotate, family revocation)
+- JWKS keys (rotation, exactly-one-current constraint)
+- Agents and agent credentials
+- Delegation grants (grant, revoke, chain lookup)
+- CIBA requests (create, approve, deny, poll, ping)
+- Storagetest idempotency (re-running inserts is safe)
+- Error sentinel conformance (`ErrStorageNotFound` on misses)
+- Concurrent writes (race detector clean)
+
+Both in-tree adapters (`postgres` and `mysql`) run this suite in CI. Run it
+against your own adapter to verify parity.
+
+To gate a live-database contract test behind an environment variable (so it
+is skipped in offline CI):
+
+```go
+func TestConformance(t *testing.T) {
+    if os.Getenv("MYDB_CONTRACT") == "" {
+        t.Skip("set MYDB_CONTRACT=1 to run live storage contract tests")
+    }
+    db := openTestDB(t)
+    storagetest.Run(t, func() theauth.Storage { return mystore.New(db) })
+}
+```
+
+## Interface documentation
+
+Full godoc is available at [pkg.go.dev/github.com/glincker/theauth-go/v2#Storage](https://pkg.go.dev/github.com/glincker/theauth-go/v2#Storage).
+
+## Special rules
+
+### Append-only migrations
+
+The `storage/postgres/migrations/` directory is append-only. Columns are added via new migrations; they are never renamed destructively. This protects rolling-restart deployments.
+
+### Audit table append-only
+
+The `audit_events` table is append-only by contract. Adapters MUST NOT expose `UPDATE` or `DELETE` for audit rows. The `Storage` interface deliberately offers only `InsertAuditEvents` and `QueryAuditEvents`. Operators wanting tamper-evidence should layer Merkle signing on top.
+
+### `ErrNotFound`
+
+On lookup misses, adapters MUST return `theauth.ErrStorageNotFound` (re-exported from `storage.ErrNotFound`). The service layer uses `errors.Is` checks against this sentinel to distinguish "row missing" from other errors.
+
+## Write a custom adapter
+
+See [Write a Custom Storage Backend](/go/guides/custom-storage-backend) for the step-by-step guide, including how to run the conformance suite.

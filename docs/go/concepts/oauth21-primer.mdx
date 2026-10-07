@@ -1,0 +1,56 @@
+---
+title: "OAuth 2.1 Primer"
+description: "OAuth 2.1 is the modernization of OAuth 2.0 (RFC 6749) that removes insecure grant types, makes PKCE mandatory for all public clients, and tightens several security defaults."
+---
+OAuth 2.1 is the modernization of OAuth 2.0 (RFC 6749) that removes insecure grant types, makes PKCE mandatory for all public clients, and tightens several security defaults. This page covers only what you need to understand theauth-go's authorization server.
+
+## Core concepts
+
+**Authorization Server (AS):** The server that authenticates users and mints access tokens. theauth-go ships a complete AS behind `Config.AuthorizationServer`.
+
+**Resource Server (RS):** The server that accepts access tokens and serves protected resources. The `mcpresource` module provides an RS middleware. In MCP deployments the RS is your MCP tool server.
+
+**Client:** An application that requests tokens on behalf of a user (authorization code flow) or on behalf of itself (client credentials flow).
+
+**PKCE (Proof Key for Code Exchange, RFC 7636):** A mechanism that prevents authorization code interception. OAuth 2.1 mandates S256 PKCE for all clients. theauth-go enforces this; non-S256 requests are rejected.
+
+**Audience binding (RFC 8707):** Access tokens are bound to a specific resource URI. A token for `https://api.example.com` is rejected by `https://other.example.com`. theauth-go enforces audience binding at both the token endpoint and during introspection.
+
+## Grant types
+
+theauth-go supports six grant types:
+
+| Grant | Use case |
+|---|---|
+| `authorization_code` | A human user is signing in via a browser redirect. |
+| `refresh_token` | Obtaining a new access token without user interaction. Rotation with family revocation on replay. |
+| `client_credentials` | An agent authenticating as itself (no user). Used by machine-to-machine flows and MCP agents. |
+| `urn:ietf:params:oauth:grant-type:token-exchange` | An agent acting on behalf of a user, per RFC 8693. |
+| `urn:ietf:params:oauth:grant-type:jwt-bearer` | Exchanging an external JWT (e.g. a Kubernetes ServiceAccount token) for a theauth token, per RFC 7523. See [JWT-Bearer](/go/concepts/jwt-bearer). |
+| `urn:openid:params:grant-type:ciba` | Redeeming an approved backchannel authentication request, per RFC 9509. See [CIBA](/go/concepts/ciba). |
+
+## JWTs and JWKS
+
+Access tokens are RFC 9068 JWTs signed with Ed25519 (EdDSA). The signing key rotates every 30 days. The public key set is available at `/oauth/jwks` (RFC 7517). Resource servers use the JWKS to verify token signatures without calling the AS on every request.
+
+## Refresh token rotation
+
+When a refresh token is used, theauth-go issues a new refresh token and invalidates the old one. If the old token is presented again, the entire token family is revoked (RFC 9700 family revocation). This closes the "stolen refresh token" attack.
+
+## Dynamic Client Registration (RFC 7591)
+
+Clients can register themselves at `POST /oauth/register`. In production you should gate this endpoint with bearer tokens (`AuthorizationServerConfig.RegistrationTokens`). For public MCP deployments you can allow anonymous registration (`AllowAnonymousRegistration: true`) with a per-IP rate limit (default: 1 request/minute when anonymous mode is on).
+
+## Introspection (RFC 7662)
+
+The `POST /oauth/introspect` endpoint lets a resource server check whether a token is active without verifying the JWT signature itself. Introspection also walks the RFC 8693 actor chain and returns `active: false` if any delegation grant in the chain has been revoked.
+
+## Authorization Server Metadata (RFC 8414)
+
+theauth-go publishes `GET /.well-known/oauth-authorization-server`. MCP clients can discover every endpoint, supported grant types, supported scopes, and the JWKS URI from this document.
+
+## Next steps
+
+- [MCP Authorization](/go/concepts/mcp-authorization) - How the MCP spec builds on OAuth 2.1.
+- [Authorization Server](/go/concepts/authorization-server) - Wiring theauth-go's AS in your application.
+- [Configuration Reference](/go/reference/configuration) - The full `AuthorizationServerConfig` shape.

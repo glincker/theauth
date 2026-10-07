@@ -1,0 +1,58 @@
+---
+title: "Migrating to /v2"
+description: "Summary: the module path is now github.com/glincker/theauth-go/v2."
+---
+**Summary:** the module path is now `github.com/glincker/theauth-go/v2`. The API is unchanged. Only import paths need to change.
+
+## Why
+
+Go requires a module at major version 2 or higher to end its path in `/v2`. The earlier v2.x tags were published without it, so the Go toolchain could not resolve them and `go get github.com/glincker/theauth-go` silently returned v1.0.0. Releases from v2.6.0 onward use the correct path.
+
+## What you need to do
+
+Rewrite imports in your module (run from the module root, GNU sed shown; on macOS use `sed -i ''`):
+
+```bash
+grep -rl 'github.com/glincker/theauth-go' --include='*.go' . \
+  | xargs sed -i -E 's#github.com/glincker/theauth-go(/(storage/(memory|postgres|mysql)|admin|audit|clientauth|policy|provider|email|crypto|internal)[^"]*)?"#github.com/glincker/theauth-go/v2\1"#' \
+  && grep -rl 'theauth-go/v2/audit/sinks/otlp' --include='*.go' . \
+  | xargs sed -i 's#theauth-go/v2/audit/sinks/otlp#theauth-go/audit/sinks/otlp#'
+```
+
+Review the diff before committing: the standalone modules `storage/sqlite`, `mcpresource` and `audit/sinks/otlp` keep their existing paths and must not gain `/v2`.
+
+Then update the dependency:
+
+```bash
+go get github.com/glincker/theauth-go/v2@latest
+go mod tidy
+go build ./...
+```
+
+## Installing
+
+```bash
+go get github.com/glincker/theauth-go/v2
+go get github.com/glincker/theauth-go/storage/sqlite   # optional
+go get github.com/glincker/theauth-go/mcpresource      # optional
+```
+
+## Pseudo-version users
+
+If you pinned a pseudo-version of the old path (for example from a branch or commit), your `go.mod` still points at `github.com/glincker/theauth-go`. That path does not receive v2.6.0 or later. Change the imports as above and require the `/v2` path.
+
+## Directory layout changes (unreleased)
+
+The module root was reorganized before the first `/v2` release. No exported
+root name was removed or renamed: types moved behind aliases and everything you
+import from `github.com/glincker/theauth-go/v2` keeps its name and method set.
+
+- Types such as `APIToken`, `Principal`, `Report`, `RevocationEvent` and
+  `AuthEvent` are aliases of types in `internal/` packages. Their printed type
+  names change (`apitokens.APIToken`), which only matters if you match on
+  `%T` or `reflect` output.
+- Tests no longer live in the root package. Use `go test ./...`; the fuzz
+  targets are in `./integration`.
+- `sqlc.yaml` is now `storage/postgres/sqlc.yaml`.
+
+The full move map is in [Repository layout](https://github.com/glincker/theauth-go/blob/main/docs/REPO-LAYOUT.md).

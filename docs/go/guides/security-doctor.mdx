@@ -1,0 +1,86 @@
+---
+title: "Security doctor"
+sidebarTitle: "Security Doctor"
+description: "(TheAuth).Doctor(ctx) inspects the live Config and storage and returns a Report: a summary count per severity and a list of findings, most serious first."
+---
+`(*TheAuth).Doctor(ctx)` inspects the live `Config` and storage and returns a `Report`:
+a summary count per severity and a list of findings, most serious first. Findings
+carry counts and setting names only, never secrets, tokens or user identifiers.
+
+Checks that need an optional storage capability are skipped when it is missing.
+
+## Use it
+
+```go
+rep := auth.Doctor(ctx)
+if rep.MaxSeverity().Rank() >= theauth.SeverityHigh.Rank() { /* alert */ }
+```
+
+HTTP: `GET /auth/admin/doctor` (needs `Config.APITokens`) returns the report as JSON
+to a caller holding the `root` ability, by session or bearer token. See
+`examples/doctor-admin` for an admin page next to `/healthz`.
+
+CLI, for CI:
+
+```sh
+THEAUTH_DOCTOR_TOKEN=... theauth-doctor --server https://auth.example.com --fail-on high
+theauth-doctor --server URL --token-file /run/secrets/doctor --format json
+```
+
+Exit codes: 0 ok, 1 findings at or above `--fail-on` or a request failure, 2 usage.
+Colors are off unless stdout is a TTY (also `--no-color`, `NO_COLOR`).
+
+Optional storage capabilities: `UserCountStorage`, `DoctorAdminLister`,
+`DoctorSessionCounter`, `APITokenStorage`, `TOTPStorage`.
+
+## Findings
+
+| ID | Severity | Meaning | Fires when |
+| --- | --- | --- | --- |
+| `signup.open_no_allowlist` | medium | Public signup open with no domain allow-list | Config.Bootstrap unset (or OpenSignupAfterFirstUser), or OAuth signup open with providers |
+| `bootstrap.gate_off_no_users` | critical | No users and bootstrap gate off | Config.Bootstrap nil and user count is 0 (needs UserCountStorage) |
+| `network.trusted_proxies_empty` | medium | TrustedProxies empty while rate limiting is on | TrustedProxies empty and per-IP limit or throttle enabled |
+| `cookie.insecure_http` | high | Cookie not Secure on plain http, non-localhost | SecureCookie false, BaseURL http, host not localhost |
+| `csrf.disabled` | high | CSRF protection disabled | DisableCSRFProtection true |
+| `throttle.disabled` | high | Login throttle disabled | LoginThrottle.Disabled true |
+| `throttle.lax` | medium | Throttle thresholds very lax | GraceFailures above 20, UserMaxFailures above 50 or MFAMaxFailures above 20 |
+| `password.min_length_low` | medium | Minimum password length below 12 | PasswordPolicy.MinLength under 12 |
+| `password.no_breach_checker` | info | No breached-password checker | PasswordPolicy.BreachChecker nil |
+| `mfa.admin_without_totp` | high | Admins without confirmed TOTP | Storage implements DoctorAdminLister and TOTPStorage, TOTP enabled |
+| `mfa.none_enabled` | medium | No second factor enabled | Neither Config.TOTP nor Config.WebAuthn set |
+| `session.ttl_long` | medium | Session absolute TTL above 30 days | SessionTTL over 720h |
+| `session.no_idle_timeout` | low | No session idle timeout | SessionIdleTimeout is zero |
+| `token.no_expiry` | high | API tokens without expiry | Live tokens with nil ExpiresAt (needs Config.APITokens) |
+| `token.expiry_beyond_year` | medium | API tokens valid over a year | Live tokens with lifetime above 365 days |
+| `token.root_ability` | high | API tokens holding root | Live tokens whose abilities include root |
+| `token.agent_beyond_24h` | medium | Agent tokens valid over 24h | Live agent tokens with lifetime above 24h or none |
+| `token.expired_unpruned` | info | Expired tokens still stored | Unrevoked tokens past ExpiresAt |
+| `session.expired_unpruned` | info | Expired sessions still stored | Storage implements DoctorSessionCounter and count is above 0 |
+| `crypto.encryption_key_missing` | high (low if unused) | EncryptionKey missing or not 32 bytes | High when Providers or TOTP are configured, low otherwise |
+| `audit.no_sink` | low | Audit sink not configured | Config.Audit nil or has no Sinks |
+| `webauthn.rpid_mismatch` | high | WebAuthn RP ID does not match BaseURL host | RPID is neither the host nor a parent domain of it |
+| `redirect.allowlist_empty` | info | No post-login redirect allow-list | Providers or SAML set and OAuthConfig.AllowedReturnTo empty |
+
+&lt;a id="signup-open_no_allowlist">&lt;/a>
+&lt;a id="bootstrap-gate_off_no_users">&lt;/a>
+&lt;a id="network-trusted_proxies_empty">&lt;/a>
+&lt;a id="cookie-insecure_http">&lt;/a>
+&lt;a id="csrf-disabled">&lt;/a>
+&lt;a id="throttle-disabled">&lt;/a>
+&lt;a id="throttle-lax">&lt;/a>
+&lt;a id="password-min_length_low">&lt;/a>
+&lt;a id="password-no_breach_checker">&lt;/a>
+&lt;a id="mfa-admin_without_totp">&lt;/a>
+&lt;a id="mfa-none_enabled">&lt;/a>
+&lt;a id="session-ttl_long">&lt;/a>
+&lt;a id="session-no_idle_timeout">&lt;/a>
+&lt;a id="token-no_expiry">&lt;/a>
+&lt;a id="token-expiry_beyond_year">&lt;/a>
+&lt;a id="token-root_ability">&lt;/a>
+&lt;a id="token-agent_beyond_24h">&lt;/a>
+&lt;a id="token-expired_unpruned">&lt;/a>
+&lt;a id="session-expired_unpruned">&lt;/a>
+&lt;a id="crypto-encryption_key_missing">&lt;/a>
+&lt;a id="audit-no_sink">&lt;/a>
+&lt;a id="webauthn-rpid_mismatch">&lt;/a>
+&lt;a id="redirect-allowlist_empty">&lt;/a>

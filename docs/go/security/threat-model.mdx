@@ -1,0 +1,561 @@
+---
+title: "Threat Model"
+description: "This page summarizes the security design decisions in theauth-go and the threats it is built to resist."
+---
+This page summarizes the security design decisions in theauth-go and the threats
+it is built to resist. It also documents what is explicitly out of scope.
+
+<Note>
+**Full STRIDE analysis.**
+A detailed STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure,
+Denial of Service, Elevation of Privilege) threat catalog is maintained in
+[`docs/THREAT-MODEL.md`](https://github.com/glincker/theauth-go/blob/main/docs/THREAT-MODEL.md)
+in the repository. The page you are reading is the operational quick-reference
+summary. Refer to the full document for per-subsystem threat tables and
+mitigating control details.
+</Note>
+
+## Trust boundaries
+
+```
+Internet            ->   Reverse proxy (operator-managed)
+                              |
+                    ->   theauth-go HTTP handlers
+                              |
+                    ->   Storage (Postgres or memory, operator-managed)
+```
+
+theauth-go trusts the reverse proxy layer only when `Config.TrustedProxies` is explicitly set. By default, `X-Forwarded-For` is ignored and `r.RemoteAddr` is used for all rate-limiting and audit IP capture.
+
+## Session tokens
+
+- Raw session tokens are opaque (cryptographically random, `crypto/rand`).
+- Only a SHA-256 hash is stored in the database. A full database dump does not yield usable session tokens.
+- Cookies are set with `HttpOnly`, `Secure` (when `Config.SecureCookie` is true), and `SameSite=Lax`.
+- Revocation is a single `UPDATE` that marks the session hash as invalid. The raw token in the cookie becomes useless immediately.
+
+## Password handling
+
+- Argon2id with OWASP 2026 recommended parameters.
+- Minimum 12-character enforcement at sign-up.
+- Anti-enumeration: unknown-email and empty-password branches pay the full Argon2id verify cost against a dummy hash synthesized once at `New` time. Timing side-channel is closed.
+- Password reset tokens are single-use and short-lived (`PasswordResetTTL`, default 1 hour). Consuming a reset token revokes all sessions for the user.
+
+## Rate limiting
+
+- Per-IP and per-email rate limits on every credential endpoint.
+- Rate limit buckets use `r.RemoteAddr` by default; `X-Forwarded-For` is only consulted when the proxy is in `Config.TrustedProxies`.
+- POST `/oauth/register` has a separate per-IP rate limit: 1 req/min in anonymous mode, 5 req/min in bearer-gated mode.
+
+## OAuth 2.1 AS
+
+- PKCE S256 is mandatory. Requests without `code_challenge` are rejected.
+- Audience binding (RFC 8707) is mandatory. Tokens are bound to a specific resource URI at mint time and verified at introspection.
+- Refresh token family revocation: if a used (rotated) refresh token is presented again, the entire family is invalidated (RFC 9700).
+- DCR bearer tokens are compared with `crypto/subtle.ConstantTimeCompare` against pre-hashed SHA-256 digests. Timing oracle on token presence is closed.
+- Signing keys are AES-256-GCM encrypted at rest (requires `Config.EncryptionKey`).
+
+## Agent and delegation
+
+- Agent status transitions are audited. Suspended and revoked agents fail authentication immediately after the `clientauthcache` TTL (default 5 minutes) expires. The cache is busted synchronously on `SuspendAgent` and `RevokeAgent` (introduced in v2.1.0 PR #33).
+- Delegation grants verify `body.userId` is a member of the admin's organization before creation (cross-org grant attack closed, audit H3 2026-06-20).
+- Actor chain depth is capped at 3 at both the mint path and the config validation path (`ErrAgentChainDepthTooHigh`).
+
+## WebAuthn / passkeys
+
+- Sign-count replay protection: a new sign count must be strictly greater than the stored value. Clone-attempt returns `ErrReplayDetected`.
+- Challenge storage is ephemeral and GC'd after `ChallengeTTL`.
+
+## TOTP
+
+- TOTP secrets are AES-256-GCM encrypted at rest.
+- Recovery codes are SHA-256 hashed.
+- 10 single-use recovery codes per user.
+
+## SAML
+
+- Only signed assertions are accepted (`ErrSAMLUnsignedAssertion` on unsigned).
+- AuthnRequest replay tracking with a configurable TTL.
+
+## SCIM
+
+- Bearer tokens are SHA-256 hashed. Full token never stored.
+- Per-organization isolation enforced at every CRUD endpoint.
+
+## Out of scope
+
+The following are explicitly not covered by theauth-go:
+
+- **TLS termination.** Run a TLS-terminating reverse proxy (nginx, Caddy, AWS ALB) in front.
+- **DDoS and volumetric flood protection.** Use a WAF or CDN-level rate limiter for sustained volumetric attacks.
+- **Physical security of the host running Postgres.**
+- **Audit tamper-evidence.** The `audit_events` table is append-only (no `UPDATE`/`DELETE` in the `Storage` interface) but not cryptographically tamper-evident: it is not Merkle-chained or signed. This is not currently on [`docs/ROADMAP.md`](https://github.com/glincker/theauth-go/blob/main/docs/ROADMAP.md); operators who need tamper-evidence should layer Merkle signing or stream to an append-only SIEM sink themselves.
+- **ABAC and hierarchical roles.** RBAC is a closed permission catalog with flat roles. Time-bound and attribute-based access control are deferred.
+- **Hardware-attested agent credentials.** `AgentCredentialKindJWK` and `AgentCredentialKindX509` paths exist but return `ErrNotImplemented`. TPM-backed signing is a planned future feature.
+
+## Reporting security issues
+
+See [SECURITY.md](https://github.com/glincker/theauth-go/blob/main/.github/SECURITY.md). Report security vulnerabilities to `security@glincker.com`. Do not open public issues for security findings.
+
+---
+
+## Full STRIDE threat analysis
+
+**Scope:** theauth-go library, as deployed by an operator in a Go HTTP application.
+**Method:** STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege).
+**Last reviewed:** 2026-06-22
+
+---
+
+## Table of Contents
+
+1. [Trust Boundaries](#trust-boundaries)
+2. [Components in Scope](#components-in-scope)
+3. [Out of Scope](#out-of-scope)
+4. [Authorization Server (AS)](#authorization-server-as)
+5. [Resource Server / mcpresource](#resource-server-mcpresource)
+6. [Storage Backend](#storage-backend)
+7. [Authentication Flows](#authentication-flows)
+8. [Grant Types](#grant-types)
+9. [Audit Subsystem](#audit-subsystem)
+10. [Session Subsystem](#session-subsystem)
+11. [Agent Identity Flow](#agent-identity-flow)
+12. [Delegation Chains](#delegation-chains)
+13. [Threat Catalog](#threat-catalog)
+
+---
+
+## Trust Boundaries
+
+| Boundary | What Crosses It | Direction |
+|---|---|---|
+| HTTP network | OAuth/OIDC protocol messages (authorize, token, introspect, JWKS) | Inbound from clients/browsers |
+| HTTP network | Provider OAuth callbacks (GitHub, Google, Apple, etc.) | Inbound from IdP |
+| Process/DB | SQL queries and responses | Bidirectional |
+| Process/SIEM | Audit events forwarded to sinks (OTLP, Splunk, webhook) | Outbound |
+| Process/email | Magic link and password reset emails | Outbound |
+| HTTPS/IdP | CIMD metadata document fetches | Outbound, HTTPS only |
+| Process memory | Signing keys (Ed25519 private keys) | In-process only |
+
+The library does **not** control what crosses the operator's TLS terminator, the operator's secret store, or the operator's hosting environment. Those are explicitly out of scope.
+
+---
+
+## Components in Scope
+
+- **Authorization Server (AS):** issues JWTs (authorization_code, refresh_token, client_credentials, token_exchange grants). Lives in `internal/as/`.
+- **Resource Server / mcpresource:** validates inbound JWTs at protected API endpoints. Lives in `mcpresource/`.
+- **Storage backend:** memory store (`storage/memory/`) and Postgres store (`storage/postgres/`). Pluggable via the `Storage` interface in `storage.go`.
+- **Authentication flows:** password, OAuth social login, magic link, WebAuthn, TOTP, SAML, SCIM.
+- **Audit subsystem:** event emission, redaction, sinks. Lives in `internal/audit/`, `audit/`.
+- **Session subsystem:** session minting, lookup, expiry, revocation. Lives in `internal/session/`.
+- **Agent identity flow:** machine credential issuance and revocation. Lives in `internal/agent/`.
+- **Delegation chains:** scoped delegation grants. Lives in `internal/delegation/`.
+- **CIMD (Client Identity Metadata Document):** fetches and caches machine-client metadata. Lives in `internal/cimd/`.
+- **RBAC:** role and permission enforcement. Lives in `internal/rbac/`.
+
+---
+
+## Out of Scope
+
+The following are explicitly **not** mitigated by this library. They are the deploying operator's responsibility.
+
+- **TLS termination and certificate management.** The library emits a `slog.Warn` when `SecureCookie=false` (see `theauth.go:41-45`) but cannot enforce TLS on the transport layer itself.
+- **Secret management at rest.** Encryption keys (`AuditConfig.EncryptionKey`, TOTP key, etc.) must be supplied by the operator; the library does not manage a secret store.
+- **Container/VM/Kubernetes pod isolation.** Network policies, pod security admission, and kernel security modules are outside library scope.
+- **Operator's authentication device security.** TOTP app compromise, WebAuthn key theft, or phone compromise for CIBA-style flows are not addressable at the library layer.
+- **DDoS at the network layer.** The library provides application-layer rate limits (`RateLimitByIP`, `RateLimitByEmail` in `middleware.go` and `internal/ratelimit`) but not TCP/UDP-layer flood protection.
+- **Side channels in Go runtime or `crypto/subtle`.** The library uses `crypto/subtle` for all sensitive comparisons but cannot guarantee the Go runtime's memory allocator or garbage collector do not introduce timing channels.
+
+---
+
+## Authorization Server (AS)
+
+### Trust Boundaries
+
+- Receives `client_id`, `client_secret`, `code_verifier`, and `DPoP` header values over HTTP.
+- Reads client rows and authorization code rows from storage.
+- Holds Ed25519 private keys in process memory (`internal/as/service.go:69`).
+- Writes access tokens and refresh tokens to storage.
+
+### STRIDE Analysis
+
+**Spoofing**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Client impersonation via stolen `client_secret` | `client_secret_hash` stored as Argon2id PHC; verified with `subtle.ConstantTimeCompare` (`internal/clientauthcache/cache.go:118`). Cache invalidated on suspend/revoke (`internal/clientauthcache/cache.go:165`). | Operator must protect secret in transit (HTTPS) and at rest (secret store). |
+| Authorization code interception (open-redirect) | `redirect_uri` must match the registered URI exactly (`internal/as/token.go:92-93`). Registration enforces HTTPS or localhost-only (`internal/as/dcr.go:206-228`). | Operator must not register wildcard redirect URIs. |
+| Authorization code injection (inline param tampering) | PKCE S256 enforced on every code exchange (`internal/as/token.go:99-103`). RFC 9126 Pushed Authorization Requests (PAR) is implemented (`internal/as/par.go`) and available via `AuthorizationServerConfig.PAR`; see the PAR section below. | PAR is opt-in (`AuthorizationServerConfig.PAR` is nil by default) and additionally requires the storage backend to implement `PARStorage`. Deployments that have not enabled it should combine `RequireState=true` (`internal/as/config.go:102-107`) with PKCE S256 as the interim mitigation. |
+| Token replay after bearer theft | DPoP (RFC 9449) binding embeds `cnf.jkt` in the access token (`internal/as/token.go:234-245`), tying the token to the proof key. Resource servers must require a matching DPoP proof on each request. | Operator must enable `DPoP` in AS config and configure resource servers to require it. Bearer tokens remain exchangeable without DPoP when the operator has not enabled it. |
+
+**Tampering**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| JWT claim forgery | Tokens are Ed25519-signed; signature is verified by the resource server against the JWKS endpoint. | Signing keys in process memory. Compromise of the process compromises all issued tokens until key rotation. |
+| PKCE downgrade (plain method) | S256 is the only accepted method; `plain` is not implemented (`crypto/pkce.go`). | None within the library. |
+| JWKS rotation race | `AtomicRotateJWKS` issues all state transitions in a single database transaction when the storage adapter implements `JWKSAtomicRotator` (`internal/as/jwks.go:295-338`). Previous key is retained so tokens signed by it remain valid during the overlap window. | Operators using a custom storage adapter that does not implement `JWKSAtomicRotator` fall back to a non-atomic rotation path (`internal/as/jwks.go:339`). They should implement the interface. |
+
+**Repudiation**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Deny issuing a token | Every token issuance emits an audit event (`internal/as/token.go` audit calls). | Operator must stream audit events to an external SIEM to maintain tamper-evident logs. |
+
+**Information Disclosure**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Client secret exposure | Never stored in plaintext; stored as Argon2id PHC hash. | Operator must not log request bodies containing `client_secret`. |
+| Authorization code in server logs | The code is stored as a hash; the raw value is returned to the client only over the redirect response. | Operator must not log full redirect URLs. |
+
+**Denial of Service**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Credential stuffing on token endpoint | `RateLimitByIP` and `RateLimitByEmail` middlewares (`middleware.go` and `internal/ratelimit`). | Rate limit budgets are configurable; operator must tune to production traffic patterns. |
+| Argon2 CPU exhaustion | Password verification pays the full Argon2id cost even on user-not-found to prevent timing-based user enumeration (`internal/password/service.go:240`). | At default `m=64MiB, t=3, p=4` this is intentionally expensive; operators must size compute accordingly. |
+
+**Elevation of Privilege**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| CSRF on /authorize | `state` parameter required when `RequireState=true` (`internal/as/config.go:107`). | Operator must set `RequireState=true` in production. Default is `false` for backward compatibility. |
+| Open redirect via malformed `redirect_uri` | Fragment, non-HTTPS, and non-localhost HTTP URIs are rejected at registration time (`internal/as/dcr.go:206-228`). | Custom native-app URI schemes (e.g., `myapp://`) are permitted as registered; operator must audit registered URIs. |
+
+---
+
+## Resource Server / mcpresource
+
+### Trust Boundaries
+
+- Receives HTTP requests with `Authorization: Bearer <token>` or `Authorization: DPoP <token>` plus optional `DPoP:` proof header.
+- Fetches public keys from the JWKS endpoint (operator-configured URL, cached in process).
+- No storage writes.
+
+### STRIDE Analysis
+
+**Spoofing**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Token replay across resources | `cnf.jkt` claim in DPoP-bound tokens ties the token to the proof key; `aud` claim restricts to the intended resource server. | Operator must configure audience validation (`mcpresource/validator.go`) and enforce DPoP when required. |
+| Bearer token presented as DPoP token | Token type `DPoP` vs `Bearer` is checked; mismatched type is rejected (`mcpresource/dpop.go`). | None within the library. |
+
+**Tampering**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| JWT claim alteration | Ed25519 signature covers the full JWT header + payload; any modification invalidates it. | None. |
+
+**Information Disclosure**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Key material in JWKS cache | Only public keys are cached. Private keys never leave the AS process. | Operator must serve the JWKS endpoint over HTTPS. |
+
+**Denial of Service**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| JWKS endpoint unavailability | Keys are cached in process; a short outage does not immediately block validation. | Operator must size JWKS cache TTL against acceptable key-stale window. |
+
+---
+
+## Storage Backend
+
+### Trust Boundaries
+
+- Library code speaks to storage via the `Storage` interface (defined in `storage.go`).
+- Postgres store uses parameterized queries (sqlc-generated); no string concatenation in SQL.
+- Memory store is in-process only; no network trust boundary.
+
+### STRIDE Analysis
+
+**Tampering**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Direct database writes bypassing application logic | The `Storage` interface is the only sanctioned path; the library does not grant the application DB user DDL rights. | Operator must restrict the DB user to DML only on theauth tables. |
+
+**Information Disclosure**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| SQL injection | All queries use sqlc-generated parameterized statements. | Operator must not hand-write raw SQL against the same connection pool. |
+| Password hash leak from DB dump | Passwords stored as Argon2id PHC strings only; no plaintext. | A database dump exposes hashes; offline cracking is bounded by Argon2id cost. |
+| TOTP secret leak from DB dump | TOTP secrets encrypted with AES-256-GCM before storage (`internal/totp/service.go:225`). | Leak of both the DB dump and the encryption key compromises TOTP secrets. Operator must store the encryption key separately. |
+
+**Denial of Service**
+
+| Threat | Mitigation | Residual Risk |
+|---|---|---|
+| Connection pool exhaustion | Not addressed within the library; the library uses whatever `*sql.DB` the operator passes. | Operator must configure `MaxOpenConns` and `MaxIdleConns`. |
+
+---
+
+## Authentication Flows
+
+### Password
+
+**Trust Boundaries:** Receives plaintext password over HTTP (must be HTTPS at operator's transport layer). Reads password hash from storage.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Password enumeration via timing | Argon2id cost paid even for non-existent users (`internal/password/service.go:240`). | `internal/password/service.go:240` |
+| Weak hash algorithm | Argon2id with `m=64MiB, t=3, p=4` per OWASP 2026 baseline (`crypto/password.go:14,26-28`). | `crypto/password.go:26-28` |
+| Work-factor downgrade | Hash params are embedded in the PHC string; `VerifyPassword` reads them back (`crypto/password.go:62-84`). A stored hash with weaker params can still be verified; the operator may re-hash on next login. | Operator must define a minimum work-factor upgrade policy. |
+
+**Residual risk:** Operator must enforce HTTPS to prevent plaintext password capture.
+
+### OAuth Social Login
+
+**Trust Boundaries:** Operator's app redirects user to provider; provider redirects back with `code` + `state`. The `state` is a crypto/rand token stored in an HttpOnly cookie for CSRF protection.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Provider CSRF via forged state | `state` is `crypto.NewToken()` (32 bytes, base64url) stored in HttpOnly cookie; callback verifies cookie value matches query param (`internal/oauth/handlers/handlers.go:73-108`). | `internal/oauth/handlers/handlers.go:101-109` |
+| Apple .p8 key leak | Documented operator responsibility in `provider/apple/apple.go:8-18`. Library does not store the key; operator must supply it. | `provider/apple/apple.go:8-18` |
+| Provider token replay | `oauthStateTTL` (10 min) expires the state cookie (`internal/oauth/handlers/handlers.go:25-26`). | `internal/oauth/handlers/handlers.go:24-26` |
+
+### Magic Link
+
+**Trust Boundaries:** Token emailed to user; operator's email delivery path is outside library scope.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Token brute-force | Tokens are 32-byte crypto/rand values stored as SHA-256 hashes; brute-force infeasible. | `crypto/tokens.go`, `internal/magiclink/service.go:118` |
+| Token reuse | `ConsumeMagicLink` is an atomic consume; a second use returns `ErrMagicLinkExpired` or `ErrMagicLinkAlreadyUsed`. | `internal/magiclink/service.go:113-126` |
+| Token lifetime | Default TTL is 15 minutes (operator-configurable via `MagicLinkTTL`; `wiring.go:52-53`). | `wiring.go:52-53` |
+
+### WebAuthn
+
+**Trust Boundaries:** Browser generates a cryptographic assertion over the challenge; assertion verified against stored public key.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Credential replay (cloned authenticator) | Sign counter monotonic check: if `newCount <= stored.SignCount` the library returns `ErrReplayDetected` (`internal/webauthn/service.go:431-436`; sentinel defined at `internal/webauthn/service.go:108`). | `internal/webauthn/service.go:108,431-436` |
+| Phishing (wrong origin) | WebAuthn RP ID and origin are enforced by the `go-webauthn/webauthn` library; challenge is per-registration/authentication. | Operator must configure `RPID` and `RPOrigins` correctly. |
+
+### TOTP
+
+**Trust Boundaries:** User supplies 6-digit code generated by an authenticator app.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| TOTP secret at rest | Encrypted with AES-256-GCM before insertion (`internal/totp/service.go:225`). | `internal/totp/service.go:225` |
+| Code replay within window | Standard TOTP: each code is valid for one 30-second window. Time skew tolerance is governed by the underlying library. | Operator must ensure server clock is NTP-synced. |
+
+### SAML
+
+**Trust Boundaries:** IdP posts a signed XML assertion to the library's SP assertion consumer service.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| XML signature wrapping (XSW) | SAML assertions are processed via `crewjam/saml` (v0.5.1) and `russellhaering/goxmldsig` (v1.4.0), which validate that the XML signature covers the full assertion including the `<Issuer>` and `<Conditions>` elements. | `go.mod:7,14`; `internal/saml/service.go:41` |
+| Unauthorized IdP | Each SAML connection stores the IdP certificate; assertions are only accepted when signed by the registered certificate. | Operator must use genuine IdP metadata when creating a SAML connection. |
+
+### SCIM
+
+**Trust Boundaries:** SCIM client presents a bearer token; library validates it against a stored hash.
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Token reuse / stale token | `last_used_at` is updated asynchronously on each valid request (`internal/scim/service.go:117-138`). | `internal/scim/service.go:117-138` |
+| Unauthenticated SCIM requests | `scimAuth` in `middleware.go` gates all SCIM endpoints behind token validation (`internal/scim/service.go` `Authenticate`). | `middleware.go`, `internal/scim/service.go` |
+
+---
+
+## Grant Types
+
+### Authorization Code + PKCE
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| PKCE downgrade | `plain` method not implemented; S256 enforced. `CodeChallenge()` computes `base64url(sha256(verifier))` (`crypto/pkce.go:33-37`). | `crypto/pkce.go:33-37` |
+| Code interception | `subtle.ConstantTimeCompare` used when comparing computed challenge against stored challenge (`internal/as/token.go:99-103`). | `internal/as/token.go:99-103` |
+
+### Refresh Token
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Stolen refresh token reuse | Every use rotates the token; presenting an already-rotated token triggers family-wide revocation per RFC 9700 section 4.14 (`internal/as/token.go:122-176`; documented in `internal/as/config.go:45-47`). | `internal/as/token.go:122-176` |
+
+### Client Credentials
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Credential stuffing | `subtle.ConstantTimeCompare` on `client_secret` via the auth cache (`internal/clientauthcache/cache.go:118`). Rate limits apply at the network layer. | `internal/clientauthcache/cache.go:118` |
+
+### Token Exchange (RFC 8693)
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Scope escalation via exchange | Delegation scope is always narrowed to the intersection of requested, subject, and grant scopes (`internal/delegation/service.go:263-291`). | `internal/delegation/service.go:263-291` |
+| Exchange using suspended/revoked agent token | Introspection path re-walks the chain on every exchange; suspended/revoked agent in the chain causes rejection (`internal/as/introspect.go:161-192`). | `internal/as/introspect.go:161-192` |
+
+### DPoP-Bound Tokens (RFC 9449)
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Bearer token replay | `cnf.jkt` thumbprint embedded in the token ties it to the specific key pair (`internal/as/token.go:201-245`). Resource server validates the inbound DPoP proof carries the same `jkt` (`mcpresource/dpop.go`). | `internal/as/token.go:234-245` |
+| DPoP nonce replay | Nonce is HMAC-verified at each use; nonces are short-lived (`internal/dpop/nonce.go:71`). | `internal/dpop/nonce.go:71` |
+
+### PAR (Pushed Authorization Request)
+
+PAR (RFC 9126) is implemented (`internal/as/par.go`). When `AuthorizationServerConfig.PAR` is set and the configured storage backend implements the optional `PARStorage` interface, `POST /oauth/par` accepts the full set of authorization parameters over a back-channel POST and returns a `request_uri` reference; `GET /oauth/authorize` then accepts that `request_uri` in place of inline query parameters. `PARConfig.RequirePAR` (default `false`) can be set to reject any `/oauth/authorize` request that still passes inline parameters, forcing every client through PAR.
+
+**Residual risk:** PAR is opt-in and not mounted at all unless the storage backend satisfies `PARStorage` (both in-tree adapters do). Deployments that have not enabled `AuthorizationServerConfig.PAR` still pass authorization parameters as query string values on the redirect; an attacker who can intercept the redirect URL can observe but not forge them (PKCE protects the exchange). Those deployments should combine `RequireState=true` with PKCE S256 as an interim mitigation.
+
+---
+
+## Audit Subsystem
+
+### Trust Boundaries
+
+- Events are emitted in-process; sink goroutines forward them out-of-process to OTLP, Splunk, or webhook endpoints.
+- The webhook sink signs each request body with HMAC-SHA256 (`audit/sinks/webhook/webhook.go:4-5,131`).
+
+### STRIDE Analysis
+
+**Repudiation**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Audit log tampering | Events are INSERT-only; no UPDATE or DELETE path exists in the library. Rows carry a `created_at` timestamp set by the storage layer. A second copy is pushed to the operator-configured SIEM sink. | `internal/audit/service.go:400` |
+| Webhook body forgery | HMAC-SHA256 signature in `X-CloudEvents-Signature` header; recipient should verify with `hmac.Equal` (constant-time). | `audit/sinks/webhook/webhook.go:131` |
+
+**Information Disclosure**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Secrets in audit metadata | Default redactor strips `password`, `secret`, `token`, `code`, `refresh_token`, `access_token` (case-insensitive) at any nesting depth before emission (`audit.go:15-40`). Custom redactor is applied first, then the default redactor, so a custom redactor cannot re-introduce secrets (`internal/audit/service.go:281-283`). | `audit.go:15-40`; `internal/audit/service.go:281-283` |
+
+**Denial of Service**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Slow sink blocks event processing | Sinks run in separate goroutines; a slow or unavailable sink does not block the application's hot path. Flush errors are logged but do not propagate to the caller. | `internal/audit/service.go:400` |
+
+---
+
+## Session Subsystem
+
+### Trust Boundaries
+
+- Session token is a `crypto/rand` opaque value stored as SHA-256 hash in the database.
+- Token is transmitted as an HttpOnly cookie.
+
+### STRIDE Analysis
+
+**Spoofing**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Session token brute-force | Tokens are 32-byte crypto/rand values; SHA-256 stored. Brute-force infeasible. | `crypto/tokens.go` |
+| Session fixation | A new session token is minted on every authentication level promotion (password login, MFA completion, OAuth callback). The previous token is not reused. | `internal/session/service.go`; `internal/oauth/handlers/handlers.go:122` |
+
+**Information Disclosure**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Cookie theft via XSS | All session cookies are `HttpOnly` and `SameSite=Lax` (`handlers.go:147,183`). `Secure` flag is set when `SecureCookie=true` (`theauth.go:40`). A runtime warning is emitted when `SecureCookie=false` (`theauth.go:41-45`). | `handlers.go:147,183`; `theauth.go:40-45` |
+
+---
+
+## Agent Identity Flow
+
+### Trust Boundaries
+
+- Machine clients authenticate with `client_id` + `client_secret`; secret is Argon2id-hashed.
+- Agents issue tokens via the `client_credentials` grant.
+
+### STRIDE Analysis
+
+**Spoofing**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Stolen agent secret | Secret stored as Argon2id PHC; verified with `subtle.ConstantTimeCompare` via the `clientauthcache`. Cache is invalidated when agent is suspended or revoked (`internal/agent/service.go:444`). | `internal/agent/service.go:444`; `internal/clientauthcache/cache.go:165` |
+
+**Elevation of Privilege**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Agent issuing tokens beyond its permitted scope | `client_credentials` token scope is bounded to the agent's registered scope list (`internal/as/token_v34.go:44-124`). | `internal/as/token_v34.go:44-124` |
+| Suspended/revoked agent token still valid | Introspection re-walks the agent status on every call; `InvalidateChainCache` is called on suspend/revoke so cached validation results are dropped (`internal/as/service.go:138,310`). | `internal/as/service.go:138,310` |
+
+---
+
+## Delegation Chains
+
+### Trust Boundaries
+
+- An agent acting on behalf of a user (RFC 8693 token exchange) carries a delegation grant that specifies the permitted scope.
+
+### STRIDE Analysis
+
+**Elevation of Privilege**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Scope escalation through delegation | `NarrowScope` computes the strict intersection of requested scope, subject scope, and grant scope (`internal/delegation/service.go:263-291`). An empty result is treated as `invalid_scope`. | `internal/delegation/service.go:263-291` |
+| Revoked delegation grant still usable | Introspection checks the grant's revocation status; a revoked grant causes token rejection (`internal/as/introspect.go:161`). | `internal/as/introspect.go:161` |
+
+---
+
+## CIMD (Client Identity Metadata Document)
+
+### Trust Boundaries
+
+- The AS fetches a JSON document from an HTTPS URL supplied as the `client_id`.
+- The document is cached in process memory for the configured `CacheTTL`.
+
+### STRIDE Analysis
+
+**Spoofing**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| Attacker-controlled metadata document | `TrustPolicy` gates every fetch; default is `DenyAll` (fail-closed) (`internal/cimd/service.go:114-115`). Operator must explicitly configure `AllowAnyHTTPS()` or `AllowHTTPSHost(...)` to permit fetches. | `internal/cimd/service.go:114-115` |
+
+**Server-Side Request Forgery**
+
+| Threat | Mitigation | File Reference |
+|---|---|---|
+| CIMD URL points to internal metadata service | `LooksLikeCIMD` requires scheme `https` and a non-empty host (`internal/cimd/service.go:224-245`). HTTP and non-HTTPS schemes are rejected outright. `TrustPolicy` provides a second gate for allowlisting specific hosts. | `internal/cimd/service.go:224-245` |
+
+**Residual risk:** The library does not enumerate and block all RFC 1918 private address ranges. Operators using `AllowAnyHTTPS()` in environments where internal HTTPS services exist should additionally configure a host allowlist (`AllowHTTPSHost`).
+
+---
+
+## Threat Catalog
+
+The following threats are referenced in the summary above. For procurement, this table maps each named threat to its mitigation status.
+
+| ID | Threat | Status | Key Code Reference |
+|---|---|---|---|
+| T-01 | Token theft / bearer replay | Mitigated (DPoP) | `internal/as/token.go:234-245` |
+| T-02 | Token replay across resources | Mitigated (cnf.jkt + aud) | `internal/as/token.go:234-245`; `mcpresource/validator.go` |
+| T-03 | PKCE downgrade | Mitigated (S256 only) | `crypto/pkce.go`; `internal/as/token.go:99-103` |
+| T-04 | Authorization code injection | Mitigated when PAR is enabled (opt-in); partially mitigated (PKCE + state) otherwise | `internal/as/par.go`; `internal/as/token.go:99-103`; `internal/as/config.go:102-107` |
+| T-05 | Open redirect on /authorize | Mitigated (redirect_uri whitelist) | `internal/as/dcr.go:206-228`; `internal/as/token.go:92-93` |
+| T-06 | CSRF on /authorize | Mitigated when `RequireState=true` | `internal/as/config.go:102-107` |
+| T-07 | Session fixation | Mitigated (new token on level promotion) | `internal/session/service.go`; `internal/oauth/handlers/handlers.go:122` |
+| T-08 | Refresh token replay | Mitigated (family revocation per RFC 9700) | `internal/as/token.go:122-176` |
+| T-09 | Argon2 work-factor downgrade | Mitigated (params in PHC string; configurable) | `crypto/password.go:23,62-84` |
+| T-10 | JWKS rotation race | Mitigated (atomic rotation when adapter supports it) | `internal/as/jwks.go:295-338` |
+| T-11 | Audit log tampering | Partially mitigated (INSERT-only + SIEM sink) | `internal/audit/service.go:400` |
+| T-12 | clientauthcache poisoning | Mitigated (invalidated on suspend/revoke) | `internal/clientauthcache/cache.go:165` |
+| T-13 | SCIM token reuse | Partially mitigated (last_used_at tracking) | `internal/scim/service.go:117-138` |
+| T-14 | Webhook signature forgery | Mitigated (HMAC-SHA256) | `audit/sinks/webhook/webhook.go:131` |
+| T-15 | Cookie theft | Mitigated (HttpOnly, SameSite=Lax, Secure flag) | `handlers.go:147,183`; `theauth.go:40-45` |
+| T-16 | SAML signature wrapping | Mitigated (crewjam/saml + goxmldsig) | `go.mod:7,14`; `internal/saml/service.go:41` |
+| T-17 | WebAuthn replay | Mitigated (sign counter monotonic check) | `internal/webauthn/service.go:108,431-436` |
+| T-18 | MFA bypass on identity merge | Mitigated (step-up required) | `internal/identitylink/service.go:72-84`; `internal/models/errors.go:177-181` |
+| T-19 | Provider OAuth state CSRF | Mitigated (state cookie + comparison) | `internal/oauth/handlers/handlers.go:101-109` |
+| T-20 | CIMD trust policy bypass | Mitigated (DenyAll default) | `internal/cimd/service.go:114-115` |
+| T-21 | Apple .p8 key leak | Operator responsibility (documented) | `provider/apple/apple.go:8-18` |
+| T-22 | SSRF via CIMD metadata URL | Partially mitigated (HTTPS-only; host allowlist recommended) | `internal/cimd/service.go:224-245` |
+| T-23 | Delegation scope escalation | Mitigated (scope intersection) | `internal/delegation/service.go:263-291` |

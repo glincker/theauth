@@ -1,0 +1,98 @@
+---
+title: "OAuth hardening, passkey policy and auth events"
+sidebarTitle: "OAuth Hardening and Auth Events"
+description: "This guide covers the login-security options added to theauth.Config."
+---
+This guide covers the login-security options added to `theauth.Config`.
+
+## OAuth login hardening
+
+`Config.OAuth` (`*OAuthConfig`) is optional. The zero value keeps v2 behavior
+except for the always-on protections below.
+
+Always on:
+
+- **Browser-bound state.** `/start` sets an HttpOnly `theauth_oauth_state`
+  cookie holding a secret that is separate from the `state` query parameter.
+  The server stores only its SHA-256 next to the flow record and compares it
+  in constant time at `/callback`. A login CSRF (attacker's `state` plus code
+  delivered to a victim's browser) fails. The state is single use and is
+  burned even when the binding check fails.
+- **PKCE S256** on every authorization-code flow.
+- **OIDC nonce** for providers implementing `theauth.NonceProvider`
+  (`provider/oidc` does). The nonce is checked against the verified ID token.
+- **Verified email to link.** A sign-in whose provider email matches an
+  existing account is refused unless the provider marks the email verified.
+  Provider emails are lower-cased and trimmed before lookup.
+
+Options:
+
+| Field | Default | Purpose |
+| --- | --- | --- |
+| `StateStore` | in-memory with expiry sweep | Implement `OAuthStateStore` (`Put`, single-use `Take`) over Redis or SQL to run several replicas. |
+| `StateTTL` | 10 minutes | Flow lifetime. |
+| `AllowedReturnTo` | none (parameter ignored) | Allow-list for `/start?return_to=`. Exact absolute URLs or `/` paths, `*` suffix for prefix match. Anything else falls back to `PostLoginRedirect`. |
+| `Signup` | `OAuthSignupOpen` | `OAuthSignupClosed`, `OAuthSignupAllowedDomains` (with `AllowedEmailDomains`), `OAuthSignupInvite` (with `InviteCheck`). Domain and invite policies need a provider-verified email. |
+
+The default signup policy is open, matching v2, so upgrading never locks out
+an existing deployment. Set `Signup` explicitly for any internal tool.
+
+### Generic OIDC provider
+
+```go
+p, err := oidc.New(ctx, oidc.Config{
+    Name: "corp", Issuer: "https://idp.example.com",
+    ClientID: "...", ClientSecret: "...",
+})
+cfg.Providers = append(cfg.Providers, p)
+```
+
+`oidc.New` runs issuer discovery, requires an https issuer (set
+`AllowInsecureHTTP` for local IdPs only), and verifies ID token signature
+(JWKS with rotation), issuer, audience, expiry, `azp` and nonce.
+
+## Passkey policy
+
+`WebAuthnConfig` gained:
+
+- `RequireUserVerification`: registration and login demand UV, so a passkey
+  is never a bare possession factor. Default false.
+- `CloneWarning`: `CloneWarningReject` (default, refuses the login) or
+  `CloneWarningFlag` (allows it and emits `passkey.clone_warning`).
+
+The RP ID and origins come only from `WebAuthnConfig`; the request `Host`
+and forwarded headers are never consulted.
+
+New endpoints: `PATCH /auth/webauthn/credentials/{id}` (body
+`{"name": "..."}`, needs `WebAuthnRenameStorage`), `GET /auth/totp` (status),
+`POST /auth/totp/recovery-codes` (regenerate, needs `RecoveryCodeStorage`).
+Memory, Postgres and MySQL implement both capabilities; other stores answer
+501 on the rename and regenerate routes.
+
+## Auth event stream
+
+Set `Config.AuthEventSink` to receive a PII-minimal `AuthEvent` for each
+security event, independent of `Config.Audit`:
+
+```go
+cfg.AuthEventSink = func(ctx context.Context, e theauth.AuthEvent) {
+    siem.Send(e.Type, e.UserID, e.IPPrefix, e.Method, e.Reason)
+}
+// or: theauth.AuthEventChannelSink(ch)  // non-blocking, drops when full
+```
+
+The sink runs synchronously on the emitting goroutine, must not block, and a
+panic is recovered. Events carry a user id and the client IP masked to /24
+(IPv4) or /48 (IPv6); never an email or token.
+
+Types: `login.success`, `login.failure`, `mfa.success`, `mfa.failure`,
+`password.changed`, `password.reset_requested`, `password.reset_completed`,
+`passkey.added`, `passkey.removed`, `passkey.renamed`, `passkey.clone_warning`,
+`totp.enrolled`, `totp.disabled`, `totp.recovery_codes_regenerated`,
+`session.revoked`, `token.minted`, `token.revoked`, `oauth.linked`.
+
+Token issuers call `(*TheAuth).RecordTokenMinted` and `RecordTokenRevoked`
+to feed the stream. The same events also reach the audit log when
+`Config.Audit` is set (actions `login.failed`, `mfa.verified`, `mfa.failed`,
+`passkey.renamed`, `passkey.clone_warning`, `totp.recovery_regenerated`,
+`token.minted`, `token.revoked` are new).

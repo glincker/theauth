@@ -1,0 +1,55 @@
+---
+title: "Installation"
+description: "Getting theauth-go into a Go module is a single go get."
+---
+Getting theauth-go into a Go module is a single `go get`. This page covers the main module, the standalone `mcpresource` resource-server SDK, and the Postgres migration step, plus how to verify the install worked.
+
+## Requirements
+
+- **Go 1.25+**
+- A `chi` or `net/http`-compatible HTTP router (the library works with any; chi is used in examples).
+
+## Install the main module
+
+```bash
+go get github.com/glincker/theauth-go/v2
+```
+
+This installs the full theauth-go surface: magic links, email/password, WebAuthn, TOTP, SAML, SCIM, RBAC, audit, and the OAuth 2.1 authorization server.
+
+## Install only the MCP resource server SDK
+
+If you are building an MCP resource server and only need JWT validation (not the auth server itself), install the zero-dependency submodule instead:
+
+```bash
+go get github.com/glincker/theauth-go/mcpresource
+```
+
+`mcpresource` has no third-party dependencies. Importing it does not pull in theauth core or any storage adapter.
+
+## Postgres storage adapter
+
+The Postgres adapter uses `pgx/v5` and generated SQL via `sqlc`. It is bundled in the main module under `storage/postgres`; no separate `go get` is needed. You do need to run migrations before first use:
+
+```go
+import "github.com/glincker/theauth-go/v2/storage/postgres"
+
+pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
+// Migrations are embedded; postgres.Migrate applies them (append-only,
+// advisory-lock-serialized so it is safe to call from every replica).
+if err := postgres.Migrate(ctx, pool); err != nil {
+    log.Fatal(err)
+}
+store := postgres.New(pool)
+```
+
+## Verify the installation
+
+```bash
+go build ./...
+go test github.com/glincker/theauth-go/v2/... -count=1 -short
+```
+
+## Release verification
+
+Every release artifact is signed with `cosign` keyless signing (Sigstore OIDC). See [Releases and Verification](/go/security/releases) for the smoke-test commands.

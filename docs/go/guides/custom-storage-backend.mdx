@@ -1,0 +1,61 @@
+---
+title: "Write a Custom Storage Backend"
+description: "theauth-go's persistence layer is pluggable via the Storage interface."
+---
+theauth-go's persistence layer is pluggable via the `Storage` interface. You can implement it for any database: MySQL, SQLite, DynamoDB, or any custom store.
+
+## The `Storage` interface
+
+The `Storage` interface is defined in the root package (`github.com/glincker/theauth-go/v2`). It covers sessions, users, magic links, password reset tokens, WebAuthn credentials, TOTP secrets, OAuth accounts, and more.
+
+Browse the interface in the [Storage Reference](/go/reference/storage) or on [pkg.go.dev](https://pkg.go.dev/github.com/glincker/theauth-go/v2#Storage).
+
+## The `storagetest` package
+
+The repository ships `github.com/glincker/theauth-go/v2/storagetest`: a conformance test suite that verifies a storage implementation satisfies the full contract. Run it against your implementation before using it in production:
+
+```go
+package mystorage_test
+
+import (
+    "testing"
+
+    "github.com/glincker/theauth-go/v2/storagetest"
+    "myapp/mystorage"
+)
+
+func TestConformance(t *testing.T) {
+    store := mystorage.New(/* your config */)
+    storagetest.Run(t, store)
+}
+```
+
+All methods in the conformance suite are run with `t.Run` sub-tests so failures are reported per-method.
+
+## Extension interfaces
+
+If you also want to support the OAuth 2.1 AS, implement `OAuthServerStorage` in addition to `Storage`. The library detects it via type assertion at `theauth.New` time:
+
+```go
+type OAuthServerStorage interface {
+    Storage
+    // OAuth clients, authorization codes, refresh tokens,
+    // JWKS keys, agents, delegation grants, etc.
+}
+```
+
+The base `Storage` interface only grows in a major release. New persistence operations land behind optional extension interfaces so upgrading the library does not break existing custom implementations.
+
+## Stability note
+
+The `Storage` interface is covered by the v1.0 stability commitment (see [STABILITY.md](https://github.com/glincker/theauth-go/blob/main/STABILITY.md)). Adding a method to `Storage` requires a v2.0 release. New optional capabilities are added as separate interfaces.
+
+## Migration append-only rule
+
+If your custom storage uses SQL, follow the same append-only migration rule the Postgres adapter uses: never rename a column in-place; add the new column in one migration and remove the old one in a later release. This protects rolling-restart deployments.
+
+## Tips
+
+- Use the in-memory adapter as a reference implementation. It is well-commented and covers every interface method.
+- Use `storage/postgres` for understanding the expected SQL semantics (keyset pagination, UPSERT patterns, etc.).
+- The conformance suite tests edge cases like duplicate key errors, not-found errors, and pagination cursor behavior. Pass it before shipping.

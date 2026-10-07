@@ -1,0 +1,296 @@
+---
+title: "GDPR Data Handling Reference"
+sidebarTitle: "GDPR Reference"
+description: "Applies to: Deployments of theauth-go that process personal data of EU/EEA data subjects."
+---
+<Note>
+This page maps library features to GDPR obligations. It is not legal advice and not a compliance certification. The operator remains the data controller.
+</Note>
+
+**Applies to:** Deployments of theauth-go that process personal data of EU/EEA data subjects.
+**Standard:** Regulation (EU) 2016/679 (General Data Protection Regulation).
+**Last reviewed:** 2026-06-22.
+
+**Role clarification:** theauth-go is a Go library. It is not a service and has no data processing infrastructure of its own. When an operator deploys theauth-go, the operator is the **data controller** (and in some configurations also the **data processor**). theauth-go is tooling the operator uses; the library authors are not a sub-processor. Section 4 explains this in detail.
+
+---
+
+## 1. Personal Data theauth-go Stores by Default
+
+The following table lists every personal data field stored by the library's built-in storage adapters (memory and Postgres). Operators using a custom storage adapter may vary.
+
+| Table / Concept | Field | Classification | Notes |
+|---|---|---|---|
+| `users` | `email` | Personal identifier | Required; used as login identifier. |
+| `users` | `name` | Personal data | Optional; populated from OAuth provider or SCIM. |
+| `users` | `avatar_url` | Personal data | Optional; populated from OAuth provider. |
+| `users` | `email_verified_at` | Operational | Timestamp of email verification, or null. There is no `status`/suspension field on the `users` table or the `User` model; see Article 18 below. |
+| `user_passwords` | `password_hash` | Derived credential | Argon2id PHC string; never plaintext. |
+| `sessions` | `user_agent` | Pseudonymous technical data | HTTP User-Agent string of the session-creating request. |
+| `sessions` | `ip` | Pseudonymous technical data | Client IP at session creation time. |
+| `sessions` | `token_hash` | Derived credential | SHA-256 of the opaque session token; not reversible. |
+| `oauth_accounts` | `provider` | Operational | Provider name (e.g., `github`, `google`). |
+| `oauth_accounts` | `provider_user_id` | Pseudonymous identifier | Provider-assigned subject identifier. |
+| `oauth_accounts` | `provider_email` | Personal identifier | Email as returned by the OAuth provider. |
+| `webauthn_credentials` | `public_key` | Credential | COSE public key bytes; no private key ever stored. |
+| `webauthn_credentials` | `credential_id` | Pseudonymous identifier | WebAuthn credential ID. |
+| `webauthn_credentials` | `sign_count` | Operational | Monotonic counter for replay detection. |
+| `totp_secrets` | `secret_enc` | Credential | AES-256-GCM encrypted TOTP shared secret (`internal/totp/service.go:225`). |
+| `saml_identities` | `name_id` | Personal identifier | SAML NameID from the IdP (often an email or opaque ID). |
+| `saml_identities` | `attributes` | Personal data | SAML attribute map as returned by the IdP. |
+| `audit_events` | `actor_user_id` | Pseudonymous identifier | Internal ULID of the acting user. |
+| `audit_events` | `ip` | Pseudonymous technical data | IP at event time. |
+| `audit_events` | `user_agent` | Pseudonymous technical data | User agent at event time. |
+| `audit_events` | `event_type` | Operational | String event name, e.g. `user.login`. |
+| `audit_events` | `metadata` | Variable | Structured JSON; secret-class keys are stripped by the default redactor (`audit.go:15-40`). |
+| `magic_links` | `email` | Personal identifier | Destination email for the sign-in link. |
+| `magic_links` | `token_hash` | Derived credential | SHA-256 of the raw magic-link token. |
+| `magic_links` | `expires_at` | Operational | Expiry timestamp; default 15 minutes (`wiring.go:52-53`). |
+| `scim_tokens` | `token_hash` | Derived credential | SHA-256 of the SCIM bearer token. |
+| `scim_tokens` | `last_used_at` | Operational | Timestamp of last authenticated SCIM request. |
+
+**Data not stored by theauth-go:**
+
+- Raw passwords (only Argon2id PHC strings).
+- Raw session tokens, magic-link tokens, or SCIM tokens (only SHA-256 hashes).
+- TOTP secrets in plaintext (only AES-256-GCM ciphertext).
+- Private signing keys in the database (Ed25519 private keys live in process memory only).
+
+---
+
+## 2. Data Subject Rights -- How to Satisfy Each
+
+For each GDPR right, this section describes which library API satisfies the request and what the operator must build on top.
+
+### Article 15 -- Right of Access
+
+**What the data subject can request:** A copy of all personal data held about them, the purposes of processing, retention periods, and third-party disclosures.
+
+**Library APIs that provide the data:**
+
+| Data category | Library API | Location |
+|---|---|---|
+| User profile (email, name, avatar, status) | `GetUser` / `UserByID` | `internal/admin/handlers.go:206-232` |
+| Active sessions (IP, user agent, created_at, expires_at) | `listSessions` admin endpoint | `internal/admin/handlers.go:404-419` |
+| OAuth-linked accounts | `listOAuthAccounts` admin endpoint | `internal/admin/handlers.go:598-609` |
+| WebAuthn credentials | `ListWebAuthnCredentials` (storage interface `storage.go`) | `storage.go` |
+| TOTP enrollment status | Stored as a `totp_secrets` row; operator queries storage directly | `storage/postgres/` |
+| SAML identities | `SAMLIdentityByConnectionAndNameID` and related storage methods | `storage/postgres/` |
+| Audit events for this user | `QueryAuditEvents` with `ActorUserID` filter | `internal/audit/service.go:348`; `storage.go:222` |
+
+**Operator gap:** The operator must expose an export endpoint that calls these APIs, aggregates the results, and returns a structured response (JSON, CSV, or PDF as appropriate) to the authenticated data subject or their authorized representative. The library provides the data; the endpoint is the operator's responsibility.
+
+---
+
+### Article 16 -- Right to Rectification
+
+**What the data subject can request:** Correction of inaccurate or incomplete personal data.
+
+**Library API:** `patchUser` admin endpoint accepts `name`, `email` field updates (`internal/admin/handlers.go:297-376`). SCIM PATCH operations also support incremental updates.
+
+**Operator gap:** The operator must expose a user-facing profile update form or endpoint that calls `patchUser`. If the user's email is their login identifier, the operator must verify ownership of the new address before applying the change.
+
+---
+
+### Article 17 -- Right to Erasure (Right to Be Forgotten)
+
+**What the data subject can request:** Deletion of their personal data when the data is no longer necessary or when they withdraw consent.
+
+**Library behavior:**
+
+- `removeUser` admin handler (`internal/admin/handlers.go:381-403`) removes the user from their organization.
+- Database foreign key constraints cascade deletion of sessions, OAuth accounts, WebAuthn credentials, TOTP secrets, SAML identities, and magic links when a user row is deleted (cascade behavior enforced at the storage layer).
+- `audit_events` rows reference `actor_user_id` but are not automatically deleted on user removal because audit integrity requires them. The `actor_user_id` field may be replaced with a tombstone value (e.g., a zeroed ULID) by an operator-written sweep without losing the event record.
+
+**Operator gap (critical):**
+
+1. Implement a hard-delete or anonymize endpoint that removes the user row and triggers cascades.
+2. Implement an audit event anonymization sweep that replaces `actor_user_id`, `ip`, and `user_agent` with tombstone values for the erased subject, if full GDPR erasure of audit trails is required.
+3. If backup retention exceeds the erasure window, document this in the DPN and implement a backup purge or crypto-shredding strategy.
+
+---
+
+### Article 18 -- Right to Restriction of Processing
+
+**What the data subject can request:** That their data not be actively processed while a dispute is resolved.
+
+**Library API:** None. `patchUser` (`internal/admin/handlers.go:304-387`) accepts a `status` field in its request body but the handler never persists or acts on it (it currently only applies `roleIds` changes) -- there is no user-suspension state anywhere in the `User` model, the `users` table, or the `Storage` interface. The closest built-in primitive is `revokeSession` (`internal/admin/handlers.go:428-447`), which invalidates the user's active sessions but does not prevent them from signing in again.
+
+**Operator gap (critical):** There is no built-in restriction-of-processing flag. To honor Article 18, the operator must add their own suspension state (e.g., an application-level `status` column consulted at the top of every auth flow) and revoke existing sessions via `revokeSession` when a restriction request is received. Build the review-and-lift process on top of that operator-owned state.
+
+---
+
+### Article 20 -- Right to Data Portability
+
+**What the data subject can request:** Their personal data in a structured, commonly used, machine-readable format.
+
+**Library APIs:** Same APIs as Article 15 (right of access). The data returned is already structured (JSON).
+
+**Operator gap:** Format and expose the export. The operator controls the response format; JSON or CSV are both acceptable under GDPR portability requirements.
+
+---
+
+### Article 21 -- Right to Object
+
+**What the data subject can request:** That processing stop, particularly for direct marketing or legitimate-interest grounds.
+
+**Library API:** Session revocation is available via `revokeSession` (`internal/admin/handlers.go:428-447`), which invalidates a session immediately. This stops that session but, as noted under Article 18, there is no library-level account suspension to prevent the user from signing in again with a fresh session.
+
+**Operator gap:** Build an objection intake form. Revoke active sessions via `revokeSession` as an immediate step, and layer an operator-owned suspension/deactivation flag on top if processing must stop entirely rather than just ending the current session. Log the objection and the action taken.
+
+---
+
+### Article 22 -- Rights Related to Automated Decision-Making
+
+**What the data subject can request:** Not to be subject to solely automated decisions with significant effects.
+
+**Library relevance:** theauth-go does not implement any automated decision-making, profiling, or scoring logic. Authentication outcomes (success/failure) are deterministic based on credentials and configured policy; they are not ML-based inferences.
+
+**Operator gap:** If the operator builds automated decision-making above theauth-go (e.g., fraud scoring), they must address Article 22 independently.
+
+---
+
+## 3. Data Retention
+
+### Default TTLs
+
+| Data category | Default TTL | Config field | Notes |
+|---|---|---|---|
+| Sessions | 24 hours | `Config.SessionTTL` (`theauth.go:37`) | Active sessions expire; expired rows remain until the operator runs a sweep. |
+| Magic links | 15 minutes | `Config.MagicLinkTTL` (`theauth.go:38`; `wiring.go:52-53`) | Consumed or expired links are kept in storage until swept. |
+| OAuth authorization codes | Short-lived (minutes) | Inherent in the OAuth code flow | Codes are single-use and stored as hashes. |
+| Audit events | Indefinite (no default TTL) | None built in | See below. |
+| Refresh tokens | 30 days | `internal/as/config.go:45` | Rotated on every use; old tokens are revoked. |
+| Pushed Authorization Requests | N/A | Not yet implemented | Planned; will have a short TTL when landed. |
+
+### Audit Event Retention
+
+Audit events are INSERT-only (the `Storage` interface exposes no update or delete path for `audit_events`) and have no built-in TTL. This is intentional for security, but it is append-only, not cryptographically tamper-evident: nothing in the library prevents a party with direct database access from rewriting rows, and no Merkle-chaining or signing is implemented (see THREAT-MODEL.md, "Audit log tampering"). The append-only design still creates a tension with GDPR data minimization.
+
+**Operator actions required:**
+
+1. Define a retention period appropriate to your legal obligations (e.g., 12 months for security logs, 7 years for financial audit trails).
+2. Implement a scheduled sweep that deletes or anonymizes `audit_events` rows older than the retention period.
+3. If you forward audit events to an external SIEM, configure the SIEM's own retention policy to match your DPN.
+
+### Sweep Patterns
+
+Expired rows (magic links, sessions, oauth codes) are not automatically purged by the library. The operator must run periodic SQL sweeps:
+
+```sql
+-- Example: delete expired sessions older than 7 days past expiry
+DELETE FROM sessions WHERE expires_at < NOW() - INTERVAL '7 days';
+
+-- Example: delete consumed or expired magic links older than 24 hours
+DELETE FROM magic_links WHERE expires_at < NOW() - INTERVAL '24 hours';
+```
+
+These sweeps should run as scheduled jobs, not inline on requests.
+
+---
+
+## 4. Data Residency and Cross-Border Transfers
+
+### Where theauth-go Stores Data
+
+theauth-go stores data in the **operator's chosen database** (Postgres or the in-memory store for testing). The library does not transmit personal data to any Anthropic, GitHub, or external infrastructure.
+
+The operator controls:
+- The database server location (region/AZ).
+- Whether replication crosses borders.
+- Whether backup destinations cross borders.
+
+### Audit Sink Cross-Border Risk
+
+When the operator configures an audit sink, events containing personal data (user ID, IP, user agent) may be transmitted to the sink's endpoint. Built-in sinks:
+
+| Sink | Package | Cross-border risk |
+|---|---|---|
+| OTLP | `audit/sinks/otlp/` | Depends on operator's OTLP collector location. |
+| Splunk HEC | `audit/sinks/splunk/` | Depends on Splunk instance location. |
+| Webhook | `audit/sinks/webhook/webhook.go` | Depends on webhook receiver location. |
+
+**Operator obligation:** Before enabling any sink that sends data to a third-party vendor, sign a Data Processing Agreement (DPA) with that vendor. Ensure the vendor's processing location is within your permitted data protection boundary, or implement an appropriate transfer mechanism (Standard Contractual Clauses, Adequacy Decision, etc.).
+
+### OAuth Provider Redirects
+
+During OAuth social login, the user's browser is redirected to the operator-configured OAuth provider (GitHub, Google, Apple, etc.). The browser interaction is between the user and the provider; theauth-go does not proxy it. The provider's own privacy policies and data transfers apply to that interaction.
+
+### Sub-processor List
+
+theauth-go is a Go library, not a SaaS service. It has **no sub-processors**. The library code runs entirely within the operator's process. The operator's infrastructure vendors (cloud provider, database vendor, SIEM vendor) are the operator's sub-processors, not theauth-go's.
+
+---
+
+## 5. Privacy-by-Design Defaults
+
+### Credential Storage
+
+- Passwords: Argon2id with `m=64 MiB, t=3, p=4` per the OWASP 2026 baseline (`crypto/password.go:14,26-28`). Parameters are embedded in the PHC string so future work-factor increases can be applied on next login without data migration.
+- Session tokens, magic-link tokens, SCIM tokens: stored as SHA-256 hashes only; raw values are returned to clients in cookies or email links and are not persisted.
+- TOTP secrets: AES-256-GCM encrypted before storage (`internal/totp/service.go:225`). The encryption key must be supplied by the operator via `Config.EncryptionKey` or the audit config.
+
+### Secrets Never Logged
+
+The default audit redactor strips the following keys at any JSON nesting depth before any sink receives an event (`audit.go:15-40`):
+
+- `password`
+- `secret`
+- `token`
+- `code`
+- `refresh_token`
+- `access_token`
+
+Comparison is case-insensitive. The default redactor is applied unconditionally after any custom redactor; a custom redactor cannot re-introduce a stripped key (`internal/audit/service.go:281-283`).
+
+### Session Cookie Security
+
+| Attribute | Default Value | Config |
+|---|---|---|
+| `HttpOnly` | true | Not configurable (always set). |
+| `SameSite` | Lax | Not configurable (always Lax). |
+| `Secure` | false (dev default) | Set `Config.SecureCookie = true` for production. |
+
+A `slog.Warn` is emitted at startup when `SecureCookie=false` unless `SuppressSecureCookieWarning=true` (`theauth.go:41-45`). Production deployments must set `SecureCookie=true`.
+
+### IP and User Agent in Sessions
+
+IP address and user agent are stored on every session row for security audit purposes. There is no built-in knob to disable this collection because it is used for anomaly detection and audit tracing.
+
+**Operator options if collection is not permitted:**
+
+1. Deploy theauth-go behind a proxy that strips or replaces the real IP before it reaches the library (the library reads the IP via `httpx.ClientIP`, which respects `TrustedProxies` configuration).
+2. After session creation, run an anonymization sweep that replaces the IP column with a zeroed value.
+
+### Argon2id Work Factor
+
+The default work factor (`m=64 MiB, t=3, p=4`) exceeds the OWASP 2026 minimum. Operators should not lower the work factor below these values. The work factor is not exposed as a config knob for password hashing; it is a compile-time constant in `crypto/password.go:26-28` and can be increased by upgrading to a future library version.
+
+---
+
+## 6. Operator's GDPR Checklist
+
+The following is a practical checklist for operators deploying theauth-go in an EU/EEA context.
+
+**Before go-live:**
+
+- [ ] Publish a Privacy Notice (DPN) that lists every data field in Section 1 of this document and explains the lawful basis for each.
+- [ ] Define a data retention schedule for each data category in Section 3.
+- [ ] Set `Config.SecureCookie = true` in all production environments.
+- [ ] Store the TOTP encryption key (`Config.EncryptionKey`) in a secrets manager separate from the database.
+- [ ] Identify all audit sink destinations; sign DPAs with each vendor before enabling the sink.
+- [ ] Choose database region(s) consistent with your DPN's data residency commitments.
+
+**Export and erasure endpoints (operator-built):**
+
+- [ ] Build a data export endpoint that calls: `UserByID`, session listing, `listOAuthAccounts`, WebAuthn credential listing, TOTP enrollment status, SAML identity listing, `QueryAuditEvents` filtered by user ID.
+- [ ] Build an erasure endpoint that: deletes the user row (cascades to sessions, OAuth accounts, WebAuthn credentials, TOTP secrets, magic links), anonymizes `audit_events` rows (replace `actor_user_id`, `ip`, `user_agent` with tombstone values).
+- [ ] Wire both endpoints to an authenticated data-subject request intake form.
+
+**Ongoing operations:**
+
+- [ ] Run scheduled sweeps to purge expired sessions, magic links, and other short-TTL rows.
+- [ ] Run a scheduled sweep to delete or anonymize `audit_events` rows beyond your retention period.
+- [ ] Review role grants on a defined cadence (at minimum quarterly) using `audit_events` rows for `role.granted` and `role.revoked`.
+- [ ] Update your DPN if you add new audit sinks or collect additional metadata fields.
+- [ ] Conduct a DPIA (Data Protection Impact Assessment) if your use of theauth-go involves high-risk processing (large scale, sensitive categories, systematic monitoring).

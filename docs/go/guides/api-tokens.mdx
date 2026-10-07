@@ -1,0 +1,86 @@
+---
+title: "API Tokens and Device Login"
+description: "Scoped API tokens give scripts, CI jobs and CLIs a credential that is narrower than a user session."
+---
+Scoped API tokens give scripts, CI jobs and CLIs a credential that is narrower than a user session. The device grant (RFC 8628) lets a CLI obtain one by having a signed-in user approve a short code in the browser.
+
+## Enable
+
+```go
+a, err := theauth.New(theauth.Config{
+    Storage: store, // must implement APITokenStorage (memory does)
+    BaseURL: "https://app.example.com",
+    APITokens: &theauth.APITokensConfig{
+        Abilities: []string{"read", "write", "deploy"},
+        UserAbilities: func(ctx context.Context, u *theauth.User) ([]string, error) {
+            return abilitiesFor(u), nil // your role model
+        },
+        Device: &theauth.DeviceConfig{
+            VerificationURI:  "https://app.example.com/device",
+            DefaultAbilities: []string{"read"},
+        },
+    },
+})
+```
+
+`Device` is optional and needs `DeviceCodeStorage` as well. New returns `ErrStorageMissingCapability` when the storage lacks a required capability.
+
+## Model
+
+- A token is `<prefix>_<43 random chars>`. The secret is returned once. Only its SHA-256 is stored, plus a short hint for display.
+- Abilities are strings you define. `root` is reserved, implies every ability, and cannot be combined with others.
+- Every token expires. The default lifetime is 90 days, capped by `MaxTTL` (365 days).
+- The owner is a user or a service account. A service account is an ID with no user row, created by an admin minting a token with `service_account: true`.
+- Abilities are checked fresh on every request: a token's effective abilities are its stored abilities intersected with what the owner currently holds. Demoting a user narrows their existing tokens at once.
+- A token stops working when its owner row is deleted or `OwnerActive` reports false. Call `RevokeOwnerAPITokens` when you delete a user or retire a service account.
+
+Abilities for session users come from `UserAbilities`. Without it an admin (`IsAdmin`, by default the system `super_admin` RBAC role) holds `root` and everyone else holds nothing.
+
+## Protect routes
+
+```go
+r.With(a.RequireAbility("deploy")).Post("/deploy", handler)
+```
+
+`RequireAbility` accepts a full session cookie or `Authorization: Bearer`. A presented bearer token never falls back to the cookie. Handlers read the caller with `theauth.PrincipalFromContext`.
+
+## HTTP routes
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `POST /auth/tokens` | session | Mint `{name, abilities, expires_in}`. Cannot exceed the caller's abilities. Admins may add `service_account: true` and optional `owner_id`. |
+| `GET /auth/tokens` | session | List your tokens. Admins: `?all=true` or `?owner_id=`. |
+| `DELETE /auth/tokens/{id}` | session | Revoke your token. Admins may revoke any. Others get 404. |
+| `GET /auth/tokens/current` | bearer | Describe the presented token: id, name, kind, agentName, abilities as currently effective after owner clamping, ownerId, ownerKind, createdAt, expiresAt, lastUsedAt. Never the secret or hash. Needs no ability. Session cookie gets 403. |
+| `DELETE /auth/tokens/current` | bearer | Revoke the presented token (204), emit the token revoked audit event and the revocation bus event. The token is dead afterwards, so a repeat call gets 401. Needs no ability. Session cookie gets 403. |
+
+Token management is session only, so a token cannot mint or revoke tokens.
+
+## Device grant
+
+1. The CLI calls `POST /auth/device/code` (`client_name`, `scope` as space separated abilities) and shows the `user_code` and `verification_uri`.
+2. A signed-in user posts the code to `POST /auth/device/approve` with `action` of `info`, `approve` or `deny`, optionally narrowing `abilities`.
+3. The CLI polls `POST /auth/device/token` with the device grant type until it gets `access_token`.
+
+Behavior worth knowing:
+
+- Polling faster than the interval returns `slow_down` and widens the interval by 5 seconds.
+- Redeem is an atomic claim: of any number of concurrent polls, exactly one mints a token.
+- The minted token expires (`DeviceConfig.TokenTTL`, default 30 days) and its abilities are the requested set capped to the approver's current abilities. `root` is granted only when requested and the approver holds it, otherwise approval fails with 403.
+- Wrong user codes count against a per-approver and per-IP budget (5 per 15 minutes), after which approval returns 429.
+- Show the requester IP and user agent from `action: info` on your approval page.
+
+### Approve from a pending list
+
+A dashboard can show pending requests so a signed-in user approves or denies one without typing the code. These routes need a session (bearer tokens get 401) and use the same rate limit as `/auth/device/approve`:
+
+- `GET /auth/device/requests` returns `{"requests": [...]}` with `id`, `clientName`, `requestedAbilities`, `requesterIp`, `requesterUserAgent`, `createdAt` and `expiresAt` for each pending, unexpired request, newest first. It never includes the device code, its hash, or the user code. Show the IP and user agent so people recognize their own request.
+- `POST /auth/device/requests/{id}/approve` and `POST /auth/device/requests/{id}/deny` decide by request ID with the same rules as the code route: atomic, abilities capped to the approver's, `root` only when requested and held. Approve accepts an optional `abilities` list to narrow. A `device.approved` or `device.denied` audit event is recorded.
+
+Requests carry no owner, so these routes are restricted by default. The session must hold `APITokensConfig.DeviceRequestsAbility` (empty means `root`), checked against the user's current abilities on every request; anyone else gets 403 `auth.forbidden`. Set it to an ability your app defines to delegate review. `DeviceRequestsAnySignedInUser: true` opens the routes to every signed-in user, but approving from a list skips the proof of holding the code shown on the device, which makes phishing easier in a multi-user app. `POST /auth/device/approve` (by user code) is not affected. The list needs the optional `DeviceCodeLister` storage extension (memory, SQLite, Postgres and MySQL implement it); without it the routes return 404.
+
+Go callers can skip HTTP: `StartDeviceAuth`, `LookupDeviceRequest`, `DecideDeviceRequest`, `ListDeviceRequests`, `DecideDeviceRequestByID`, `RedeemDeviceCode`, `MintAPIToken`, `AuthenticateAPIToken`, `ListAPITokens`, `RevokeAPIToken`.
+
+## Custom storage
+
+Implement `APITokenStorage` and `DeviceCodeStorage` and optionally `DeviceCodeLister` for the pending list, and run `storagetest.RunAPITokens` and `storagetest.RunDeviceCodes`. `ClaimDeviceCode` and `DecideDeviceCode` must be single compare-and-set statements. Do not add a foreign key from the token owner to users: service account owners have no user row.

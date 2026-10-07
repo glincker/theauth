@@ -498,6 +498,107 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Go",
+        "icon": "golang",
+        "groups": [
+          {
+            "group": "Go library",
+            "pages": [
+              "go/index"
+            ]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "go/getting-started/overview",
+              "go/getting-started/installation",
+              "go/getting-started/quick-start",
+              "go/getting-started/storage-backends",
+              "go/getting-started/example-apps"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "go/concepts/capability-interfaces",
+              "go/concepts/oauth21-primer",
+              "go/concepts/mcp-authorization",
+              "go/concepts/authorization-server",
+              "go/concepts/resource-server",
+              "go/concepts/agent-identity",
+              "go/concepts/par-jar",
+              "go/concepts/jwt-bearer",
+              "go/concepts/ciba"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "go/guides/add-oauth-provider",
+              "go/guides/webauthn-passkeys",
+              "go/guides/api-tokens",
+              "go/guides/cli-login",
+              "go/guides/path-prefix-and-dynamic-providers",
+              "go/guides/policy-engine",
+              "go/guides/sessions",
+              "go/guides/auth-hardening",
+              "go/guides/observability",
+              "go/guides/security-doctor",
+              "go/guides/single-binary-go-app",
+              "go/guides/migrate-from-hand-rolled-sessions",
+              "go/guides/oauth-hardening-and-auth-events",
+              "go/guides/opentelemetry-tracing",
+              "go/guides/audit-log-splunk",
+              "go/guides/sqlite-storage",
+              "go/guides/postgres-mysql-storage",
+              "go/guides/custom-storage-backend",
+              "go/guides/migrate-from-cognito",
+              "go/guides/migrate-from-auth0"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "go/reference/configuration",
+              "go/reference/stability",
+              "go/reference/storage",
+              "go/reference/errors",
+              "go/reference/metrics",
+              "go/reference/spans",
+              "go/reference/audit-events"
+            ]
+          },
+          {
+            "group": "Security",
+            "pages": [
+              "go/security/threat-model",
+              "go/security/http-security",
+              "go/security/releases",
+              "go/security/benchmarks",
+              "go/security/compliance-soc2",
+              "go/security/compliance-gdpr"
+            ]
+          },
+          {
+            "group": "Migrations",
+            "pages": [
+              "go/migrations/migration-guide",
+              "go/migrations/to-v2-module-path",
+              "go/migrations/v2.3-to-v2.4",
+              "go/migrations/v2.0-to-v2.1",
+              "go/migrations/v1.0-to-v2.0",
+              "go/migrations/v0.7-to-v1.0"
+            ]
+          },
+          {
+            "group": "Changelog",
+            "pages": [
+              "go/changelog"
+            ]
+          }
+        ]
       }
     ]
   }

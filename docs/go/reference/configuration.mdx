@@ -1,0 +1,344 @@
+---
+title: "Configuration Reference"
+sidebarTitle: "Configuration"
+description: "The theauth.Config struct is the single wiring point for a theauth-go instance."
+---
+The `theauth.Config` struct is the single wiring point for a theauth-go instance. Pass it to `theauth.New(cfg)`.
+
+## Required fields
+
+| Field | Type | Description |
+|---|---|---|
+| `Storage` | `theauth.Storage` | Persistence adapter. Use `memory.New()` for dev or `postgres.New(pool)` for production. |
+| `BaseURL` | `string` | Absolute base URL of the application (e.g., `https://myapp.com`). Used in magic-link emails and OAuth redirect URIs. |
+
+## Session and cookie settings
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `SessionTTL` | `time.Duration` | 24h | How long sessions remain valid. |
+| `MagicLinkTTL` | `time.Duration` | 15m | How long magic-link tokens are valid. |
+| `CookieName` | `string` | `"theauth_session"` | Session cookie name. |
+| `SecureCookie` | `bool` | `false` | Forces `Secure` on every cookie. When false, `Secure` is still set per request if `BaseURL` is https, the connection is TLS, or a `TrustedProxies` peer sent `X-Forwarded-Proto: https`. |
+| `SuppressSecureCookieWarning` | `bool` | `false` | Silence the startup warning when `SecureCookie` is false and `BaseURL` is not https (useful in local dev). |
+
+## Rate limiting
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `RateLimitPerIP` | `int` | 5 | Per-IP per-minute budget on credential endpoints. |
+| `RateLimitPerEmail` | `int` | 3 | Per-email per-minute budget on signin and forgot. |
+| `TrustedProxies` | `[]netip.Prefix` | `nil` | Reverse-proxy networks whose `X-Forwarded-For` is trusted. Default: no XFF trust. Also gates `X-Forwarded-Proto`. See [HTTP security](/go/security/http-security). |
+| `SuppressTrustedProxiesWarning` | `bool` | `false` | Silence the startup warning logged when `TrustedProxies` is empty. |
+| `TrustedOrigins` | `[]string` | `nil` | Extra origins allowed to send cookie-authenticated state-changing requests. The `BaseURL` origin is always trusted. |
+| `DisableCSRFProtection` | `bool` | `false` | Turn off the Origin/Referer check. |
+
+## Email
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `EmailSender` | `email.Sender` | `email.Noop{}` | Email delivery adapter. Implement `email.Sender` to deliver magic links and password reset emails. |
+
+## OAuth providers
+
+| Field | Type | Description |
+|---|---|---|
+| `Providers` | `[]theauth.Provider` | OAuth providers (github, google, microsoft, discord, or custom). |
+| `EncryptionKey` | `[]byte` | 32-byte AES-256 key. Required when `Providers` is non-empty, `TOTP` is configured, or `AuthorizationServer` is configured. Source from a secrets manager. |
+| `PostLoginRedirect` | `string` | Path to redirect to after OAuth sign-in. Defaults to `/`. |
+
+## WebAuthn / passkeys
+
+| Field | Type | Description |
+|---|---|---|
+| `WebAuthn` | `*WebAuthnConfig` | Passkey registration and discoverable login. Nil disables WebAuthn. |
+
+```go
+type WebAuthnConfig struct {
+    RPDisplayName string
+    RPID          string   // eTLD+1 of your domain
+    RPOrigins     []string // full origin URL(s)
+    ChallengeTTL  time.Duration // default 5m
+}
+```
+
+## TOTP
+
+| Field | Type | Description |
+|---|---|---|
+| `TOTP` | `*TOTPConfig` | TOTP second factor with recovery codes. Requires `EncryptionKey`. Nil disables TOTP. |
+
+## Organizations (multi-tenancy)
+
+| Field | Type | Description |
+|---|---|---|
+| `Organizations` | `*OrganizationsConfig` | Enable multi-tenancy. SAML and SCIM require this. Nil = single-tenant. |
+
+## SAML 2.0
+
+| Field | Type | Description |
+|---|---|---|
+| `SAML` | `*SAMLConfig` | SAML 2.0 Service Provider. Requires `Organizations`. |
+
+## SCIM 2.0
+
+| Field | Type | Description |
+|---|---|---|
+| `SCIM` | `*SCIMConfig` | SCIM 2.0 provisioning. Requires `Organizations`. |
+
+## RBAC
+
+| Field | Type | Description |
+|---|---|---|
+| `RBAC` | `*RBACConfig` | Organization-scoped roles and permissions. Required for `Admin`. |
+
+```go
+type RBACConfig struct {
+    // Permissions extends the seeded catalog. New returns an error if a
+    // name collides case-sensitively with a seeded permission.
+    Permissions []Permission
+    // DefaultRoles seeds every new organization. Empty uses the three
+    // built-in roles (owner, admin, member); overrides must still include
+    // those reserved names.
+    DefaultRoles []RoleSeed
+}
+```
+
+## Audit log
+
+| Field | Type | Description |
+|---|---|---|
+| `Audit` | `*AuditConfig` | Async batched audit writer. Nil = silent no-op. |
+
+```go
+type AuditConfig struct {
+    // BufferSize is the channel depth between EmitAudit and the writer
+    // goroutine (default 4096). When full, EmitAudit drops the event.
+    BufferSize int
+    // BatchSize is the maximum events per INSERT (default 100).
+    BatchSize int
+    // FlushInterval is the maximum delay before a partial batch flushes
+    // (default 1s).
+    FlushInterval time.Duration
+    // DrainTimeout caps how long Close waits for the writer goroutine to
+    // drain remaining events (default 5s).
+    DrainTimeout time.Duration
+    // Redactor optionally transforms metadata before storage; return value
+    // replaces the metadata map. Defaults to DefaultRedactor (masks
+    // password/secret/token/code/refresh_token/access_token fields).
+    Redactor func(metadata map[string]any) map[string]any
+    // Sinks is the optional list of external SIEM streaming destinations
+    // (OTLP, Splunk HEC, webhook). A failing sink is logged and counted;
+    // it never blocks or delays canonical storage writes.
+    Sinks []AuditSink
+}
+```
+
+## Admin API
+
+| Field | Type | Description |
+|---|---|---|
+| `Admin` | `*AdminConfig` | Mount `/admin/v1/*`. Requires `RBAC`. |
+
+```go
+type AdminConfig struct {
+    // PathPrefix overrides "/admin/v1" (must start with "/").
+    PathPrefix string
+}
+```
+
+## OAuth 2.1 Authorization Server (v2.0)
+
+| Field | Type | Description |
+|---|---|---|
+| `AuthorizationServer` | `*AuthorizationServerConfig` | Enable the OAuth 2.1 AS. Requires `EncryptionKey` and a storage adapter satisfying `OAuthServerStorage`. |
+
+```go
+type AuthorizationServerConfig struct {
+    // Issuer is the canonical AS identifier (RFC 8414). Required.
+    Issuer string
+
+    // Resources lists the protected resources this AS issues tokens for.
+    // Each resource has an Identifier (URI) and Scopes.
+    Resources []ProtectedResource
+
+    // AllowAnonymousRegistration enables unauthenticated DCR (RFC 7591).
+    // Default: false (deny all registration). Set true for public MCP.
+    AllowAnonymousRegistration bool
+
+    // RegistrationTokens are bearer tokens accepted for DCR when not anonymous.
+    // Hashed at New time; compared with crypto/subtle.ConstantTimeCompare.
+    RegistrationTokens []string
+
+    // RegistrationRateLimitPerMinute caps POST /oauth/register per source IP.
+    // Default: 1 when AllowAnonymousRegistration is true, 5 otherwise.
+    // Negative value disables the cap.
+    RegistrationRateLimitPerMinute int
+
+    // AccessTokenTTL is the JWT access token lifetime (default 1h).
+    AccessTokenTTL time.Duration
+
+    // RefreshTokenTTL is the refresh token lifetime (default 30d).
+    RefreshTokenTTL time.Duration
+
+    // IntrospectionCacheTTL is how long introspection results are cached
+    // in the mcpresource validator (default 60s).
+    IntrospectionCacheTTL time.Duration
+
+    // RequireState rejects /authorize requests that omit a non-empty state
+    // parameter (RFC 9700 best-current-practice). Default: false.
+    RequireState bool
+
+    // PAR configures Pushed Authorization Requests (RFC 9126, v2.4).
+    // Nil disables PAR.
+    PAR *PARConfig
+
+    // JAR configures JWT-Secured Authorization Requests (RFC 9101, v2.4).
+    // Nil disables JAR.
+    JAR *JARConfig
+
+    // JWTBearer configures JWT-Bearer client auth and grant (RFC 7523, v2.4).
+    // Nil disables JWT-Bearer.
+    JWTBearer *JWTBearerConfig
+
+    // CIBA configures Client-Initiated Backchannel Authentication (RFC 9509, v2.4).
+    // Nil disables CIBA.
+    CIBA *CIBAConfig
+}
+
+// PARConfig controls Pushed Authorization Request behaviour (v2.4).
+type PARConfig struct {
+    // RequestURITTL is how long a pushed request_uri stays valid
+    // (default: 60s per RFC 9126 section 2.2).
+    RequestURITTL time.Duration
+    // RequirePAR rejects /authorize requests that carry inline parameters
+    // instead of a request_uri. Default: false.
+    RequirePAR bool
+}
+
+// JARConfig controls JWT-Secured Authorization Request behaviour (v2.4).
+type JARConfig struct {
+    // AcceptedAlgorithms lists the JWS algorithms accepted on request
+    // objects. Default: ES256, RS256, EdDSA. HS* and "none" are always
+    // rejected.
+    AcceptedAlgorithms []string
+    // RequireJAR rejects /authorize and /oauth/par requests that do not
+    // carry a request= parameter. Default: false.
+    RequireJAR bool
+}
+
+// JWTBearerConfig controls JWT-Bearer client auth and grants (v2.4, RFC 7523).
+type JWTBearerConfig struct {
+    // TrustedJWTIssuers lists external issuers trusted for the jwt-bearer
+    // grant (RFC 7523 section 2.1).
+    TrustedJWTIssuers []TrustedJWTIssuer
+    // ClientAssertionMaxAge bounds how far in the past a client_assertion
+    // JWT's iat may be (default: 60s).
+    ClientAssertionMaxAge time.Duration
+    // AssertionMaxAge bounds how far in the past a jwt-bearer grant
+    // assertion's iat may be (default: 300s).
+    AssertionMaxAge time.Duration
+    // ReplayCacheTTL is how long JTIs remain in the replay cache
+    // (default: 600s).
+    ReplayCacheTTL time.Duration
+    // MaxActorChainDepth caps on-behalf-of actor chains in the RFC 8693
+    // token-exchange grant (default: 5).
+    MaxActorChainDepth int
+}
+
+// TrustedJWTIssuer represents one external JWT issuer for jwt-bearer grants.
+type TrustedJWTIssuer struct {
+    // Issuer is the expected "iss" claim value.
+    Issuer string
+    // JWKSURL is the JWKS endpoint URL for this issuer.
+    JWKSURL string
+    // AllowedAlgorithms whitelists JWS algorithms for this issuer.
+    // Default: ES256, RS256, EdDSA.
+    AllowedAlgorithms []string
+    // SubjectMapper resolves claims to a local user ULID. When nil, the
+    // built-in SubMapper parses the "sub" claim directly as a ULID; use
+    // EmailMapper to resolve by the "email" claim instead.
+    SubjectMapper SubjectMapper // interface{ Resolve(claims map[string]any) (ULID, error) }
+}
+
+// CIBAConfig controls Client-Initiated Backchannel Authentication (v2.4, RFC 9509).
+type CIBAConfig struct {
+    // AuthenticationDevice delivers the out-of-band auth request to the user.
+    // Required.
+    AuthenticationDevice AuthenticationDevice
+    // DefaultExpiry is the default auth_req_id lifetime (default: 300s).
+    DefaultExpiry time.Duration
+    // DefaultInterval is the default client poll interval (default: 5s).
+    DefaultInterval time.Duration
+    // MaxRequestedExpiry caps the requested_expiry parameter (default: 600s).
+    MaxRequestedExpiry time.Duration
+    // MinPollInterval is the floor that triggers slow_down when breached
+    // (default: 3s).
+    MinPollInterval time.Duration
+}
+```
+
+`AuthorizationServerConfig` also carries several fields not detailed above: `SigningAlg`, `KeyRotationPeriod`, `KeyRetention`, `AuthorizationCodeTTL`, `RegistrationAccessTokenTTL`, `Clock`, `LoginURL`, `DisableRotation`, `DPoP *DPoPConfig` (RFC 9449 sender-constrained tokens), and `CIMD *CIMDConfig` (Client ID Metadata Documents resolver). See `config.go` and `models.go` in the repository for the full field list until this page is expanded.
+
+## Password policy (v2.4)
+
+| Field | Type | Description |
+|---|---|---|
+| `PasswordPolicy` | `PasswordPolicyConfig` | Additional password handling options. This is a value field, not a pointer; the zero value `PasswordPolicyConfig{}` is safe and disables all extensions. |
+
+```go
+type PasswordPolicyConfig struct {
+    // AllowLegacyBcrypt accepts bcrypt-hashed passwords during the migration
+    // window when migrating from Auth0 or similar systems. On a successful
+    // bcrypt login, theauth-go re-hashes with Argon2id.
+    // Disable this flag once the migration window closes.
+    // Default: false.
+    AllowLegacyBcrypt bool
+
+    // OnLegacyHashAccepted is optional. The library persists the new Argon2id
+    // hash itself; this is called afterwards, from a separate goroutine, so a
+    // host that mirrors password hashes elsewhere can update its copy.
+    OnLegacyHashAccepted func(userID string, newArgon2idHash string)
+}
+```
+
+## Agent identity and delegation (v2.0)
+
+| Field | Type | Description |
+|---|---|---|
+| `AgentIdentity` | `*AgentConfig` | Enable agent CRUD and RFC 8693 token exchange. Requires `AuthorizationServer`. |
+
+```go
+type AgentConfig struct {
+    // MaxChainDepth is the max act-chain length. Hard ceiling: 3.
+    MaxChainDepth int
+
+    // MaxDelegationDuration caps delegation grant duration (default 90d).
+    MaxDelegationDuration time.Duration
+
+    // DefaultDelegatedTokenTTL is the default TTL for exchanged tokens (default 15m).
+    DefaultDelegatedTokenTTL time.Duration
+
+    // AgentSecretLength is the one-time secret length in bytes (default 32).
+    AgentSecretLength int
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `AccountUX` | `bool` | Mount `/account/agents` and `/account/delegations`. Requires `AgentIdentity`. |
+
+## Observability
+
+| Field | Type | Description |
+|---|---|---|
+| `Observability` | `*theauth.Hooks` | Wire tracing and metrics adapters. Nil = no-op. |
+
+```go
+type Hooks struct {
+    Tracer  Tracer  // span emitter
+    Metrics Metrics // counter/histogram/gauge factory
+}
+```
+
+See [Wire OpenTelemetry Tracing](/go/guides/opentelemetry-tracing) and [Metrics Reference](/go/reference/metrics) for details.

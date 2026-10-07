@@ -1,0 +1,135 @@
+---
+title: "Auth for a Single-Binary Go App"
+description: "This guide builds the shape many self-hosted tools have: one static Go binary, one SQLite file, a web UI or API, and a CLI that signs in as the same users."
+---
+This guide builds the shape many self-hosted tools have: one static Go binary, one SQLite file, a web UI or API, and a CLI that signs in as the same users. Everything below is implemented by `examples/single-binary-sqlite`, which also has a smoke test that runs the whole flow.
+
+You need Go 1.26 or newer. `storage/sqlite` pulls in `modernc.org/sqlite`, which declares Go 1.26. The root `theauth-go` module itself builds on Go 1.25.
+
+```sh
+go get github.com/glincker/theauth-go/v2
+go get github.com/glincker/theauth-go/storage/sqlite
+```
+
+## 1. Open SQLite and migrate
+
+You own the `*sql.DB`. Foreign keys must be on, and WAL plus a busy timeout are advised:
+
+```go
+db, err := sql.Open("sqlite",
+    "file:app.db?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate")
+if err != nil { log.Fatal(err) }
+if err := db.PingContext(ctx); err != nil { log.Fatal(err) }
+if err := sqlitestore.Migrate(ctx, db); err != nil { log.Fatal(err) }
+store, err := sqlitestore.New(db)
+```
+
+Import the driver with `_ "modernc.org/sqlite"`. No cgo is involved, so `CGO_ENABLED=0 go build` yields a static binary. Details are in [Use the SQLite Backend](/go/guides/sqlite-storage).
+
+## 2. Configure theauth-go
+
+```go
+a, err := theauth.New(theauth.Config{
+    CoreStorage:  store,
+    BaseURL:      "https://app.example.com",
+    Bootstrap:    &theauth.BootstrapConfig{SetupToken: os.Getenv("SETUP_TOKEN")},
+    APITokens: &theauth.APITokensConfig{
+        Abilities: []string{"read"},
+        UserAbilities: func(context.Context, *theauth.User) ([]string, error) {
+            return []string{"read"}, nil
+        },
+        Device: &theauth.DeviceConfig{
+            VerificationURI:  "https://app.example.com/device",
+            DefaultAbilities: []string{"read"},
+        },
+    },
+})
+```
+
+- `CoreStorage` is used because SQLite does not implement organizations, SAML, SCIM or RBAC. Enabling a feature that needs one fails in `New` with `ErrStorageMissingCapability`. See [Capability interfaces](/go/concepts/capability-interfaces).
+- `Bootstrap` closes public signup until the first user exists. Without `SetupToken`, a random one is generated and logged once. `a.SetupToken()` returns it if you would rather print it yourself.
+- Without RBAC there is no admin role, so supply `UserAbilities` yourself. It is evaluated on every request, so changing a user's role narrows their existing tokens at once.
+- Local HTTP only: leave `BaseURL` as `http://...` and the cookie is not marked `Secure`. With an `https://` base URL it is.
+
+## 3. Mount on the stdlib mux
+
+`a.Handler()` returns an `http.Handler` serving the canonical `/auth/...` paths, so no router dependency is needed:
+
+```go
+mux := http.NewServeMux()
+mux.Handle("/auth/", a.Handler())
+mux.Handle("GET /api/whoami", a.RequireAbility("read")(http.HandlerFunc(whoami)))
+
+func whoami(w http.ResponseWriter, r *http.Request) {
+    p, _ := theauth.PrincipalFromContext(r.Context())
+    json.NewEncoder(w).Encode(map[string]any{"userId": p.UserID.String(), "abilities": p.Abilities})
+}
+```
+
+`RequireAbility` accepts either a session cookie or `Authorization: Bearer <token>` and returns 403 when the caller lacks the ability. A presented bearer token never falls back to the cookie.
+
+## 4. First run
+
+```sh
+curl -c jar -X POST $BASE/auth/email-password/signup \
+  -H "X-Setup-Token: $SETUP_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"a long passphrase here"}'
+```
+
+The token goes in the `X-Setup-Token` header or a `setupToken` body field. After the first user exists, further signups are refused with `signup_closed` unless `OpenSignupAfterFirstUser` is set. The first admin must use a password, because magic links cannot carry the token. `GET /auth/bootstrap/status` returns `{"needsSetup": true}` until then, which a UI can use to show a setup screen.
+
+## 5. Mint a token
+
+A signed-in user mints a scoped token with the built-in route. The secret is returned once:
+
+```sh
+curl -b jar -X POST $BASE/auth/tokens -H 'Content-Type: application/json' \
+  -d '{"name":"ci","abilities":["read"],"expires_in":2592000}'
+curl -H "Authorization: Bearer $TOKEN" $BASE/api/whoami
+```
+
+A token cannot exceed the abilities its owner holds now. See [API Tokens and Device Login](/go/guides/api-tokens) for revocation, listing, service accounts and agent tokens (`MintAgentToken`).
+
+## 6. Sign a CLI in with the device grant
+
+On the server, `Device` enables `/auth/device/code`, `/auth/device/token` and `/auth/device/approve`. You provide the page at `VerificationURI`: it must sign the user in and post the code to `/auth/device/approve`. The example ships a 60 line page for this.
+
+In the CLI, `clientauth` needs only the standard library:
+
+```go
+store, _ := clientauth.NewFileStore("mycli")
+cred, err := clientauth.DeviceLogin(ctx, clientauth.DeviceOptions{
+    ServerURL: server, ClientName: "mycli", Store: store,
+})
+client, _ := clientauth.NewClient(server, store)
+id, err := client.Whoami(ctx)   // GET /auth/tokens/current
+err = client.Logout(ctx)        // revokes server side, then deletes the local copy
+req, _ := client.NewRequest(ctx, http.MethodGet, "/api/whoami", nil)
+resp, err := client.Do(req)     // attaches the bearer token, same origin only
+```
+
+`DeviceLogin` prints the code and URL, polls at the server's interval, and backs off on `slow_down`. See [CLI Login](/go/guides/cli-login).
+
+## 7. Sensitive actions: step-up
+
+Session storage in SQLite supports step-up. Guard dangerous routes so a stale session must re-authenticate:
+
+```go
+mux.Handle("POST /admin/purge", a.RequireRecentAuth(5*time.Minute)(http.HandlerFunc(purge)))
+```
+
+The client calls `POST /auth/step-up` with `{"method":"password","password":"..."}` (or TOTP) first. Passkeys (`Config.WebAuthn`) and TOTP (`Config.TOTP`, needs `EncryptionKey`) are available on SQLite too. See [Session management](https://github.com/glincker/theauth-go/blob/main/docs/SESSIONS.md).
+
+## 8. Housekeeping
+
+Expired rows are not deleted on read. Run `store.SweepExpired(ctx, time.Now())` on a ticker. Revocations (a token, a session, an owner) publish on `Config.RevocationBus`; the default bus is in-process, which is correct for a single binary. Use `a.WatchRevocationMiddleware` after `RequireAbility` on SSE or other long-lived handlers so they drop when the credential is revoked.
+
+## Run the example
+
+```sh
+cd examples/single-binary-sqlite
+go vet ./... && go test ./...
+SETUP_TOKEN=change-me go run .
+```
+
+The test boots the server, creates the first admin, mints a token, runs `mycli login` headlessly and approves it, then calls the API with the device-issued token and logs out.

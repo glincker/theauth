@@ -1,0 +1,59 @@
+---
+title: "Migrating from v0.7 to v1.0"
+sidebarTitle: "v0.7 to v1.0"
+description: "v1.0 is the first production-ready release."
+---
+v1.0 is the first production-ready release. The public API is frozen per STABILITY.md. Two breaking changes require action if you used the v0.7 `AuditHook` or implemented a custom `Storage`.
+
+## Breaking changes
+
+### 1. `Config.AuditHook` removed
+
+The synchronous `Config.AuditHook` and its `AuditEvent` shape are removed. Replace with the async audit writer:
+
+```go
+// Before (v0.7):
+a, _ := theauth.New(theauth.Config{
+    // ...
+    AuditHook: func(e AuditEvent) { /* ... */ },
+})
+
+// After (v1.0):
+a, _ := theauth.New(theauth.Config{
+    // ...
+    Audit: &theauth.AuditConfig{
+        // Optionally wire a custom redactor or buffer size.
+    },
+})
+```
+
+If you do not need audit logging, leave `Config.Audit` nil. `EmitAudit` is a silent no-op when `Audit` is nil.
+
+### 2. `Storage` gained 18 new methods
+
+v1.0 adds 16 RBAC methods and 2 audit methods to the `Storage` interface (the
+`(*TheAuth)` service-level names like `SeedPermissions`, `GrantRole`, and
+`HasPermission` are the public wrapper methods that call these; they are not
+the `Storage` interface method names implementers must add):
+
+**RBAC (16 methods):** `InsertPermission`, `PermissionByName`, `ListPermissions`, `InsertRole`, `UpdateRoleRow`, `DeleteRole`, `RoleByID`, `RoleByOrgAndName`, `RolesByOrganization`, `SetRolePermissions`, `PermissionsByRole`, `GrantUserRole`, `RevokeUserRole`, `RolesForUser`, `PermissionsForUser`, `CountUsersWithPermissionInOrg`.
+
+**Audit (2 methods):** `InsertAuditEvents`, `QueryAuditEvents`.
+
+**If you use an in-tree adapter** (`memory` or `postgres`): the adapters are already updated. Just run the new migrations (0009_rbac, 0010_audit) and rebuild.
+
+**If you have a custom Storage implementation:** you must implement all 18 new methods (see `storage.go` for exact signatures). Use the in-tree adapters as reference. The conformance suite (`storagetest.Run`) covers every new method.
+
+## New Postgres migrations
+
+Apply these before starting v1.0:
+
+- `0009_rbac.up.sql`: `permissions`, `roles`, `role_permissions`, `user_roles`
+- `0010_audit.up.sql`: `audit_events`
+
+## New features (no action required)
+
+- RBAC: `RequirePermission` middleware, seeded permissions and roles.
+- Audit log: async batched writes, `Stats` counters, `DefaultRedactor`.
+- Admin API: 12 endpoints under `/admin/v1` (requires `Config.RBAC` and `Config.Admin`).
+- `(*TheAuth).Start` and `Close` lifecycle methods (called automatically by `New`; no change needed unless you manage the writer goroutine manually).

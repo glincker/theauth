@@ -1,0 +1,252 @@
+---
+title: "Migrating from AWS Cognito to theauth-go"
+sidebarTitle: "Migrate from Cognito"
+description: "This playbook walks through moving a Cognito user pool to theauth-go."
+---
+This playbook walks through moving a Cognito user pool to theauth-go. The process
+is two stages: export (convert the Cognito data to the intermediate bundle format)
+then apply (write the bundle to your theauth-go storage backend).
+
+The two-stage design lets your team audit the JSON before committing to any
+production writes. The intermediate bundle is human-readable; you can diff it,
+fix it, and run `theauth-migrate validate` against it as many times as you like.
+
+## Prerequisites
+
+- `theauth-migrate` binary (build with `go build ./cmd/theauth-migrate`)
+- AWS CLI configured for your Cognito user pool
+- Postgres DSN for your theauth-go database (or use `--storage memory` for a dry run)
+
+## Step 1: Export users from Cognito
+
+There are two supported input formats:
+
+### Option A: Cognito console CSV export
+
+1. Open the AWS Console and navigate to Cognito.
+2. Select your user pool.
+3. Go to "Users" and click "Export users to CSV" (or use the CSV download button).
+4. Save the file as `cognito-users.csv`.
+
+You can also use the AWS CLI to generate a compatible CSV:
+
+```bash
+aws cognito-idp list-users \
+  --user-pool-id us-east-1_XXXXXXX \
+  --output text \
+  --query 'Users[*].[Username,Attributes[?Name==`email`]|[0].Value,Attributes[?Name==`email_verified`]|[0].Value,Attributes[?Name==`sub`]|[0].Value]' \
+  > cognito-users.csv
+```
+
+Note: the AWS CLI text output format does not match the Cognito console CSV
+exactly. Use the console export for the most reliable input, or use the JSON
+option below.
+
+### Option B: Cognito JSON export (recommended)
+
+The JSON export from `aws cognito-idp list-users` preserves more attributes
+including MFA settings and custom attributes:
+
+```bash
+aws cognito-idp list-users \
+  --user-pool-id us-east-1_XXXXXXX \
+  --output json \
+  > cognito-users.json
+```
+
+For large user pools, paginate the results:
+
+```bash
+next_token=""
+output_file="cognito-users-all.json"
+echo '{"Users": [' > "$output_file"
+first=true
+
+while true; do
+  if [ -z "$next_token" ]; then
+    result=$(aws cognito-idp list-users \
+      --user-pool-id us-east-1_XXXXXXX \
+      --max-results 60 \
+      --output json)
+  else
+    result=$(aws cognito-idp list-users \
+      --user-pool-id us-east-1_XXXXXXX \
+      --max-results 60 \
+      --pagination-token "$next_token" \
+      --output json)
+  fi
+
+  users=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get('Users', []))[1:-1])")
+  if [ -n "$users" ]; then
+    if [ "$first" = "true" ]; then
+      echo "$users" >> "$output_file"
+      first=false
+    else
+      echo ",$users" >> "$output_file"
+    fi
+  fi
+
+  next_token=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('PaginationToken', ''))" 2>/dev/null)
+  if [ -z "$next_token" ]; then
+    break
+  fi
+done
+
+echo ']}' >> "$output_file"
+```
+
+## Step 2: Convert to the intermediate bundle format
+
+```bash
+# From CSV
+theauth-migrate cognito --export cognito-users.csv --output bundle.json
+
+# From JSON
+theauth-migrate cognito --export cognito-users.json --output bundle.json
+```
+
+The tool auto-detects the format from the file extension. Use
+`--export-format csv` or `--export-format json` to override.
+
+## Step 3: Inspect the bundle
+
+Open `bundle.json` in your editor. Key things to review:
+
+- `notes`: human-readable caveats. For Cognito, the most important is that
+  **Cognito does not export password hashes**. Every user will have
+  `"requires_password_reset": true`.
+- `users`: check that email addresses look correct and source IDs are present.
+- `mfa_enrolled`: users who had MFA will have `"requires_mfa_reenroll": true`
+  and a record here. They must re-enroll TOTP on first login.
+- `oauth_accounts`: empty for Cognito (Cognito does not export social connections
+  in a way that maps directly to theauth-go OAuth accounts).
+
+### Password reset caveat
+
+Cognito stores password hashes using its own internal format and does not
+expose them via any API. All migrated users must reset their password on first
+login. The bundle will have `"requires_password_reset": true` for every user.
+
+After the apply step, the CLI prints a list of emails that need a reset token.
+Wire this to your email service, or call theauth-go's built-in endpoint for
+each address:
+
+```bash
+POST /auth/email-password/forgot
+Content-Type: application/json
+
+{"email": "user@example.com"}
+```
+
+You can also automate this with a script that reads the apply output:
+
+```bash
+theauth-migrate cognito --input bundle.json --apply --storage postgres \
+  --dsn "$DSN" 2>&1 | grep "email=" | while read -r line; do
+    email=$(echo "$line" | sed 's/.*email=\([^ ]*\).*/\1/')
+    curl -sf -X POST "$THEAUTH_BASE_URL/auth/email-password/forgot" \
+      -H "Content-Type: application/json" \
+      -d "{\"email\":\"$email\"}"
+  done
+```
+
+### MFA caveat
+
+Cognito TOTP (SOFTWARE_TOKEN_MFA) uses secrets that are encrypted inside
+Cognito's HSM. They are never accessible via any API.
+
+Users who had TOTP enrolled will have `"requires_mfa_reenroll": true`. When
+they next log in, your application should detect this flag (available on the
+theauth-go user record metadata or via a separate table you maintain) and
+prompt them to re-enroll TOTP via theauth-go's `/auth/totp/enroll` endpoint.
+
+Users who had SMS MFA: theauth-go does not support SMS MFA. Evaluate whether
+to use TOTP, WebAuthn, or another second factor for these users.
+
+## Step 4: Validate the bundle
+
+```bash
+theauth-migrate validate --input bundle.json
+```
+
+This performs all structural checks without touching any storage:
+- Duplicate user emails
+- Duplicate source IDs
+- Orphaned OAuth account rows
+- Schema version compatibility
+
+Fix any reported errors before proceeding.
+
+## Step 5: Dry-run apply
+
+```bash
+theauth-migrate cognito --input bundle.json --apply --dry-run
+```
+
+A dry run validates the bundle and detects conflicts (e.g. emails that already
+exist in the target database) without writing anything.
+
+## Step 6: Apply to production
+
+```bash
+theauth-migrate cognito --input bundle.json --apply \
+  --storage postgres \
+  --dsn "postgres://theauth:secret@db.example.com:5432/theauth_prod"
+```
+
+The applier:
+1. Validates the bundle.
+2. Checks for existing users by email (idempotent; duplicates are skipped).
+3. Inserts users in batches of 500.
+4. Inserts OAuth accounts.
+5. Prints a list of emails that need password-reset tokens.
+
+If any row fails, the error is logged and the remaining rows continue.
+Partial failures are reported in the exit summary. Re-run the command; it is
+safe because duplicate detection prevents double-inserts.
+
+## Step 7: Send password-reset emails
+
+Use the list from step 6 to send reset emails. See the script in step 3 for
+an example of how to automate this.
+
+## Step 8: Update your application
+
+1. Update your sign-in flow to point at theauth-go instead of Cognito.
+2. If you had custom Cognito triggers (pre-token generation, pre-sign-up,
+   etc.), re-implement them as theauth-go middleware or lifecycle hooks.
+3. If you had custom Cognito attributes (`custom:*`), they are preserved in
+   the bundle's user `metadata` map. Map them to your application's data model
+   as appropriate.
+
+## Step 9: Monitor and cutover
+
+1. Run both Cognito and theauth-go in parallel for one login cycle (optional
+   but recommended for large migrations).
+2. Verify that users can log in via theauth-go.
+3. Disable sign-in via Cognito.
+4. After 30 days (or your chosen window), delete the Cognito user pool.
+
+## Rollback plan
+
+Because the apply step is read-only with respect to Cognito and only writes
+to the theauth-go database, rollback is straightforward:
+1. Point your application back at Cognito.
+2. Optionally drop the theauth-go user tables and re-apply with a corrected bundle.
+
+## Common issues
+
+### "cannot determine user id (no 'sub' or 'cognito:username' column)"
+
+The CSV export is missing the `sub` or `cognito:username` column. Use the
+JSON export format instead, which always includes the `Username` field.
+
+### Large pools (more than 60,000 users)
+
+`aws cognito-idp list-users` is capped at 60 results per page. Use the
+pagination script in step 1 option B.
+
+### Custom attributes not appearing in metadata
+
+Ensure the attribute name starts with `custom:` in the Cognito schema. Only
+attributes with that prefix are mapped to the bundle's metadata field.
