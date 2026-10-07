@@ -80,7 +80,7 @@ const result = await theauth.authorize(agent.id, {
 - Wildcard permission matching (`mcp:github:*`)
 - Delegation chains with depth limits
 - Immutable audit trail
-- Trust scoring and anomaly detection
+- Trust scoring
 - Budget policies and cost attribution
 - CIBA-style human approval flows
 
