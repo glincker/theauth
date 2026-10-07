@@ -1,8 +1,9 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI stdout/stderr is intentional here
 import { parseArgs } from "node:util";
-import { createTheAuth } from "@glinr/theauth";
 import { loadConfigFile } from "./config-loader.js";
 import { createGateway } from "./gateway.js";
+import type { GatewayTheAuth } from "./init.js";
+import { initTheAuth } from "./init.js";
 import type { GatewayConfig } from "./types.js";
 
 // ─── CLI Entry Point ──────────────────────────────────────────────────────────
@@ -48,11 +49,9 @@ async function main(): Promise<void> {
 
 	const dbUrl = values.database ?? ":memory:";
 
-	let theauth: Awaited<ReturnType<typeof createTheAuth>>;
+	let theauth: GatewayTheAuth;
 	try {
-		theauth = await createTheAuth({
-			database: { provider: "sqlite", url: dbUrl },
-		});
+		theauth = await initTheAuth(dbUrl);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		console.error(`Failed to initialise TheAuth: ${message}`);
