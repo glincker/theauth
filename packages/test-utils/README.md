@@ -1,5 +1,7 @@
 # @glinr/theauth-test-utils
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-test-utils) · [Source](https://github.com/glincker/theauth/tree/main/packages/test-utils) · [Docs](https://docs.theauth.dev/test-utils) · [All packages](https://github.com/glincker/theauth#packages)
+
 Test helpers for apps using theAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
 
 ```bash

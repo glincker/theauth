@@ -1,3 +1,5 @@
+[npm](https://www.npmjs.com/package/@glinr/theauth) · [Source](https://github.com/glincker/theauth/tree/main/packages/core) · [Docs](https://docs.theauth.dev/concepts) · [All packages](https://github.com/glincker/theauth#packages)
+
 <p align="center">
   <img src="https://theauth.dev/logo.svg" height="64" alt="theAuth" />
 </p>

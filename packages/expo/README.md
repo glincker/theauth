@@ -1,5 +1,7 @@
 # @glinr/theauth-expo
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-expo) · [Source](https://github.com/glincker/theauth/tree/main/packages/expo) · [Docs](https://docs.theauth.dev/expo) · [All packages](https://github.com/glincker/theauth#packages)
+
 Expo / React Native provider and hooks for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-expo?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-expo)

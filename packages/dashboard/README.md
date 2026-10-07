@@ -1,5 +1,7 @@
 # @glinr/theauth-dashboard
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-dashboard) · [Source](https://github.com/glincker/theauth/tree/main/packages/dashboard) · [Docs](https://docs.theauth.dev/dashboard) · [All packages](https://github.com/glincker/theauth#packages)
+
 Admin UI for managing agents, permissions, and audit logs.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-dashboard)](https://www.npmjs.com/package/@glinr/theauth-dashboard)

@@ -1,5 +1,7 @@
 # @glinr/theauth-ui-headless
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-ui-headless) · [Source](https://github.com/glincker/theauth/tree/main/packages/ui-headless) · [Docs](https://docs.theauth.dev/ui-components) · [All packages](https://github.com/glincker/theauth#packages)
+
 Unstyled, accessible account components for theAuth, built on `@glinr/theauth-react/query`. They ship no product copy and no styles: every string comes from a required `labels` prop, and every part carries a `data-part` attribute plus an optional `classNames` slot, so the host applies its own CSS (Tailwind, for example).
 
 Components: `SessionList`, `ApiTokenList`, `MintTokenForm` (personal or agent tokens, show-once secret with copy), `DeviceApproval`, `StepUpDialog`, and `useStepUpRetry`, which opens the dialog on `auth.recent_auth_required` and retries the action after elevation.

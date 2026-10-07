@@ -37,11 +37,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://github.com/glincker/theauth/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   }

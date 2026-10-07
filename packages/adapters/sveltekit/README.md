@@ -1,5 +1,7 @@
 # @glinr/theauth-sveltekit
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-sveltekit) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/sveltekit) · [Docs](https://docs.theauth.dev/adapters/sveltekit) · [All packages](https://github.com/glincker/theauth#packages)
+
 SvelteKit adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-sveltekit)](https://www.npmjs.com/package/@glinr/theauth-sveltekit)

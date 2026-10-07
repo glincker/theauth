@@ -1,5 +1,7 @@
 # @glinr/create-theauth-app
 
+[npm](https://www.npmjs.com/package/@glinr/create-theauth-app) · [Source](https://github.com/glincker/theauth/tree/main/packages/create-theauth-app) · [Docs](https://docs.theauth.dev/quickstart) · [All packages](https://github.com/glincker/theauth#packages)
+
 Scaffold a theAuth app in one command.
 
 ```bash

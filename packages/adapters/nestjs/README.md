@@ -1,5 +1,7 @@
 # @glinr/theauth-nestjs
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-nestjs) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nestjs) · [Docs](https://docs.theauth.dev/adapters/nestjs) · [All packages](https://github.com/glincker/theauth#packages)
+
 NestJS adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-nestjs?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-nestjs)

@@ -1,5 +1,7 @@
 # @glinr/theauth-astro
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-astro) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/astro) · [Docs](https://docs.theauth.dev/adapters/astro) · [All packages](https://github.com/glincker/theauth#packages)
+
 Astro adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-astro)](https://www.npmjs.com/package/@glinr/theauth-astro)

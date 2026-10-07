@@ -1,5 +1,7 @@
 # @glinr/theauth-solidstart
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-solidstart) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/solidstart) · [Docs](https://docs.theauth.dev/adapters/solidstart) · [All packages](https://github.com/glincker/theauth#packages)
+
 SolidStart adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-solidstart?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-solidstart)

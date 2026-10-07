@@ -31,13 +31,15 @@
     "typescript": "^6.0.3",
     "vitest": "^3.0.0"
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://docs.theauth.dev/auth/email-password",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "license": "MIT",
   "repository": {
-    "directory": "packages/auth/email",
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git"
+    "url": "git+https://github.com/glincker/theauth.git",
+    "directory": "packages/auth/email"
   },
   "publishConfig": {
     "access": "public"

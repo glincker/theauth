@@ -1,5 +1,7 @@
 # @glinr/theauth-express
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-express) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/express) · [Docs](https://docs.theauth.dev/adapters/express) · [All packages](https://github.com/glincker/theauth#packages)
+
 Express adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-express)](https://www.npmjs.com/package/@glinr/theauth-express)

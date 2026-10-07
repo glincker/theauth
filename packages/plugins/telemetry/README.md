@@ -1,5 +1,7 @@
 # @glinr/theauth-plugin-telemetry
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-plugin-telemetry) · [Source](https://github.com/glincker/theauth/tree/main/packages/plugins/telemetry) · [All packages](https://github.com/glincker/theauth#packages)
+
 OpenTelemetry integration plugin for theAuth - converts auth events into OTel spans.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-plugin-telemetry?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-plugin-telemetry)

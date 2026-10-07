@@ -33,7 +33,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/plugins/discovery"
   },
   "dependencies": {
@@ -56,8 +56,10 @@
       "optional": true
     }
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://docs.theauth.dev/a2a",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   }

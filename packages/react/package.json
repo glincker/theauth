@@ -29,7 +29,7 @@
   "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/react"
   },
   "peerDependencies": {
@@ -55,8 +55,10 @@
       "optional": true
     }
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://docs.theauth.dev/react",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

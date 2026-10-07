@@ -34,7 +34,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/adapters/prisma"
   },
   "peerDependencies": {
@@ -48,8 +48,10 @@
     "typescript": "^6.0.3",
     "vitest": "^3.0.0"
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://docs.theauth.dev/prisma",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   }

@@ -1,5 +1,7 @@
 # @glinr/theauth-svelte
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-svelte) · [Source](https://github.com/glincker/theauth/tree/main/packages/svelte) · [Docs](https://docs.theauth.dev/svelte) · [All packages](https://github.com/glincker/theauth#packages)
+
 Svelte stores for theAuth authentication.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-svelte?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-svelte)

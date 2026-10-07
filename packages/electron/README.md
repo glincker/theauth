@@ -1,5 +1,7 @@
 # @glinr/theauth-electron
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-electron) · [Source](https://github.com/glincker/theauth/tree/main/packages/electron) · [Docs](https://docs.theauth.dev/electron) · [All packages](https://github.com/glincker/theauth#packages)
+
 Electron integration for theAuth: secure storage, OAuth windows, and IPC bridge.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-electron?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-electron)

@@ -24,7 +24,7 @@
   "author": "TheAuth <support@glincker.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/ui"
   },
   "peerDependencies": {
@@ -42,8 +42,10 @@
     "tsup": "^8.4.0",
     "typescript": "^6.0.3"
   },
-  "homepage": "https://theauth.dev",
-  "bugs": "https://github.com/glincker/theauth/issues",
+  "homepage": "https://docs.theauth.dev/ui-components",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

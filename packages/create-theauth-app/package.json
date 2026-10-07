@@ -6,10 +6,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/glincker/theauth.git",
+    "url": "git+https://github.com/glincker/theauth.git",
     "directory": "packages/create-theauth-app"
   },
-  "homepage": "https://theauth.dev",
+  "homepage": "https://docs.theauth.dev/quickstart",
   "keywords": [
     "theauth",
     "auth",
@@ -44,5 +44,7 @@
     "typescript": "^6.0.3",
     "vitest": "^3.0.0"
   },
-  "bugs": "https://github.com/glincker/theauth/issues"
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  }
 }

@@ -1,5 +1,7 @@
 # @glinr/theauth-nextjs-auth
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth) · [All packages](https://github.com/glincker/theauth#packages)
+
 Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware — all typed end-to-end.
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).

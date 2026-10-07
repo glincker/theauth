@@ -1,5 +1,7 @@
 # @glinr/theauth-tanstack
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-tanstack) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/tanstack) · [Docs](https://docs.theauth.dev/adapters/tanstack) · [All packages](https://github.com/glincker/theauth#packages)
+
 TanStack Start adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-tanstack?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-tanstack)

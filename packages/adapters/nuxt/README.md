@@ -1,5 +1,7 @@
 # @glinr/theauth-nuxt
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-nuxt) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nuxt) · [Docs](https://docs.theauth.dev/adapters/nuxt) · [All packages](https://github.com/glincker/theauth#packages)
+
 Nuxt adapter for theAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-nuxt)](https://www.npmjs.com/package/@glinr/theauth-nuxt)

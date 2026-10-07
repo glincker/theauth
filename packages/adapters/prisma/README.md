@@ -1,5 +1,7 @@
 # @glinr/theauth-prisma
 
+[npm](https://www.npmjs.com/package/@glinr/theauth-prisma) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/prisma) · [Docs](https://docs.theauth.dev/prisma) · [All packages](https://github.com/glincker/theauth#packages)
+
 Prisma database adapter for theAuth. Use PrismaClient as your theAuth database backend.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-prisma)
