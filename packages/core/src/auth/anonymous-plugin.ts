@@ -25,7 +25,7 @@ export function anonymousAuth(config?: AnonymousAuthConfig): TheAuthPlugin {
 				path: "/auth/anonymous",
 				metadata: {
 					description: "Create an anonymous guest user and return a session token",
-					rateLimit: { window: 60_000, max: 20 },
+					rateLimit: { window: 60, max: 20 },
 				},
 				async handler(_request, _endpointCtx) {
 					try {

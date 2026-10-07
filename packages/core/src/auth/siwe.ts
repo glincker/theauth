@@ -342,7 +342,7 @@ export function siwe(config: SiweConfig): TheAuthPlugin {
 				path: "/auth/siwe/nonce",
 				metadata: {
 					description: "Generate a SIWE nonce for wallet signing",
-					rateLimit: { window: 60_000, max: 60 },
+					rateLimit: { window: 60, max: 60 },
 				},
 				async handler(_request, _endpointCtx) {
 					const nonce = await mod.generateNonce();
@@ -359,7 +359,7 @@ export function siwe(config: SiweConfig): TheAuthPlugin {
 				path: "/auth/siwe/verify",
 				metadata: {
 					description: "Verify a SIWE-signed message and return the Ethereum address",
-					rateLimit: { window: 60_000, max: 20 },
+					rateLimit: { window: 60, max: 20 },
 				},
 				async handler(request, _endpointCtx) {
 					let body: Record<string, unknown>;
