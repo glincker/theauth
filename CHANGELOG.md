@@ -6,7 +6,11 @@ For the full raw record see [GitHub Releases](https://github.com/glincker/theaut
 
 ## Timeline
 
-### v0.5.0 (upcoming), June 2026 -- Kavach* to TheAuth* rename
+### Next release (unreleased): Kavach* names removed
+
+Breaking for anyone still using the old names. Every `Kavach*` export, `createKavach` and `KAVACH_*` constant is gone; use the `TheAuth*` names. Environment variables are now `THEAUTH_*`, webhook headers are `X-TheAuth-*`, and database tables are `theauth_*` (existing `kavach_*` tables are renamed in place by `createTables`, so no rows are lost). The `Auth*` aliases remain deprecated. See `RENAME-MAP.md` for the full mapping and a checklist of non-export changes.
+
+### v0.5.0, July 2026: Kavach* to TheAuth* rename
 
 No breaking change. All `Kavach*` exported identifiers now have `TheAuth*` canonical equivalents. Along the way the project also considered `Auth*` as an intermediate name; that idea was dropped in favor of `TheAuth*`, so `Auth*` ships only as a second deprecated alias, never as the primary name. Both `Auth*` and `Kavach*` are still exported as `@deprecated` aliases and will continue to work until a future major version, when they will be removed.
 
@@ -34,7 +38,7 @@ New canonical names added across all packages:
 
 See `RENAME-MAP.md` for the full one-to-one mapping table and a migration guide.
 
-Removal timeline: deprecated `Auth*` and `Kavach*` names will be removed in a future major version.
+Removal timeline: the deprecated `Kavach*` names are removed in the next release (see above). The `Auth*` aliases will be removed in a future major version.
 
 ### @glinr/theauth-nextjs-auth v0.1.0, May 2, 2026
 
