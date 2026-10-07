@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-nextjs-auth",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Next.js adapter for TheAuth-style external auth backends — cookies, refresh, CSRF, getServerSession, middleware.",
   "type": "module",
   "sideEffects": false,

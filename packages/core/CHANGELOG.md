@@ -1,5 +1,18 @@
 # theauth
 
+## 0.6.0
+
+### Minor Changes
+
+- 0fa5b1e: Remove the legacy KavachOS naming. The deprecated `Kavach*` and `createKavach` exports are gone: use `TheAuth*` and `createTheAuth`. Environment variables are now `THEAUTH_*`, webhook headers `X-TheAuth-*`, cookies and the default API route use `theauth`, and database tables are `theauth_*` (existing `kavach_*` tables are renamed in place by `createTables`, no data is lost). `Auth*` aliases remain deprecated.
+- 9861742: Harden the SCIM 2.0 server. List endpoints now accept the full RFC 7644 filter grammar through a real parser, with operators eq, ne, co, sw, ew, gt, ge, lt, le and pr, the and, or and not combinators, parentheses and value path selectors, plus sortBy and sortOrder. PATCH supports path expressions with value filters such as emails[type eq "work"].value, rejects changes to immutable attributes and caps a request at 1000 operations. A new opt in Me endpoint resolves the caller through a resolveSelf callback, and the Bulk endpoint returns a spec compliant 501. Every successful provisioning write can now be recorded in the audit log by passing audit with an agent id. The Enterprise User extension is supported and advertised in the Schemas endpoint, and the repo gains an Okta example and a compatibility table.
+
+### Patch Changes
+
+- 960fe89: Delegation requests whose permissions are not a subset of the parent's now return HTTP 400 with error code `DELEGATION_PERMISSION_SUBSET` instead of a 500. Core throws a typed `DelegationError` (codes `DELEGATION_PERMISSION_SUBSET` and `DELEGATION_DEPTH_EXCEEDED`) and every REST adapter maps it to a 400 using that code.
+- dfd31f9: Fix `ipAllowlist` denying every REST call. The permission engine now resolves the client IP from the request context first (what the framework adapters pass), then `request.ip`, so the allowlist and audit log agree.
+- 5e53bdb: Fix plugin endpoint rate limit windows in the anonymous, device, SIWE, and OAuth proxy plugins. They declared `rateLimit.window` in milliseconds while the plugin router reads it as seconds, so a 60_000 window lasted about 16 hours. The window is now in seconds, and the `PluginEndpoint` type documents the unit.
+
 ## 0.5.0
 
 ### Minor Changes

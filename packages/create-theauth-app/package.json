@@ -1,6 +1,6 @@
 {
   "name": "@glinr/create-theauth-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Scaffold a TheAuth-powered app in seconds",
   "type": "module",
   "license": "MIT",

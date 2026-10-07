@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-ui-headless",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Unstyled, accessible account components for TheAuth: sessions, API and agent tokens, device approval, step-up",
   "type": "module",
   "sideEffects": false,
