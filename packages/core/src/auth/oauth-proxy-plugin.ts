@@ -49,7 +49,7 @@ export function oauthProxy(config: OAuthProxyPluginConfig): TheAuthPlugin {
 					description:
 						"Start an OAuth proxy flow for a mobile app. Returns the provider authorization URL.",
 					rateLimit: {
-						window: (config.rateLimit?.windowSeconds ?? 60) * 1000,
+						window: config.rateLimit?.windowSeconds ?? 60,
 						max: config.rateLimit?.max ?? 20,
 					},
 				},

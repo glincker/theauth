@@ -25,7 +25,10 @@ export interface PluginEndpoint {
 	handler: (request: Request, context: EndpointContext) => Promise<Response>;
 	/** Optional metadata */
 	metadata?: {
-		/** Rate limit for this endpoint */
+		/**
+		 * Rate limit for this endpoint. `window` is in seconds (not milliseconds),
+		 * `max` is the number of requests allowed per window per client IP.
+		 */
 		rateLimit?: { window: number; max: number };
 		/** Whether this endpoint requires authentication */
 		requireAuth?: boolean;

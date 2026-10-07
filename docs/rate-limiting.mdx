@@ -58,7 +58,7 @@ Requests under the limit pass through without rate limit headers.
 
 ## Per-endpoint limits declared by plugins
 
-Some plugin endpoints carry their own `metadata.rateLimit` (for example the email OTP, magic link, and OAuth authorize endpoints). The plugin router enforces these with an in-process counter keyed by IP and endpoint path, and responds `429` with `{ "error": "Rate limit exceeded" }` and no `Retry-After` header. They are fixed in the plugin source, not configurable through `rateLimit()`, and not shared across instances. Note that the router interprets `window` in seconds.
+Some plugin endpoints carry their own `metadata.rateLimit` (for example the email OTP, magic link, anonymous, device, SIWE, OAuth proxy, and OAuth authorize endpoints). The plugin router enforces these with an in-process counter keyed by IP and endpoint path, and responds `429` with `{ "error": "Rate limit exceeded" }` and no `Retry-After` header. They are fixed in the plugin source, not configurable through `rateLimit()`, and not shared across instances. Note that the router interprets `window` in seconds, so `window: 60` means 60 seconds.
 
 ## Per-agent limits with maxCallsPerHour
 

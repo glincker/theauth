@@ -408,7 +408,7 @@ export function deviceAuth(config: DeviceAuthConfig): TheAuthPlugin {
 				path: "/auth/device/code",
 				metadata: {
 					description: "Request a device code and user code for the device authorization flow",
-					rateLimit: { window: 60_000, max: 30 },
+					rateLimit: { window: 60, max: 30 },
 				},
 				async handler(_request, _endpointCtx) {
 					const response = await mod.requestCode();
@@ -432,7 +432,7 @@ export function deviceAuth(config: DeviceAuthConfig): TheAuthPlugin {
 				path: "/auth/device/token",
 				metadata: {
 					description: "Poll for device authorization status (RFC 8628)",
-					rateLimit: { window: 10_000, max: 5 },
+					rateLimit: { window: 10, max: 5 },
 				},
 				async handler(request, _endpointCtx) {
 					let body: Record<string, unknown>;
