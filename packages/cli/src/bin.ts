@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { argv, exit, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
+import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from "./codemod-run.js";
 import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
 import { runInit } from "./init.js";
@@ -22,7 +23,8 @@ Commands:
   init          Initialize TheAuth in your project
   migrate       Run database migrations
   dashboard     Launch the admin dashboard
-  version       Show version
+  codemod       Source migrations (theauth codemod rename)
+  version      Show version
 
 Options:
   --help, -h    Show this help message
@@ -97,6 +99,33 @@ async function handleDashboard(): Promise<void> {
 	}
 }
 
+async function handleCodemod(): Promise<void> {
+	const args = argv.slice(3);
+	const sub = argv[3];
+	if (sub !== "rename") {
+		stdout.write(CODEMOD_HELP);
+		if (sub !== undefined && sub !== "--help" && sub !== "-h") exit(1);
+		return;
+	}
+	const parsed = parseCodemodArgs(args.slice(1));
+	if (parsed.help) {
+		stdout.write(CODEMOD_HELP);
+		return;
+	}
+	if (parsed.unknownFlag !== null) {
+		stdout.write(`Unknown option: ${parsed.unknownFlag}\n${CODEMOD_HELP}`);
+		exit(1);
+		return;
+	}
+	const result = await runRenameCodemod({
+		paths: parsed.paths,
+		write: parsed.write,
+		includeEnv: parsed.includeEnv,
+		cwd: process.cwd(),
+	});
+	stdout.write(formatSummary(result));
+}
+
 async function main(): Promise<void> {
 	const args = argv.slice(2);
 	const command = args[0];
@@ -120,6 +149,9 @@ async function main(): Promise<void> {
 			break;
 		case "dashboard":
 			await handleDashboard();
+			break;
+		case "codemod":
+			await handleCodemod();
 			break;
 		default:
 			stdout.write(`Unknown command: ${command}\n\n`);

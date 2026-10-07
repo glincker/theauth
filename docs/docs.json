@@ -468,7 +468,8 @@
               "migrate/from-better-auth",
               "migrate/from-better-auth-agent-plugin",
               "migrate/from-clerk",
-              "migrate/from-auth0"
+              "migrate/from-auth0",
+              "migrate/from-kavach"
             ]
           }
         ]
