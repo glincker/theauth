@@ -2,6 +2,8 @@
 
 Terraform provider for [TheAuth](https://theauth.dev). Manages agent identities, permissions, API keys, and organizations as infrastructure.
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Why IaC for auth
 
 Auth config drifts. An agent created by hand in a dashboard has no audit trail, no review process, and no rollback path. Treating agents and permissions as Terraform resources means every grant goes through code review, every change is versioned, and destroying the environment tears down the access alongside it.

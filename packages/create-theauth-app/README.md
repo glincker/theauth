@@ -14,6 +14,8 @@ bunx @glinr/create-theauth-app
 
 You'll be asked for a project directory, a template, and a database driver. The CLI then writes the project, installs deps, and prints the next commands to run.
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Templates
 
 | Template | Status | Stack |

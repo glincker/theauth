@@ -19,11 +19,14 @@
 </p>
 
 <p align="center">
+  <a href="https://theauth.dev">Website</a> &middot;
   <a href="https://docs.theauth.dev/docs/quickstart">Quickstart</a> &middot;
   <a href="https://docs.theauth.dev/docs">Documentation</a> &middot;
   <a href="https://github.com/glincker/theauth/tree/main/examples">Examples</a> &middot;
-  <a href="https://app.theauth.dev">TheAuth Cloud</a>
+  <a href="https://theauth.dev/pricing/">Cloud (early access)</a>
 </p>
+
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
 
 ---
 
@@ -184,14 +187,14 @@ createTheAuth({
 
 ## TheAuth Cloud
 
-Don't want to self-host? [TheAuth Cloud](https://app.theauth.dev) is the managed version with dashboard, billing, and zero infrastructure.
+Don't want to self-host? [TheAuth Cloud](https://theauth.dev/pricing/) (early access) is the managed version with dashboard, billing, and zero infrastructure.
 
 | | Free | Starter | Growth | Scale |
 |---|---|---|---|---|
 | MAU | 1,000 | 10,000 | 50,000 | 200,000 |
 | Price | $0 | $29/mo | $79/mo | $199/mo |
 
-[Start free](https://app.theauth.dev/sign-up) &middot; [Compare plans](https://theauth.dev/pricing) &middot; [Self-host instead](https://docs.theauth.dev/docs/quickstart)
+[Cloud early access](https://theauth.dev/pricing/) &middot; [Compare plans](https://theauth.dev/pricing/) &middot; [Self-host instead](https://docs.theauth.dev/docs/quickstart)
 
 ## Documentation
 

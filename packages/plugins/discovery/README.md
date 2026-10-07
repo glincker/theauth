@@ -4,6 +4,8 @@ A2A agent capability card discovery plugin for TheAuth.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-plugin-discovery?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-plugin-discovery)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash

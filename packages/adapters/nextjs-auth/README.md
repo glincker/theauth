@@ -2,6 +2,8 @@
 
 Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware — all typed end-to-end.
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## When to use this vs `@glinr/theauth-nextjs`
 
 | | `@glinr/theauth-nextjs-auth` | `@glinr/theauth-nextjs` |

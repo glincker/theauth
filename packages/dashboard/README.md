@@ -4,6 +4,8 @@ Admin UI for managing agents, permissions, and audit logs.
 
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-dashboard)](https://www.npmjs.com/package/@glinr/theauth-dashboard)
 
+Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
+
 ## Install
 
 ```bash
@@ -61,7 +63,7 @@ This starts a Hono server that serves the dashboard UI and proxies API requests 
 
 ## Docs and support
 
-- Documentation: [theauth.dev/docs](https://theauth.dev/docs)
+- Documentation: [docs.theauth.dev/docs](https://docs.theauth.dev/docs)
 - GitHub: [github.com/glincker/theauth](https://github.com/glincker/theauth)
 
 ## Community

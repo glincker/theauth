@@ -20,16 +20,21 @@
 </p>
 
 <p align="center">
+  <a href="https://theauth.dev"><strong>Website</strong></a> &middot;
   <a href="https://docs.theauth.dev/docs/quickstart"><strong>Quickstart</strong></a> &middot;
   <a href="https://docs.theauth.dev/docs"><strong>Docs</strong></a> &middot;
   <a href="https://github.com/glincker/theauth/tree/main/examples"><strong>Examples</strong></a> &middot;
   <a href="https://github.com/glincker/theauth/discussions"><strong>Discussions</strong></a> &middot;
-  <a href="https://app.theauth.dev"><strong>TheAuth Cloud</strong></a>
+  <a href="https://theauth.dev/pricing/"><strong>Cloud (early access)</strong></a>
+</p>
+
+<p align="center">
+  Website: <a href="https://theauth.dev">https://theauth.dev</a>
 </p>
 
 <p align="center">
   <a href="https://theauth.dev">
-    <img src="https://theauth.dev/theauth-og-img.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
+    <img src="https://theauth.dev/og.png" alt="TheAuth, auth OS for AI agents and humans" width="960" />
   </a>
 </p>
 
@@ -442,7 +447,7 @@ SQLite, PostgreSQL, MySQL, and Cloudflare D1 are built into the core package. Us
 
 ## TheAuth Cloud
 
-Hosted version with dashboard, billing, and zero infrastructure. [app.theauth.dev](https://app.theauth.dev)
+Hosted version with dashboard, billing, and zero infrastructure. Early access: [theauth.dev/pricing](https://theauth.dev/pricing/)
 
 | Plan | MAU | Price |
 |---|---|---|
@@ -455,8 +460,8 @@ Hosted version with dashboard, billing, and zero infrastructure. [app.theauth.de
 ---
 
 <p align="center">
-  <a href="https://app.theauth.dev/sign-up"><strong>Start free</strong></a> ·
-  <a href="https://theauth.dev/pricing">Pricing</a> ·
+  <a href="https://theauth.dev/pricing/"><strong>Cloud (early access)</strong></a> ·
+  <a href="https://theauth.dev">Website</a> ·
   <a href="https://docs.theauth.dev/docs/quickstart">Self-host instead</a>
 </p>
 
