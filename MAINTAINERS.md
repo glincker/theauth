@@ -45,7 +45,7 @@ Packages are versioned independently with Changesets. Current lines are listed i
 
 ## Contact
 
-- All inquiries (security, conduct, general): support@glincker.com
+- All inquiries (security, conduct, general): support@glinr.com
 
 ## Release automation
 

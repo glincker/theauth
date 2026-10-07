@@ -25,7 +25,7 @@ TheAuth takes security seriously. If you discover a security vulnerability, plea
 **Option 1 (preferred):** Use GitHub's private vulnerability reporting:
 [github.com/glincker/theauth/security/advisories/new](https://github.com/glincker/theauth/security/advisories/new)
 
-**Option 2:** Email **support@glincker.com** with the subject `[Security] theauth vulnerability` and include:
+**Option 2:** Email **support@glinr.com** with the subject `[Security] theauth vulnerability` and include:
 
 1. Description of the vulnerability
 2. Steps to reproduce

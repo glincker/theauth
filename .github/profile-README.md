@@ -108,7 +108,7 @@ See the main [theauth repository](https://github.com/glincker/theauth) for imple
 
 ## Security
 
-For security vulnerabilities, email support@glincker.com with reproduction steps and impact assessment. See [SECURITY.md](https://github.com/glincker/theauth/blob/main/SECURITY.md) for details.
+For security vulnerabilities, email support@glinr.com with reproduction steps and impact assessment. See [SECURITY.md](https://github.com/glincker/theauth/blob/main/SECURITY.md) for details.
 
 ## License
 
