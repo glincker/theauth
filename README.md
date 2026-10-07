@@ -5,7 +5,7 @@
 <h2 align="center"><em>Open-source auth for AI agents and humans.<br>Agent identity, MCP OAuth 2.1, passkeys, SSO.</em></h2>
 
 <p align="center">
-  by <a href="https://glincker.com"><strong>GLINR STUDIOS</strong></a> &middot; a <a href="https://glincker.com">GLINCKER LLC</a> project
+  by <a href="https://glinr.com"><strong>GLINR STUDIOS</strong></a> &middot; founded by <a href="https://thegdsks.com">thegdsks</a>
 </p>
 
 <p align="center">
@@ -502,8 +502,18 @@ By contributing, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
+## Made by GLINR STUDIOS
+
+theAuth is built and maintained in the open by [GLINR STUDIOS](https://glinr.com). Founder: [thegdsks.com](https://thegdsks.com). This site and the docs are designed with [GLINUI](https://glinui.com).
+
+### Partner open-source projects
+
+| Project | What it is | Site | Source |
+|---|---|---|---|
+| **LevelRail** | Self-hosted deployment platform: push to git, get a running app. | [levelrail.com](https://levelrail.com) | [glincker/levelrail](https://github.com/glincker/levelrail) |
+| **theSVG** | Open-source brand SVG icons. The brand marks on theauth.dev come from it. | [thesvg.org](https://thesvg.org) | [glincker/thesvg](https://github.com/glincker/thesvg) |
+| **GLINUI** | Open-source liquid glass UI components for React. theauth.dev is designed with it. | [glinui.com](https://glinui.com) | [glincker/glinui](https://github.com/glincker/glinui) |
+
 <p align="center">
-  <em>Built by the founder of <a href="https://thesvg.org">theSVG.org</a>.</em>
-  <br />
-  <em>A Product of <strong>GLINR STUDIOS</strong> | <strong>A GLINCKER COMPANY</strong></em>
+  <em>A product of <a href="https://glinr.com"><strong>GLINR STUDIOS</strong></a>. Founded by <a href="https://thegdsks.com">thegdsks</a>.</em>
 </p>
