@@ -1,33 +1,33 @@
 ---
 title: Compliance
-description: Audit infrastructure for EU AI Act, NIST, SOC 2, and ISO 42001. Agent actions write immutable records to `theauth_audit_logs` with identity, resource, and action.
+description: How TheAuth audit records and access controls map to EU AI Act, NIST, SOC 2, and ISO 42001 themes. Reports and control mapping only, not a certification.
 icon: file-lines
 ---
 
 
-TheAuth is built with compliance requirements in mind. Every agent action produces an immutable audit record with enough detail to satisfy the logging and oversight obligations of major AI governance frameworks.
+TheAuth writes an audit record for every authorization decision (when `agents.auditAll` is on, which is the default) and gives you access-control features that map to themes in common AI governance frameworks. This page maps those features to framework language and shows how to export the records.
 
-<Note>
-  The EU AI Act high-risk provisions take effect August 2, 2026. TheAuth gives you the audit infrastructure to meet the Article 12 and Article 14 requirements before that deadline.
-</Note>
+<Warning>
+  This page is a control mapping and a reporting aid. It is not legal advice, and using TheAuth does not make a system certified or compliant with any framework or regulation. Whether your system meets a given obligation depends on your own deployment, processes, and legal review. Application dates for EU AI Act high-risk obligations have been postponed, so check the Official Journal or your counsel for the dates that apply to you.
+</Warning>
 
 ## What TheAuth provides
 
 | Requirement | TheAuth feature |
 |-------------|-----------------|
-| Immutable audit log | `theauth_audit_logs` table with result, reason, duration, IP, user-agent |
+| Append-only audit log | `theauth_audit_logs` table with result, reason, duration, IP, user-agent. The SDK only inserts rows; the one delete path is `theauth.audit.cleanup()`, which you call yourself |
 | Human oversight | Approval flows (CIBA), delegation depth limits, permission constraints |
 | Access control | Resource+action permission model with constraints (IP, time window, rate) |
-| Identity traceability | Every action links agentId, userId, resource, action, parameters |
-| Export | `theauth.audit.export()` as JSON or CSV, or [as Verifiable Credentials](/compliance/verifiable-credentials) |
-| Anomaly detection | High-frequency, high-denial-rate, off-hours, privilege escalation |
+| Identity traceability | Every record links `agentId`, `userId`, resource, action, parameters |
+| Export | `theauth.audit.export()` as JSON or CSV (capped at 10,000 rows per call), or [as Verifiable Credentials](/compliance/verifiable-credentials) |
+| Behavior review | Query denials with `theauth.audit.query()`; trust scoring counts privilege-escalation style denials |
 
 ## Frameworks
 
 <AccordionGroup>
-  <Accordion title="EU AI Act (August 2, 2026 enforcement)">
+  <Accordion title="EU AI Act">
 
-The EU AI Act imposes obligations on providers and deployers of high-risk AI systems. The relevant articles for agentic AI are:
+The EU AI Act imposes obligations on providers and deployers of high-risk AI systems. These are the articles most relevant to agentic AI and the TheAuth features that relate to them. TheAuth supplies some of the technical building blocks; the obligations themselves stay with you.
 
 **Article 9 - Risk management system**
 
@@ -35,13 +35,13 @@ TheAuth supports Article 9 through:
 
 Permission constraints (`maxCallsPerHour`, `timeWindow`, `ipAllowlist`) that enforce operational boundaries
 
-Anomaly detection that flags unusual patterns before they become incidents
+Audit queries you can run to review denied and rate-limited calls
 
 Trust scoring that adjusts agent autonomy based on track record
 
 **Article 12 - Record-keeping**
 
-> "High-risk AI systems shall technically allow for the automatic recording of events throughout their lifetime."
+Article 12 concerns automatic recording of events (logs) over a high-risk system's lifetime.
 
 TheAuth logs every authorization decision (allowed, denied, rate_limited) with:
 
@@ -57,11 +57,11 @@ Duration in milliseconds
 
 Optional token cost (for LLM calls)
 
-Records are written to `theauth_audit_logs` and are never updated or deleted by the SDK.
+Records are written to `theauth_audit_logs`. The SDK never updates rows. It deletes rows only when you call `theauth.audit.cleanup({ retentionDays })`. IP address and user-agent are stored in the table but are not included in `audit.export()` output.
 
 **Article 14 - Human oversight**
 
-> "High-risk AI systems shall be designed and developed in such a way that they can be effectively overseen by natural persons."
+Article 14 concerns designing high-risk systems so natural persons can effectively oversee them.
 
 TheAuth provides:
 
@@ -69,7 +69,7 @@ TheAuth provides:
 
 Delegation depth limits (`maxDepth`) to prevent unbounded agent-to-agent chains
 
-Revocation (`theauth.agent.revoke()`) that takes effect immediately
+Revocation (`theauth.agent.revoke()`), after which the agent's status is `revoked` and its token no longer validates
 
 **Article 15 - Accuracy, robustness, cybersecurity**
 
@@ -85,15 +85,15 @@ IP allowlists and time window constraints at the permission level
 
   <Accordion title="NIST AI Agent Standards Initiative (Feb 2026)">
 
-The NIST AI Agent Standards Initiative (published February 2026) establishes baseline expectations for AI agent identity and access management.
+NIST has an AI Agent Standards Initiative focused on AI agent identity and access management. The themes below are how TheAuth features line up with that work. They are not NIST requirements that TheAuth certifies against.
 
 **Identity provenance**
 
-NIST requires that every agent action can be traced back to a specific identity. TheAuth links `agentId` and `userId` on every audit entry, creating a complete provenance chain.
+A recurring theme is that every agent action should be traceable to a specific identity. TheAuth links `agentId` and `userId` on every audit entry, creating a complete provenance chain.
 
 **Least privilege access**
 
-NIST recommends that agents operate with the minimum permissions necessary. TheAuth enforces this through:
+Another theme is that agents should operate with the minimum permissions necessary. TheAuth enforces this through:
 
 Fine-grained resource+action permission model
 
@@ -103,11 +103,11 @@ Scope-limited delegation that cannot exceed the delegating agent's own permissio
 
 **Revocation and expiry**
 
-NIST requires that agent credentials can be invalidated. TheAuth supports both immediate revocation (`theauth.agent.revoke()`) and time-based expiry via `expiresAt`.
+Agent credentials should be revocable. TheAuth supports both immediate revocation (`theauth.agent.revoke()`) and time-based expiry via `expiresAt`.
 
 **Audit trail**
 
-NIST requires tamper-evident logs. TheAuth writes all entries to a database table with no update or delete path in the SDK. For tamper-evidence in production, use your database's audit log features or ship logs to an immutable store (e.g. AWS CloudTrail, Loki with object storage).
+Logs should be tamper-evident. TheAuth writes entries to a database table and the SDK never updates them, but it does not provide cryptographic tamper-evidence by itself (apart from the optional [Verifiable Credential export](/compliance/verifiable-credentials)). For tamper-evidence in production, use your database's audit log features or ship logs to an immutable store (e.g. AWS CloudTrail, Loki with object storage).
 
   </Accordion>
 
@@ -123,7 +123,7 @@ Agent identity management with unique IDs per agent
 
 Permission-based access control (resource + action + constraints)
 
-Token hashing (only the hash is stored in `theauth_agents.token_hash`)
+Token hashing (only the SHA-256 hash is stored in `theauth_agents.token_hash`)
 
 Multi-tenant isolation via `tenantId`
 
@@ -148,30 +148,28 @@ Default permissions can be configured globally via `agents.defaultPermissions`
 **CC7.1 - System monitoring**
 
 
-Anomaly detection covers high-frequency calls, high denial rates, off-hours access, and privilege escalation attempts
+Audit records let you review denied calls and escalation-style denials, and trust scoring derives a score from denial history
 
 All authorization decisions are logged regardless of outcome
 
 **CC7.2 - Evaluation of security events**
 
 
-`theauth.audit.query()` supports filtering by agent, user, action, result, and time range
+`theauth.audit.query()` supports filtering by agent, user, actions, result, and time range
 
-`theauth.audit.export()` produces JSON or CSV for SIEM ingestion
+`theauth.audit.export()` produces JSON or CSV that you can feed to a SIEM
 
   </Accordion>
 
-  <Accordion title="ISO 42001 (Annex A.8)">
+  <Accordion title="ISO/IEC 42001">
 
-ISO 42001 is the AI management system standard. Annex A.8 covers AI system operation.
+ISO/IEC 42001 is the AI management system standard. It is a management system standard, so most of it concerns your organization's processes rather than software features. The TheAuth features below can serve as evidence for operational and monitoring controls. Check clause numbers against your copy of the standard.
 
-**A.8.2 - AI system input data**
+**Inputs**
 
 TheAuth logs the `parameters` field of every authorized action, giving you a record of what inputs were provided to agent-invoked tools.
 
-**A.8.3 - AI system operation**
-
-TheAuth provides operational controls through:
+**Operational controls**
 
 Rate limiting via `maxCallsPerHour` permission constraints
 
@@ -179,28 +177,25 @@ Time window restrictions via `timeWindow` constraints
 
 IP allowlisting via `ipAllowlist` constraints
 
-**A.8.4 - AI system output**
+**Outcomes**
 
-The audit log captures `result` (allowed/denied/rate_limited) and `reason` for every action, supporting output-level review.
+The audit log captures `result` (allowed, denied, rate_limited) and `reason` for every action, supporting review of outcomes.
 
-**A.8.5 - AI system performance monitoring**
-
+**Monitoring**
 
 Duration tracking (`durationMs`) on every audit entry
 
-Token cost tracking (`tokensCost`) for LLM operations
-
-`theauth.audit.getCostSummary()` aggregates costs by agent and day
+Token cost tracking (`tokensCost`) for LLM operations, which you can sum from `theauth.audit.query()` results
 
   </Accordion>
 </AccordionGroup>
 
-## Generating compliance reports
+## Generating reports
 
-The audit module provides export functionality for generating compliance evidence:
+The audit module exports records you can attach to your own compliance evidence. `export()` returns a string:
 
 ```typescript
-// Export all audit records for a time range as JSON
+// Export audit records for a time range as JSON
 const json = await theauth.audit.export({
   format: 'json',
   since: new Date('2026-01-01'),
@@ -213,27 +208,28 @@ const csv = await theauth.audit.export({
   since: new Date('2026-01-01'),
 });
 
-// Query specific events for a compliance review
+// Query specific events for a review
 const denials = await theauth.audit.query({
   result: 'denied',
   since: new Date('2026-01-01'),
   limit: 1000,
 });
 
-// Cost summary for Article 15 / A.8.5 reporting
-const costs = await theauth.audit.getCostSummary({
-  since: new Date('2026-01-01'),
-});
+// Sum token cost yourself from the same records
+const entries = await theauth.audit.query({ since: new Date('2026-01-01') });
+const totalTokens = entries.reduce((sum, e) => sum + (e.tokensCost ?? 0), 0);
 ```
+
+`export()` returns at most 10,000 records per call, so page through large periods with narrower `since` and `until` ranges. The CSV contains `id`, `agentId`, `userId`, `action`, `resource`, `result`, `reason`, `durationMs`, `tokensCost`, and `timestamp`. The JSON output also includes `parameters`.
 
 ## Retention
 
-TheAuth does not automatically delete audit records. Configure retention at the database level using your database's native partitioning or TTL features, or via a scheduled cleanup job.
+TheAuth does not delete audit records on its own. Retention is up to you: use your database's partitioning or TTL features, or call `theauth.audit.cleanup({ retentionDays })`, which permanently deletes rows older than the cutoff.
 
-For EU AI Act Article 12 compliance, the Act currently specifies retention "for a period appropriate to the intended purpose of the high-risk AI system." The generally accepted minimum is one year from the last use of the system.
+The EU AI Act sets its own log retention rules for high-risk systems. Confirm the period that applies to your system with counsel and set `retentionDays` to match.
 
 <Warning>
-  Do not delete audit records during a live compliance review or audit period. If you need to expire old records, do so only after retention obligations have been met.
+  Do not delete audit records during a live review or audit period. Expire old records only after your retention obligations have been met.
 </Warning>
 
 ## Related

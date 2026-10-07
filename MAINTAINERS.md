@@ -1,16 +1,13 @@
 # Maintainers Guide
 
-This document defines maintainer responsibilities and release workflow for TheAuth OSS.
+TheAuth is maintained by GLINR STUDIOS, a GLINCKER LLC project. This document defines maintainer responsibilities and the release workflow.
 
 Related docs:
 
 - Governance: `GOVERNANCE.md`
 - Support policy: `SUPPORT.md`
-- Triage operations: `docs/maintainer-triage-playbook.md`
-- Label taxonomy & sync: `docs/triage-label-taxonomy.md` + `.github/labels.yml`
-- GitHub Discussions setup: `docs/discussions-playbook.md`
-- PR summary template: `docs/oss-community-pr-summary.md`
-- Release strategy: `docs-local/release-versioning-runbook-2026-03-29.md`
+- Security policy: `SECURITY.md`
+- Labels: `.github/labels.yml`
 
 ## Maintainer responsibilities
 
@@ -29,13 +26,7 @@ Related docs:
 
 ## Release lanes
 
-TheAuth uses explicit release waves:
-
-1. Wave A: core + primary client-facing packages (`0.1.x` line)
-2. Wave B: adapters/plugins major alignment (`1.0.x` line)
-3. Dashboard remains on independent cadence
-
-See: `docs-local/release-versioning-runbook-2026-03-29.md`
+Packages are versioned independently with Changesets. Current lines are listed in `SECURITY.md` (for example core is 0.5.x). Most packages are pre-1.0, so minor bumps may include breaking changes; call them out in the changeset.
 
 ## Release checklist
 

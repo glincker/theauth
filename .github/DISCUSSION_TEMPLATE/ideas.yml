@@ -1,0 +1,24 @@
+title: "[Idea] "
+labels: ["discussion"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What do you wish TheAuth did differently?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: Sketch the API, HTTP shape, or config field.
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior_art
+    attributes:
+      label: Prior art
+      description: Other libraries, RFCs, or specs that have shaped your thinking.

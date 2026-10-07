@@ -1,0 +1,25 @@
+title: "[Q&A] "
+labels: ["discussion"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do?
+      description: One paragraph is usually enough.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Code snippet, config, links to docs you already read.
+      render: typescript
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "@glinr/theauth version"
+      placeholder: 0.5.0
