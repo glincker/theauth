@@ -1,5 +1,21 @@
 # @glinr/theauth-nuxt
 
+## 4.0.0
+
+### Minor Changes
+
+- 0fa5b1e: Remove the legacy KavachOS naming. The deprecated `Kavach*` and `createKavach` exports are gone: use `TheAuth*` and `createTheAuth`. Environment variables are now `THEAUTH_*`, webhook headers `X-TheAuth-*`, cookies and the default API route use `theauth`, and database tables are `theauth_*` (existing `kavach_*` tables are renamed in place by `createTables`, no data is lost). `Auth*` aliases remain deprecated.
+
+### Patch Changes
+
+- 960fe89: Delegation requests whose permissions are not a subset of the parent's now return HTTP 400 with error code `DELEGATION_PERMISSION_SUBSET` instead of a 500. Core throws a typed `DelegationError` (codes `DELEGATION_PERMISSION_SUBSET` and `DELEGATION_DEPTH_EXCEEDED`) and every REST adapter maps it to a 400 using that code.
+- Updated dependencies [960fe89]
+- Updated dependencies [dfd31f9]
+- Updated dependencies [5e53bdb]
+- Updated dependencies [0fa5b1e]
+- Updated dependencies [9861742]
+  - @glinr/theauth@0.6.0
+
 ## 3.0.3
 
 ### Patch Changes

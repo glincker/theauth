@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-ui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pre-built auth UI components for TheAuth",
   "type": "module",
   "main": "dist/index.js",
