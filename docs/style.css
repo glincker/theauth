@@ -1,0 +1,173 @@
+/* theAuth docs skin. Mirrors theauth.dev: near-black canvas, Inter (light weight display),
+   JetBrains Mono for code and labels, chartreuse CTA, violet links, lifted surfaces with a
+   gradient hairline ring, dotted grain glow at the top of the page. Selectors use ids, data
+   attributes and Mintlify's documented component classes, never hashed class names. */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-var.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+:root {
+  --ta-live: #eef35f;
+  --ta-violet: #b6abff;
+  --ta-teal: #00cbaa;
+  --ta-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ta-r: 12px;
+  /* Surfaces, ring, sheen and shadow (dark values, light overrides below). */
+  --ta-face: #0e0f11;
+  --ta-face-2: #141617;
+  --ta-text: #cfcfd3;
+  --ta-link: #b6abff;
+  --ta-line: rgba(255, 255, 255, 0.08);
+  --ta-ring: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.06));
+  --ta-ring-hot: linear-gradient(180deg, rgba(238, 243, 95, 0.55), rgba(238, 243, 95, 0.12) 45%, rgba(238, 243, 95, 0.2));
+  --ta-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0));
+  --ta-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 1px rgba(0, 0, 0, 0.5), 0 8px 16px -4px rgba(0, 0, 0, 0.55), 0 24px 48px -12px rgba(0, 0, 0, 0.65);
+  --ta-glow-op: 1;
+  --ta-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 9 0 0 0 -4.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+html:not(.dark) {
+  --ta-face: #ffffff;
+  --ta-face-2: #f6f6f7;
+  --ta-text: #3a3d40;
+  --ta-link: #5b4bc4;
+  --ta-line: rgba(14, 15, 17, 0.1);
+  --ta-ring: linear-gradient(180deg, rgba(14, 15, 17, 0.2), rgba(14, 15, 17, 0.08) 40%, rgba(14, 15, 17, 0.1));
+  --ta-ring-hot: linear-gradient(180deg, rgba(95, 102, 0, 0.6), rgba(95, 102, 0, 0.18) 45%, rgba(95, 102, 0, 0.26));
+  --ta-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  --ta-shadow: 0 1px 1px rgba(14, 15, 17, 0.06), 0 8px 16px -6px rgba(14, 15, 17, 0.1);
+  --ta-glow-op: 0.35;
+}
+
+/* ---------- Canvas and grain glow ---------- */
+html.dark body { background-color: #000; }
+body { position: relative; font-feature-settings: "cv11", "ss03"; -webkit-font-smoothing: antialiased; }
+/* The glow sits behind everything (z-index -1 under an isolated body). Two layers: a soft wash and the same
+   wash masked by thresholded noise so it dissolves into dots, like glow.css on the marketing site. */
+body::before, body::after {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 440px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(54% 92% at 50% 0%, rgba(182, 171, 255, 0.5), transparent 72%),
+    radial-gradient(38% 78% at 10% 0%, rgba(0, 203, 170, 0.42), transparent 72%),
+    radial-gradient(36% 70% at 92% 0%, rgba(238, 243, 95, 0.34), transparent 72%);
+}
+body::before { opacity: calc(0.4 * var(--ta-glow-op)); }
+body::after {
+  opacity: calc(0.9 * var(--ta-glow-op)); filter: saturate(1.2) brightness(1.25);
+  -webkit-mask-image: var(--ta-grain), linear-gradient(to bottom, #000 0%, transparent 88%);
+  -webkit-mask-size: 220px 220px, 100% 100%; -webkit-mask-composite: source-in;
+  mask-image: var(--ta-grain), linear-gradient(to bottom, #000 0%, transparent 88%);
+  mask-size: 220px 220px, 100% 100%; mask-composite: intersect;
+}
+html { isolation: isolate; }
+
+/* ---------- Typography ---------- */
+#content-area, #content-container { color: var(--ta-text); }
+#page-title { font-weight: 300; letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance; }
+#content-area h2 { font-weight: 300; letter-spacing: -0.025em; }
+#content-area h3, #content-area h4 { font-weight: 500; letter-spacing: -0.02em; }
+#header p, #content-area p { text-wrap: pretty; }
+/* Eyebrow above the title (the group label) reads as a mono label with a teal dot. */
+#header > div > div:first-child:not(:has(h1)) {
+  font-family: var(--ta-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: #8d8d96;
+}
+/* Mintlify sets link color through the primary token (olive), so force violet on prose links. */
+#content-area a:not(.card):not([data-component-part]) { color: var(--ta-link); }
+#content-area a[href]:not(.card) { text-decoration-color: color-mix(in srgb, var(--ta-link) 40%, transparent); }
+#content-area a[href]:not(.card):hover { text-decoration-color: currentColor; }
+
+/* ---------- Inline code and code blocks ---------- */
+code, pre, kbd, samp { font-family: var(--ta-mono) !important; /* Mintlify sets mono inline via a font var; override it */ font-feature-settings: "calt" 0; }
+#content-area :not(pre) > code {
+  background: var(--ta-face-2); border: 1px solid var(--ta-line); border-radius: 6px; padding: 0.1em 0.4em; font-size: 0.875em; color: inherit;
+}
+html.dark #content-area :not(pre) > code { color: #e4e4e7; }
+.code-block {
+  border-radius: var(--ta-r); border: 1px solid transparent; box-shadow: var(--ta-shadow);
+  background: var(--ta-sheen) padding-box, linear-gradient(#08090a, #08090a) padding-box, var(--ta-ring) border-box;
+}
+.code-block-background, .code-block > div { border-radius: var(--ta-r); background-color: transparent; }
+.code-block [data-component-part="code-block-root"], .code-block pre { background: transparent; }
+.code-block code { font-size: 0.8125rem; line-height: 1.7; }
+
+/* ---------- Lifted surfaces: cards, callouts, accordions, update/steps panels ---------- */
+.card, .accordion, .accordion-group, .callout {
+  border: 1px solid transparent; border-radius: var(--ta-r); box-shadow: var(--ta-shadow);
+  background: var(--ta-sheen) padding-box, linear-gradient(var(--ta-face), var(--ta-face)) padding-box, var(--ta-ring) border-box;
+}
+.card { transition: box-shadow 0.2s, transform 0.2s; }
+/* Mintlify sets hover:border-primary! (important), so the hover ring is a chartreuse/olive hairline by design. */
+.card:hover { transform: translateY(-1px); }
+html.dark .card:hover { border-color: rgba(238, 243, 95, 0.45); }
+.card [data-component-part="card-title"] { font-weight: 500; letter-spacing: -0.01em; }
+.card [data-component-part="card-icon"] { color: var(--ta-live); }
+html:not(.dark) .card [data-component-part="card-icon"] { color: #5f6600; }
+.accordion { margin-bottom: 0.75rem; overflow: hidden; }
+.accordion-group { overflow: hidden; }
+.callout { padding: 1rem 1.25rem; }
+/* Semantic callout tints stay (info/warn/tip/danger); they just get the 12px lifted shape. */
+.callout[class*="border-yellow"], .callout[class*="border-green"], .callout[class*="border-blue"], .callout[class*="border-red"], .callout[class*="border-sky"] {
+  background: var(--ta-sheen) padding-box, linear-gradient(var(--ta-face), var(--ta-face)) padding-box, var(--ta-ring) border-box;
+}
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
+
+/* ---------- Tables ---------- */
+#content-area table {
+  border-collapse: separate; border-spacing: 0; border: 1px solid var(--ta-line); border-radius: var(--ta-r); overflow: hidden; box-shadow: var(--ta-shadow);
+}
+#content-area thead th {
+  font-family: var(--ta-mono); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #8d8d96; background: var(--ta-face-2);
+}
+#content-area tbody td, #content-area thead th { border-bottom: 1px solid var(--ta-line); }
+#content-area tbody tr:last-child td { border-bottom: 0; }
+
+/* ---------- Navbar ---------- */
+/* Translucent, blur-free bar with a hairline; the page glow shows through. The bg lives on an absolute child. */
+#navbar > div.absolute, #navbar > div > div.absolute { background: color-mix(in srgb, var(--ta-face) 55%, transparent); border-bottom-color: var(--ta-line); backdrop-filter: none; }
+#sidebar .sticky.pointer-events-none { background: none; /* drop the opaque scroll fade so the glow reads continuously */ }
+#navbar .nav-tabs-item[data-active="true"] { color: var(--ta-live); }
+html:not(.dark) #navbar .nav-tabs-item[data-active="true"] { color: #5f6600; }
+#navbar .nav-tabs-item[data-active="true"] > div, #navbar .nav-tabs-item[data-active="true"]::after { background: var(--ta-live); }
+html:not(.dark) #navbar .nav-tabs-item[data-active="true"] > div, html:not(.dark) #navbar .nav-tabs-item[data-active="true"]::after { background: #5f6600; }
+
+/* Primary navbar button: pill key with a chartreuse face and dark ink. The face is Mintlify's absolutely
+   positioned span, the label and chevron sit above it. */
+#topbar-cta-button a > span.absolute {
+  border-radius: 50px; background: var(--ta-live); border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 6px 14px -6px rgba(238, 243, 95, 0.45);
+}
+#topbar-cta-button a { padding-left: 1rem; padding-right: 0.75rem; }
+#topbar-cta-button a .text-white, #topbar-cta-button a svg { color: #000 !important; /* label uses a fixed text-white utility */ }
+html:not(.dark) #topbar-cta-button a > span.absolute { background: #0e0f11; border-color: transparent; box-shadow: 0 1px 1px rgba(14, 15, 17, 0.3); }
+html:not(.dark) #topbar-cta-button a .text-white, html:not(.dark) #topbar-cta-button a svg { color: #eef35f !important; /* chartreuse ink on the dark pill */ }
+
+/* Search box */
+#search-bar-entry {
+  border-radius: 50px; border: 1px solid transparent; box-shadow: var(--ta-shadow);
+  background: var(--ta-sheen) padding-box, linear-gradient(var(--ta-face-2), var(--ta-face-2)) padding-box, var(--ta-ring) border-box;
+}
+#search-bar-entry:hover { background: var(--ta-sheen) padding-box, linear-gradient(var(--ta-face-2), var(--ta-face-2)) padding-box, var(--ta-ring-hot) border-box; }
+
+/* ---------- Sidebar ---------- */
+#sidebar .sidebar-group-header { font-family: var(--ta-mono); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; color: #8d8d96; }
+#sidebar a[aria-current="page"] {
+  border-radius: 50px; color: var(--ta-live); background: rgba(238, 243, 95, 0.08); box-shadow: inset 0 0 0 1px rgba(238, 243, 95, 0.2);
+}
+html:not(.dark) #sidebar a[aria-current="page"] { color: #4f5700; background: rgba(95, 102, 0, 0.09); box-shadow: inset 0 0 0 1px rgba(95, 102, 0, 0.25); }
+#sidebar a:not([aria-current="page"]):hover { border-radius: 50px; }
+
+/* On this page: the current heading takes the chartreuse accent. */
+#table-of-contents a[data-active="true"], #table-of-contents .toc-item[data-active="true"] { color: var(--ta-live); }
+html:not(.dark) #table-of-contents a[data-active="true"] { color: #5f6600; }
+
+/* ---------- Brand icon fixes (unchanged behavior, vendored SVGs) ---------- */
+#sidebar img[src^="/brand-icons/"], main img[src^="/brand-icons/"] {
+  width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; object-fit: contain;
+}
+html.dark #sidebar img[src^="/brand-icons/"] { filter: invert(1) brightness(0.9); }
+
+/* ---------- Footer ---------- */
+#footer { border-top: 1px solid var(--ta-line); }

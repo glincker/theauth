@@ -1,21 +1,26 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "maple",
-  "name": "TheAuth",
-  "description": "Auth OS for AI agents. TypeScript SDK for agent identity, permissions, delegation, audit, and MCP OAuth 2.1.",
+  "theme": "mint",
+  "name": "theAuth",
+  "description": "Open-source auth for AI agents and humans. Agent identity, delegation, MCP OAuth 2.1, passkeys and SSO for TypeScript, Go and Python.",
   "colors": {
-    "primary": "#C9A84C",
-    "light": "#E0C56A",
-    "dark": "#8B6914"
+    "primary": "#5f6600",
+    "light": "#eef35f",
+    "dark": "#4f5700"
   },
   "background": {
-    "decoration": "gradient"
+    "color": {
+      "light": "#ffffff",
+      "dark": "#000000"
+    }
   },
-  "favicon": "/favicon.png",
+  "favicon": {
+    "light": "/favicon.svg",
+    "dark": "/favicon.svg"
+  },
   "styling": {
-    "codeblocks": "system"
+    "codeblocks": "dark"
   },
-  "css": "/styles/custom.css",
   "logo": {
     "light": "/logo/wordmark-light.svg",
     "dark": "/logo/wordmark-dark.svg",
@@ -23,7 +28,8 @@
   },
   "fonts": {
     "heading": {
-      "family": "Inter"
+      "family": "Inter",
+      "weight": 300
     },
     "body": {
       "family": "Inter"
@@ -37,7 +43,7 @@
     "timestamp": true
   },
   "search": {
-    "prompt": "Search docs, agents, or standards"
+    "prompt": "Search docs, agents, SDKs, standards"
   },
   "interaction": {
     "drilldown": true
@@ -52,10 +58,6 @@
       "mcp"
     ]
   },
-  "banner": {
-    "content": "TheAuth v0.4.2 is out. [Install](/quickstart) or [star on GitHub](https://github.com/glincker/theauth).",
-    "dismissible": true
-  },
   "errors": {
     "404": {
       "title": "Page not found",
@@ -65,6 +67,11 @@
   },
   "navbar": {
     "links": [
+      {
+        "label": "Website",
+        "icon": "globe",
+        "href": "https://theauth.dev"
+      },
       {
         "label": "Changelog",
         "icon": "clock-rotate-left",
@@ -78,7 +85,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "npm i @glinr/theauth",
+      "label": "Get started",
       "href": "/quickstart"
     }
   },
@@ -91,7 +98,7 @@
   },
   "seo": {
     "metatags": {
-      "og:site_name": "TheAuth",
+      "og:site_name": "theAuth",
       "og:type": "website",
       "og:image": "https://docs.theauth.dev/og-logo.png",
       "og:image:width": "1200",
