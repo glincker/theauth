@@ -54,7 +54,7 @@ npx theauth dashboard --port 4000 --api http://localhost:3000
 
 ## Docs and support
 
-- Documentation: [docs.theauth.dev/docs](https://docs.theauth.dev/docs)
+- Documentation: [docs.theauth.dev](https://docs.theauth.dev)
 - GitHub: [github.com/glincker/theauth](https://github.com/glincker/theauth)
 
 ## Community

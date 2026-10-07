@@ -111,7 +111,7 @@ try {
 
 ## Docs
 
-[https://docs.theauth.dev/client](https://docs.theauth.dev/client)
+[https://docs.theauth.dev/client](https://docs.theauth.dev/client-sdk)
 
 ## Community
 

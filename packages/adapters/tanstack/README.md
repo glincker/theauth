@@ -28,7 +28,7 @@ export const { GET, POST } = theAuthTanStack(theauth);
 
 ## Docs
 
-[docs.theauth.dev/docs/adapters/tanstack](https://docs.theauth.dev/docs/adapters/tanstack)
+[docs.theauth.dev/adapters/tanstack](https://docs.theauth.dev/adapters/tanstack)
 
 ## License
 

@@ -21,8 +21,8 @@
 
 <p align="center">
   <a href="https://theauth.dev"><strong>Website</strong></a> &middot;
-  <a href="https://docs.theauth.dev/docs/quickstart"><strong>Quickstart</strong></a> &middot;
-  <a href="https://docs.theauth.dev/docs"><strong>Docs</strong></a> &middot;
+  <a href="https://docs.theauth.dev/quickstart"><strong>Quickstart</strong></a> &middot;
+  <a href="https://docs.theauth.dev"><strong>Docs</strong></a> &middot;
   <a href="https://github.com/glincker/theauth/tree/main/examples"><strong>Examples</strong></a> &middot;
   <a href="https://github.com/glincker/theauth/discussions"><strong>Discussions</strong></a> &middot;
   <a href="https://theauth.dev/pricing/"><strong>Cloud (early access)</strong></a>
@@ -382,17 +382,17 @@ See [`examples/hono-server`](https://github.com/glincker/theauth/tree/main/examp
 
 ## Documentation
 
-**Primary docs:** [docs.theauth.dev](https://docs.theauth.dev/docs)
+**Primary docs:** [docs.theauth.dev](https://docs.theauth.dev)
 
 | Section | Link | What you will find |
 |---|---|---|
-| Getting Started | [docs.theauth.dev/docs/quickstart](https://docs.theauth.dev/docs/quickstart) | Installation, first auth flow |
-| Authentication | [docs.theauth.dev/docs/auth](https://docs.theauth.dev/docs/auth) | All auth methods and plugins |
-| Agent Identity | [docs.theauth.dev/docs/agents](https://docs.theauth.dev/docs/agents) | Agent tokens, delegation, policies |
-| Permissions | [docs.theauth.dev/docs/permissions](https://docs.theauth.dev/docs/permissions) | RBAC, wildcard matching, ReBAC |
-| MCP OAuth 2.1 | [docs.theauth.dev/docs/mcp](https://docs.theauth.dev/docs/mcp) | MCP auth server setup |
-| Framework Adapters | [docs.theauth.dev/docs/adapters](https://docs.theauth.dev/docs/adapters) | Next.js, Hono, SvelteKit, etc. |
-| API Reference | [docs.theauth.dev/docs/api](https://docs.theauth.dev/docs/api) | Config, types, errors |
+| Getting Started | [docs.theauth.dev/quickstart](https://docs.theauth.dev/quickstart) | Installation, first auth flow |
+| Authentication | [docs.theauth.dev/auth](https://docs.theauth.dev/auth) | All auth methods and plugins |
+| Agent Identity | [docs.theauth.dev/agents](https://docs.theauth.dev/agents) | Agent tokens, delegation, policies |
+| Permissions | [docs.theauth.dev/permissions](https://docs.theauth.dev/permissions) | RBAC, wildcard matching, ReBAC |
+| MCP OAuth 2.1 | [docs.theauth.dev/mcp](https://docs.theauth.dev/mcp) | MCP auth server setup |
+| Framework Adapters | [docs.theauth.dev/adapters](https://docs.theauth.dev/adapters) | Next.js, Hono, SvelteKit, etc. |
+| API Reference | [docs.theauth.dev/api](https://docs.theauth.dev/api) | Config, types, errors |
 | Security | [SECURITY.md](SECURITY.md) | Threat model, disclosure policy |
 
 ---
@@ -462,7 +462,7 @@ Hosted version with dashboard, billing, and zero infrastructure. Early access: [
 <p align="center">
   <a href="https://theauth.dev/pricing/"><strong>Cloud (early access)</strong></a> ·
   <a href="https://theauth.dev">Website</a> ·
-  <a href="https://docs.theauth.dev/docs/quickstart">Self-host instead</a>
+  <a href="https://docs.theauth.dev/quickstart">Self-host instead</a>
 </p>
 
 ---

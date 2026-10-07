@@ -28,7 +28,7 @@ export const { GET, POST } = theAuthSolidStart(theauth);
 
 ## Docs
 
-[docs.theauth.dev/docs/adapters/solidstart](https://docs.theauth.dev/docs/adapters/solidstart)
+[docs.theauth.dev/adapters/solidstart](https://docs.theauth.dev/adapters/solidstart)
 
 ## License
 

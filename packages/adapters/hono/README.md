@@ -68,7 +68,7 @@ For full docs on agent identity, permissions, delegation, and audit, see the mai
 
 ## Links
 
-- [Documentation](https://docs.theauth.dev/docs)
+- [Documentation](https://docs.theauth.dev)
 - [GitHub](https://github.com/glincker/theauth)
 
 ## License

@@ -46,7 +46,7 @@ app.use("/api/theauth", theAuthMiddleware(theauth));
 
 ## Docs
 
-[docs.theauth.dev/docs/adapters/nestjs](https://docs.theauth.dev/docs/adapters/nestjs)
+[docs.theauth.dev/adapters/nestjs](https://docs.theauth.dev/adapters/nestjs)
 
 ## License
 

@@ -20,8 +20,8 @@
 
 <p align="center">
   <a href="https://theauth.dev">Website</a> &middot;
-  <a href="https://docs.theauth.dev/docs/quickstart">Quickstart</a> &middot;
-  <a href="https://docs.theauth.dev/docs">Documentation</a> &middot;
+  <a href="https://docs.theauth.dev/quickstart">Quickstart</a> &middot;
+  <a href="https://docs.theauth.dev">Documentation</a> &middot;
   <a href="https://github.com/glincker/theauth/tree/main/examples">Examples</a> &middot;
   <a href="https://theauth.dev/pricing/">Cloud (early access)</a>
 </p>
@@ -194,11 +194,11 @@ Don't want to self-host? [TheAuth Cloud](https://theauth.dev/pricing/) (early ac
 | MAU | 1,000 | 10,000 | 50,000 | 200,000 |
 | Price | $0 | $29/mo | $79/mo | $199/mo |
 
-[Cloud early access](https://theauth.dev/pricing/) &middot; [Compare plans](https://theauth.dev/pricing/) &middot; [Self-host instead](https://docs.theauth.dev/docs/quickstart)
+[Cloud early access](https://theauth.dev/pricing/) &middot; [Compare plans](https://theauth.dev/pricing/) &middot; [Self-host instead](https://docs.theauth.dev/quickstart)
 
 ## Documentation
 
-Full docs at **[docs.theauth.dev](https://docs.theauth.dev/docs)**
+Full docs at **[docs.theauth.dev](https://docs.theauth.dev)**
 
 ## Community
 
