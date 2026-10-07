@@ -1,13 +1,22 @@
 name: Release
 
+# Creates the GitHub release (and its tag) for the core version once Publish has succeeded on main.
+# Notes are generated from the changesets changelogs by scripts/release-notes.mjs, so every release has a summary,
+# a package table and a compare link. Nothing here publishes to npm: that is publish.yml.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["Publish"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to create or refresh the release for, for example v0.6.0 (uses the core version at the tag, or at main when the tag does not exist yet)
+        required: true
 
 permissions:
   contents: write
-  id-token: write
+  actions: write
 
 concurrency:
   group: release
@@ -15,48 +24,63 @@ concurrency:
 
 jobs:
   release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.6.5
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-          registry-url: https://registry.npmjs.org
 
-      - run: pnpm install --frozen-lockfile --prefer-offline
-      - run: pnpm build
-      - run: pnpm test --filter @glinr/theauth -- --exclude tests/timer-test.test.ts --exclude tests/webhook-delivery.test.ts
-
-      # Determine npm tag from git tag
-      - name: Determine npm tag
-        id: npm-tag
+      - name: Work out the tag
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          if echo "$TAG" | grep -qE '(alpha|beta|rc|canary|next)'; then
-            NPM_TAG=$(echo "$TAG" | grep -oE '(alpha|beta|rc|canary|next)')
-            echo "tag=$NPM_TAG" >> $GITHUB_OUTPUT
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          TAG="${INPUT_TAG:-v$VERSION}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && [ -z "$INPUT_TAG" ]; then
+            echo "Tag $TAG already exists, nothing to release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PRE=false
+          case "$TAG" in *-*) PRE=true ;; esac
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "pre=$PRE" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the release notes
+        if: steps.meta.outputs.skip == 'false'
+        run: node scripts/release-notes.mjs "${{ steps.meta.outputs.tag }}" --sha "${{ steps.meta.outputs.sha }}" > "$RUNNER_TEMP/notes.md"
+
+      - name: Create or update the GitHub release
+        if: steps.meta.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          SHA: ${{ steps.meta.outputs.sha }}
+          PRE: ${{ steps.meta.outputs.pre }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "theAuth ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md"
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            FLAGS="--latest"
+            [ "$PRE" = "true" ] && FLAGS="--prerelease"
+            gh release create "$TAG" --target "$SHA" --title "theAuth ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" $FLAGS
           fi
 
-      - name: Publish to npm
-        run: pnpm -r publish --access public --tag ${{ steps.npm-tag.outputs.tag }} --no-git-checks || true
+      # Releases and tags made with the default token do not start other workflows, so start the monthly
+      # release discussion sync explicitly (workflow_dispatch is the one event allowed to chain).
+      - name: Sync the release discussion
+        if: steps.meta.outputs.skip == 'false'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v3
-        with:
-          generate_release_notes: true
-          tag_name: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: gh workflow run release-discussion-caller.yml -f tag="$TAG"
