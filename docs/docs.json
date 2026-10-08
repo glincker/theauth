@@ -357,6 +357,7 @@
             "icon": "network-wired",
             "pages": [
               "mcp",
+              "dpop",
               "gateway"
             ]
           },
