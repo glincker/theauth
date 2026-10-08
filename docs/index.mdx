@@ -1,42 +1,71 @@
 ---
 title: theAuth
-description: Auth OS for AI agents. Identity, permissions, delegation, audit, and MCP OAuth in one TypeScript SDK.
+description: Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus 14 human auth methods and 17 OAuth providers, in one TypeScript SDK.
 icon: book-open
 ---
 
-**Auth for AI agents.** theAuth gives every agent its own identity, checks permissions at call time, and writes an audit row for every decision. Plugs in after your human auth (Clerk, Auth.js, better-auth, or your own). Runs on Node, edge, Workers, Deno, and Bun.
+**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: 14 methods (email and password, magic link, passkeys, TOTP and more) and 17 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
 
 <Note>Building in Go? See the [theAuth Go library docs](/go/getting-started/overview).</Note>
 
+## Pick your track
+
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Agent in five minutes.
+  <Card title="Add agent auth" icon="robot" href="/quickstart#track-a-add-agent-auth">
+    Give agents an identity, scoped permissions, delegation and an audit trail. About five minutes.
   </Card>
-  <Card title="npm install" icon="terminal" href="/quickstart">
-    `npm i @glinr/theauth`
+  <Card title="Add human auth" icon="user" href="/quickstart#track-b-add-human-auth">
+    Sign-up, sign-in, verification and reset with email and password, then add passkeys, OAuth and more. About five minutes.
   </Card>
 </CardGroup>
 
+### Agent auth in one screen
+
 ```ts
-import { createTheAuth } from '@glinr/theauth';
+import { createTheAuth, users } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite', url: ':memory:' },
 });
 
+// The owner must exist in theauth_users (human auth creates these for you).
+theauth.db.insert(users).values({
+  id: 'user-123', email: 'owner@example.com', name: 'Owner',
+  createdAt: new Date(), updatedAt: new Date(),
+}).run();
+
 const agent = await theauth.agent.create({
-  ownerId: user.id,
+  ownerId: 'user-123',
   name: 'code-reviewer',
   type: 'autonomous',
-  permissions: [
-    { resource: 'mcp:github:*', actions: ['read'] },
-  ],
+  permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
 });
 
 const { allowed, auditId } = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
+```
+
+### Human auth in one screen
+
+```ts
+import { createTheAuth } from '@glinr/theauth';
+import { emailPassword } from '@glinr/theauth-email';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: ':memory:' },
+  plugins: [
+    emailPassword({
+      appUrl: 'http://localhost:3000',
+      sendVerificationEmail: async (email, _token, url) => console.log(email, url),
+      sendResetEmail: async (email, _token, url) => console.log(email, url),
+    }),
+  ],
+});
+
+// POST /auth/sign-up, /auth/sign-in, /auth/verify-email, /auth/request-reset ...
+const res = await theauth.plugins.handleRequest(request);
 ```
 
 ## What's in the box
@@ -75,7 +104,7 @@ const { allowed, auditId } = await theauth.authorize(agent.id, {
 
 ```mermaid
 flowchart LR
-  User([Human user]) -->|signs in| HumanAuth[Clerk / Auth.js / better-auth]
+  User([Human user]) -->|signs in| HumanAuth[theAuth human auth, or Clerk / Auth.js / better-auth]
   HumanAuth -->|user ID| TheAuth[TheAuth]
   TheAuth -->|agent.create| Agents[(Agents)]
   TheAuth -->|authorize| Decision{allowed?}
@@ -84,7 +113,7 @@ flowchart LR
 ```
 
 <Info>
-theAuth does not replace your human auth. It does not handle login forms, password resets, or social OAuth for users. It starts where human auth ends, at the point your product spins up an agent to act on a user's behalf.
+theAuth includes human auth, but you do not have to use it. If you already run Clerk, Auth.js, better-auth or your own login, keep it and pass the user ID as the agent's owner. theAuth's own methods (see [Authentication](/auth)) cover sign-in forms, password reset and social OAuth when you want one library for both.
 </Info>
 
 <Frame caption="theAuth runs inside your own app and infrastructure, with your own database.">
@@ -124,7 +153,7 @@ theAuth does not replace your human auth. It does not handle login forms, passwo
 
 <CardGroup cols={2}>
   <Card title="Agent identity" icon="robot" href="/agents">
-    Bearer tokens (`kv_...`), rotation, expiry. SHA-256 hashed at rest.
+    Bearer tokens (`kv_...`, a prefix kept from before the rename), rotation, expiry. SHA-256 hashed at rest.
   </Card>
   <Card title="Permission engine" icon="shield-halved" href="/permissions">
     Resource wildcards, rate limits, time windows, IP allowlists, approval gates.

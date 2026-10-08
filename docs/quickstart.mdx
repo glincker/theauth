@@ -1,66 +1,25 @@
 ---
 title: Quickstart
-description: Install theAuth, create your first AgentIdentity, and run an authorization check. Scaffold a full Next.js SaaS app with @glinr/create-theauth-app in one command.
+description: Two five-minute tracks. Add agent auth (identity, permissions, audit) or human auth (email and password), or both. Scaffold a Next.js SaaS with one command.
 icon: rocket
 ---
 
 <Note>Building in Go? See the [theAuth Go library docs](/go/getting-started/overview).</Note>
 
-<Columns cols={2}>
-<div>
-Two paths. Pick whichever fits your day.
+theAuth does two jobs, and you can use either one alone or both together. Pick the track that matches what you are building. Each takes under five minutes and the code runs as pasted (SQLite, no other services).
 
-<CardGroup cols={1}>
-  <Card title="Start from a template" icon="wand-magic-sparkles" href="#start-from-a-template">
-    One command, a running Next.js SaaS, theAuth wired up.
+<CardGroup cols={2}>
+  <Card title="Add agent auth" icon="robot" href="#track-a-add-agent-auth">
+    Identity, scoped permissions, delegation and an audit row for every AI agent.
   </Card>
-  <Card title="Add to an existing app" icon="screwdriver-wrench" href="#your-first-agent">
-    Install, create, authorize, audit. Six steps.
+  <Card title="Add human auth" icon="user" href="#track-b-add-human-auth">
+    Sign-up, sign-in, email verification and password reset for your users.
   </Card>
 </CardGroup>
-</div>
 
-```bash
-pnpm create @glinr/theauth-app
-# answer the 4 prompts, then:
-cd my-theauth-app && pnpm install && pnpm db:push && pnpm dev
-```
-</Columns>
+Want a full app instead? `pnpm create @glinr/theauth-app` scaffolds a Next.js SaaS with theAuth wired up (also `npm create`, `yarn create`, `bun create`). The CLI asks for a directory, a template, a package manager and a database driver; the Next.js SaaS and Hono MCP templates are available.
 
-## Start from a template
-
-The fastest path is the scaffolder. One command, four prompts, a running Next.js SaaS with theAuth wired up.
-
-<Tabs>
-  <Tab title="pnpm">
-    ```bash title="terminal"
-    pnpm create @glinr/theauth-app
-    ```
-  </Tab>
-  <Tab title="npm">
-    ```bash title="terminal"
-    npm create @glinr/theauth-app
-    ```
-  </Tab>
-  <Tab title="yarn">
-    ```bash title="terminal"
-    yarn create @glinr/theauth-app
-    ```
-  </Tab>
-  <Tab title="bun">
-    ```bash title="terminal"
-    bun create @glinr/theauth-app
-    ```
-  </Tab>
-</Tabs>
-
-The CLI asks for a directory, a template, a package manager, and a database driver. The Next.js SaaS and Hono MCP templates are available; the Expo template prints a coming-soon note and exits. Placeholders in the template (`__APP_NAME__`, `__DB_DRIVER__`, `__DB_URL__`) are replaced on copy.
-
-Next steps are printed at the end: `cd`, install, `db:push`, `dev`.
-
-Prefer to wire up an existing app? Keep reading.
-
-## Your first agent
+## Track A: Add agent auth
 
 <Steps>
 
@@ -68,49 +27,37 @@ Prefer to wire up an existing app? Keep reading.
 
 ### Install
 
-<Tabs>
-  <Tab title="pnpm">
-    ```bash title="terminal"
-    pnpm add @glinr/theauth
-    ```
-  </Tab>
-  <Tab title="npm">
-    ```bash title="terminal"
-    npm install @glinr/theauth
-    ```
-  </Tab>
-  <Tab title="yarn">
-    ```bash title="terminal"
-    yarn add @glinr/theauth
-    ```
-  </Tab>
-</Tabs>
+```bash title="terminal"
+pnpm add @glinr/theauth better-sqlite3
+```
+
+`npm install` and `yarn add` work the same way. The Node SQLite driver is `better-sqlite3`; on Bun, Deno and Workers use the matching [database provider](/database).
 
 </Step>
 
 <Step>
 
-### Create an instance
+### Create an instance and an owner
 
-Pass a database config to `createTheAuth`. Use SQLite for local development and Postgres in production.
+Every agent has an owner: a user ID that exists as a row in `theauth_users` (the `owner_id` column is a foreign key, so creating an agent for an unknown ID fails). Human auth in the next track creates these rows for you; if you already have users in another system, insert a row for each one you want to own agents.
 
-```ts
-import { createTheAuth } from '@glinr/theauth';
+```ts title="agent.ts"
+import { createTheAuth, users } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
-  agents: {
-    enabled: true,
-    maxPerUser: 10,
-    auditAll: true,    // record every authorize() call
-    tokenExpiry: '24h',
-  },
+  database: { provider: 'sqlite', url: ':memory:' }, // use a file path to keep data
+  agents: { enabled: true, maxPerUser: 10, auditAll: true, tokenExpiry: '24h' },
 });
-```
 
-<Info>
-For in-memory storage (useful in tests), pass `url: ':memory:'` instead.
-</Info>
+// Owner row. Skip this if the user came from the human auth track.
+theauth.db.insert(users).values({
+  id: 'user-123',
+  email: 'owner@example.com',
+  name: 'Owner',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}).run();
+```
 
 </Step>
 
@@ -118,18 +65,13 @@ For in-memory storage (useful in tests), pass `url: ':memory:'` instead.
 
 ### Create an agent
 
-An agent always has an owner: a user ID that already exists as a row in `theauth_users` (the `owner_id` column is a foreign key). The row can come from theAuth's own auth modules or be inserted yourself, as shown in [Troubleshooting](#foreign-key-constraint-failed-when-creating-agents).
-
-```ts
+```ts title="agent.ts"
 const agent = await theauth.agent.create({
-  ownerId: 'user-123',          // from your auth provider
+  ownerId: 'user-123',
   name: 'github-reader',
   type: 'autonomous',
   permissions: [
-    {
-      resource: 'mcp:github:*',
-      actions: ['read'],
-    },
+    { resource: 'mcp:github:*', actions: ['read'] },
     {
       resource: 'mcp:deploy:production',
       actions: ['execute'],
@@ -141,13 +83,15 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token is the bearer token: "kv_..."
+// agent.token is the bearer token. Agent tokens start with "kv_".
 console.log(agent.token);
 ```
 
 <Warning>
-The token is shown exactly once, at creation time. Store it immediately in your secrets manager or pass it directly to the agent. It cannot be recovered after this point, only rotated.
+The token is shown once, at creation. Store it in your secrets manager or hand it straight to the agent. It cannot be recovered, only rotated.
 </Warning>
+
+The `kv_` prefix is intentional: it predates the rename from Kavach to theAuth and was kept so tokens already issued keep working (see [RENAME-MAP.md](https://github.com/glincker/theauth/blob/main/RENAME-MAP.md)).
 
 There are three agent types:
 
@@ -161,29 +105,71 @@ There are three agent types:
 
 <Step>
 
-### Authorize an action
+### Authorize an action and read the audit trail
 
-Call `theauth.authorize` before any sensitive operation. It returns `{ allowed, reason?, auditId }`. `reason` is a free-text explanation when the request is denied. Budget policies are not checked here; call `theauth.policies.checkBudget()` yourself if you use them.
+`authorize` returns `{ allowed, reason?, auditId }`. `reason` explains a denial. Budget policies are not checked here; call `theauth.policies.checkBudget()` yourself if you use them.
 
-```ts
+```ts title="agent.ts"
 const result = await theauth.authorize(agent.id, {
   action: 'read',
   resource: 'mcp:github:repos',
 });
+if (!result.allowed) throw new Error(`Denied: ${result.reason}`);
 
-if (!result.allowed) {
-  throw new Error(`Denied: ${result.reason}`);
-}
-
-// result.auditId links this decision to its audit log entry
-```
-
-If you only have the raw bearer token (from an incoming HTTP request, for example), use `authorizeByToken` instead:
-
-```ts
-const result = await theauth.authorizeByToken(bearerToken, {
+// With only the raw bearer token (from an incoming HTTP request):
+const byToken = await theauth.authorizeByToken(agent.token, {
   action: 'read',
   resource: 'mcp:github:repos',
+});
+
+// Every decision is logged while auditAll is on (the default).
+const logs = await theauth.audit.query({ agentId: agent.id });
+const denied = await theauth.audit.query({ agentId: agent.id, result: 'denied' });
+const csv = await theauth.audit.export({ format: 'csv' });
+```
+
+Run it with `npx tsx agent.ts`.
+
+</Step>
+
+</Steps>
+
+## Track B: Add human auth
+
+theAuth ships 14 human auth methods and 17 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
+
+<Steps>
+
+<Step>
+
+### Install
+
+```bash title="terminal"
+pnpm add @glinr/theauth @glinr/theauth-email better-sqlite3
+```
+
+</Step>
+
+<Step>
+
+### Add the plugin
+
+`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage.
+
+```ts title="human.ts"
+import { createTheAuth } from '@glinr/theauth';
+import { emailPassword } from '@glinr/theauth-email';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: ':memory:' },
+  plugins: [
+    emailPassword({
+      appUrl: 'http://localhost:3000',
+      requireVerification: false, // development only, default is true
+      sendVerificationEmail: async (email, _token, url) => console.log('verify', email, url),
+      sendResetEmail: async (email, _token, url) => console.log('reset', email, url),
+    }),
+  ],
 });
 ```
 
@@ -191,27 +177,52 @@ const result = await theauth.authorizeByToken(bearerToken, {
 
 <Step>
 
-### Check the audit trail
+### Sign up and sign in
 
-Every `authorize()` decision is logged while `auditAll` is on (the default). Query by agent, filter by result, or export for compliance.
+The plugin endpoints take standard `Request` objects, so you can call them directly or mount them with a [framework adapter](/adapters).
 
-```ts
-// All decisions for an agent
-const logs = await theauth.audit.query({ agentId: agent.id });
+```ts title="human.ts"
+const post = (path: string, body: unknown) =>
+  theauth.plugins.handleRequest(
+    new Request(`http://localhost${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  );
 
-// Only the denials
-const denied = await theauth.audit.query({
-  agentId: agent.id,
-  result: 'denied',
+const signUp = await post('/auth/sign-up', { email: 'ada@example.com', password: 'correct horse battery', name: 'Ada' });
+console.log(signUp?.status); // 201
+
+const signIn = await post('/auth/sign-in', { email: 'ada@example.com', password: 'correct horse battery' });
+console.log(await signIn?.json()); // { user, session: { token, expiresAt } }
+```
+
+Run it with `npx tsx human.ts`. With `requireVerification` left at its default of `true`, sign-in fails with `EMAIL_NOT_VERIFIED` until the user posts the token from the verification email to `/auth/verify-email`.
+
+</Step>
+
+<Step>
+
+### Give the user an agent
+
+The sign-up response contains `user.id`. Pass it as `ownerId` in Track A and the foreign key is satisfied with no manual seeding.
+
+```ts title="human.ts"
+const { user } = await signUp!.json();
+const agent = await theauth.agent.create({
+  ownerId: user.id,
+  name: 'assistant',
+  type: 'autonomous',
+  permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
 });
-
-// Export everything as CSV
-const csv = await theauth.audit.export({ format: 'csv' });
 ```
 
 </Step>
 
 </Steps>
+
+Prefer to keep Clerk, Auth.js, better-auth or your own login? Skip Track B and pass your user ID as `ownerId`, or wrap your resolver with `customAuth` ([details](/auth/email-password)).
 
 ## Delegation
 
@@ -248,12 +259,18 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
-import { createTheAuth } from '@glinr/theauth';
+import { createTheAuth, users } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
   agents: { enabled: true, maxPerUser: 10, auditAll: true, tokenExpiry: '24h' },
 });
+
+// The owner must exist in theauth_users (see Track A, step 2)
+theauth.db.insert(users).values({
+  id: 'user-123', email: 'owner@example.com', name: 'Owner',
+  createdAt: new Date(), updatedAt: new Date(),
+}).run();
 
 // Create an agent with wildcard read on github resources
 const agent = await theauth.agent.create({
@@ -373,19 +390,7 @@ With the `@glinr/theauth-email` plugin, sign-in requires email verification by d
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-You need a user in the `theauth_users` table before creating agents. Sign up via the email auth plugin, or seed a user manually (SQLite shown):
-
-```typescript
-import { users } from '@glinr/theauth';
-
-theauth.db.insert(users).values({
-  id: 'user-1',
-  email: 'test@example.com',
-  name: 'Test',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}).run();
-```
+The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or insert a row as shown in step 2 of Track A.
 
 ### Session not persisting after page reload
 
