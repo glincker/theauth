@@ -19,6 +19,15 @@
  * ```
  */
 
+// Email delivery adapters
+export type {
+	PostmarkConfig,
+	ResendConfig,
+	SendGridConfig,
+	SesConfig,
+	SmtpConfig,
+} from "../email/index.js";
+export { postmark, resend, sendgrid, ses, smtp } from "../email/index.js";
 export * from "../storage/index.js";
 export type { BearerAuthOptions } from "./adapters/bearer.js";
 // Built-in adapters
@@ -252,6 +261,18 @@ export type {
 export { createOrgModule } from "./organization.js";
 // Organization plugin (TheAuthPlugin wrapper)
 export { organization } from "./organization-plugin.js";
+// Unified OTP service (email + SMS) and senders
+export type { OtpSendInput, OtpService, OtpServiceConfig, OtpVerifyInput } from "./otp.js";
+export { createOtpService, generateOtpCode } from "./otp.js";
+export type {
+	EmailOtpSenderOptions,
+	OtpChannel,
+	OtpMessage,
+	OtpPurpose,
+	OtpSender,
+	TwilioSenderConfig,
+} from "./otp-senders.js";
+export { consoleOtpSender, emailOtpSender, twilioOtpSender } from "./otp-senders.js";
 // Passkey / WebAuthn authentication
 export type { PasskeyConfig, PasskeyCredential, PasskeyModule } from "./passkey.js";
 export { createPasskeyModule } from "./passkey.js";

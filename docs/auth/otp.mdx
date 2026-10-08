@@ -1,0 +1,79 @@
+---
+title: Unified OTP
+description: One service for email and SMS one-time codes with pluggable senders, resend cooldown, attempt lockout and constant-time checks, for sign-in, email verification, password reset and 2FA step-up.
+icon: key
+---
+
+`createOtpService` is the shared engine behind code-based flows. It does not create sessions or users. You call it, then do whatever the verified code unlocks. The older [email OTP](/auth/email-otp) and [phone](/auth/phone) modules keep working and now also take `resendCooldownSeconds`.
+
+## Setup
+
+```typescript title="lib/otp.ts"
+import {
+  createOtpService,
+  emailOtpSender,
+  twilioOtpSender,
+  resend,
+} from '@glinr/theauth/auth';
+
+export const otp = createOtpService({
+  secret: process.env.OTP_SECRET!, // keys the code hash
+  senders: {
+    email: emailOtpSender(resend({ apiKey: process.env.RESEND_API_KEY!, from: 'Acme <auth@acme.dev>' })),
+    sms: twilioOtpSender({
+      accountSid: process.env.TWILIO_ACCOUNT_SID!,
+      authToken: process.env.TWILIO_AUTH_TOKEN!,
+      from: process.env.TWILIO_FROM!,
+    }),
+  },
+  resendCooldownSeconds: 60,
+  maxAttempts: 5,
+  lockoutSeconds: 900,
+});
+```
+
+## Send and verify
+
+```typescript
+const sent = await otp.send({ purpose: 'sign-in', channel: 'email', identifier: 'ada@example.com' });
+if (!sent.success && sent.error.code === 'OTP_COOLDOWN') {
+  // sent.error.details.retryAfter is in seconds
+}
+
+const checked = await otp.verify({ purpose: 'sign-in', identifier: 'ada@example.com', code: '482913' });
+if (checked.success) {
+  // open a session, mark the email verified, allow the password change, ...
+}
+```
+
+Purposes are `sign-in`, `verify-email`, `reset-password` and `two-factor`. A code only verifies for the purpose it was sent for, so a sign-in code cannot reset a password. For 2FA step-up, send a `two-factor` code to a user who is already signed in, then require a successful `verify` before the sensitive action.
+
+## Behavior
+
+- Codes are digits drawn with rejection sampling and stored only as an HMAC (or SHA-256 without `secret`) bound to purpose and identifier.
+- Comparison is constant time.
+- A new send inside `resendCooldownSeconds` fails with `OTP_COOLDOWN` and a `retryAfter`.
+- After `maxAttempts` wrong codes the pending code is deleted and the identifier is locked for `lockoutSeconds` (`OTP_LOCKED`). The right code does not unlock early.
+- A failed delivery removes the code and returns `OTP_SEND_FAILED`, so a provider outage does not start a cooldown.
+- Verifying consumes the code.
+
+State lives in a [secondary storage](/secondary-storage). The default is in memory, which is right for development and single-process servers. Pass `storage` (Redis, KV or database storage) when you run more than one instance. Counters are read and written without a transaction, so under heavy concurrency a few extra guesses can slip in before the lockout lands.
+
+## Senders
+
+| Sender | Channel | Notes |
+|--------|---------|-------|
+| `emailOtpSender(provider)` | email | Wraps any email provider: `resend`, `ses`, `postmark`, `sendgrid`, `smtp` |
+| `twilioOtpSender(config)` | sms | Raw `fetch`, give `from` or `messagingServiceSid` |
+| `consoleOtpSender()` | either | Prints the code. Development only |
+
+A sender is `{ send(message): Promise<void> }`, so adding another provider takes a few lines. `emailOtpSender` accepts `subject` and `render` to change the message text.
+
+## Existing modules
+
+```typescript
+emailOtp({ sendOtp, resendCooldownSeconds: 60 });
+// POST /auth/otp/send now answers 429 with a Retry-After header inside the window.
+```
+
+The email OTP module also compares hashes in constant time now.

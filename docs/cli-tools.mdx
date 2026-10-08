@@ -1,0 +1,48 @@
+---
+title: CLI tools
+description: theauth doctor checks your setup, theauth secret generates keys, and theauth completions installs shell completion.
+icon: terminal
+---
+
+## doctor
+
+```bash
+npx theauth doctor
+npx theauth doctor --json   # for CI
+```
+
+Reads the process environment plus `.env` and `.env.local` in the current directory (the process environment wins), then checks:
+
+| Check | Fails when | Warns when |
+|-------|-----------|------------|
+| Node | older than 20 | |
+| Secret | `SESSION_SECRET` is missing or under 32 characters | looks like a placeholder or has few distinct characters |
+| App URL | invalid, not https in production, or localhost in production | not set |
+| Database | | not set, or SQLite in production |
+| .env | present but not in `.gitignore` | |
+| Dependency | | `@glinr/theauth` not in `package.json` |
+
+Exit code is 1 when any check fails. Warnings do not fail the run. With `--json` the output is `{ "ok": boolean, "checks": [{ "id", "status", "message", "fix?" }] }`.
+
+## secret
+
+```bash
+npx theauth secret                          # 64 hex characters
+npx theauth secret --env SESSION_SECRET     # SESSION_SECRET=...
+npx theauth secret --bytes 48 --format base64url --count 3
+npx theauth secret --json
+```
+
+Uses `node:crypto`. Bytes range from 16 to 128.
+
+## completions
+
+```bash
+theauth completions bash >> ~/.bashrc
+theauth completions zsh > "${fpath[1]}/_theauth"
+theauth completions fish > ~/.config/fish/completions/theauth.fish
+```
+
+## Not yet
+
+`theauth migrate` still prints a notice: tables are created on first run. A real migration and `generate` command is not part of this release.

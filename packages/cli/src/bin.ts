@@ -9,6 +9,17 @@ import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from 
 import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
 import { runInit } from "./init.js";
+import {
+	COMPLETIONS_HELP,
+	DOCTOR_HELP,
+	formatDoctor,
+	parseDoctorArgs,
+	parseSecretArgs,
+	renderCompletions,
+	runDoctorChecks,
+	runSecret,
+	SECRET_HELP,
+} from "./tools-commands.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8")) as {
@@ -31,6 +42,9 @@ Commands:
   login         Sign in with the device flow (RFC 8628)
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
+  doctor        Check your setup for common mistakes (--json)
+  secret        Generate random secrets (--env NAME, --json)
+  completions   Print shell completions (bash, zsh, fish)
   version      Show version
 
 Options:
@@ -169,6 +183,52 @@ async function handleAuthCommand(command: "login" | "logout" | "whoami"): Promis
 	if (code !== 0) exit(code);
 }
 
+function handleSecret(): void {
+	const parsed = parseSecretArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(SECRET_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${SECRET_HELP}`);
+		exit(1);
+		return;
+	}
+	stdout.write(runSecret(parsed));
+}
+
+function handleDoctor(): void {
+	const parsed = parseDoctorArgs(argv.slice(3), process.cwd());
+	if (parsed.help) {
+		stdout.write(DOCTOR_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${DOCTOR_HELP}`);
+		exit(1);
+		return;
+	}
+	const checks = runDoctorChecks({
+		env: process.env,
+		cwd: parsed.cwd,
+		nodeVersion: process.version,
+	});
+	const { text, ok } = formatDoctor(checks, parsed.json);
+	stdout.write(text);
+	if (!ok) exit(1);
+}
+
+function handleCompletions(): void {
+	const shell = argv[3] ?? "";
+	const script = renderCompletions(shell);
+	if (script === null) {
+		stdout.write(COMPLETIONS_HELP);
+		if (shell !== "" && shell !== "--help" && shell !== "-h") exit(1);
+		return;
+	}
+	stdout.write(script);
+}
+
 async function main(): Promise<void> {
 	const args = argv.slice(2);
 	const command = args[0];
@@ -199,6 +259,15 @@ async function main(): Promise<void> {
 			break;
 		case "codemod":
 			await handleCodemod();
+			break;
+		case "doctor":
+			handleDoctor();
+			break;
+		case "secret":
+			handleSecret();
+			break;
+		case "completions":
+			handleCompletions();
 			break;
 		case "login":
 		case "logout":

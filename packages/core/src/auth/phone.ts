@@ -38,11 +38,16 @@ export interface PhoneAuthConfig {
 	codeExpiry?: number;
 	/** Max verification attempts before code is invalidated (default: 5) */
 	maxAttempts?: number;
+	/**
+	 * Minimum seconds between sends to the same number (default: 0, disabled).
+	 * A send inside the window returns `{ sent: false, retryAfter }`.
+	 */
+	resendCooldownSeconds?: number;
 }
 
 export interface PhoneAuthModule {
 	/** Send a one-time code to the phone number. */
-	sendCode: (phoneNumber: string) => Promise<{ sent: boolean }>;
+	sendCode: (phoneNumber: string) => Promise<{ sent: boolean; retryAfter?: number }>;
 	/**
 	 * Verify the code for the given phone number.
 	 * Returns null when the code is wrong, expired, or attempts exceeded.
@@ -125,6 +130,7 @@ export function createPhoneAuthModule(
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
 	const codeExpiry = config.codeExpiry ?? DEFAULT_CODE_EXPIRY_SECONDS;
 	const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+	const resendCooldown = config.resendCooldownSeconds ?? 0;
 
 	async function findOrCreateUser(phone: string): Promise<{ id: string; phone: string }> {
 		// Look up user by phone number stored in metadata
@@ -151,8 +157,21 @@ export function createPhoneAuthModule(
 
 	// ── public API ─────────────────────────────────────────────────────────
 
-	async function sendCode(phoneNumber: string): Promise<{ sent: boolean }> {
+	async function sendCode(phoneNumber: string): Promise<{ sent: boolean; retryAfter?: number }> {
 		const phone = normalisePhone(phoneNumber);
+		if (resendCooldown > 0) {
+			const prior = await db
+				.select()
+				.from(phoneVerifications)
+				.where(eq(phoneVerifications.phoneNumber, phone));
+			const last = prior[0];
+			if (last) {
+				const wait = Math.ceil(
+					(last.createdAt.getTime() + resendCooldown * 1000 - Date.now()) / 1000,
+				);
+				if (wait > 0) return { sent: false, retryAfter: wait };
+			}
+		}
 		const code = generateNumericCode(codeLength);
 		const now = new Date();
 		const expiresAt = new Date(now.getTime() + codeExpiry * 1000);
@@ -238,6 +257,17 @@ export function createPhoneAuthModule(
 				return jsonResponse({ error: "Missing required field: phoneNumber" }, 400);
 			}
 			const result = await sendCode(b.phoneNumber);
+			if (!result.sent) {
+				return new Response(JSON.stringify(result), {
+					status: 429,
+					headers: {
+						"Content-Type": "application/json",
+						...(result.retryAfter !== undefined
+							? { "Retry-After": String(result.retryAfter) }
+							: {}),
+					},
+				});
+			}
 			return jsonResponse(result);
 		}
 
