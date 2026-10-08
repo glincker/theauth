@@ -8,11 +8,24 @@
 // - Dynamic Client Registration (RFC 7591)
 // - Resource Indicators (RFC 8707)
 // - Token audience binding
+// - Refresh token rotation with reuse detection (RFC 9700)
+// - Token revocation (RFC 7009), issuer identification (RFC 9207)
+// - Optional ES256/EdDSA signing with JWKS and key rotation
 
 // Authorization endpoint
 export { handleAuthorize } from "./authorize.js";
+// Client ID Metadata Documents and SSRF-safe fetching
+export { fetchClientMetadataDocument, resolveClient } from "./client-metadata.js";
 // Consent approval
 export { approveConsent } from "./consent.js";
+// Signing keys and JWKS
+export {
+	generateMcpSigningKey,
+	getJwks,
+	type McpSigningKeyPair,
+	toPublicJwk,
+} from "./keys.js";
+export { createInMemoryJtiDenylist, createInMemoryTokenFamilyStore } from "./memory-stores.js";
 // Metadata endpoints
 export {
 	getAuthorizationServerMetadata,
@@ -22,6 +35,15 @@ export {
 export { registerClient } from "./registration.js";
 // Scope challenge helper
 export { requireScopes } from "./require-scopes.js";
+// Token revocation (RFC 7009)
+export { handleRevocation } from "./revocation.js";
+export {
+	type DnsResolver,
+	isBlockedIp,
+	type SafeFetchOptions,
+	type SafeFetchResult,
+	safeFetchJson,
+} from "./safe-fetch.js";
 // Module factory
 export { createMcpModule, createMcpResponseHelpers } from "./server.js";
 // Step-up authorization
@@ -33,6 +55,7 @@ export type {
 	ApproveConsentParams,
 	AuthError,
 	McpAccessToken,
+	McpAsymmetricAlg,
 	McpAuthContext,
 	McpAuthModule,
 	McpAuthorizationCode,
@@ -42,9 +65,12 @@ export type {
 	McpClientRegistrationRequest,
 	McpClientRegistrationResponse,
 	McpConfig,
+	McpJtiDenylist,
 	McpProtectedResourceMetadata,
 	McpServerMetadata,
 	McpSession,
+	McpSigningConfig,
+	McpTokenFamilyStore,
 	McpTokenPayload,
 	McpTokenRequest,
 	McpTokenRequestParsed,
@@ -64,7 +90,11 @@ export {
 	extractBasicAuth,
 	extractBearerToken,
 	generateSecureToken,
+	hashClientSecret,
+	hashToken,
 	parseRequestBody,
+	timingSafeEqual,
+	verifyClientSecret,
 	verifyS256,
 } from "./utils.js";
 // Token validation & middleware

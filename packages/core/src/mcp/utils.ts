@@ -1,4 +1,4 @@
-import { generateId, randomBytes, toBase64Url } from "../crypto/web-crypto.js";
+import { generateId, randomBytes, sha256, toBase64Url } from "../crypto/web-crypto.js";
 
 /**
  * Generate a cryptographically secure random token string.
@@ -44,21 +44,67 @@ export async function verifyS256(codeVerifier: string, codeChallenge: string): P
 
 /**
  * Constant-time string comparison to prevent timing attacks.
+ *
+ * The comparison loop always walks the full length of the longer input, so
+ * the running time does not depend on where the first mismatch is, nor on
+ * a length mismatch.
  */
-function timingSafeEqual(a: string, b: string): boolean {
-	if (a.length !== b.length) {
-		return false;
-	}
+export function timingSafeEqual(a: string, b: string): boolean {
 	const encoder = new TextEncoder();
 	const bufA = encoder.encode(a);
 	const bufB = encoder.encode(b);
 
-	let diff = 0;
-	for (let i = 0; i < bufA.length; i++) {
-		// biome-ignore lint/style/noNonNullAssertion: length checked above
-		diff |= bufA[i]! ^ bufB[i]!;
+	let diff = bufA.length ^ bufB.length;
+	const len = Math.max(bufA.length, bufB.length);
+	for (let i = 0; i < len; i++) {
+		diff |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
 	}
 	return diff === 0;
+}
+
+// ─── Secret and token hashing ────────────────────────────────────────────────
+
+/** Prefix that marks a stored client secret as a SHA-256 hash. */
+export const SECRET_HASH_PREFIX = "sha256:";
+
+/**
+ * SHA-256 hex digest used to store refresh and access tokens at rest.
+ * Tokens carry 256+ bits of entropy, so a fast hash is appropriate.
+ */
+export async function hashToken(value: string): Promise<string> {
+	return sha256(value);
+}
+
+/**
+ * Hash a client secret for storage. The result is `sha256:<hex>`; the prefix
+ * lets {@link verifyClientSecret} tell hashed rows from legacy plaintext rows.
+ */
+export async function hashClientSecret(secret: string): Promise<string> {
+	return `${SECRET_HASH_PREFIX}${await sha256(secret)}`;
+}
+
+/**
+ * Verify a presented client secret against a stored value in constant time.
+ *
+ * Migration path: rows written before secrets were hashed hold the plaintext
+ * secret. Those are still accepted (compared via their SHA-256 digests, so the
+ * comparison stays constant time and equal length), and `needsRehash` is set so
+ * the caller can replace the stored value with a hash after a successful
+ * check. New rows are always written hashed.
+ */
+export async function verifyClientSecret(
+	presented: string,
+	stored: string,
+): Promise<{ valid: boolean; needsRehash: boolean }> {
+	const presentedHash = await sha256(presented);
+	if (stored.startsWith(SECRET_HASH_PREFIX)) {
+		return {
+			valid: timingSafeEqual(presentedHash, stored.slice(SECRET_HASH_PREFIX.length)),
+			needsRehash: false,
+		};
+	}
+	const legacyHash = await sha256(stored);
+	return { valid: timingSafeEqual(presentedHash, legacyHash), needsRehash: true };
 }
 
 /**

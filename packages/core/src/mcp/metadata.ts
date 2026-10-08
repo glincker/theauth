@@ -1,5 +1,12 @@
 import type { McpAuthContext, McpProtectedResourceMetadata, McpServerMetadata } from "./types.js";
 
+function signingAlgs(ctx: McpAuthContext): string[] {
+	const algs: string[] = [];
+	if (ctx.config.signing) algs.push(ctx.config.signing.alg);
+	if (ctx.config.signingSecret) algs.push("HS256");
+	return algs;
+}
+
 /**
  * Build OAuth 2.0 Authorization Server Metadata (RFC 8414).
  *
@@ -15,7 +22,7 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 		authorization_endpoint: `${baseUrl}/mcp/authorize`,
 		token_endpoint: `${baseUrl}/mcp/token`,
 		registration_endpoint: `${baseUrl}/mcp/register`,
-		jwks_uri: `${baseUrl}/mcp/jwks`,
+		...(ctx.config.signing ? { jwks_uri: `${baseUrl}/mcp/jwks` } : {}),
 		scopes_supported: allScopes,
 		response_types_supported: ["code"],
 		response_modes_supported: ["query"],
@@ -23,6 +30,13 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 		token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post", "none"],
 		code_challenge_methods_supported: ["S256"],
 		revocation_endpoint: `${baseUrl}/mcp/revoke`,
+		revocation_endpoint_auth_methods_supported: [
+			"client_secret_basic",
+			"client_secret_post",
+			"none",
+		],
+		authorization_response_iss_parameter_supported: true,
+		client_id_metadata_document_supported: ctx.config.clientIdMetadataDocuments?.enabled === true,
 	};
 }
 
@@ -42,9 +56,9 @@ export function getProtectedResourceMetadata(ctx: McpAuthContext): McpProtectedR
 	return {
 		resource: issuer,
 		authorization_servers: [issuer],
-		jwks_uri: `${baseUrl}/mcp/jwks`,
+		...(ctx.config.signing ? { jwks_uri: `${baseUrl}/mcp/jwks` } : {}),
 		scopes_supported: allScopes,
 		bearer_methods_supported: ["header"],
-		resource_signing_alg_values_supported: ["HS256"],
+		resource_signing_alg_values_supported: signingAlgs(ctx),
 	};
 }

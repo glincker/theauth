@@ -55,7 +55,10 @@ export type ConsumeTokenStatus =
 
 export interface ConsumeTokenResult {
 	status: ConsumeTokenStatus;
-	/** Populated when status is `"ok"`. */
+	/**
+	 * Populated for `"ok"`, `"reuse"`, `"revoked"` and `"expired"` when the
+	 * family is known, so callers can revoke state tied to it.
+	 */
 	family?: TokenFamily;
 }
 
@@ -192,30 +195,39 @@ export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 		const family = rowToFamily(familyRow);
 
 		// Family has been explicitly revoked (e.g. previous reuse detection).
-		if (family.revoked) return { status: "revoked" };
+		if (family.revoked) return { status: "revoked", family };
 
 		// Absolute timeout has passed — revoke the family and report expired.
 		if (family.absoluteExpiresAt <= now) {
 			await revokeFamily(family.id);
-			return { status: "expired" };
+			return { status: "expired", family };
 		}
 
 		// Individual token TTL has passed.
-		if (row.expiresAt <= now) return { status: "expired" };
+		if (row.expiresAt <= now) return { status: "expired", family };
 
 		// Reuse detection: token has already been consumed.
 		if (row.used) {
 			// A previously-used token was presented — assume token theft.
 			// Revoke the entire family immediately.
 			await revokeFamily(family.id);
-			return { status: "reuse" };
+			return { status: "reuse", family };
 		}
 
-		// Mark the token as used (atomic update).
-		await db
+		// Claim the token atomically: the WHERE used = 0 guard means exactly one
+		// of several concurrent callers sees an affected row. The losers
+		// presented a token that was consumed a moment earlier, which is
+		// indistinguishable from replay, so they trigger reuse handling.
+		const claimed = await db
 			.update(refreshTokens)
 			.set({ used: 1 })
-			.where(and(eq(refreshTokens.tokenHash, tokenHash)));
+			.where(and(eq(refreshTokens.tokenHash, tokenHash), eq(refreshTokens.used, 0)))
+			.returning({ id: refreshTokens.id });
+
+		if (claimed.length === 0) {
+			await revokeFamily(family.id);
+			return { status: "reuse", family };
+		}
 
 		return { status: "ok", family };
 	}

@@ -1,3 +1,4 @@
+import { resolveClient } from "./client-metadata.js";
 import type { McpAuthContext, McpAuthorizationCode, McpAuthorizeResult, Result } from "./types.js";
 import { McpAuthorizeRequestSchema } from "./types.js";
 import { generateAuthorizationCode } from "./utils.js";
@@ -48,7 +49,7 @@ export async function handleAuthorize(
 	} = parsed.data;
 
 	// ── Validate client ─────────────────────────────────────────────
-	const client = await ctx.findClient(clientId);
+	const client = await resolveClient(ctx, clientId);
 	if (!client) {
 		return {
 			success: false,
@@ -92,7 +93,7 @@ export async function handleAuthorize(
 	}
 
 	// ── Validate resource parameter (RFC 8707) ──────────────────────
-	if (resource !== undefined) {
+	{
 		const allowedResources = ctx.config.allowedResources;
 		if (allowedResources && allowedResources.length > 0) {
 			if (!allowedResources.includes(resource)) {
@@ -158,9 +159,7 @@ export async function handleAuthorize(
 		}
 		consentUrl.searchParams.set("code_challenge", codeChallenge);
 		consentUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
-		if (resource) {
-			consentUrl.searchParams.set("resource", resource);
-		}
+		consentUrl.searchParams.set("resource", resource);
 		return {
 			success: true,
 			data: {
@@ -184,7 +183,7 @@ export async function handleAuthorize(
 		scope: effectiveScopes,
 		codeChallenge,
 		codeChallengeMethod: "S256",
-		resource: resource ?? null,
+		resource,
 		expiresAt,
 		createdAt: now,
 	};
@@ -197,6 +196,8 @@ export async function handleAuthorize(
 	if (state) {
 		redirectUrl.searchParams.set("state", state);
 	}
+	// RFC 9207: tell the client which authorization server answered.
+	redirectUrl.searchParams.set("iss", ctx.config.issuer);
 
 	return {
 		success: true,
