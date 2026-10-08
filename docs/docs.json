@@ -311,7 +311,8 @@
             "pages": [
               "agents",
               "ephemeral-sessions",
-              "delegation"
+              "delegation",
+              "token-vault"
             ]
           },
           {

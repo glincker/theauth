@@ -600,7 +600,14 @@ export async function createTheAuth(config: TheAuthConfig) {
 		authorizeByToken,
 		delegate,
 		delegation: {
-			revoke: delegationModule.revokeDelegation,
+			revoke: async (chainId: string): Promise<void> => {
+				await delegationModule.revokeDelegation(chainId);
+				// Vault consents tied to this chain die with it (reads also re-check the chain).
+				const vault = pluginRegistry.pluginContext.tokenVault as
+					| { revokeForDelegation?: (id: string) => Promise<number> }
+					| undefined;
+				await vault?.revokeForDelegation?.(chainId);
+			},
 			getEffectivePermissions: delegationModule.getEffectivePermissions,
 			listChains: delegationModule.listChains,
 		},
