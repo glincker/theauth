@@ -6,8 +6,10 @@
 // Dev:    pnpm dev
 // Start:  pnpm start
 //
-// Smoke test with a kv_ agent token (no full OAuth flow needed):
+// Smoke test with a kv_ agent token (no full OAuth flow needed). The agent
+// management routes need the ADMIN_API_KEY from your .env:
 //   curl -X POST http://localhost:3001/api/agents \
+//     -H "Authorization: Bearer $ADMIN_API_KEY" \
 //     -H "Content-Type: application/json" \
 //     -d '{"ownerId":"user-1","name":"demo","type":"autonomous",
 //          "permissions":[{"resource":"mcp:*","actions":["read","execute"]}]}'
@@ -22,6 +24,7 @@ import { users } from "@glinr/theauth";
 import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
 import { createMcpModule } from "@glinr/theauth/mcp";
 
+import { authenticateAdmin } from "./lib/admin-auth.js";
 import { getTheAuth } from "./lib/theauth.js";
 import { MCP_TOOLS } from "./tools.js";
 
@@ -102,7 +105,8 @@ async function main(): Promise<void> {
 
 	// Mount the full TheAuth API (agents, audit, delegation) plus the MCP
 	// OAuth endpoints (.well-known, /mcp/register, /mcp/authorize, /mcp/token).
-	app.route("/api", theAuthHono(theauth, { mcp }));
+	// The management routes require the admin key (see lib/admin-auth.ts).
+	app.route("/api", theAuthHono(theauth, { mcp, authenticate: authenticateAdmin }));
 
 	// Protected tool list. Accepts either a kv_ agent token or an MCP JWT.
 	app.get("/tools/list", async (c) => {

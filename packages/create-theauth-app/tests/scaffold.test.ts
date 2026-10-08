@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { scaffold } from "../src/scaffold.js";
 
-const PLACEHOLDERS = ["__APP_NAME__", "__DB_DRIVER__", "__DB_DRIVER_VERSION__"];
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const PLACEHOLDERS = ["__APP_NAME__", "__DB_DRIVER__", "__DB_DRIVER_VERSION__", "__WORKSPACE__"];
 
 async function fileExists(p: string): Promise<boolean> {
 	return stat(p)
@@ -47,8 +50,8 @@ describe("scaffold – next-saas", () => {
 			targetDir,
 			template: "next-saas",
 			appName: "test-app",
-			dbDriver: "better-sqlite3",
-			dbUrl: "file:./theauth.db",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
 		});
 
 		const expected = [
@@ -79,8 +82,8 @@ describe("scaffold – next-saas", () => {
 			targetDir,
 			template: "next-saas",
 			appName: "my-cool-app",
-			dbDriver: "better-sqlite3",
-			dbUrl: "file:./theauth.db",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
 		});
 
 		const pkg = await readFile(join(targetDir, "package.json"), "utf-8");
@@ -111,8 +114,8 @@ describe("scaffold – next-saas", () => {
 			targetDir,
 			template: "next-saas",
 			appName: "placeholder-check",
-			dbDriver: "better-sqlite3",
-			dbUrl: "file:./theauth.db",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
 		});
 
 		const files = await collectFiles(targetDir);
@@ -154,8 +157,8 @@ describe("scaffold – next-saas", () => {
 			targetDir,
 			template: "next-saas",
 			appName: "gitignore-test",
-			dbDriver: "better-sqlite3",
-			dbUrl: "file:./theauth.db",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
 		});
 
 		const hasGitignore = await fileExists(join(targetDir, ".gitignore"));
@@ -173,9 +176,94 @@ describe("scaffold – error handling", () => {
 				targetDir,
 				template: "does-not-exist",
 				appName: "test",
-				dbDriver: "better-sqlite3",
+				dbDriver: "sql.js",
 				dbUrl: "",
 			}),
 		).rejects.toThrow('Template "does-not-exist" not found');
+	});
+});
+
+describe("scaffold: dependency versions", () => {
+	const dirs: string[] = [];
+
+	afterEach(async () => {
+		await Promise.all(dirs.map((d) => rm(d, { recursive: true, force: true })));
+		dirs.length = 0;
+	});
+
+	async function workspaceVersion(rel: string): Promise<string> {
+		const raw = await readFile(join(__dirname, "..", "..", rel, "package.json"), "utf-8");
+		return (JSON.parse(raw) as { version: string }).version;
+	}
+
+	it("pins @glinr packages in hono-mcp to the current workspace versions", async () => {
+		const targetDir = randomDir();
+		dirs.push(targetDir);
+		await scaffold({
+			targetDir,
+			template: "hono-mcp",
+			appName: "versions-app",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
+		});
+		const pkg = JSON.parse(await readFile(join(targetDir, "package.json"), "utf-8")) as {
+			dependencies: Record<string, string>;
+		};
+		expect(pkg.dependencies["@glinr/theauth-hono"]).toBe(
+			`^${await workspaceVersion("adapters/hono")}`,
+		);
+		expect(pkg.dependencies["@glinr/theauth"]).toBe(`^${await workspaceVersion("core")}`);
+	});
+
+	it("pins @glinr packages in next-saas to the current workspace versions", async () => {
+		const targetDir = randomDir();
+		dirs.push(targetDir);
+		await scaffold({
+			targetDir,
+			template: "next-saas",
+			appName: "versions-next",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
+		});
+		const pkg = JSON.parse(await readFile(join(targetDir, "package.json"), "utf-8")) as {
+			dependencies: Record<string, string>;
+		};
+		expect(pkg.dependencies["@glinr/theauth-nextjs"]).toBe(
+			`^${await workspaceVersion("adapters/nextjs")}`,
+		);
+		expect(pkg.dependencies["@glinr/theauth-react"]).toBe(`^${await workspaceVersion("react")}`);
+	});
+
+	it("lists the sqlite driver and zod the template needs", async () => {
+		const targetDir = randomDir();
+		dirs.push(targetDir);
+		await scaffold({
+			targetDir,
+			template: "hono-mcp",
+			appName: "driver-app",
+			dbDriver: "sql.js",
+			dbUrl: "./theauth.db",
+		});
+		const pkg = JSON.parse(await readFile(join(targetDir, "package.json"), "utf-8")) as {
+			dependencies: Record<string, string>;
+		};
+		expect(pkg.dependencies["sql.js"]).toBeDefined();
+		expect(pkg.dependencies.zod).toBeDefined();
+		expect(pkg.dependencies["better-sqlite3"]).toBeUndefined();
+	});
+
+	it("leaves no workspace placeholders behind", async () => {
+		const targetDir = randomDir();
+		dirs.push(targetDir);
+		await scaffold({
+			targetDir,
+			template: "hono-mcp",
+			appName: "ph-app",
+			dbDriver: "pg",
+			dbUrl: "",
+		});
+		for (const file of await collectFiles(targetDir)) {
+			expect(await readFile(file, "utf-8")).not.toContain("__WORKSPACE__");
+		}
 	});
 });

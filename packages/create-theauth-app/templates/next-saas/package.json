@@ -10,12 +10,13 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@glinr/theauth-nextjs": "^2.0.0",
-    "@glinr/theauth-react": "^0.2.0",
+    "@glinr/theauth-nextjs": "__WORKSPACE__",
+    "@glinr/theauth-react": "__WORKSPACE__",
     "__DB_DRIVER__": "__DB_DRIVER_VERSION__",
     "drizzle-orm": "^0.40.0",
-    "@glinr/theauth": "^0.3.0",
+    "@glinr/theauth": "__WORKSPACE__",
     "next": "^15.0.0",
+    "zod": "^3.24.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

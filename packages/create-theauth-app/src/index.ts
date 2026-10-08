@@ -5,7 +5,7 @@ import { bold, green, yellow } from "kolorist";
 import { scaffold } from "./scaffold.js";
 
 type PackageManager = "pnpm" | "npm" | "yarn" | "bun";
-type DbDriver = "better-sqlite3" | "pg";
+type DbDriver = "sql.js" | "pg";
 type Template = "next-saas" | "hono-mcp" | "expo-mobile";
 
 function detectPackageManager(): PackageManager {
@@ -17,7 +17,7 @@ function detectPackageManager(): PackageManager {
 }
 
 function defaultDbUrl(driver: DbDriver): string {
-	if (driver === "better-sqlite3") return "file:./theauth.db";
+	if (driver === "sql.js") return "./theauth.db";
 	return "";
 }
 
@@ -97,7 +97,7 @@ export async function main(): Promise<void> {
 				p.select<DbDriver>({
 					message: "Database",
 					options: [
-						{ value: "better-sqlite3", label: "SQLite", hint: "local · zero config" },
+						{ value: "sql.js", label: "SQLite", hint: "local · zero config" },
 						{ value: "pg", label: "Postgres", hint: "pg driver · set DATABASE_URL" },
 					],
 				}),
