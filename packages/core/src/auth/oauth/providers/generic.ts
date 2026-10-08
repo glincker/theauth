@@ -52,6 +52,19 @@ export interface GenericOIDCConfig {
 	tokenUrl?: string;
 	/** UserInfo endpoint. Overrides discovery. */
 	userinfoUrl?: string;
+	/**
+	 * Map a non-OIDC userinfo response to a profile. Use for providers whose
+	 * userinfo has no `sub` or nests the profile. Return null when the response
+	 * is unusable. When omitted the standard OIDC claims are read.
+	 */
+	mapProfile?: (raw: Record<string, unknown>) => {
+		id: string;
+		email: string;
+		name?: string;
+		avatar?: string;
+	} | null;
+	/** Authorization scheme for the userinfo request (default `Bearer`). */
+	userinfoAuthScheme?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +245,7 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 		const endpoints = await resolveEndpoints();
 
 		const response = await fetch(endpoints.userinfoUrl, {
-			headers: { Authorization: `Bearer ${accessToken}` },
+			headers: { Authorization: `${config.userinfoAuthScheme ?? "Bearer"} ${accessToken}` },
 		});
 
 		if (!response.ok) {
@@ -241,6 +254,14 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 		}
 
 		const raw = (await response.json()) as Record<string, unknown>;
+		if (config.mapProfile) {
+			const mapped = config.mapProfile(raw);
+			if (!mapped?.id || !mapped.email) {
+				throw new Error(`${config.name} userinfo response missing a usable id or email.`);
+			}
+			return { id: mapped.id, email: mapped.email, name: mapped.name, avatar: mapped.avatar, raw };
+		}
+
 		const data = raw as unknown as OIDCUserInfoResponse;
 
 		if (!data.sub) {
