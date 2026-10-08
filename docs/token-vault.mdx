@@ -12,7 +12,7 @@ The vault stores a user's third-party OAuth connection encrypted at rest. An age
 
 ```typescript
 import { createTheAuth, tokenVault } from "@glinr/theauth";
-import { createGithubProvider } from "@glinr/theauth/auth/oauth";
+import { createGithubProvider } from "@glinr/theauth/auth";
 
 const theauth = await createTheAuth({
   database: { provider: "sqlite", url: "./auth.db" },
