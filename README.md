@@ -45,17 +45,6 @@
 
 Most auth libraries stop at human sign-in. That leaves you stitching together separate systems when your AI agents need identity, scoped permissions, delegation, and audit trails. theAuth handles both in one place.
 
-### How it differs
-
-Ask yourself about the auth library you're using or evaluating:
-
-- Does it model AI agents as first-class identities, with their own scoped permissions and an audit trail you can export, not just human users with API keys?
-- Does it ship an MCP OAuth 2.1 authorization server that complies with the published RFC stack (9728, 8707, 8414, 7591), so your agents can talk to MCP servers without you writing the spec?
-- Does it run on Cloudflare Workers, Bun, and Deno without Node-only APIs in the core?
-- Does it give you delegation chains with depth limits, budget policies per agent, and CIBA-style approval flows for sensitive tool calls?
-
-If any of those is a no, that gap is why theAuth exists.
-
 ### Agent identity
 
 Cryptographic bearer tokens (`kv_...`), wildcard permission matching, delegation chains with depth limits, budget policies, a denial-history trust score, and CIBA-style approval flows.
@@ -126,6 +115,61 @@ const result = await auth.authorize(agent.id, {
 });
 // { allowed: true, auditId: "aud_..." }
 ```
+
+---
+
+### Quickstart: two tracks
+
+Use either track alone or both together. Each runs as pasted with SQLite.
+
+**Add agent auth** (identity, permissions, audit):
+
+```typescript
+import { createTheAuth, users } from "@glinr/theauth";
+
+const auth = await createTheAuth({ database: { provider: "sqlite", url: ":memory:" } });
+
+// Agents need an owner row in theauth_users (human auth creates these for you).
+auth.db.insert(users).values({
+  id: "user-123", email: "owner@example.com", name: "Owner",
+  createdAt: new Date(), updatedAt: new Date(),
+}).run();
+
+const agent = await auth.agent.create({
+  ownerId: "user-123",
+  name: "github-reader",
+  type: "autonomous",
+  permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
+});
+console.log(agent.token); // "kv_..." shown once
+
+const { allowed } = await auth.authorize(agent.id, { action: "read", resource: "mcp:github:repos" });
+```
+
+Agent tokens start with `kv_`. That prefix is deliberate: it predates the rename from Kavach and was kept so already-issued tokens keep working ([RENAME-MAP.md](RENAME-MAP.md)).
+
+**Add human auth** (email and password; `pnpm add @glinr/theauth-email`):
+
+```typescript
+import { createTheAuth } from "@glinr/theauth";
+import { emailPassword } from "@glinr/theauth-email";
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  plugins: [
+    emailPassword({
+      appUrl: "http://localhost:3000",
+      sendVerificationEmail: async (email, _token, url) => console.log(email, url),
+      sendResetEmail: async (email, _token, url) => console.log(email, url),
+    }),
+  ],
+});
+
+// Mount with an adapter, or call it directly:
+const res = await auth.plugins.handleRequest(request); // POST /auth/sign-up, /auth/sign-in, ...
+```
+
+Full walkthrough: [docs.theauth.dev/quickstart](https://docs.theauth.dev/quickstart).
 
 ---
 
@@ -398,36 +442,9 @@ See [`examples/hono-server`](https://github.com/glincker/theauth/tree/main/examp
 
 ---
 
-## Framework adapters
+## Adapters
 
-| Package | Framework | Directory |
-|---|---|---|
-| `@glinr/theauth-nextjs` | Next.js 15 (App Router) | [`packages/adapters/nextjs`](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs) |
-| `@glinr/theauth-nextjs-auth` | Next.js (external auth backend) | [`packages/adapters/nextjs-auth`](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth) |
-| `@glinr/theauth-hono` | Hono (Workers, Bun, Deno) | [`packages/adapters/hono`](https://github.com/glincker/theauth/tree/main/packages/adapters/hono) |
-| `@glinr/theauth-express` | Express | [`packages/adapters/express`](https://github.com/glincker/theauth/tree/main/packages/adapters/express) |
-| `@glinr/theauth-fastify` | Fastify | [`packages/adapters/fastify`](https://github.com/glincker/theauth/tree/main/packages/adapters/fastify) |
-| `@glinr/theauth-sveltekit` | SvelteKit | [`packages/adapters/sveltekit`](https://github.com/glincker/theauth/tree/main/packages/adapters/sveltekit) |
-| `@glinr/theauth-nuxt` | Nuxt / Vue 3 | [`packages/adapters/nuxt`](https://github.com/glincker/theauth/tree/main/packages/adapters/nuxt) |
-| `@glinr/theauth-astro` | Astro | [`packages/adapters/astro`](https://github.com/glincker/theauth/tree/main/packages/adapters/astro) |
-| `@glinr/theauth-nestjs` | NestJS | [`packages/adapters/nestjs`](https://github.com/glincker/theauth/tree/main/packages/adapters/nestjs) |
-| `@glinr/theauth-solidstart` | SolidStart | [`packages/adapters/solidstart`](https://github.com/glincker/theauth/tree/main/packages/adapters/solidstart) |
-| `@glinr/theauth-tanstack` | TanStack Start | [`packages/adapters/tanstack`](https://github.com/glincker/theauth/tree/main/packages/adapters/tanstack) |
-| `@glinr/theauth-expo` | React Native / Expo | [`packages/adapters/expo`](https://github.com/glincker/theauth/tree/main/packages/adapters/expo) |
-| `@glinr/theauth-electron` | Electron | [`packages/adapters/electron`](https://github.com/glincker/theauth/tree/main/packages/adapters/electron) |
-
----
-
-## Database adapters
-
-SQLite, PostgreSQL, MySQL, and Cloudflare D1 are built into the core package. Use the Prisma adapter to share an existing PrismaClient.
-
-| Package | What it connects | Directory |
-|---|---|---|
-| Built-in SQLite | `better-sqlite3`, `bun:sqlite`, D1 | core |
-| Built-in PostgreSQL | `pg`, `postgres`, Neon, Supabase | core |
-| Built-in MySQL | `mysql2` | core |
-| `@glinr/theauth-prisma` | Prisma (share your PrismaClient) | [`packages/prisma`](https://github.com/glincker/theauth/tree/main/packages/prisma) |
+Framework and database adapters are listed in [Packages](#packages) above. SQLite, PostgreSQL, MySQL and Cloudflare D1 are built into the core package; use `@glinr/theauth-prisma` to share an existing PrismaClient.
 
 ---
 
@@ -440,6 +457,7 @@ SQLite, PostgreSQL, MySQL, and Cloudflare D1 are built into the core package. Us
 | `hono-server` | Standalone Hono API with auth | [`examples/hono-server`](https://github.com/glincker/theauth/tree/main/examples/hono-server) |
 | `cloudflare-workers` | Workers + D1 database | [`examples/cloudflare-workers`](https://github.com/glincker/theauth/tree/main/examples/cloudflare-workers) |
 | `mcp-server` | MCP OAuth 2.1 authorization server | [`examples/mcp-server`](https://github.com/glincker/theauth/tree/main/examples/mcp-server) |
+| `scim-okta` | SCIM directory sync with Okta | [`examples/scim-okta`](https://github.com/glincker/theauth/tree/main/examples/scim-okta) |
 | `basic-agent` | AI agent token issuance and policy | [`examples/basic-agent`](https://github.com/glincker/theauth/tree/main/examples/basic-agent) |
 | `migrate-from-auth0` | Step-by-step Auth0 migration | [`examples/migrate-from-auth0`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0) |
 | `migrate-from-better-auth-agent-plugin` | Migration from better-auth agent plugin | [`examples/migrate-from-better-auth-agent-plugin`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-better-auth-agent-plugin) |
@@ -459,12 +477,6 @@ Hosted version with dashboard, billing, and zero infrastructure. Early access: [
 | Enterprise | Custom | Custom |
 
 ---
-
-<p align="center">
-  <a href="https://theauth.dev/pricing/"><strong>Cloud (early access)</strong></a> ·
-  <a href="https://theauth.dev">Website</a> ·
-  <a href="https://docs.theauth.dev/quickstart">Self-host instead</a>
-</p>
 
 ---
 
