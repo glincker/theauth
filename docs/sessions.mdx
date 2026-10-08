@@ -31,7 +31,6 @@ import { createCookieSessionManager } from '@glinr/theauth'; // [!code highlight
 
 export const theauth = await createTheAuth({
   database: { provider: 'postgres', url: process.env.DATABASE_URL! },
-  secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://auth.example.com',
 });
 
@@ -401,18 +400,6 @@ The cookie session manager does not return error codes: `validateSession` return
 
 `validateCsrfToken` and `validateOrigin` return `{ valid: false, reason }` rather than a code. The status codes in the table are what the modules suggest, not something the library sets on a response (except the `403` from `freshness.guard`).
 
-------|--------|---------|
-| `SESSION_NOT_FOUND` | 401 | No session record matches the provided token |
-| `SESSION_EXPIRED` | 401 | Session exceeded its `maxAge` |
-| `SESSION_REVOKED` | 401 | Session was explicitly revoked |
-| `SESSION_STALE` | 403 | Session is valid but older than `freshAge` |
-| `CSRF_INVALID` | 403 | CSRF token in header does not match cookie value |
-| `ORIGIN_MISMATCH` | 403 | Request `Origin` header not in the allowed list |
-| `REFRESH_TOKEN_NOT_FOUND` | 401 | Refresh token does not exist in the database |
-| `REFRESH_TOKEN_USED` | 401 | Refresh token was already exchanged (possible replay) |
-| `REFRESH_TOKEN_EXPIRED` | 401 | Refresh token lifetime has elapsed |
-| `CREATE_SESSION_FAILED` | 500 | Database error during session creation |
-
 ---
 
 ## Configuration reference
@@ -452,7 +439,7 @@ The cookie session manager does not return error codes: `validateSession` return
 </Warning>
 
 <Warning>
-  Rotate `THEAUTH_SECRET` periodically. All existing sessions signed with the old secret become invalid when you rotate. Plan for a brief period where some users need to sign in again, or run with two active secrets during the transition window.
+  Rotate the session `secret` periodically. All existing sessions signed with the old secret become invalid when you rotate. Plan for a brief period where some users need to sign in again, or run with two active secrets during the transition window.
 </Warning>
 
 <Info>

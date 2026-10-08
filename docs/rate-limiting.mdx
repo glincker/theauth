@@ -13,7 +13,7 @@ theAuth has three separate rate limiting mechanisms:
 2. Per-endpoint limits that individual plugins declare in their endpoint metadata. These apply automatically once the plugin is installed.
 3. The `maxCallsPerHour` permission constraint, enforced by the permission engine for agent calls.
 
-There is no top-level `rateLimit` option on `createTheAuth()`, no Redis store, and no single shared 429 response shape. Each mechanism is described below.
+There is no top-level `rateLimit` option on `createTheAuth()` and no single shared 429 response shape. Counter storage for the plugin follows `secondaryStorage` (memory, database, Redis, Cloudflare KV or your own). Each mechanism is described below.
 
 ## The rateLimit plugin
 

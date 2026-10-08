@@ -382,10 +382,10 @@ Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the s
 
 ## Troubleshooting
 
-### "Invalid email or password" after sign-up
+### "Email address has not been verified" after sign-up
 
-With the `@glinr/theauth-email` plugin, sign-in requires email verification by default. Either:
-1. Verify the email using the token from the sign-up response
+With the `@glinr/theauth-email` plugin, sign-in requires email verification by default and fails with `EMAIL_NOT_VERIFIED` (HTTP 401). Either:
+1. Post the token from the verification email (the one passed to your `sendVerificationEmail` callback) to `/auth/verify-email`
 2. Set `requireVerification: false` in the `emailPassword()` config (development only)
 
 ### "FOREIGN KEY constraint failed" when creating agents
