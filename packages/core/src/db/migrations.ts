@@ -32,6 +32,7 @@ interface EnabledFeatures {
 	rebac: boolean;
 	federation: boolean;
 	secondaryStorage: boolean;
+	tokenVault: boolean;
 }
 
 const ALL_FEATURES_ENABLED: EnabledFeatures = {
@@ -61,6 +62,7 @@ const ALL_FEATURES_ENABLED: EnabledFeatures = {
 	rebac: true,
 	federation: true,
 	secondaryStorage: true,
+	tokenVault: true,
 };
 
 function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
@@ -108,6 +110,7 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		federation: false, // only when explicitly configured (no config key yet)
 		// Tiny table, created always so `secondaryStorage: "database"` just works.
 		secondaryStorage: true,
+		tokenVault: hasPlugin("theauth-token-vault"),
 	};
 }
 
@@ -148,6 +151,8 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 	const bool = isPostgres ? "BOOLEAN" : isMysql ? "TINYINT(1)" : "INTEGER";
 	// IF NOT EXISTS is universally supported
 	const ifne = "IF NOT EXISTS";
+	/** Indexed text columns need a bounded type on MySQL. */
+	const vc = isMysql ? "VARCHAR(191)" : "TEXT";
 
 	return [
 		// ------------------------------------------------------------------
@@ -657,6 +662,44 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   public_key_jwk TEXT NOT NULL,
   did_document   TEXT NOT NULL,
   created_at     ${ts} NOT NULL
+)`,
+		},
+
+		// ------------------------------------------------------------------
+		// theauth_vault_connections / theauth_vault_consents (outbound token vault)
+		// ------------------------------------------------------------------
+		{
+			feature: "tokenVault",
+			sql: `CREATE TABLE ${ifne} theauth_vault_connections (
+  id                  TEXT NOT NULL PRIMARY KEY,
+  user_id             ${vc} NOT NULL,
+  tenant_id           ${vc} NOT NULL DEFAULT '',
+  provider            ${vc} NOT NULL,
+  provider_account_id TEXT NOT NULL,
+  access_token_enc    TEXT NOT NULL,
+  refresh_token_enc   TEXT,
+  key_id              TEXT NOT NULL,
+  scopes              ${json} NOT NULL,
+  status              VARCHAR(16) NOT NULL DEFAULT 'active',
+  expires_at          ${tsNull},
+  created_at          ${ts} NOT NULL,
+  updated_at          ${ts} NOT NULL,
+  UNIQUE (user_id, tenant_id, provider)
+)`,
+		},
+		{
+			feature: "tokenVault",
+			sql: `CREATE TABLE ${ifne} theauth_vault_consents (
+  id                  TEXT NOT NULL PRIMARY KEY,
+  user_id             TEXT NOT NULL,
+  agent_id            TEXT NOT NULL,
+  tenant_id           TEXT NOT NULL DEFAULT '',
+  provider            TEXT NOT NULL,
+  scopes              ${json} NOT NULL,
+  delegation_chain_id TEXT,
+  expires_at          ${tsNull},
+  revoked_at          ${tsNull},
+  created_at          ${ts} NOT NULL
 )`,
 		},
 

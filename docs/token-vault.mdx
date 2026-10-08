@@ -1,0 +1,96 @@
+---
+title: Token vault
+description: Let agents call GitHub, Google, Slack and other APIs for a user without ever holding the long-lived credential.
+icon: vault
+---
+
+## What it does
+
+The vault stores a user's third-party OAuth connection encrypted at rest. An agent asks for a token at the moment it needs one. The vault checks that the agent may use the provider, that the user consented to the scopes, and that the connection holds them, then returns an access token and writes an audit row. The refresh token never leaves the vault.
+
+## Set it up
+
+```typescript
+import { createTheAuth, tokenVault } from "@glinr/theauth";
+import { createGithubProvider } from "@glinr/theauth/auth/oauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "./auth.db" },
+  baseUrl: "https://app.example.com",
+  secondaryStorage: "database", // shared lock store, use Redis for multi-node
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true, tokenExpiry: "24h" },
+  plugins: [
+    tokenVault({
+      // 32 random bytes, base64url. Keep old keys listed until rotateKeys() has run.
+      keys: { keys: { k1: process.env.VAULT_KEY_K1! }, activeKeyId: "k1" },
+      providers: {
+        github: {
+          provider: createGithubProvider({ clientId: "...", clientSecret: "...", scopes: ["repo"] }),
+          clientId: "...",
+          clientSecret: "...",
+        },
+      },
+    }),
+  ],
+});
+
+const vault = theauth.plugins.getContext().tokenVault as import("@glinr/theauth").TokenVault;
+```
+
+Generate a key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+
+## Connect, consent, read
+
+1. The signed-in user calls `POST /auth/vault/connect/start` with `{ "provider": "github" }` and redirects the browser to the returned `url`. The provider sends them back to `GET /auth/vault/callback/github`, which stores the encrypted connection.
+2. The user grants an agent access: `POST /auth/vault/consents` with `{ agentId, provider, scopes }`. Only the agent's owner can do this. Pass `delegationChainId` to tie the consent to a delegation chain.
+3. The agent needs a permission on the resource `vault:github` with action `use`, either its own or delegated.
+
+```typescript
+const agent = await theauth.agent.create({
+  ownerId: userId,
+  name: "triage-bot",
+  type: "autonomous",
+  permissions: [{ resource: "vault:github", actions: ["use"] }],
+});
+
+await vault.grantConsent({ userId, agentId: agent.id, provider: "github", scopes: ["repo"] });
+
+const res = await vault.getAccessToken({
+  agentId: agent.id,
+  userId,
+  provider: "github",
+  scopes: ["repo"],
+});
+if (res.success) {
+  await fetch("https://api.github.com/user/repos", {
+    headers: { Authorization: `Bearer ${res.data.accessToken}` },
+  });
+}
+```
+
+Failures return `{ success: false, error: { code } }`. Codes: `VAULT_AGENT_INACTIVE`, `VAULT_PERMISSION_DENIED`, `VAULT_CONSENT_REQUIRED`, `VAULT_NOT_CONNECTED`, `VAULT_REAUTH_REQUIRED`, `VAULT_SCOPE_NOT_GRANTED`, `VAULT_REFRESH_FAILED`, `VAULT_DECRYPT_FAILED`.
+
+## Security model
+
+- Tokens are sealed with AES-256-GCM. Each envelope is bound to its row and column through authenticated data, so a ciphertext copied to another user's row does not decrypt.
+- The tenant is taken from the agent, not the caller. An agent in tenant A cannot reach a connection stored for tenant B or for no tenant.
+- Scopes only narrow. A request must be a subset of both the consent and the connection. The provider token itself still carries the connection's full scope: the vault enforces the narrowing, the provider does not.
+- Every read, allowed or denied, is an audit row (`vault.read`) holding the provider and scopes, never a token. If the audit write fails, no token is returned.
+- Revoking a delegation with `theauth.delegation.revoke()` revokes consents tied to that chain. Reads also re-check that the chain is active, so cascaded child chains stop working too.
+- Refresh uses a lock in `secondaryStorage` so concurrent reads trigger one refresh. Stores that cannot increment atomically (Workers KV) reduce this to best effort.
+- Provider error bodies are never logged or returned.
+
+## Rotate the encryption key
+
+Add a new key, make it active, keep the old one, then re-encrypt:
+
+```typescript
+// keys: { k1: oldKey, k2: newKey }, activeKeyId: "k2"
+const { rotated } = await vault.rotateKeys();
+```
+
+Once `rotateKeys()` reports zero on a second run, drop `k1` from the config.
+
+## Not included
+
+RFC 8693 token exchange and an HTTP endpoint for agents to fetch tokens are not part of this release. `getAccessToken` is an in-process call. The older `theauth_oauth_accounts` table stores provider tokens in plaintext and is unchanged.
