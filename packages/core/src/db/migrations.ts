@@ -31,6 +31,7 @@ interface EnabledFeatures {
 	jwt: boolean;
 	rebac: boolean;
 	federation: boolean;
+	secondaryStorage: boolean;
 }
 
 const ALL_FEATURES_ENABLED: EnabledFeatures = {
@@ -59,6 +60,7 @@ const ALL_FEATURES_ENABLED: EnabledFeatures = {
 	jwt: true,
 	rebac: true,
 	federation: true,
+	secondaryStorage: true,
 };
 
 function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
@@ -98,6 +100,8 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		jwt: hasSession,
 		rebac: hasAgents,
 		federation: false, // only when explicitly configured (no config key yet)
+		// Tiny table, created always so `secondaryStorage: "database"` just works.
+		secondaryStorage: true,
 	};
 }
 
@@ -593,6 +597,45 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   used        ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   expires_at  ${ts}   NOT NULL,
   created_at  ${ts}   NOT NULL
+)`,
+		},
+
+		// ------------------------------------------------------------------
+		// theauth_secondary_storage  (database adapter for SecondaryStorage)
+		// ------------------------------------------------------------------
+		{
+			feature: "secondaryStorage",
+			sql: `CREATE TABLE ${ifne} theauth_secondary_storage (
+  storage_key ${isMysql ? "VARCHAR(255)" : "TEXT"} NOT NULL PRIMARY KEY,
+  value       TEXT,
+  counter     INTEGER,
+  expires_at  BIGINT
+)`,
+		},
+
+		// ------------------------------------------------------------------
+		// theauth_agent_registration_tokens  (one-time agent self-registration)
+		// ------------------------------------------------------------------
+		{
+			feature: "agent",
+			sql: `CREATE TABLE ${ifne} theauth_agent_registration_tokens (
+  id                TEXT NOT NULL PRIMARY KEY,
+  token_hash        TEXT NOT NULL UNIQUE,
+  token_prefix      TEXT NOT NULL,
+  label             TEXT,
+  owner_id          TEXT NOT NULL REFERENCES theauth_users(id),
+  tenant_id         TEXT,
+  agent_type        TEXT NOT NULL DEFAULT 'autonomous',
+  permissions       ${json} NOT NULL,
+  name_prefix       TEXT,
+  agent_ttl_seconds INTEGER,
+  created_by        TEXT,
+  expires_at        ${ts} NOT NULL,
+  revoked_at        ${tsNull},
+  used_at           ${tsNull},
+  claim_nonce       TEXT,
+  agent_id          TEXT,
+  created_at        ${ts} NOT NULL
 )`,
 		},
 

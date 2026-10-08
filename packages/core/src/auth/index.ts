@@ -19,8 +19,8 @@
  * ```
  */
 
+export * from "../storage/index.js";
 export type { BearerAuthOptions } from "./adapters/bearer.js";
-
 // Built-in adapters
 export { bearerAuth } from "./adapters/bearer.js";
 export { customAuth } from "./adapters/custom.js";
@@ -39,6 +39,20 @@ export type { AdminConfig, AdminModule, AdminUser } from "./admin.js";
 export { createAdminModule } from "./admin.js";
 // Admin plugin (TheAuthPlugin wrapper)
 export { admin } from "./admin-plugin.js";
+// Agent registration tokens
+export type {
+	AgentRegistrationConfig,
+	AgentRegistrationEvent,
+	AgentRegistrationModule,
+	CreatedRegistrationToken,
+	CreateRegistrationTokenInput,
+	RedeemInput,
+	RegistrationTokenRecord,
+	RegistrationTokenStatus,
+} from "./agent-registration.js";
+export { createAgentRegistrationModule } from "./agent-registration.js";
+export type { AgentRegistrationPluginConfig } from "./agent-registration-plugin.js";
+export { agentRegistration } from "./agent-registration-plugin.js";
 // Anonymous auth
 export type { AnonymousAuthConfig, AnonymousAuthModule } from "./anonymous.js";
 export { createAnonymousAuthModule } from "./anonymous.js";
@@ -52,6 +66,8 @@ export { apiKeys } from "./api-key-plugin.js";
 // Captcha integration (reCAPTCHA, hCaptcha, Turnstile)
 export type { CaptchaConfig, CaptchaModule, CaptchaVerifyResult } from "./captcha.js";
 export { createCaptchaModule } from "./captcha.js";
+export type { TrustedProxyConfig } from "./client-ip.js";
+export { resolveClientIp } from "./client-ip.js";
 // Cost attribution and observability
 export type {
 	BudgetCheckResult,
@@ -68,11 +84,21 @@ export { createCustomSessionModule, customSession } from "./custom-session.js";
 // OAuth Device Authorization Grant (RFC 8628)
 export type {
 	DeviceAuthConfig,
+	DeviceAuthEvent,
 	DeviceAuthModule,
+	DeviceAuthPluginConfig,
 	DeviceAuthStatus,
+	DeviceCodeRequest,
 	DeviceCodeResponse,
+	DeviceGrantContext,
+	DeviceTokenGrant,
 } from "./device-auth.js";
-export { createDeviceAuthModule, deviceAuth } from "./device-auth.js";
+export {
+	createDeviceAuthModule,
+	DEVICE_CODE_GRANT_TYPE,
+	DeviceAuthError,
+	deviceAuth,
+} from "./device-auth.js";
 // Email OTP
 export type { EmailOtpConfig, EmailOtpModule } from "./email-otp.js";
 export { createEmailOtpModule } from "./email-otp.js";

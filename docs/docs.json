@@ -141,7 +141,8 @@
               "sessions",
               "jwt-sessions",
               "cookies",
-              "one-time-tokens"
+              "one-time-tokens",
+              "secondary-storage"
             ]
           }
         ]
@@ -339,6 +340,8 @@
             "pages": [
               "approval",
               "rate-limiting",
+              "cli-auth",
+              "agent-registration-tokens",
               "budget-policies",
               "cost-attribution"
             ]

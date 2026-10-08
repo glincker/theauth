@@ -1,5 +1,6 @@
 import type { Database, DatabaseConfig } from "../db/database.js";
 import type { SessionManager } from "../session/session.js";
+import type { SecondaryStorageResolver } from "../storage/types.js";
 import type { TheAuthConfig } from "../types.js";
 import type { PluginContext, PluginEndpoint, TheAuthPlugin } from "./types.js";
 
@@ -91,6 +92,7 @@ export async function initializePlugins(
 	db: Database,
 	config: TheAuthConfig,
 	sessionManager: SessionManager | null,
+	secondaryStorage?: SecondaryStorageResolver,
 ): Promise<PluginRegistry> {
 	const registry: PluginRegistry = {
 		endpoints: [],
@@ -111,6 +113,7 @@ export async function initializePlugins(
 			db,
 			config,
 			sessionManager,
+			secondaryStorage,
 			addEndpoint(endpoint: PluginEndpoint): void {
 				registry.endpoints.push(endpoint);
 			},

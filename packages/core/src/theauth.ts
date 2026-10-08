@@ -54,6 +54,7 @@ import type { SessionFreshnessModule } from "./session/freshness.js";
 import { createSessionFreshnessModule } from "./session/freshness.js";
 import type { SessionManager } from "./session/session.js";
 import { createSessionManager } from "./session/session.js";
+import { assertSecondaryStorageConfig, createSecondaryStorageResolver } from "./storage/resolve.js";
 import { createTenantModule } from "./tenant/tenant.js";
 import { createTrustModule } from "./trust/scoring.js";
 import type {
@@ -248,7 +249,15 @@ export async function createTheAuth(config: TheAuthConfig) {
 
 	// Plugin system — runs after core modules so plugins can depend on them.
 	// Plugins may register endpoints, run migrations, and collect lifecycle hooks.
-	const pluginRegistry = await initializePlugins(config.plugins ?? [], db, config, sessionManager);
+	assertSecondaryStorageConfig(config.secondaryStorage);
+	const secondaryStorage = createSecondaryStorageResolver(config.secondaryStorage, db);
+	const pluginRegistry = await initializePlugins(
+		config.plugins ?? [],
+		db,
+		config,
+		sessionManager,
+		secondaryStorage,
+	);
 
 	// Build an EndpointContext that plugins can use inside their handlers.
 	// We capture sessionManager in closure so it's available if configured.
@@ -292,7 +301,20 @@ export async function createTheAuth(config: TheAuthConfig) {
 		},
 	};
 
-	const pluginRouter = createPluginRouter(pluginRegistry.endpoints);
+	async function runRequestHooks(request: Request): Promise<Request | Response> {
+		let current = request;
+		for (const hook of pluginRegistry.hooks.onRequest) {
+			if (!hook) continue;
+			const result = await hook(current);
+			if (result instanceof Response) return result;
+			if (result instanceof Request) current = result;
+		}
+		return current;
+	}
+
+	const pluginRouter = createPluginRouter(pluginRegistry.endpoints, {
+		trustedProxy: config.trustedProxy,
+	});
 
 	// Register core session endpoints when session manager is available
 	if (sessionManager) {
@@ -594,6 +616,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 * database table — no separate in-memory store needed.
 		 */
 		mcp: mcpRegistry,
+		/** Per-feature secondary storage (rate limits, device codes, ...). */
+		secondaryStorage,
 		/**
 		 * Least-privilege analyzer.
 		 *
@@ -977,9 +1001,17 @@ export async function createTheAuth(config: TheAuthConfig) {
 		 */
 		plugins: {
 			/** Route a request through plugin endpoints. Returns null if no plugin handles it. */
-			handleRequest(request: Request, basePath = ""): Promise<Response | null> {
-				return pluginRouter.handle(request, basePath, endpointCtx);
+			async handleRequest(request: Request, basePath = ""): Promise<Response | null> {
+				const hooked = await runRequestHooks(request);
+				if (hooked instanceof Response) return hooked;
+				return pluginRouter.handle(hooked, basePath, endpointCtx);
 			},
+			/**
+			 * Run plugin `onRequest` hooks (rate limiting, etc.) for a request that
+			 * TheAuth does not route itself, such as `/mcp/token`. Returns a Response
+			 * to send back when a hook blocked the request, otherwise the request.
+			 */
+			runRequestHooks,
 			/** Get all endpoints registered by plugins (for framework adapter mounting). */
 			getEndpoints() {
 				return pluginRouter.getEndpoints();

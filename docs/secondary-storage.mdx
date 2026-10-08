@@ -1,0 +1,108 @@
+---
+title: Secondary storage
+description: Choose where TheAuth keeps rate limit counters, device codes and other short-lived state. Memory, your database, Cloudflare KV, Redis, or your own store.
+icon: database
+---
+
+## Overview
+
+Some state is small, short-lived and written constantly: rate limit counters, device login codes, nonces, caches. TheAuth keeps it in a **secondary storage**, a tiny key/value interface with expiry. By default that is process memory, which is fine for local development and a single server. Once you run more than one instance, or on serverless, point it somewhere shared.
+
+```ts
+import { createTheAuth, redisStorage } from "@glinr/theauth";
+import Redis from "ioredis";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  secondaryStorage: redisStorage(new Redis(process.env.REDIS_URL)),
+});
+```
+
+## Choosing a backend
+
+| Backend | Atomic counters | Shared across instances | Notes |
+| --- | --- | --- | --- |
+| `"memory"` (default) | yes | no | Lost on restart. Dev and single process. |
+| `"database"` | yes | yes | Uses the TheAuth database (SQLite, Postgres, MySQL, D1). No new infrastructure. |
+| `redisStorage(client)` | yes | yes | Redis, Valkey, Upstash, Dragonfly. Best throughput. |
+| `cloudflareKvStorage(kv)` | **no** | eventually | See the warning below. |
+| `defineSecondaryStorage({...})` | only if you supply `incr` | depends | Bring your own. |
+
+<Warning>
+Cloudflare KV is eventually consistent and has no atomic increment. Two requests hitting different locations at the same moment can read the same count, and a write can take up to a minute to be visible elsewhere. Rate limits on KV are soft: they stop casual abuse, not a determined burst. For strict counters on Workers use `"database"` with D1, a Durable Object, or Upstash Redis. Plain values such as device codes work on KV if you accept the propagation delay.
+</Warning>
+
+## Per-feature overrides
+
+Pass one backend for everything, or an object. Each feature falls back to `default`, then to memory.
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "d1", binding: env.DB },
+  secondaryStorage: {
+    default: "database",
+    rateLimit: cloudflareKvStorage(env.RATE_KV), // soft limits are fine here
+    deviceCodes: "database",                     // must be reliable
+  },
+});
+```
+
+| Key | Used for |
+| --- | --- |
+| `rateLimit` | The `rateLimit()` plugin counters. |
+| `deviceCodes` | Device authorization grants (`deviceAuth()`). |
+| `oneTimeTokens`, `nonces`, `sessionsCache` | Reserved names. `theauth.secondaryStorage.for(name)` returns a namespaced store for your own code; core modules do not read them yet. |
+
+Keys are prefixed `theauth:<feature>:` automatically, so features never collide in a shared Redis or table. A misspelled feature name throws at startup.
+
+## Database adapter
+
+`"database"` creates a `theauth_secondary_storage` table (it is added to the automatic migrations). `incr` is a single `UPDATE counter = counter + 1` guarded by the key, so it is atomic on every supported database. Expired rows are removed lazily; for large keyspaces call `databaseStorage(db).purgeExpired()` from a cron.
+
+## Redis adapter
+
+`redisStorage` accepts any client with `get`, `del`, `incr`, `pexpire` and `pttl` (node-redis spells them `pExpire` and `pTTL`, and that works too). It has no Redis dependency, so ioredis, node-redis and `@upstash/redis` all fit.
+
+```ts
+import { createClient } from "redis";
+const client = createClient({ url: process.env.REDIS_URL });
+await client.connect();
+const storage = redisStorage(client);
+```
+
+If the process dies between `INCR` and `PEXPIRE`, the next caller notices the missing TTL and repairs it, so a counter can never become permanent.
+
+## Custom store
+
+```ts
+import { defineSecondaryStorage } from "@glinr/theauth";
+
+const storage = defineSecondaryStorage({
+  get: (key) => myStore.get(key),
+  set: (key, value, ttlSeconds) => myStore.set(key, value, { ttl: ttlSeconds }),
+  delete: (key) => myStore.del(key),
+  // Provide incr if your store can do it atomically.
+  incr: async (key, ttlSeconds) => { /* return { count, expiresAt } */ },
+});
+```
+
+Without `incr`, the helper builds one from `get` and `set`. That is not atomic and the result reports `atomicIncr: false`.
+
+## The interface
+
+```ts
+interface SecondaryStorage {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ttlSeconds?: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  incr(key: string, ttlSeconds: number): Promise<{ count: number; expiresAt: number }>;
+  list?(prefix: string): Promise<string[]>;
+  readonly atomicIncr?: boolean;
+}
+```
+
+`incr` uses a fixed window: a missing or expired key starts at 1 with the given TTL, and later calls keep the original expiry.
+
+## Backward compatibility
+
+`kvStore(namespace)`, `KVStore`, `MemoryStore` and `RateLimitStore` keep working. `KVStore` now delegates to the new adapter, and it also accepts any `SecondaryStorage`, which gives you atomic counting through the old API. `rateLimit({ store })` accepts either kind. If you set no `store`, the plugin follows `secondaryStorage.rateLimit`.
