@@ -131,7 +131,8 @@
             "pages": [
               "add-to-existing-app",
               "configuration",
-              "database"
+              "database",
+              "ai-assistants"
             ]
           },
           {
