@@ -162,8 +162,8 @@ export interface PasswordResetModule {
 	 *
 	 * - POST /auth/forgot-password — { email }
 	 * - POST /auth/reset-password  — { token, password }
-	 * - POST /auth/forgot-password/otp — { email } (only with `config.otp`)
-	 * - POST /auth/reset-password/otp  — { email, code, password } (only with `config.otp`)
+	 * - POST /auth/forgot-password/otp: { email } (only with `config.otp`)
+	 * - POST /auth/reset-password/otp: { email, code, password } (only with `config.otp`)
 	 */
 	handleRequest(request: Request): Promise<Response | null>;
 }
