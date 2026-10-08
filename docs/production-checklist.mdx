@@ -1,0 +1,82 @@
+---
+title: Production security checklist
+description: What to verify before real users and real agents hit your theAuth deployment. Secrets, cookies, proxies, rate limits, management routes, agents and MCP, webhooks, audit retention and backups.
+icon: list-check
+---
+
+None of these items is exotic. Each one is something that works in development and fails, or worse, silently weakens things, in production. Go through the list once before launch and again after any change to your hosting.
+
+## Secrets
+
+- [ ] **Session secret is 32+ random characters and comes from the environment.** The cookie session manager, the refresher and JWT sessions all reject anything shorter. Generate it with `openssl rand -base64 48`.
+- [ ] **Every instance has the same secret.** A mismatch looks like users randomly signed out.
+- [ ] **`signingSecret` for MCP is a different value from the session secret.** It does not fall back to any other secret. If you can, publish keys and sign with ES256 or EdDSA instead of a shared HMAC secret ([MCP](/mcp)); generate keys with `generateMcpSigningKey`.
+- [ ] **You know how you would rotate them.** theAuth takes one secret at a time, so rotating the session secret signs everyone out. Decide when you would accept that, and write it down.
+- [ ] **No secrets in the repository or in client bundles.** OAuth client secrets, database URLs and webhook secrets are server-only.
+
+## Cookies and transport
+
+- [ ] **Everything is served over HTTPS**, including the OAuth callback URL you registered with each provider.
+- [ ] **`NODE_ENV=production` is set, or `cookieOptions.secure: true` is.** The cookie session manager picks `Secure` from `NODE_ENV` only ([Cookie options](/cookies)).
+- [ ] **`baseUrl` is the public `https://` URL** with the adapter mount path, not the internal address behind your proxy.
+- [ ] **`SameSite` is `Lax` or `Strict`** unless you have a measured need for `None`. Cookies are `HttpOnly` by default, keep it that way.
+- [ ] **Cross-origin front ends use an explicit CORS allowlist with credentials, never `*`.** Core sends CORS headers only on the MCP endpoints, so the rest is yours to configure ([Troubleshooting](/troubleshooting#cors-and-cross-origin-requests)).
+- [ ] **State-changing requests from browsers are checked for origin.** `validateOrigin` and the double-submit helpers are exported for this ([Sessions](/sessions)).
+
+## Proxies and rate limits
+
+- [ ] **`trustedProxy` is set** (`trustedProxyCount` or `trustedHeader`) when you run behind a load balancer or CDN. Without it all clients share one rate-limit bucket. Do not set `trustedHeader` for a header your edge does not overwrite.
+- [ ] **The `rateLimit()` plugin is installed** and covers sign-in, sign-up and password reset. Defaults are in [Rate limiting](/rate-limiting).
+- [ ] **Rate limit storage is shared between instances**, and exact where it matters. Not memory on multi-instance or serverless, and not Cloudflare KV for limits you rely on ([Which storage should I pick](/choose-storage)).
+- [ ] **Device-flow codes live in reliable storage** (`secondaryStorage.deviceCodes`), not in memory that restarts or splits across instances.
+
+## Management routes and sessions
+
+- [ ] **Your framework adapter has a real `authenticate` resolver.** The default accepts any signed-in user, which is wrong if ordinary users should not see agents and audit logs. Restrict `/agents`, `/delegations`, `/audit` and `/dashboard` to admins or service tokens ([Adapters](/adapters)).
+- [ ] **`allowUnauthenticated` is not set anywhere.** Search your code and config.
+- [ ] **Email verification is on** for password sign-up if email identity matters to you, and verification and reset links expire.
+- [ ] **Compromised-password checking is on.** `createHibpModule` rejects passwords found in breaches using k-anonymity, so the password never leaves your server ([HIBP](/hibp)). Decide whether `onError` should be `'allow'` (default) or `'block'` when the API is down.
+- [ ] **Sensitive actions require a fresh session.** Use session freshness so that changing a password or email, or approving a high-risk agent action, asks for a recent sign-in ([Sessions](/sessions)).
+- [ ] **Two-factor is available** for accounts that can approve agent actions or manage organizations ([Two-factor](/auth/two-factor)).
+- [ ] **You have a plan for imported users.** Hashes in formats other than the PBKDF2 one cannot be verified. Use `force_password_reset` or a lazy rehash ([Migrate from Auth0](/migrate/from-auth0#user-data-migration)).
+
+## Agents and MCP
+
+- [ ] **Agent permissions are narrow.** Grant specific resources and actions rather than wildcards, add `maxCallsPerHour` where an agent could loop, and use `requireApproval` for actions with side effects you cannot undo ([Permissions](/permissions)).
+- [ ] **IP allowlists are IPv4 only.** `ipAllowlist` accepts IPv4 addresses and CIDR ranges and denies requests with no known IP. If your traffic arrives over IPv6, the allowlist will block it.
+- [ ] **Delegation depth is capped** (`maxDepth`) and delegated permissions are a subset of the delegator's ([Delegation](/delegation)).
+- [ ] **Agent token lifetimes are short** and agents are revoked when their owner leaves. Revocation cascades through delegations.
+- [ ] **MCP clients register over HTTPS redirect URIs.** Registration rejects plain HTTP except for localhost. If you turn on Client ID Metadata Documents, read the SSRF notes on the [MCP](/mcp) page first.
+- [ ] **Refresh-token reuse detection is understood.** Reusing a refresh token revokes the whole family on purpose. Make sure your clients store the newest token.
+
+## Audit, webhooks and data
+
+- [ ] **Audit retention is decided.** Entries are only removed by `audit.cleanup({ retentionDays })`, so choose a value that matches your policy, and ship logs to your SIEM through [event streaming](/event-streaming) if you need them elsewhere.
+- [ ] **Webhook receivers verify the signature.** `X-TheAuth-Signature` is `sha256=` plus the HMAC of `<timestamp>.<raw body>`. Verify against the raw body and reject old timestamps ([Webhooks](/webhooks)).
+- [ ] **Backups exist and a restore has been tried.** The database is the source of truth for users, sessions, agents and audit. SQLite files need a file-level backup.
+- [ ] **Deletion and export paths are wired** if you serve people in the EU ([GDPR](/gdpr)).
+- [ ] **Migrations ran on the production database**, and you know whether `skipMigrations` is on.
+
+## Runtime
+
+- [ ] **Clocks are synchronized** on every host that issues or verifies tokens. Verification uses no clock tolerance.
+- [ ] **Database connections are pooled** if you are serverless.
+- [ ] **Error output does not leak.** Do not log request bodies for sign-in routes, and do not return raw exception messages from your own handlers.
+- [ ] **You have run a failed-login and a rate-limit test against production**, from outside your network, and confirmed the 401 and 429 responses look like [Error codes](/errors).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting" href="/troubleshooting" icon="wrench">
+    When one of these items goes wrong.
+  </Card>
+  <Card title="Which storage should I pick" href="/choose-storage" icon="scale-balanced">
+    Database and secondary storage by deployment shape.
+  </Card>
+  <Card title="Compliance" href="/compliance" icon="shield-halved">
+    Mapping features to SOC 2, GDPR and the EU AI Act.
+  </Card>
+  <Card title="Security policy" href="https://github.com/glincker/theauth/blob/main/SECURITY.md" icon="lock">
+    How to report a vulnerability.
+  </Card>
+</CardGroup>

@@ -1,0 +1,253 @@
+---
+title: Migrate from Auth.js (NextAuth)
+description: Move a Next.js app from Auth.js v5 (NextAuth) to theAuth. Config, route handler, middleware, session reads, OAuth providers, the database tables, and how to run both side by side while you cut over.
+icon: arrow-right-arrow-left
+---
+
+Auth.js (the project that grew out of NextAuth.js) is a good fit when all you need is "sign in with Google and read the session in Next.js". People usually leave it for one of three reasons: they need passwords with a real reset flow, two-factor or organizations that Auth.js does not ship, or AI agents and an MCP OAuth server that need their own identities. If none of those apply, staying put is a perfectly reasonable choice.
+
+This guide assumes Auth.js v5 (the `AUTH_*` environment variables, `NextAuth()` returning `{ handlers, auth, signIn, signOut }`). The v4 `getServerSession` API maps the same way, only the names on the left differ.
+
+## Concepts map
+
+| Auth.js | theAuth |
+|---|---|
+| `NextAuth({ providers })` in `auth.ts` | `createTheAuth({ plugins: [oauth({ providers })] })` in `lib/theauth.ts` |
+| `handlers` in `app/api/auth/[...nextauth]/route.ts` | `theAuthNextjs(theauth, { basePath })` in a catch-all route |
+| `auth()` | Read the `theauth_session` cookie and call `theauth.auth.session.validate(token)` |
+| `signIn("google")` | Link or redirect to `GET {basePath}/auth/oauth/authorize/google` |
+| `signOut()` | `useSignOut()` from `@glinr/theauth-react`, plus revoking the session server side |
+| `SessionProvider`, `useSession()` | `TheAuthProvider`, `useSession()` from `@glinr/theauth-react` |
+| `export { auth as middleware }` | A cookie check in `middleware.ts` (see below), real validation in server code |
+| `AUTH_SECRET` | `auth.session.secret`, at least 32 characters |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | `clientId` and `clientSecret` passed to `createGoogleProvider(...)` |
+| `AUTH_TRUST_HOST` | No equivalent. Set `baseUrl` to the public URL instead |
+| `@auth/*-adapter` tables | `theauth_*` tables created by `createTheAuth` |
+| Credentials provider | The `username` module, or `@glinr/theauth-email`, see [Username and password](/auth/username) |
+
+## Server setup
+
+```ts
+// BEFORE: auth.ts (Auth.js v5)
+import NextAuth from 'next-auth';
+import Google from 'next-auth/providers/google';
+import GitHub from 'next-auth/providers/github';
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [Google, GitHub], // reads AUTH_GOOGLE_ID, AUTH_GITHUB_ID, ...
+});
+```
+
+```ts
+// AFTER: lib/theauth.ts (theAuth)
+import { createTheAuth } from '@glinr/theauth';
+import { oauth, createGoogleProvider, createGithubProvider } from '@glinr/theauth/auth';
+
+export const theauth = await createTheAuth({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  // Public origin plus the folder the route handler lives in.
+  baseUrl: 'https://app.example.com/api/theauth',
+  auth: { session: { secret: process.env.SESSION_SECRET! } }, // 32+ characters
+  plugins: [
+    oauth({
+      providers: {
+        google: createGoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        }),
+        github: createGithubProvider({
+          clientId: process.env.GITHUB_CLIENT_ID!,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        }),
+      },
+    }),
+  ],
+});
+```
+
+Two differences trip people up. theAuth does not read provider credentials from `AUTH_*` variables on its own, you pass them in. And the `oauth()` plugin refuses to start without `auth.session`, because it needs somewhere to put the session it issues after the callback.
+
+### Route handler
+
+```ts
+// BEFORE: app/api/auth/[...nextauth]/route.ts
+import { handlers } from '@/auth';
+export const { GET, POST } = handlers;
+```
+
+```ts
+// AFTER: app/api/theauth/[...theauth]/route.ts
+import { theAuthNextjs } from '@glinr/theauth-nextjs';
+import { theauth } from '@/lib/theauth';
+
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, {
+  authenticate, // protects the agent and audit management routes, see /adapters
+});
+```
+
+The adapter refuses to start if it has no way to authenticate its management routes. That is a safety net, not an Auth.js feature you need to port. See [adapters](/adapters/nextjs).
+
+### OAuth callback URL
+
+Auth.js callback URLs look like `/api/auth/callback/google`. theAuth's look like `{baseUrl}/auth/oauth/callback/google`, so with the setup above it is:
+
+```text
+https://app.example.com/api/theauth/auth/oauth/callback/google
+```
+
+Add that URL in the Google and GitHub consoles before you cut over. You can keep the old URL registered too, so both stacks work during the overlap.
+
+## Reading the session
+
+```ts
+// BEFORE: server component or route handler
+import { auth } from '@/auth';
+
+const session = await auth();
+const email = session?.user?.email;
+```
+
+```ts
+// AFTER: lib/require-user.ts
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { theauth } from '@/lib/theauth';
+
+export async function requireUser() {
+  const token = (await cookies()).get('theauth_session')?.value;
+  const session = token ? await theauth.auth.session?.validate(token) : null;
+  if (!session) redirect('/sign-in');
+  return session; // { id, userId, expiresAt, createdAt, metadata? }
+}
+```
+
+`validate` returns a `Session` or `null` and does not throw. The session carries a `userId`, not an email, so look the user up if you need more.
+
+### Middleware
+
+Auth.js lets you export `auth` as middleware and it validates the JWT on the edge. theAuth sessions are database rows, and the edge runtime usually cannot open your database connection. Keep middleware to a cheap cookie check and do the real validation in `requireUser()` above.
+
+```ts
+// BEFORE: middleware.ts
+export { auth as middleware } from '@/auth';
+```
+
+```ts
+// AFTER: middleware.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export function middleware(req: NextRequest) {
+  if (req.cookies.get('theauth_session')) return NextResponse.next();
+  const url = new URL('/sign-in', req.url);
+  url.searchParams.set('next', req.nextUrl.pathname);
+  return NextResponse.redirect(url);
+}
+
+export const config = { matcher: ['/dashboard/:path*'] };
+```
+
+A forged cookie passes this check, which is fine because the page still calls `requireUser()`. If you want stateless verification on the edge, use [JWT sessions](/jwt-sessions) instead of the cookie session manager.
+
+## Client side
+
+```tsx
+// BEFORE
+import { SessionProvider, useSession, signIn, signOut } from 'next-auth/react';
+
+<SessionProvider>{children}</SessionProvider>;
+
+const { data: session } = useSession();
+<button onClick={() => signIn('google')}>Sign in</button>;
+```
+
+```tsx
+// AFTER
+import { TheAuthProvider, useSession, useSignOut } from '@glinr/theauth-react';
+
+<TheAuthProvider basePath="/api/theauth">{children}</TheAuthProvider>;
+
+const { session } = useSession();
+const { signOut } = useSignOut();
+
+// Social sign-in is a plain navigation, the route answers with a 302 to Google.
+<a href="/api/theauth/auth/oauth/authorize/google">Sign in with Google</a>;
+```
+
+Note that `useSession()` returns `{ session, isLoading, refresh }`, not `{ data, status }`. See [React hooks](/react) for the provider modes.
+
+## Database
+
+If you used an Auth.js database adapter, you have `User`, `Account`, `Session` and `VerificationToken` tables (names depend on the adapter). Copy users and OAuth links, and leave sessions and verification tokens behind. Run `createTheAuth` once first so the `theauth_*` tables exist.
+
+```sql
+-- Users. Auth.js stores emailVerified as a timestamp or null.
+INSERT INTO theauth_users (id, email, name, email_verified, created_at, updated_at)
+SELECT id, lower(email), name, ("emailVerified" IS NOT NULL), now(), now()
+FROM "User"
+WHERE email IS NOT NULL
+ON CONFLICT (id) DO NOTHING;
+
+-- OAuth links. access_token is NOT NULL in theAuth.
+INSERT INTO theauth_oauth_accounts (
+  id, user_id, provider, provider_account_id,
+  access_token, refresh_token, expires_at, created_at, updated_at
+)
+SELECT
+  gen_random_uuid()::text, "userId", provider, "providerAccountId",
+  COALESCE(access_token, ''), refresh_token,
+  to_timestamp(expires_at), now(), now()
+FROM "Account"
+WHERE type IN ('oauth', 'oidc')
+ON CONFLICT DO NOTHING;
+```
+
+The names above are the Prisma adapter defaults and the SQL is for Postgres. Check yours with `SELECT column_name FROM information_schema.columns WHERE table_name = 'User'` before running anything, and run the whole thing against a copy first. Check the column type of `theauth_oauth_accounts.expires_at` too: Auth.js stores seconds since the epoch, hence `to_timestamp`.
+
+What does not move:
+
+- **Sessions.** With the database strategy the session token is a random string, with the JWT strategy it is an encrypted token. Neither is a theAuth token. Users sign in again, which for OAuth users is one click.
+- **Passwords.** Auth.js has no built-in password storage. If you wrote a Credentials provider, you own the hash format. theAuth's `username` module only verifies `pbkdf2:<iterations>:<saltHex>:<hashHex>`, so bcrypt or argon2 hashes need a forced reset or a lazy rehash. The approach is spelled out under [Migrate from Auth0](/migrate/from-auth0#user-data-migration) and applies unchanged.
+- **Email sign-in tokens.** Verification tokens are short lived, let them expire.
+
+## Run both during the cutover
+
+`authJsAdapter` lets theAuth treat an existing Auth.js session as the signed-in user, so agent routes and plugin endpoints keep working while pages still use `auth()`.
+
+```ts
+import { createTheAuth } from '@glinr/theauth';
+import { authJsAdapter } from '@glinr/theauth/auth';
+import { auth } from '@/auth'; // your existing Auth.js instance
+
+export const theauth = await createTheAuth({
+  database: { provider: 'postgres', url: process.env.DATABASE_URL! },
+  auth: {
+    adapter: authJsAdapter({ getSession: () => auth() }),
+  },
+});
+```
+
+`getSession` must return `{ user: { id, email?, name?, image? } }` or `null`. The adapter only resolves identity, it does not create theAuth sessions. Use it to move the agent and MCP side first, then switch the human sign-in over when you are ready. Mixing it with `auth.session` for the same routes is possible but `auth.adapter` takes one adapter, so the overlap period needs a small `customAuth` wrapper, as described in [Migrate from better-auth](/migrate/from-better-auth#session-tokens).
+
+## Things that behave differently
+
+- **Cookie names.** Auth.js uses `authjs.session-token` (and the `__Secure-` prefixed variant on HTTPS). theAuth uses `theauth_session`. Both can coexist on one domain.
+- **Session lifetime.** Auth.js JWT sessions last 30 days by default. The theAuth cookie session manager defaults to 7 days with a sliding window, see [Cookie options](/cookies).
+- **Where the secret lives.** Rotating `AUTH_SECRET` logs everyone out in Auth.js. Changing `auth.session.secret` does the same here, and theAuth does not take a list of secrets.
+- **After the OAuth callback** the user lands on `{baseUrl}/` with an `auth_user` query parameter, not on a `callbackUrl` you pass at sign-in. Keep that in mind if you rely on deep links, and see [Redirect chains](/redirect).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Add to an existing app" href="/add-to-existing-app" icon="plug">
+    Keep your current auth and add agents on top.
+  </Card>
+  <Card title="Next.js adapter" href="/adapters/nextjs" icon="code">
+    Route handler options and authenticating the management routes.
+  </Card>
+  <Card title="Troubleshooting" href="/troubleshooting" icon="wrench">
+    Cookie, redirect and proxy problems after a cutover.
+  </Card>
+  <Card title="Production checklist" href="/production-checklist" icon="list-check">
+    What to verify before you point real traffic at theAuth.
+  </Card>
+</CardGroup>

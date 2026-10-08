@@ -1,0 +1,90 @@
+---
+title: Which storage should I pick
+description: A decision guide for the two storage choices in theAuth, the main database and the secondary storage for short-lived state, by deployment shape (laptop, one server, many servers, serverless, Cloudflare Workers).
+icon: scale-balanced
+---
+
+theAuth has two separate storage decisions, and people often mix them up.
+
+1. **The database** holds users, sessions, agents, delegations and the audit log. It has to be durable. You choose it with `database.provider`.
+2. **Secondary storage** holds small, short-lived, high-churn values: rate-limit counters, device login codes. It only needs fast reads, writes and an atomic counter. You choose it with `secondaryStorage`.
+
+The default for the second one is process memory, which is correct on a laptop and quietly wrong almost everywhere else. Most of the "it works locally" problems in [Troubleshooting](/troubleshooting) come from that default.
+
+## Start from where you deploy
+
+| You run | Database | Secondary storage |
+|---|---|---|
+| A laptop or CI job | `sqlite` with `:memory:` or a file | memory (default) |
+| One long-lived Node server, one process | `postgres`, or `sqlite-native` for a small app | memory is fine; `"database"` if you want counters to survive a restart |
+| Several instances behind a load balancer | `postgres` or `mysql` | `"database"` (no new infrastructure) or Redis (more throughput) |
+| Vercel or another serverless host | `postgres` or `mysql` through a pooled connection string | `"database"` or Redis over HTTP such as Upstash. Never memory. |
+| Cloudflare Workers | `d1` | `"database"` on D1 for anything that must be exact, KV only for soft limits |
+
+## The database, in one paragraph each
+
+**`sqlite` (sql.js).** SQLite compiled to WebAssembly. No native build, runs on Node, Bun, Deno and edge runtimes. The whole database lives in memory and the file is rewritten after each write. Good for development, tests and tiny single-process apps. Two processes on one file will overwrite each other, and a read-only or ephemeral filesystem loses the data.
+
+**`sqlite-native` (better-sqlite3).** Real SQLite on disk, fast, one process at a time in practice. Needs a native build (install `better-sqlite3` yourself). A good fit for a single VPS where you want zero database operations. Back up the file.
+
+**`postgres`.** The default recommendation for anything with more than one instance or any real traffic. Needs the `pg` package. Use a pooler on serverless.
+
+**`mysql`.** Choose it when MySQL is what your team already runs. Needs `mysql2`. Behavior is the same as Postgres for theAuth's purposes.
+
+**`d1`.** Cloudflare D1 through a Worker binding. Use it when the app lives on Workers. Pass the binding instead of a URL.
+
+Setup snippets for each are on [Database setup](/database).
+
+## Secondary storage, in one paragraph each
+
+| Backend | Counts exactly | Shared between instances | Pick it when |
+|---|---|---|---|
+| memory | yes | no | One process, or you accept that every instance counts separately. |
+| `"database"` | yes | yes | You already run a database and do not want another service. This is the safe default for multi-instance. |
+| `redisStorage(client)` | yes | yes | High request volume, or you want counters off your main database. Works with ioredis, node-redis and `@upstash/redis`. |
+| `cloudflareKvStorage(kv)` | no | eventually | Soft limits on Workers only. KV has no atomic increment and writes take time to appear elsewhere. |
+| `defineSecondaryStorage({...})` | only if you provide `incr` | depends | You have a store the others do not cover. |
+
+The `"database"` backend creates one table, `theauth_secondary_storage`, and increments counters with a single guarded `UPDATE`, so it is exact on every supported database. Expired rows are removed lazily; run `databaseStorage(db).purgeExpired()` from a cron if you have a large keyspace.
+
+You can choose per feature. A common production setup on Workers is exact storage for device codes and soft storage for rate limits:
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: 'd1', binding: env.DB },
+  secondaryStorage: {
+    default: 'database',
+    rateLimit: cloudflareKvStorage(env.RATE_KV), // soft limits are fine
+    deviceCodes: 'database',                     // must be reliable
+  },
+});
+```
+
+More detail, including the interface for a custom store, is on [Secondary storage](/secondary-storage).
+
+## A few rules of thumb
+
+- If you are unsure, use Postgres plus `secondaryStorage: 'database'`. It has one moving part and works on every deployment shape except Workers.
+- Do not use memory for anything you would be upset to lose or to count twice: device codes and rate limits on a deployment with more than one instance.
+- Do not put the main database on KV. KV is only an option for secondary storage.
+- Moving from `sqlite` to Postgres later is a data copy. The table names are the same (`theauth_*`), so plan a one-off export and import, and run `createTheAuth` against the new database first so the tables exist.
+- The Prisma adapter reads and writes theAuth tables from code that already uses Prisma. It does not replace the choice above. See [Prisma](/prisma).
+
+Using the Go library instead? Its backends are different, see [Storage backends](/go/getting-started/storage-backends) and [Shared state for several replicas](/go/guides/pluggable-stores).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Database setup" href="/database" icon="database">
+    Connection snippets for every provider.
+  </Card>
+  <Card title="Secondary storage" href="/secondary-storage" icon="database">
+    Interface, adapters and per-feature overrides.
+  </Card>
+  <Card title="Production checklist" href="/production-checklist" icon="list-check">
+    Check storage and everything else before launch.
+  </Card>
+  <Card title="Troubleshooting" href="/troubleshooting" icon="wrench">
+    Serverless and edge gotchas.
+  </Card>
+</CardGroup>

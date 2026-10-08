@@ -131,7 +131,10 @@
             "pages": [
               "add-to-existing-app",
               "configuration",
-              "database"
+              "database",
+              "choose-storage",
+              "production-checklist",
+              "troubleshooting"
             ]
           },
           {
@@ -472,6 +475,7 @@
               "migrate/index",
               "migrate/from-better-auth",
               "migrate/from-better-auth-agent-plugin",
+              "migrate/from-next-auth",
               "migrate/from-clerk",
               "migrate/from-auth0",
               "migrate/from-kavach"
@@ -577,6 +581,8 @@
               "go/guides/sqlite-storage",
               "go/guides/postgres-mysql-storage",
               "go/guides/custom-storage-backend",
+              "go/guides/pluggable-stores",
+              "go/guides/device-authorization",
               "go/guides/migrate-from-cognito",
               "go/guides/migrate-from-auth0"
             ]

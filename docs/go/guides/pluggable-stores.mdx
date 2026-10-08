@@ -1,0 +1,74 @@
+---
+title: "Shared State for Several Replicas"
+description: "Config.Stores moves rate-limit counters, DPoP replay records and the CIMD cache out of process memory so replicas agree."
+---
+By default theauth keeps rate-limit counters, DPoP proof replay records and the CIMD document cache in process memory. With one replica that is fine. With several, each replica enforces its own limits, and a DPoP proof replayed against a different replica is accepted.
+
+`Config.Stores` fixes that. It takes three small interfaces from the `kv` package, and any field you leave nil keeps the in-memory default for that piece.
+
+```go
+type Stores struct {
+    RateLimiter kv.RateLimiter // Allow(ctx, key, limit, window) (Decision, error)
+    ReplayCache kv.ReplayCache // Seen(ctx, key, ttl) (already bool, error)
+    Cache       kv.Cache       // Get, Set, SetNX, Delete, Incr with TTLs
+}
+```
+
+What uses each one:
+
+- `RateLimitByIP`, `RateLimitByEmail` and the OAuth endpoint limits use `RateLimiter`.
+- DPoP proof `jti` replay protection uses `ReplayCache`. If the backend errors, the proof is rejected.
+- The CIMD document cache uses `Cache`. Documents read from the shared tier are validated again.
+
+The client-auth Argon2id cache, the introspection cache and the `mcpresource` JWKS cache are still per process. They hold derived data, not security decisions.
+
+## Pick an adapter
+
+Memory is the default and suits one process:
+
+```go
+cfg.Stores = kv.NewMemory().Stores()
+```
+
+SQL reuses the database you already run. For Postgres through pgx:
+
+```go
+db := stdlib.OpenDBFromPool(pool) // github.com/jackc/pgx/v5/stdlib
+store, _ := sqlkv.New(db, sqlkv.Postgres)
+_ = store.EnsureSchema(ctx) // creates one table, theauth_kv; safe to repeat
+cfg.Stores = kv.FromCache(store)
+```
+
+For MySQL and SQLite pass `sqlkv.MySQL` or `sqlkv.SQLite` with the `*sql.DB` you gave the storage package. `sqlkv.Schema(dialect, table)` returns the DDL if you would rather run it through your own migration tool. Expired rows are pruned on a fraction of writes, so call `store.Prune(ctx)` from a timer if traffic is low. The limiter that `kv.FromCache` builds is a fixed window, which means a burst can reach twice the limit across a window boundary.
+
+Redis needs no driver dependency in theauth. The `kv/redis` package asks your client for one method:
+
+```go
+type goRedis struct{ c redis.Scripter } // github.com/redis/go-redis/v9
+
+func (g goRedis) Eval(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+    v, err := g.c.Eval(ctx, script, keys, args...).Result()
+    if errors.Is(err, redis.Nil) {
+        return nil, nil
+    }
+    return v, err
+}
+
+cfg.Stores = kv.FromCache(kvredis.New(goRedis{rdb}, "theauth:"))
+```
+
+Every operation is one Lua script, so it is atomic and costs one round trip.
+
+You can mix backends. A Redis limiter with the default replay cache is just `kv.Stores{RateLimiter: ...}`.
+
+## Writing your own backend
+
+Implement any of the interfaces. `kvtest.Run(t, factory)` is a contract suite for `kv.Cache` implementations, and the factory receives a fake clock to hand to your adapter.
+
+## Behavior to know about
+
+- Rate-limit keys include a rule name and a per-middleware sequence number, so `RateLimitByIP(5)` on sign-in and `RateLimitByIP(5)` on sign-up keep separate budgets. Replicas share budgets as long as they mount routes in the same order, which is the normal case.
+- A limiter backend error fails open for sign-in middleware (an outage should not lock everyone out) and for the OAuth endpoint limits. The device verification page fails closed.
+- A shared limiter does not help if every request appears to come from your load balancer. Set `TrustedProxies` as well.
+
+If you are choosing between backends for the main storage, see [Storage backends](/go/getting-started/storage-backends).

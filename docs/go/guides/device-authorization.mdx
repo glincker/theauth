@@ -1,0 +1,62 @@
+---
+title: "Device Authorization Grant"
+description: "Let a CLI, TV or MCP client sign in through the authorization server with RFC 8628, without a browser on the device."
+---
+Use the device grant when the program asking for access has no usable browser: a CLI on a build box, a TV app, an MCP client running over SSH. The device shows a short code, the user approves it on a phone or laptop, and the device polls until tokens arrive.
+
+This page covers the grant on the OAuth authorization server (`/oauth/*`). If you only need scoped API tokens for your own CLI, the older [API tokens and device login](/go/guides/api-tokens) flow is simpler and lives under `/auth/device/*`. The two are separate features.
+
+## Turn it on
+
+```go
+AuthorizationServer: &theauth.AuthorizationServerConfig{
+    Issuer:    "https://auth.example.com",
+    Resources: []theauth.ProtectedResource{{Identifier: "https://api.example.com", Scopes: []string{"deploy"}}},
+    DeviceAuthorization: &theauth.DeviceAuthorizationConfig{}, // every field is optional
+}
+```
+
+Your storage has to implement `theauth.DeviceAuthorizationStorage`. The memory, Postgres and MySQL adapters do (Postgres and MySQL need migration 0019). The SQLite adapter does not yet, so a single-binary SQLite app cannot use this grant today.
+
+Register the client with `grant_types: ["urn:ietf:params:oauth:grant-type:device_code"]`. Public clients (`token_endpoint_auth_method: none`) work, and so do CIMD clients. Once enabled, the authorization server metadata gains a `device_authorization_endpoint` and lists the grant.
+
+## What happens on the wire
+
+1. The device calls `POST /oauth/device_authorization` with `client_id`, `scope` and `resource`. You can leave `resource` out when exactly one resource is configured. The response holds `device_code`, `user_code`, `verification_uri`, `verification_uri_complete`, `expires_in` and `interval`.
+2. The device shows the code and URL, then polls `POST /oauth/token` every `interval` seconds with `grant_type=urn:ietf:params:oauth:grant-type:device_code`, the `device_code` and the `client_id`.
+3. The user opens `verification_uri_complete`, signs in if needed, checks the client name and scopes, and presses Allow or Deny.
+4. Each poll returns one of the RFC 8628 answers: `authorization_pending`, `slow_down` (the interval grows by 5 seconds), `access_denied`, `expired_token`, and finally tokens. A `device_code` redeems once. DPoP works on the token request like any other grant.
+
+## The verification page
+
+`GET /oauth/device` renders a small HTML page. A browser that is not signed in is redirected to `LoginURL` with a `next` parameter, and anonymous JSON callers get a `401`. Opening the link never approves anything. The user has to press the button.
+
+If you build your own UI, send `Accept: application/json` (or a JSON body):
+
+```
+GET  /oauth/device?user_code=BCDF-GHJK
+     -> {"client_name": "...", "scope": "...", "expires_at": "..."}
+POST /oauth/device {"user_code": "BCDF-GHJK", "action": "approve" | "deny" | "lookup"}
+     -> {"status": "approved"}
+```
+
+To restyle the built-in page, set `DeviceAuthorizationConfig.CSS`. It is appended inside a `<style>` element and overrides the CSS variables `--bg`, `--fg`, `--muted`, `--accent`, `--danger` and `--border`. The value is trusted operator input and is not escaped. To render everything yourself, set `Page` and draw from the `DevicePage` view model. The built-in page sends `frame-ancestors 'none'`, `X-Frame-Options: DENY` and `Cache-Control: no-store`. If you replace it, keep those headers.
+
+If you serve the page behind a vanity URL, set `VerificationURI`. It defaults to `Issuer + "/oauth/device"`.
+
+## Why the codes are hard to guess
+
+- `device_code` carries 256 random bits. `user_code` is 8 letters drawn from a 20 letter alphabet with no vowels (about 34 bits), and it is single use.
+- Both are stored only as HMAC-SHA256 under a key derived from `EncryptionKey`. A database leak does not reveal live codes, and the short user code cannot be brute-forced offline.
+- Lookups on the verification page are limited per signed-in user (per client IP when nobody is signed in). `MaxVerifyAttempts` defaults to 10 per `VerifyAttemptWindow` of 15 minutes. A wrong, expired or already decided code all return the same error, so the page does not tell an attacker which case they hit.
+- The defaults are a 10 minute lifetime (`ExpiresIn`) and a 5 second interval (`Interval`). `UserCodeLength` and `UserCodeAlphabet` can change, but an alphabet under 16 symbols or a length under 6 is rejected.
+
+## Operating it
+
+Audit events: `oauth.device.requested`, `oauth.device.approved`, `oauth.device.denied` and `oauth.device.redeemed`.
+
+Rows are not deleted automatically. If the table grows, call `DeleteExpiredDeviceAuthorizations` from a scheduled job.
+
+The endpoint is covered by the authorization server's rate limits and the Argon2id concurrency cap, and the counters live in `Config.Stores.RateLimiter`. See [Shared state for several replicas](/go/guides/pluggable-stores). Behind a proxy, set `TrustedProxies`, otherwise every device appears to come from the proxy address.
+
+A runnable stdlib-only CLI and demo server live in `examples/cli-device-login` in the repository.
