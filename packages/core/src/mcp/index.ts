@@ -18,6 +18,17 @@ export { handleAuthorize } from "./authorize.js";
 export { fetchClientMetadataDocument, resolveClient } from "./client-metadata.js";
 // Consent approval
 export { approveConsent } from "./consent.js";
+// DPoP (RFC 9449)
+export {
+	computeAth,
+	DEFAULT_DPOP_ALGS,
+	getCurrentDpopNonce,
+	normalizeHtu,
+	type VerifiedDpopProof,
+	type VerifyDpopProofInput,
+	verifyDpopProof,
+} from "./dpop.js";
+export type { DpopAlg, McpDpopConfig } from "./dpop-types.js";
 // Signing keys and JWKS
 export {
 	generateMcpSigningKey,
@@ -33,6 +44,13 @@ export {
 } from "./metadata.js";
 // Dynamic Client Registration
 export { registerClient } from "./registration.js";
+// Resource server wrapper
+export {
+	type McpPrincipal,
+	type McpProtectedHandler,
+	type RequireMcpAuthOptions,
+	requireMcpAuth,
+} from "./require-mcp-auth.js";
 // Scope challenge helper
 export { requireScopes } from "./require-scopes.js";
 // Token revocation (RFC 7009)
@@ -55,6 +73,7 @@ export type {
 	ApproveConsentParams,
 	AuthError,
 	McpAccessToken,
+	McpActorClaim,
 	McpAsymmetricAlg,
 	McpAuthContext,
 	McpAuthModule,
@@ -65,6 +84,7 @@ export type {
 	McpClientRegistrationRequest,
 	McpClientRegistrationResponse,
 	McpConfig,
+	McpDelegationHop,
 	McpJtiDenylist,
 	McpProtectedResourceMetadata,
 	McpServerMetadata,
