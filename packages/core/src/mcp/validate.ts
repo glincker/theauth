@@ -1,30 +1,17 @@
-import { jwtVerify } from "jose";
+import { verifyAccessJwt } from "./keys.js";
 import type { McpAuthContext, McpSession, McpTokenPayload, Result } from "./types.js";
 import { extractBearerToken } from "./utils.js";
-
-/**
- * Derive the HMAC verification key from the config's signing secret.
- */
-async function getVerificationKey(secret: string): Promise<CryptoKey> {
-	const encoder = new TextEncoder();
-	return globalThis.crypto.subtle.importKey(
-		"raw",
-		encoder.encode(secret),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["verify"],
-	);
-}
 
 /**
  * Validate an MCP access token (JWT).
  *
  * Performs:
- * 1. JWT signature verification (HS256)
+ * 1. JWT signature verification (HS256, or ES256/EdDSA via the JWKS)
  * 2. Expiry check
  * 3. Issuer validation
- * 4. Audience validation (token must be bound to the expected resource)
- * 5. Scope validation (optional - checks all required scopes are present)
+ * 4. Audience validation (token must be bound to `expectedAudience`, required)
+ * 5. Revocation check against the configured jti denylist, if any
+ * 6. Scope validation (optional - checks all required scopes are present)
  *
  * Target: < 5ms with cached keys (per CLAUDE.md performance rule).
  */
@@ -33,16 +20,30 @@ export async function validateAccessToken(
 	token: string,
 	options?: {
 		requiredScopes?: string[];
+		/**
+		 * The canonical URI of this resource server. Required: a token minted for
+		 * another resource must never be accepted here.
+		 */
 		expectedAudience?: string;
 	},
 ): Promise<Result<McpSession>> {
-	const secret = ctx.config.signingSecret;
-	if (!secret) {
+	if (!options?.expectedAudience) {
 		return {
 			success: false,
 			error: {
 				code: "SERVER_ERROR",
-				message: "MCP signingSecret is not configured",
+				message:
+					"expectedAudience is required. Pass the canonical URI of this resource server " +
+					"(or set McpConfig.resource) so tokens issued for other resources are rejected.",
+			},
+		};
+	}
+	if (!ctx.config.signingSecret && !ctx.config.signing) {
+		return {
+			success: false,
+			error: {
+				code: "SERVER_ERROR",
+				message: "MCP signingSecret or signing key is not configured",
 			},
 		};
 	}
@@ -50,13 +51,9 @@ export async function validateAccessToken(
 	// ── Verify JWT ──────────────────────────────────────────────────
 	let payload: McpTokenPayload;
 	try {
-		const key = await getVerificationKey(secret);
-		const result = await jwtVerify(token, key, {
-			issuer: ctx.config.issuer,
-			algorithms: ["HS256"],
-			...(options?.expectedAudience ? { audience: options.expectedAudience } : {}),
-		});
-		payload = result.payload as unknown as McpTokenPayload;
+		payload = (await verifyAccessJwt(ctx, token, {
+			audience: options.expectedAudience,
+		})) as unknown as McpTokenPayload;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Token verification failed";
 
@@ -64,9 +61,9 @@ export async function validateAccessToken(
 		let code = "INVALID_TOKEN";
 		if (message.includes("expired")) {
 			code = "TOKEN_EXPIRED";
-		} else if (message.includes("audience")) {
+		} else if (message.includes("audience") || message.includes('"aud"')) {
 			code = "INVALID_AUDIENCE";
-		} else if (message.includes("issuer")) {
+		} else if (message.includes("issuer") || message.includes('"iss"')) {
 			code = "INVALID_ISSUER";
 		}
 
@@ -87,9 +84,15 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── Audience validation (mandatory per MCP spec) ────────────────
-	// If no explicit audience was provided to check, we still verify
-	// the token has an audience claim.
+	// ── Revocation (opt-in jti denylist) ────────────────────────────
+	if (ctx.config.jtiDenylist && (await ctx.config.jtiDenylist.isRevoked(payload.jti))) {
+		return {
+			success: false,
+			error: { code: "INVALID_TOKEN", message: "Token has been revoked" },
+		};
+	}
+
+	// ── Audience claim must exist (jose already matched it) ─────────
 	const audience = payload.aud;
 	if (!audience) {
 		return {
@@ -149,7 +152,10 @@ export async function validateAccessToken(
  *
  * Usage:
  * ```typescript
- * const result = await withMcpAuth(ctx, request, { requiredScopes: ['read'] });
+ * const result = await withMcpAuth(ctx, request, {
+ *   expectedAudience: 'https://mcp.example.com',
+ *   requiredScopes: ['read'],
+ * });
  * if (!result.success) {
  *   return new Response(JSON.stringify(result.error), { status: 401 });
  * }
@@ -159,11 +165,23 @@ export async function validateAccessToken(
 export async function withMcpAuth(
 	ctx: McpAuthContext,
 	request: Request,
-	options?: {
+	options: {
 		requiredScopes?: string[];
-		expectedAudience?: string;
+		/** Canonical URI of this resource server. Required. */
+		expectedAudience: string;
 	},
 ): Promise<Result<McpSession>> {
+	if (!options?.expectedAudience) {
+		return {
+			success: false,
+			error: {
+				code: "SERVER_ERROR",
+				message:
+					"withMcpAuth requires options.expectedAudience (the canonical URI of this resource server).",
+			},
+		};
+	}
+
 	const token = extractBearerToken(request);
 
 	if (!token) {

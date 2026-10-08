@@ -322,6 +322,55 @@ The registry is bookkeeping for your own tooling and dashboards. It is not read 
   </Accordion>
 </AccordionGroup>
 
+## Security hardening
+
+These behaviors are on by default unless noted.
+
+**Resource and audience are mandatory.** `resource` (RFC 8707) is required at the authorize and token endpoints, and access tokens are always bound to it. Resource servers must say which audience they accept: set `config.resource` (used by `middleware`, `validateToken` and `requireScopes`) or pass `expectedAudience` to `withMcpAuth` and `validateAccessToken`. Calls without one return a `SERVER_ERROR` that names the missing option.
+
+```ts
+const result = await withMcpAuth(ctx, request, {
+  expectedAudience: "https://mcp.example.com",
+  requiredScopes: ["mcp:read"],
+});
+```
+
+**Hashed storage.** Client secrets are stored as `sha256:<hex>`, and `McpAccessToken.accessToken` and `refreshToken` hold SHA-256 digests, not raw values. Secrets are compared in constant time. Rows written by older versions still work: a legacy plaintext secret is accepted once and upgraded when you implement the optional `updateClientSecret(clientId, hash)` callback, and a raw refresh token is found by a second `findTokenByRefreshToken` call.
+
+**Refresh rotation with reuse detection (RFC 9700).** Each refresh token belongs to a family. Replaying a rotated token revokes the whole family. By default families live in process memory; for more than one instance pass the database-backed store:
+
+```ts
+createMcpModule({
+  config: { /* ... */ tokenFamilies: createTokenFamilyStore(db), refreshTokenAbsoluteTtl: 2592000 },
+  revokeTokenFamily: async (familyId) => { /* delete stored tokens with this familyId */ },
+  // ...
+});
+```
+
+On refresh, a `scope` that was not part of the original grant returns `invalid_scope`, and a `resource` that differs from the original grant returns `invalid_target`.
+
+**Revocation and the jti denylist.** `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only). Access tokens are JWTs, so revoking one only takes effect immediately if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for a single process, or your own shared store). Without it a revoked access token stays valid until `exp`.
+
+**Asymmetric signing (opt in).** HS256 with `signingSecret` stays the default. To publish keys and sign with ES256 or EdDSA:
+
+```ts
+const key = await generateMcpSigningKey("ES256", "2026-10");
+const mcp = createMcpModule({
+  config: {
+    // ...
+    signing: { alg: "ES256", current: { kid: key.kid, privateKey: key.privateKey } },
+  },
+  // ...
+});
+app.get("/mcp/jwks", async () => mcp.getJwks());
+```
+
+To rotate, move the old key into `previous: [{ kid, publicKey }]` and set a new `current`. Both keys are published, tokens signed by either verify, and you drop the old entry once its tokens have expired. If `signingSecret` is still set, HS256 tokens keep verifying during the migration.
+
+**Issuer identification (RFC 9207).** Authorization responses carry `iss`, and metadata sets `authorization_response_iss_parameter_supported`.
+
+**Client ID Metadata Documents (opt in).** With `clientIdMetadataDocuments: { enabled: true }`, an unknown `https://` client_id is fetched and its document must contain the same `client_id`. The fetcher resolves DNS and refuses loopback, private, link-local, CGNAT, unique-local and metadata addresses, never follows redirects, caps the body at 5 KB, accepts JSON only, times out after 5 seconds, and fails closed. It cannot pin the connection to the address it checked, so a hostile DNS server with a near-zero TTL can in theory still rebind; supply a `fetchImpl` that pins the IP if that matters for you. Registration no longer fetches `client_uri`.
+
 ## Related
 
 <CardGroup cols={2}>

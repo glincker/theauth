@@ -1,6 +1,10 @@
 import { SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
+import { authenticateClient } from "./client-auth.js";
+import { resolveClient } from "./client-metadata.js";
+import { getAsymmetricSigner } from "./keys.js";
+import { revokeFamilyAndTokens, revokeStoredAccessToken } from "./revocation.js";
 import type {
 	McpAccessToken,
 	McpAuthContext,
@@ -9,7 +13,13 @@ import type {
 	Result,
 } from "./types.js";
 import { McpTokenRequestSchema } from "./types.js";
-import { extractBasicAuth, generateSecureToken, parseRequestBody, verifyS256 } from "./utils.js";
+import {
+	extractBasicAuth,
+	generateSecureToken,
+	hashToken,
+	parseRequestBody,
+	verifyS256,
+} from "./utils.js";
 
 /**
  * Derive the HMAC signing key from the config's signing secret.
@@ -37,11 +47,11 @@ async function issueAccessTokenJwt(
 	scopes: string[],
 	resource: string | null,
 ): Promise<{ jwt: string; jti: string; expiresAt: Date }> {
+	const asymmetric = await getAsymmetricSigner(ctx);
 	const secret = ctx.config.signingSecret;
-	if (!secret) {
-		throw new Error("MCP signingSecret is required to issue tokens");
+	if (!asymmetric && !secret) {
+		throw new Error("MCP signingSecret or signing key is required to issue tokens");
 	}
-	const key = await getSigningKey(secret);
 	const jti = generateId();
 	const now = Math.floor(Date.now() / 1000);
 	const exp = now + ctx.config.accessTokenTtl;
@@ -65,19 +75,23 @@ async function issueAccessTokenJwt(
 		}
 	}
 
-	const jwt = await new SignJWT({
+	const builder = new SignJWT({
 		sub: userId,
 		client_id: clientId,
 		scope: scopes.join(" "),
 		jti,
 		...agenticClaims,
 	})
-		.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+		.setProtectedHeader(
+			asymmetric
+				? { alg: asymmetric.alg, typ: "at+jwt", kid: asymmetric.kid }
+				: { alg: "HS256", typ: "at+jwt" },
+		)
 		.setIssuer(ctx.config.issuer)
 		.setAudience(audience)
 		.setIssuedAt(now)
-		.setExpirationTime(exp)
-		.sign(key);
+		.setExpirationTime(exp);
+	const jwt = await builder.sign(asymmetric ? asymmetric.key : await getSigningKey(secret ?? ""));
 
 	return { jwt, jti, expiresAt };
 }
@@ -177,7 +191,7 @@ async function handleAuthorizationCodeGrant(
 	clientSecret: string | null,
 ): Promise<Result<McpTokenResponse>> {
 	// ── Look up the client ──────────────────────────────────────────
-	const client = await ctx.findClient(data.client_id);
+	const client = await resolveClient(ctx, data.client_id);
 	if (!client) {
 		return {
 			success: false,
@@ -193,13 +207,9 @@ async function handleAuthorizationCodeGrant(
 	}
 
 	// ── Validate client secret for confidential clients ─────────────
-	if (client.clientType === "confidential") {
-		if (!clientSecret || clientSecret !== client.clientSecret) {
-			return {
-				success: false,
-				error: { code: "INVALID_CLIENT", message: "Invalid client_secret" },
-			};
-		}
+	const clientAuth = await authenticateClient(ctx, client, clientSecret);
+	if (!clientAuth.success) {
+		return clientAuth;
 	}
 
 	// ── Consume the authorization code (one-time use) ───────────────
@@ -248,24 +258,21 @@ async function handleAuthorizationCodeGrant(
 	}
 
 	// ── Validate resource parameter (RFC 8707) ──────────────────────
-	// If the auth code was bound to a resource, the token request must
-	// either omit the resource parameter or match.
-	if (data.resource !== undefined && authCode.resource !== null) {
-		if (data.resource !== authCode.resource) {
-			return {
-				success: false,
-				error: {
-					code: "INVALID_TARGET",
-					message: "resource parameter does not match authorization code",
-				},
-			};
-		}
+	// The token request must repeat the resource the code was bound to.
+	if (authCode.resource === null || data.resource !== authCode.resource) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_TARGET",
+				message: "resource parameter does not match authorization code",
+			},
+		};
 	}
 
-	const resource = data.resource ?? authCode.resource;
+	const resource = authCode.resource;
 
 	// ── Issue tokens ────────────────────────────────────────────────
-	const { jwt, expiresAt } = await issueAccessTokenJwt(
+	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
 		ctx,
 		authCode.userId,
 		data.client_id,
@@ -274,11 +281,19 @@ async function handleAuthorizationCodeGrant(
 	);
 
 	const includeRefreshToken = authCode.scope.includes("offline_access");
-	const refreshToken = includeRefreshToken ? generateSecureToken(48) : null;
+	let refreshToken: string | null = null;
+	let familyId: string | undefined;
+	if (includeRefreshToken) {
+		const issued = await issueRefreshToken(ctx, authCode.userId);
+		refreshToken = issued.rawToken;
+		familyId = issued.familyId;
+	}
 
 	const tokenRecord: McpAccessToken = {
-		accessToken: jwt,
-		refreshToken,
+		accessToken: await hashToken(jwt),
+		refreshToken: refreshToken ? await hashToken(refreshToken) : null,
+		jti,
+		...(familyId ? { familyId } : {}),
 		tokenType: "Bearer",
 		expiresIn: ctx.config.accessTokenTtl,
 		scope: authCode.scope,
@@ -312,7 +327,7 @@ async function handleRefreshTokenGrant(
 	clientSecret: string | null,
 ): Promise<Result<McpTokenResponse>> {
 	// ── Look up the client ──────────────────────────────────────────
-	const client = await ctx.findClient(data.client_id);
+	const client = await resolveClient(ctx, data.client_id);
 	if (!client) {
 		return {
 			success: false,
@@ -328,29 +343,65 @@ async function handleRefreshTokenGrant(
 	}
 
 	// ── Validate client secret for confidential clients ─────────────
-	if (client.clientType === "confidential") {
-		if (!clientSecret || clientSecret !== client.clientSecret) {
-			return {
-				success: false,
-				error: { code: "INVALID_CLIENT", message: "Invalid client_secret" },
-			};
-		}
+	const clientAuth = await authenticateClient(ctx, client, clientSecret);
+	if (!clientAuth.success) {
+		return clientAuth;
 	}
 
-	// ── Find the existing token by refresh_token ────────────────────
-	const existingToken = await ctx.findTokenByRefreshToken(data.refresh_token);
+	// ── Find the stored token (hash first, legacy plaintext second) ─
+	const presented = data.refresh_token;
+	const presentedHash = await hashToken(presented);
+	const existingToken =
+		(await ctx.findTokenByRefreshToken(presentedHash)) ??
+		(await ctx.findTokenByRefreshToken(presented));
+
+	// Bind to the client before anything is consumed, so a different client
+	// cannot burn a victim's token.
+	if (existingToken && existingToken.clientId !== data.client_id) {
+		return {
+			success: false,
+			error: { code: "INVALID_GRANT", message: "client_id does not match refresh token" },
+		};
+	}
+
+	// ── Rotation and reuse detection (RFC 9700 section 4.14) ────────
+	const families = ctx.tokenFamilies;
+	let familyId = existingToken?.familyId;
+	if (families) {
+		const consumed = await families.consumeToken(presented);
+		if (consumed.status === "reuse" || consumed.status === "revoked") {
+			// A rotated token came back: assume theft and kill the whole family.
+			if (consumed.family) {
+				await revokeFamilyAndTokens(ctx, consumed.family.id, existingToken);
+			}
+			return {
+				success: false,
+				error: {
+					code: "INVALID_GRANT",
+					message:
+						consumed.status === "reuse"
+							? "Refresh token reuse detected; the grant has been revoked"
+							: "Refresh token family has been revoked",
+				},
+			};
+		}
+		if (consumed.status === "expired") {
+			return {
+				success: false,
+				error: { code: "INVALID_GRANT", message: "Refresh token has expired" },
+			};
+		}
+		if (consumed.status === "ok") {
+			familyId = consumed.family?.id ?? familyId;
+		}
+		// "not_found": a token minted before families existed. It is accepted once
+		// below and moved into a family so the next rotation is protected.
+	}
+
 	if (!existingToken) {
 		return {
 			success: false,
 			error: { code: "INVALID_GRANT", message: "Invalid refresh token" },
-		};
-	}
-
-	// ── Validate client_id matches ──────────────────────────────────
-	if (existingToken.clientId !== data.client_id) {
-		return {
-			success: false,
-			error: { code: "INVALID_GRANT", message: "client_id does not match refresh token" },
 		};
 	}
 
@@ -365,19 +416,45 @@ async function handleRefreshTokenGrant(
 		};
 	}
 
-	// ── Determine scopes (may be narrowed in the request) ───────────
-	const scopes = data.scope
-		? data.scope.split(" ").filter((s) => existingToken.scope.includes(s))
-		: existingToken.scope;
+	// ── Scopes: may be narrowed, never widened or unknown ───────────
+	let scopes = existingToken.scope;
+	if (data.scope) {
+		const requested = data.scope.split(" ").filter(Boolean);
+		const unauthorized = requested.filter((s) => !existingToken.scope.includes(s));
+		if (unauthorized.length > 0) {
+			return {
+				success: false,
+				error: {
+					code: "INVALID_SCOPE",
+					message: `Scope not granted by the original authorization: ${unauthorized.join(" ")}`,
+				},
+			};
+		}
+		if (requested.length > 0) {
+			scopes = requested;
+		}
+	}
 
-	// ── Determine resource ──────────────────────────────────────────
-	const resource = data.resource ?? existingToken.resource;
+	// ── Resource: equal to (or a subset of) the original grant ──────
+	// A grant is bound to one resource, so the only valid subset is that
+	// resource itself. Omitting the parameter keeps the original binding.
+	const originalResource = existingToken.resource;
+	if (data.resource !== undefined && data.resource !== (originalResource ?? ctx.config.issuer)) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_TARGET",
+				message: "resource must match the resource of the original grant",
+			},
+		};
+	}
+	const resource = originalResource;
 
-	// ── Revoke the old token ────────────────────────────────────────
-	await ctx.revokeToken(existingToken.accessToken);
+	// ── Revoke the old access token ─────────────────────────────────
+	await revokeStoredAccessToken(ctx, existingToken);
 
-	// ── Issue new tokens (token rotation for security) ──────────────
-	const { jwt, expiresAt } = await issueAccessTokenJwt(
+	// ── Issue new tokens (rotation) ─────────────────────────────────
+	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
 		ctx,
 		existingToken.userId,
 		data.client_id,
@@ -385,11 +462,14 @@ async function handleRefreshTokenGrant(
 		resource,
 	);
 
-	const newRefreshToken = generateSecureToken(48);
+	const rotated = await issueRefreshToken(ctx, existingToken.userId, familyId);
+	const newRefreshToken = rotated.rawToken;
 
 	const tokenRecord: McpAccessToken = {
-		accessToken: jwt,
-		refreshToken: newRefreshToken,
+		accessToken: await hashToken(jwt),
+		refreshToken: await hashToken(newRefreshToken),
+		jti,
+		...(rotated.familyId ? { familyId: rotated.familyId } : {}),
 		tokenType: "Bearer",
 		expiresIn: ctx.config.accessTokenTtl,
 		scope: scopes,
@@ -412,4 +492,27 @@ async function handleRefreshTokenGrant(
 	};
 
 	return { success: true, data: response };
+}
+
+/**
+ * Issue a refresh token inside a family. A new family is created when
+ * `familyId` is not given (first grant, or a legacy token being migrated).
+ * Falls back to a bare random token when no family store is configured.
+ */
+async function issueRefreshToken(
+	ctx: McpAuthContext,
+	userId: string,
+	familyId?: string,
+): Promise<{ rawToken: string; familyId?: string }> {
+	const families = ctx.tokenFamilies;
+	if (!families) {
+		return { rawToken: generateSecureToken(48) };
+	}
+	let id = familyId;
+	if (!id) {
+		const absoluteMs = ctx.config.refreshTokenAbsoluteTtl * 1000;
+		id = (await families.createFamily(userId, new Date(Date.now() + absoluteMs))).id;
+	}
+	const issued = await families.issueToken(id, ctx.config.refreshTokenTtl * 1000);
+	return { rawToken: issued.rawToken, familyId: id };
 }

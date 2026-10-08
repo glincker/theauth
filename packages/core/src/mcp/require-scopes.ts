@@ -43,7 +43,9 @@ export async function requireScopes(
 	// ── Step 2: Validate the token (without scope enforcement yet) ──
 	// We validate first without requiredScopes so we can distinguish
 	// "bad token" (401) from "valid token but wrong scopes" (403).
-	const tokenResult = await validateAccessToken(ctx, token);
+	const tokenResult = await validateAccessToken(ctx, token, {
+		expectedAudience: ctx.config.resource,
+	});
 
 	if (!tokenResult.success) {
 		return {

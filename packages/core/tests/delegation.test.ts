@@ -384,4 +384,95 @@ describe("delegation chains", () => {
 		const chains = await theauth.delegation.listChains(parent.id);
 		expect(chains).toHaveLength(2);
 	});
+
+	describe("hardening", () => {
+		async function agent(name: string, perms: Array<{ resource: string; actions: string[] }>) {
+			return theauth.agent.create({
+				ownerId: "user-1",
+				name,
+				type: "delegated",
+				permissions: perms,
+			});
+		}
+		const hour = 60 * 60 * 1000;
+
+		it("caps the child expiry to the inbound chain that grants the permission", async () => {
+			const root = await agent("root", [{ resource: "*", actions: ["*"] }]);
+			const mid = await agent("mid", []);
+			const leaf = await agent("leaf", []);
+			const parentExpiry = new Date(Date.now() + hour);
+
+			await theauth.delegate({
+				fromAgent: root.id,
+				toAgent: mid.id,
+				permissions: [{ resource: "mcp:github", actions: ["read"] }],
+				expiresAt: parentExpiry,
+			});
+			const child = await theauth.delegate({
+				fromAgent: mid.id,
+				toAgent: leaf.id,
+				permissions: [{ resource: "mcp:github", actions: ["read"] }],
+				expiresAt: new Date(Date.now() + 24 * hour),
+			});
+			expect(Math.floor(child.expiresAt.getTime() / 1000)).toBe(
+				Math.floor(parentExpiry.getTime() / 1000),
+			);
+		});
+
+		it("reads parent authority from storage, not from the caller", async () => {
+			const root = await agent("root", [{ resource: "mcp:github", actions: ["read"] }]);
+			const leaf = await agent("leaf", []);
+			// Even though the input claims write, the stored parent only has read.
+			await expect(
+				theauth.delegate({
+					fromAgent: root.id,
+					toAgent: leaf.id,
+					permissions: [{ resource: "mcp:github", actions: ["write"] }],
+					expiresAt: new Date(Date.now() + hour),
+				}),
+			).rejects.toMatchObject({ code: "DELEGATION_PERMISSION_SUBSET" });
+		});
+
+		it("honors the stricter maxDepth of the inbound chain", async () => {
+			const root = await agent("root", [{ resource: "*", actions: ["*"] }]);
+			const a = await agent("a", []);
+			const b = await agent("b", []);
+			await theauth.delegate({
+				fromAgent: root.id,
+				toAgent: a.id,
+				permissions: [{ resource: "mcp:x", actions: ["read"] }],
+				expiresAt: new Date(Date.now() + hour),
+				maxDepth: 1,
+			});
+			await expect(
+				theauth.delegate({
+					fromAgent: a.id,
+					toAgent: b.id,
+					permissions: [{ resource: "mcp:x", actions: ["read"] }],
+					expiresAt: new Date(Date.now() + hour),
+					maxDepth: 10,
+				}),
+			).rejects.toMatchObject({ code: "DELEGATION_DEPTH_EXCEEDED" });
+		});
+
+		it("rejects delegation that relies on an expired inbound chain", async () => {
+			const root = await agent("root", [{ resource: "*", actions: ["*"] }]);
+			const mid = await agent("mid", []);
+			const leaf = await agent("leaf", []);
+			await theauth.delegate({
+				fromAgent: root.id,
+				toAgent: mid.id,
+				permissions: [{ resource: "mcp:x", actions: ["read"] }],
+				expiresAt: new Date(Date.now() - 1000),
+			});
+			await expect(
+				theauth.delegate({
+					fromAgent: mid.id,
+					toAgent: leaf.id,
+					permissions: [{ resource: "mcp:x", actions: ["read"] }],
+					expiresAt: new Date(Date.now() + hour),
+				}),
+			).rejects.toMatchObject({ code: "DELEGATION_PERMISSION_SUBSET" });
+		});
+	});
 });

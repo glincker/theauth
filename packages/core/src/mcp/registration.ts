@@ -1,52 +1,15 @@
 import { generateId } from "../crypto/web-crypto.js";
 import type { McpAuthContext, McpClient, McpClientRegistrationResponse, Result } from "./types.js";
 import { McpClientRegistrationSchema } from "./types.js";
-import { generateSecureToken } from "./utils.js";
-
-/**
- * Validate whether a client_id that is an HTTPS URL points to a valid
- * Client ID Metadata Document.  Per the MCP spec, when a client_id is
- * an HTTPS URL the authorization server SHOULD fetch the document and
- * verify that the redirect_uris in the registration request match those
- * in the metadata document.
- *
- * Returns the resolved redirect URIs from the metadata document, or null
- * if the client_id is not a URL.
- */
-async function resolveClientIdMetadataDocument(clientId: string): Promise<string[] | null> {
-	try {
-		const url = new URL(clientId);
-		if (url.protocol !== "https:") {
-			return null;
-		}
-		const response = await fetch(clientId, {
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(5_000),
-		});
-		if (!response.ok) {
-			return null;
-		}
-		const metadata = (await response.json()) as {
-			redirect_uris?: string[];
-			client_name?: string;
-			client_uri?: string;
-		};
-		if (Array.isArray(metadata.redirect_uris)) {
-			return metadata.redirect_uris;
-		}
-		return null;
-	} catch {
-		// Not a URL or fetch failed -- treat as opaque client_id
-		return null;
-	}
-}
+import { generateSecureToken, hashClientSecret } from "./utils.js";
 
 /**
  * Dynamic Client Registration (RFC 7591).
  *
  * Endpoint logic for: POST /mcp/register
  *
- * Validates the registration request, generates client credentials,
+ * Validates the registration request, generates client credentials (the
+ * secret is stored as a SHA-256 digest),
  * persists the client via the context store, and returns the
  * RFC 7591-compliant registration response.
  */
@@ -141,33 +104,12 @@ export async function registerClient(
 	const isPublic = authMethod === "none";
 	const clientSecret = isPublic ? null : generateSecureToken(48);
 
-	// ── Client ID Metadata Document support ─────────────────────────
-	// If the caller provides a client_uri that is an HTTPS URL, we
-	// attempt to fetch the metadata document. If it exists and contains
-	// redirect_uris, we verify they match the request.
-	if (data.client_uri) {
-		const metadataUris = await resolveClientIdMetadataDocument(data.client_uri);
-		if (metadataUris !== null) {
-			const metadataSet = new Set(metadataUris);
-			const mismatched = redirectUris.filter((u) => !metadataSet.has(u));
-			if (mismatched.length > 0) {
-				return {
-					success: false,
-					error: {
-						code: "INVALID_REDIRECT_URI",
-						message: "redirect_uris do not match those in the Client ID Metadata Document",
-						details: { mismatched },
-					},
-				};
-			}
-		}
-	}
-
 	// ── Persist ─────────────────────────────────────────────────────
 	const now = new Date();
 	const client: McpClient = {
 		clientId,
-		clientSecret,
+		// Only the digest is stored; the raw secret is returned once below.
+		clientSecret: clientSecret === null ? null : await hashClientSecret(clientSecret),
 		clientName: data.client_name ?? null,
 		clientUri: data.client_uri ?? null,
 		logoUri: data.logo_uri ?? null,

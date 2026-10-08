@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { delegationChains } from "../db/schema.js";
+import { delegationChains, permissions } from "../db/schema.js";
 import type { DelegateInput, DelegationChain, Permission } from "../types.js";
 
 interface DelegationModuleConfig {
@@ -53,7 +53,10 @@ function isResourceSubset(parentResource: string, childResource: string): boolea
 	return parentParts.length <= childParts.length;
 }
 
-export type DelegationErrorCode = "DELEGATION_PERMISSION_SUBSET" | "DELEGATION_DEPTH_EXCEEDED";
+export type DelegationErrorCode =
+	| "DELEGATION_PERMISSION_SUBSET"
+	| "DELEGATION_DEPTH_EXCEEDED"
+	| "DELEGATION_PARENT_REVOKED";
 
 /**
  * Typed error for delegation requests that are invalid by caller input.
@@ -76,12 +79,40 @@ export class DelegationError extends Error {
 export function createDelegationModule(config: DelegationModuleConfig) {
 	const { db } = config;
 
-	async function delegate(
-		input: DelegateInput,
-		parentPermissions: Permission[],
-	): Promise<DelegationChain> {
-		// Validate permissions are a subset
-		if (!isPermissionSubset(parentPermissions, input.permissions)) {
+	/**
+	 * Create a delegation from `input.fromAgent` to `input.toAgent`.
+	 *
+	 * The parent's authority is read from storage, never from the caller: its
+	 * own permission rows plus the active, unexpired chains that delegate to it.
+	 * The child's expiry is clamped to the parent's when the requested
+	 * permissions rely on an inbound chain, and the depth limit honors the
+	 * stricter `maxDepth` of any inbound chain.
+	 */
+	async function delegate(input: DelegateInput): Promise<DelegationChain> {
+		const now = new Date();
+
+		const ownRows = await db
+			.select()
+			.from(permissions)
+			.where(eq(permissions.agentId, input.fromAgent));
+		const ownPermissions: Permission[] = ownRows.map((r) => ({
+			resource: r.resource,
+			actions: r.actions,
+		}));
+
+		const inboundAll = await db
+			.select()
+			.from(delegationChains)
+			.where(
+				and(eq(delegationChains.toAgentId, input.fromAgent), eq(delegationChains.status, "active")),
+			);
+		const inbound = inboundAll.filter((c) => c.expiresAt > now);
+		const inboundPermissions: Permission[] = inbound.flatMap((c) =>
+			c.permissions.map((p) => ({ resource: p.resource, actions: p.actions })),
+		);
+
+		// Validate permissions are a subset of what the parent actually holds
+		if (!isPermissionSubset([...ownPermissions, ...inboundPermissions], input.permissions)) {
 			throw new DelegationError(
 				"DELEGATION_PERMISSION_SUBSET",
 				"Delegated permissions must be a subset of the parent agent's permissions. " +
@@ -89,18 +120,18 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			);
 		}
 
-		// Check delegation depth
-		const existingChains = await db
-			.select()
-			.from(delegationChains)
-			.where(
-				and(eq(delegationChains.toAgentId, input.fromAgent), eq(delegationChains.status, "active")),
-			);
+		// A child never outlives the authority it was derived from. If the
+		// parent's own permissions cover the request, no inbound chain limits it.
+		let expiresAt = input.expiresAt;
+		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions)) {
+			const parentExpiry = new Date(Math.min(...inbound.map((c) => c.expiresAt.getTime())));
+			if (expiresAt > parentExpiry) expiresAt = parentExpiry;
+		}
 
-		const currentDepth =
-			existingChains.length > 0 ? Math.max(...existingChains.map((c) => c.depth)) + 1 : 1;
-
-		const maxDepth = input.maxDepth ?? 3;
+		// Depth: one deeper than the deepest inbound chain, within the stricter
+		// of the requested and inherited limits.
+		const currentDepth = inbound.length > 0 ? Math.max(...inbound.map((c) => c.depth)) + 1 : 1;
+		const maxDepth = Math.min(input.maxDepth ?? 3, ...inbound.map((c) => c.maxDepth));
 
 		if (currentDepth > maxDepth) {
 			throw new DelegationError(
@@ -111,7 +142,6 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		}
 
 		const id = generateId();
-		const now = new Date();
 
 		await db.insert(delegationChains).values({
 			id,
@@ -124,16 +154,40 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			depth: currentDepth,
 			maxDepth,
 			status: "active",
-			expiresAt: input.expiresAt,
+			expiresAt,
 			createdAt: now,
 		});
+
+		// Revocation race: if the parent's inbound chain was revoked between the
+		// read above and the insert, the cascade may already have run and missed
+		// this row. Re-check and roll the insert back rather than leave an orphan
+		// grant. (Depth is derived from immutable chain rows, so it cannot drift.)
+		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions)) {
+			const stillActive = await db
+				.select()
+				.from(delegationChains)
+				.where(
+					and(
+						eq(delegationChains.toAgentId, input.fromAgent),
+						eq(delegationChains.status, "active"),
+					),
+				);
+			const liveIds = new Set(stillActive.map((c) => c.id));
+			if (!inbound.some((c) => liveIds.has(c.id))) {
+				await db.delete(delegationChains).where(eq(delegationChains.id, id));
+				throw new DelegationError(
+					"DELEGATION_PARENT_REVOKED",
+					"The parent's delegation was revoked while this delegation was being created.",
+				);
+			}
+		}
 
 		return {
 			id,
 			fromAgent: input.fromAgent,
 			toAgent: input.toAgent,
 			permissions: input.permissions,
-			expiresAt: input.expiresAt,
+			expiresAt,
 			depth: currentDepth,
 			createdAt: now,
 		};

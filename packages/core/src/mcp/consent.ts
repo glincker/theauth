@@ -1,3 +1,4 @@
+import { resolveClient } from "./client-metadata.js";
 import type {
 	ApproveConsentParams,
 	McpAuthContext,
@@ -31,7 +32,7 @@ export async function approveConsent(
 	} = params;
 
 	// ── Validate client still exists and is enabled ─────────────────
-	const client = await ctx.findClient(clientId);
+	const client = await resolveClient(ctx, clientId);
 	if (!client) {
 		return {
 			success: false,
@@ -63,6 +64,24 @@ export async function approveConsent(
 		};
 	}
 
+	// ── Resource indicator is mandatory (RFC 8707) ───────────────────
+	if (!resource) {
+		return {
+			success: false,
+			error: { code: "INVALID_TARGET", message: "resource is required" },
+		};
+	}
+	const allowedResources = ctx.config.allowedResources;
+	if (allowedResources && allowedResources.length > 0 && !allowedResources.includes(resource)) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_TARGET",
+				message: `Resource '${resource}' is not a recognized MCP server`,
+			},
+		};
+	}
+
 	// ── Normalise scopes ─────────────────────────────────────────────
 	const effectiveScopes =
 		typeof scope === "string" ? scope.split(" ").filter(Boolean) : scope.filter(Boolean);
@@ -90,7 +109,7 @@ export async function approveConsent(
 		scope: effectiveScopes,
 		codeChallenge,
 		codeChallengeMethod,
-		resource: resource ?? null,
+		resource,
 		expiresAt,
 		createdAt: now,
 	};
@@ -103,6 +122,8 @@ export async function approveConsent(
 	if (state) {
 		redirectUrl.searchParams.set("state", state);
 	}
+	// RFC 9207
+	redirectUrl.searchParams.set("iss", ctx.config.issuer);
 
 	return {
 		success: true,

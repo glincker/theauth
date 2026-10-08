@@ -1,8 +1,11 @@
 import { handleAuthorize } from "./authorize.js";
 import { approveConsent } from "./consent.js";
+import { getJwks } from "./keys.js";
+import { createInMemoryTokenFamilyStore } from "./memory-stores.js";
 import { getAuthorizationServerMetadata, getProtectedResourceMetadata } from "./metadata.js";
 import { registerClient } from "./registration.js";
 import { requireScopes } from "./require-scopes.js";
+import { handleRevocation } from "./revocation.js";
 import { buildStepUpResponse } from "./step-up.js";
 import { handleTokenExchange } from "./token.js";
 import type {
@@ -14,12 +17,14 @@ import type {
 	McpConfig,
 	Result,
 } from "./types.js";
+import { hashClientSecret } from "./utils.js";
 import { buildUnauthorizedResponse, validateAccessToken, withMcpAuth } from "./validate.js";
 
 // ─── Default Configuration ──────────────────────────────────────────────────
 
 const DEFAULT_ACCESS_TOKEN_TTL = 3600; // 1 hour
 const DEFAULT_REFRESH_TOKEN_TTL = 604800; // 7 days
+const DEFAULT_REFRESH_ABSOLUTE_TTL = 2592000; // 30 days
 const DEFAULT_CODE_TTL = 600; // 10 minutes
 
 /**
@@ -73,6 +78,8 @@ export function createMcpModule(params: {
 	storeToken: McpAuthContext["storeToken"];
 	findTokenByRefreshToken: McpAuthContext["findTokenByRefreshToken"];
 	revokeToken: McpAuthContext["revokeToken"];
+	updateClientSecret?: McpAuthContext["updateClientSecret"];
+	revokeTokenFamily?: McpAuthContext["revokeTokenFamily"];
 	resolveUserId: McpAuthContext["resolveUserId"];
 }): McpAuthModule {
 	// ── Validate required config ────────────────────────────────────
@@ -83,10 +90,10 @@ export function createMcpModule(params: {
 	if (!config.baseUrl) {
 		throw new Error("McpConfig.baseUrl is required");
 	}
-	if (!config.signingSecret) {
-		throw new Error("McpConfig.signingSecret is required (>= 32 chars)");
+	if (!config.signingSecret && !config.signing) {
+		throw new Error("McpConfig.signingSecret (>= 32 chars) or McpConfig.signing is required");
 	}
-	if (config.signingSecret.length < 32) {
+	if (config.signingSecret !== undefined && config.signingSecret.length < 32) {
 		throw new Error("McpConfig.signingSecret must be at least 32 characters");
 	}
 
@@ -95,9 +102,9 @@ export function createMcpModule(params: {
 		...config,
 		issuer: config.issuer,
 		baseUrl: config.baseUrl,
-		signingSecret: config.signingSecret,
 		accessTokenTtl: config.accessTokenTtl ?? DEFAULT_ACCESS_TOKEN_TTL,
 		refreshTokenTtl: config.refreshTokenTtl ?? DEFAULT_REFRESH_TOKEN_TTL,
+		refreshTokenAbsoluteTtl: config.refreshTokenAbsoluteTtl ?? DEFAULT_REFRESH_ABSOLUTE_TTL,
 		codeTtl: config.codeTtl ?? DEFAULT_CODE_TTL,
 	};
 
@@ -111,6 +118,9 @@ export function createMcpModule(params: {
 		storeToken: params.storeToken,
 		findTokenByRefreshToken: params.findTokenByRefreshToken,
 		revokeToken: params.revokeToken,
+		...(params.updateClientSecret ? { updateClientSecret: params.updateClientSecret } : {}),
+		...(params.revokeTokenFamily ? { revokeTokenFamily: params.revokeTokenFamily } : {}),
+		tokenFamilies: config.tokenFamilies ?? createInMemoryTokenFamilyStore(),
 		resolveUserId: params.resolveUserId,
 	};
 
@@ -124,7 +134,7 @@ export function createMcpModule(params: {
 			const isPublic = preClient.clientSecret === undefined || preClient.clientSecret === null;
 			const client: McpClient = {
 				clientId: preClient.clientId,
-				clientSecret: preClient.clientSecret ?? null,
+				clientSecret: isPublic ? null : await hashClientSecret(preClient.clientSecret ?? ""),
 				clientName: preClient.clientName ?? null,
 				clientUri: null,
 				logoUri: null,
@@ -153,6 +163,10 @@ export function createMcpModule(params: {
 
 	// ── Return the public module API ────────────────────────────────
 	return {
+		getJwks: () => getJwks(ctx),
+
+		revoke: (request: Request) => handleRevocation(ctx, request),
+
 		getMetadata: () => getAuthorizationServerMetadata(ctx),
 		getProtectedResourceMetadata: () => getProtectedResourceMetadata(ctx),
 
@@ -165,9 +179,10 @@ export function createMcpModule(params: {
 		token: (request: Request) => handleTokenExchange(ctx, request),
 
 		validateToken: (token: string, requiredScopes?: string[]) =>
-			validateAccessToken(ctx, token, { requiredScopes }),
+			validateAccessToken(ctx, token, { requiredScopes, expectedAudience: ctx.config.resource }),
 
-		middleware: (request: Request) => withMcpAuth(ctx, request),
+		middleware: (request: Request) =>
+			withMcpAuth(ctx, request, { expectedAudience: ctx.config.resource ?? "" }),
 
 		buildStepUpResponse: (options: {
 			currentScopes: string[];
@@ -203,6 +218,35 @@ export function createMcpResponseHelpers(ctx: McpAuthContext) {
 					...corsHeaders,
 				},
 			}),
+
+		/** JWKS: 200 with JSON */
+		jwksResponse: (data: unknown): Response =>
+			new Response(JSON.stringify(data), {
+				status: 200,
+				headers: {
+					"Content-Type": "application/jwk-set+json",
+					"Cache-Control": "public, max-age=300",
+					...corsHeaders,
+				},
+			}),
+
+		/** RFC 7009 revocation: 200 with an empty body, or an error */
+		revocationResponse: (result: Result<unknown>): Response => {
+			if (!result.success) {
+				const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
+				return new Response(
+					JSON.stringify({
+						error: result.error.code.toLowerCase(),
+						error_description: result.error.message,
+					}),
+					{
+						status,
+						headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+					},
+				);
+			}
+			return new Response(null, { status: 200, headers: { "Cache-Control": "no-store" } });
+		},
 
 		/** Registration: 201 with Cache-Control: no-store */
 		registrationResponse: (result: Result<unknown>): Response => {

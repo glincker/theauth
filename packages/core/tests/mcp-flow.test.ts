@@ -25,6 +25,7 @@ const BASE_URL = "https://auth.theauth.test/api/auth";
 const SIGNING_SECRET = "test-signing-secret-at-least-32-chars-long!!";
 const REDIRECT_URI = "https://app.theauth.test/callback";
 const TEST_USER_ID = "user_01HXYZ";
+const RESOURCE = "https://mcp.theauth.test";
 
 // ─── In-memory store factory ──────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ function createMcpModuleWithStore(
 			issuer: ISSUER,
 			baseUrl: BASE_URL,
 			signingSecret: SIGNING_SECRET,
+			resource: RESOURCE,
 			scopes: ["openid", "profile", "email", "offline_access", "mcp:read", "mcp:write"],
 			accessTokenTtl: 3600,
 			refreshTokenTtl: 604800,
@@ -98,7 +100,7 @@ function createMcpModuleWithStore(
 
 function buildAuthorizeRequest(params: Record<string, string>): Request {
 	const url = new URL(`${BASE_URL}/mcp/authorize`);
-	for (const [k, v] of Object.entries(params)) {
+	for (const [k, v] of Object.entries({ resource: RESOURCE, ...params })) {
 		url.searchParams.set(k, v);
 	}
 	return new Request(url.toString());
@@ -107,10 +109,12 @@ function buildAuthorizeRequest(params: Record<string, string>): Request {
 // ─── Helper: build a token Request ───────────────────────────────────────────
 
 function buildTokenRequest(body: Record<string, string>): Request {
+	const withResource =
+		body.grant_type === "authorization_code" ? { resource: RESOURCE, ...body } : body;
 	return new Request(`${BASE_URL}/mcp/token`, {
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams(body).toString(),
+		body: new URLSearchParams(withResource).toString(),
 	});
 }
 
@@ -201,7 +205,8 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(meta.authorization_endpoint).toBe(`${BASE_URL}/mcp/authorize`);
 			expect(meta.token_endpoint).toBe(`${BASE_URL}/mcp/token`);
 			expect(meta.registration_endpoint).toBe(`${BASE_URL}/mcp/register`);
-			expect(meta.jwks_uri).toBeDefined();
+			// HS256 deployments have no public keys to publish; jwks_uri appears with asymmetric signing.
+			expect(meta.jwks_uri).toBeUndefined();
 			expect(meta.response_types_supported).toContain("code");
 			expect(meta.grant_types_supported).toContain("authorization_code");
 			expect(meta.grant_types_supported).toContain("refresh_token");
@@ -516,6 +521,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 					issuer: ISSUER,
 					baseUrl: BASE_URL,
 					signingSecret: SIGNING_SECRET,
+					resource: RESOURCE,
 					accessTokenTtl: 0, // expires immediately
 					refreshTokenTtl: 604800,
 					codeTtl: 600,

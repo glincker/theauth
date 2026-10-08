@@ -463,7 +463,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		if (parentAgent.status !== "active") {
 			throw new Error(`Parent agent "${parentAgent.name}" is ${parentAgent.status}`);
 		}
-		return delegationModule.delegate(input, parentAgent.permissions);
+		return delegationModule.delegate(input);
 	}
 
 	// Agent facade with hooks wired in
