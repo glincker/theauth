@@ -1,34 +1,55 @@
 /**
  * OAuth Device Authorization Grant (RFC 8628) for TheAuth.
  *
- * Supports TVs, CLI tools, smart displays, and any device where the user
- * cannot easily type a URL or complete an interactive login flow. The device
- * requests a short code, the user approves on a secondary device (phone /
- * browser), and the original device polls until authorization is granted.
+ * Built for CLIs, TVs and headless agents: the device asks for a short code,
+ * a human approves it in a browser where they are already signed in, and the
+ * device polls until it receives a token.
+ *
+ * Security properties:
+ * - The device code is stored only as a SHA-256 hash.
+ * - The approval endpoint takes the user from an authenticated session
+ *   (`resolveUser` or the plugin's session), never from the request body.
+ * - Guessing user codes is limited per approving user.
+ * - `slow_down` is tracked in storage, so it holds across instances.
+ * - A granted device code can be exchanged for a token exactly once.
+ *
+ * State lives in a `SecondaryStorage` (memory by default).
  *
  * @example
  * ```typescript
  * const deviceAuth = createDeviceAuthModule({
  *   verificationUri: 'https://example.com/device',
+ *   resolveUser: async (req) => myApp.currentUser(req),
+ *   issueToken: async (userId) => ({ accessToken: await mint(userId), expiresIn: 3600 }),
  * });
- *
- * // 1. CLI tool requests codes
- * const { userCode, verificationUri } = await deviceAuth.requestCode();
- * console.log(`Visit ${verificationUri} and enter: ${userCode}`);
- *
- * // 2. Poll from CLI
- * const status = await deviceAuth.checkAuthorization(deviceCode);
- *
- * // 3. User approves on browser after logging in
- * await deviceAuth.authorize(userCode, userId);
+ * const res = await deviceAuth.handleRequest(request);
  * ```
  */
 
-import { randomBytes, toHex } from "../crypto/web-crypto.js";
+import { randomBytes, sha256, toHex } from "../crypto/web-crypto.js";
+import type { TheAuthPlugin } from "../plugin/types.js";
+import { memoryStorage } from "../storage/memory.js";
+import type { SecondaryStorage } from "../storage/types.js";
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
+
+export const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
+
+/** Credential handed to the device once the user approves. */
+export interface DeviceTokenGrant {
+	accessToken: string;
+	tokenType?: string;
+	/** Seconds until the access token expires. */
+	expiresIn?: number;
+	refreshToken?: string;
+}
+
+export interface DeviceGrantContext {
+	clientId?: string;
+	scope?: string;
+}
 
 export interface DeviceAuthConfig {
 	/** Code length for the human-readable user code segment (default: 4, produces "XXXX-XXXX") */
@@ -39,6 +60,39 @@ export interface DeviceAuthConfig {
 	pollIntervalSeconds?: number;
 	/** Verification URL shown to user */
 	verificationUri: string;
+	/** Where grants live. Default: process memory. The plugin wires `secondaryStorage.deviceCodes`. */
+	storage?: SecondaryStorage;
+	/**
+	 * Resolve the signed-in user for `POST /auth/device/authorize`. Required for
+	 * `handleRequest` to accept approvals; without it the endpoint answers 401.
+	 * The user id is never read from the request body.
+	 */
+	resolveUser?: (request: Request) => Promise<{ id: string } | null>;
+	/** Mint the credential returned to the device after approval. */
+	issueToken?: (userId: string, context: DeviceGrantContext) => Promise<DeviceTokenGrant>;
+	/** Wrong user codes one approving user may try per window (default: 5). */
+	userCodeAttemptLimit?: number;
+	/** Window for the attempt limit, seconds (default: 900). */
+	userCodeAttemptWindowSeconds?: number;
+	/**
+	 * Origins allowed to call the approval endpoint from a browser, in addition
+	 * to the origin of `verificationUri`. Requests with a different `Origin`
+	 * header are refused, which blocks cross-site approval (CSRF).
+	 */
+	trustedOrigins?: string[];
+	/** Called after approve / deny / token issue. Wire it to your audit log. */
+	onEvent?: (event: DeviceAuthEvent) => void | Promise<void>;
+}
+
+export interface DeviceAuthEvent {
+	type: "device.code_issued" | "device.approved" | "device.denied" | "device.token_issued";
+	userId?: string;
+	clientId?: string;
+}
+
+export interface DeviceCodeRequest {
+	clientId?: string;
+	scope?: string;
 }
 
 export interface DeviceCodeResponse {
@@ -58,79 +112,106 @@ export type DeviceAuthStatus =
 
 export interface DeviceAuthModule {
 	/** Start device auth flow: returns device_code, user_code, verification_uri */
-	requestCode(): Promise<DeviceCodeResponse>;
-	/** Check if user has authorized (called by polling device) */
+	requestCode(request?: DeviceCodeRequest): Promise<DeviceCodeResponse>;
+	/** Check if user has authorized (does not consume the grant) */
 	checkAuthorization(deviceCode: string): Promise<DeviceAuthStatus>;
-	/** Authorize a device (called after user logs in on phone/browser) */
+	/** Approve a user code as `userId`. Callers must have authenticated `userId` themselves. */
 	authorize(userCode: string, userId: string): Promise<void>;
-	/** Deny a device code (user explicitly rejects) */
-	deny(userCode: string): Promise<void>;
-	/** Handle HTTP requests for the device auth endpoints */
-	handleRequest(request: Request): Promise<Response | null>;
+	/** Deny a user code. Pass the acting user id so failed guesses are rate limited per user. */
+	deny(userCode: string, actorId?: string): Promise<void>;
+	/**
+	 * Handle the three device endpoints. Returns null for other paths.
+	 * `opts.user` overrides `config.resolveUser` (the plugin passes its session user).
+	 */
+	handleRequest(
+		request: Request,
+		opts?: { user?: { id: string } | null },
+	): Promise<Response | null>;
+}
+
+export class DeviceAuthError extends Error {
+	readonly code: "invalid_user_code" | "expired" | "already_handled" | "too_many_attempts";
+	constructor(code: DeviceAuthError["code"], message: string) {
+		super(message);
+		this.name = "DeviceAuthError";
+		this.code = code;
+	}
 }
 
 // ---------------------------------------------------------------------------
-// Internal types
+// Internals
 // ---------------------------------------------------------------------------
 
-type DeviceGrantState = "pending" | "authorized" | "denied";
+type GrantState = "pending" | "authorized" | "denied";
 
-interface DeviceGrant {
-	deviceCode: string;
-	userCode: string;
+interface StoredGrant {
+	state: GrantState;
+	userCodeHash: string;
 	expiresAt: number;
-	state: DeviceGrantState;
+	interval: number;
 	userId?: string;
-	/** Tracks last poll time for slow_down detection */
-	lastPolledAt?: number;
+	clientId?: string;
+	scope?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_CODE_LENGTH = 4;
 const DEFAULT_CODE_EXPIRY_SECONDS = 900;
 const DEFAULT_POLL_INTERVAL_SECONDS = 5;
+const DEFAULT_ATTEMPT_LIMIT = 5;
+const DEFAULT_ATTEMPT_WINDOW_SECONDS = 900;
+/** RFC 8628 section 3.5: add 5 seconds to the interval on slow_down. */
+const SLOW_DOWN_STEP_SECONDS = 5;
 const USER_CODE_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ"; // consonants only, avoids ambiguous chars
-// Minimum ms between polls before we ask the client to slow down
-const SLOW_DOWN_THRESHOLD_MS = 4_000;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function jsonResponse(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
 		status,
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			"Cache-Control": "no-store",
+			Pragma: "no-cache",
+		},
 	});
 }
 
+function oauthError(error: string, description: string, status = 400, extra?: object): Response {
+	return json({ error, error_description: description, ...extra }, status);
+}
+
+/** Read a JSON or form-encoded body into a flat string map. */
 async function parseBody(request: Request): Promise<Record<string, unknown>> {
 	try {
-		return (await request.json()) as Record<string, unknown>;
+		const type = request.headers.get("content-type") ?? "";
+		if (type.includes("application/x-www-form-urlencoded")) {
+			return Object.fromEntries(new URLSearchParams(await request.text()));
+		}
+		const parsed: unknown = await request.json();
+		return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
 	} catch {
 		return {};
 	}
+}
+
+function str(value: unknown, max = 256): string | undefined {
+	return typeof value === "string" && value.length > 0 ? value.slice(0, max) : undefined;
 }
 
 function generateDeviceCode(): string {
 	return toHex(randomBytes(32));
 }
 
-/**
- * Generate a human-readable user code of the form "XXXX-XXXX".
- * Uses a consonant-only alphabet to avoid ambiguous characters and
- * accidental profanity.
- */
+/** "XXXX-XXXX" from a consonant-only alphabet (no vowels, no look-alikes). */
 function generateUserCode(segmentLength: number): string {
-	const bytes = randomBytes(segmentLength * 2);
+	const total = segmentLength * 2;
+	// Rejection sampling: drop bytes in the biased tail so each letter is equally likely.
+	const limit = 256 - (256 % USER_CODE_ALPHABET.length);
 	const chars: string[] = [];
-	for (let i = 0; i < segmentLength * 2; i++) {
-		const byte = bytes[i] ?? 0;
-		const char = USER_CODE_ALPHABET[byte % USER_CODE_ALPHABET.length] ?? "B";
-		chars.push(char);
+	while (chars.length < total) {
+		for (const byte of randomBytes(total * 2)) {
+			if (byte >= limit) continue;
+			chars.push(USER_CODE_ALPHABET[byte % USER_CODE_ALPHABET.length] ?? "B");
+			if (chars.length === total) break;
+		}
 	}
 	return `${chars.slice(0, segmentLength).join("")}-${chars.slice(segmentLength).join("")}`;
 }
@@ -139,250 +220,287 @@ function normaliseUserCode(raw: string): string {
 	return raw.trim().toUpperCase().replace(/[\s-]/g, "");
 }
 
+function buildCompleteUri(base: string, userCode: string): string {
+	try {
+		const url = new URL(base);
+		url.searchParams.set("user_code", userCode);
+		return url.toString();
+	} catch {
+		return `${base}?user_code=${encodeURIComponent(userCode)}`;
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
 export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModule {
 	const segmentLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
-	const codeExpiryMs = (config.codeExpirySeconds ?? DEFAULT_CODE_EXPIRY_SECONDS) * 1000;
-	const pollIntervalSeconds = config.pollIntervalSeconds ?? DEFAULT_POLL_INTERVAL_SECONDS;
+	const codeExpirySeconds = config.codeExpirySeconds ?? DEFAULT_CODE_EXPIRY_SECONDS;
+	const baseInterval = config.pollIntervalSeconds ?? DEFAULT_POLL_INTERVAL_SECONDS;
+	const attemptLimit = config.userCodeAttemptLimit ?? DEFAULT_ATTEMPT_LIMIT;
+	const attemptWindow = config.userCodeAttemptWindowSeconds ?? DEFAULT_ATTEMPT_WINDOW_SECONDS;
+	const storage = config.storage ?? memoryStorage();
 
-	// In-memory grant store: deviceCode -> DeviceGrant
-	const grantsByDevice = new Map<string, DeviceGrant>();
-	// Secondary index: normalised userCode -> deviceCode
-	const deviceByUserCode = new Map<string, string>();
+	let verificationOrigin: string | null = null;
+	try {
+		verificationOrigin = new URL(config.verificationUri).origin;
+	} catch {
+		verificationOrigin = null;
+	}
+	const allowedOrigins = new Set([
+		...(verificationOrigin ? [verificationOrigin] : []),
+		...(config.trustedOrigins ?? []),
+	]);
 
-	function purgeExpired(): void {
-		const now = Date.now();
-		for (const [deviceCode, grant] of grantsByDevice) {
-			if (grant.expiresAt <= now) {
-				deviceByUserCode.delete(normaliseUserCode(grant.userCode));
-				grantsByDevice.delete(deviceCode);
-			}
+	const deviceKey = (hash: string) => `device:${hash}`;
+	const userKey = (hash: string) => `user:${hash}`;
+
+	async function emit(event: DeviceAuthEvent): Promise<void> {
+		try {
+			await config.onEvent?.(event);
+		} catch {
+			// Audit sinks must never break the auth flow.
 		}
 	}
 
-	async function requestCode(): Promise<DeviceCodeResponse> {
-		purgeExpired();
+	async function load(deviceHash: string): Promise<StoredGrant | null> {
+		const raw = await storage.get(deviceKey(deviceHash));
+		if (!raw) return null;
+		try {
+			const grant = JSON.parse(raw) as StoredGrant;
+			return grant.expiresAt > Date.now() ? grant : null;
+		} catch {
+			return null;
+		}
+	}
 
+	async function save(deviceHash: string, grant: StoredGrant): Promise<void> {
+		const ttl = Math.max(Math.ceil((grant.expiresAt - Date.now()) / 1000), 1);
+		await storage.set(deviceKey(deviceHash), JSON.stringify(grant), ttl);
+	}
+
+	async function destroy(deviceHash: string, grant: StoredGrant): Promise<void> {
+		await storage.delete(deviceKey(deviceHash));
+		await storage.delete(userKey(grant.userCodeHash));
+	}
+
+	/** Find the pending grant for a user code, enforcing the per-user attempt limit. */
+	async function lookupByUserCode(
+		userCode: string,
+		actorId: string,
+	): Promise<{ deviceHash: string; grant: StoredGrant }> {
+		const attemptsKey = `attempts:${actorId}`;
+		const used = Number.parseInt((await storage.get(attemptsKey)) ?? "0", 10);
+		if (used >= attemptLimit) {
+			throw new DeviceAuthError("too_many_attempts", "Too many incorrect codes, try again later");
+		}
+
+		const userHash = await sha256(normaliseUserCode(userCode));
+		const deviceHash = await storage.get(userKey(userHash));
+		const grant = deviceHash ? await load(deviceHash) : null;
+		if (!deviceHash || !grant) {
+			// Only misses count: a valid code never burns the budget.
+			await storage.incr(attemptsKey, attemptWindow);
+			throw new DeviceAuthError("invalid_user_code", "User code not found or expired");
+		}
+		return { deviceHash, grant };
+	}
+
+	async function requestCode(request: DeviceCodeRequest = {}): Promise<DeviceCodeResponse> {
 		const deviceCode = generateDeviceCode();
 		const userCode = generateUserCode(segmentLength);
-		const expiresAt = Date.now() + codeExpiryMs;
+		const deviceHash = await sha256(deviceCode);
+		const userCodeHash = await sha256(normaliseUserCode(userCode));
 
-		const grant: DeviceGrant = {
-			deviceCode,
-			userCode,
-			expiresAt,
+		const grant: StoredGrant = {
 			state: "pending",
+			userCodeHash,
+			expiresAt: Date.now() + codeExpirySeconds * 1000,
+			interval: baseInterval,
+			clientId: request.clientId,
+			scope: request.scope,
 		};
-
-		grantsByDevice.set(deviceCode, grant);
-		deviceByUserCode.set(normaliseUserCode(userCode), deviceCode);
-
-		const verificationUriComplete = `${config.verificationUri}?user_code=${encodeURIComponent(userCode)}`;
+		await save(deviceHash, grant);
+		await storage.set(userKey(userCodeHash), deviceHash, codeExpirySeconds);
+		await emit({ type: "device.code_issued", clientId: request.clientId });
 
 		return {
 			deviceCode,
 			userCode,
 			verificationUri: config.verificationUri,
-			verificationUriComplete,
-			expiresIn: Math.floor(codeExpiryMs / 1000),
-			interval: pollIntervalSeconds,
+			verificationUriComplete: buildCompleteUri(config.verificationUri, userCode),
+			expiresIn: codeExpirySeconds,
+			interval: baseInterval,
 		};
 	}
 
 	async function checkAuthorization(deviceCode: string): Promise<DeviceAuthStatus> {
-		purgeExpired();
-
-		const grant = grantsByDevice.get(deviceCode);
-
-		if (!grant) {
-			// Code was never issued or already purged after expiry
-			return { status: "expired" };
-		}
-
-		if (grant.expiresAt <= Date.now()) {
-			deviceByUserCode.delete(normaliseUserCode(grant.userCode));
-			grantsByDevice.delete(deviceCode);
-			return { status: "expired" };
-		}
-
-		const now = Date.now();
-
+		const grant = await load(await sha256(deviceCode));
+		if (!grant) return { status: "expired" };
 		if (grant.state === "authorized" && grant.userId) {
 			return { status: "authorized", userId: grant.userId };
 		}
-
-		if (grant.state === "denied") {
-			return { status: "denied" };
-		}
-
-		// Update last polled time (for slow_down detection upstream)
-		grant.lastPolledAt = now;
-
+		if (grant.state === "denied") return { status: "denied" };
 		return { status: "pending" };
 	}
 
-	async function authorize(userCode: string, userId: string): Promise<void> {
-		purgeExpired();
-
-		const normalised = normaliseUserCode(userCode);
-		const deviceCode = deviceByUserCode.get(normalised);
-
-		if (!deviceCode) {
-			throw new Error("User code not found or expired");
-		}
-
-		const grant = grantsByDevice.get(deviceCode);
-		if (!grant || grant.expiresAt <= Date.now()) {
-			deviceByUserCode.delete(normalised);
-			if (deviceCode) grantsByDevice.delete(deviceCode);
-			throw new Error("Device code expired");
-		}
-
+	async function resolve(
+		userCode: string,
+		actorId: string,
+		next: GrantState,
+		userId?: string,
+	): Promise<StoredGrant> {
+		const { deviceHash, grant } = await lookupByUserCode(userCode, actorId);
 		if (grant.state !== "pending") {
-			throw new Error(`Device code already ${grant.state}`);
+			throw new DeviceAuthError("already_handled", `Device code already ${grant.state}`);
 		}
-
-		grant.state = "authorized";
+		grant.state = next;
 		grant.userId = userId;
+		await save(deviceHash, grant);
+		return grant;
 	}
 
-	async function deny(userCode: string): Promise<void> {
-		purgeExpired();
-
-		const normalised = normaliseUserCode(userCode);
-		const deviceCode = deviceByUserCode.get(normalised);
-
-		if (!deviceCode) {
-			throw new Error("User code not found or expired");
-		}
-
-		const grant = grantsByDevice.get(deviceCode);
-		if (!grant || grant.expiresAt <= Date.now()) {
-			deviceByUserCode.delete(normalised);
-			if (deviceCode) grantsByDevice.delete(deviceCode);
-			throw new Error("Device code expired");
-		}
-
-		if (grant.state !== "pending") {
-			throw new Error(`Device code already ${grant.state}`);
-		}
-
-		grant.state = "denied";
+	async function authorize(userCode: string, userId: string): Promise<void> {
+		const grant = await resolve(userCode, userId, "authorized", userId);
+		await emit({ type: "device.approved", userId, clientId: grant.clientId });
 	}
 
-	async function handleRequest(request: Request): Promise<Response | null> {
-		const url = new URL(request.url);
-		const { method, pathname } = { method: request.method, pathname: url.pathname };
+	async function deny(userCode: string, actorId = "anonymous"): Promise<void> {
+		const grant = await resolve(userCode, actorId, "denied");
+		await emit({
+			type: "device.denied",
+			userId: actorId === "anonymous" ? undefined : actorId,
+			clientId: grant.clientId,
+		});
+	}
 
-		// POST /auth/device/code
-		if (method === "POST" && pathname.endsWith("/auth/device/code")) {
-			const response = await requestCode();
-			return jsonResponse({
-				device_code: response.deviceCode,
-				user_code: response.userCode,
-				verification_uri: response.verificationUri,
-				verification_uri_complete: response.verificationUriComplete,
-				expires_in: response.expiresIn,
-				interval: response.interval,
-			});
+	// -- HTTP handlers -------------------------------------------------------
+
+	async function handleCode(request: Request): Promise<Response> {
+		const body = await parseBody(request);
+		const res = await requestCode({ clientId: str(body.client_id), scope: str(body.scope, 512) });
+		return json({
+			device_code: res.deviceCode,
+			user_code: res.userCode,
+			verification_uri: res.verificationUri,
+			verification_uri_complete: res.verificationUriComplete,
+			expires_in: res.expiresIn,
+			interval: res.interval,
+		});
+	}
+
+	async function handleToken(request: Request): Promise<Response> {
+		const body = await parseBody(request);
+		const deviceCode = str(body.device_code, 512);
+		const grantType = str(body.grant_type);
+		if (grantType && grantType !== DEVICE_CODE_GRANT_TYPE) {
+			return oauthError("unsupported_grant_type", `grant_type must be ${DEVICE_CODE_GRANT_TYPE}`);
+		}
+		if (!deviceCode) return oauthError("invalid_request", "Missing device_code");
+
+		const deviceHash = await sha256(deviceCode);
+		const grant = await load(deviceHash);
+		if (!grant) return oauthError("expired_token", "The device code has expired");
+
+		// slow_down: more than one poll inside the interval, tracked in storage.
+		const windowSeconds = Math.max(grant.interval - 1, 1);
+		const { count } = await storage.incr(`poll:${deviceHash}`, windowSeconds);
+		if (count > 1) {
+			grant.interval += SLOW_DOWN_STEP_SECONDS;
+			await save(deviceHash, grant);
+			return oauthError("slow_down", "Polling too frequently", 400, { interval: grant.interval });
 		}
 
-		// POST /auth/device/token  — polling endpoint (RFC 8628 §3.4)
-		if (method === "POST" && pathname.endsWith("/auth/device/token")) {
-			const body = await parseBody(request);
-			const deviceCode = typeof body.device_code === "string" ? body.device_code : null;
-
-			if (!deviceCode) {
-				return jsonResponse(
-					{ error: "invalid_request", error_description: "Missing device_code" },
-					400,
-				);
-			}
-
-			// Slow-down detection
-			const grant = grantsByDevice.get(deviceCode);
-			if (grant?.lastPolledAt && Date.now() - grant.lastPolledAt < SLOW_DOWN_THRESHOLD_MS) {
-				return jsonResponse(
-					{
-						error: "slow_down",
-						error_description: "Polling too frequently",
-						interval: pollIntervalSeconds + 5,
-					},
-					400,
-				);
-			}
-
-			const status = await checkAuthorization(deviceCode);
-
-			if (status.status === "authorized") {
-				return jsonResponse({ authorized: true, user_id: status.userId });
-			}
-
-			if (status.status === "pending") {
-				return jsonResponse(
-					{
-						error: "authorization_pending",
-						error_description: "The user has not yet authorized the device",
-					},
-					400,
-				);
-			}
-
-			if (status.status === "denied") {
-				return jsonResponse(
-					{
-						error: "access_denied",
-						error_description: "The user denied the authorization request",
-					},
-					400,
-				);
-			}
-
-			// expired
-			return jsonResponse(
-				{
-					error: "expired_token",
-					error_description: "The device code has expired",
-				},
-				400,
-			);
+		if (grant.state === "pending") {
+			return oauthError("authorization_pending", "The user has not yet authorized the device");
+		}
+		if (grant.state === "denied") {
+			await destroy(deviceHash, grant);
+			return oauthError("access_denied", "The user denied the authorization request");
 		}
 
-		// POST /auth/device/authorize — user approval (requires auth handled by caller)
-		if (method === "POST" && pathname.endsWith("/auth/device/authorize")) {
-			const body = await parseBody(request);
-			const userCode = typeof body.user_code === "string" ? body.user_code : null;
-			const userId = typeof body.user_id === "string" ? body.user_id : null;
-			const action = typeof body.action === "string" ? body.action : "approve";
+		// Authorized: only the first poller to claim the grant gets a token.
+		const claim = await storage.incr(`claim:${deviceHash}`, codeExpirySeconds);
+		if (claim.count > 1 || !grant.userId) {
+			return oauthError("expired_token", "The device code has already been used");
+		}
+		await destroy(deviceHash, grant);
 
-			if (!userCode || !userId) {
-				return jsonResponse(
-					{ error: "invalid_request", error_description: "Missing user_code or user_id" },
-					400,
-				);
-			}
+		const userId = grant.userId;
+		const base = { authorized: true, user_id: userId };
+		if (!config.issueToken) return json(base);
 
-			try {
-				if (action === "deny") {
-					await deny(userCode);
-					return jsonResponse({ denied: true });
-				}
-				await authorize(userCode, userId);
-				return jsonResponse({ authorized: true });
-			} catch (err) {
-				return jsonResponse(
-					{
-						error: "invalid_request",
-						error_description: err instanceof Error ? err.message : "Authorization failed",
-					},
-					400,
-				);
-			}
+		const token = await config.issueToken(userId, { clientId: grant.clientId, scope: grant.scope });
+		await emit({ type: "device.token_issued", userId, clientId: grant.clientId });
+		return json({
+			...base,
+			access_token: token.accessToken,
+			token_type: token.tokenType ?? "Bearer",
+			...(token.expiresIn !== undefined ? { expires_in: token.expiresIn } : {}),
+			...(token.refreshToken ? { refresh_token: token.refreshToken } : {}),
+			...(grant.scope ? { scope: grant.scope } : {}),
+		});
+	}
+
+	async function handleAuthorize(
+		request: Request,
+		opts: { user?: { id: string } | null },
+	): Promise<Response> {
+		// Cross-site approval would let an attacker bind a victim's session to
+		// the attacker's device code. Browsers always send Origin on cross-site POSTs.
+		const origin = request.headers.get("origin");
+		if (origin && !allowedOrigins.has(origin)) {
+			return oauthError("access_denied", "Cross-origin approval is not allowed", 403);
+		}
+		// JSON only: a non-simple content type forces a CORS preflight.
+		if (!(request.headers.get("content-type") ?? "").includes("application/json")) {
+			return oauthError("invalid_request", "Content-Type must be application/json");
 		}
 
+		const user =
+			opts.user !== undefined
+				? opts.user
+				: config.resolveUser
+					? await config.resolveUser(request)
+					: null;
+		if (!user) {
+			return oauthError("login_required", "Sign in to approve this device", 401);
+		}
+
+		const body = await parseBody(request);
+		const userCode = str(body.user_code, 64);
+		const action = str(body.action) ?? "approve";
+		if (!userCode) return oauthError("invalid_request", "Missing user_code");
+		if (action !== "approve" && action !== "deny") {
+			return oauthError("invalid_request", "action must be approve or deny");
+		}
+
+		try {
+			if (action === "deny") {
+				await deny(userCode, user.id);
+				return json({ denied: true });
+			}
+			await authorize(userCode, user.id);
+			return json({ authorized: true });
+		} catch (err) {
+			if (err instanceof DeviceAuthError) {
+				const status = err.code === "too_many_attempts" ? 429 : 400;
+				return oauthError("invalid_request", err.message, status);
+			}
+			return oauthError("server_error", "Authorization failed", 500);
+		}
+	}
+
+	async function handleRequest(
+		request: Request,
+		opts: { user?: { id: string } | null } = {},
+	): Promise<Response | null> {
+		const { pathname } = new URL(request.url);
+		if (request.method !== "POST") return null;
+		if (pathname.endsWith("/auth/device/code")) return handleCode(request);
+		if (pathname.endsWith("/auth/device/token")) return handleToken(request);
+		if (pathname.endsWith("/auth/device/authorize")) return handleAuthorize(request, opts);
 		return null;
 	}
 
@@ -393,16 +511,48 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 // Plugin factory
 // ---------------------------------------------------------------------------
 
-import type { TheAuthPlugin } from "../plugin/types.js";
+export type DeviceAuthPluginConfig = Omit<DeviceAuthConfig, "resolveUser">;
 
-export function deviceAuth(config: DeviceAuthConfig): TheAuthPlugin {
+/**
+ * Mount the device endpoints on TheAuth. Approval uses the signed-in session
+ * user, state follows `secondaryStorage.deviceCodes`, and the device receives a
+ * TheAuth session token when `auth.session` is configured.
+ */
+export function deviceAuth(config: DeviceAuthPluginConfig): TheAuthPlugin {
 	return {
 		id: "theauth-device-auth",
 
 		async init(ctx): Promise<undefined> {
-			const mod = createDeviceAuthModule(config);
+			const sessionManager = ctx.sessionManager;
+			const mod = createDeviceAuthModule({
+				...config,
+				storage: config.storage ?? ctx.secondaryStorage?.for("deviceCodes"),
+				issueToken:
+					config.issueToken ??
+					(sessionManager
+						? async (userId, grant) => {
+								const { session, token } = await sessionManager.create(userId, {
+									source: "device",
+									clientId: grant.clientId ?? null,
+								});
+								return {
+									accessToken: token,
+									expiresIn: Math.max(
+										Math.floor((session.expiresAt.getTime() - Date.now()) / 1000),
+										1,
+									),
+								};
+							}
+						: undefined),
+			});
 
-			// POST /auth/device/code
+			const delegate = async (request: Request, user?: { id: string } | null): Promise<Response> =>
+				(await mod.handleRequest(request, { user })) ??
+				new Response(JSON.stringify({ error: "not_found" }), {
+					status: 404,
+					headers: { "Content-Type": "application/json" },
+				});
+
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/device/code",
@@ -410,140 +560,25 @@ export function deviceAuth(config: DeviceAuthConfig): TheAuthPlugin {
 					description: "Request a device code and user code for the device authorization flow",
 					rateLimit: { window: 60, max: 30 },
 				},
-				async handler(_request, _endpointCtx) {
-					const response = await mod.requestCode();
-					return new Response(
-						JSON.stringify({
-							device_code: response.deviceCode,
-							user_code: response.userCode,
-							verification_uri: response.verificationUri,
-							verification_uri_complete: response.verificationUriComplete,
-							expires_in: response.expiresIn,
-							interval: response.interval,
-						}),
-						{ status: 200, headers: { "Content-Type": "application/json" } },
-					);
-				},
+				handler: (request) => delegate(request),
 			});
 
-			// POST /auth/device/token
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/device/token",
-				metadata: {
-					description: "Poll for device authorization status (RFC 8628)",
-					rateLimit: { window: 10, max: 5 },
-				},
-				async handler(request, _endpointCtx) {
-					let body: Record<string, unknown>;
-					try {
-						body = (await request.json()) as Record<string, unknown>;
-					} catch {
-						body = {};
-					}
-
-					const deviceCode = typeof body.device_code === "string" ? body.device_code : null;
-					if (!deviceCode) {
-						return new Response(
-							JSON.stringify({
-								error: "invalid_request",
-								error_description: "Missing device_code",
-							}),
-							{ status: 400, headers: { "Content-Type": "application/json" } },
-						);
-					}
-
-					const status = await mod.checkAuthorization(deviceCode);
-
-					if (status.status === "authorized") {
-						return new Response(JSON.stringify({ authorized: true, user_id: status.userId }), {
-							status: 200,
-							headers: { "Content-Type": "application/json" },
-						});
-					}
-
-					const errorMap: Record<string, { error: string; error_description: string }> = {
-						pending: {
-							error: "authorization_pending",
-							error_description: "The user has not yet authorized the device",
-						},
-						denied: {
-							error: "access_denied",
-							error_description: "The user denied the authorization request",
-						},
-						expired: {
-							error: "expired_token",
-							error_description: "The device code has expired",
-						},
-					};
-
-					const errorBody = errorMap[status.status];
-					return new Response(JSON.stringify(errorBody), {
-						status: 400,
-						headers: { "Content-Type": "application/json" },
-					});
-				},
+				metadata: { description: "Poll for device authorization status (RFC 8628)" },
+				handler: (request) => delegate(request),
 			});
 
-			// POST /auth/device/authorize
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/device/authorize",
 				metadata: {
-					requireAuth: true,
-					description: "User approves or denies a device authorization request",
+					description: "Signed-in user approves or denies a device authorization request",
+					rateLimit: { window: 60, max: 30 },
 				},
 				async handler(request, endpointCtx) {
-					const user = await endpointCtx.getUser(request);
-					if (!user) {
-						return new Response(JSON.stringify({ error: "Authentication required" }), {
-							status: 401,
-							headers: { "Content-Type": "application/json" },
-						});
-					}
-
-					let body: Record<string, unknown>;
-					try {
-						body = (await request.json()) as Record<string, unknown>;
-					} catch {
-						body = {};
-					}
-
-					const userCode = typeof body.user_code === "string" ? body.user_code : null;
-					const action = typeof body.action === "string" ? body.action : "approve";
-
-					if (!userCode) {
-						return new Response(
-							JSON.stringify({
-								error: "invalid_request",
-								error_description: "Missing user_code",
-							}),
-							{ status: 400, headers: { "Content-Type": "application/json" } },
-						);
-					}
-
-					try {
-						if (action === "deny") {
-							await mod.deny(userCode);
-							return new Response(JSON.stringify({ denied: true }), {
-								status: 200,
-								headers: { "Content-Type": "application/json" },
-							});
-						}
-						await mod.authorize(userCode, user.id);
-						return new Response(JSON.stringify({ authorized: true }), {
-							status: 200,
-							headers: { "Content-Type": "application/json" },
-						});
-					} catch (err) {
-						return new Response(
-							JSON.stringify({
-								error: "invalid_request",
-								error_description: err instanceof Error ? err.message : "Authorization failed",
-							}),
-							{ status: 400, headers: { "Content-Type": "application/json" } },
-						);
-					}
+					return delegate(request, await endpointCtx.getUser(request));
 				},
 			});
 

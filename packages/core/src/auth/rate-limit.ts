@@ -27,6 +27,10 @@
  */
 
 import type { TheAuthPlugin } from "../plugin/types.js";
+import { isSecondaryStorage, rateLimitStoreFromStorage } from "../storage/rate-limit-store.js";
+import type { SecondaryStorage } from "../storage/types.js";
+import type { TrustedProxyConfig } from "./client-ip.js";
+import { resolveClientIp } from "./client-ip.js";
 import { MemoryStore } from "./stores/memory.js";
 import type { RateLimitStore } from "./stores/types.js";
 
@@ -41,7 +45,10 @@ export interface EndpointLimit {
 	max: number;
 }
 
-export interface RateLimitConfig {
+/** What identifies a caller for rate limiting. */
+export type RateLimitKeyBy = "ip" | "client_id" | "ip+client_id";
+
+export interface RateLimitConfig extends TrustedProxyConfig {
 	/** Limit for POST /auth/sign-in */
 	signIn?: EndpointLimit;
 	/** Limit for POST /auth/sign-up */
@@ -50,17 +57,36 @@ export interface RateLimitConfig {
 	passwordReset?: EndpointLimit;
 	/** Limit for POST /auth/agent/authorize */
 	agentAuthorize?: EndpointLimit;
+	/** Limit for POST /mcp/token. Default 60 per minute. `false` disables. */
+	mcpToken?: EndpointLimit | false;
+	/** Limit for POST /mcp/register (dynamic client registration). Default 10 per hour. `false` disables. */
+	mcpRegister?: EndpointLimit | false;
+	/** Limit for POST /auth/device/code. Default 10 per minute. `false` disables. */
+	deviceCode?: EndpointLimit | false;
+	/** Limit for POST /auth/device/token (polling). Default 60 per minute. `false` disables. */
+	deviceToken?: EndpointLimit | false;
+	/** Limit for POST /auth/device/authorize. Default 20 per minute. `false` disables. */
+	deviceAuthorize?: EndpointLimit | false;
 	/** Fallback limit applied to all other /auth/* paths */
 	default?: EndpointLimit;
 	/**
+	 * What to key counters on. "client_id" reads the OAuth client_id from the
+	 * query string, a form or JSON body, or HTTP Basic auth, and falls back to
+	 * the IP when absent. "ip+client_id" counts the pair. Default "ip".
+	 */
+	keyBy?: RateLimitKeyBy;
+	/**
 	 * Storage backend.
 	 * Pass "memory" or omit to use the built-in in-memory store.
-	 * Pass a KVStore (or any RateLimitStore) for edge deployments.
+	 * Pass any RateLimitStore or SecondaryStorage. When omitted the plugin uses
+	 * `secondaryStorage.rateLimit` from createTheAuth (memory by default).
 	 */
-	store?: "memory" | RateLimitStore;
+	store?: "memory" | RateLimitStore | SecondaryStorage;
 	/**
-	 * Extract a rate-limit key from the request.
-	 * Defaults to reading x-forwarded-for → x-real-ip → "unknown".
+	 * Extract the client part of the rate-limit key from the request.
+	 * Defaults to the IP from `trustedHeader` / `trustedProxyCount`, or the
+	 * shared "unknown" bucket when neither is set (forwarded headers are NOT
+	 * trusted by default because clients can forge them).
 	 */
 	keyExtractor?: (request: Request) => string;
 	/**
@@ -98,15 +124,42 @@ function parseWindowMs(window: string): number {
 	}
 }
 
-function defaultKeyExtractor(request: Request): string {
-	const forwarded = request.headers.get("x-forwarded-for");
-	if (forwarded) {
-		const first = (forwarded.split(",")[0] ?? "").trim();
-		if (first) return first;
+const MAX_BODY_SCAN_BYTES = 8_192;
+
+/** Read an OAuth client_id from the query, Basic auth, or a small form/JSON body. */
+async function extractClientId(request: Request): Promise<string | null> {
+	const url = new URL(request.url);
+	const fromQuery = url.searchParams.get("client_id");
+	if (fromQuery) return fromQuery.slice(0, 128);
+
+	const auth = request.headers.get("authorization");
+	if (auth?.toLowerCase().startsWith("basic ")) {
+		try {
+			const decoded = atob(auth.slice(6).trim());
+			const user = decoded.split(":")[0];
+			if (user) return decodeURIComponent(user).slice(0, 128);
+		} catch {
+			// malformed header: ignore
+		}
 	}
-	const real = request.headers.get("x-real-ip");
-	if (real) return real.trim();
-	return "unknown";
+
+	if (request.method !== "POST") return null;
+	const type = request.headers.get("content-type") ?? "";
+	const isForm = type.includes("application/x-www-form-urlencoded");
+	const isJson = type.includes("application/json");
+	if (!isForm && !isJson) return null;
+	try {
+		const text = (await request.clone().text()).slice(0, MAX_BODY_SCAN_BYTES);
+		if (isForm) return new URLSearchParams(text).get("client_id")?.slice(0, 128) ?? null;
+		const parsed: unknown = JSON.parse(text);
+		if (parsed && typeof parsed === "object") {
+			const id = (parsed as Record<string, unknown>).client_id;
+			if (typeof id === "string" && id) return id.slice(0, 128);
+		}
+	} catch {
+		// unreadable or truncated body: no client id
+	}
+	return null;
 }
 
 function defaultOnLimit(_request: Request, retryAfter: number): Response {
@@ -123,23 +176,47 @@ function defaultOnLimit(_request: Request, retryAfter: number): Response {
 }
 
 /** Map auth endpoint path suffixes to config keys */
-const PATH_TO_CONFIG_KEY: Array<
-	[string, keyof Omit<RateLimitConfig, "store" | "keyExtractor" | "onLimit" | "default">]
-> = [
+type EndpointKey =
+	| "signIn"
+	| "signUp"
+	| "passwordReset"
+	| "agentAuthorize"
+	| "mcpToken"
+	| "mcpRegister"
+	| "deviceCode"
+	| "deviceToken"
+	| "deviceAuthorize";
+
+const PATH_TO_CONFIG_KEY: Array<[string, EndpointKey]> = [
 	["/auth/sign-in", "signIn"],
 	["/auth/sign-up", "signUp"],
 	["/auth/password-reset", "passwordReset"],
 	["/auth/agent/authorize", "agentAuthorize"],
+	["/auth/device/code", "deviceCode"],
+	["/auth/device/token", "deviceToken"],
+	["/auth/device/authorize", "deviceAuthorize"],
+	["/mcp/token", "mcpToken"],
+	["/mcp/register", "mcpRegister"],
 ];
+
+/** Applied when the caller does not configure the endpoint. */
+const BUILT_IN_LIMITS: Partial<Record<EndpointKey, EndpointLimit>> = {
+	mcpToken: { window: "1m", max: 60 },
+	mcpRegister: { window: "1h", max: 10 },
+	deviceCode: { window: "1m", max: 10 },
+	deviceToken: { window: "1m", max: 60 },
+	deviceAuthorize: { window: "1m", max: 20 },
+};
 
 function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit | undefined {
 	for (const [suffix, key] of PATH_TO_CONFIG_KEY) {
 		if (pathname === suffix || pathname.endsWith(suffix)) {
-			const limit = config[key];
-			if (limit) return limit;
+			const configured = config[key];
+			if (configured === false) return undefined;
+			return configured ?? BUILT_IN_LIMITS[key] ?? config.default;
 		}
 	}
-	return config.default;
+	return pathname.includes("/auth/") ? config.default : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,24 +224,47 @@ function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit 
 // ---------------------------------------------------------------------------
 
 export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
-	const store: RateLimitStore =
-		!config.store || config.store === "memory" ? new MemoryStore() : config.store;
+	let store: RateLimitStore | null = null;
+	if (config.store && config.store !== "memory") {
+		store = isSecondaryStorage(config.store)
+			? rateLimitStoreFromStorage(config.store)
+			: (config.store as RateLimitStore);
+	}
+	const keyBy = config.keyBy ?? "ip";
 
-	const extractKey = config.keyExtractor ?? defaultKeyExtractor;
+	const extractIp =
+		config.keyExtractor ??
+		((request: Request): string => resolveClientIp(request, config) ?? "unknown");
 	const onLimitFn = config.onLimit ?? defaultOnLimit;
+
+	async function buildKey(request: Request): Promise<string> {
+		const ip = extractIp(request);
+		if (keyBy === "ip") return ip;
+		const clientId = await extractClientId(request);
+		if (keyBy === "client_id") return clientId ? `client:${clientId}` : ip;
+		return `${ip}|client:${clientId ?? "-"}`;
+	}
+
+	function getStore(): RateLimitStore {
+		store ??= new MemoryStore();
+		return store;
+	}
 
 	return {
 		id: "theauth-rate-limit",
+
+		async init(ctx): Promise<undefined> {
+			// Explicit `store` wins; otherwise follow createTheAuth's secondaryStorage.
+			if (!store && ctx.secondaryStorage) {
+				store = rateLimitStoreFromStorage(ctx.secondaryStorage.for("rateLimit"));
+			}
+			return undefined;
+		},
 
 		hooks: {
 			async onRequest(request: Request): Promise<Request | Response | undefined> {
 				const url = new URL(request.url);
 				const pathname = url.pathname;
-
-				// Only intercept /auth/* paths
-				if (!pathname.includes("/auth/")) {
-					return undefined;
-				}
 
 				const limit = resolveLimit(pathname, config);
 				if (!limit) {
@@ -172,9 +272,9 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 				}
 
 				const windowMs = parseWindowMs(limit.window);
-				const key = `rate-limit:${pathname}:${extractKey(request)}`;
+				const key = `rate-limit:${pathname}:${await buildKey(request)}`;
 
-				const { count, resetAt } = await store.increment(key, windowMs);
+				const { count, resetAt } = await getStore().increment(key, windowMs);
 
 				if (count > limit.max) {
 					const retryAfterMs = Math.max(resetAt - Date.now(), 0);

@@ -1,14 +1,18 @@
 /**
- * Cloudflare KV rate limit store.
+ * Rate limit store on top of Cloudflare KV (back-compat wrapper).
  *
- * Each key stores a JSON object { count, resetAt } with a TTL so Cloudflare
- * automatically evicts expired windows without any extra cleanup logic.
+ * New code should use `cloudflareKvStorage()` from the secondary storage
+ * module; this class now delegates to it. Pass a SecondaryStorage with an
+ * atomic `incr` (database, Redis, Durable Object) instead of a raw KV
+ * namespace to get race-free counting.
  *
- * The KV namespace is passed in at construction time so this module remains
- * free of any Cloudflare-specific imports (it only uses the KV interface that
- * Workers expose at runtime).
+ * KV limitation: a raw KV namespace has no atomic increment and is eventually
+ * consistent, so concurrent requests can under-count. Treat KV limits as soft.
  */
 
+import { cloudflareKvStorage } from "../../storage/cloudflare-kv.js";
+import { isSecondaryStorage, rateLimitStoreFromStorage } from "../../storage/rate-limit-store.js";
+import type { SecondaryStorage } from "../../storage/types.js";
 import type { RateLimitStore } from "./types.js";
 
 /** Minimal KV namespace interface — compatible with Cloudflare Workers KVNamespace */
@@ -18,53 +22,23 @@ export interface KVNamespace {
 	delete(key: string): Promise<void>;
 }
 
-interface KVEntry {
-	count: number;
-	resetAt: number;
-}
-
 export class KVStore implements RateLimitStore {
-	private readonly kv: KVNamespace;
+	private readonly inner: RateLimitStore;
 
-	constructor(kv: KVNamespace) {
-		this.kv = kv;
+	constructor(kv: KVNamespace | SecondaryStorage) {
+		this.inner = rateLimitStoreFromStorage(isSecondaryStorage(kv) ? kv : cloudflareKvStorage(kv));
 	}
 
-	async increment(key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
-		const now = Date.now();
-		const raw = await this.kv.get(key);
-
-		if (raw !== null) {
-			let entry: KVEntry;
-			try {
-				entry = JSON.parse(raw) as KVEntry;
-			} catch {
-				entry = { count: 0, resetAt: now + windowMs };
-			}
-
-			if (entry.resetAt > now) {
-				// Still in the same window — increment
-				entry.count += 1;
-				const ttlSeconds = Math.ceil((entry.resetAt - now) / 1000);
-				await this.kv.put(key, JSON.stringify(entry), { expirationTtl: Math.max(ttlSeconds, 1) });
-				return { count: entry.count, resetAt: entry.resetAt };
-			}
-		}
-
-		// New window
-		const resetAt = now + windowMs;
-		const entry: KVEntry = { count: 1, resetAt };
-		const ttlSeconds = Math.ceil(windowMs / 1000);
-		await this.kv.put(key, JSON.stringify(entry), { expirationTtl: Math.max(ttlSeconds, 1) });
-		return { count: 1, resetAt };
+	increment(key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
+		return this.inner.increment(key, windowMs);
 	}
 
-	async reset(key: string): Promise<void> {
-		await this.kv.delete(key);
+	reset(key: string): Promise<void> {
+		return this.inner.reset(key);
 	}
 }
 
-/** Factory function to create a KVStore from a KV namespace binding */
-export function kvStore(kv: KVNamespace): KVStore {
+/** Factory function to create a KVStore from a KV namespace binding or any SecondaryStorage */
+export function kvStore(kv: KVNamespace | SecondaryStorage): KVStore {
 	return new KVStore(kv);
 }

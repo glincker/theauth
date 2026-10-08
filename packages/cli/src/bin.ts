@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { argv, exit, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
+import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth-commands.js";
 import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from "./codemod-run.js";
 import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
@@ -24,6 +25,9 @@ Commands:
   migrate       Run database migrations
   dashboard     Launch the admin dashboard
   codemod       Source migrations (theauth codemod rename)
+  login         Sign in with the device flow (RFC 8628)
+  logout        Revoke and forget the saved login
+  whoami        Show the signed-in user
   version      Show version
 
 Options:
@@ -126,6 +130,22 @@ async function handleCodemod(): Promise<void> {
 	stdout.write(formatSummary(result));
 }
 
+async function handleAuthCommand(command: "login" | "logout" | "whoami"): Promise<void> {
+	const parsed = parseAuthArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(AUTH_HELP);
+		return;
+	}
+	if (parsed.unknown !== null) {
+		stdout.write(`Unknown option: ${parsed.unknown}\n${AUTH_HELP}`);
+		exit(1);
+		return;
+	}
+	const run = command === "login" ? runLogin : command === "logout" ? runLogout : runWhoami;
+	const code = await run(parsed);
+	if (code !== 0) exit(code);
+}
+
 async function main(): Promise<void> {
 	const args = argv.slice(2);
 	const command = args[0];
@@ -152,6 +172,11 @@ async function main(): Promise<void> {
 			break;
 		case "codemod":
 			await handleCodemod();
+			break;
+		case "login":
+		case "logout":
+		case "whoami":
+			await handleAuthCommand(command);
 			break;
 		default:
 			stdout.write(`Unknown command: ${command}\n\n`);

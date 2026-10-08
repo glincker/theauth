@@ -814,3 +814,44 @@ export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
 	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
+
+// ============================================================
+// Secondary storage (database adapter for SecondaryStorage)
+// ============================================================
+export const secondaryStorageEntries = sqliteTable("theauth_secondary_storage", {
+	storageKey: text("storage_key").primaryKey(),
+	value: text("value"),
+	counter: integer("counter"),
+	// Unix ms. Kept as a plain number so it is identical on every dialect.
+	expiresAt: integer("expires_at"),
+});
+
+// ============================================================
+// Agent registration tokens (one-time, scoped, hashed at rest)
+// ============================================================
+export const agentRegistrationTokens = sqliteTable("theauth_agent_registration_tokens", {
+	id: text("id").primaryKey(),
+	tokenHash: text("token_hash").notNull().unique(), // SHA-256 hex of the raw token
+	tokenPrefix: text("token_prefix").notNull(), // first chars, for identification in lists
+	label: text("label"),
+	ownerId: text("owner_id")
+		.notNull()
+		.references(() => users.id),
+	tenantId: text("tenant_id"),
+	agentType: text("agent_type", { enum: ["autonomous", "delegated", "service"] })
+		.notNull()
+		.default("autonomous"),
+	// Permission[] the registered agent receives. The caller cannot widen it.
+	permissions: text("permissions", { mode: "json" }).$type<unknown[]>().notNull(),
+	// Optional prefix the requested agent name must start with.
+	namePrefix: text("name_prefix"),
+	// Lifetime in seconds of the agent token issued on redemption (null = module default).
+	agentTtlSeconds: integer("agent_ttl_seconds"),
+	createdBy: text("created_by"),
+	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+	revokedAt: integer("revoked_at", { mode: "timestamp" }),
+	usedAt: integer("used_at", { mode: "timestamp" }),
+	claimNonce: text("claim_nonce"),
+	agentId: text("agent_id"),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});

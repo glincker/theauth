@@ -3,6 +3,7 @@ import type { ApprovalConfig } from "./approval/approval.js";
 import type { AdminConfig } from "./auth/admin.js";
 import type { ApiKeyManagerConfig } from "./auth/api-key-manager.js";
 import type { CaptchaConfig } from "./auth/captcha.js";
+import type { TrustedProxyConfig } from "./auth/client-ip.js";
 import type { EmailOtpConfig } from "./auth/email-otp.js";
 import type { EmailVerificationConfig } from "./auth/email-verification.js";
 import type { MagicLinkConfig } from "./auth/magic-link.js";
@@ -24,6 +25,7 @@ import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
 import type { SessionFreshnessConfig } from "./session/freshness.js";
 import type { SessionConfig } from "./session/session.js";
+import type { SecondaryStorageConfig } from "./storage/types.js";
 
 export type { DatabaseConfig };
 
@@ -74,6 +76,24 @@ export interface TheAuthConfig {
 
 	/** Auth plugins (email, OAuth, 2FA, org, etc.) */
 	plugins?: TheAuthPlugin[];
+
+	/**
+	 * Where short-lived state lives: rate limit counters, device codes, nonces,
+	 * caches. Defaults to process memory.
+	 *
+	 * Pass one backend for everything, or `{ default, rateLimit, deviceCodes, ... }`
+	 * to override per feature. Built-ins: `"memory"`, `"database"`, or an instance
+	 * from `redisStorage()`, `cloudflareKvStorage()`, `databaseStorage()`,
+	 * `defineSecondaryStorage()`.
+	 */
+	secondaryStorage?: SecondaryStorageConfig;
+
+	/**
+	 * How to find the real client IP behind proxies. Forwarded headers are not
+	 * trusted unless you say how many proxies you run or name a header your edge
+	 * overwrites. Used by plugin endpoint rate limits.
+	 */
+	trustedProxy?: TrustedProxyConfig;
 
 	/** Base URL for the auth server */
 	baseUrl?: string;

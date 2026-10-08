@@ -1,0 +1,98 @@
+---
+title: CLI login (device flow)
+description: Sign users into a CLI, TV app or MCP client with the OAuth device authorization grant (RFC 8628), with theauth login, logout and whoami.
+icon: terminal
+---
+
+## Overview
+
+The device flow lets a program with no browser (a CLI, a headless agent, an MCP client) get a signed-in session. The program asks for a short code, the user approves it in a browser where they are already signed in, and the program receives a token.
+
+## Server setup
+
+```ts
+import { createTheAuth, deviceAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
+  secondaryStorage: "database", // device codes must survive restarts and reach every instance
+  plugins: [deviceAuth({ verificationUri: "https://app.example.com/device" })],
+});
+```
+
+This mounts three endpoints under your TheAuth base path:
+
+| Endpoint | Caller | Purpose |
+| --- | --- | --- |
+| `POST /auth/device/code` | the CLI | Returns `device_code`, `user_code`, `verification_uri`, `verification_uri_complete`, `expires_in`, `interval`. |
+| `POST /auth/device/token` | the CLI | Poll. Returns `authorization_pending`, `slow_down`, `access_denied`, `expired_token`, or the token. |
+| `POST /auth/device/authorize` | your `/device` page | The signed-in user approves or denies. |
+
+Your `/device` page reads `user_code` from the URL, shows who is asking, and posts to the authorize endpoint with the user's session cookie:
+
+```ts
+await fetch("/api/theauth/auth/device/authorize", {
+  method: "POST",
+  credentials: "include",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ user_code, action: "approve" }), // or "deny"
+});
+```
+
+## What is enforced
+
+<Warning>
+**Breaking fix.** `/auth/device/authorize` used to read `user_id` from the request body when called through `module.handleRequest`, so anyone could approve a code as any user. The user now always comes from the authenticated session (`deviceAuth()` plugin) or from `resolveUser` (the standalone module). A body `user_id` is ignored, and with no signed-in user the endpoint answers 401.
+</Warning>
+
+- The device code is stored only as a SHA-256 hash, as is the user code index.
+- Each approving user gets 5 wrong guesses per 15 minutes (`userCodeAttemptLimit`, `userCodeAttemptWindowSeconds`); further attempts get 429.
+- `slow_down` is tracked in secondary storage, raises the interval by 5 seconds each time as RFC 8628 requires, and holds across instances.
+- A device code can be exchanged once. A second poll gets `expired_token`.
+- The approval endpoint requires `Content-Type: application/json` and refuses a cross-site `Origin` header, which blocks one-click approval from another site. Add origins with `trustedOrigins`.
+- Per-IP rate limits cover all three endpoints when you use `rateLimit()` (see [Rate limiting](/rate-limiting)).
+
+With `auth.session` configured, the token is a TheAuth session token you can send as `Authorization: Bearer ...`. To issue something else, pass `issueToken(userId, { clientId, scope })`.
+
+## The CLI
+
+```bash
+theauth login  --server https://app.example.com/api/theauth
+theauth whoami
+theauth logout
+```
+
+`--server` falls back to `$THEAUTH_URL`, then to the only server you are logged in to. `--no-browser` prints the code without opening a browser.
+
+Credentials are saved with file mode `0600` in a `0700` directory:
+
+| OS | Path |
+| --- | --- |
+| macOS, Linux | `$XDG_CONFIG_HOME/theauth/credentials.json`, else `~/.config/theauth/credentials.json` |
+| Windows | `%APPDATA%\theauth\credentials.json` |
+
+Set `THEAUTH_CREDENTIALS_FILE` to use another path. `logout` revokes the session on the server (best effort) and deletes the local copy. On Windows the mode bits do not apply; the file sits in your per-user profile directory.
+
+## Use it from your own CLI or MCP client
+
+```ts
+import { loginWithDeviceFlow, loadCredential } from "@glinr/theauth-cli";
+
+const serverUrl = "https://app.example.com/api/theauth";
+const saved = await loadCredential(serverUrl);
+const token =
+  saved?.accessToken ??
+  (await loginWithDeviceFlow({
+    serverUrl,
+    clientId: "my-cli",
+    onPrompt: ({ userCode, verificationUri }) =>
+      console.error(`Go to ${verificationUri} and enter ${userCode}`),
+  })).accessToken;
+```
+
+`loginWithDeviceFlow` handles polling, `slow_down`, denial and expiry, and throws a `DeviceFlowError` with a `code` (`access_denied`, `expired_token`, `aborted`, `server_error`, `no_token`). Pass `save: false` to skip the credential cache, and an `AbortSignal` to cancel.
+
+## Standalone module
+
+Without the plugin, use `createDeviceAuthModule({ verificationUri, resolveUser, issueToken, storage })` and route requests through `module.handleRequest(request)`.

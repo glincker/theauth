@@ -1,6 +1,7 @@
 import type { ResolvedUser } from "../auth/types.js";
 import type { Database } from "../db/database.js";
 import type { Session, SessionManager } from "../session/session.js";
+import type { SecondaryStorageResolver } from "../storage/types.js";
 import type { AuthConfig } from "../types.js";
 
 /** Context passed to plugin init */
@@ -13,6 +14,11 @@ export interface PluginContext {
 	addMigration: (sql: string) => void;
 	/** Shared session manager — null if auth.session not configured */
 	sessionManager: SessionManager | null;
+	/**
+	 * Per-feature secondary storage resolved from `createTheAuth({ secondaryStorage })`.
+	 * Optional so hand-built contexts in tests keep compiling; always set by createTheAuth.
+	 */
+	secondaryStorage?: SecondaryStorageResolver;
 }
 
 /** An API endpoint registered by a plugin */

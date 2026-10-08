@@ -1,0 +1,81 @@
+---
+title: Agent registration tokens
+description: Let a headless agent or CLI create its own agent identity with a one-time, scoped, expiring token, without a human session on the agent side.
+icon: ticket
+---
+
+## Overview
+
+Normally a signed-in human creates an agent. That does not work for a CI job or a freshly deployed worker that has no browser. A registration token fixes this: a human (or an admin script) mints a token that carries a fixed set of permissions, hands it to the agent, and the agent redeems it once to become a registered agent.
+
+- The token is shown once and stored as a SHA-256 hash.
+- It is single use, including under concurrent attempts.
+- It expires (default 15 minutes, at most 7 days).
+- The agent chooses its name but cannot change its permissions, type or owner.
+
+## Setup
+
+Needs the agent tables (set `agents` in your config).
+
+```ts
+import { createTheAuth, agentRegistration } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  agents: { enabled: true, maxPerUser: 20 },
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
+  plugins: [
+    agentRegistration({
+      isAdmin: (user) => user.metadata?.role === "admin",
+      onEvent: (event) => auditSink.write(event),
+    }),
+  ],
+});
+```
+
+## Endpoints
+
+| Endpoint | Auth | Purpose |
+| --- | --- | --- |
+| `POST /auth/agent-registration/tokens` | session | Mint a token. |
+| `GET /auth/agent-registration/tokens` | session | List tokens (`?status=active\|used\|revoked\|expired`). |
+| `DELETE /auth/agent-registration/tokens/:id` | session | Revoke an unused token. |
+| `POST /auth/agent-registration/register` | the registration token as Bearer | Redeem it. |
+
+Regular users manage tokens for themselves. Users for whom `isAdmin` returns true can mint, list and revoke for any owner (`owner_id`). With no `isAdmin`, nobody is an admin.
+
+```bash
+# 1. A signed-in user mints a token
+curl -X POST $BASE/auth/agent-registration/tokens \
+  -H "Authorization: Bearer $SESSION" -H "content-type: application/json" \
+  -d '{"permissions":[{"resource":"mcp:github:*","actions":["read"]}],"expires_in":600,"name_prefix":"ci-","label":"nightly job"}'
+# => { "id": "...", "token": "kvr_...", "expires_at": "..." }
+
+# 2. The agent redeems it, no session needed
+curl -X POST $BASE/auth/agent-registration/register \
+  -H "Authorization: Bearer kvr_..." -H "content-type: application/json" \
+  -d '{"name":"ci-nightly"}'
+# => { "agent_id": "...", "token": "kv_...", "permissions": [...] }
+```
+
+Mint body fields: `permissions` (required), `owner_id`, `label`, `agent_type`, `name_prefix`, `expires_in` (seconds), `agent_ttl_seconds`.
+
+## Using the module directly
+
+```ts
+import { createAgentRegistrationModule } from "@glinr/theauth";
+
+const registration = createAgentRegistrationModule({ db: theauth.db, agents: theauth.agent });
+const minted = await registration.create({ ownerId: user.id, permissions, expiresInSeconds: 600 });
+const agent = await registration.redeem(token, { name: "ci-nightly" });
+```
+
+Results use the `{ success, data | error }` shape. Every unusable token (unknown, expired, revoked, already used) returns the same `INVALID_TOKEN` error so the endpoint does not reveal which case it was.
+
+## Audit
+
+`onEvent` receives `agent_registration.token_created`, `token_revoked`, `redeemed` and `redeem_failed` (with a `reason`). A successful redemption also writes a row to the audit log (`action: "register"`, resource `agent_registration_token:<id>`). Create and revoke have no agent yet, so they are reported through `onEvent` only.
+
+If agent creation fails after the token is claimed (for example the owner is at `maxPerUser`), the token is released so it can be retried. The `beforeAgentCreate` and `afterAgentCreate` hooks run for redeemed agents like any other.
+
+The register endpoint is limited to 20 requests per minute per client. Behind a proxy, set `trustedProxy` (see [Rate limiting](/rate-limiting)) so that limit is per client.

@@ -1,3 +1,5 @@
+import type { TrustedProxyConfig } from "../auth/client-ip.js";
+import { resolveClientIp } from "../auth/client-ip.js";
 import { json } from "./helpers.js";
 import type { EndpointContext, PluginEndpoint } from "./types.js";
 
@@ -45,7 +47,10 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
  * register paths relative to the mount point (e.g. `/auth/sign-in` instead
  * of `/api/theauth/auth/sign-in`).
  */
-export function createPluginRouter(endpoints: PluginEndpoint[]): {
+export function createPluginRouter(
+	endpoints: PluginEndpoint[],
+	options: { trustedProxy?: TrustedProxyConfig } = {},
+): {
 	/** Try to handle a request. Returns Response if matched, null if not. */
 	handle: (
 		request: Request,
@@ -105,10 +110,8 @@ export function createPluginRouter(endpoints: PluginEndpoint[]): {
 				// --- Rate limit enforcement ---
 				if (endpoint.metadata?.rateLimit) {
 					const { window: windowSec, max } = endpoint.metadata.rateLimit;
-					const ip =
-						request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-						request.headers.get("x-real-ip") ??
-						"unknown";
+					// Forwarded headers are only honoured when `trustedProxy` is configured.
+					const ip = resolveClientIp(request, options.trustedProxy) ?? "unknown";
 					const key = `${ip}:${endpoint.path}`;
 					if (!checkRateLimit(key, windowSec, max)) {
 						return json({ error: "Rate limit exceeded" }, 429);

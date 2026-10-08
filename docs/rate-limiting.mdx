@@ -42,8 +42,12 @@ const theauth = await createTheAuth({
 <ParamField path="passwordReset" type="{ window: string; max: number }">Limit for paths ending in `/auth/password-reset`.</ParamField>
 <ParamField path="agentAuthorize" type="{ window: string; max: number }">Limit for paths ending in `/auth/agent/authorize`.</ParamField>
 <ParamField path="default" type="{ window: string; max: number }">Fallback for every other path containing `/auth/`.</ParamField>
-<ParamField path="store" type={`"memory" | RateLimitStore`} default={`"memory"`}>Counter storage. The built-in `MemoryStore` is per process. For edge deployments use `kvStore(namespace)` (Cloudflare KV), or pass any object implementing `increment(key, windowMs)` and `reset(key)`. There is no built-in Redis store; implement `RateLimitStore` yourself if you need one for multiple instances.</ParamField>
-<ParamField path="keyExtractor" type="(request: Request) => string">Rate limit key. Defaults to the first `x-forwarded-for` entry, then `x-real-ip`, then `"unknown"`. Only trust those headers behind a proxy that sets them.</ParamField>
+<ParamField path="store" type={`"memory" | RateLimitStore | SecondaryStorage`} default={`secondaryStorage.rateLimit`}>Counter storage. Omit it to follow `secondaryStorage.rateLimit` from `createTheAuth` (memory by default). Pass `redisStorage()`, `databaseStorage()`, `cloudflareKvStorage()` or any `RateLimitStore`. See [Secondary storage](/secondary-storage) for the tradeoffs; KV counters are approximate.</ParamField>
+<ParamField path="trustedProxyCount" type="number" default="0">How many reverse proxies you run. With `x-forwarded-for: a, b, c` and a count of 1 the client is `c`, the entry your proxy added. With 0 the header is ignored, because clients can forge it.</ParamField>
+<ParamField path="trustedHeader" type="string">A header your edge overwrites, such as `cf-connecting-ip` or `x-real-ip`. Takes precedence over `trustedProxyCount`. Only set it when the app is reachable only through that edge.</ParamField>
+<ParamField path="keyBy" type={`"ip" | "client_id" | "ip+client_id"`} default={`"ip"`}>What identifies a caller. `client_id` is read from the query string, a form or JSON body, or Basic auth, and falls back to the IP. A caller can rotate client ids, so use `ip+client_id` when you want both bounds.</ParamField>
+<ParamField path="mcpToken, mcpRegister, deviceCode, deviceToken, deviceAuthorize" type="EndpointLimit | false">Limits for `/mcp/token`, `/mcp/register` and the device endpoints. Defaults: 60/min, 10/hour, 10/min, 60/min, 20/min. `false` turns one off.</ParamField>
+<ParamField path="keyExtractor" type="(request: Request) => string">Rate limit key for the client part. Defaults to the IP from `trustedHeader` or `trustedProxyCount`, and to a shared `"unknown"` bucket when neither is set. Forwarded headers are no longer trusted by default: if you run behind a proxy, set `trustedProxyCount` or `trustedHeader`, otherwise all clients share one bucket.</ParamField>
 <ParamField path="onLimit" type="(request: Request, retryAfter: number) => Response">Custom 429 response factory.</ParamField>
 
 `window` is a duration string: a number followed by `s`, `m`, `h`, or `d` (for example `"30s"`, `"15m"`, `"1h"`). Any other format throws when the first request is checked. The window is a fixed window starting at the first request for that key and path, and the counter is keyed by path plus client key.
@@ -160,7 +164,7 @@ const handler = withRateLimit(
 );
 ```
 
-When the limit is exceeded, `withRateLimit` returns a `429` response with a `Retry-After` header and the body `{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }`, and does not call the wrapped handler. The default `keyExtractor` is the same `x-forwarded-for`, then `x-real-ip`, then `"unknown"` chain as the plugin.
+When the limit is exceeded, `withRateLimit` returns a `429` response with a `Retry-After` header and the body `{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }`, and does not call the wrapped handler. Unlike the plugin, `withRateLimit` still defaults to the first `x-forwarded-for` entry, then `x-real-ip`, then `"unknown"`. Pass your own `keyExtractor` (for example one built on `resolveClientIp`) when you run behind a proxy.
 
 ## Next steps
 
@@ -175,3 +179,15 @@ When the limit is exceeded, `withRateLimit` returns a `429` response with a `Ret
   React to rate_limited denials with the onViolation hook.
 </Card>
 </CardGroup>
+
+## Protecting /mcp and the device endpoints
+
+The plugin hook runs for requests that go through `theauth.plugins.handleRequest`, which covers the device endpoints. The `/mcp/token` and `/mcp/register` handlers are mounted by your app, so run the hooks first:
+
+```ts
+app.post("/mcp/token", async (req) => {
+  const gate = await theauth.plugins.runRequestHooks(req);
+  if (gate instanceof Response) return gate; // 429
+  return mcp.token(gate);
+});
+```

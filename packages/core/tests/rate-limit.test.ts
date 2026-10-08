@@ -10,11 +10,16 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { rateLimit } from "../src/auth/rate-limit.js";
+import type { RateLimitConfig } from "../src/auth/rate-limit.js";
+import { rateLimit as baseRateLimit } from "../src/auth/rate-limit.js";
 import type { KVNamespace } from "../src/auth/stores/kv.js";
 import { KVStore } from "../src/auth/stores/kv.js";
 import { MemoryStore } from "../src/auth/stores/memory.js";
 import type { RateLimitStore } from "../src/auth/stores/types.js";
+
+// Forwarded headers are untrusted by default; these tests simulate one proxy.
+const rateLimit = (config: RateLimitConfig = {}) =>
+	baseRateLimit({ trustedProxyCount: 1, ...config });
 
 // ---------------------------------------------------------------------------
 // Helpers
