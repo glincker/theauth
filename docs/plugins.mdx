@@ -1,0 +1,95 @@
+---
+title: Writing plugins
+description: Add endpoints, migrations and lifecycle hooks to theAuth with the TheAuthPlugin interface.
+icon: puzzle-piece
+---
+
+A plugin is a plain object with an `id`, an optional `init` function and optional `hooks`. `@glinr/theauth-email`, the discovery plugin and the telemetry plugin are built this way. You pass plugins to `createTheAuth({ plugins: [...] })`.
+
+## A complete plugin
+
+```ts title="ping-plugin.ts"
+import { createTheAuth, type TheAuthPlugin } from '@glinr/theauth';
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+export function ping(): TheAuthPlugin {
+  return {
+    id: 'example-ping',
+    async init(ctx) {
+      ctx.addMigration(
+        'CREATE TABLE IF NOT EXISTS example_pings (id TEXT PRIMARY KEY, at INTEGER NOT NULL)',
+      );
+      ctx.addEndpoint({
+        method: 'GET',
+        path: '/ping/:name',
+        metadata: { description: 'Say hello', rateLimit: { window: 60, max: 30 }, requireAuth: false },
+        async handler(request) {
+          const name = new URL(request.url).searchParams.get('_param_name');
+          return json({ hello: name });
+        },
+      });
+      return { context: { pingVersion: 1 } };
+    },
+  };
+}
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: ':memory:' },
+  plugins: [ping()],
+});
+
+const res = await theauth.plugins.handleRequest(new Request('http://localhost/ping/ada'));
+console.log(await res?.json()); // { hello: 'ada' }
+```
+
+## The context passed to `init`
+
+| Member | Purpose |
+|---|---|
+| `db` | The Drizzle database handle. |
+| `config` | The resolved `createTheAuth` config. |
+| `addEndpoint(endpoint)` | Register an HTTP endpoint (below). |
+| `addMigration(sql)` | Queue a `CREATE TABLE IF NOT EXISTS` statement. Migrations run after all plugins initialize, so keep each statement idempotent. |
+| `sessionManager` | The shared session manager, or `null` when `auth.session` is not configured. |
+
+`init` may return `{ context }`; those values are merged into `theauth.plugins.getContext()`.
+
+## Endpoints
+
+An endpoint has a `method`, a `path` relative to the mount point, a `handler(request, ctx)` that takes a Web `Request` and returns a `Response`, and optional `metadata`:
+
+- `rateLimit: { window, max }`: `window` is in seconds. Counted per client IP, in memory, per process. Over the limit the router returns 429.
+- `requireAuth`: when true, the router calls `getUser` first and returns 401 if there is no session.
+- `description`: used for documentation.
+
+Paths support `:param` segments. The router copies captured values into the request URL as `_param_<name>` query parameters, as shown above. The handler `ctx` also gives you `db`, `getUser(request)` and `getSession(token)`.
+
+The JSON, body-parsing and cookie helpers that built-in plugins use are internal, so write small equivalents in your own plugin (the `json` function above is one).
+
+## Lifecycle hooks
+
+```ts
+hooks: {
+  onRequest: async (request) => undefined,        // return a Request to replace it, or a Response to short-circuit
+  onAuthenticate: async (user, session) => {},    // after a successful sign-in
+  onSessionCreate: async (userId) => ({ source: 'my-plugin' }), // return metadata to attach
+  onSessionRevoke: async (sessionId) => {},
+}
+```
+
+## Serving plugin endpoints
+
+`theauth.plugins.handleRequest(request, basePath?)` returns a `Response`, or `null` when no endpoint matches, so you can fall through to the rest of your app. `theauth.plugins.getEndpoints()` lists every registered endpoint, which is what the [framework adapters](/adapters) use to mount routes. Strip your mount prefix by passing it as `basePath`.
+
+```ts
+const response = await theauth.plugins.handleRequest(request, '/api/theauth');
+return response ?? new Response('Not found', { status: 404 });
+```
+
+## Notes
+
+- `schema` on a plugin is for Drizzle type safety only. Tables are created by `addMigration`.
+- `AuthPlugin` is a deprecated alias of `TheAuthPlugin`.
+- Plugin rate limits are per process. Behind several instances, enforce limits at your gateway as well.
