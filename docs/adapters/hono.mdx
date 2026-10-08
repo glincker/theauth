@@ -56,7 +56,7 @@ import { theauth, mcp } from './lib/theauth.js';
 const app = new Hono();
 
 // Mount all TheAuth routes (agents, permissions, audit, MCP OAuth)
-app.route('/api/theauth', theAuthHono(theauth, { mcp }));
+app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 
 serve({ fetch: app.fetch, port: 3000 });
 ```
@@ -64,12 +64,27 @@ serve({ fetch: app.fetch, port: 3000 });
 </Step>
 </Steps>
 
+## Authentication and mount prefixes
+
+`theAuthHono` refuses to start without a way to authenticate callers on `/agents`, `/delegations`, `/audit`, `/dashboard` and `POST /authorize`. Pass `authenticate`, configure `auth.session`, or set `allowUnauthenticated: true` for local development. The full rules and the upgrade note are on the [adapters overview](/adapters#authenticate-the-management-routes).
+
+```typescript
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
+```
+
+Plugin routes (magic link, email OTP and so on) work under any prefix. The adapter works out the prefix from the request path, so `app.route('/x', theAuthHono(...))` and `app.route('/api/v1/theauth', ...)` both reach `/auth/magic-link/send` at the right place.
+
 ## MCP endpoints
 
 Pass `mcp` to enable the full MCP OAuth 2.1 authorization server. All MCP endpoints are mounted under the same `/api/theauth` prefix alongside the REST API:
 
 ```typescript
-app.route('/api/theauth', theAuthHono(theauth, { mcp }));
+app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 // registers:
 // GET  /api/theauth/.well-known/oauth-authorization-server
 // GET  /api/theauth/.well-known/oauth-protected-resource
@@ -129,7 +144,7 @@ const mcp = createMcpModule({
 
 const app = new Hono();
 
-app.route('/api/theauth', theAuthHono(theauth, { mcp }));
+app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 
 app.get('/health', (c) => c.json({ ok: true }));
 

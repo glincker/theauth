@@ -1,4 +1,5 @@
 import type {
+	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -7,6 +8,7 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -203,7 +205,7 @@ function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 
 // ─── Adapter Options ─────────────────────────────────────────────────────────
 
-export interface TheAuthFastifyOptions {
+export interface TheAuthFastifyOptions extends AdapterSecurityOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -248,7 +250,31 @@ export type AuthFastifyOptions = TheAuthFastifyOptions;
 export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 	const mcp = options?.mcp;
 
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(auth, options, "theAuthFastify");
+
 	return async function plugin(fastify: FastifyInstance): Promise<void> {
+		// Management routes (agents, delegations, audit, dashboard, authorize)
+		// require an authenticated caller. The hook is scoped to this plugin.
+		fastify.addHook("onRequest", async (request, reply) => {
+			const pathname = new URL(request.url, "http://localhost").pathname;
+			const prefix = fastify.prefix === "/" ? "" : fastify.prefix;
+			const relative =
+				prefix && pathname.startsWith(prefix) ? pathname.slice(prefix.length) : pathname;
+			if (!guard.isProtected(relative)) return;
+			const webReq = new Request(`${request.protocol}://${request.hostname}${request.url}`, {
+				method: "GET",
+				headers: new Headers(request.headers as Record<string, string>),
+			});
+			const denied = await guard.check(webReq);
+			if (denied) {
+				return reply
+					.status(denied.status)
+					.header("Content-Type", "application/json")
+					.send(await denied.text());
+			}
+		});
+
 		// ── MCP OPTIONS preflight ────────────────────────────────────
 
 		fastify.options("/mcp/*", (_request, reply) => {
@@ -697,7 +723,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 					hasBody && request.body !== undefined ? JSON.stringify(request.body) : undefined;
 				const webReq = new Request(url, { method: request.method, headers, body });
 
-				const response = await auth.plugins.handleRequest(webReq);
+				const response = await auth.plugins.handleRequest(
+					webReq,
+					fastify.prefix === "/" ? "" : fastify.prefix,
+				);
 				if (!response) {
 					return sendNotFound(reply, "Plugin endpoint not found");
 				}

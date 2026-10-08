@@ -92,6 +92,7 @@ const theauth = await getTheAuth(); // theAuthNextjs takes the instance, not a f
 // basePath must match the folder the catch-all route lives in (the default is /api/theauth)
 export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, {
   basePath: '/api/auth',
+  authenticate, // see /adapters#authenticate-the-management-routes
 });
 ```
 

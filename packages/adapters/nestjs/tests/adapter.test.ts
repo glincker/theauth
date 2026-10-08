@@ -40,7 +40,10 @@ async function createRouterApp(): Promise<{ app: Express; theauth: TheAuth }> {
 	const theauth = await createTestTheAuth();
 	const app = express();
 	app.use(express.json());
-	app.use("/api/auth/theauth", buildTheAuthRouter(theauth));
+	app.use(
+		"/api/auth/theauth",
+		buildTheAuthRouter(theauth, undefined, { allowUnauthenticated: true }),
+	);
 	return { app, theauth };
 }
 
@@ -48,7 +51,7 @@ async function createMiddlewareApp(): Promise<{ app: Express; theauth: TheAuth }
 	const theauth = await createTestTheAuth();
 	const app = express();
 	app.use(express.json());
-	app.use("/api/auth/theauth", theAuthMiddleware({ theauth }));
+	app.use("/api/auth/theauth", theAuthMiddleware({ theauth, allowUnauthenticated: true }));
 	return { app, theauth };
 }
 

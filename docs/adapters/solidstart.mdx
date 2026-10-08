@@ -51,7 +51,7 @@ Create `src/routes/api/theauth/[...theauth].ts`. The `[...theauth]` segment catc
 import { theAuthSolidStart } from '@glinr/theauth-solidstart';
 import { theauth, mcp } from '~/lib/theauth';
 
-const handlers = theAuthSolidStart(theauth, { mcp });
+const handlers = theAuthSolidStart(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -132,7 +132,7 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-const handlers = theAuthSolidStart(theauth, { mcp });
+const handlers = theAuthSolidStart(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

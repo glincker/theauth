@@ -57,7 +57,9 @@ app.all("/api/*", async (c) => {
 	});
 
 	// Mount theAuthHono under the /api prefix by stripping it before dispatch
-	const api = theAuthHono(auth);
+	// Demo only: no authentication on the management routes. Real apps pass
+	// `authenticate` (see the adapter docs).
+	const api = theAuthHono(auth, { allowUnauthenticated: true });
 	const url = new URL(c.req.url);
 	const stripped = new Request(new URL(url.pathname.replace(/^\/api/, "") || "/", url), c.req.raw);
 	return api.fetch(stripped, c.env, c.executionCtx);

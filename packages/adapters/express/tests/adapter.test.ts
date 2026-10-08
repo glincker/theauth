@@ -36,7 +36,7 @@ async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
 	const app = express();
 	app.use(express.json());
 	app.use(express.urlencoded({ extended: true }));
-	app.use(theAuthExpress(theauth));
+	app.use(theAuthExpress(theauth, { allowUnauthenticated: true }));
 
 	return { app, theauth };
 }

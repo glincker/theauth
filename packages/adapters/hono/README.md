@@ -29,7 +29,7 @@ const theauth = createTheAuth({
 const app = new Hono();
 
 // Mount all TheAuth routes at /api/theauth
-app.route('/api/theauth', theAuthHono(theauth));
+app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
 
 serve({ fetch: app.fetch, port: 3000 });
 ```
@@ -47,7 +47,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-app.route('/api/theauth', theAuthHono(theauth, { mcp }));
+app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:

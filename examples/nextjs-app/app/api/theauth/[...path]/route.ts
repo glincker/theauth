@@ -24,7 +24,9 @@ import { getTheAuth } from "@/lib/theauth";
 // module evaluation time (which would run during the build step).
 async function getHandlers() {
 	const auth = await getTheAuth();
-	return theAuthNextjs(auth, { basePath: "/api/theauth" });
+	// Demo only: no authentication on the management routes. Real apps pass
+	// `authenticate` (see the adapter docs).
+	return theAuthNextjs(auth, { basePath: "/api/theauth", allowUnauthenticated: true });
 }
 
 export async function GET(request: Request): Promise<Response> {

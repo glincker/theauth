@@ -51,7 +51,7 @@ Create `src/routes/api/theauth/[...path]/+server.ts`. The `[...path]` segment ca
 import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
 import { theauth, mcp } from '$lib/theauth';
 
-const handlers = theAuthSvelteKit(theauth, { mcp });
+const handlers = theAuthSvelteKit(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -132,7 +132,7 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-const handlers = theAuthSvelteKit(theauth, { mcp });
+const handlers = theAuthSvelteKit(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

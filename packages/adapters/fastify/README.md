@@ -28,7 +28,7 @@ const theauth = createTheAuth({
 });
 
 // Register all TheAuth routes under /api/theauth
-await app.register(theAuthFastify(theauth), { prefix: '/api/theauth' });
+await app.register(theAuthFastify(theauth, { authenticate }), { prefix: '/api/theauth' });
 
 await app.listen({ port: 3000 });
 ```
@@ -46,7 +46,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-await app.register(theAuthFastify(theauth, { mcp }), { prefix: '/api/theauth' });
+await app.register(theAuthFastify(theauth, { mcp, authenticate }), { prefix: '/api/theauth' });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:

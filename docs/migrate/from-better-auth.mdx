@@ -72,7 +72,7 @@ export const { GET, POST } = toNextJsHandler(auth);
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { theauth } from '@/lib/theauth';
 
-const handlers = theAuthNextjs(theauth);
+const handlers = theAuthNextjs(theauth, { authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -101,7 +101,7 @@ import { theauth } from './lib/theauth.js';
 
 const app = new Hono();
 
-app.route('/api/theauth', theAuthHono(theauth));
+app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
 ```
 
 ## Database adapter

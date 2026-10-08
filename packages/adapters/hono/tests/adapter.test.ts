@@ -31,7 +31,7 @@ async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
 		})
 		.run();
 
-	const app = theAuthHono(theauth);
+	const app = theAuthHono(theauth, { allowUnauthenticated: true });
 	return { app, theauth };
 }
 

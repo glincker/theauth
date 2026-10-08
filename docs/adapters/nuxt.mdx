@@ -53,7 +53,7 @@ In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-
 import { theAuthNuxt } from '@glinr/theauth-nuxt';
 import { theauth, mcp } from '../utils/theauth';
 
-export default theAuthNuxt(theauth, { mcp });
+export default theAuthNuxt(theauth, { mcp, authenticate });
 ```
 
 </Step>
@@ -128,7 +128,7 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-export default theAuthNuxt(theauth, { mcp });
+export default theAuthNuxt(theauth, { mcp, authenticate });
 ```
 
 All theAuth routes are then available at `/api/theauth/...` within your Nuxt server.

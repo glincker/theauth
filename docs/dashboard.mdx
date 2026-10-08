@@ -85,7 +85,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     });
 
     const app = new Hono();
-    app.route('/api', theAuthHono(theauth)); // serves /api/agents, /api/audit, /api/dashboard/stats, ...
+    app.route('/api', theAuthHono(theauth, { authenticate })); // serves /api/agents, /api/audit, /api/dashboard/stats, ...
     ```
 
     ### Login gate
