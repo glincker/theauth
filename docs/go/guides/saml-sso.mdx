@@ -1,0 +1,87 @@
+---
+title: "Add SAML SSO"
+sidebarTitle: "SAML SSO"
+description: "Let each organization sign in through its own SAML 2.0 identity provider, with per-organization connections, SP metadata, and replay protection."
+---
+theauth-go can act as a SAML 2.0 Service Provider (SP). Each organization registers its own identity provider (IdP) as a connection row, and users sign in through that connection. Your app holds one SP keypair; the IdP details live in storage.
+
+## Requirements
+
+SAML needs `Config.Organizations` to be set, and `theauth.New` returns `ErrSAMLRequiresOrganizations` otherwise. It also needs a storage backend with organization support: memory, Postgres or MySQL. SQLite does not support organizations, SAML, SCIM or RBAC.
+
+You need an RSA keypair for the SP, PEM encoded. The certificate and key sign outbound AuthnRequests and identify the SP in its metadata.
+
+## Configure
+
+```go
+certPEM, err := os.ReadFile("sp-cert.pem")
+if err != nil {
+    log.Fatal(err)
+}
+keyPEM, err := os.ReadFile("sp-key.pem")
+if err != nil {
+    log.Fatal(err)
+}
+
+a, err := theauth.New(theauth.Config{
+    Storage:           store, // memory, postgres or mysql
+    BaseURL:           "https://myapp.com",
+    PostLoginRedirect: "/dashboard",
+    Organizations:     &theauth.OrganizationsConfig{},
+    SAML: &theauth.SAMLConfig{
+        SPCertificatePEM: certPEM,
+        SPPrivateKeyPEM:  keyPEM,
+        AuthnRequestTTL:  10 * time.Minute,
+        ClockSkew:        30 * time.Second,
+        AllowedRelayStates: []string{"https://myapp.com/welcome"},
+    },
+})
+```
+
+`AuthnRequestTTL` defaults to 10 minutes and `ClockSkew` to 30 seconds. Some IdPs with drifting clocks need 60 seconds. `AllowedRelayStates` lists extra post-login destinations (exact absolute URLs, or paths ending in `*`). Same-site paths and `PostLoginRedirect` are always accepted; anything else falls back to `PostLoginRedirect`.
+
+## Create a connection
+
+Connections can be created over HTTP (below) or from Go:
+
+```go
+conn, err := a.CreateSAMLConnection(ctx, theauth.SAMLConnectionInput{
+    OrganizationID: orgID,
+    IdPEntityID:    "https://idp.example.com/entity",
+    IdPSSOURL:      "https://idp.example.com/sso",
+    IdPX509Cert:    idpCertPEM,
+    SPEntityID:     "https://myapp.com/auth/saml/metadata",
+    SPACSURL:       "https://myapp.com/auth/saml/" + connID + "/acs",
+    AttributeMap:   theauth.DefaultSAMLAttributeMap(),
+})
+```
+
+`AttributeMap` tells the library which assertion attributes carry the email, name and groups. The default map uses the claim URIs that Microsoft, Okta and OneLogin emit. An assertion with no mapped email is rejected (`ErrSAMLMissingEmail`). Related methods: `UpdateSAMLConnection`, `DeleteSAMLConnection`, `SAMLConnectionByID` and `ListSAMLConnections`.
+
+## Routes
+
+Mounted by `a.Mount(r)` or `a.Handler()` under `Config.PathPrefix` (default `/auth`). The three SP routes are public:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /auth/saml/{connectionId}/login` | Start SP-initiated login, redirects to the IdP. Accepts a `RelayState` query parameter |
+| `POST /auth/saml/{connectionId}/acs` | Assertion consumer service, verifies the response and creates a session |
+| `GET /auth/saml/{connectionId}/metadata` | SP metadata XML to give to the IdP |
+
+Connection management is mounted under the organization tree and requires a signed-in user:
+
+| Endpoint | Role required |
+|---|---|
+| `POST /auth/orgs/{orgId}/saml/connections` | owner |
+| `GET /auth/orgs/{orgId}/saml/connections` | admin or owner |
+| `GET /auth/orgs/{orgId}/saml/connections/{id}` | admin or owner |
+| `PUT /auth/orgs/{orgId}/saml/connections/{id}` | owner |
+| `DELETE /auth/orgs/{orgId}/saml/connections/{id}` | owner |
+
+## Security notes
+
+- Assertions must be signed. An unsigned assertion fails with `ErrSAMLUnsignedAssertion`, and other validation failures wrap `ErrSAMLInvalidAssertion`.
+- SP-initiated AuthnRequest IDs are tracked for `AuthnRequestTTL` and consumed on first use, so a replayed response is refused. The SP also accepts unsolicited (IdP-initiated) responses, so restrict who can add a connection.
+- `RelayState` is checked against the allow rules above, which prevents open redirects through the login URL.
+- Keep the SP private key out of source control and rotate it by updating the IdP's copy of the metadata.
+- Pin each connection to the IdP's real signing certificate in `IdPX509Cert`.

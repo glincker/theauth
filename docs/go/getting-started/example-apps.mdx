@@ -2,7 +2,7 @@
 title: "Example Apps"
 description: "The repository ships runnable example applications covering every framework integration, OAuth provider, and observability backend."
 ---
-The repository ships runnable example applications covering every framework integration, OAuth provider, and observability backend. Each example has a `README`, single-file `main.go`, `go.mod`, `docker-compose.yml`, `.env.example`, and `Makefile`.
+The repository ships runnable example applications covering every framework integration, OAuth provider, and observability backend. Every example has its own `go.mod` and a short `README`. The framework and multi-provider examples (`chi-app`, `gin-app`, `echo-app`, `stdlib-app`, `oauth-multi-provider`) also include `docker-compose.yml`, `.env.example` and a `Makefile`; the rest run with `go run .` and read their settings from environment variables.
 
 | Example | What it shows |
 |---|---|
@@ -23,6 +23,8 @@ The repository ships runnable example applications covering every framework inte
 | [`examples/webauthn-passkey/`](https://github.com/glincker/theauth-go/tree/main/examples/webauthn-passkey) | Passkey register and discoverable login |
 | [`examples/totp-stepup/`](https://github.com/glincker/theauth-go/tree/main/examples/totp-stepup) | Password + TOTP step-up flow |
 | [`examples/mcp-server/`](https://github.com/glincker/theauth-go/tree/main/examples/mcp-server) | MCP resource server using `mcpresource` middleware |
+| [`examples/cli-login/`](https://github.com/glincker/theauth-go/tree/main/examples/cli-login) | A host CLI using RFC 8628 device login through `clientauth` |
+| [`examples/doctor-admin/`](https://github.com/glincker/theauth-go/tree/main/examples/doctor-admin) | Root-only `/admin/security` page rendering the `Doctor` report |
 | [`examples/observability-otel/`](https://github.com/glincker/theauth-go/tree/main/examples/observability-otel) | Reference OpenTelemetry `Tracer` adapter |
 | [`examples/observability-prom/`](https://github.com/glincker/theauth-go/tree/main/examples/observability-prom) | Reference Prometheus `Metrics` adapter |
 

@@ -485,6 +485,9 @@
             "icon": "code-branch",
             "pages": [
               "api",
+              "openapi",
+              "plugins",
+              "redirect",
               "errors",
               "test-utils",
               "a2a"
@@ -549,6 +552,13 @@
               "go/guides/add-oauth-provider",
               "go/guides/webauthn-passkeys",
               "go/guides/api-tokens",
+              "go/guides/agent-delegation",
+              "go/guides/totp",
+              "go/guides/saml-sso",
+              "go/guides/scim-provisioning",
+              "go/guides/rbac",
+              "go/guides/dpop",
+              "go/guides/dynamic-client-registration",
               "go/guides/cli-login",
               "go/guides/path-prefix-and-dynamic-providers",
               "go/guides/policy-engine",

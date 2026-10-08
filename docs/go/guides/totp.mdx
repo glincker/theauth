@@ -1,0 +1,81 @@
+---
+title: "TOTP Second Factor"
+sidebarTitle: "TOTP"
+description: "Add authenticator-app codes and recovery codes to password sign-in, and require recent authentication for sensitive routes."
+---
+theauth-go supports time-based one-time passwords (RFC 6238) as a second factor. Users enroll an authenticator app, receive recovery codes, and then pass a code check after their password. The algorithm is fixed at SHA-1, 30 seconds, 6 digits, so it works with Google Authenticator, 1Password, and Authy.
+
+A runnable demo lives in `examples/totp-stepup/main.go`.
+
+## Configure
+
+```go
+a, err := theauth.New(theauth.Config{
+    Storage:       store,
+    BaseURL:       "https://myapp.com",
+    SecureCookie:  true,
+    EncryptionKey: key, // 32 bytes; TOTP secrets are encrypted with it
+    TOTP: &theauth.TOTPConfig{
+        Issuer:            "My App",
+        RecoveryCodeCount: 10, // default when zero
+    },
+})
+```
+
+`Issuer` is the label shown in the authenticator app. Recovery codes are 10 hex characters from `crypto/rand`.
+
+## Routes
+
+`a.Mount(r)` adds these under the auth prefix (`/auth` by default) when `Config.TOTP` is set:
+
+| Route | Needs | Purpose |
+|---|---|---|
+| `POST /auth/totp/enroll/begin` | session | Returns `secret`, `otpAuthUrl`, `enrollmentId` |
+| `POST /auth/totp/enroll/finish` | session | Body `{enrollmentId, code}`; returns `recoveryCodes` |
+| `POST /auth/totp/verify` | pending or full session | Body `{code}`; upgrades a pending session |
+| `POST /auth/totp/recovery` | pending or full session | Body `{code}`; uses a recovery code instead |
+| `GET /auth/totp` | session | Returns `enrolled` and `recoveryCodesRemaining` |
+| `DELETE /auth/totp` | session | Removes TOTP for the user |
+| `POST /auth/totp/recovery-codes` | session | Issues a fresh set of recovery codes |
+
+Enrollment, verify, recovery, and regeneration are rate limited per IP. Regenerating returns 409 if the user is not enrolled.
+
+## Enrollment
+
+1. Call `enroll/begin`. Render `otpAuthUrl` as a QR code, or show `secret` for manual entry. The library does not generate QR images.
+2. The user types the current code. Send it to `enroll/finish` with the `enrollmentId`.
+3. Show the returned `recoveryCodes` once and ask the user to store them.
+
+From Go, use `BeginTOTPEnrollment(ctx, userID, accountName)` and `FinishTOTPEnrollment(ctx, userID, enrollmentID, code)`.
+
+## Sign-in with a second factor
+
+Once a user is enrolled, `POST /auth/email-password/signin` no longer returns a full session. It responds `{"step":"totp_required"}` and sets a pending session cookie. In Go code this is `SigninStepTOTPRequired`; a complete sign-in is `SigninStepFull`.
+
+The client then posts the 6-digit code to `/auth/totp/verify`. On success the pending session is replaced with a full one. A lost device can use `/auth/totp/recovery` with a recovery code, which is single use.
+
+Programmatic equivalents are `VerifyTOTP(ctx, pendingSessionToken, code)` and the recovery counterpart on `TheAuth`.
+
+## Step-up for sensitive routes
+
+`RequireRecentAuth(maxAge)` is chi-compatible middleware. It requires a session and returns 403 `auth.recent_auth_required` unless the user signed in or stepped up within `maxAge`.
+
+```go
+r.With(a.RequireRecentAuth(5*time.Minute)).
+    Post("/billing/delete-account", deleteAccount)
+```
+
+The client answers that 403 by posting to `/auth/step-up`:
+
+```json
+{ "method": "totp", "code": "123456" }
+```
+
+Methods are `password`, `totp`, and `passkey` (`StepUpMethodPassword`, `StepUpMethodTOTP`, `StepUpMethodPasskey`). A success elevates the session for `Config.StepUpTTL` (default 5 minutes). Step-up needs a storage that implements `SessionManagementStorage`; otherwise the route answers 501.
+
+## Security notes
+
+- Each accepted code is single use: a code from a time step that was already consumed is rejected, which blocks replay inside the 30 second window.
+- Wrong codes count against a per-user MFA lockout (`LoginThrottleConfig.MFAMaxFailures`, default 5, for `MFALockout`, default 15 minutes) and against the pending session, which is revoked after repeated failures.
+- Recovery codes are as strong as the second factor. Tell users to store them offline.
+- Keep `EncryptionKey` in a secrets manager. Losing it makes enrolled secrets unreadable.
