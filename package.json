@@ -44,6 +44,7 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint && pnpm --filter @glinr/theauth typecheck",
+    "commit-msg": "node scripts/check-commit-title.mjs $1",
     "pre-push": "pnpm typecheck && pnpm test"
   },
   "pnpm": {
