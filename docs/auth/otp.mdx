@@ -69,6 +69,71 @@ State lives in a [secondary storage](/secondary-storage). The default is in memo
 
 A sender is `{ send(message): Promise<void> }`, so adding another provider takes a few lines. `emailOtpSender` accepts `subject` and `render` to change the message text.
 
+## HTTP routes
+
+Nothing is mounted until you register the plugin. `otpRoutes` adds two endpoints:
+
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+import { consoleOtpSender, createOtpService, otpRoutes } from '@glinr/theauth/auth';
+
+const otp = createOtpService({ senders: { email: consoleOtpSender() }, secret: process.env.OTP_SECRET });
+
+const auth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  plugins: [
+    otpRoutes({
+      service: otp,
+      // Skip delivery for identifiers with no account. The caller still sees 202.
+      canSend: async ({ identifier }) => (await findUserByEmail(identifier)) !== null,
+      // Open a session or mark the email verified here. The result is merged into the 200 body.
+      onVerified: async ({ identifier }) => ({ email: identifier }),
+    }),
+  ],
+});
+```
+
+```bash
+curl -X POST localhost:3000/auth/code/send   -d '{"identifier":"ada@example.com"}'
+curl -X POST localhost:3000/auth/code/verify -d '{"identifier":"ada@example.com","code":"482913"}'
+```
+
+- `send` answers `202 { "sent": true }` for every well formed request. Cooldown, lockout, delivery failure and a `canSend` refusal look the same, so the route cannot be used to probe for accounts. You lose the `Retry-After` hint on send as a result.
+- `verify` answers `400 { "error": "Invalid or expired code" }` for wrong, expired and unknown codes. It answers `429` with `Retry-After` only after the identifier is locked, which does not depend on whether an account exists.
+- Both are rate limited per client IP (defaults 5 and 10 per minute, change with `sendRateLimit` and `verifyRateLimit`).
+- Only `sign-in` and `verify-email` are reachable by default (`purposes` widens this). Reset and 2FA codes go through their own modules below.
+
+## Two-factor method
+
+Pass `otp` to `twoFactor` to add an email or SMS code next to TOTP. TOTP routes are unchanged.
+
+```typescript
+twoFactor({
+  otp: {
+    service: otp,
+    resolveContact: async (userId) => ({ channel: 'email', identifier: await emailFor(userId) }),
+  },
+});
+// POST /auth/2fa/otp/send    (signed in) -> 202
+// POST /auth/2fa/otp/verify  { code }    -> { valid: true } | 400 | 429
+```
+
+## Password reset by code
+
+Set `passwordReset.otp` to offer a code instead of a link. The link flow keeps working.
+
+```typescript
+passwordReset: {
+  sendResetEmail, resetUrl,        // existing link flow
+  otp: { service: otp },           // adds the code flow
+}
+// POST /auth/forgot-password/otp  { email }                    -> 204 always
+// POST /auth/reset-password/otp   { email, code, password }    -> 204 | 400 | 429
+```
+
+The same thing is available in code as `auth.passwordReset.requestResetOtp(email)` and `resetPasswordWithOtp(email, code, password)`. Successful resets revoke sessions like the link flow does.
+
 ## Existing modules
 
 ```typescript

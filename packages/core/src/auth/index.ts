@@ -264,6 +264,8 @@ export { organization } from "./organization-plugin.js";
 // Unified OTP service (email + SMS) and senders
 export type { OtpSendInput, OtpService, OtpServiceConfig, OtpVerifyInput } from "./otp.js";
 export { createOtpService, generateOtpCode } from "./otp.js";
+export type { OtpRoutesConfig } from "./otp-plugin.js";
+export { otpRoutes } from "./otp-plugin.js";
 export type {
 	EmailOtpSenderOptions,
 	OtpChannel,
@@ -350,7 +352,7 @@ export { stripe } from "./stripe-plugin.js";
 // TOTP two-factor authentication
 export type { TotpConfig, TotpModule, TotpSetup } from "./totp.js";
 export { createTotpModule } from "./totp.js";
-export type { TwoFactorConfig } from "./totp-plugin.js";
+export type { TwoFactorConfig, TwoFactorOtpConfig } from "./totp-plugin.js";
 // TOTP plugin (TheAuthPlugin wrapper)
 export { twoFactor } from "./totp-plugin.js";
 // Trusted device windows for 2FA
