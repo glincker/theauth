@@ -46,6 +46,14 @@ export function facebookProvider(
 		authorizationUrl: "https://www.facebook.com/v18.0/dialog/oauth",
 		tokenUrl: "https://graph.facebook.com/v18.0/oauth/access_token",
 		userinfoUrl: "https://graph.facebook.com/me?fields=id,email,name,picture",
+		// Graph API returns `id`, not the OIDC `sub`, and nests the avatar.
+		mapProfile: (raw) => {
+			const id = str(raw.id);
+			const email = str(raw.email);
+			if (!id || !email) return null;
+			const picture = raw.picture as { data?: { url?: unknown } } | undefined;
+			return { id, email, name: str(raw.name), avatar: str(picture?.data?.url) };
+		},
 	});
 }
 
