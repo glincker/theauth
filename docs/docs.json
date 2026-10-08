@@ -179,6 +179,7 @@
                   "auth/magic-link",
                   "auth/email-otp",
                   "auth/phone",
+                  "auth/otp",
                   "auth/passkey",
                   "auth/siwe",
                   "auth/device"
@@ -279,7 +280,8 @@
                 "pages": [
                   "auth/auth0",
                   "auth/okta",
-                  "auth/yahoo"
+                  "auth/yahoo",
+                  "auth/more-providers"
                 ]
               }
             ]
@@ -343,6 +345,7 @@
               "approval",
               "rate-limiting",
               "cli-auth",
+              "cli-tools",
               "agent-registration-tokens",
               "budget-policies",
               "cost-attribution"
@@ -442,6 +445,7 @@
               "custom-session",
               "additional-fields",
               "email-templates",
+              "email-adapters",
               "i18n"
             ]
           },
