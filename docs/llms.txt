@@ -1,0 +1,160 @@
+# theAuth
+
+> Open-source auth for AI agents and humans. Agent identity, delegation, MCP OAuth 2.1, passkeys and SSO for TypeScript.
+
+Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is in llms-full.txt.
+
+## Docs
+
+- [theAuth](https://docs.theauth.dev/): Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus 14 human auth methods and 17 OAuth providers, in one TypeScript SDK.
+- [Core concepts](https://docs.theauth.dev/concepts): The mental model you need before touching code. Agents, permissions, delegation, audit, trust, MCP.
+- [Quickstart](https://docs.theauth.dev/quickstart): Two five-minute tracks. Add agent auth (identity, permissions, audit) or human auth (email and password), or both. Scaffold a Next.js SaaS with one command.
+- [Add to an existing app](https://docs.theauth.dev/add-to-existing-app): Drop theAuth into an app that already has human auth. Clerk, Auth.js, better-auth, or your own.
+- [Configuration](https://docs.theauth.dev/configuration): Reference for the `createTheAuth()` options in `TheAuthConfig`. Covers database providers, agent settings, session config, password reset, and which options createTheAuth actually reads.
+- [Database setup](https://docs.theauth.dev/database): Configure theAuth with SQLite, native SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for native SQLite, and skipping auto-migrations.
+- [AI coding assistants](https://docs.theauth.dev/ai-assistants): Install theAuth with Claude Code, Cursor or VS Code. A skill file, a local MCP server for docs search and config scaffolding, and llms.txt for everything else.
+- [Session model](https://docs.theauth.dev/sessions): Cookie sessions, JWT tokens, ephemeral agent sessions, CSRF protection, session freshness, and lifecycle management.
+- [JWT sessions](https://docs.theauth.dev/jwt-sessions): Issue short-lived JWT access tokens and rotate refresh tokens with createJwtSessionModule. Stateless access token verification, refresh tokens tracked in the database.
+- [Cookie options](https://docs.theauth.dev/cookies): How theAuth sets session cookies, how to customize them, and the defaults for cross-subdomain and cross-origin setups.
+- [One-time tokens](https://docs.theauth.dev/one-time-tokens): Single-use tokens for email verification, password resets, invitations, and custom flows.
+- [Secondary storage](https://docs.theauth.dev/secondary-storage): Choose where TheAuth keeps rate limit counters, device codes and other short-lived state. Memory, your database, Cloudflare KV, Redis, or your own store.
+- [Authentication](https://docs.theauth.dev/auth/index): Human sign-in methods and OAuth providers for the humans who own and manage agents.
+- [Last login tracking](https://docs.theauth.dev/last-login): Record every successful authentication per user via createLastLoginModule. Retrieve last sign-in timestamp, method, and IP for security pages or your own checks.
+- [Email and password](https://docs.theauth.dev/auth/email-password): Email and password with the @glinr/theauth-email plugin, plus username, passwordless (magic link, email OTP) and bring-your-own-adapter options.
+- [Username and password](https://docs.theauth.dev/auth/username): Authenticate users with a unique username and password via the `username` module. Covers length limits, pattern validation, and uniqueness enforcement at sign-up.
+- [Magic link](https://docs.theauth.dev/auth/magic-link): Issue single-use email links for passwordless sign-in with `magicLink()`. Configure the app URL, a send function, and token expiry.
+- [Email OTP](https://docs.theauth.dev/auth/email-otp): Authenticate users with a six-digit OTP sent to their email via `emailOtp`. Provide a `sendOtp` callback to deliver the code, then verify it to open a session.
+- [Phone number](https://docs.theauth.dev/auth/phone): Authenticate users with SMS one-time codes through the `phone` config key. Supply a `sendSms` callback, configure expiry and attempt limits, and forward requests to `theauth.phone.handleRequest`.
+- [Passkey](https://docs.theauth.dev/auth/passkey): Authenticate users with WebAuthn passkeys via the `passkey()` plugin. Covers `rpId` and `origin` setup, registration and authentication ceremonies, and credential storage.
+- [Sign In With Ethereum](https://docs.theauth.dev/auth/siwe): Authenticate users via Ethereum wallet signature using the `siwe` plugin. Covers EIP-4361 nonce generation, secp256k1 recovery, and session creation.
+- [Device authorization](https://docs.theauth.dev/auth/device): OAuth 2.0 device flow for CLIs, smart TVs, and input-constrained devices. RFC 8628.
+- [Two-factor auth](https://docs.theauth.dev/auth/two-factor): Add TOTP second-factor authentication via the `twoFactor` plugin. QR code enrollment, 6-digit verification, and backup codes for any RFC 6238 authenticator.
+- [Captcha](https://docs.theauth.dev/auth/captcha): Protect sign-up and sign-in endpoints with Cloudflare Turnstile, hCaptcha, or reCAPTCHA.
+- [Anonymous auth](https://docs.theauth.dev/auth/anonymous): Issue guest sessions with `anonymousAuth`, then upgrade them to real accounts without changing the user ID or losing data accumulated during the anonymous period.
+- [Google One-tap](https://docs.theauth.dev/auth/one-tap): Authenticate users with Google One-tap via the `oneTap()` plugin. Verifies the Google ID token against JWKS and validates audience, issuer, expiry, and CSRF.
+- [OAuth proxy](https://docs.theauth.dev/auth/oauth-proxy): Server-side OAuth for mobile apps. Exchange authorization codes without exposing client secrets to the device.
+- [OAuth overview](https://docs.theauth.dev/auth/oauth): `oauth()` adds social sign-in via OAuth 2.0 with PKCE. Covers provider setup, the redirect URI, account linking, session creation, and adding custom providers.
+- [Google](https://docs.theauth.dev/auth/google): Wire Google OAuth 2.0 and OpenID Connect into theAuth. Covers Cloud Console setup, People API, consent screen configuration, and profile scope access.
+- [GitHub](https://docs.theauth.dev/auth/github): Wire GitHub OAuth 2.0 into theAuth with the `oauth()` plugin. Covers app registration, callback URL, client secret setup, and optional scope expansion.
+- [Apple](https://docs.theauth.dev/auth/apple): Add Sign in with Apple to your theAuth application. Covers credentials, client secret generation, iOS apps, and local development.
+- [Microsoft](https://docs.theauth.dev/auth/microsoft): Authenticate users via Microsoft Entra ID OAuth 2.0. Covers app registration, the `createMicrosoftProvider` factory, and restricting sign-in to a single tenant.
+- [Discord](https://docs.theauth.dev/auth/discord): Authenticate users via Discord OAuth 2.0. Register a redirect URI in the Developer Portal, pass client credentials to `createDiscordProvider`, and request scopes.
+- [Slack](https://docs.theauth.dev/auth/slack): Authenticate users with their Slack account via the `oauth` plugin. Uses Slack OpenID Connect with `openid`, `email`, and `profile` scopes. No Slack SDK required.
+- [LinkedIn](https://docs.theauth.dev/auth/linkedin): Authenticate users via LinkedIn OpenID Connect. Requires the Sign In with LinkedIn product, with `openid`, `profile`, and `email` scopes via the `oauth()` plugin.
+- [Facebook](https://docs.theauth.dev/auth/facebook): Authenticate users via Facebook OAuth 2.0 with `facebookProvider`. Covers Developer Portal setup, redirect URI, and the default email and public profile scopes.
+- [Spotify](https://docs.theauth.dev/auth/spotify): Authenticate users with Spotify via `createSpotifyProvider`. Configures OAuth 2.0 with `user-read-email` and `user-read-private` scopes and supports scope extension.
+- [Twitch](https://docs.theauth.dev/auth/twitch): Authenticate users with their Twitch account via the `oauth` plugin. Covers Developer Console setup and the `user:read:email` scope for profile access.
+- [Reddit](https://docs.theauth.dev/auth/reddit): Authenticate users via Reddit OAuth 2.0. Register a web app in Reddit App Preferences, copy the client ID and secret, and configure `createRedditProvider`.
+- [Twitter / X](https://docs.theauth.dev/auth/twitter): Authenticate users with Twitter/X via `createTwitterProvider`. Covers OAuth 2.0 PKCE, Developer Portal configuration, and `users.read` and `tweet.read` scopes.
+- [TikTok](https://docs.theauth.dev/auth/tiktok): Authenticate users with TikTok via the `oauth` plugin. Covers Login Kit setup, redirect URI configuration, and `user.info.basic` and `user.info.stats` scopes.
+- [Kakao](https://docs.theauth.dev/auth/kakao): Authenticate users via Kakao OAuth 2.0. Covers app creation, Kakao Login activation, redirect URI, and `profile_nickname` and `account_email` scopes.
+- [Naver](https://docs.theauth.dev/auth/naver): Authenticate users via Naver OAuth 2.0. Create a Naver Developer application, enable Naver Login, set the redirect URI, and configure `name` and `email` scopes.
+- [VK](https://docs.theauth.dev/auth/vk): Authenticate users with VK via the `oauth` plugin. Covers dev.vk.com app setup, redirect URI config, and scopes including `email`, `profile`, and `friends`.
+- [LINE](https://docs.theauth.dev/auth/line): Authenticate users via LINE OAuth 2.0 with `lineProvider()`. Create a LINE Login channel and configure `openid`, `profile`, and `email` scopes.
+- [WeChat](https://docs.theauth.dev/auth/wechat): Authenticate users with WeChat via the `oauth` plugin. Covers Open Platform registration, callback domain config, and `snsapi_login` and `snsapi_userinfo` scopes.
+- [Kick](https://docs.theauth.dev/auth/kick): Authenticate users via Kick OAuth 2.0. Register an app in the Kick developer dashboard, set a redirect URI, and configure `user:read` scope in the `oauth()` plugin.
+- [Roblox](https://docs.theauth.dev/auth/roblox): Authenticate users via Roblox OAuth 2.0. Create credentials in the Roblox Creator Dashboard and configure the `roblox` provider with `openid` or `profile` scopes.
+- [Notion](https://docs.theauth.dev/auth/notion): Authenticate users via Notion OAuth 2.0. Create a public integration, configure OAuth redirect URIs in Notion settings, and wire `createNotionProvider`.
+- [Figma](https://docs.theauth.dev/auth/figma): Authenticate users via Figma OAuth 2.0 with `createFigmaProvider`. Covers app registration, redirect URI setup, and the file read scope needed for design file access.
+- [Dropbox](https://docs.theauth.dev/auth/dropbox): Authenticate users via Dropbox OAuth 2.0 with `createDropboxProvider`. Covers App Console setup, redirect URI, and scopes for account info and file metadata access.
+- [Zoom](https://docs.theauth.dev/auth/zoom): Authenticate users with Zoom via `createZoomProvider`. Covers App Marketplace app creation, redirect URI setup, and the default `user:read` scope.
+- [Atlassian](https://docs.theauth.dev/auth/atlassian): Authenticate users via Atlassian OAuth 2.0 with `createAtlassianProvider`. Covers Jira and Confluence accounts, token refresh, and scope configuration for Atlassian APIs.
+- [Linear](https://docs.theauth.dev/auth/linear): Authenticate users via Linear OAuth 2.0. Register an OAuth application, configure the `linear` provider, and request `read` or `write` scopes as needed.
+- [GitLab](https://docs.theauth.dev/auth/gitlab): Authenticate users via GitLab OAuth 2.0, including self-hosted instances. Register an application and configure the `read_user` scope.
+- [Bitbucket](https://docs.theauth.dev/auth/bitbucket): Authenticate users via Bitbucket OAuth 2.0 with `bitbucketProvider`. Covers workspace OAuth consumer setup, callback URL, and the default account read scope.
+- [Salesforce](https://docs.theauth.dev/auth/salesforce): Authenticate users via Salesforce OAuth 2.0 with a Connected App. Configure redirect URIs in App Manager and wire the `salesforce` provider with `openid` scopes.
+- [Vercel](https://docs.theauth.dev/auth/vercel): Authenticate users with their Vercel account via the `oauth` plugin. Covers integration setup, redirect URI, and scopes for profile and project access.
+- [Railway](https://docs.theauth.dev/auth/railway): Authenticate users via Railway OAuth 2.0. Register an app in Railway settings, set the redirect URI, and configure `read:profile` and `read:email` scopes.
+- [Hugging Face](https://docs.theauth.dev/auth/huggingface): Authenticate users via Hugging Face OAuth 2.0. Configure `huggingfaceProvider` and request `read-repos`, `read-billing`, or other scopes.
+- [PayPal](https://docs.theauth.dev/auth/paypal): Authenticate users via PayPal OAuth 2.0. Enable Log In with PayPal in your developer app and configure the `paypal` provider with `profile` or `address` scopes.
+- [Coinbase](https://docs.theauth.dev/auth/coinbase): Authenticate users via Coinbase OAuth 2.0 with `coinbaseProvider`. Covers app registration, redirect URI setup, and wallet read scopes for account sign-in.
+- [Polar](https://docs.theauth.dev/auth/polar): Authenticate users via Polar OAuth 2.0. Register an OAuth app in Polar settings, configure the `polar` provider, and request `organizations:read` for org access.
+- [Auth0](https://docs.theauth.dev/auth/auth0): Authenticate users via Auth0 OIDC with `auth0Provider`. Pass your tenant domain and client credentials to attach Auth0-issued tokens to a theAuth session.
+- [Okta](https://docs.theauth.dev/auth/okta): Authenticate users via Okta OpenID Connect with `oktaProvider()`. Create an OIDC web app in the Okta Admin Console, copy your domain, and configure the provider.
+- [Yahoo](https://docs.theauth.dev/auth/yahoo): Authenticate users with Yahoo via `yahooProvider`. Covers Developer Console app creation, OpenID Connect API enablement, and email and profile scopes.
+- [Organizations](https://docs.theauth.dev/auth/organizations): `organization` plugin adds multi-tenant support: create orgs, invite members, assign roles, enforce per-org RBAC, and set caps on membership and orgs per user.
+- [SSO](https://docs.theauth.dev/auth/sso): Wire enterprise SSO with SAML 2.0 and OIDC providers such as Okta and Azure AD. Covers connection routing by email domain and how identities are derived from the IdP response.
+- [Admin](https://docs.theauth.dev/auth/admin): Manage users with `theauth.admin`: list accounts, apply permanent or time-limited bans, impersonate for support debugging, and delete user data on request.
+- [API keys](https://docs.theauth.dev/auth/api-keys): Create scoped API keys with `theauth.apiKeys.create()`, validate on every request, revoke by ID, and rotate to a new secret without changing the key's permission set.
+- [Stripe](https://docs.theauth.dev/auth/stripe): Wire Stripe checkout sessions, billing portals, and subscription webhooks via the `stripe` plugin or `createStripeModule`. No `stripe` npm package needed, calls Stripe's REST API directly.
+- [Polar payments](https://docs.theauth.dev/auth/polar-payment): Wire Polar subscription billing into theAuth with the `polar()` plugin or `createPolarModule`. Set an access token and webhook secret to sync checkout and subscription state.
+- [SCIM](https://docs.theauth.dev/auth/scim): Wire SCIM 2.0 directory sync for Okta, Azure AD, and Google Workspace. Automatically provisions and deprovisions users when your IdP roster changes.
+- [SCIM filter grammar reference](https://docs.theauth.dev/auth/scim-filter-reference): Full list of SCIM 2.0 filter operators, combinators, value-path selectors, and grammar edge cases supported by the theAuth SCIM server.
+- [SCIM PATCH reference](https://docs.theauth.dev/auth/scim-patch-reference): Operation types, path expressions with value filters, mutability rules, and DoS limits for the theAuth SCIM 2.0 PATCH endpoint.
+- [OIDC provider](https://docs.theauth.dev/auth/oidc-provider): `createOidcProviderModule()` turns theAuth into an OpenID Connect provider. Covers RS256 key setup, client registration, PKCE, and JWKS endpoint.
+- [Agent identity](https://docs.theauth.dev/agents): Issue, rotate, revoke, and audit AgentIdentity tokens. Scoped permissions, parent/child delegation, and per-agent rate limits in one API.
+- [Ephemeral sessions](https://docs.theauth.dev/ephemeral-sessions): Short-lived, auto-expiring agent credentials for single-task computer-use agents.
+- [Delegation chains](https://docs.theauth.dev/delegation): Grant a subset of permissions from one agent to another, with depth limits and cascading revocation.
+- [Permission engine](https://docs.theauth.dev/permissions): Authorize agent actions via resource pattern matching and per-permission constraints: rate limits, time windows, IP allowlists, and human approval gates.
+- [Policy engine](https://docs.theauth.dev/policy-engine): Unified authorization combining RBAC, ABAC constraints, and ReBAC graph queries behind one evaluate() call.
+- [Relationship-based access control](https://docs.theauth.dev/rebac): Zanzibar-inspired ReBAC engine for hierarchical resources, relationship graphs, and permission inheritance.
+- [Policy templates](https://docs.theauth.dev/policies/templates): Seven copy-paste policy templates for agent authorization: tool allowlists, delegation scopes, org isolation, budget caps, business-hours gating, and ReBAC.
+- [Audit trail](https://docs.theauth.dev/audit): Immutable logging of every authorization decision, with filtering, export, and compliance references.
+- [Privilege analyzer](https://docs.theauth.dev/analyzer): Scan agent permissions with `theauth.analyzer` to surface over-privileged identities, unused scopes, wildcard risks, and stale agents across your deployment.
+- [Trust scoring](https://docs.theauth.dev/trust): TrustScore is a 0 to 100 value from each agent audit log, mapping to five named levels that gate autonomy, approval requirements, and rate limit strictness.
+- [Anomaly detection](https://docs.theauth.dev/anomaly): What theAuth provides for spotting unusual agent behavior today (trust score anomaly count, the onViolation hook, audit queries) and what is not implemented.
+- [Approval flows](https://docs.theauth.dev/approval): CIBA-style async human-in-the-loop approval for actions that should not run unattended.
+- [Rate limiting](https://docs.theauth.dev/rate-limiting): Apply per-IP limits on auth endpoints with the rateLimit plugin and per-agent call caps with the maxCallsPerHour constraint.
+- [CLI login (device flow)](https://docs.theauth.dev/cli-auth): Sign users into a CLI, TV app or MCP client with the OAuth device authorization grant (RFC 8628), with theauth login, logout and whoami.
+- [Agent registration tokens](https://docs.theauth.dev/agent-registration-tokens): Let a headless agent or CLI create its own agent identity with a one-time, scoped, expiring token, without a human session on the agent side.
+- [Budget policies](https://docs.theauth.dev/budget-policies): Controlling LLM spend and call volume with per-agent, per-user, and per-tenant policies.
+- [Cost attribution](https://docs.theauth.dev/cost-attribution): Track LLM token spend, API call costs, and custom costs per agent, per tool, and per delegation chain.
+- [MCP OAuth 2.1](https://docs.theauth.dev/mcp): Configure theAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
+- [Gateway](https://docs.theauth.dev/gateway): An auth proxy that sits in front of any API or MCP server, enforcing auth, permissions, rate limiting, and audit without changing upstream code.
+- [Overview](https://docs.theauth.dev/adapters/index): Drop theAuth into Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, Astro, NestJS, SolidStart, or TanStack with one adapter import.
+- [Hono](https://docs.theauth.dev/adapters/hono): Mount theAuth auth routes on a Hono app with `theAuthHono(theauth)`. Web-standard Request/Response, runs on Workers, Bun, Deno, and Node.
+- [Express](https://docs.theauth.dev/adapters/express): Mount theAuth auth routes on Express with `theAuthExpress(theauth)`. Returns a Router with agent identity, delegation, audit, and MCP OAuth 2.1 endpoints pre-mounted.
+- [Fastify](https://docs.theauth.dev/adapters/fastify): Register theAuth auth routes on Fastify with `theAuthFastify(theauth)`. Returns an async plugin for agent identity, delegation, audit, and MCP OAuth 2.1 endpoints.
+- [NestJS](https://docs.theauth.dev/adapters/nestjs): Wire theAuth into NestJS with `AuthModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
+- [Next.js](https://docs.theauth.dev/adapters/nextjs): Mount theAuth auth routes in Next.js with `theAuthNextjs(theauth)`. Drop into a catch-all App Router file for agent identity, delegation, and MCP OAuth 2.1 endpoints.
+- [Nuxt](https://docs.theauth.dev/adapters/nuxt): Mount theAuth auth routes in Nuxt with `theAuthNuxt(theauth)`. Returns an H3 EventHandler for a catch-all server route, covering agent identity and OAuth.
+- [SvelteKit](https://docs.theauth.dev/adapters/sveltekit): Mount theAuth auth routes in SvelteKit with `theAuthSvelteKit(theauth)`. Returns named server route handlers, fully edge-compatible with no conversion layer.
+- [SolidStart](https://docs.theauth.dev/adapters/solidstart): Mount theAuth auth routes in SolidStart with `theAuthSolidStart(theauth)`. Returns named route handlers using Web-standard Request, with no conversion layer needed.
+- [TanStack Start](https://docs.theauth.dev/adapters/tanstack): Mount theAuth auth routes in TanStack Start with `theAuthTanStack(theauth)`. Returns named handlers for a splat route using Web-standard Request.
+- [Astro](https://docs.theauth.dev/adapters/astro): Mount theAuth auth routes in an Astro app with `theAuthAstro(theauth)`. Returns named handlers for a catch-all API page, with full MCP OAuth 2.1 support.
+- [TypeScript client](https://docs.theauth.dev/client-sdk): Issue HTTP calls to theAuth from any runtime via `createTheAuthClient`. Covers agents, authorization, delegations, audit logs, and MCP registration.
+- [React hooks](https://docs.theauth.dev/react): Wire theAuth into React 18 apps via TheAuthProvider and hooks from @glinr/theauth-react. Supports Next.js App Router, Pages Router, Vite, and edge runtime backends.
+- [Vue](https://docs.theauth.dev/vue): Register theAuth auth in Vue 3 via createTheAuthPlugin. Provides useSession, useSignIn, useSignOut, and useUser composables for Vite, Nuxt, and Vue 3 setups.
+- [Svelte](https://docs.theauth.dev/svelte): Add theAuth auth to Svelte and SvelteKit apps with createTheAuthClient and createAgentStore. Session state is exposed as reactive Svelte stores.
+- [Expo / React Native](https://docs.theauth.dev/expo): Wire theAuth auth into React Native and Expo apps with @glinr/theauth-expo. Stores tokens in AsyncStorage or SecureStore and authenticates via Authorization header.
+- [Electron](https://docs.theauth.dev/electron): Add auth to Electron apps via `ElectronTheAuthProvider`. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and session persistence.
+- [UI components](https://docs.theauth.dev/ui-components): Drop-in React components for sign-in, sign-up, password reset, 2FA, and OAuth buttons from @glinr/theauth-ui. Tailwind-based, wired to TheAuthProvider automatically.
+- [Admin dashboard](https://docs.theauth.dev/dashboard): Embed `TheAuthDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
+- [Terraform provider](https://docs.theauth.dev/terraform): Manage theAuth agents, permissions, API keys, and organizations as Terraform resources.
+- [Prisma adapter](https://docs.theauth.dev/prisma): Read and write the main theAuth tables through an existing PrismaClient via @glinr/theauth-prisma. Supports Prisma transactions without requiring Drizzle as a second ORM client.
+- [Compliance](https://docs.theauth.dev/compliance): How TheAuth audit records and access controls map to EU AI Act, NIST, SOC 2, and ISO 42001 themes. Reports and control mapping only, not a certification.
+- [Verifiable credential exports](https://docs.theauth.dev/compliance/verifiable-credentials): Export audit records as signed W3C Verifiable Credentials that a third party can verify against your issuer key.
+- [GDPR data rights](https://docs.theauth.dev/gdpr): Data export, account deletion, and account anonymization endpoints that support GDPR data subject requests.
+- [Password breach checking](https://docs.theauth.dev/hibp): Reject or warn on passwords found in known data breaches using the HaveIBeenPwned Pwned Passwords API and theAuth's createHibpModule.
+- [Trusted devices](https://docs.theauth.dev/trusted-device): Skip two-factor auth on verified devices via createTrustedDeviceModule. Trust is stored as an HMAC-signed fingerprint with a configurable expiry duration.
+- [Multi-session](https://docs.theauth.dev/multi-session): Let users hold multiple active sessions and manage them from an account settings page.
+- [Lifecycle hooks](https://docs.theauth.dev/hooks): Running custom logic before and after authorization, agent creation, and policy violations.
+- [Webhooks](https://docs.theauth.dev/webhooks): Push HMAC-signed HTTP POST payloads to external URLs for the events you emit. Configure endpoints with the `webhooks` option of createTheAuth.
+- [Event streaming](https://docs.theauth.dev/event-streaming): Stream events you emit (agent lifecycle, auth, budget, and others) to clients in real time via SSE using createEventStreamModule. Missed events replay from a timestamp cursor.
+- [Custom session fields](https://docs.theauth.dev/custom-session): Attach arbitrary data to sessions at creation time and read it back on validation.
+- [Additional fields](https://docs.theauth.dev/additional-fields): Extend the user and session schemas with typed custom fields, stored in existing metadata columns.
+- [Email templates](https://docs.theauth.dev/email-templates): Generate {subject, text, html} for auth emails via createEmailTemplates. Covers verification, password reset, magic link, OTP, invitation, and welcome emails.
+- [Internationalization](https://docs.theauth.dev/i18n): Translate auth error messages and email subjects into six built-in locales via createI18n. Supports a per-call locale and variable interpolation.
+- [W3C DID identity](https://docs.theauth.dev/did): Issue portable Ed25519-backed identities for agents using `did:key` or `did:web`. Agents sign payloads to prove identity across services without shared secrets.
+- [Verifiable credentials](https://docs.theauth.dev/verifiable-credentials): Issue and verify W3C Verifiable Credentials for agent identity, permissions, and delegation.
+- [Agent identity federation](https://docs.theauth.dev/federation): Issue and verify short-lived federation tokens so an AgentIdentity can authenticate at a remote theAuth instance without re-registration or shared databases.
+- [Multi-tenant isolation](https://docs.theauth.dev/multi-tenant): Tenant records and tenant-scoped agents on one theAuth instance. Tenant settings and suspension are stored but not enforced by the SDK.
+- [Standards alignment](https://docs.theauth.dev/standards): Which IETF drafts theAuth maps to, and how to emit the matching claims on issued tokens.
+- [Migration guides](https://docs.theauth.dev/migrate/index): Pick a migration guide for your current auth setup. Covers moving from better-auth, Clerk, the better-auth agent plugin, and Auth0 to theAuth.
+- [Migrate from better-auth](https://docs.theauth.dev/migrate/from-better-auth): Switch a better-auth app to theAuth. Maps betterAuth config, plugins, session types, and client hooks to theAuth equivalents with before and after diffs.
+- [Migrate from the better-auth agent plugin](https://docs.theauth.dev/migrate/from-better-auth-agent-plugin): Switch from @better-auth/agent-auth to theAuth AgentIdentity. Maps scopes to Permission objects and delegation chains, with cascading revocation support.
+- [Migrate from Clerk](https://docs.theauth.dev/migrate/from-clerk): Move a Clerk app to theAuth. Maps ClerkProvider, clerkMiddleware, useAuth, and Organizations to theAuth, with Next.js middleware sample and data export steps.
+- [Migrate from Auth0](https://docs.theauth.dev/migrate/from-auth0): Port an Auth0 tenant to theAuth. Maps tenants, M2M clients, Rules, and Actions to theAuth equivalents with side-by-side code diffs and SQL migration steps.
+- [Upgrade from Kavach names](https://docs.theauth.dev/migrate/from-kavach): Rename Kavach exports, env vars, imports and JSX components to TheAuth in one command with the theauth codemod rename CLI.
+- [REST API](https://docs.theauth.dev/api): Full HTTP endpoint reference for theAuth: agent CRUD, token authorization, delegation chains, audit log queries, and MCP OAuth 2.1 endpoints.
+- [OpenAPI spec](https://docs.theauth.dev/openapi): Generate an OpenAPI 3.1 document for the theAuth REST API to build clients in any language.
+- [Writing plugins](https://docs.theauth.dev/plugins): Add endpoints, migrations and lifecycle hooks to theAuth with the TheAuthPlugin interface.
+- [Redirect chains](https://docs.theauth.dev/redirect): Send users back to where they were going after sign-in, through onboarding and verification steps.
+- [Error codes](https://docs.theauth.dev/errors): TheAuthError carries a code, message, and optional details. All SDK functions return a Result union instead of throwing, with matching HTTP status codes on REST.
+- [Test utilities](https://docs.theauth.dev/test-utils): Test auth-dependent code without a database using @glinr/theauth-test-utils. Provides entity factories, in-memory mock auth server, and per-request user overrides.
+- [A2A protocol](https://docs.theauth.dev/a2a): Authenticate Google A2A protocol traffic between agents with theAuth bearer tokens, scoped permissions, and a shared audit trail.
+- [Compare theAuth](https://docs.theauth.dev/compare/index): Side-by-side breakdowns of theAuth against better-auth, Hanko, Casdoor, and paid platforms. Covers agent identity, MCP OAuth, RBAC, and deployment model.
+- [theAuth vs better-auth](https://docs.theauth.dev/compare/vs-ba): A feature-by-feature comparison of theAuth and better-auth for TypeScript applications.
+- [theAuth vs Hanko](https://docs.theauth.dev/compare/vs-hanko): theAuth versus Hanko across passkey support, OAuth providers, agent identity, MCP OAuth, RBAC, and licensing. Includes a clear decision framework for each tool.
+- [theAuth vs Casdoor](https://docs.theauth.dev/compare/vs-casdoor): theAuth as an in-process TypeScript library versus Casdoor as a standalone Go IAM service. Compares MCP OAuth 2.1, agent identity, LDAP, RBAC, and deployment model.
+- [theAuth vs paid auth platforms](https://docs.theauth.dev/compare/vs-paid): theAuth versus Clerk and Auth0: open-source self-hosted against managed platforms. Covers cost, data residency, agent identity gaps, and when each fits.

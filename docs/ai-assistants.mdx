@@ -1,0 +1,68 @@
+---
+title: AI coding assistants
+description: Install theAuth with Claude Code, Cursor or VS Code. A skill file, a local MCP server for docs search and config scaffolding, and llms.txt for everything else.
+icon: robot
+---
+
+If an AI assistant writes your auth code, give it the real docs and the real API. theAuth ships three things for that: an agent skill, a stdio MCP server in the CLI, and `llms.txt` files.
+
+## One command setup
+
+Run this in your project root:
+
+```bash title="terminal"
+npx @glinr/theauth-cli init --agent
+```
+
+It writes, for each assistant:
+
+| Assistant | Files |
+|---|---|
+| Claude Code | `.claude/skills/theauth/SKILL.md` and `.mcp.json` |
+| Cursor | `.cursor/rules/theauth.mdc` and `.cursor/mcp.json` |
+| VS Code | `.vscode/mcp.json` |
+
+Options:
+
+- `--target claude,cursor,vscode` limits the set. The default is all three.
+- `--dry-run` prints what would be written and writes nothing.
+- `--force` replaces files and `theauth` MCP entries that already exist.
+
+Existing files are left alone. Other servers in your MCP config are kept. A config file that is not plain JSON (for example one with comments) is skipped and reported, so add the entry by hand:
+
+```json title=".mcp.json"
+{
+  "mcpServers": {
+    "theauth": { "command": "npx", "args": ["-y", "@glinr/theauth-cli", "mcp"] }
+  }
+}
+```
+
+VS Code uses `servers` with `"type": "stdio"` instead of `mcpServers`.
+
+## The MCP server
+
+`theauth mcp` starts a stdio MCP server. It speaks newline-delimited JSON-RPC on stdout and writes nothing else there. All tools are read-only.
+
+| Tool | What it does |
+|---|---|
+| `search_docs` | Ranked search over these docs, with a snippet and URL per hit. |
+| `get_doc` | Full text of one page by slug, for example `quickstart`. |
+| `add_plugin` | Install command, import and `plugins` entry for a plugin such as `magic-link`, `passkey` or `agent-registration`. It does not edit your files. |
+| `generate_schema` | The SQL tables theAuth creates for a feature set, built in memory as SQLite DDL. Needs `better-sqlite3`. Tables are created on startup either way. |
+| `inspect` | Summary of your local setup: installed `@glinr/theauth*` packages, database provider, plugins, whether agents and MCP are configured, and env var names. |
+
+`inspect` reads source files as text and never runs them. It reports env var names from `.env` files, never their values, and never echoes string literals from your config.
+
+## The skill
+
+The skill lives in the repository at [`skills/theauth/SKILL.md`](https://github.com/glincker/theauth/blob/main/skills/theauth/SKILL.md) and covers install, adapter choice, plugins, agent identity, delegation and MCP auth. Any tool that reads the `SKILL.md` format can use it directly. `init --agent` copies it into your project.
+
+## llms.txt
+
+For assistants that fetch context from URLs:
+
+- [`/llms.txt`](https://docs.theauth.dev/llms.txt): one line per page.
+- [`/llms-full.txt`](https://docs.theauth.dev/llms-full.txt): the full text of every page.
+
+Maintainers regenerate both from `docs/*.mdx` and `docs/docs.json` with `node scripts/generate-llms.mjs`. Add `--check` to fail when they are stale. The Go docs are not included.

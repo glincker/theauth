@@ -79,3 +79,12 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 MIT
+
+## AI coding assistants
+
+```bash
+npx @glinr/theauth-cli init --agent     # skill + MCP config for Claude Code, Cursor, VS Code
+npx @glinr/theauth-cli mcp              # stdio MCP server (docs search, add_plugin, generate_schema, inspect)
+```
+
+See https://docs.theauth.dev/ai-assistants.
