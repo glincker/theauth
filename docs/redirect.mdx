@@ -1,0 +1,68 @@
+---
+title: Redirect chains
+description: Send users back to where they were going after sign-in, through onboarding and verification steps.
+icon: route
+---
+
+`createRedirectChain` remembers the page a user wanted before they were sent to sign in, lets you queue extra steps (verify email, onboarding), and tells you where to send them next. State lives in one short-lived cookie, so it works on any runtime that has Web `Request` and `Response`.
+
+```ts title="redirects.ts"
+import { createRedirectChain } from '@glinr/theauth/redirect';
+
+const redirects = createRedirectChain({ defaultPath: '/dashboard' });
+
+// 1. Auth middleware: not signed in. Remember where they were headed.
+function requireSignIn(request: Request): Response {
+  return new Response(null, {
+    status: 302,
+    headers: { Location: '/sign-in', 'Set-Cookie': redirects.capture(request) },
+  });
+}
+
+// 2. After sign-up: add steps that must happen first.
+const c1 = redirects.push('/verify-email', { label: 'verify' });
+
+// 3. As each step finishes, pop the next destination.
+function next(request: Request): Response {
+  const { url, done, clearCookie } = redirects.pop(request);
+  const headers = new Headers({ Location: url });
+  if (done && clearCookie) headers.append('Set-Cookie', clearCookie);
+  return new Response(null, { status: 302, headers });
+}
+```
+
+`push` returns a `Set-Cookie` value, so send it on the response that moves the user to the next step. The same helpers are also exported from `@glinr/theauth`.
+
+## API
+
+| Method | Returns |
+|---|---|
+| `capture(request)` | `Set-Cookie` that stores the request URL as the origin. Keeps an existing origin if the user reloads the sign-in page. |
+| `push(path, { label?, query? })` | `Set-Cookie` with a step added. Steps pop last-in, first-out, then the origin. |
+| `pop(request)` | `{ url, done, clearCookie }`. `done` is true once the origin has been returned. |
+| `peek(request)` | `{ url, remaining }` without consuming, or `null`. |
+| `getOrigin(request)`, `parse(request)` | The origin entry or full chain state, or `null` if absent or expired. |
+| `clear()` | `Set-Cookie` that deletes the chain. |
+| `buildUrl(entry)`, `createEntry(url, label?)` | Helpers for entries. |
+
+## Options
+
+| Option | Default |
+|---|---|
+| `cookieName` | `theauth_redirect` |
+| `maxAge` (seconds) | `600` |
+| `defaultPath` | `/` |
+| `excludePaths` | `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`, `/verify-email`, `/api/` |
+| `preserveQuery`, `preserveHash` | `true` |
+| `maxDepth` | `10` |
+| `cookie` | `httpOnly`, `secure`, `sameSite: "lax"`, `path: "/"` |
+
+If the captured page is in `excludePaths`, the chain falls back to `defaultPath`, so users never bounce back to the sign-in page.
+
+## Security notes
+
+Entries created from a URL keep only its path, query and hash, never the origin. The cookie itself is base64url JSON and is **not signed**, so a user can edit it. Before you redirect to the `url` that `pop` or `peek` returns, check that it starts with a single `/` (and not `//` or `/\`), and validate any `redirectTo` value you accept from users before passing it to `createEntry` or `push`.
+
+```ts
+const safe = (u: string) => u.startsWith('/') && !u.startsWith('//') && !u.startsWith('/\\');
+```

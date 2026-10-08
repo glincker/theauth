@@ -1,0 +1,90 @@
+---
+title: "Dynamic Client Registration"
+sidebarTitle: "Dynamic Client Registration"
+description: "Let OAuth clients register themselves with RFC 7591 at POST /oauth/register, including anonymous registration and its rate limit."
+---
+Dynamic client registration (RFC 7591) lets a client obtain a `client_id` without an operator creating it by hand. MCP clients rely on this when they meet an authorization server for the first time. theauth-go serves it at `POST /oauth/register` whenever the authorization server is enabled.
+
+This page covers anonymous registration and the programmatic API. Registration behind an initial access token is documented separately.
+
+## Required config
+
+Registration is closed by default. With `AllowAnonymousRegistration` left false and no initial access tokens configured, every call returns 401 `access_denied`. To accept anonymous callers, opt in explicitly:
+
+```go
+a, err := theauth.New(theauth.Config{
+    Storage:       store,
+    BaseURL:       "https://as.example.com",
+    EncryptionKey: key,
+    AuthorizationServer: &theauth.AuthorizationServerConfig{
+        Issuer: "https://as.example.com",
+        Resources: []theauth.ProtectedResource{
+            {Identifier: "https://mcp.example.com", Scopes: []string{"tools"}},
+        },
+        AllowAnonymousRegistration:     true,
+        RegistrationRateLimitPerMinute: 1,
+    },
+})
+```
+
+`Storage` must implement the OAuth server storage interface (the bundled adapters do).
+
+## The route
+
+`a.Mount(r)` adds `POST /oauth/register` next to `/oauth/token`, `/oauth/authorize`, and the other AS routes. The body is capped at 64 KiB. A request with no `Authorization` header counts as anonymous. A request with a non-Bearer `Authorization` header is rejected with 401.
+
+```bash
+curl -X POST https://as.example.com/oauth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_name": "My MCP client",
+    "redirect_uris": ["http://127.0.0.1:8123/callback"],
+    "token_endpoint_auth_method": "none"
+  }'
+```
+
+A success returns 201 with the RFC 7591 response: `client_id`, `client_id_issued_at`, the accepted metadata, and `client_secret` for confidential clients. The secret is returned once and only its hash is stored.
+
+## Request metadata
+
+`ClientRegistrationRequest` mirrors RFC 7591 names: `client_name`, `redirect_uris`, `grant_types`, `response_types`, `scope`, `token_endpoint_auth_method`, `application_type`, `contacts`, `logo_uri`, `policy_uri`, `tos_uri`, `jwks_uri`, `jwks`, `software_id`, `software_version`.
+
+Defaults and checks:
+
+- `redirect_uris` is required for authorization code clients, which includes requests that omit `grant_types`.
+- Omitted `grant_types` becomes `authorization_code` and `refresh_token`. The only accepted `response_types` value is `code`.
+- Supported grant types are authorization code, refresh token, client credentials, token exchange, and CIBA.
+- Validation failures return 400 with the error code from the library, such as `invalid_client_metadata`.
+
+## Anonymous limits
+
+Anonymous registration is tighter than the bearer-gated path:
+
+- At most one redirect URI per client.
+- Confidential clients get a client secret that expires after 30 days.
+- The client row is flagged `AnonymousRegistered` so you can audit these clients later.
+- The route is rate limited per source IP. `RegistrationRateLimitPerMinute` defaults to 1 when anonymous registration is on and 5 otherwise. A negative value turns the limit off, which you should avoid on a public bind.
+
+## Register from Go
+
+`RegisterClient` does the same work without HTTP. The second argument marks the call as anonymous.
+
+```go
+res, err := a.RegisterClient(ctx, theauth.ClientRegistrationRequest{
+    ClientName:              "batch worker",
+    RedirectURIs:            []string{"https://worker.example.com/cb"},
+    TokenEndpointAuthMethod: "client_secret_basic",
+}, false)
+if err != nil {
+    return err
+}
+// res.ClientID, res.ClientSecret (shown once)
+```
+
+`DCRRegister(ctx, req)` is shorthand for `RegisterClient(ctx, req, true)`. Both return `ErrAuthorizationServerNotConfigured` when `Config.AuthorizationServer` is nil. With `anonymous` true and `AllowAnonymousRegistration` false, the call fails with `ErrOAuthRegistrationDenied`.
+
+## Security notes
+
+- Anonymous registration lets anyone on the network create a client. Keep it for public MCP-style deployments and leave the rate limit on.
+- Redirect URIs are validated and consent still happens at `/oauth/authorize`, so a registered client has no access until a user approves it.
+- Behind a proxy, make sure the real client IP reaches the per-IP limiter, or all callers share one bucket.

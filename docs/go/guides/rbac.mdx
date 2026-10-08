@@ -1,0 +1,74 @@
+---
+title: "Role-Based Access Control"
+sidebarTitle: "RBAC"
+description: "Organization-scoped roles and permissions with a seeded catalog, custom roles, a permission-checking middleware, and an optional admin API."
+---
+theauth-go includes role-based access control scoped to organizations. A role is a named set of permissions, a user holds roles inside an organization, and your handlers check a permission name rather than a role name.
+
+## Requirements
+
+RBAC works alongside `Config.Organizations`. Storage must support organizations: memory, Postgres or MySQL. SQLite does not. `Config.Admin` requires `Config.RBAC`, and `theauth.New` returns `ErrAdminRequiresRBAC` if it is missing.
+
+## Configure
+
+```go
+a, err := theauth.New(theauth.Config{
+    Storage:       store, // memory, postgres or mysql
+    BaseURL:       "https://myapp.com",
+    Organizations: &theauth.OrganizationsConfig{},
+    RBAC: &theauth.RBACConfig{
+        Permissions: []theauth.Permission{
+            {Name: "reports:export", Description: "Export reports."},
+        },
+    },
+})
+```
+
+The zero value `&theauth.RBACConfig{}` is valid. `Permissions` extends the seeded catalog, and `DefaultRoles` (a `[]theauth.RoleSeed`) replaces the default roles seeded into new organizations. The `owner`, `admin` and `member` names must stay present. `New` rejects permission names with whitespace or non-ASCII characters, and role seeds that reference an unknown permission.
+
+The seeded catalog includes `PermissionUsersRead`, `PermissionUsersInvite`, `PermissionUsersAdmin`, `PermissionRolesRead`, `PermissionRolesAdmin`, `PermissionAuditRead`, `PermissionSAMLAdmin`, `PermissionSCIMAdmin`, `PermissionSessionsRevoke` and the billing permissions. `theauth.SeededPermissions()` and `theauth.DefaultRoleSeeds()` return the full lists.
+
+## Use it
+
+Seed the roles for each new organization, then check permissions:
+
+```go
+org, err := a.CreateOrganization(ctx, "Acme", "acme", ownerID)
+if err != nil {
+    return err
+}
+if err := a.SeedOrganizationRoles(ctx, org.ID); err != nil {
+    return err
+}
+
+ok, err := a.HasPermission(ctx, userID, &org.ID, theauth.PermissionUsersRead)
+```
+
+Guard routes with the middleware. It checks the permission in the session's active organization:
+
+```go
+r.With(a.RequirePermission(theauth.PermissionAuditRead)).Get("/audit", auditHandler)
+```
+
+Other methods: `PermissionsForUser`, `GrantRole`, `RevokeRole`, `CreateRole`, `UpdateRole` and `DeleteRole`. `SeedPermissions` runs lazily, so calling it at startup is optional.
+
+## Routes
+
+RBAC itself mounts no routes. When you set `Config.Admin`, the admin API mounts at `/admin/v1` (change it with `AdminConfig.PathPrefix`). The role endpoints sit under `/admin/v1/organizations/{orgID}`:
+
+| Endpoint | Permission |
+|---|---|
+| `GET .../roles` | `roles:read` |
+| `POST .../roles` | `roles:admin` |
+| `PATCH .../roles/{roleID}` | `roles:admin` |
+| `DELETE .../roles/{roleID}` | `roles:admin` |
+
+The same tree also exposes user, session, audit and OAuth account endpoints, each gated by its own permission.
+
+## Security notes
+
+- `RequirePermission` fails closed: no session returns 401, a session without an active organization returns 403 (`rbac.no_active_org`), and a half-finished second-factor session is refused.
+- If `Config.RBAC` is nil the middleware returns 500 on every request, so a missing config shows up in testing.
+- The system `super_admin` role bypasses every check. Grant it sparingly.
+- `GrantRole` does not verify the actor's authority. Run `RequirePermission` upstream.
+- Removing or demoting the last owner of an organization is refused with `ErrLastOwner`.

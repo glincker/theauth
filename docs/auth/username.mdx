@@ -81,7 +81,7 @@ if (res.status === 403) {
   const { error } = await res.json();
   // error.code === 'PASSWORD_RESET_REQUIRED'
 } else if (!res.ok) {
-  // 401: { error: "Invalid username or password" } — generic, does not reveal which field was wrong
+  // 401: { error: "Invalid username or password" } (generic, does not reveal which field was wrong)
 } else {
   const { user, session } = await res.json();
 }

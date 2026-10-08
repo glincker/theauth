@@ -1,0 +1,71 @@
+---
+title: "SCIM Provisioning"
+sidebarTitle: "SCIM Provisioning"
+description: "Let an identity provider create, update and deactivate users and groups in an organization through the SCIM 2.0 API, authenticated by per-organization bearer tokens."
+---
+theauth-go serves a SCIM 2.0 API so an identity provider such as Okta or Entra ID can manage users and groups inside one organization. Each organization gets its own bearer tokens, and every SCIM request is scoped to the organization that owns the token.
+
+## Requirements
+
+SCIM needs `Config.Organizations`, and `theauth.New` returns `ErrSCIMRequiresOrganizations` without it. Storage must support organizations: memory, Postgres or MySQL. SQLite does not.
+
+## Configure
+
+```go
+a, err := theauth.New(theauth.Config{
+    Storage:       store, // memory, postgres or mysql
+    BaseURL:       "https://myapp.com",
+    Organizations: &theauth.OrganizationsConfig{},
+    SCIM: &theauth.SCIMConfig{
+        RequireHTTPS: true,
+        MaxPageSize:  200,
+    },
+})
+```
+
+Set `RequireHTTPS` explicitly: it is a plain bool, so leaving it out means `false`. When true, requests with no TLS and no `X-Forwarded-Proto: https` get a 403. `MaxPageSize` caps the `count` parameter on list calls and defaults to 200.
+
+## Issue a token
+
+Create a token for an organization from Go:
+
+```go
+plaintext, rec, err := a.CreateSCIMToken(ctx, orgID, "okta-prod")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(plaintext) // shown once; only the hash is stored
+_ = rec.ID
+```
+
+The plaintext is returned once and cannot be read back. Also available: `ListSCIMTokens(ctx, orgID)` and `RevokeSCIMToken(ctx, tokenID)`. The IdP sends the token as `Authorization: Bearer <token>`.
+
+## Routes
+
+SCIM resources mount at `/scim/v2`, outside the `/auth` prefix, and use the bearer token for auth.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /scim/v2/ServiceProviderConfig` | Discovery |
+| `GET /scim/v2/ResourceTypes`, `/ResourceTypes/User`, `/ResourceTypes/Group` | Discovery |
+| `GET /scim/v2/Schemas`, `/Schemas/{id}` | Discovery |
+| `GET`, `POST /scim/v2/Users` | List (with `filter`, `startIndex`, `count`) and create |
+| `GET`, `PUT`, `PATCH`, `DELETE /scim/v2/Users/{id}` | Read, replace, patch, remove |
+| `GET`, `POST /scim/v2/Groups` | List and create |
+| `GET`, `PUT`, `PATCH`, `DELETE /scim/v2/Groups/{id}` | Read, replace, patch, remove |
+
+Token management is also available over HTTP for signed-in users:
+
+| Endpoint | Role required |
+|---|---|
+| `POST /auth/orgs/{orgId}/scim/tokens` | owner |
+| `GET /auth/orgs/{orgId}/scim/tokens` | admin or owner |
+| `DELETE /auth/orgs/{orgId}/scim/tokens/{id}` | owner |
+
+## Security notes
+
+- Tokens are 256-bit random values stored as a SHA-256 hash. Treat the plaintext like a password and hand it straight to the IdP.
+- A revoked token is refused on its next request. Revoke and reissue when an IdP admin leaves.
+- Run SCIM behind HTTPS with `RequireHTTPS: true`. Only turn it off when a TLS-terminating proxy in front of you enforces HTTPS.
+- A token can only touch resources in its own organization. SCIM actions are written to the audit log with the token ID as the actor.
+- Combine SCIM with [SAML SSO](/go/guides/saml-sso) so deprovisioned users also lose the ability to sign in.

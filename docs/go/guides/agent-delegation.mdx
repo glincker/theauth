@@ -1,0 +1,83 @@
+---
+title: "Agent delegation"
+sidebarTitle: "Agent Delegation"
+description: "Register an agent, give it a credential, let a user delegate scope to it, and exchange tokens with RFC 8693."
+---
+This guide walks the OAuth path for agents: an agent owned by a user, a credential for that agent, a delegation grant, and a token exchange that produces a token the resource server can trace back to both the user and the agent. For short-lived agent API tokens instead, see [Agent identity and revocation](/go/concepts/agent-identity).
+
+## Requirements
+
+- `Config.AuthorizationServer` and a 32 byte `Config.EncryptionKey`.
+- `Config.AgentIdentity` (an empty `&theauth.AgentConfig{}` takes the defaults: chain depth 3, delegation cap 90 days, delegated token TTL 15 minutes).
+- A storage backend with agent identity support: memory, Postgres or MySQL. SQLite does not have it.
+
+## Register an agent
+
+`RegisterAgent` creates the agent and, when `Resource` is set, a delegation grant from the owner for `Scope` on that resource.
+
+```go
+reg, err := a.RegisterAgent(ctx, theauth.RegisterAgentInput{
+    OwnerID:  user.ID,
+    Name:     "report-bot",
+    Scope:    []string{"read"},
+    Resource: "https://api.example.com",
+})
+if err != nil {
+    return err
+}
+// reg.Secret.ClientID and reg.Secret.Secret: the agent's credential.
+// reg.Grant: the delegation grant, nil when Resource was empty.
+```
+
+The secret is returned once. Only its Argon2id hash is stored. Scope must be within what the resource's `Scopes` list allows.
+
+Lower level calls are also available: `CreateAgent`, `MintAgentCredential` (kind `secret` only), `RotateAgentSecret` (revokes the old secret), `GetAgent`, `ListAgentsByOwner`, `SuspendAgent`, `ResumeAgent` and `RevokeAgent`.
+
+## Delegation grants
+
+A grant records that a user lets an agent act with a scope on a resource, for at most a set duration.
+
+```go
+grant, err := a.GrantDelegation(ctx, theauth.GrantDelegationInput{
+    UserID:             user.ID,
+    AgentID:            reg.Agent.ID,
+    Scope:              []string{"read"},
+    Resource:           "https://api.example.com",
+    MaxDurationSeconds: 900,
+})
+```
+
+`MaxDurationSeconds` must be positive and at most `AgentConfig.MaxDelegationDuration`. Use `ListDelegationsForUser`, `ListDelegationsForAgent` and `RevokeDelegation(ctx, grant.ID, reason)` to manage grants. With `Config.AccountUX` the user can see and revoke them under `/account/delegations`.
+
+## Agent token, then token exchange
+
+The agent authenticates as itself with `client_credentials`; its token has `sub` set to `agent:<id>`.
+
+```go
+self, err := a.ClientCredentialsToken(ctx, theauth.TokenRequest{
+    GrantType:    "client_credentials",
+    ClientID:     reg.Secret.ClientID,
+    ClientSecret: reg.Secret.Secret,
+    Resource:     "https://api.example.com",
+    Scope:        []string{"read"},
+})
+```
+
+To act for the user, the agent presents a user access token issued by the same authorization server:
+
+```go
+delegated, err := a.ExchangeToken(ctx, theauth.TokenExchangeRequest{
+    ClientID:         reg.Secret.ClientID,
+    ClientSecret:     reg.Secret.Secret,
+    SubjectToken:     userAccessToken,
+    SubjectTokenType: "urn:ietf:params:oauth:token-type:access_token",
+    Resource:         "https://api.example.com",
+    Scope:            []string{"read"},
+})
+```
+
+The same exchange is available over HTTP at the token endpoint with `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`. The exchange consults the grant on every call, so scope outside the grant is refused and a revoked grant stops working. The resulting token carries the user as `sub` and the agent in the `act` claim; chains are capped by `MaxChainDepth` (ceiling 3).
+
+## Revocation and validation
+
+`RevokeDelegation`, `SuspendAgent` and `RevokeAgent` take effect on the next introspection, bounded by `IntrospectionCacheTTL`. Resource servers validate with [`mcpresource`](/go/concepts/resource-server), where `Principal.Subject` is the user and `Principal.ActorChain` lists the agents.

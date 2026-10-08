@@ -1,0 +1,79 @@
+---
+title: "Sender-Constrained Tokens (DPoP)"
+sidebarTitle: "DPoP"
+description: "Bind OAuth access tokens to a client key with RFC 9449 DPoP so a stolen token cannot be replayed."
+---
+DPoP (RFC 9449) ties an access token to a key pair held by the client. The client signs a short-lived proof JWT for each request. A token that leaks from a log or a proxy is useless without the private key that signed the proofs.
+
+This page covers the authorization server side and the matching resource server option. For the resource server itself, see [Resource Server](/go/concepts/resource-server).
+
+## Configure the authorization server
+
+DPoP is off unless `Config.AuthorizationServer.DPoP` is set. An empty `&theauth.DPoPConfig{}` is valid and applies the defaults below.
+
+```go
+a, err := theauth.New(theauth.Config{
+    Storage:       store,
+    BaseURL:       "https://as.example.com",
+    EncryptionKey: key, // 32 bytes, required by the authorization server
+    AuthorizationServer: &theauth.AuthorizationServerConfig{
+        Issuer: "https://as.example.com",
+        Resources: []theauth.ProtectedResource{
+            {Identifier: "https://api.example.com", Scopes: []string{"read"}},
+        },
+        DPoP: &theauth.DPoPConfig{
+            RequireDPoPForClients: []string{"client-01J..."},
+            RequireNonceForTokens: true,
+            NonceSecret:           nonceSecret, // same value on every instance
+        },
+    },
+})
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `RequireDPoPForClients` | empty | Client IDs that must send a proof on every token request. A missing proof returns `invalid_dpop_proof`. Other clients may still opt in by sending one. |
+| `AllowedSignAlgs` | ES256, ES384, RS256, PS256, EdDSA | Allowed proof signing algorithms. HS* and `none` are always rejected. |
+| `ProofMaxAge` | 60s | How far the proof `iat` may be from server time. Keep it well under five minutes. |
+| `NonceTTL` | 10m | Lifetime of an issued `DPoP-Nonce`. |
+| `RequireNonceForTokens` | false | Demand a server nonce on every proof. |
+| `NonceSecret` | random per start | HMAC secret for nonces. Set it when several instances share a load balancer. |
+| `JTIReplayWindow` | 4096 | Size of the in-memory `jti` replay cache. |
+
+## How the token endpoint binds a token
+
+`POST /oauth/token` reads the `DPoP` request header. The handler passes the proof, the request method, and the request URL to the verifier, which checks the signature, `htm`, `htu`, `iat`, and `jti` replay.
+
+- If the proof is valid, the access token gets an RFC 7800 `cnf` claim holding the RFC 7638 thumbprint of the proof key (`cnf.jkt`), and the response `token_type` is `DPoP` instead of `Bearer`.
+- If no proof is sent and the client is not in `RequireDPoPForClients`, a normal Bearer token is issued.
+- If the nonce is missing or stale, the endpoint answers 400 `use_dpop_nonce` with a `DPoP-Nonce` header. The client retries with that nonce in the proof.
+- Any other proof failure returns 400 `invalid_dpop_proof`.
+
+The same binding applies to the authorization code, refresh token, and the other grants that go through the token endpoint. The AS metadata document advertises `dpop_signing_alg_values_supported`.
+
+## Verify on the resource server
+
+Enable DPoP checks on the `mcpresource` validator with `WithDPoPVerification`:
+
+```go
+v := mcpresource.New(
+    "https://api.example.com",
+    mcpresource.WithJWKS("https://as.example.com/oauth/jwks"),
+    mcpresource.WithIntrospection(
+        "https://as.example.com/oauth/introspect",
+        "rs-client-id", "rs-client-secret",
+    ),
+    mcpresource.WithDPoPVerification(nil, 60*time.Second, 4096),
+)
+```
+
+The arguments are the allowed algorithms (nil or empty uses the defaults), the proof max age, and the `jti` replay window. For any token that carries `cnf.jkt`, the middleware requires a `DPoP` header whose proof key thumbprint matches, and the proof must be bound to the request method, URL, and access token hash. Tokens without `cnf.jkt` still pass as plain Bearer tokens, so the AS decides per token whether to constrain. After validation, `Principal.CnfJKT` holds the thumbprint.
+
+Clients send `Authorization: DPoP <token>` together with the `DPoP` header.
+
+## Security notes
+
+- Set `RequireDPoPForClients` for public clients and agents. Opt-in only protects clients that choose to send a proof.
+- Turn on `RequireNonceForTokens` when untrusted clients can reach the token endpoint. It limits how long a captured proof stays usable.
+- The `jti` cache is in memory per process. Behind a load balancer, a replay can land on a different instance, so pair DPoP with short `ProofMaxAge` and nonces.
+- Keep `NonceSecret` out of source control and stable across instances.

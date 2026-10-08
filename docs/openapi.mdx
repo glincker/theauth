@@ -1,0 +1,44 @@
+---
+title: OpenAPI spec
+description: Generate an OpenAPI 3.1 document for the theAuth REST API to build clients in any language.
+icon: file-code
+---
+
+`generateOpenAPISpec` returns an OpenAPI 3.1 document describing the agent, authorization, audit and delegation REST endpoints. Feed it to a code generator to produce a client for Python, Java, Rust or any other language.
+
+```ts title="openapi.ts"
+import { generateOpenAPISpec } from '@glinr/theauth';
+import { writeFileSync } from 'node:fs';
+
+const spec = generateOpenAPISpec({
+  baseUrl: 'https://auth.example.com/api/theauth', // default http://localhost:3000
+  version: '1.0.0',                                // default 0.0.1
+});
+
+writeFileSync('theauth-openapi.json', JSON.stringify(spec, null, 2));
+```
+
+Then generate a client, for example:
+
+```bash
+npx @openapitools/openapi-generator-cli generate -i theauth-openapi.json -g python -o ./theauth-client
+```
+
+## Serving it
+
+The function is pure, so you can expose it from any route:
+
+```ts
+app.get('/openapi.json', (c) => c.json(generateOpenAPISpec({ baseUrl: new URL(c.req.url).origin })));
+```
+
+## What it covers
+
+| Path | Purpose |
+|---|---|
+| `/agents`, `/agents/{id}`, `/agents/{id}/rotate` | Create, read, update, revoke and rotate agents |
+| `/authorize`, `/authorize/token` | Authorization checks by agent ID or bearer token |
+| `/audit` | Query the audit trail |
+| `/delegations` | Delegation chains |
+
+Requests authenticate with a bearer token (`BearerAuth` security scheme). The spec describes the core agent API only. Endpoints that plugins register (email, OAuth, passkeys and so on) are not included; see [Writing plugins](/plugins) for how those are mounted.
