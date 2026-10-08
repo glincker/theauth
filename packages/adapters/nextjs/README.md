@@ -26,7 +26,7 @@ const theauth = createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const handlers = theAuthNextjs(theauth);
+const handlers = theAuthNextjs(theauth, { authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -48,7 +48,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-const handlers = theAuthNextjs(theauth, { mcp });
+const handlers = theAuthNextjs(theauth, { mcp, authenticate });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:

@@ -53,7 +53,7 @@ import { theauth, mcp } from './lib/theauth.js';
 const app = Fastify();
 
 // Use Fastify's prefix option to set the mount path
-await app.register(theAuthFastify(theauth, { mcp }), {
+await app.register(theAuthFastify(theauth, { mcp, authenticate }), {
   prefix: '/api/theauth',
 });
 
@@ -127,7 +127,7 @@ const mcp = createMcpModule({
 
 const app = Fastify({ logger: true });
 
-await app.register(theAuthFastify(theauth, { mcp }), {
+await app.register(theAuthFastify(theauth, { mcp, authenticate }), {
   prefix: '/api/theauth',
 });
 

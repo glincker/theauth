@@ -1,4 +1,6 @@
 import type {
+	AdapterGuard,
+	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -7,6 +9,7 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { z } from "zod";
 
@@ -538,6 +541,7 @@ async function dispatch(
 	theauth: TheAuth,
 	mcp: McpAuthModule | undefined,
 	basePath: string,
+	guard: AdapterGuard,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	// Normalise pathname relative to the adapter base
@@ -546,6 +550,13 @@ async function dispatch(
 	// Ensure leading slash
 	const pathname = relative.startsWith("/") ? relative : `/${relative}`;
 	const method = request.method.toUpperCase();
+
+	// Management routes (agents, delegations, audit, dashboard, authorize)
+	// require an authenticated caller.
+	if (guard.isProtected(pathname)) {
+		const denied = await guard.check(request);
+		if (denied) return denied;
+	}
 
 	// MCP OPTIONS preflight
 	if (method === "OPTIONS") {
@@ -733,7 +744,7 @@ async function dispatch(
 
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
-export interface TheAuthNextjsOptions {
+export interface TheAuthNextjsOptions extends AdapterSecurityOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -794,8 +805,11 @@ export function theAuthNextjs(
 ): TheAuthNextjsHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/theauth";
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(auth, options, "theAuthNextjs");
 
-	const handler = (request: Request): Promise<Response> => dispatch(request, auth, mcp, basePath);
+	const handler = (request: Request): Promise<Response> =>
+		dispatch(request, auth, mcp, basePath, guard);
 
 	return {
 		GET: handler,

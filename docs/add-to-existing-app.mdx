@@ -69,7 +69,7 @@ import { getTheAuth } from '@/lib/theauth';
 
 const theauth = await getTheAuth();
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth);
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { authenticate });
 ```
 
 `theAuthNextjs` takes the resolved instance (not a function) and returns one handler per HTTP method. Export all five: the REST API uses `PATCH` and `DELETE` as well. Its default `basePath` is `/api/theauth`; pass `{ basePath }` if you mount it elsewhere. The route handler only exposes the theAuth endpoints and does not add authentication, so protect it with your own middleware (see the [REST API](/api)).

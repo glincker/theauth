@@ -28,7 +28,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 ## Database drivers
 
-- `better-sqlite3` (default): local SQLite, zero setup
+- `sql.js` (default): local SQLite compiled to WebAssembly, zero native build
 - `pg`: Postgres (you provide the connection string)
 
 ## What you get

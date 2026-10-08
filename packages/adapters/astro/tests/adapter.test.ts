@@ -33,7 +33,7 @@ async function createTestHandlers(): Promise<{ handlers: Handlers; theauth: TheA
 		.run();
 
 	return {
-		handlers: theAuthAstro(theauth, { basePath: "/api/auth/theauth" }),
+		handlers: theAuthAstro(theauth, { basePath: "/api/auth/theauth", allowUnauthenticated: true }),
 		theauth,
 	};
 }

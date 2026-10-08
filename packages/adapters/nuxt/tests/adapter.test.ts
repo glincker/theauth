@@ -34,7 +34,7 @@ async function createTestHandler(): Promise<{ handle: WebHandler; theauth: TheAu
 		.run();
 
 	const app = createApp();
-	use(app, theAuthNuxt(theauth, { basePath: "/api/auth/theauth" }));
+	use(app, theAuthNuxt(theauth, { basePath: "/api/auth/theauth", allowUnauthenticated: true }));
 
 	return { handle: toWebHandler(app), theauth };
 }

@@ -30,7 +30,7 @@ const theauth = createTheAuth({
 });
 
 // Mount all TheAuth routes at /auth
-app.use('/auth', theAuthExpress(theauth));
+app.use('/auth', theAuthExpress(theauth, { authenticate }));
 
 app.listen(3000);
 ```
@@ -48,7 +48,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-app.use('/auth', theAuthExpress(theauth, { mcp }));
+app.use('/auth', theAuthExpress(theauth, { mcp, authenticate }));
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:

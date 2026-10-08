@@ -51,7 +51,7 @@ Create `app/routes/api/theauth.$.ts`. The `$` splat segment catches every sub-pa
 import { theAuthTanStack } from '@glinr/theauth-tanstack';
 import { theauth, mcp } from '~/lib/theauth';
 
-const handlers = theAuthTanStack(theauth, { mcp });
+const handlers = theAuthTanStack(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -132,7 +132,7 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-const handlers = theAuthTanStack(theauth, { mcp });
+const handlers = theAuthTanStack(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

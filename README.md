@@ -99,7 +99,7 @@ const auth = await createTheAuth({
 });
 
 const app = new Hono();
-app.route("/api/theauth", theAuthHono(auth));
+app.route("/api/theauth", theAuthHono(auth, { authenticate }));
 
 // Create an AI agent with scoped MCP permissions
 const agent = await auth.agent.create({
@@ -346,7 +346,7 @@ const auth = await createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL! },
 });
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(auth);
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(auth, { authenticate });
 ```
 
 The adapter serves the agent, authorization, delegation, and audit routes under `/api/theauth`. Human sign-in is not wired by the adapter: see the docs for the auth methods you enable.
@@ -371,7 +371,7 @@ const auth = await createTheAuth({
   database: { provider: "sqlite", url: "theauth.db" },
 });
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthSvelteKit(auth);
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthSvelteKit(auth, { authenticate });
 ```
 
 </details>
@@ -392,7 +392,7 @@ const auth = await createTheAuth({
   database: { provider: "postgres", url: process.env.DATABASE_URL! },
 });
 
-export default theAuthNuxt(auth);
+export default theAuthNuxt(auth, { authenticate });
 ```
 
 </details>
@@ -414,7 +414,7 @@ const auth = await createTheAuth({
 });
 
 const app = new Hono();
-app.route("/api/theauth", theAuthHono(auth));
+app.route("/api/theauth", theAuthHono(auth, { authenticate }));
 
 export default app;
 ```

@@ -1,4 +1,5 @@
 import type {
+	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -7,7 +8,9 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -157,6 +160,22 @@ function mcpNoStore<T>(data: T, status = 200) {
 	});
 }
 
+// ─── Mount-prefix handling ───────────────────────────────────────────────────
+
+/**
+ * Work out the prefix a parent app added with `app.route("/x", ...)`.
+ *
+ * Plugin endpoint paths have no wildcards, so the request path always has the
+ * same number of segments as the endpoint pattern plus the mount prefix.
+ * Whatever precedes the last N segments is the prefix.
+ */
+function mountPrefix(requestPath: string, endpointPath: string): string {
+	const reqSegments = requestPath.split("/").filter(Boolean);
+	const endpointSegments = endpointPath.split("/").filter(Boolean);
+	const extra = reqSegments.length - endpointSegments.length;
+	return extra > 0 ? `/${reqSegments.slice(0, extra).join("/")}` : "";
+}
+
 // ─── Adapter Factory ─────────────────────────────────────────────────────────
 
 /**
@@ -169,7 +188,11 @@ function mcpNoStore<T>(data: T, status = 200) {
  * import { serve } from '@hono/node-server';
  *
  * const theauth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
- * const app = theAuthHono(theauth);
+ * // Management routes need a caller. Use the built-in session check
+ * // (requires `auth.session`) or supply your own resolver:
+ * const app = theAuthHono(theauth, {
+ *   authenticate: async (req) => (await theauth.auth.resolveUser(req)) ?? null,
+ * });
  * serve({ fetch: app.fetch, port: 3000 });
  * ```
  *
@@ -180,9 +203,36 @@ function mcpNoStore<T>(data: T, status = 200) {
  * const app = theAuthHono(theauth, { mcp });
  * ```
  */
-export function theAuthHono(theauth: TheAuth, options?: { mcp?: McpAuthModule }): Hono {
+export interface TheAuthHonoOptions extends AdapterSecurityOptions {
+	/** MCP OAuth 2.1 module. When provided, MCP endpoints are enabled. */
+	mcp?: McpAuthModule;
+}
+
+export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hono {
 	const app = new Hono();
 	const mcp = options?.mcp;
+
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(theauth, options, "theAuthHono");
+
+	// Management routes (agents, delegations, audit, dashboard, authorize)
+	// require an authenticated caller. The guard is registered per route
+	// pattern, so it keeps working when a parent app mounts this one with
+	// `app.route("/x", ...)`.
+	const requireCaller = async (
+		c: Context,
+		next: () => Promise<void>,
+	): Promise<Response | undefined> => {
+		const denied = await guard.check(c.req.raw);
+		if (denied) return c.newResponse(denied.body, denied);
+		await next();
+		return undefined;
+	};
+	for (const root of ["/agents", "/delegations", "/audit", "/dashboard"]) {
+		app.use(root, requireCaller);
+		app.use(`${root}/*`, requireCaller);
+	}
+	app.use("/authorize", requireCaller);
 
 	// ── Agent REST API ──────────────────────────────────────────────
 
@@ -896,7 +946,10 @@ export function theAuthHono(theauth: TheAuth, options?: { mcp?: McpAuthModule })
 	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		app[method](endpoint.path, async (c) => {
-			const response = await theauth.plugins.handleRequest(c.req.raw);
+			// Strip whatever prefix a parent app mounted us under so the plugin
+			// router sees the path it registered.
+			const prefix = mountPrefix(c.req.path, endpoint.path);
+			const response = await theauth.plugins.handleRequest(c.req.raw, prefix);
 			return c.newResponse(response?.body ?? null, response ?? new Response(null, { status: 404 }));
 		});
 	}

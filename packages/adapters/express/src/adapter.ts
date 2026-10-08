@@ -1,4 +1,5 @@
 import type {
+	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -7,8 +8,9 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -229,9 +231,40 @@ function buildWebRequest(req: Request): globalThis.Request {
  * app.use('/auth', theAuthExpress(theauth, { mcp }));
  * ```
  */
-export function theAuthExpress(theauth: TheAuth, options?: { mcp?: McpAuthModule }): Router {
+export interface TheAuthExpressOptions extends AdapterSecurityOptions {
+	/** MCP OAuth 2.1 module. When provided, MCP endpoints are enabled. */
+	mcp?: McpAuthModule;
+}
+
+export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions): Router {
 	const router = Router();
 	const mcp = options?.mcp;
+
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(theauth, options, "theAuthExpress");
+	router.use((req: Request, res: Response, next: NextFunction) => {
+		if (!guard.isProtected(req.path)) {
+			next();
+			return;
+		}
+		guard
+			.check(buildWebRequest(req))
+			.then((denied) => {
+				if (!denied) {
+					next();
+					return;
+				}
+				res
+					.status(denied.status)
+					.type("application/json")
+					.send(
+						JSON.stringify({
+							error: { code: "UNAUTHORIZED", message: "Authentication required" },
+						}),
+					);
+			})
+			.catch(next);
+	});
 
 	// ── Agent REST API ──────────────────────────────────────────────
 

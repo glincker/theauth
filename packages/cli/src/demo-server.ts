@@ -199,7 +199,9 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	await seedDemoData(theauth);
 
 	// 3. Build the Hono app
-	const api = theAuthHono(theauth);
+	// Demo only: no authentication on the management routes. Real apps pass
+	// `authenticate` (see the adapter docs).
+	const api = theAuthHono(theauth, { allowUnauthenticated: true });
 	const authRoute = createAuthRoute(dashboardSecret);
 	const app = new Hono();
 

@@ -8,14 +8,72 @@ export interface ScaffoldOptions {
 	targetDir: string;
 	template: string;
 	appName: string;
-	dbDriver: "better-sqlite3" | "pg";
+	dbDriver: "sql.js" | "pg";
 	dbUrl: string;
 }
 
+// `sql.js` backs the default `provider: "sqlite"` in @glinr/theauth, so it is
+// the driver the SQLite templates must depend on.
 const DB_PACKAGE_VERSION: Record<string, string> = {
-	"better-sqlite3": "^11.0.0",
+	"sql.js": "^1.14.1",
 	pg: "^8.13.0",
 };
+
+const WORKSPACE_PLACEHOLDER = "__WORKSPACE__";
+
+/**
+ * Versions of the @glinr/* packages this release of the scaffolder was built
+ * against. `template-versions.json` is generated at build time by
+ * `scripts/sync-template-versions.mjs`. In the monorepo (dev and tests) the
+ * file may not exist, so fall back to reading the workspace package.json files.
+ */
+export async function loadWorkspaceVersions(): Promise<Record<string, string>> {
+	const generated = join(__dirname, "..", "template-versions.json");
+	try {
+		return JSON.parse(await readFile(generated, "utf-8")) as Record<string, string>;
+	} catch {
+		// not built yet, read the workspace
+	}
+	const packagesDir = join(__dirname, "..", "..");
+	const versions: Record<string, string> = {};
+	for (const group of [packagesDir, join(packagesDir, "adapters")]) {
+		const entries = await readdir(group, { withFileTypes: true }).catch(() => []);
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			try {
+				const pkg = JSON.parse(
+					await readFile(join(group, entry.name, "package.json"), "utf-8"),
+				) as { name?: string; version?: string };
+				if (pkg.name?.startsWith("@glinr/") && pkg.version) versions[pkg.name] = pkg.version;
+			} catch {
+				// not a package directory
+			}
+		}
+	}
+	return versions;
+}
+
+/**
+ * Replace `"__WORKSPACE__"` dependency ranges in a template package.json with
+ * a caret range on the current version of that package.
+ */
+export function resolveWorkspaceRanges(
+	packageJson: string,
+	versions: Record<string, string>,
+): string {
+	const pkg = JSON.parse(packageJson) as Record<string, unknown>;
+	for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
+		const deps = pkg[field];
+		if (!deps || typeof deps !== "object") continue;
+		for (const [name, range] of Object.entries(deps as Record<string, string>)) {
+			if (range !== WORKSPACE_PLACEHOLDER) continue;
+			const version = versions[name];
+			if (!version) throw new Error(`No version known for template dependency "${name}"`);
+			(deps as Record<string, string>)[name] = `^${version}`;
+		}
+	}
+	return `${JSON.stringify(pkg, null, 2)}\n`;
+}
 
 /**
  * Replace all known placeholders in a string.
@@ -23,7 +81,7 @@ const DB_PACKAGE_VERSION: Record<string, string> = {
 function replacePlaceholders(
 	content: string,
 	appName: string,
-	dbDriver: "better-sqlite3" | "pg",
+	dbDriver: "sql.js" | "pg",
 	dbUrl: string,
 ): string {
 	const dbPkgVersion = DB_PACKAGE_VERSION[dbDriver] ?? "*";
@@ -47,8 +105,9 @@ async function copyDir(
 	src: string,
 	dest: string,
 	appName: string,
-	dbDriver: "better-sqlite3" | "pg",
+	dbDriver: "sql.js" | "pg",
 	dbUrl: string,
+	versions: Record<string, string>,
 ): Promise<void> {
 	await mkdir(dest, { recursive: true });
 	const entries = await readdir(src, { withFileTypes: true });
@@ -59,10 +118,11 @@ async function copyDir(
 		const destPath = join(dest, destName);
 
 		if (entry.isDirectory()) {
-			await copyDir(srcPath, destPath, appName, dbDriver, dbUrl);
+			await copyDir(srcPath, destPath, appName, dbDriver, dbUrl, versions);
 		} else {
 			const raw = await readFile(srcPath, "utf-8");
-			const processed = replacePlaceholders(raw, appName, dbDriver, dbUrl);
+			let processed = replacePlaceholders(raw, appName, dbDriver, dbUrl);
+			if (entry.name === "package.json") processed = resolveWorkspaceRanges(processed, versions);
 			await mkdir(dirname(destPath), { recursive: true });
 			await writeFile(destPath, processed, "utf-8");
 		}
@@ -85,7 +145,8 @@ export async function scaffold(opts: ScaffoldOptions): Promise<void> {
 		throw new Error(`Template "${opts.template}" not found at ${templateSrc}`);
 	}
 
-	await copyDir(templateSrc, opts.targetDir, opts.appName, opts.dbDriver, opts.dbUrl);
+	const versions = await loadWorkspaceVersions();
+	await copyDir(templateSrc, opts.targetDir, opts.appName, opts.dbDriver, opts.dbUrl, versions);
 }
 
 export { copyFile };

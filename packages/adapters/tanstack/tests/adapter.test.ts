@@ -33,7 +33,10 @@ async function createTestHandlers(): Promise<{ handlers: Handlers; theauth: TheA
 		.run();
 
 	return {
-		handlers: theAuthTanStack(theauth, { basePath: "/api/auth/theauth" }),
+		handlers: theAuthTanStack(theauth, {
+			basePath: "/api/auth/theauth",
+			allowUnauthenticated: true,
+		}),
 		theauth,
 	};
 }

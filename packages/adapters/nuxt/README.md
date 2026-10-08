@@ -26,7 +26,7 @@ const theauth = createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-export default theAuthNuxt(theauth);
+export default theAuthNuxt(theauth, { authenticate });
 ```
 
 This handles the full theAuth REST API under `/api/theauth`: agent CRUD, authorization, delegations, audit logs, and dashboard stats.
@@ -42,7 +42,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-export default theAuthNuxt(theauth, { mcp });
+export default theAuthNuxt(theauth, { mcp, authenticate });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:

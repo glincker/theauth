@@ -51,7 +51,7 @@ Create `src/pages/api/theauth/[...path].ts`. The `[...path]` spread catches ever
 import { theAuthAstro } from '@glinr/theauth-astro';
 import { theauth, mcp } from '@/lib/theauth';
 
-const handlers = theAuthAstro(theauth, { mcp });
+const handlers = theAuthAstro(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -138,7 +138,7 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-const handlers = theAuthAstro(theauth, { mcp });
+const handlers = theAuthAstro(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

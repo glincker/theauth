@@ -1,8 +1,9 @@
-import type { TheAuth } from "@glinr/theauth";
+import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { dispatch } from "./dispatch.js";
 
-export interface TheAuthTanStackOptions {
+export interface TheAuthTanStackOptions extends AdapterSecurityOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -63,10 +64,13 @@ export function theAuthTanStack(
 ): TheAuthTanStackHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/theauth";
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(auth, options, "theAuthTanStack");
 
 	// TanStack Start API routes receive a standard Web API Request, so we can
 	// pass it directly to the TheAuth dispatcher without any conversion.
-	const handler = (request: Request): Promise<Response> => dispatch(request, auth, mcp, basePath);
+	const handler = (request: Request): Promise<Response> =>
+		dispatch(request, auth, mcp, basePath, guard);
 
 	return {
 		GET: handler,

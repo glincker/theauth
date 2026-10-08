@@ -74,6 +74,12 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 	const hasOAuth = config.plugins?.some((p) => p.id === "theauth-oauth") ?? false;
 	const hasOidc = config.plugins?.some((p) => p.id === "theauth-oidc-provider") ?? false;
 
+	// Plugin form (`plugins: [magicLink(...)]`) must create the same tables as
+	// the config-key form (`magicLink: {...}`), so look at plugin ids too.
+	const hasPlugin = (id: string): boolean => config.plugins?.some((p) => p.id === id) ?? false;
+	const hasMagicLink = !!config.magicLink || hasPlugin("theauth-magic-link");
+	const hasEmailOtp = !!config.emailOtp || hasPlugin("theauth-email-otp");
+
 	return {
 		core: true,
 		session: hasSession,
@@ -82,19 +88,19 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		oauth: hasOAuth,
 		tenant: hasAgents,
 		mcp: !!config.mcp,
-		org: !!config.org,
+		org: !!config.org || hasPlugin("theauth-organization"),
 		rateLimit: hasAgents,
 		budget: hasAgents,
-		magicLink: !!config.magicLink,
-		emailOtp: !!config.emailOtp,
-		totp: !!config.totp,
-		passkey: !!config.passkey,
+		magicLink: hasMagicLink,
+		emailOtp: hasEmailOtp,
+		totp: !!config.totp || hasPlugin("theauth-2fa"),
+		passkey: !!config.passkey || hasPlugin("theauth-passkey"),
 		sso: !!config.sso,
-		apiKey: !!config.apiKeys,
+		apiKey: !!config.apiKeys || hasPlugin("theauth-api-key"),
 		username: !!config.username,
 		phone: !!config.phone,
 		device: hasSession,
-		oneTimeToken: !!config.magicLink || !!config.emailOtp || !!config.passwordReset,
+		oneTimeToken: hasMagicLink || hasEmailOtp || !!config.passwordReset,
 		loginHistory: hasSession,
 		oidcProvider: hasOidc,
 		jwt: hasSession,

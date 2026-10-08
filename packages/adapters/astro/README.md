@@ -26,7 +26,7 @@ const theauth = createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
 });
 
-const handlers = theAuthAstro(theauth);
+const handlers = theAuthAstro(theauth, { authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -54,7 +54,7 @@ const mcp = createMcpModule({
   // ...
 });
 
-const handlers = theAuthAstro(theauth, { mcp });
+const handlers = theAuthAstro(theauth, { mcp, authenticate });
 ```
 
 When `mcp` is provided, the OAuth 2.1 endpoints are enabled:

@@ -25,7 +25,7 @@ const theauth = createTheAuth({
 });
 
 // Mount in your SolidStart API routes
-export const { GET, POST } = theAuthSolidStart(theauth);
+export const { GET, POST } = theAuthSolidStart(theauth, { authenticate });
 ```
 
 ## Docs
