@@ -1,0 +1,54 @@
+---
+title: Benchmarks
+description: How the TheAuth benchmark harness works, what it measures, and how to run it. Results are published after the first CI run.
+icon: gauge-high
+---
+
+The harness lives in `benchmarks/` in the repository. It is not published to npm and has no dependencies of its own: it loads the built SDK and uses `performance.now()` for timing.
+
+No results are published on this page yet. Numbers will be pasted in from a CI run (see below), with the hardware they came from. Until then, treat any performance claim about TheAuth as unmeasured.
+
+## What it measures
+
+| Scenario | What runs |
+| --- | --- |
+| createAgent | `agent.create`, for one owner with a growing agent count and for a fresh owner each call |
+| Token issue and verify | `agent.rotate`, `agent.validateToken` (database lookup), JWT session `createSession` and `verifySession` (stateless) |
+| authorize | allow and deny, direct permission and delegation depth 1, 2 and 3, with and without an audit row per call |
+| simulate | the simulator, allow and deny, at the same depths |
+| Sessions | session create and validate |
+| Audit append | tamper evident off and on, with 1 to 64 concurrent writers on the same agent and on separate agents, plus multiple instances on one database (Postgres and MySQL) |
+| Rate limit | the in-process limiter, the memory store, and the database counter behind `maxCallsPerHour` |
+| Password hash | PBKDF2 hash and verify at the default cost |
+
+Backends: SQLite through sql.js (in memory and file), SQLite through better-sqlite3 (in memory and file), and Postgres and MySQL when a connection URL is provided (`POSTGRES_URL`, `MYSQL_URL`, or `DATABASE_URL`). Backends without a URL are skipped.
+
+For each row the report gives p50, p95 and p99 latency, operations per second, RSS change, and the Node version, CPU model and backend it ran on.
+
+## Run it
+
+The full run is heavy. Do not run it on a laptop. It is meant for the manual `Benchmarks` workflow, which starts Postgres and MySQL service containers, runs everything and uploads `full.json` and `full.md` as an artifact.
+
+To check that the harness works on your machine, run the smoke profile (a few hundred iterations, in memory SQLite only):
+
+```bash
+pnpm install --frozen-lockfile
+nice -n 19 pnpm bench:smoke
+```
+
+The exact command the CI job runs:
+
+```bash
+pnpm bench:ci
+```
+
+That script builds `@glinr/theauth`, runs `node --expose-gc benchmarks/run.mjs --profile full`, then `node benchmarks/report.mjs` to write markdown tables. Output goes to `benchmarks/results/` (git ignored).
+
+## Caveats
+
+- Concurrency numbers are async tasks on one event loop, not threads.
+- Postgres and MySQL run on the same machine as the benchmark, so network latency is close to zero.
+- Shared CI runners are noisy at the tail. Repeat runs before trusting p99.
+- Table sizes grow during a run, which affects operations that scan.
+
+See [scale and architecture notes](https://github.com/glincker/theauth/blob/main/docs/scale-and-architecture.md) for the code paths these scenarios were written to test.
