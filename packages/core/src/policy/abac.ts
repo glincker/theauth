@@ -9,7 +9,7 @@ import { and, eq, gte } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { rateLimits } from "../db/schema.js";
-import type { PermissionConstraints } from "../types.js";
+import type { Permission, PermissionConstraints } from "../types.js";
 
 export interface ConstraintEvaluationInput {
 	subjectId: string; // agent id used for rate-limit row keying; "" if subject has no agent
@@ -142,7 +142,7 @@ export async function checkRateLimit(
 	if (totalCalls >= maxCallsPerHour) {
 		return {
 			allowed: false,
-			reason: `Rate limit exceeded: ${totalCalls}/${maxCallsPerHour} calls per hour for resource "${resource}"`,
+			reason: rateLimitReason(totalCalls, maxCallsPerHour, resource),
 		};
 	}
 
@@ -167,10 +167,236 @@ export async function checkRateLimit(
 	return { allowed: true };
 }
 
+/** Message used when an hourly call budget is spent. Shared by the real and simulated paths. */
+export function rateLimitReason(totalCalls: number, max: number, resource: string): string {
+	return `Rate limit exceeded: ${totalCalls}/${max} calls per hour for resource "${resource}"`;
+}
+
+/**
+ * Find the first permission that grants `action` on `resource`. Shared by the
+ * real authorize path and the simulator so both pick the same rule.
+ */
+export function findMatchingPermission(
+	permissions: Permission[],
+	action: string,
+	resource: string,
+): { permission: Permission; index: number } | null {
+	const index = permissions.findIndex(
+		(p) => matchResource(p.resource, resource) && matchAction(p.actions, action),
+	);
+	const permission = index === -1 ? undefined : permissions[index];
+	return permission ? { permission, index } : null;
+}
+
+/**
+ * Read the calls recorded in the last hour for an agent and resource.
+ * Read-only: unlike checkRateLimit it never increments the counter.
+ */
+export async function readRateUsage(
+	db: Database,
+	agentId: string,
+	resource: string,
+	now: Date = new Date(),
+): Promise<number> {
+	if (!agentId) return 0;
+	const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+	const rows = await db
+		.select()
+		.from(rateLimits)
+		.where(
+			and(
+				eq(rateLimits.agentId, agentId),
+				eq(rateLimits.resource, resource),
+				gte(rateLimits.windowStart, oneHourAgo),
+			),
+		);
+	return rows.reduce((sum, r) => sum + r.count, 0);
+}
+
+export type ConstraintName =
+	| "maxCallsPerHour"
+	| "allowedArgPatterns"
+	| "requireApproval"
+	| "timeWindow"
+	| "ipAllowlist";
+
+export interface ConstraintStep {
+	constraint: ConstraintName;
+	/** pass, fail, or approval (the constraint holds the call for a human) */
+	outcome: "pass" | "fail" | "approval";
+	detail: string;
+	/** The value the constraint was evaluated against, when there is one. */
+	observed?: unknown;
+	/** The configured limit or rule. */
+	configured?: unknown;
+}
+
+export interface ConstraintInspection {
+	allowed: boolean;
+	needsApproval: boolean;
+	reason?: string;
+	steps: ConstraintStep[];
+}
+
+export interface InspectOptions {
+	now: Date;
+	/**
+	 * Calls already recorded this hour. Leave undefined to skip the rate step,
+	 * which evaluateConstraints runs itself because it must also count the call.
+	 */
+	rateUsage?: number;
+}
+
+/**
+ * Evaluate every constraint without touching storage. Constraint order is
+ * rate limit, arg patterns, approval, time window, IP allowlist, and the walk
+ * stops at the first failure, exactly like evaluateConstraints.
+ */
+export function inspectConstraints(
+	input: ConstraintEvaluationInput,
+	constraints: PermissionConstraints,
+	options: InspectOptions,
+): ConstraintInspection {
+	const steps: ConstraintStep[] = [];
+	const stop = (
+		step: ConstraintStep,
+		reason: string | undefined,
+		needsApproval = false,
+	): ConstraintInspection => {
+		steps.push(step);
+		return { allowed: false, needsApproval, reason, steps };
+	};
+
+	if (constraints.maxCallsPerHour && options.rateUsage !== undefined) {
+		const max = constraints.maxCallsPerHour;
+		const used = options.rateUsage;
+		if (used >= max) {
+			const reason = rateLimitReason(used, max, input.resource);
+			return stop(
+				{
+					constraint: "maxCallsPerHour",
+					outcome: "fail",
+					detail: reason,
+					observed: used,
+					configured: max,
+				},
+				reason,
+			);
+		}
+		steps.push({
+			constraint: "maxCallsPerHour",
+			outcome: "pass",
+			detail: `${used}/${max} calls used this hour`,
+			observed: used,
+			configured: max,
+		});
+	}
+
+	if (constraints.allowedArgPatterns && input.arguments) {
+		const patternResult = validateArgPatterns(constraints.allowedArgPatterns, input.arguments);
+		if (!patternResult.valid) {
+			return stop(
+				{
+					constraint: "allowedArgPatterns",
+					outcome: "fail",
+					detail: patternResult.reason ?? "Argument pattern mismatch",
+					observed: input.arguments,
+					configured: constraints.allowedArgPatterns,
+				},
+				patternResult.reason,
+			);
+		}
+		steps.push({
+			constraint: "allowedArgPatterns",
+			outcome: "pass",
+			detail: "All string arguments match the allowed patterns",
+			observed: input.arguments,
+			configured: constraints.allowedArgPatterns,
+		});
+	}
+
+	if (constraints.requireApproval) {
+		const reason = "This action requires human approval before execution";
+		return stop(
+			{ constraint: "requireApproval", outcome: "approval", detail: reason, configured: true },
+			reason,
+			true,
+		);
+	}
+
+	if (constraints.timeWindow) {
+		const hours = options.now.getHours();
+		const minutes = options.now.getMinutes();
+		const currentTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+		const { start, end } = constraints.timeWindow;
+		if (currentTime < start || currentTime > end) {
+			const reason = `Action is only allowed between ${start} and ${end}`;
+			return stop(
+				{
+					constraint: "timeWindow",
+					outcome: "fail",
+					detail: reason,
+					observed: currentTime,
+					configured: constraints.timeWindow,
+				},
+				reason,
+			);
+		}
+		steps.push({
+			constraint: "timeWindow",
+			outcome: "pass",
+			detail: `${currentTime} is inside ${start} to ${end}`,
+			observed: currentTime,
+			configured: constraints.timeWindow,
+		});
+	}
+
+	if (constraints.ipAllowlist && constraints.ipAllowlist.length > 0) {
+		if (!input.ip) {
+			const reason =
+				"IP_NOT_ALLOWED: No IP address provided; resource requires an IP allowlist match";
+			return stop(
+				{
+					constraint: "ipAllowlist",
+					outcome: "fail",
+					detail: reason,
+					configured: constraints.ipAllowlist,
+				},
+				reason,
+			);
+		}
+		if (!isIPAllowed(constraints.ipAllowlist, input.ip)) {
+			const reason = `IP_NOT_ALLOWED: IP "${input.ip}" is not in the allowlist for this resource`;
+			return stop(
+				{
+					constraint: "ipAllowlist",
+					outcome: "fail",
+					detail: reason,
+					observed: input.ip,
+					configured: constraints.ipAllowlist,
+				},
+				reason,
+			);
+		}
+		steps.push({
+			constraint: "ipAllowlist",
+			outcome: "pass",
+			detail: `IP "${input.ip}" is in the allowlist`,
+			observed: input.ip,
+			configured: constraints.ipAllowlist,
+		});
+	}
+
+	return { allowed: true, needsApproval: false, steps };
+}
+
 /**
  * Evaluate every constraint on a permission. Returns the first failure, or
  * { allowed: true } if all pass. Constraint order: rate limit, arg patterns,
  * approval, time window, IP allowlist.
+ *
+ * The rate limit step records the call; everything after it is delegated to
+ * inspectConstraints so the simulator evaluates the same rules.
  */
 export async function evaluateConstraints(
 	db: Database,
@@ -189,50 +415,8 @@ export async function evaluateConstraints(
 		}
 	}
 
-	if (constraints.allowedArgPatterns && input.arguments) {
-		const patternResult = validateArgPatterns(constraints.allowedArgPatterns, input.arguments);
-		if (!patternResult.valid) {
-			return { allowed: false, reason: patternResult.reason };
-		}
-	}
-
-	if (constraints.requireApproval) {
-		return {
-			allowed: false,
-			reason: "This action requires human approval before execution",
-		};
-	}
-
-	if (constraints.timeWindow) {
-		const now = new Date();
-		const hours = now.getHours();
-		const minutes = now.getMinutes();
-		const currentTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-
-		if (currentTime < constraints.timeWindow.start || currentTime > constraints.timeWindow.end) {
-			return {
-				allowed: false,
-				reason: `Action is only allowed between ${constraints.timeWindow.start} and ${constraints.timeWindow.end}`,
-			};
-		}
-	}
-
-	if (constraints.ipAllowlist && constraints.ipAllowlist.length > 0) {
-		if (!input.ip) {
-			return {
-				allowed: false,
-				reason: "IP_NOT_ALLOWED: No IP address provided; resource requires an IP allowlist match",
-			};
-		}
-		if (!isIPAllowed(constraints.ipAllowlist, input.ip)) {
-			return {
-				allowed: false,
-				reason: `IP_NOT_ALLOWED: IP "${input.ip}" is not in the allowlist for this resource`,
-			};
-		}
-	}
-
-	return { allowed: true };
+	const inspection = inspectConstraints(input, constraints, { now: new Date() });
+	return inspection.allowed ? { allowed: true } : { allowed: false, reason: inspection.reason };
 }
 
 /**

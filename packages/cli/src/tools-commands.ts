@@ -362,6 +362,8 @@ export const COMMAND_NAMES = [
 	"login",
 	"logout",
 	"whoami",
+	"simulate",
+	"permissions",
 	"doctor",
 	"secret",
 	"completions",
