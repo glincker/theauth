@@ -17,17 +17,13 @@ function runCli(args: string[]) {
 	});
 }
 
+// The build can take well over vitest's 10s default hook timeout on a busy CI runner.
 beforeAll(() => {
-	execFileSync(
-		"pnpm",
-		["build"],
-		{
-			cwd: packageDir,
-			stdio: "inherit",
-		},
-		60_000,
-	);
-});
+	execFileSync("pnpm", ["build"], {
+		cwd: packageDir,
+		stdio: "inherit",
+	});
+}, 120_000);
 
 // Each case spawns a real node process; give slow CI runners room.
 describe("cli smoke", { timeout: 30_000 }, () => {
