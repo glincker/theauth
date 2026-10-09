@@ -4,7 +4,25 @@ description: Pick a migration guide for your current auth setup. Covers moving f
 icon: arrow-right-arrow-left
 ---
 
-Pick the guide that matches your current setup.
+Start with how you want to move, then pick the guide for your current setup.
+
+<CardGroup cols={2}>
+  <Card title="Pick a path" icon="signs-post" href="/migrate/choose-a-path">
+    Big bang, lazy, or run both. How to choose and how to roll back.
+  </Card>
+  <Card title="Run both and migrate as users log in" icon="seedling" href="/migrate/run-both-and-migrate">
+    Keep your current login, move users with a percentage rollout.
+  </Card>
+  <Card title="Import users" icon="file-import" href="/migrate/import-users">
+    Auth0, Keycloak, Clerk, Better Auth, Auth.js or CSV, with a dry run.
+  </Card>
+  <Card title="Lazy password migration" icon="key" href="/migrate/lazy-passwords">
+    Verify old hashes on first login, then rehash.
+  </Card>
+  <Card title="Coexist with your IdP" icon="arrows-left-right" href="/migrate/coexist-with-your-idp">
+    Accept your current provider's tokens next to theAuth.
+  </Card>
+</CardGroup>
 
 <CardGroup cols={2}>
   <Card title="From better-auth" icon="arrow-right" href="/migrate/from-better-auth">

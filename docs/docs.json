@@ -484,6 +484,11 @@
             "icon": "arrow-right-arrow-left",
             "pages": [
               "migrate/index",
+              "migrate/choose-a-path",
+              "migrate/run-both-and-migrate",
+              "migrate/import-users",
+              "migrate/lazy-passwords",
+              "migrate/coexist-with-your-idp",
               "migrate/from-better-auth",
               "migrate/from-better-auth-agent-plugin",
               "migrate/from-next-auth",

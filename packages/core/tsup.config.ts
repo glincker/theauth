@@ -8,6 +8,7 @@ export default defineConfig({
 		"mcp/index": "src/mcp/index.ts",
 		"permission/index": "src/permission/index.ts",
 		"audit/index": "src/audit/index.ts",
+		"migrate/index": "src/migrate/index.ts",
 		"a2a/index": "src/a2a/index.ts",
 		"vc/index": "src/vc/index.ts",
 		"crypto/index": "src/crypto/index.ts",
