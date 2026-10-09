@@ -134,7 +134,8 @@
               "database",
               "choose-storage",
               "production-checklist",
-              "troubleshooting"
+              "troubleshooting",
+              "ai-assistants"
             ]
           },
           {
@@ -181,6 +182,7 @@
                   "auth/magic-link",
                   "auth/email-otp",
                   "auth/phone",
+                  "auth/otp",
                   "auth/passkey",
                   "auth/siwe",
                   "auth/device"
@@ -281,7 +283,8 @@
                 "pages": [
                   "auth/auth0",
                   "auth/okta",
-                  "auth/yahoo"
+                  "auth/yahoo",
+                  "auth/more-providers"
                 ]
               }
             ]
@@ -314,7 +317,8 @@
             "pages": [
               "agents",
               "ephemeral-sessions",
-              "delegation"
+              "delegation",
+              "token-vault"
             ]
           },
           {
@@ -344,6 +348,7 @@
               "approval",
               "rate-limiting",
               "cli-auth",
+              "cli-tools",
               "agent-registration-tokens",
               "budget-policies",
               "cost-attribution"
@@ -360,6 +365,7 @@
             "icon": "network-wired",
             "pages": [
               "mcp",
+              "dpop",
               "gateway"
             ]
           },
@@ -442,6 +448,7 @@
               "custom-session",
               "additional-fields",
               "email-templates",
+              "email-adapters",
               "i18n"
             ]
           },

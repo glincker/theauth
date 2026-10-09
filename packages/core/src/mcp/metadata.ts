@@ -1,3 +1,4 @@
+import { getDpopAlgs } from "./dpop.js";
 import type { McpAuthContext, McpProtectedResourceMetadata, McpServerMetadata } from "./types.js";
 
 function signingAlgs(ctx: McpAuthContext): string[] {
@@ -37,6 +38,7 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 		],
 		authorization_response_iss_parameter_supported: true,
 		client_id_metadata_document_supported: ctx.config.clientIdMetadataDocuments?.enabled === true,
+		...(ctx.config.dpop ? { dpop_signing_alg_values_supported: getDpopAlgs(ctx) } : {}),
 	};
 }
 
@@ -60,5 +62,11 @@ export function getProtectedResourceMetadata(ctx: McpAuthContext): McpProtectedR
 		scopes_supported: allScopes,
 		bearer_methods_supported: ["header"],
 		resource_signing_alg_values_supported: signingAlgs(ctx),
+		...(ctx.config.dpop
+			? {
+					dpop_signing_alg_values_supported: getDpopAlgs(ctx),
+					...(ctx.config.dpop.required ? { dpop_bound_access_tokens_required: true } : {}),
+				}
+			: {}),
 	};
 }
