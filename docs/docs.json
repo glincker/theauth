@@ -348,6 +348,7 @@
             "icon": "gauge",
             "pages": [
               "approval",
+              "simulator",
               "rate-limiting",
               "cli-auth",
               "cli-tools",

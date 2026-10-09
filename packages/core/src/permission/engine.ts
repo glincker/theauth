@@ -1,7 +1,7 @@
 import { insertAuditRow } from "../audit/chain.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { evaluateConstraints, matchAction, matchResource } from "../policy/abac.js";
+import { evaluateConstraints, findMatchingPermission } from "../policy/abac.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
 
 interface PermissionEngineConfig {
@@ -27,9 +27,11 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 		const startTime = performance.now();
 		const auditId = generateId();
 
-		const matchingPermission = agent.permissions.find(
-			(p) => matchResource(p.resource, request.resource) && matchAction(p.actions, request.action),
-		);
+		const matchingPermission = findMatchingPermission(
+			agent.permissions,
+			request.action,
+			request.resource,
+		)?.permission;
 
 		if (!matchingPermission) {
 			const result: AuthorizeResult = {
