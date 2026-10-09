@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-nestjs",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "NestJS adapter for TheAuth",
   "type": "module",
   "main": "dist/index.js",

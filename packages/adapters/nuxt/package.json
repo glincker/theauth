@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-nuxt",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Nuxt adapter for TheAuth - exposes agent auth as HTTP REST endpoints via H3",
   "type": "module",
   "main": "dist/index.js",

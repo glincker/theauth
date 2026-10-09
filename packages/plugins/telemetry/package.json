@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-plugin-telemetry",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "OpenTelemetry integration plugin for TheAuth — converts auth events into OTel spans",
   "type": "module",
   "main": "dist/index.js",

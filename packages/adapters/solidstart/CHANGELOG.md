@@ -1,5 +1,35 @@
 # @glinr/theauth-solidstart
 
+## 5.0.0
+
+### Major Changes
+
+- 4e37e17: Security: the framework adapters no longer serve the management routes anonymously.
+
+  BREAKING (adapters): `/agents`, `/delegations`, `/audit`, `/dashboard` and `POST /authorize` now require an authenticated caller. Pass `authenticate: (request) => ({ id }) | null` to the adapter, or configure `auth.session` on `createTheAuth` to accept any valid session. With neither, the adapter throws when it is created. For local development only, `allowUnauthenticated: true` restores the old behavior and logs a warning. `/authorize/token`, MCP, password reset, email verification and plugin routes are unchanged.
+
+  Other fixes:
+
+  - hono and fastify: plugin routes now work when the adapter is mounted under a prefix (`app.route("/x", theAuthHono(...))`, `register(plugin, { prefix })`) instead of returning 404.
+  - core: `plugins: [magicLink(...)]` (and the email OTP, 2FA, passkey, API key and organization plugins) now create their tables, matching the config-key form.
+  - core: new `createAdapterGuard` and `isProtectedAdapterPath` exports used by every adapter.
+  - create-theauth-app: templates pin `@glinr/*` packages to the versions in this release instead of stale ranges, list `sql.js` (the driver behind `provider: "sqlite"`) and `zod`, and the hono-mcp template protects its management routes with an `ADMIN_API_KEY`. The next-saas catch-all route now passes the TheAuth instance to the adapter.
+
+### Patch Changes
+
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [36f15a3]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [20aafa0]
+  - @glinr/theauth@0.7.0
+
 ## 4.0.0
 
 ### Minor Changes
