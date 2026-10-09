@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-plugin-discovery",
-  "version": "5.0.0",
+  "version": "4.0.0",
   "description": "A2A agent capability card discovery plugin for TheAuth",
   "type": "module",
   "main": "dist/index.js",
