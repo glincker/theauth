@@ -25,6 +25,8 @@
     "test:watch": "turbo test:watch",
     "coverage": "turbo coverage",
     "bench": "pnpm --filter @glinr/theauth bench",
+    "bench:smoke": "pnpm --filter @glinr/theauth build && node benchmarks/run.mjs --profile smoke --out benchmarks/results/smoke.json && node benchmarks/report.mjs benchmarks/results/smoke.json --out benchmarks/results/smoke.md",
+    "bench:ci": "pnpm --filter @glinr/theauth build && node --expose-gc benchmarks/run.mjs --profile full --out benchmarks/results/full.json && node benchmarks/report.mjs benchmarks/results/full.json --out benchmarks/results/full.md",
     "lint:deps": "knip --strict",
     "prepare": "simple-git-hooks",
     "changeset": "changeset",
