@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-prisma",
-  "version": "5.0.0",
+  "version": "4.0.0",
   "description": "Prisma database adapter for TheAuth - use PrismaClient as your TheAuth database backend",
   "type": "module",
   "main": "dist/index.js",
@@ -38,7 +38,7 @@
     "directory": "packages/adapters/prisma"
   },
   "peerDependencies": {
-    "@glinr/theauth": "workspace:*",
+    "@glinr/theauth": ">=0.6.0 <1.0.0",
     "@prisma/client": ">=5.0.0"
   },
   "devDependencies": {

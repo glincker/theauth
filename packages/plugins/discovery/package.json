@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-plugin-discovery",
-  "version": "5.0.0",
+  "version": "4.0.0",
   "description": "A2A agent capability card discovery plugin for TheAuth",
   "type": "module",
   "main": "dist/index.js",
@@ -40,7 +40,7 @@
     "drizzle-orm": "^0.41.0"
   },
   "peerDependencies": {
-    "@glinr/theauth": "workspace:*"
+    "@glinr/theauth": ">=0.6.0 <1.0.0"
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
