@@ -2,6 +2,7 @@ import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { EmailOtpConfig } from "./email-otp.js";
 import { createEmailOtpModule } from "./email-otp.js";
+import { normalizeEmail } from "./normalize-email.js";
 
 export type { EmailOtpConfig };
 
@@ -36,7 +37,7 @@ export function emailOtp(config: EmailOtpConfig): TheAuthPlugin {
 					if (!bodyResult.ok) return bodyResult.response;
 					const rawEmail =
 						typeof bodyResult.data.email === "string"
-							? bodyResult.data.email.trim().toLowerCase()
+							? normalizeEmail(bodyResult.data.email)
 							: null;
 
 					if (!rawEmail) {
@@ -66,7 +67,7 @@ export function emailOtp(config: EmailOtpConfig): TheAuthPlugin {
 					if (!bodyResult.ok) return bodyResult.response;
 					const rawEmail =
 						typeof bodyResult.data.email === "string"
-							? bodyResult.data.email.trim().toLowerCase()
+							? normalizeEmail(bodyResult.data.email)
 							: null;
 					const code =
 						typeof bodyResult.data.code === "string" ? bodyResult.data.code.trim() : null;

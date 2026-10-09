@@ -263,6 +263,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 	// We capture sessionManager in closure so it's available if configured.
 	const endpointCtx: EndpointContext = {
 		db,
+		trustedProxy: config.trustedProxy,
 		async getUser(request: Request): Promise<ResolvedUser | null> {
 			// 1. Try configured auth adapter first
 			if (authAdapter) {

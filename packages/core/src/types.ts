@@ -98,6 +98,21 @@ export interface TheAuthConfig {
 	/** Base URL for the auth server */
 	baseUrl?: string;
 
+	/**
+	 * Hosts this deployment may answer on (custom domains, tenant subdomains,
+	 * preview URLs). When set, plugins that build absolute URLs (OAuth redirect
+	 * URIs) use the request host if it matches, and fall back to `baseUrl`
+	 * otherwise. Supports `*.example.com`, `**.example.com`, `host:*`. Unset by
+	 * default, which keeps the static `baseUrl` behavior.
+	 */
+	allowedHosts?: string[];
+
+	/**
+	 * Honor `X-Forwarded-Host` and `X-Forwarded-Proto` when matching
+	 * `allowedHosts`. Only enable behind a proxy that overwrites them.
+	 */
+	trustForwardedHeaders?: boolean;
+
 	/** Secret key for signing tokens */
 	secret?: string;
 

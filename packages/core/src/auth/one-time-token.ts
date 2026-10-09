@@ -244,14 +244,20 @@ export function createOneTimeTokenModule(
 			};
 		}
 
-		// Mark used before returning to guarantee exactly-once semantics even
-		// under concurrent requests — the unique index on token_hash ensures
-		// any race will fail at the DB level on a duplicate mark.
+		// Claim the token with a conditional UPDATE. Only the caller that flips
+		// used=false wins, so concurrent redemptions cannot both succeed.
 		try {
-			await db
+			const claimed = await db
 				.update(oneTimeTokens)
 				.set({ used: true })
-				.where(and(eq(oneTimeTokens.id, record.id), eq(oneTimeTokens.used, false)));
+				.where(and(eq(oneTimeTokens.id, record.id), eq(oneTimeTokens.used, false)))
+				.returning({ id: oneTimeTokens.id });
+			if (!claimed[0]) {
+				return {
+					success: false,
+					error: makeError("TOKEN_ALREADY_USED", "Token has already been used"),
+				};
+			}
 		} catch (err) {
 			return {
 				success: false,

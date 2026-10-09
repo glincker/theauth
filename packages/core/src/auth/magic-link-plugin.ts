@@ -2,6 +2,7 @@ import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { MagicLinkConfig } from "./magic-link.js";
 import { createMagicLinkModule } from "./magic-link.js";
+import { normalizeEmail } from "./normalize-email.js";
 import { withRateLimit } from "./rate-limit-middleware.js";
 import { createRateLimiter } from "./rate-limiter.js";
 
@@ -42,7 +43,7 @@ export function magicLink(config: MagicLinkConfig): TheAuthPlugin {
 
 					const rawEmail =
 						typeof bodyResult.data.email === "string"
-							? bodyResult.data.email.trim().toLowerCase()
+							? normalizeEmail(bodyResult.data.email)
 							: null;
 
 					if (!rawEmail) {

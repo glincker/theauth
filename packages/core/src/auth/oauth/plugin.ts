@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { buildSetCookie } from "../../plugin/helpers.js";
 import type { TheAuthPlugin } from "../../plugin/types.js";
+import { createBaseUrlResolver } from "../../session/base-url.js";
+import { normalizeEmail } from "../normalize-email.js";
 import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
 import { createOAuthModule } from "./module.js";
@@ -51,6 +53,13 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 			const module = createOAuthModule(ctx.db, config);
 
 			const baseUrl = ctx.config.baseUrl ?? "";
+			const baseUrls = ctx.config.allowedHosts?.length
+				? createBaseUrlResolver({
+						baseUrl: ctx.config.baseUrl,
+						allowedHosts: ctx.config.allowedHosts,
+						trustForwardedHeaders: ctx.config.trustForwardedHeaders,
+					})
+				: null;
 
 			const sessionManager = ctx.sessionManager;
 			if (!sessionManager) {
@@ -61,11 +70,16 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 
 			const authorizeLimiter = createRateLimiter({ max: 20, window: 60 });
 
-			function getRedirectUri(provider: string): string {
-				if (config.buildRedirectUri) {
-					return config.buildRedirectUri(provider, baseUrl);
+			function getRedirectUri(provider: string, request: Request): string {
+				let base = baseUrl;
+				if (baseUrls) {
+					const resolved = baseUrls.resolve(request);
+					if (resolved.success) base = resolved.data;
 				}
-				return `${baseUrl}/auth/oauth/callback/${provider}`;
+				if (config.buildRedirectUri) {
+					return config.buildRedirectUri(provider, base);
+				}
+				return `${base}/auth/oauth/callback/${provider}`;
 			}
 
 			// GET /auth/oauth/authorize/:provider
@@ -84,7 +98,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						return jsonResponse({ error: "Missing provider parameter" }, 400);
 					}
 
-					const redirectUri = getRedirectUri(provider);
+					const redirectUri = getRedirectUri(provider, request);
 
 					try {
 						const { url: authUrl } = await module.getAuthorizationUrl(provider, redirectUri);
@@ -117,7 +131,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						return jsonResponse({ error: "Missing code or state query parameter" }, 400);
 					}
 
-					const redirectUri = getRedirectUri(provider);
+					const redirectUri = getRedirectUri(provider, request);
 
 					try {
 						const result = await module.handleCallback(provider, code, state, redirectUri);
@@ -127,19 +141,33 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						let userId = result.account.userId;
 
 						if (userId === "__pending__" && email && ctx.db) {
-							const existing = await ctx.db.select().from(users).where(eq(users.email, email));
+							const normalized = normalizeEmail(email);
+							const existing = await ctx.db.select().from(users).where(eq(users.email, normalized));
 
 							if (existing[0]) {
+								// Linking by email is only safe when both sides vouch for the
+								// address. An unverified provider email lets anyone who controls
+								// a provider account with the victim's address sign in as them,
+								// and an unverified local account may be a pre-registered squat.
+								if (result.userInfo.emailVerified !== true || !existing[0].emailVerified) {
+									return jsonResponse(
+										{
+											error:
+												"An account with this email already exists. Sign in with your existing method and link this provider from account settings.",
+										},
+										409,
+									);
+								}
 								userId = existing[0].id;
 							} else {
 								const newId = crypto.randomUUID();
 								await ctx.db.insert(users).values({
 									id: newId,
-									email,
+									email: normalized,
 									name: result.userInfo.name ?? null,
 									externalProvider: `oauth:${provider}`,
 									externalId: result.userInfo.id,
-									emailVerified: 1,
+									emailVerified: result.userInfo.emailVerified === true ? 1 : 0,
 									createdAt: new Date(),
 									updatedAt: new Date(),
 								});

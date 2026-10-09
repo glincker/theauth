@@ -144,6 +144,7 @@
             "pages": [
               "sessions",
               "jwt-sessions",
+              "session-hardening",
               "cookies",
               "one-time-tokens",
               "secondary-storage"
