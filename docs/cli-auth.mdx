@@ -57,13 +57,17 @@ With `auth.session` configured, the token is a TheAuth session token you can sen
 
 ## The CLI
 
+The commands ship in `@glinr/theauth-cli` (the `theauth` binary):
+
 ```bash
-theauth login  --server https://app.example.com/api/theauth
-theauth whoami
-theauth logout
+npx @glinr/theauth-cli login  --server https://app.example.com/api/theauth
+npx @glinr/theauth-cli whoami
+npx @glinr/theauth-cli logout
 ```
 
-`--server` falls back to `$THEAUTH_URL`, then to the only server you are logged in to. `--no-browser` prints the code without opening a browser.
+`--server` is the URL where theAuth is mounted. It falls back to `$THEAUTH_URL`, then to the only server you are logged in to (`login` requires one or the other). `--no-browser` prints the code without opening a browser. `--client-id <id>` sets the `client_id` sent to the server (default `theauth-cli`), which your `issueToken` callback and audit events can use to tell clients apart.
+
+`whoami` calls `GET /auth/session` with the saved token and prints the email, name or id. If the server answers 401 it deletes the stale local credential and tells you to log in again. Expired tokens (when the server reported a lifetime) are treated as not logged in.
 
 Credentials are saved with file mode `0600` in a `0700` directory:
 
@@ -72,7 +76,7 @@ Credentials are saved with file mode `0600` in a `0700` directory:
 | macOS, Linux | `$XDG_CONFIG_HOME/theauth/credentials.json`, else `~/.config/theauth/credentials.json` |
 | Windows | `%APPDATA%\theauth\credentials.json` |
 
-Set `THEAUTH_CREDENTIALS_FILE` to use another path. `logout` revokes the session on the server (best effort) and deletes the local copy. On Windows the mode bits do not apply; the file sits in your per-user profile directory.
+Set `THEAUTH_CREDENTIALS_FILE` to use another path. `logout` calls `POST /auth/sign-out` to revoke the session on the server (best effort, so it still works offline) and deletes the local copy. On Windows the mode bits do not apply; the file sits in your per-user profile directory.
 
 ## Use it from your own CLI or MCP client
 
