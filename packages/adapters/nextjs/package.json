@@ -25,7 +25,9 @@
     "nextjs",
     "auth",
     "agent",
-    "mcp"
+    "mcp",
+    "agent-auth",
+    "app-router"
   ],
   "author": "TheAuth <support@glinr.com>",
   "license": "MIT",

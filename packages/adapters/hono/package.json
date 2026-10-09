@@ -25,7 +25,9 @@
     "hono",
     "auth",
     "agent",
-    "mcp"
+    "mcp",
+    "agent-auth",
+    "cloudflare-workers"
   ],
   "author": "TheAuth <support@glinr.com>",
   "license": "MIT",
