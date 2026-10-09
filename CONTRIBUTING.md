@@ -131,6 +131,10 @@ Bump type guide:
 - `minor`: backward-compatible features or new exports
 - `major`: breaking changes (removed or renamed exports, changed types)
 
+### Peer range policy
+
+Adapters and plugins declare `@glinr/theauth` as a peer dependency with an explicit range (currently `>=0.6.0 <1.0.0`), never `workspace:*`. pnpm rewrites `workspace:*` to the exact core version on publish, so changesets treats every core bump as out of range and cascades a major bump onto every dependent package. Keep the `@glinr/theauth` devDependency as `workspace:*` so local installs still link the workspace copy. Widen the peer range by hand when core ships a release the adapters support (for example, change the upper bound when core reaches 1.0), and give a package a `major` only when its own API breaks.
+
 For changes that touch multiple packages at once, open a Discussion before bumping so the release graph stays consistent.
 
 ---
