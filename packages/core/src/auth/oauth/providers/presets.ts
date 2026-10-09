@@ -46,6 +46,14 @@ export function facebookProvider(
 		authorizationUrl: "https://www.facebook.com/v18.0/dialog/oauth",
 		tokenUrl: "https://graph.facebook.com/v18.0/oauth/access_token",
 		userinfoUrl: "https://graph.facebook.com/me?fields=id,email,name,picture",
+		// Graph API returns `id`, not the OIDC `sub`, and nests the avatar.
+		mapProfile: (raw) => {
+			const id = str(raw.id);
+			const email = str(raw.email);
+			if (!id || !email) return null;
+			const picture = raw.picture as { data?: { url?: unknown } } | undefined;
+			return { id, email, name: str(raw.name), avatar: str(picture?.data?.url) };
+		},
 	});
 }
 
@@ -747,5 +755,266 @@ export function cognitoProvider(
 		authorizationUrl: `${issuer}/oauth2/authorize`,
 		tokenUrl: `${issuer}/oauth2/token`,
 		userinfoUrl: `${issuer}/oauth2/userInfo`,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Self-hosted and identity-platform providers (discovery)
+// ---------------------------------------------------------------------------
+
+function trimUrl(url: string): string {
+	return url.replace(/\/+$/, "");
+}
+
+function str(value: unknown): string | undefined {
+	return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Keycloak OIDC provider.
+ *
+ * @param baseUrl Keycloak origin, e.g. `https://sso.example.com` (add `/auth` for legacy servers).
+ * @param realm Realm name.
+ */
+export function keycloakProvider(
+	baseUrl: string,
+	realm: string,
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "keycloak",
+		name: "Keycloak",
+		issuer: `${trimUrl(baseUrl)}/realms/${encodeURIComponent(realm)}`,
+		clientId,
+		clientSecret,
+		scopes,
+	});
+}
+
+/**
+ * Authentik OIDC provider.
+ *
+ * @param baseUrl Authentik origin, e.g. `https://auth.example.com`.
+ * @param slug Application slug from the provider settings.
+ */
+export function authentikProvider(
+	baseUrl: string,
+	slug: string,
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "authentik",
+		name: "Authentik",
+		issuer: `${trimUrl(baseUrl)}/application/o/${encodeURIComponent(slug)}`,
+		clientId,
+		clientSecret,
+		scopes,
+	});
+}
+
+/**
+ * ZITADEL OIDC provider.
+ *
+ * @param domain Instance domain, e.g. `my-instance.zitadel.cloud`.
+ */
+export function zitadelProvider(
+	domain: string,
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "zitadel",
+		name: "ZITADEL",
+		issuer: `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`,
+		clientId,
+		clientSecret,
+		scopes,
+	});
+}
+
+/**
+ * OneLogin OIDC provider.
+ *
+ * @param subdomain Account subdomain, e.g. `acme` for `acme.onelogin.com`.
+ */
+export function oneloginProvider(
+	subdomain: string,
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "onelogin",
+		name: "OneLogin",
+		issuer: `https://${subdomain}.onelogin.com/oidc/2`,
+		clientId,
+		clientSecret,
+		scopes,
+	});
+}
+
+/**
+ * Gitea / Forgejo OAuth 2.0 provider (self-hosted or gitea.com).
+ *
+ * @param baseUrl Instance origin, e.g. `https://gitea.com`.
+ */
+export function giteaProvider(
+	baseUrl: string,
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	const base = trimUrl(baseUrl);
+	return genericOIDC({
+		id: "gitea",
+		name: "Gitea",
+		issuer: base,
+		clientId,
+		clientSecret,
+		scopes: scopes ?? ["openid", "email", "profile"],
+		authorizationUrl: `${base}/login/oauth/authorize`,
+		tokenUrl: `${base}/login/oauth/access_token`,
+		userinfoUrl: `${base}/login/oauth/userinfo`,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Providers with non-OIDC userinfo (use mapProfile)
+// ---------------------------------------------------------------------------
+
+/**
+ * Patreon OAuth 2.0 (API v2 identity endpoint).
+ *
+ * Docs: https://docs.patreon.com/#oauth
+ */
+export function patreonProvider(
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "patreon",
+		name: "Patreon",
+		issuer: "https://www.patreon.com",
+		clientId,
+		clientSecret,
+		scopes: scopes ?? ["identity", "identity[email]"],
+		authorizationUrl: "https://www.patreon.com/oauth2/authorize",
+		tokenUrl: "https://www.patreon.com/api/oauth2/token",
+		userinfoUrl:
+			"https://www.patreon.com/api/oauth2/v2/identity?fields%5Buser%5D=email,full_name,image_url",
+		mapProfile: (raw) => {
+			const data = raw.data as { id?: unknown; attributes?: Record<string, unknown> } | undefined;
+			const id = str(data?.id);
+			const email = str(data?.attributes?.email);
+			if (!id || !email) return null;
+			return {
+				id,
+				email,
+				name: str(data?.attributes?.full_name),
+				avatar: str(data?.attributes?.image_url),
+			};
+		},
+	});
+}
+
+/**
+ * Box OAuth 2.0.
+ *
+ * Docs: https://developer.box.com/guides/authentication/oauth2/
+ */
+export function boxProvider(
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "box",
+		name: "Box",
+		issuer: "https://account.box.com",
+		clientId,
+		clientSecret,
+		scopes: scopes ?? ["root_readonly"],
+		authorizationUrl: "https://account.box.com/api/oauth2/authorize",
+		tokenUrl: "https://api.box.com/oauth2/token",
+		userinfoUrl: "https://api.box.com/2.0/users/me",
+		mapProfile: (raw) => {
+			const id = str(raw.id);
+			const email = str(raw.login);
+			if (!id || !email) return null;
+			return { id, email, name: str(raw.name), avatar: str(raw.avatar_url) };
+		},
+	});
+}
+
+/**
+ * Yandex ID OAuth 2.0. The userinfo call uses the `OAuth` scheme, not `Bearer`.
+ *
+ * Docs: https://yandex.com/dev/id/doc/en/codes/code-url
+ */
+export function yandexProvider(
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "yandex",
+		name: "Yandex",
+		issuer: "https://oauth.yandex.com",
+		clientId,
+		clientSecret,
+		scopes: scopes ?? ["login:email", "login:info"],
+		authorizationUrl: "https://oauth.yandex.com/authorize",
+		tokenUrl: "https://oauth.yandex.com/token",
+		userinfoUrl: "https://login.yandex.ru/info?format=json",
+		userinfoAuthScheme: "OAuth",
+		mapProfile: (raw) => {
+			const id = str(raw.id);
+			const email = str(raw.default_email);
+			if (!id || !email) return null;
+			const avatarId = str(raw.default_avatar_id);
+			return {
+				id,
+				email,
+				name: str(raw.real_name) ?? str(raw.display_name),
+				avatar: avatarId
+					? `https://avatars.yandex.net/get-yapic/${avatarId}/islands-200`
+					: undefined,
+			};
+		},
+	});
+}
+
+/**
+ * WordPress.com OAuth 2.0.
+ *
+ * Docs: https://developer.wordpress.com/docs/oauth2/
+ */
+export function wordpressProvider(
+	clientId: string,
+	clientSecret: string,
+	scopes?: string[],
+): OAuthProvider {
+	return genericOIDC({
+		id: "wordpress",
+		name: "WordPress.com",
+		issuer: "https://public-api.wordpress.com",
+		clientId,
+		clientSecret,
+		scopes: scopes ?? ["auth"],
+		authorizationUrl: "https://public-api.wordpress.com/oauth2/authorize",
+		tokenUrl: "https://public-api.wordpress.com/oauth2/token",
+		userinfoUrl: "https://public-api.wordpress.com/rest/v1/me",
+		mapProfile: (raw) => {
+			const id = raw.ID !== undefined ? String(raw.ID) : undefined;
+			const email = str(raw.email);
+			if (!id || !email) return null;
+			return { id, email, name: str(raw.display_name), avatar: str(raw.avatar_URL) };
+		},
 	});
 }

@@ -55,6 +55,14 @@ import { theauth, mcp } from './lib/theauth.js';
 
 const app = new Hono();
 
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
 // Mount all TheAuth routes (agents, permissions, audit, MCP OAuth)
 app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 
@@ -143,6 +151,14 @@ const mcp = createMcpModule({
 });
 
 const app = new Hono();
+
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
 
 app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 

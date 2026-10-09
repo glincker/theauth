@@ -1,0 +1,125 @@
+---
+title: DPoP and requireMcpAuth
+description: Bind MCP access tokens to a client key with DPoP (RFC 9449) and protect resource handlers with requireMcpAuth.
+icon: key
+---
+
+A bearer token works for whoever holds it. If an agent's token leaks from a log or a proxy, the thief can call your tools. DPoP closes that gap: the token carries the thumbprint of a key the client holds, and every request has to include a short-lived proof signed with that key.
+
+DPoP is opt-in. Without `dpop` in your MCP config nothing changes.
+
+## Turn it on
+
+```ts
+import { createMcpModule } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: "https://auth.example.com",
+    baseUrl: "https://auth.example.com/api/auth",
+    signingSecret: process.env.MCP_SIGNING_SECRET!,
+    resource: "https://mcp.example.com",
+    dpop: {
+      // required: true,        // refuse unbound tokens everywhere
+      // requireNonce: true,    // server nonces (RFC 9449 section 8 and 9)
+      storage: theauth.storage.for("nonces"), // shared replay cache
+    },
+  },
+  // ...your storage callbacks
+});
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `algs` | ES256, ES384, EdDSA, PS256 | Accepted proof algorithms. |
+| `required` | false | Every token request needs a proof, and resources refuse unbound tokens. |
+| `proofMaxAgeSeconds` | 300 | Oldest accepted `iat`. |
+| `clockSkewSeconds` | 30 | Allowed skew in both directions. |
+| `requireNonce` | false | Proofs must carry a server nonce. |
+| `nonceTtlSeconds` | 300 | Nonce lifetime. |
+| `storage` | in-process memory | Replay cache and nonces. Use a shared store with more than one instance. |
+| `tokenEndpointUrl` | `<baseUrl>/mcp/token` | The `htu` clients sign for the token endpoint. |
+
+Both metadata documents then list `dpop_signing_alg_values_supported`. The protected resource document also sets `dpop_bound_access_tokens_required` when `required` is on.
+
+## What the token endpoint does
+
+When a request carries a `DPoP` header, the endpoint verifies the proof (`typ`, algorithm, public `jwk`, signature, `htm`, `htu`, `iat`, `jti` replay) and issues an access token with `cnf: { jkt }` and `token_type: "DPoP"`. Without a header you get a normal bearer token, unless `required` is set.
+
+The proof is checked before the authorization code is consumed. When `requireNonce` is on and the proof has no valid nonce, the endpoint answers `400 use_dpop_nonce` with a `DPoP-Nonce` header and leaves the code alone, so the client retries with the same code and a fresh proof.
+
+Refresh tokens inherit the binding. A refresh request signed by a different key is refused before the token rotates, so a thief cannot burn the real client's token. Your `storeToken` callback should persist `dpopJkt` from the stored record, otherwise the binding is lost on refresh.
+
+The built-in `createMcpResponseHelpers(...).tokenResponse` and the Hono and Express adapters copy the nonce into the `DPoP-Nonce` header. If you write your own token route, read `result.error.details?.dpopNonce`.
+
+## Protect a handler
+
+`requireMcpAuth` wraps any `(Request) => Response` function. It accepts `Authorization: Bearer` and, with DPoP enabled, `Authorization: DPoP`.
+
+```ts
+import { SignJWT, exportJWK, generateKeyPair } from "jose";
+
+// Resource server
+const tools = mcp.requireMcpAuth(
+  async (request, principal) => {
+    return Response.json({
+      user: principal.userId,
+      agent: principal.agent?.id ?? null,
+      chain: principal.delegationChain,
+      scheme: principal.scheme,
+    });
+  },
+  { requiredScopes: ["mcp:read"] },
+);
+
+// Works anywhere that speaks Web Request/Response, for example Hono:
+// app.all("/tools", (c) => tools(c.req.raw));
+
+// Client side: sign a proof for one request.
+async function dpopProof(
+  keys: Awaited<ReturnType<typeof generateKeyPair>>,
+  method: string,
+  url: string,
+  accessToken?: string,
+) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(accessToken ?? ""));
+  const ath = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return new SignJWT({ htm: method, htu: url, jti: crypto.randomUUID(), ...(accessToken ? { ath } : {}) })
+    .setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk: await exportJWK(keys.publicKey) })
+    .setIssuedAt()
+    .sign(keys.privateKey);
+}
+```
+
+The client sends `Authorization: DPoP <token>` plus `DPoP: <proof>` where the proof is signed for the exact method and URL and includes `ath`, the base64url SHA-256 of the token. Use a new `jti` every time.
+
+### What gets checked
+
+- Token: signature, issuer, expiry, audience against `expectedAudience` or `McpConfig.resource`, the jti denylist.
+- Proof: `htm`, `htu` (query and fragment ignored), `iat` window, `ath`, nonce, `jti` not seen before, and the proof key matching `cnf.jkt`.
+- Bearer downgrade: a bound token sent as `Bearer` is refused. This also covers `validateToken`, `middleware`, `withMcpAuth` and `requireScopes`.
+- A `DPoP` scheme request carrying an unbound token is refused.
+- Scopes: a shortfall returns 403 `insufficient_scope`.
+
+Options: `requiredScopes`, `expectedAudience`, `resourceUrl` (the public URL clients sign, for proxies), `resourceMetadataUrl`, `requireDpop`, `requireNonce`.
+
+### Challenges
+
+With no credentials the response is 401 with `Bearer resource_metadata="..."` and, if DPoP is on, a second `DPoP algs="ES256 ...", resource_metadata="..."` header. Bad tokens return `error="invalid_token"`, bad proofs `error="invalid_dpop_proof"`, and a missing nonce `error="use_dpop_nonce"` with a `DPoP-Nonce` header. The `resource_metadata` URL points at the RFC 9728 document so MCP clients can find your authorization server.
+
+### The principal
+
+| Field | Source |
+| --- | --- |
+| `userId`, `clientId`, `scopes`, `resource`, `tokenId`, `expiresAt` | Token claims |
+| `agent` | `agent_id`, `agent_type`, `trust_tier` (needs `emitAgenticJwtClaims`) |
+| `delegationChain` | Nested RFC 8693 `act` claims, current actor first |
+| `scheme`, `dpopJkt` | How the caller authenticated |
+
+## Limits
+
+- The replay cache is only as strict as its store. Cloudflare KV is not atomic, so two simultaneous replays can both pass. Use Redis or the database store when that matters.
+- The `dpop_jkt` authorization request parameter (binding the code to a key up front) is not implemented. The binding starts at the token request.
+- Unbound refresh tokens issued before you enabled DPoP are bound to whatever key first refreshes them. Rotate them out by setting `required` after a refresh cycle.

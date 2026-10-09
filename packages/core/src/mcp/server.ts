@@ -4,6 +4,7 @@ import { getJwks } from "./keys.js";
 import { createInMemoryTokenFamilyStore } from "./memory-stores.js";
 import { getAuthorizationServerMetadata, getProtectedResourceMetadata } from "./metadata.js";
 import { registerClient } from "./registration.js";
+import { requireMcpAuth } from "./require-mcp-auth.js";
 import { requireScopes } from "./require-scopes.js";
 import { handleRevocation } from "./revocation.js";
 import { buildStepUpResponse } from "./step-up.js";
@@ -191,6 +192,8 @@ export function createMcpModule(params: {
 		}) => buildStepUpResponse(ctx, options),
 
 		requireScopes: (request: Request, scopes: string[]) => requireScopes(ctx, request, scopes),
+
+		requireMcpAuth: (handler, options) => requireMcpAuth(ctx, handler, options),
 	};
 }
 
@@ -204,7 +207,7 @@ export function createMcpResponseHelpers(ctx: McpAuthContext) {
 	const corsHeaders = {
 		"Access-Control-Allow-Origin": "*",
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type, Authorization",
+		"Access-Control-Allow-Headers": "Content-Type, Authorization, DPoP",
 		"Access-Control-Max-Age": "86400",
 	};
 
@@ -307,6 +310,7 @@ export function createMcpResponseHelpers(ctx: McpAuthContext) {
 		tokenResponse: (result: Result<unknown>): Response => {
 			if (!result.success) {
 				const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
+				const nonce = result.error.details?.dpopNonce;
 				return new Response(
 					JSON.stringify({
 						error: result.error.code.toLowerCase(),
@@ -319,6 +323,8 @@ export function createMcpResponseHelpers(ctx: McpAuthContext) {
 							"Cache-Control": "no-store",
 							Pragma: "no-cache",
 							...corsHeaders,
+							"Access-Control-Expose-Headers": "DPoP-Nonce",
+							...(typeof nonce === "string" ? { "DPoP-Nonce": nonce } : {}),
 						},
 					},
 				);

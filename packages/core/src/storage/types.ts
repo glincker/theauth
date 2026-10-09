@@ -46,6 +46,7 @@ export const SECONDARY_STORAGE_FEATURES = [
 	"oneTimeTokens",
 	"nonces",
 	"sessionsCache",
+	"tokenVault",
 ] as const;
 
 export type SecondaryStorageFeature = (typeof SECONDARY_STORAGE_FEATURES)[number];

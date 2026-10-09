@@ -20,7 +20,7 @@
  */
 
 import { and, eq, gt, lt, sql } from "drizzle-orm";
-import { generateId, sha256 } from "../crypto/web-crypto.js";
+import { constantTimeEqual, fromHex, generateId, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { emailOtps, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
@@ -39,11 +39,16 @@ export interface EmailOtpConfig {
 	codeExpiry?: number;
 	/** Max verification attempts before the code is invalidated (default: 5) */
 	maxAttempts?: number;
+	/**
+	 * Minimum seconds between sends to the same address (default: 0, disabled).
+	 * A send inside the window returns `{ sent: false, retryAfter }`.
+	 */
+	resendCooldownSeconds?: number;
 }
 
 export interface EmailOtpModule {
 	/** Send a one-time code to the email. */
-	sendCode: (email: string) => Promise<{ sent: boolean }>;
+	sendCode: (email: string) => Promise<{ sent: boolean; retryAfter?: number }>;
 	/**
 	 * Verify an OTP code for the given email.
 	 * Returns null when the code is wrong, expired, or max attempts exceeded.
@@ -109,6 +114,7 @@ export function createEmailOtpModule(
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
 	const codeExpiry = config.codeExpiry ?? DEFAULT_CODE_EXPIRY_SECONDS;
 	const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+	const resendCooldown = config.resendCooldownSeconds ?? 0;
 
 	// ── helpers ─────────────────────────────────────────────────────────────
 
@@ -134,8 +140,18 @@ export function createEmailOtpModule(
 
 	// ── public API ───────────────────────────────────────────────────────────
 
-	async function sendCode(rawEmail: string): Promise<{ sent: boolean }> {
+	async function sendCode(rawEmail: string): Promise<{ sent: boolean; retryAfter?: number }> {
 		const email = normalizeEmail(rawEmail);
+		if (resendCooldown > 0) {
+			const prior = await db.select().from(emailOtps).where(eq(emailOtps.email, email));
+			const last = prior[0];
+			if (last) {
+				const wait = Math.ceil(
+					(last.createdAt.getTime() + resendCooldown * 1000 - Date.now()) / 1000,
+				);
+				if (wait > 0) return { sent: false, retryAfter: wait };
+			}
+		}
 		const code = generateNumericCode(codeLength);
 		const now = new Date();
 		const expiresAt = new Date(now.getTime() + codeExpiry * 1000);
@@ -185,7 +201,9 @@ export function createEmailOtpModule(
 			.returning({ id: emailOtps.id });
 		if (!reserved[0]) return null;
 
-		if ((await hashCode(code)) !== record.codeHash) return null;
+		const given = fromHex(await hashCode(code));
+		const stored = fromHex(record.codeHash);
+		if (!constantTimeEqual(given, stored)) return null;
 
 		// Correct code: delete returns the row only to the one caller that removed it.
 		const consumed = await db
@@ -235,8 +253,11 @@ export function createEmailOtpModule(
 			const email = normalizeEmail(String((body as Record<string, unknown>).email));
 			const result = await sendCode(email);
 			return new Response(JSON.stringify(result), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
+				status: result.sent ? 200 : 429,
+				headers: {
+					"Content-Type": "application/json",
+					...(result.retryAfter !== undefined ? { "Retry-After": String(result.retryAfter) } : {}),
+				},
 			});
 		}
 

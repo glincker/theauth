@@ -737,6 +737,8 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 					},
 					status,
 				);
+				const nonce = result.error.details?.dpopNonce;
+				if (typeof nonce === "string") res.headers.set("DPoP-Nonce", nonce);
 				return c.newResponse(res.body, res);
 			}
 			const successRes = mcpNoStore(result.data);

@@ -698,6 +698,8 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			.then((result) => {
 				if (!result.success) {
 					const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
+					const nonce = result.error.details?.dpopNonce;
+					if (typeof nonce === "string") res.setHeader("DPoP-Nonce", nonce);
 					sendMcpNoStore(
 						res,
 						{

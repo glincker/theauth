@@ -139,7 +139,20 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 
 ## Auto-migration
 
-By default, theAuth calls `CREATE TABLE IF NOT EXISTS` for all its tables on startup. This is safe to run on every start, but it only creates missing tables, it does not alter existing ones. This means your database is always ready to use without any manual migration step.
+By default, theAuth calls `CREATE TABLE IF NOT EXISTS` at startup for the tables your config needs. This is safe to run on every start, but it only creates missing tables, it does not alter existing ones. There is no manual migration step for a new project.
+
+Tables are created per feature, so a small config gives you a small schema. Users and the secondary storage table are always created. Everything else depends on the config:
+
+| Config | Tables created |
+|--------|----------------|
+| `agents` (or `did`) | agents, permissions, delegation chains, agent cards, approval requests, trust scores, registration tokens, DIDs, ephemeral sessions, tenants, audit logs, cost and stream events, rate limits, budget policies, ReBAC |
+| `auth.session` | sessions, trusted devices, login history, JWT refresh tokens and token families |
+| `mcp` | MCP servers |
+| `oauth()` plugin | OAuth accounts and states, plus OAuth client, token and code tables |
+| `magicLink`, `emailOtp`, `totp`, `passkey`, `username`, `phone`, `org`, `sso`, `apiKeys` | The matching table(s), whether you use the config key or the plugin form (for example `plugins: [magicLink(...)]`) |
+| `passwordReset`, `magicLink`, `emailOtp` | One-time tokens |
+
+If you add a feature later, restart once and the new tables appear. Add `agents: { enabled: true }` if you use agents, since agent tables are not created without it. The `@glinr/theauth-email` plugin creates its own `theauth_email_accounts` table.
 
 To disable this (e.g. when you manage migrations externally with Flyway, Liquibase, or `drizzle-kit push`), set `skipMigrations: true`:
 
@@ -157,10 +170,11 @@ database: {
 
 ## Schema overview
 
-theAuth creates the following tables in your database:
+The full set of tables theAuth can create is below. Which ones exist in your database depends on your config, see above.
 
 | Table | Purpose |
 |-------|---------|
+| `theauth_secondary_storage` | Key/value rows used when `secondaryStorage: 'database'` (counters, device codes) |
 | `theauth_users` | Human user identities (also holds ban, Stripe and Polar billing fields) |
 | `theauth_tenants` | Multi-tenant isolation |
 | `theauth_agents` | AI agent identities (the core entity) |
@@ -172,6 +186,8 @@ theAuth creates the following tables in your database:
 | `theauth_sessions` | theAuth-managed human user sessions |
 | `theauth_oauth_clients`, `theauth_oauth_access_tokens`, `theauth_oauth_authorization_codes` | OAuth 2.1 client registrations, issued tokens, and short-lived PKCE codes |
 | `theauth_agent_cards` | A2A capability discovery cards |
+| `theauth_agent_registration_tokens` | One-time tokens for [agent registration](/agent-registration-tokens) |
+| `theauth_oauth_accounts`, `theauth_oauth_states` | Linked social accounts and in-flight OAuth state (`oauth()` plugin) |
 | `theauth_approval_requests` | CIBA async approval flow records |
 | `theauth_trust_scores` | Graduated autonomy trust scores per agent |
 | `theauth_budget_policies` | Token and call budget caps per agent/user/tenant |

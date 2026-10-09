@@ -1,5 +1,7 @@
 import type { JWK } from "jose";
 import { z } from "zod";
+import type { McpDpopConfig } from "./dpop-types.js";
+import type { McpProtectedHandler, RequireMcpAuthOptions } from "./require-mcp-auth.js";
 import type { DnsResolver } from "./safe-fetch.js";
 
 // ─── Result Type ────────────────────────────────────────────────────────────
@@ -54,6 +56,13 @@ export interface McpConfig {
 	 * `validateAccessToken` even though they are still validly signed.
 	 */
 	jtiDenylist?: McpJtiDenylist;
+	/**
+	 * Opt in to DPoP (RFC 9449). When set, the token endpoint accepts a `DPoP`
+	 * proof and issues `cnf.jkt`-bound tokens, `requireMcpAuth` accepts the
+	 * `DPoP` scheme, and metadata advertises the supported algorithms. Off by
+	 * default; bearer tokens keep working unless `required` is true.
+	 */
+	dpop?: McpDpopConfig;
 	/**
 	 * Refresh token family store used for rotation and reuse detection. Defaults
 	 * to an in-process store (single instance only). Pass
@@ -181,6 +190,8 @@ export interface McpServerMetadata {
 	/** RFC 9207: the authorization response carries an `iss` parameter. */
 	authorization_response_iss_parameter_supported?: boolean;
 	client_id_metadata_document_supported?: boolean;
+	/** RFC 9449 section 5.1: JWS algorithms accepted for DPoP proofs. */
+	dpop_signing_alg_values_supported?: string[];
 }
 
 // ─── Protected Resource Metadata (RFC 9728) ─────────────────────────────────
@@ -192,6 +203,10 @@ export interface McpProtectedResourceMetadata {
 	scopes_supported: string[];
 	bearer_methods_supported: string[];
 	resource_signing_alg_values_supported?: string[];
+	/** RFC 9728: JWS algorithms accepted for DPoP proofs. */
+	dpop_signing_alg_values_supported?: string[];
+	/** RFC 9728: true when this resource refuses tokens that are not DPoP-bound. */
+	dpop_bound_access_tokens_required?: boolean;
 }
 
 // ─── OAuth Client (RFC 7591 Dynamic Client Registration) ────────────────────
@@ -308,7 +323,12 @@ export interface McpAccessToken {
 	jti?: string;
 	/** Refresh token family, used for reuse detection (RFC 9700). */
 	familyId?: string;
-	tokenType: "Bearer";
+	tokenType: "Bearer" | "DPoP";
+	/**
+	 * RFC 7638 thumbprint of the DPoP key this grant is bound to. Persist it:
+	 * the refresh grant refuses any other key. Absent for bearer grants.
+	 */
+	dpopJkt?: string;
 	expiresIn: number;
 	scope: string[];
 	clientId: string;
@@ -334,7 +354,7 @@ export interface McpTokenRequest {
 
 export interface McpTokenResponse {
 	access_token: string;
-	token_type: "Bearer";
+	token_type: "Bearer" | "DPoP";
 	expires_in: number;
 	refresh_token?: string;
 	scope: string;
@@ -351,6 +371,26 @@ export interface McpTokenPayload {
 	jti: string;
 	scope: string;
 	client_id: string;
+	/** RFC 9449 confirmation claim: `jkt` is the bound key thumbprint. */
+	cnf?: { jkt?: string };
+	agent_id?: string;
+	agent_type?: string;
+	trust_tier?: string;
+	/** RFC 8693 actor claim, nested for a delegation chain. */
+	act?: McpActorClaim;
+}
+
+/** RFC 8693 `act` claim. Each level names an actor and may nest the previous one. */
+export interface McpActorClaim {
+	sub?: string;
+	client_id?: string;
+	act?: McpActorClaim;
+}
+
+/** One hop of a delegation chain, outermost (current) actor first. */
+export interface McpDelegationHop {
+	sub: string;
+	clientId?: string;
 }
 
 export interface McpSession {
@@ -360,6 +400,12 @@ export interface McpSession {
 	resource: string | null;
 	expiresAt: Date;
 	tokenId: string;
+	/** Thumbprint of the DPoP key the token is bound to, when it is bound. */
+	dpopJkt?: string;
+	/** Agent identity claims, when the token carries them. */
+	agent?: { id: string; type?: string; trustTier?: string };
+	/** Delegation chain from `act` claims, current actor first. Empty when none. */
+	delegationChain?: McpDelegationHop[];
 }
 
 // ─── MCP Auth Context (passed to all handler functions) ─────────────────────
@@ -455,6 +501,14 @@ export interface McpAuthModule {
 		requiredScopes: string[];
 		resource?: string;
 	}) => Response;
+	/**
+	 * Wrap a Web API handler so it only runs for a valid Bearer or DPoP token.
+	 * The handler receives the verified principal. See `requireMcpAuth`.
+	 */
+	requireMcpAuth: (
+		handler: McpProtectedHandler,
+		options?: RequireMcpAuthOptions,
+	) => (request: Request) => Promise<Response>;
 	/** Validate token and check scopes. Returns session if valid, or a Response to send back */
 	requireScopes: (
 		request: Request,

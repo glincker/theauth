@@ -74,6 +74,7 @@ npx @glinr/theauth-gateway \
 | `--no-audit` | false | Disable audit trail recording |
 
 `--strip-auth` is the only way to strip the header from the CLI: the `stripAuthHeader` key in `gateway.json` is read but overridden by the flag's default of `false`. `audit` in the file works, and `--no-audit` overrides it.
+
 ### gateway.json
 
 For more control, put your config in a JSON file and pass it with `--config`:

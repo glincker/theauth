@@ -1,0 +1,35 @@
+---
+title: Email adapters
+description: Resend, Amazon SES, Postmark, SendGrid and SMTP providers behind one interface, with a console provider for development.
+icon: envelope
+---
+
+Every provider implements `send({ to, subject, html, text?, from?, replyTo? })` and returns `{ id }`. They use plain `fetch`, so they run on edge runtimes. SMTP needs Node.
+
+```typescript
+import { resend, ses, postmark, sendgrid, smtp } from '@glinr/theauth/auth';
+
+const mail = resend({ apiKey: process.env.RESEND_API_KEY!, from: 'Acme <auth@acme.dev>' });
+
+const viaSes = ses({
+  region: 'us-east-1',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  sessionToken: process.env.AWS_SESSION_TOKEN, // optional, for temporary credentials
+  from: 'auth@acme.dev',
+});
+
+const viaPostmark = postmark({ serverToken: process.env.POSTMARK_SERVER_TOKEN!, from: 'auth@acme.dev' });
+```
+
+## Amazon SES
+
+`ses` calls the SES v2 `SendEmail` API and signs the request with SigV4 using Web Crypto, so the AWS SDK is not needed. The `from` address must be a verified SES identity, and the account must be out of the SES sandbox to send to arbitrary recipients. Set `endpoint` to point at LocalStack.
+
+## Postmark
+
+`postmark` uses the `outbound` message stream by default. Set `messageStream` for a transactional stream you created. The `from` address needs a confirmed sender signature.
+
+## Using them for OTP
+
+`emailOtpSender(provider)` turns any of these into a sender for the [unified OTP service](/auth/otp).

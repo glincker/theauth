@@ -52,6 +52,14 @@ import { theauth, mcp } from './lib/theauth.js';
 
 const app = Fastify();
 
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
 // Use Fastify's prefix option to set the mount path
 await app.register(theAuthFastify(theauth, { mcp, authenticate }), {
   prefix: '/api/theauth',
@@ -126,6 +134,14 @@ const mcp = createMcpModule({
 });
 
 const app = Fastify({ logger: true });
+
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
 
 await app.register(theAuthFastify(theauth, { mcp, authenticate }), {
   prefix: '/api/theauth',

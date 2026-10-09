@@ -100,6 +100,7 @@ export type {
 	TokenValidationResult,
 	UpdateAgentInput,
 } from "./types.js";
+export * from "./vault/index.js";
 export * from "./vc/index.js";
 // Webhooks
 export type {

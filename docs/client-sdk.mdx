@@ -35,7 +35,7 @@ const client = createTheAuthClient({
 ```
 
 <ParamField path="baseUrl" type="string">Base URL for the theAuth API, without a trailing slash.</ParamField>
-<ParamField path="token" type="string" default="undefined">Bearer token sent as `Authorization: Bearer <token>` on every request.</ParamField>
+<ParamField path="token" type="string" default="undefined">Bearer token sent as `Authorization: Bearer <token>` on every request. The adapters protect `/agents`, `/delegations`, `/audit` and `POST /authorize`, so this must be a credential your adapter's `authenticate` function accepts (a theAuth session token when you rely on `auth.session`). An agent token is not accepted there. See [Adapters](/adapters#authenticate-the-management-routes).</ParamField>
 <ParamField path="headers" type={`Record<string, string>`} default="{}">Extra headers merged into every request. Useful for API gateways that require custom headers.</ParamField>
 
 ## Agents
