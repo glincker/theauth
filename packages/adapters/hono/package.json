@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-hono",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Hono adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",

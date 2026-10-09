@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-email",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Email and password authentication for TheAuth",
   "type": "module",
   "main": "dist/index.js",

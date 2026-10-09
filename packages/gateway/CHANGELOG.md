@@ -1,5 +1,22 @@
 # @glinr/theauth-gateway
 
+## 5.0.0
+
+### Patch Changes
+
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [36f15a3]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [4e37e17]
+- Updated dependencies [20aafa0]
+  - @glinr/theauth@0.7.0
+
 ## 4.0.0
 
 ### Minor Changes
