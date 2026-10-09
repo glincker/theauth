@@ -1,0 +1,107 @@
+---
+title: Coexist with your IdP
+description: Accept tokens from Auth0, Keycloak, Clerk or any OIDC provider next to theAuth, so you can add agent auth and MCP OAuth without touching your login.
+icon: arrows-left-right
+---
+
+Your users sign in with Auth0 (or Keycloak, or Clerk). You want agents, delegation and an MCP OAuth server, and you do not want to move the login to get them. Configure the provider as an external issuer. theAuth verifies its tokens and maps each subject to a theAuth identity.
+
+## Configure an issuer
+
+```ts
+import { createExternalIssuers, issuerPresets } from "@glinr/theauth/migrate";
+
+const issuers = createExternalIssuers([
+  issuerPresets.auth0("your-tenant.eu.auth0.com", "https://api.yourapp.com"),
+  issuerPresets.keycloak("https://sso.yourapp.com", "main", "yourapp-api"),
+  // Any OIDC provider:
+  {
+    name: "okta",
+    issuer: "https://yourorg.okta.com/oauth2/default",
+    audience: "api://yourapp",
+    jwksUri: "https://yourorg.okta.com/oauth2/default/v1/keys",
+    algorithms: ["RS256"],
+  },
+]);
+
+const result = await issuers.verify(bearerToken);
+if (result.success) {
+  const { issuer, subject, email, emailVerified } = result.data;
+}
+```
+
+What gets checked, every time:
+
+- `iss` must equal a configured issuer exactly. Unknown issuers are rejected before any key is fetched.
+- `aud` must contain one of your configured audiences. There is no default, an empty audience is a configuration error.
+- The algorithm must be in the allowlist (default `RS256`). `none` and HMAC algorithms are refused at startup, which closes the classic key confusion attack.
+- `exp`, `sub` and `iss` are required. `nbf` and `exp` allow 30 seconds of clock skew by default.
+- The JWKS URL must be https.
+
+Failures come back as codes you can log: `ISSUER_NOT_ALLOWED`, `CLAIM_REJECTED` (issuer or audience), `TOKEN_EXPIRED`, `ALG_REJECTED`, `SIGNATURE_INVALID`, `KEY_NOT_FOUND`, `TOKEN_MALFORMED`.
+
+### Key caching and rotation
+
+Keys are cached per issuer for 10 minutes (`jwksTtlSec`). When a token arrives with a `kid` you have not seen, theAuth refetches once, then waits at least 30 seconds (`refetchCooldownSec`) before it will refetch again. That handles a provider rotating keys, and stops someone sending random `kid` values from turning your service into a request cannon against your IdP.
+
+## Map people to theAuth identities on first sight
+
+Opt in to just in time provisioning:
+
+```ts
+import { createLoginOnboarding, createRollout, createDbMigrationStore } from "@glinr/theauth/migrate";
+
+const onboarding = createLoginOnboarding({
+  issuers,
+  store: await createDbMigrationStore(db),
+  rollout: createRollout({ percent: 100, salt: process.env.ROLLOUT_SALT! }),
+  jit: true,
+});
+
+const outcome = await onboarding.onLogin({ token: bearerToken });
+// outcome.userId is the theAuth user for this Auth0 subject
+```
+
+- The account is keyed on (issuer name, subject). Seeing the same subject again returns the same user.
+- If a theAuth account already has that email, nothing is linked by default. Set `linkVerifiedEmail: true` to link, and it only happens when the provider says `email_verified: true`. Never turn this on for a provider that lets users type an unverified email.
+- To create an agent identity instead of a user, pass `provision: async (identity) => ({ id: await createMyAgent(identity) })`.
+
+`onLogin` never throws and never blocks a login. See [Run both and migrate as users log in](/migrate/run-both-and-migrate).
+
+## Cut over one route or tenant at a time
+
+```ts
+const rollout = createRollout({ percent: 25, salt: process.env.ROLLOUT_SALT! });
+const resolve = rollout.cutover({
+  "/agents": "theauth",   // fully moved
+  "/login": "rollout",    // follows the percentage
+  "/billing": "incumbent",
+});
+
+const { system } = await resolve("/agents", { id: userId, tenantId });
+```
+
+Routes you do not list use the fallback (`incumbent`). Setting `percent` to 0 sends every route, fully moved ones included, back to the incumbent.
+
+## Shadow mode
+
+Before you move a decision, run both and compare.
+
+```ts
+import { createShadow, simulatorDecider } from "@glinr/theauth/migrate";
+
+const shadow = createShadow({
+  incumbent: (req) => askAuth0Rules(req),            // returns "allow" | "deny" | "needs_approval"
+  theauth: simulatorDecider(theauth.simulator, (req) => ({
+    agentId: req.agentId,
+    action: req.action,
+    resource: req.resource,
+  })),
+  label: (req) => req.route,                          // keep personal data out of labels
+  onDifference: (d) => logger.warn("auth.shadow.diff", d),
+});
+
+const { decision } = await shadow.evaluate(req);      // act on this, it is the incumbent's answer
+```
+
+The theAuth side uses the [simulator](/simulator), which has no side effects. Its answer is compared and logged, never returned as the decision. If the simulator throws, you see an error count in `shadow.stats()` and the caller sees nothing.

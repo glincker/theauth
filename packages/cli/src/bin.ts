@@ -10,6 +10,7 @@ import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from 
 import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
 import { runInit } from "./init.js";
+import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
 import {
 	parseSimulateArgs,
 	runPermissions,
@@ -43,7 +44,7 @@ Usage:
 Commands:
   init          Initialize TheAuth in your project (--agent for coding assistants)
   mcp           Start the stdio MCP server for coding assistants
-  migrate       Run database migrations
+  migrate       Move users from Auth0, Keycloak, Clerk and more (plan, import, verify, status)
   dashboard     Launch the admin dashboard
   codemod       Source migrations (theauth codemod rename)
   login         Sign in with the device flow (RFC 8628)
@@ -107,12 +108,20 @@ async function handleInit(): Promise<void> {
 	}
 }
 
-async function handleMigrate(): Promise<void> {
-	stdout.write("\nTheAuth Database Migration\n");
-	stdout.write("==========================\n\n");
-	stdout.write("Migration support coming in v0.1.0.\n");
-	stdout.write("For now, tables are auto-created on first run.\n\n");
-	stdout.write("See: https://theauth.dev/docs/quickstart\n\n");
+async function handleMigrateCommand(): Promise<void> {
+	const parsed = parseMigrateArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(MIGRATE_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${MIGRATE_HELP}`);
+		exit(1);
+		return;
+	}
+	const result = await runMigrate(parsed, process.env);
+	stdout.write(result.output);
+	if (result.code !== 0) exit(result.code);
 }
 
 async function handleDashboard(): Promise<void> {
@@ -299,7 +308,7 @@ async function main(): Promise<void> {
 			await serveStdio(stdin, stdout, { cwd: process.cwd() }, VERSION);
 			break;
 		case "migrate":
-			await handleMigrate();
+			await handleMigrateCommand();
 			break;
 		case "dashboard":
 			await handleDashboard();

@@ -1,0 +1,119 @@
+---
+title: Import users
+description: Bring users and password hashes from Auth0, Keycloak, Clerk, Better Auth, Auth.js or any CSV into theAuth, with a dry run first.
+icon: file-import
+---
+
+You have an export from another system and want those users in theAuth without anyone noticing. The importer reads the export, shows you what it would do, and only writes when you say so. Running it twice changes nothing the second time.
+
+## The short version
+
+```bash
+# 1. What would happen? Reads the file, touches no database.
+theauth migrate plan --from auth0 ./users.json --hashes ./password-hashes.ndjson
+
+# 2. Same check against your real database, still no writes.
+theauth migrate import --from auth0 ./users.json --hashes ./password-hashes.ndjson --db ./theauth.db
+
+# 3. Write.
+theauth migrate import --from auth0 ./users.json --hashes ./password-hashes.ndjson --db ./theauth.db --apply
+
+# 4. Compare counts, and check one real login.
+THEAUTH_MIGRATE_PASSWORD='the-sample-users-password' \
+  theauth migrate verify --from auth0 ./users.json --db ./theauth.db --sample-email someone@yourcompany.com
+```
+
+The CLI works with SQLite. For Postgres or MySQL, call `importUsers` from a script with your own `MigrationStore`, shown at the end of this page.
+
+Reports contain counts, source ids and error codes. They never contain emails, names or hashes.
+
+## What each source gives you
+
+### Auth0
+
+You have a user export from the Management API (a JSON array) and, if you asked Auth0 support for it, a password hash export (one JSON object per line, bcrypt hashes).
+
+- Maps: `user_id`, `email`, `email_verified`, `name`, social identities as linked accounts, `user_metadata` and `app_metadata` into metadata.
+- Hashes: matched to users by email. bcrypt only.
+- Gaps: Auth0 does not include hashes in the normal export. Without the support-provided file, users reset on first login.
+
+### Keycloak
+
+You have a realm export with users.
+
+- Maps: id, username, email, `emailVerified`, first and last name, federated identities as linked accounts.
+- Hashes: `pbkdf2-sha256`, `pbkdf2-sha512` and `pbkdf2` (SHA-1), in both the current `secretData` form and the older `hashedSaltedValue` form. Iteration count is kept per user.
+- Gaps: other credential types (OTP, WebAuthn) are not imported. A user with an unsupported password algorithm is imported without a hash and listed in the report.
+
+### Clerk
+
+You have the dashboard CSV export, or users fetched from the Backend API as JSON.
+
+- Maps: id, names, username, primary email, and whether that email is in the verified list.
+- Hashes: `password_digest` when it is bcrypt or argon2.
+- Gaps: other hashers are reported as `UNSUPPORTED_HASHER`. Clerk's export does not carry social connections, so users reconnect on first social sign-in.
+
+### Better Auth
+
+You have a dump of the `user` and `account` tables as JSON (`{"user": [...], "account": [...]}`).
+
+- Maps: user fields, and non-credential accounts as linked accounts.
+- Hashes: the credential account's `password` column, which Better Auth stores as `salt:key` using scrypt (N 16384, r 16, p 1). The importer reads that layout, including the NFKC normalisation Better Auth applies to passwords.
+- Check it: run `migrate verify --sample-email` with a real account before you trust the whole batch. The layout comes from Better Auth's source, and a mismatch would show up there.
+
+### Auth.js (NextAuth)
+
+You have a dump of the adapter tables (`users`, `accounts`, optionally `sessions`).
+
+- Maps: users, and accounts as linked accounts. Sessions are not imported, users sign in once more.
+- Hashes: Auth.js has no password column. If your Credentials provider keeps a bcrypt `password` column on users, it is picked up.
+
+### Anything else (CSV or JSON)
+
+Point the importer at your column names:
+
+```bash
+theauth migrate plan --from generic ./users.csv --map externalId=uid,email=mail,emailVerified=verified,name=full_name,passwordHash=pw
+```
+
+bcrypt and argon2 hashes are recognised by their prefix. Anything else is listed as `UNSUPPORTED_HASH` and the user is imported without a hash.
+
+## From code
+
+```ts
+import { createDbMigrationStore, importUsers } from "@glinr/theauth/migrate";
+import { createDatabase, createTables } from "@glinr/theauth";
+import { createReadStream } from "node:fs";
+
+const db = await createDatabase({ provider: "sqlite-native", url: "./theauth.db" });
+await createTables(db, "sqlite");
+const store = await createDbMigrationStore(db);
+
+const result = await importUsers({
+  source: "keycloak",
+  stream: createReadStream("./realm-export.json", "utf8"),
+  store,
+  dryRun: true,        // the default
+  onConflict: "skip",  // or "update" to adopt an existing account by email, or "fail"
+});
+
+if (result.success) {
+  const { created, skipped, conflicts, errors, diff } = result.data;
+}
+```
+
+`importUsers` returns a `Result`. `diff` has one entry per record with `action` (`create`, `skip`, `update`, `conflict`, `error`) and a reason code.
+
+### Conflicts and idempotency
+
+- A user already imported from the same source with the same id is skipped. That is what makes a re-run safe.
+- A user whose email already belongs to a different account is a conflict. `skip` leaves it and counts it, `update` links the export record to the existing account, `fail` stops at the first one.
+- Records missing an id or an email are counted as errors with a row number and no content.
+
+### Your own database
+
+Implement `MigrationStore` (eight small methods: find by source id, find by email, create, update, get and set password hash, record and list migrations) and pass it as `store`. `createMemoryMigrationStore()` is a reference implementation.
+
+## Where hashes go
+
+Imported hashes are stored as text in the username account table, in a self describing string. Nothing is logged. They are checked and replaced on first login, see [Lazy password migration](/migrate/lazy-passwords).

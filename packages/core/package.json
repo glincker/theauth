@@ -31,6 +31,11 @@
       "import": "./dist/permission/index.js",
       "default": "./dist/permission/index.js"
     },
+    "./migrate": {
+      "types": "./dist/migrate/index.d.ts",
+      "import": "./dist/migrate/index.js",
+      "default": "./dist/migrate/index.js"
+    },
     "./audit": {
       "types": "./dist/audit/index.d.ts",
       "import": "./dist/audit/index.js",
