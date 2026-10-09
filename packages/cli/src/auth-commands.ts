@@ -39,7 +39,10 @@ export function parseAuthArgs(args: string[]): AuthArgs {
 	return out;
 }
 
-async function resolveServer(explicit: string | undefined, required: boolean): Promise<string> {
+export async function resolveServer(
+	explicit: string | undefined,
+	required: boolean,
+): Promise<string> {
 	const given = explicit ?? process.env.THEAUTH_URL;
 	if (given) return serverKey(given);
 	const saved = await listServers();

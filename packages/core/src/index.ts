@@ -77,6 +77,7 @@ export * from "./plugin/index.js";
 export * from "./policies/index.js";
 export * from "./redirect/index.js";
 export * from "./session/index.js";
+export * from "./simulator/index.js";
 export * from "./tenant/index.js";
 export type { Auth, TheAuth } from "./theauth.js";
 export { createAuth, createTheAuth } from "./theauth.js";

@@ -10,6 +10,12 @@ import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
 import { runInit } from "./init.js";
 import {
+	parseSimulateArgs,
+	runPermissions,
+	runSimulate,
+	SIMULATE_HELP,
+} from "./simulate-commands.js";
+import {
 	COMPLETIONS_HELP,
 	DOCTOR_HELP,
 	formatDoctor,
@@ -42,6 +48,8 @@ Commands:
   login         Sign in with the device flow (RFC 8628)
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
+  simulate      Ask what an agent could do, no side effects (--json)
+  permissions   Show an agent's effective permissions (--json)
   doctor        Check your setup for common mistakes (--json)
   secret        Generate random secrets (--env NAME, --json)
   completions   Print shell completions (bash, zsh, fish)
@@ -229,6 +237,21 @@ function handleCompletions(): void {
 	stdout.write(script);
 }
 
+async function handleSimulate(command: "simulate" | "permissions"): Promise<void> {
+	const parsed = parseSimulateArgs(argv.slice(3), command);
+	if (parsed.help) {
+		stdout.write(SIMULATE_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${SIMULATE_HELP}`);
+		exit(1);
+		return;
+	}
+	const code = command === "simulate" ? await runSimulate(parsed) : await runPermissions(parsed);
+	if (code !== 0) exit(code);
+}
+
 async function main(): Promise<void> {
 	const args = argv.slice(2);
 	const command = args[0];
@@ -273,6 +296,10 @@ async function main(): Promise<void> {
 		case "logout":
 		case "whoami":
 			await handleAuthCommand(command);
+			break;
+		case "simulate":
+		case "permissions":
+			await handleSimulate(command);
 			break;
 		default:
 			stdout.write(`Unknown command: ${command}\n\n`);
