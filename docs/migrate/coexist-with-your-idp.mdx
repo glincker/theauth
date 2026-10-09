@@ -88,11 +88,14 @@ Routes you do not list use the fallback (`incumbent`). Setting `percent` to 0 se
 Before you move a decision, run both and compare.
 
 ```ts
+import { createSimulator } from "@glinr/theauth";
 import { createShadow, simulatorDecider } from "@glinr/theauth/migrate";
+
+const sim = createSimulator({ db: theauth.db });
 
 const shadow = createShadow({
   incumbent: (req) => askAuth0Rules(req),            // returns "allow" | "deny" | "needs_approval"
-  theauth: simulatorDecider(theauth.simulator, (req) => ({
+  theauth: simulatorDecider(sim, (req) => ({
     agentId: req.agentId,
     action: req.action,
     resource: req.resource,
