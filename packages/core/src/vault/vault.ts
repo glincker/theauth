@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
+import { insertAuditRow } from "../audit/chain.js";
 import { generateId } from "../crypto/web-crypto.js";
-import { agents, auditLogs, delegationChains, permissions } from "../db/schema.js";
+import { agents, delegationChains, permissions } from "../db/schema.js";
 import { matchAction, matchResource } from "../policy/abac.js";
 import { createVaultCipher } from "./cipher.js";
 import { refreshTokens } from "./refresh.js";
@@ -86,7 +87,7 @@ export async function createTokenVault(config: TokenVaultConfig): Promise<TokenV
 		start: number,
 	): Promise<void> {
 		// Parameters carry provider and scopes only, never a token.
-		await db.insert(auditLogs).values({
+		await insertAuditRow(db, {
 			id: generateId(),
 			agentId: input.agentId,
 			userId: input.userId,

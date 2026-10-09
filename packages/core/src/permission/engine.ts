@@ -1,6 +1,6 @@
+import { insertAuditRow } from "../audit/chain.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { auditLogs } from "../db/schema.js";
 import { evaluateConstraints, findMatchingPermission } from "../policy/abac.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
 
@@ -90,7 +90,7 @@ async function writeAuditLog(
 ): Promise<void> {
 	const durationMs = Math.round(performance.now() - startTime);
 
-	await db.insert(auditLogs).values({
+	await insertAuditRow(db, {
 		id: auditId,
 		agentId: agent.id,
 		userId: agent.ownerId,

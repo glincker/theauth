@@ -21,9 +21,10 @@
  */
 
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { insertAuditRow } from "../audit/chain.js";
 import { generateId, randomBytes, sha256, toBase64Url } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { agentRegistrationTokens, auditLogs } from "../db/schema.js";
+import { agentRegistrationTokens } from "../db/schema.js";
 import type { TheAuthError } from "../mcp/types.js";
 import type { AgentIdentity, CreateAgentInput, Permission } from "../types.js";
 
@@ -331,7 +332,7 @@ export function createAgentRegistrationModule(
 				.set({ agentId: created.id })
 				.where(eq(agentRegistrationTokens.id, row.id));
 			try {
-				await db.insert(auditLogs).values({
+				await insertAuditRow(db, {
 					id: generateId(),
 					agentId: created.id,
 					userId: row.ownerId,

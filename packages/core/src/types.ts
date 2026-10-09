@@ -1,5 +1,12 @@
 import type { AgentConfig } from "./agent/types.js";
 import type { ApprovalConfig } from "./approval/approval.js";
+import type {
+	AgentReplay,
+	AuditChainExportOptions,
+	AuditExport,
+	ReplayOptions,
+} from "./audit/replay.js";
+import type { VerifyAuditChainOptions, VerifyAuditChainResult } from "./audit/verify.js";
 import type { AdminConfig } from "./auth/admin.js";
 import type { ApiKeyManagerConfig } from "./auth/api-key-manager.js";
 import type { CaptchaConfig } from "./auth/captcha.js";
@@ -19,7 +26,7 @@ import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
 import type { DidWebConfig } from "./did/types.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
-import type { McpConfig } from "./mcp/types.js";
+import type { McpConfig, Result } from "./mcp/types.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
@@ -38,6 +45,9 @@ export interface TheAuthConfig {
 
 	/** Agent identity configuration */
 	agents?: AgentConfig;
+
+	/** Audit trail options. */
+	audit?: AuditConfig;
 
 	/** MCP authorization server configuration */
 	mcp?: McpConfig;
@@ -313,6 +323,14 @@ export interface AgentModule {
 export interface AuditModule {
 	query: (filter: AuditFilter) => Promise<AuditEntry[]>;
 	export: (options: AuditExportOptions) => Promise<string>;
+	/** Delete rows older than the retention period. */
+	cleanup: (options: { retentionDays: number }) => Promise<{ deleted: number }>;
+	/** Check the audit hash chain and report the first broken link. */
+	verifyAuditChain: (opts: VerifyAuditChainOptions) => Promise<Result<VerifyAuditChainResult>>;
+	/** Ordered timeline of one agent's activity with chain verification status. */
+	replayAgent: (agentId: string, opts?: ReplayOptions) => Promise<Result<AgentReplay>>;
+	/** JSONL export plus a signed manifest. */
+	exportAudit: (opts?: AuditChainExportOptions) => Promise<Result<AuditExport>>;
 }
 
 export interface McpModule {
@@ -420,6 +438,19 @@ export interface DelegationChain {
 }
 
 export type DelegateFn = (input: DelegateInput) => Promise<DelegationChain>;
+
+export interface AuditConfig {
+	/**
+	 * Link every audit row to the previous one with a SHA-256 hash (one chain per
+	 * agent). Off by default; rows written before you turn it on are left alone.
+	 */
+	tamperEvident?: boolean;
+	/**
+	 * Secret for HMAC-SHA256 hashing. Set it so someone with write access to the
+	 * database but not to this key cannot rewrite rows and recompute the chain.
+	 */
+	hmacKey?: string;
+}
 
 export interface AuditEntry {
 	id: string;

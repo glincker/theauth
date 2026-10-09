@@ -337,6 +337,7 @@
             "icon": "chart-line",
             "pages": [
               "audit",
+              "audit-trail",
               "analyzer",
               "trust",
               "anomaly"
