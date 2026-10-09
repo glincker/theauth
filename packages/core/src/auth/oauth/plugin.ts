@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { buildSetCookie } from "../../plugin/helpers.js";
 import type { TheAuthPlugin } from "../../plugin/types.js";
+import { normalizeEmail } from "../normalize-email.js";
 import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
 import { createOAuthModule } from "./module.js";
@@ -127,19 +128,33 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						let userId = result.account.userId;
 
 						if (userId === "__pending__" && email && ctx.db) {
-							const existing = await ctx.db.select().from(users).where(eq(users.email, email));
+							const normalized = normalizeEmail(email);
+							const existing = await ctx.db.select().from(users).where(eq(users.email, normalized));
 
 							if (existing[0]) {
+								// Linking by email is only safe when both sides vouch for the
+								// address. An unverified provider email lets anyone who controls
+								// a provider account with the victim's address sign in as them,
+								// and an unverified local account may be a pre-registered squat.
+								if (result.userInfo.emailVerified !== true || !existing[0].emailVerified) {
+									return jsonResponse(
+										{
+											error:
+												"An account with this email already exists. Sign in with your existing method and link this provider from account settings.",
+										},
+										409,
+									);
+								}
 								userId = existing[0].id;
 							} else {
 								const newId = crypto.randomUUID();
 								await ctx.db.insert(users).values({
 									id: newId,
-									email,
+									email: normalized,
 									name: result.userInfo.name ?? null,
 									externalProvider: `oauth:${provider}`,
 									externalId: result.userInfo.id,
-									emailVerified: 1,
+									emailVerified: result.userInfo.emailVerified === true ? 1 : 0,
 									createdAt: new Date(),
 									updatedAt: new Date(),
 								});

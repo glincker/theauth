@@ -102,6 +102,12 @@ export interface OAuthUserInfo {
 	 * handle the undefined case, typically by requiring a separate email step.
 	 */
 	email: string | undefined;
+	/**
+	 * True only when the provider asserts the email is verified. Providers that
+	 * do not say (or do not verify) leave this unset, and the OAuth plugin will
+	 * not link such a login to an existing local account by email.
+	 */
+	emailVerified?: boolean;
 	name?: string;
 	/** URL to the user's avatar image. */
 	avatar?: string;

@@ -46,6 +46,7 @@ import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { SessionManager } from "../session/session.js";
+import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
 // ---------------------------------------------------------------------------
@@ -190,7 +191,7 @@ export function createPasswordResetModule(
 			return { success: false, error: makeError("INVALID_INPUT", "email must not be empty") };
 		}
 
-		const normalizedEmail = email.trim().toLowerCase();
+		const normalizedEmail = normalizeEmail(email);
 
 		// Look up user by email. If not found, return success (no enumeration).
 		const userRows = await db

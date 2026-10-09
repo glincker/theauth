@@ -83,8 +83,11 @@ export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventH
 		// Write the Response back through H3
 		setResponseStatus(event, response.status);
 		response.headers.forEach((value, key) => {
-			setHeader(event, key, value);
+			if (key.toLowerCase() !== "set-cookie") setHeader(event, key, value);
 		});
+		// Headers.forEach folds repeated Set-Cookie into one comma-joined value.
+		const cookies = response.headers.getSetCookie();
+		if (cookies.length > 0) setHeader(event, "set-cookie", cookies);
 
 		// H3 route handlers can return a string, Buffer, or null; return the
 		// body text directly so H3 sends it as-is.

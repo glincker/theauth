@@ -823,8 +823,10 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
+			// req.baseUrl is the prefix the router was mounted under; the plugin
+			// router needs it to strip the mount point before matching.
 			theauth.plugins
-				.handleRequest(webReq)
+				.handleRequest(webReq, req.baseUrl)
 				.then((response) => {
 					if (!response) {
 						res.status(404).end();
@@ -832,8 +834,12 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 					}
 					res.status(response.status);
 					response.headers.forEach((value, key) => {
-						res.setHeader(key, value);
+						if (key.toLowerCase() !== "set-cookie") res.setHeader(key, value);
 					});
+					// Headers.forEach folds repeated Set-Cookie into one comma-joined value,
+					// which browsers cannot parse. Send each cookie as its own header.
+					const cookies = response.headers.getSetCookie();
+					if (cookies.length > 0) res.setHeader("set-cookie", cookies);
 					return response.text().then((body) => {
 						res.send(body);
 					});

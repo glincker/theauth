@@ -25,6 +25,7 @@ function makeRequest(ip?: string): Request {
 	return new Request("http://localhost/auth/test", { method: "POST", headers });
 }
 
+const TRUST_ONE = { trustedProxyCount: 1 };
 const OK_HANDLER = async () => new Response("ok", { status: 200 });
 
 // ---------------------------------------------------------------------------
@@ -137,7 +138,7 @@ describe("withRateLimit", () => {
 
 	it("passes through to the handler while within limit", async () => {
 		const limiter = createRateLimiter({ max: 5, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
 
 		const response = await handler(makeRequest("1.2.3.4"), ctx);
@@ -146,7 +147,7 @@ describe("withRateLimit", () => {
 
 	it("returns 429 when the limit is exceeded", async () => {
 		const limiter = createRateLimiter({ max: 2, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
 		const request = makeRequest("1.2.3.4");
 
@@ -159,7 +160,7 @@ describe("withRateLimit", () => {
 
 	it("429 body has RATE_LIMITED error code", async () => {
 		const limiter = createRateLimiter({ max: 1, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
 
 		await handler(makeRequest("10.0.0.1"), ctx);
@@ -171,7 +172,7 @@ describe("withRateLimit", () => {
 
 	it("429 response includes Retry-After header", async () => {
 		const limiter = createRateLimiter({ max: 1, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
 
 		await handler(makeRequest("10.0.0.2"), ctx);
@@ -184,7 +185,7 @@ describe("withRateLimit", () => {
 
 	it("uses x-forwarded-for for the rate-limit key", async () => {
 		const limiter = createRateLimiter({ max: 1, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
 
 		// Two different IPs should have independent counters
@@ -198,37 +199,44 @@ describe("withRateLimit", () => {
 		expect(r3.status).toBe(429);
 	});
 
-	it("picks the first IP from a comma-separated x-forwarded-for", async () => {
+	it("keys on the entry the trusted proxy appended, not the client-supplied first one", async () => {
 		const limiter = createRateLimiter({ max: 1, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
+		const mk = (xff: string) =>
+			new Request("http://localhost/test", { method: "POST", headers: { "x-forwarded-for": xff } });
 
-		const headers = { "x-forwarded-for": "1.1.1.1, 2.2.2.2, 3.3.3.3" };
-		const request = new Request("http://localhost/test", { method: "POST", headers });
-
-		await handler(request, ctx);
-		const response = await handler(
-			new Request("http://localhost/test", { method: "POST", headers }),
-			ctx,
-		);
-		// Should be blocked because the key "1.1.1.1" was used both times
+		await handler(mk("6.6.6.6, 3.3.3.3"), ctx);
+		// Attacker rotates the spoofable leading entry; the proxy-appended one is the same.
+		const response = await handler(mk("7.7.7.7, 3.3.3.3"), ctx);
 		expect(response.status).toBe(429);
 	});
 
-	it("falls back to x-real-ip when x-forwarded-for is absent", async () => {
+	it("ignores x-forwarded-for and x-real-ip by default (rotating headers cannot escape)", async () => {
 		const limiter = createRateLimiter({ max: 1, window: 60 });
 		const handler = withRateLimit(OK_HANDLER, limiter);
 		const ctx = makeEndpointCtx();
+		const mk = (h: Record<string, string>) =>
+			new Request("http://localhost/test", { method: "POST", headers: h });
 
-		const makeRealIpRequest = () =>
+		expect((await handler(mk({ "x-forwarded-for": "1.1.1.1" }), ctx)).status).toBe(200);
+		expect((await handler(mk({ "x-forwarded-for": "2.2.2.2" }), ctx)).status).toBe(429);
+		expect((await handler(mk({ "x-real-ip": "5.5.5.5" }), ctx)).status).toBe(429);
+	});
+
+	it("inherits trustedProxy from the endpoint context", async () => {
+		const limiter = createRateLimiter({ max: 1, window: 60 });
+		const handler = withRateLimit(OK_HANDLER, limiter);
+		const ctx = { ...makeEndpointCtx(), trustedProxy: { trustedHeader: "cf-connecting-ip" } };
+		const mk = (ip: string) =>
 			new Request("http://localhost/test", {
 				method: "POST",
-				headers: { "x-real-ip": "5.5.5.5" },
+				headers: { "cf-connecting-ip": ip },
 			});
 
-		await handler(makeRealIpRequest(), ctx);
-		const response = await handler(makeRealIpRequest(), ctx);
-		expect(response.status).toBe(429);
+		expect((await handler(mk("1.1.1.1"), ctx)).status).toBe(200);
+		expect((await handler(mk("2.2.2.2"), ctx)).status).toBe(200);
+		expect((await handler(mk("1.1.1.1"), ctx)).status).toBe(429);
 	});
 
 	it("accepts a custom keyExtractor", async () => {
@@ -258,7 +266,7 @@ describe("withRateLimit", () => {
 
 	it("uses 'unknown' key when no IP headers are present", async () => {
 		const limiter = createRateLimiter({ max: 1, window: 60 });
-		const handler = withRateLimit(OK_HANDLER, limiter);
+		const handler = withRateLimit(OK_HANDLER, limiter, TRUST_ONE);
 		const ctx = makeEndpointCtx();
 
 		const noIpRequest = () => new Request("http://localhost/test", { method: "POST" });

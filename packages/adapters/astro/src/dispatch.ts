@@ -707,5 +707,12 @@ export async function dispatch(
 		return methodNotAllowed();
 	}
 
+	// ── Plugin Endpoints ────────────────────────────────────────────
+
+	const pluginResponse = await theauth.plugins.handleRequest(request, basePath);
+	if (pluginResponse !== null) {
+		return pluginResponse;
+	}
+
 	return notFound("Route not found");
 }

@@ -26,6 +26,7 @@
  */
 
 import { randomBytesHex } from "../crypto/web-crypto.js";
+import type { SecondaryStorage } from "../storage/types.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -40,6 +41,12 @@ export interface SiweConfig {
 	statement?: string;
 	/** Nonce TTL in seconds (default: 300) */
 	nonceTtlSeconds?: number;
+	/**
+	 * Shared nonce storage. Pass `auth.secondaryStorage.for("nonces")` so a nonce
+	 * issued by one instance can be redeemed (exactly once) on another. Without
+	 * it nonces live in process memory, which breaks behind a load balancer.
+	 */
+	storage?: SecondaryStorage;
 	/**
 	 * Optional signature verifier. Called with the EIP-4361 message and
 	 * hex signature. Should return the recovered Ethereum address.
@@ -192,6 +199,25 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 	// In-memory nonce store: nonce -> expiry timestamp
 	const nonceStore = new Map<string, NonceEntry>();
 
+	const storage = config.storage;
+	const nonceTtlSeconds = Math.max(Math.ceil(nonceTtlMs / 1000), 1);
+
+	/** Returns true when the nonce existed, was live, and this call is the one that consumed it. */
+	async function consumeNonce(nonce: string): Promise<"ok" | "missing" | "expired"> {
+		if (storage) {
+			if ((await storage.get(`n:${nonce}`)) === null) return "missing";
+			// incr is the atomic claim: only the first caller sees count 1.
+			const claim = await storage.incr(`used:${nonce}`, nonceTtlSeconds);
+			if (claim.count !== 1) return "missing";
+			await storage.delete(`n:${nonce}`);
+			return "ok";
+		}
+		const entry = nonceStore.get(nonce);
+		if (!entry) return "missing";
+		nonceStore.delete(nonce);
+		return entry.expiresAt <= Date.now() ? "expired" : "ok";
+	}
+
 	function purgeExpiredNonces(): void {
 		const now = Date.now();
 		for (const [nonce, entry] of nonceStore) {
@@ -202,8 +228,12 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 	}
 
 	async function generateNonce(): Promise<string> {
-		purgeExpiredNonces();
 		const nonce = generateHexNonce();
+		if (storage) {
+			await storage.set(`n:${nonce}`, "1", nonceTtlSeconds);
+			return nonce;
+		}
+		purgeExpiredNonces();
 		nonceStore.set(nonce, { expiresAt: Date.now() + nonceTtlMs });
 		return nonce;
 	}
@@ -253,17 +283,13 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 		}
 
 		// Nonce check
-		const nonceEntry = nonceStore.get(parsed.nonce);
-		if (!nonceEntry) {
+		const nonceState = await consumeNonce(parsed.nonce);
+		if (nonceState === "missing") {
 			throw new Error("Nonce not found or already used");
 		}
-		if (nonceEntry.expiresAt <= Date.now()) {
-			nonceStore.delete(parsed.nonce);
+		if (nonceState === "expired") {
 			throw new Error("Nonce expired");
 		}
-
-		// Consume nonce (single use)
-		nonceStore.delete(parsed.nonce);
 
 		// Signature verification
 		let verifiedAddress: string;
