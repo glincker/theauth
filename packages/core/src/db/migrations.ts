@@ -281,9 +281,25 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ip           TEXT,
   user_agent   TEXT,
   cache_hit    ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
-  timestamp    ${ts}   NOT NULL
+  timestamp    ${ts}   NOT NULL,
+  chain_seq    INTEGER,
+  prev_hash    TEXT,
+  hash         TEXT
 )`,
 		},
+		// Fork guard for the audit hash chain: two writers racing for the same
+		// (agent, seq) slot cannot both win. NULL seq rows (legacy) never collide.
+		// MySQL has no CREATE INDEX IF NOT EXISTS, so its index is created by
+		// upgradeAuditChainColumns, which tolerates "already exists".
+		...(isMysql
+			? []
+			: [
+					{
+						feature: "audit" as const,
+						sql: `CREATE UNIQUE INDEX ${ifne} theauth_audit_logs_chain
+  ON theauth_audit_logs (agent_id, chain_seq)`,
+					},
+				]),
 
 		// ------------------------------------------------------------------
 		// theauth_rate_limits
@@ -1276,7 +1292,47 @@ export async function createTables(
 		}
 	}
 
+	// A pre-chain audit table needs its new columns before the CREATE INDEX
+	// below can reference them. On a fresh database this pass finds no table
+	// and is a no-op; the pass after the loop covers MySQL's index.
+	if (features.audit) {
+		await upgradeAuditChainColumns(run, provider);
+	}
+
 	for (const sql of statements) {
 		await run(sql);
+	}
+
+	if (features.audit) {
+		await upgradeAuditChainColumns(run, provider);
+	}
+}
+
+/**
+ * Adds the hash chain columns and the fork guard index to an audit table that
+ * was created before they existed. Fresh tables already have them, so every
+ * statement here is allowed to fail with "already exists" and is ignored.
+ * SQLite and MySQL have no ADD COLUMN IF NOT EXISTS, so tolerance is the
+ * idempotency mechanism there; Postgres uses the native clause.
+ */
+async function upgradeAuditChainColumns(
+	run: (sql: string) => Promise<void>,
+	provider: DatabaseConfig["provider"],
+): Promise<void> {
+	const ifne = provider === "postgres" ? "IF NOT EXISTS " : "";
+	const stmts = [
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}chain_seq INTEGER`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}prev_hash TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}hash TEXT`,
+		provider === "mysql"
+			? "CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id(191), chain_seq)"
+			: "CREATE UNIQUE INDEX IF NOT EXISTS theauth_audit_logs_chain ON theauth_audit_logs (agent_id, chain_seq)",
+	];
+	for (const sql of stmts) {
+		try {
+			await run(sql);
+		} catch {
+			// Column or index already present (fresh install or earlier upgrade).
+		}
 	}
 }

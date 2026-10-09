@@ -24,8 +24,9 @@
  */
 
 import { and, eq, like, sql } from "drizzle-orm";
+import { insertAuditRow } from "../audit/chain.js";
 import type { Database } from "../db/database.js";
-import { auditLogs, organizations, orgMembers, users } from "../db/schema.js";
+import { organizations, orgMembers, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
@@ -362,7 +363,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	): Promise<void> {
 		if (!audit || audit.enabled === false) return;
 		try {
-			await db.insert(auditLogs).values({
+			await insertAuditRow(db, {
 				id: generateId(),
 				agentId: audit.agentId,
 				userId: subjectUserId,

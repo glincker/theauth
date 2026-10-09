@@ -2,9 +2,15 @@ import { and, desc, eq, gte, lt, lte } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
 import type { AuditEntry, AuditExportOptions, AuditFilter } from "../types.js";
+import type { AuditChainExportOptions, ReplayOptions } from "./replay.js";
+import { exportAudit, replayAgent } from "./replay.js";
+import type { VerifyAuditChainOptions } from "./verify.js";
+import { verifyAuditChain } from "./verify.js";
 
 interface AuditModuleConfig {
 	db: Database;
+	/** HMAC key used when verifying and signing. Same value as `audit.hmacKey`. */
+	hmacKey?: string;
 }
 
 /**
@@ -12,7 +18,7 @@ interface AuditModuleConfig {
  * Provides query and export capabilities for the immutable audit trail.
  */
 export function createAuditModule(config: AuditModuleConfig) {
-	const { db } = config;
+	const { db, hmacKey } = config;
 
 	async function query(filter: AuditFilter): Promise<AuditEntry[]> {
 		const conditions = [];
@@ -117,7 +123,15 @@ export function createAuditModule(config: AuditModuleConfig) {
 		return { deleted: toDelete.length };
 	}
 
-	return { query, export: exportLogs, cleanup };
+	return {
+		query,
+		export: exportLogs,
+		cleanup,
+		verifyAuditChain: (opts: VerifyAuditChainOptions) => verifyAuditChain(db, opts, hmacKey),
+		replayAgent: (agentId: string, opts: ReplayOptions = {}) =>
+			replayAgent(db, agentId, opts, hmacKey),
+		exportAudit: (opts: AuditChainExportOptions = {}) => exportAudit(db, opts, hmacKey),
+	};
 }
 
 function toAuditEntry(row: typeof auditLogs.$inferSelect): AuditEntry {

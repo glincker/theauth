@@ -4,6 +4,7 @@ import { argv, exit, stdin, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
 import { INIT_AGENT_HELP, parseInitAgentArgs, runInitAgent } from "./agent/init-agent.js";
 import { serveStdio } from "./agent/mcp-server.js";
+import { AUDIT_HELP, openAuditModule, parseAuditArgs, runAudit } from "./audit-commands.js";
 import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth-commands.js";
 import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from "./codemod-run.js";
 import { startDashboardServer } from "./dashboard-server.js";
@@ -42,6 +43,7 @@ Commands:
   login         Sign in with the device flow (RFC 8628)
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
+  audit         Verify the audit hash chain, replay an agent (verify, replay)
   doctor        Check your setup for common mistakes (--json)
   secret        Generate random secrets (--env NAME, --json)
   completions   Print shell completions (bash, zsh, fish)
@@ -218,6 +220,28 @@ function handleDoctor(): void {
 	if (!ok) exit(1);
 }
 
+async function handleAudit(): Promise<void> {
+	const parsed = parseAuditArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(AUDIT_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${AUDIT_HELP}`);
+		exit(1);
+		return;
+	}
+	const opened = await openAuditModule(parsed, process.env);
+	if ("error" in opened) {
+		stdout.write(`${opened.error}\n`);
+		exit(1);
+		return;
+	}
+	const result = await runAudit(parsed, opened.audit);
+	stdout.write(result.output);
+	if (result.code !== 0) exit(result.code);
+}
+
 function handleCompletions(): void {
 	const shell = argv[3] ?? "";
 	const script = renderCompletions(shell);
@@ -268,6 +292,9 @@ async function main(): Promise<void> {
 			break;
 		case "completions":
 			handleCompletions();
+			break;
+		case "audit":
+			await handleAudit();
 			break;
 		case "login":
 		case "logout":

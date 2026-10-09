@@ -1,0 +1,133 @@
+---
+title: Tamper-evident audit trail
+description: Chain audit rows with SHA-256 or HMAC hashes, verify the chain, replay what an agent did, and export signed evidence.
+icon: link
+---
+
+## Overview
+
+The audit log records what agents do. By default nothing stops someone with database write access from editing or deleting a row afterwards. Turn on the hash chain and every new row stores the hash of the row before it, so an edit, a deletion or a reorder shows up the next time you verify.
+
+It is off by default and additive. Rows written before you enable it are left alone and are reported as unchained.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  agents: { enabled: true },
+  audit: {
+    tamperEvident: true,
+    // Without a key anyone who can write to the database can recompute the chain.
+    hmacKey: process.env.AUDIT_HMAC_KEY,
+  },
+});
+```
+
+## How the chain works
+
+There is one chain per agent. Each row gets `chain_seq` (1, 2, 3...), `prev_hash` and `hash`. The hash is SHA-256 over the canonical JSON (sorted keys) of the row fields, the sequence number and `prev_hash`. With `hmacKey` it is HMAC-SHA256 instead.
+
+Why per agent and not per tenant or global: writers for different agents never contend, a replay is exactly one chain, and a single unique index on `(agent_id, chain_seq)` is enough to stop a fork.
+
+Concurrent writers do not need a transaction or a lock. A writer reads the chain head, computes the next hash and inserts. If another writer took that sequence number first, the unique index rejects the insert and the writer re-reads the head and retries. This behaves the same on SQLite, Postgres, MySQL and D1. Writers inside one process also queue per agent, so retries only happen across processes.
+
+Timestamps are hashed at one-second precision, because that is what the SQLite column stores.
+
+### Migration
+
+`createTables` adds the three nullable columns and the unique index to an existing `theauth_audit_logs` table. The statements are idempotent (Postgres uses `ADD COLUMN IF NOT EXISTS`, SQLite and MySQL tolerate "already exists"). If you run with `skipMigrations: true`, apply this yourself:
+
+```sql
+ALTER TABLE theauth_audit_logs ADD COLUMN chain_seq INTEGER;
+ALTER TABLE theauth_audit_logs ADD COLUMN prev_hash TEXT;
+ALTER TABLE theauth_audit_logs ADD COLUMN hash TEXT;
+CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id, chain_seq);
+-- MySQL: use (agent_id(191), chain_seq)
+```
+
+Without the unique index, concurrent writers can fork a chain.
+
+## Verify
+
+```ts
+const result = await theauth.audit.verifyAuditChain({
+  from: new Date("2026-10-01"),
+  to: new Date("2026-10-31"),
+});
+
+if (result.success && !result.data.ok) {
+  const b = result.data.firstBreak!;
+  console.error(`${b.reason} for agent ${b.agentId} at seq ${b.seq}`, b.rowIds);
+}
+```
+
+Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, and `truncated`.
+
+Deleting the newest rows of a chain leaves a shorter chain that still verifies. To catch that, keep a chain head somewhere the database owner cannot edit (an export manifest works) and pass it back:
+
+```ts
+await theauth.audit.verifyAuditChain({ expectedHeads: manifest.heads });
+```
+
+## Replay an agent
+
+```ts
+const replay = await theauth.audit.replayAgent("agent_123", {
+  since: new Date("2026-10-01"),
+  until: new Date("2026-10-02"),
+  userId: "user_456", // optional: only what it did for this user
+});
+
+if (replay.success) {
+  for (const e of replay.data.events) console.log(e.at.toISOString(), e.kind, e.summary);
+  console.log(replay.data.verification.status); // "verified" | "broken" | "unchained"
+}
+```
+
+The timeline merges audit rows (`action` when allowed, `decision` when denied or rate limited), delegations the agent gave or received, approval requests and answers, and token cost events, ordered by time. Only audit rows are covered by the chain, and each event says whether it is `chained`. The `userId` filter applies to audit rows and approvals.
+
+## Export for compliance
+
+```ts
+const exported = await theauth.audit.exportAudit({
+  agentId: "agent_123",
+  since: new Date("2026-10-01"),
+  until: new Date("2026-10-31"),
+});
+
+if (exported.success) {
+  await writeFile("audit.jsonl", exported.data.jsonl);
+  await writeFile("audit.manifest.json", JSON.stringify(exported.data.manifest, null, 2));
+}
+```
+
+The manifest holds the SHA-256 of the file, the row count, the range, the chain head per agent, whether the chain verified, and an HMAC signature over all of that. It is signed with `audit.hmacKey` (or `signingKey` if you pass one); export fails with `NO_SIGNING_KEY` otherwise. Check an export later without a database:
+
+```ts
+import { verifyAuditExport } from "@glinr/theauth";
+
+const check = await verifyAuditExport({ jsonl, manifest }, process.env.AUDIT_HMAC_KEY!);
+console.log(check.ok, check.problems);
+```
+
+Exports are capped at 100,000 rows; narrow the range for more.
+
+## CLI
+
+```bash
+export DATABASE_URL=postgres://...
+export THEAUTH_AUDIT_HMAC_KEY=...   # same value as audit.hmacKey, if you set one
+
+theauth audit verify --from 2026-10-01 --json
+theauth audit replay --agent agent_123 --since 2026-10-01 --json
+```
+
+Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The commands never write.
+
+## Limits
+
+- Tail truncation is only detectable against a saved head (see above).
+- Anyone holding `hmacKey` and database write access can forge a chain. Keep the key outside the database host.
+- Retention cleanup and GDPR erasure remove or rewrite rows. Removing the oldest rows is not flagged; rewriting a row in the middle is.
+- Audit rows written by the policy engine are not chained yet. They show up as unchained in verify output.

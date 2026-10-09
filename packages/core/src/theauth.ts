@@ -3,6 +3,7 @@ import { createAgentModule } from "./agent/agent.js";
 import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
 import { createAuditModule } from "./audit/audit.js";
+import { enableAuditChain } from "./audit/chain.js";
 import type { AdminModule } from "./auth/admin.js";
 import { createAdminModule } from "./auth/admin.js";
 import type { ApiKeyManagerModule } from "./auth/api-key-manager.js";
@@ -147,7 +148,10 @@ export async function createTheAuth(config: TheAuthConfig) {
 		auditAll: config.agents?.auditAll ?? true,
 	});
 
-	const auditModule = createAuditModule({ db });
+	if (config.audit?.tamperEvident) {
+		enableAuditChain(db, { hmacKey: config.audit.hmacKey });
+	}
+	const auditModule = createAuditModule({ db, hmacKey: config.audit?.hmacKey });
 
 	const delegationModule = createDelegationModule({ db });
 

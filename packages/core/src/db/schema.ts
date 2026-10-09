@@ -157,6 +157,11 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	// True when this audit row corresponds to a policy-engine cache-hit evaluation.
 	cacheHit: integer("cache_hit", { mode: "boolean" }).notNull().default(false),
 	timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
+	// Tamper-evident chain (all nullable: rows written before opt-in stay as they are).
+	// One chain per agent: chainSeq counts up from 1, prevHash is the previous row's hash.
+	chainSeq: integer("chain_seq"),
+	prevHash: text("prev_hash"),
+	hash: text("hash"),
 });
 
 // ============================================================
