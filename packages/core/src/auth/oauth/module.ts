@@ -148,7 +148,14 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		}
 
 		// Consume the state — delete before network calls to prevent replay attacks.
-		await db.delete(oauthStates).where(eq(oauthStates.state, state));
+		// The delete is the claim: a concurrent callback with the same state gets no row back.
+		const consumed = await db
+			.delete(oauthStates)
+			.where(eq(oauthStates.state, state))
+			.returning({ state: oauthStates.state });
+		if (!consumed[0]) {
+			throw new Error("OAuth callback: unknown or already-used state value.");
+		}
 
 		// ── 2. Exchange authorization code for tokens ──────────────────────────
 		const tokens = await provider.exchangeCode(code, stateRow.codeVerifier, redirectUri);
@@ -251,6 +258,12 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		const existing = existingRows[0];
 
 		if (existing) {
+			// An account already bound to a real user must not be silently moved to
+			// another one. Otherwise anyone who can call linkAccount with a victim's
+			// provider ID takes over the victim's sign-in path.
+			if (existing.userId !== "__pending__" && existing.userId !== userId) {
+				throw new Error("OAuth account is already linked to a different user.");
+			}
 			await db
 				.update(oauthAccounts)
 				.set({

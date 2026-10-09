@@ -1,0 +1,45 @@
+---
+title: Pick a migration path
+description: Big bang, lazy password migration, or run both and move users as they log in. How to choose, and how to back out of each.
+icon: signs-post
+---
+
+You do not have to rewrite your login to adopt theAuth. There are three ways to move, and they mix. Most teams that already have users in production end up on the third one.
+
+## The three paths
+
+| | Big bang | Lazy | Run both, move gradually |
+|---|---|---|---|
+| What happens | Import every user, switch login in one release | Import users with their old hashes, upgrade each hash the first time that user signs in | Keep the old system serving logins, create theAuth accounts as users sign in, widen a percentage over weeks |
+| Downtime risk | Highest. One cutover day. | Low | Lowest |
+| Passwords | Everyone resets, or you verify old hashes forever | Verified on first login, then rehashed | Same as lazy, or migrated at login when the typed password is available |
+| Old system needed after | No | Only to read the export | Until you retire it |
+| Rollback | Restore from backup and redeploy | Switch login back, hashes you have not upgraded still work in the old system | Set the rollout percent to 0 |
+| Use it when | Small user base, a maintenance window is fine | You want theAuth to own login but cannot ask users to reset | You need agent auth or MCP OAuth now, and cannot touch the existing login yet |
+
+## How to choose
+
+Answer these in order and stop at the first yes.
+
+1. Do you only need agent auth or MCP OAuth, and your current login is fine? Run both. You can accept tokens from your current provider without importing anyone. See [Coexist with your IdP](/migrate/coexist-with-your-idp).
+2. Can you not afford a failed login for even a small share of users? Run both, with a small percentage first. See [Run both and migrate as users log in](/migrate/run-both-and-migrate).
+3. Do you have fewer than a few thousand users and a quiet hour on a Sunday? Big bang is fine. Import with `theauth migrate import --apply`, switch login, done.
+4. Otherwise use lazy migration: import everyone, keep their old hashes, upgrade on first login. See [Lazy password migration](/migrate/lazy-passwords).
+
+## What each path needs from you
+
+- Every path starts with `theauth migrate plan`. It reads your export, changes nothing and tells you which hash formats you have. See [Import users](/migrate/import-users).
+- bcrypt and argon2 need a verifier you pass in (bcryptjs or an argon2 package). theAuth does not bundle them. Without one, those users reset their password on first login.
+- Hash formats not on the supported list are a documented gap. Those users reset.
+
+## Rollback
+
+Each path has a different undo, so decide which one you are using before you start.
+
+**Big bang.** Take a database snapshot before the switch. To go back, route login to the old system again and restore the snapshot if theAuth wrote anything you want to discard. Users who reset a password on theAuth during the window will need to reset again.
+
+**Lazy.** Importing does not touch your old system. If you stop, switch the login route back. A hash that was already upgraded lives only in theAuth, so users who signed in after the cutover keep working in theAuth and will not match in the old system if you changed nothing there. If you need a clean undo, keep the old system's user table read only until you are sure.
+
+**Run both.** Set `percent: 0` in the rollout config. Every user goes to the old system on their next request, including users on the allowlist. Accounts already created in theAuth stay put and the old system never knew they existed, so nothing in it needs repair. Set the percent back later and the same users land in the same groups.
+
+Whatever path you take, export a status report before and after each step with `theauth migrate status --out report.json`. It holds counts only.

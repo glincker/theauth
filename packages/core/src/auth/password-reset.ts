@@ -46,7 +46,10 @@ import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { SessionManager } from "../session/session.js";
+import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
+import type { OtpService } from "./otp.js";
+import type { OtpChannel } from "./otp-senders.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
@@ -106,6 +109,18 @@ export interface PasswordResetConfig {
 	 * Default: 128 (matches username module default).
 	 */
 	maxPasswordLength?: number;
+
+	/**
+	 * Optional code-based reset. When set, `requestResetOtp` and
+	 * `resetPasswordWithOtp` work and these routes are served:
+	 * `POST /auth/forgot-password/otp` and `POST /auth/reset-password/otp`.
+	 * The link flow above is unchanged.
+	 */
+	otp?: {
+		service: OtpService;
+		/** Delivery channel for the identifier (the account email). Default `"email"`. */
+		channel?: OtpChannel;
+	};
 }
 
 export interface PasswordResetModule {
@@ -126,10 +141,30 @@ export interface PasswordResetModule {
 	resetPassword(token: string, newPassword: string): Promise<Result<{ userId: string }>>;
 
 	/**
+	 * Send a reset code instead of a link. Requires `config.otp`. Enumeration
+	 * safe like `requestReset`: unknown emails and accounts without a password
+	 * return success with `sent: false`.
+	 */
+	requestResetOtp(email: string): Promise<Result<{ sent: boolean }>>;
+
+	/**
+	 * Reset a password with the emailed code. Same password rules, session
+	 * revocation and flag clearing as `resetPassword`. The code is consumed on
+	 * a match, and the generic `INVALID_CODE` error covers every failure.
+	 */
+	resetPasswordWithOtp(
+		email: string,
+		code: string,
+		newPassword: string,
+	): Promise<Result<{ userId: string }>>;
+
+	/**
 	 * Handle HTTP requests for password reset endpoints.
 	 *
 	 * - POST /auth/forgot-password — { email }
 	 * - POST /auth/reset-password  — { token, password }
+	 * - POST /auth/forgot-password/otp: { email } (only with `config.otp`)
+	 * - POST /auth/reset-password/otp: { email, code, password } (only with `config.otp`)
 	 */
 	handleRequest(request: Request): Promise<Response | null>;
 }
@@ -190,7 +225,7 @@ export function createPasswordResetModule(
 			return { success: false, error: makeError("INVALID_INPUT", "email must not be empty") };
 		}
 
-		const normalizedEmail = email.trim().toLowerCase();
+		const normalizedEmail = normalizeEmail(email);
 
 		// Look up user by email. If not found, return success (no enumeration).
 		const userRows = await db
@@ -279,6 +314,14 @@ export function createPasswordResetModule(
 		const email = validation.data.identifier;
 		const userId = validation.data.metadata?.userId as string | undefined;
 
+		return applyNewPassword(email, userId, newPassword);
+	}
+
+	async function applyNewPassword(
+		email: string,
+		userId: string | undefined,
+		newPassword: string,
+	): Promise<Result<{ userId: string }>> {
 		// Look up the user's username account
 		let accountUserId: string;
 
@@ -339,9 +382,91 @@ export function createPasswordResetModule(
 		return { success: true, data: { userId: accountUserId } };
 	}
 
+	// ── OTP variant (opt-in via config.otp) ───────────────────────────────
+
+	const otpConfig = config.otp;
+
+	function otpNotConfigured<T>(): Result<T> {
+		return {
+			success: false,
+			error: makeError("OTP_NOT_CONFIGURED", "passwordReset.otp is not configured"),
+		};
+	}
+
+	async function requestResetOtp(email: string): Promise<Result<{ sent: boolean }>> {
+		if (!otpConfig) return otpNotConfigured();
+		if (typeof email !== "string" || email.trim() === "") {
+			return { success: false, error: makeError("INVALID_INPUT", "email must not be empty") };
+		}
+		const normalizedEmail = email.trim().toLowerCase();
+
+		const userRows = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.email, normalizedEmail));
+		const user = userRows[0];
+		if (!user) return { success: true, data: { sent: false } };
+
+		const accountRows = await db
+			.select({ userId: usernameAccounts.userId })
+			.from(usernameAccounts)
+			.where(eq(usernameAccounts.userId, user.id));
+		if (!accountRows[0]) return { success: true, data: { sent: false } };
+
+		// Cooldown, lockout and delivery failures are swallowed so the caller cannot
+		// tell a throttled known account from an unknown one.
+		const sent = await otpConfig.service.send({
+			purpose: "reset-password",
+			channel: otpConfig.channel ?? "email",
+			identifier: normalizedEmail,
+		});
+		return { success: true, data: { sent: sent.success } };
+	}
+
+	async function resetPasswordWithOtp(
+		email: string,
+		code: string,
+		newPassword: string,
+	): Promise<Result<{ userId: string }>> {
+		if (!otpConfig) return otpNotConfigured();
+		if (typeof email !== "string" || email.trim() === "" || typeof code !== "string" || !code) {
+			return { success: false, error: makeError("INVALID_INPUT", "email and code are required") };
+		}
+
+		const passwordError = validatePassword(newPassword);
+		if (passwordError) {
+			return { success: false, error: makeError("INVALID_PASSWORD", passwordError) };
+		}
+
+		const normalizedEmail = email.trim().toLowerCase();
+		const verified = await otpConfig.service.verify({
+			purpose: "reset-password",
+			identifier: normalizedEmail,
+			code,
+		});
+		if (!verified.success) {
+			return {
+				success: false,
+				error: makeError("INVALID_CODE", "Invalid or expired code", {
+					locked: verified.error.code === "OTP_LOCKED",
+				}),
+			};
+		}
+
+		const result = await applyNewPassword(normalizedEmail, undefined, newPassword);
+		if (!result.success) {
+			return { success: false, error: makeError("INVALID_CODE", "Invalid or expired code") };
+		}
+		return result;
+	}
+
 	// ── handleRequest ─────────────────────────────────────────────────────
 
 	const HANDLED_PATHS = new Set(["/auth/forgot-password", "/auth/reset-password"]);
+	if (otpConfig) {
+		HANDLED_PATHS.add("/auth/forgot-password/otp");
+		HANDLED_PATHS.add("/auth/reset-password/otp");
+	}
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		if (request.method !== "POST") return null;
@@ -374,6 +499,33 @@ export function createPasswordResetModule(
 			return new Response(null, { status: 204 });
 		}
 
+		if (pathname === "/auth/forgot-password/otp") {
+			if (typeof b.email !== "string") {
+				return jsonResponse({ error: "Missing required field: email" }, 400);
+			}
+			const result = await requestResetOtp(b.email);
+			if (!result.success) return jsonResponse({ error: result.error.message }, 400);
+			return new Response(null, { status: 204 });
+		}
+
+		if (pathname === "/auth/reset-password/otp") {
+			if (
+				typeof b.email !== "string" ||
+				typeof b.code !== "string" ||
+				typeof b.password !== "string"
+			) {
+				return jsonResponse({ error: "Missing required fields: email, code, password" }, 400);
+			}
+			const result = await resetPasswordWithOtp(b.email, b.code, b.password);
+			if (!result.success) {
+				if (result.error.details?.locked === true) {
+					return jsonResponse({ error: "Too many attempts. Try again later." }, 429);
+				}
+				return jsonResponse({ error: result.error.message }, 400);
+			}
+			return new Response(null, { status: 204 });
+		}
+
 		if (pathname === "/auth/reset-password") {
 			if (typeof b.token !== "string" || typeof b.password !== "string") {
 				return jsonResponse({ error: "Missing required fields: token, password" }, 400);
@@ -392,5 +544,11 @@ export function createPasswordResetModule(
 		return null;
 	}
 
-	return { requestReset, resetPassword, handleRequest };
+	return {
+		requestReset,
+		resetPassword,
+		requestResetOtp,
+		resetPasswordWithOtp,
+		handleRequest,
+	};
 }

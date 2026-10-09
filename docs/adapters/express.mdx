@@ -57,8 +57,16 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
 // Mount all TheAuth routes
-app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
+app.use('/api/theauth', theAuthExpress(theauth, { mcp, authenticate }));
 
 app.listen(3000);
 ```
@@ -75,7 +83,7 @@ app.listen(3000);
 Pass `mcp` to enable the MCP OAuth 2.1 authorization server. All MCP endpoints are registered on the same router alongside the REST API:
 
 ```typescript
-app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
+app.use('/api/theauth', theAuthExpress(theauth, { mcp, authenticate }));
 // registers:
 // GET  /api/theauth/.well-known/oauth-authorization-server
 // GET  /api/theauth/.well-known/oauth-protected-resource
@@ -132,7 +140,15 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/theauth', theAuthExpress(theauth, { mcp }));
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+app.use('/api/theauth', theAuthExpress(theauth, { mcp, authenticate }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

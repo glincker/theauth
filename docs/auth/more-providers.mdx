@@ -1,0 +1,61 @@
+---
+title: More OAuth providers
+description: Keycloak, Authentik, ZITADEL, OneLogin, Gitea, Patreon, Box, Yandex and WordPress.com presets built on the generic OIDC factory.
+icon: plug
+---
+
+These presets are built on `genericOIDC`. Register each one in `oauth({ providers })` and use the callback URL `https://your-app.com/api/theauth/auth/oauth/callback/<id>`.
+
+```typescript title="lib/theauth.ts"
+import {
+  oauth,
+  keycloakProvider,
+  patreonProvider,
+} from '@glinr/theauth/auth';
+
+oauth({
+  providers: {
+    keycloak: keycloakProvider(
+      'https://sso.example.com', 'main',
+      process.env.KEYCLOAK_CLIENT_ID!, process.env.KEYCLOAK_CLIENT_SECRET!,
+    ),
+    patreon: patreonProvider(process.env.PATREON_CLIENT_ID!, process.env.PATREON_CLIENT_SECRET!),
+  },
+});
+```
+
+| Preset | Arguments before `clientId, clientSecret` | Default scopes | Endpoints |
+|--------|-------------------------------------------|----------------|-----------|
+| `keycloakProvider` | `baseUrl, realm` | openid email profile | Discovery |
+| `authentikProvider` | `baseUrl, slug` | openid email profile | Discovery |
+| `zitadelProvider` | `domain` | openid email profile | Discovery |
+| `oneloginProvider` | `subdomain` | openid email profile | Discovery |
+| `giteaProvider` | `baseUrl` | openid email profile | Explicit (`/login/oauth/*`) |
+| `patreonProvider` | none | identity, identity[email] | Explicit, API v2 identity |
+| `boxProvider` | none | root_readonly | Explicit |
+| `yandexProvider` | none | login:email, login:info | Explicit, `OAuth` userinfo scheme |
+| `wordpressProvider` | none | auth | Explicit |
+
+Discovery presets fetch `/.well-known/openid-configuration` on first use and cache it. The last four map non-OIDC userinfo responses.
+
+## Writing your own
+
+Two options on `genericOIDC` make most non-standard providers a few lines:
+
+```typescript
+import { genericOIDC } from '@glinr/theauth/auth';
+
+const acme = genericOIDC({
+  id: 'acme', name: 'Acme', issuer: 'https://acme.example',
+  clientId, clientSecret,
+  authorizationUrl: 'https://acme.example/oauth/authorize',
+  tokenUrl: 'https://acme.example/oauth/token',
+  userinfoUrl: 'https://acme.example/api/me',
+  userinfoAuthScheme: 'Bearer', // some providers want "OAuth" or "Token"
+  mapProfile: (raw) => ({ id: String(raw.uid), email: String(raw.mail), name: String(raw.display) }),
+});
+```
+
+`mapProfile` returns `null` for an unusable response, which surfaces as an error instead of a half-built user. Providers that omit the email address (Strava, Pinterest) are not supported by the generic factory, because TheAuth links accounts by email.
+
+Already shipped and not repeated here: Facebook, LinkedIn, Kakao, Naver, LINE, VK, TikTok, PayPal, Hugging Face, Salesforce, Cognito, Okta, Auth0, Zoom, Roblox, Dropbox, Kick, Vercel, Railway, Polar and Coinbase.

@@ -6,7 +6,7 @@ icon: tv
 
 The device authorization grant ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)) lets a device that cannot show a browser, a CLI tool, smart TV, game console, or IoT sensor, authenticate by delegating the sign-in step to a secondary device the user already trusts.
 
-The device displays a short code like `BDFK-RSTV`. The user opens a URL on their phone or laptop, signs in, types the code, and the waiting device's next poll returns `{ authorized: true, user_id }`. No credentials ever travel through the constrained device. The flow confirms which user approved the device, it does not mint a session or token for the device, so your app decides what credential to issue next.
+The device displays a short code like `BDFK-RSTV`. The user opens a URL on their phone or laptop, signs in, types the code, and the waiting device's next poll returns `{ authorized: true, user_id }`. No password ever travels through the constrained device. When `auth.session` is configured, the same response also carries an `access_token`, a theAuth session token the device can send as `Authorization: Bearer ...`. To issue a different credential (a JWT, a scoped API token), pass `issueToken` to the plugin. Without either, the response only confirms who approved, and your app decides what to issue next.
 
 ## Setup
 
@@ -31,7 +31,7 @@ const theauth = await createTheAuth({
 });
 ```
 
-Pending grants are kept in process memory. They are lost on restart and are not shared between server instances, so run the device flow on a single instance or route the three endpoints to the same one.
+Pending grants live in the `deviceCodes` secondary storage, which is process memory by default. Memory is lost on restart and is not shared between instances, so on more than one instance or on serverless set `secondaryStorage: 'database'` (or Redis) on `createTheAuth`. See [Secondary storage](/secondary-storage). Device codes and user codes are stored only as SHA-256 hashes.
 
 </Step>
 
@@ -78,7 +78,7 @@ export default function DevicePage({
 }
 ```
 
-The `/auth/device/authorize` endpoint requires an authenticated user (from `auth.adapter` or an `auth.session` token). The user must be signed in before they can approve or deny a device code. `action` is `'approve'` (the default) or `'deny'`.
+The `/auth/device/authorize` endpoint requires an authenticated user (from `auth.adapter` or an `auth.session` token), and always takes the user from that session. A `user_id` in the body is ignored. The request must use `Content-Type: application/json`, and a browser `Origin` that is neither the origin of `verificationUri` nor listed in `trustedOrigins` is refused with `403`. This stops another site from approving a code on a signed-in user's behalf. `action` is `'approve'` (the default) or `'deny'`.
 
 </Step>
 
@@ -94,7 +94,7 @@ The `/auth/device/authorize` endpoint requires an authenticated user (from `auth
 
 `POST /auth/device/code`
 
-The device calls this endpoint to start a new authorization attempt. No authentication required.
+The device calls this endpoint to start a new authorization attempt. No authentication required. The body is optional JSON (or form-encoded) with `client_id` and `scope`, which are remembered on the grant and passed to `issueToken`.
 
 ```typescript title="CLI tool"
 const res = await fetch('https://auth.example.com/api/theauth/auth/device/code', {
@@ -124,7 +124,7 @@ Display `user_code` prominently, this is what the user types. `verification_uri_
 
 `POST /auth/device/token`
 
-Poll this endpoint at the `interval` returned in the previous step (default: every 5 seconds). Keep polling until you get an `authorized` response or the code expires. While the grant is pending the endpoint answers `400` with `error: 'authorization_pending'`.
+Poll this endpoint at the `interval` returned in the previous step (default: every 5 seconds). Keep polling until you get an `authorized` response or the code expires. While the grant is pending the endpoint answers `400` with `error: 'authorization_pending'`. The body is `{ device_code }`, plus an optional `grant_type` that must be `urn:ietf:params:oauth:grant-type:device_code` if sent.
 
 ```typescript title="CLI tool"
 const { device_code, expires_in } = data;
@@ -144,6 +144,7 @@ while (Date.now() < deadline) {
 
   if (pollRes.ok && result.authorized) {
     console.log('Authorized! User ID:', result.user_id); // [!code highlight]
+    // result.access_token is present when auth.session or issueToken is configured
     break;
   }
 
@@ -154,7 +155,7 @@ while (Date.now() < deadline) {
   }
 
   if (result.error === 'slow_down') { // [!code highlight]
-    // Server asked for a longer interval
+    // Polled too fast: the server raised the interval by 5 seconds
     interval = result.interval; // [!code highlight]
     continue;
   }
@@ -179,7 +180,7 @@ while (Date.now() < deadline) {
 
 ### User approves (on the secondary device)
 
-The user opens `verification_uri` on their phone or laptop, signs in, and enters the code. The approval page calls `/auth/device/authorize` with the user code and `action: 'approve'`. The next poll from the device returns `{ authorized: true, user_id: '...' }`. A denied grant returns `access_denied` instead.
+The user opens `verification_uri` on their phone or laptop, signs in, and enters the code. The approval page calls `/auth/device/authorize` with the user code and `action: 'approve'`. The next poll from the device returns `{ authorized: true, user_id: '...' }` (plus the token fields described below). A denied grant returns `access_denied` instead. A grant can be exchanged once: a second poll after success gets `expired_token`.
 
 </Step>
 
@@ -200,17 +201,23 @@ Input on the approval page is case-insensitive and whitespace-tolerant, `bdfk rs
 
 The initial interval is returned by the `/auth/device/code` endpoint (default: 5 seconds). Use it as your starting poll delay.
 
-The `deviceAuth()` plugin protects the code and token endpoints with a per-IP rate limit and answers over-limit requests with `429` and `{ "error": "Rate limit exceeded" }`. Back off when you see a `429`.
+If a device polls again before the interval has passed, `/auth/device/token` answers `400` with `error: 'slow_down'` and a new `interval` that is 5 seconds longer, as RFC 8628 requires. The counter is kept in secondary storage, so it holds across instances. Use the new `interval` for all later polls.
 
-The module's own `handleRequest` (from `createDeviceAuthModule`) additionally returns `400` with `error: 'slow_down'` and a larger `interval` when a device polls again within 4 seconds. The plugin endpoints do not emit `slow_down`. If you do receive `slow_down`, use the new `interval` for all later polls.
+Three more limits apply:
+
+- Guessing user codes: each approving user gets 5 wrong codes per 15 minutes (`userCodeAttemptLimit`, `userCodeAttemptWindowSeconds`). Further attempts get `429`.
+- Built in: the plugin throttles `/auth/device/code` and `/auth/device/authorize` to 30 requests per minute per IP and answers `429` with `{ "error": "Rate limit exceeded" }`. These counters are in process memory.
+- Optional: add the [`rateLimit()` plugin](/rate-limiting) for shared, configurable limits on all three endpoints (defaults: 10 per minute for `code`, 60 for `token`, 20 for `authorize`).
 
 ## Endpoints
 
 | Endpoint | Method | Auth required | Description |
 |----------|--------|--------------|-------------|
-| `/auth/device/code` | `POST` | No | Start a new device flow, returns device code and user code |
-| `/auth/device/token` | `POST` | No | Poll for authorization status |
-| `/auth/device/authorize` | `POST` | Yes | User approves or denies a device code, body `{ user_code, action }` |
+| `/auth/device/code` | `POST` | No | Start a new device flow, returns device code and user code. Optional body `{ client_id, scope }` |
+| `/auth/device/token` | `POST` | No | Poll for authorization status, body `{ device_code }` |
+| `/auth/device/authorize` | `POST` | Yes | User approves or denies a device code, body `{ user_code, action }`. Returns `{ authorized: true }` or `{ denied: true }` |
+
+Errors from `/auth/device/authorize`: `401 login_required` (no signed-in user), `403 access_denied` (cross-origin request), `400 invalid_request` (missing or unknown code, code already handled, bad `action`, wrong content type), and `429` after too many wrong codes.
 
 ### `/auth/device/code` response
 
@@ -225,14 +232,16 @@ The module's own `handleRequest` (from `createDeviceAuthModule`) additionally re
 
 ### `/auth/device/token` responses
 
-An approved grant returns `200` with `{ "authorized": true, "user_id": "..." }`. Every other state returns `400` with an `error` code:
+An approved grant returns `200` with `{ "authorized": true, "user_id": "..." }`. When a token is issued, the body also has `access_token`, `token_type` (`Bearer`), and, if known, `expires_in`, `refresh_token` and `scope`. Every other state returns `400` with an `error` code and an `error_description`:
 
 | `error` | Meaning |
 |---------|---------|
-| `authorization_pending` | User has not acted yet, keep polling (HTTP 400) |
-| `slow_down` | Only from the module's `handleRequest`: polling too fast, use the new `interval` in the response |
+| `authorization_pending` | User has not acted yet, keep polling |
+| `slow_down` | Polling too fast, use the larger `interval` in the response |
 | `access_denied` | User denied the request, stop polling |
-| `expired_token` | Code has expired, start over with a new code |
+| `expired_token` | Code has expired or was already exchanged, start over with a new code |
+| `invalid_request` | `device_code` missing |
+| `unsupported_grant_type` | `grant_type` was sent and is not the device code grant |
 
 ## Configuration reference
 
@@ -242,6 +251,14 @@ An approved grant returns `200` with `{ "authorized": true, "user_id": "..." }`.
 | `codeLength` | `number` | `4` | Length of each segment in the user code (`4` → `XXXX-XXXX`) |
 | `codeExpirySeconds` | `number` | `900` | How long the device code and user code stay valid |
 | `pollIntervalSeconds` | `number` | `5` | Minimum interval between polling attempts, returned to the device |
+| `storage` | `SecondaryStorage` | `secondaryStorage.deviceCodes` | Where grants are kept. Normally set `secondaryStorage` on `createTheAuth` instead |
+| `issueToken` | `(userId, { clientId, scope }) => Promise<{ accessToken, tokenType?, expiresIn?, refreshToken? }>` | session token if `auth.session` is set | Mint the credential returned to the device |
+| `userCodeAttemptLimit` | `number` | `5` | Wrong user codes one approving user may try per window |
+| `userCodeAttemptWindowSeconds` | `number` | `900` | Length of that window |
+| `trustedOrigins` | `string[]` | `[]` | Extra browser origins allowed to call `/auth/device/authorize`, besides the origin of `verificationUri` |
+| `onEvent` | `(event) => void` | none | Called with `device.code_issued`, `device.approved`, `device.denied` and `device.token_issued`. Wire it to your audit log |
+
+Without the plugin, `createDeviceAuthModule` takes the same options plus `resolveUser(request)`, which must return the signed-in user for approvals to work. You then route requests through `module.handleRequest(request)`. See [CLI login](/cli-auth) for a ready-made client.
 
 ## Related
 
@@ -254,6 +271,9 @@ An approved grant returns `200` with `{ "authorized": true, "user_id": "..." }`.
   </Card>
   <Card title="Sessions" href="/sessions" icon="clock">
     How theAuth manages session lifetime and cookie settings.
+  </Card>
+  <Card title="CLI login" href="/cli-auth" icon="terminal">
+    The `theauth login` command and `loginWithDeviceFlow` client.
   </Card>
   <Card title="MCP" href="/mcp" icon="plug">
     Agent-to-tool authentication for MCP servers.

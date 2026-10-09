@@ -1,0 +1,10 @@
+{
+  "name": "@glinr/theauth-benchmarks",
+  "private": true,
+  "type": "module",
+  "description": "Benchmark harness for the TheAuth SDK. Not published and not a workspace member: it has no dependencies of its own and loads the built SDK from packages/core/dist.",
+  "scripts": {
+    "bench:smoke": "node run.mjs --profile smoke --out results/smoke.json && node report.mjs results/smoke.json --out results/smoke.md",
+    "bench": "node --expose-gc run.mjs --profile full --out results/full.json && node report.mjs results/full.json --out results/full.md"
+  }
+}

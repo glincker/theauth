@@ -6,6 +6,13 @@
  */
 
 export { and, eq, like } from "drizzle-orm";
+export type {
+	AdapterAuthResolver,
+	AdapterGuard,
+	AdapterPrincipal,
+	AdapterSecurityOptions,
+} from "./adapter-guard.js";
+export { createAdapterGuard, isProtectedAdapterPath } from "./adapter-guard.js";
 
 // Re-export submodules
 export * from "./agent/index.js";
@@ -70,6 +77,7 @@ export * from "./plugin/index.js";
 export * from "./policies/index.js";
 export * from "./redirect/index.js";
 export * from "./session/index.js";
+export * from "./simulator/index.js";
 export * from "./tenant/index.js";
 export type { Auth, TheAuth } from "./theauth.js";
 export { createAuth, createTheAuth } from "./theauth.js";
@@ -93,6 +101,7 @@ export type {
 	TokenValidationResult,
 	UpdateAgentInput,
 } from "./types.js";
+export * from "./vault/index.js";
 export * from "./vc/index.js";
 // Webhooks
 export type {

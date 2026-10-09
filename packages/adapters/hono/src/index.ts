@@ -18,11 +18,15 @@
  *     database: { provider: 'd1', binding: c.env.DB },
  *     auth: { session: { secret: c.env.SESSION_SECRET } },
  *   });
- *   const api = createHonoAdapter(theauth);
+ *   const api = createHonoAdapter(theauth, {
+ *     authenticate: async (req) => (await theauth.auth.resolveUser(req)) ?? null,
+ *   });
  *   return app.fetch(c.req.raw);
  * });
  *
  * export default app;
  * ```
  */
+
+export type { TheAuthHonoOptions } from "./adapter.js";
 export { authHono, theAuthHono, theAuthHono as createHonoAdapter } from "./adapter.js";

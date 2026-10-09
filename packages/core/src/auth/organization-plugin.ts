@@ -1,4 +1,5 @@
 import type { TheAuthPlugin } from "../plugin/types.js";
+import { normalizeEmail } from "./normalize-email.js";
 import type { OrgConfig } from "./organization.js";
 import { createOrgModule } from "./organization.js";
 
@@ -130,7 +131,7 @@ export function organization(config?: OrgConfig): TheAuthPlugin {
 					}
 
 					const body = await parseBody(request);
-					const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : null;
+					const email = typeof body.email === "string" ? normalizeEmail(body.email) : null;
 					const role = typeof body.role === "string" ? body.role : "member";
 
 					if (!email) {

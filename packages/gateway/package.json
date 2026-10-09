@@ -30,7 +30,10 @@
     "auth",
     "agent",
     "mcp",
-    "middleware"
+    "middleware",
+    "oauth-2.1",
+    "auth-proxy",
+    "agent-auth"
   ],
   "author": "TheAuth <support@glinr.com>",
   "license": "MIT",

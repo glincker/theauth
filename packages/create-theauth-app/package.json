@@ -26,10 +26,11 @@
   },
   "files": [
     "dist",
-    "templates"
+    "templates",
+    "template-versions.json"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/bin.ts --format esm --dts --clean",
+    "build": "node scripts/sync-template-versions.mjs && tsup src/index.ts src/bin.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts src/bin.ts --format esm --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

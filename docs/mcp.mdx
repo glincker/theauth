@@ -95,7 +95,7 @@ export const mcp = createMcpModule({
 });
 ```
 
-Then mount the module via a framework adapter by passing it as the `mcp` option, for example `theAuthHono(theauth, { mcp })`. See [Framework adapters](/adapters).
+Then mount the module via a framework adapter by passing it as the `mcp` option, for example `theAuthHono(theauth, { mcp, authenticate })`. See [Framework adapters](/adapters).
 
 <Warning>
   `createTheAuth` accepts an `mcp` config key, but it only makes the instance create the MCP tables (including the registry behind `theauth.mcp.register`). It does not build the OAuth server, and `audience` is not an option. The OAuth server comes only from `createMcpModule`.
@@ -250,7 +250,7 @@ import { theauth, mcp } from './lib/theauth.js';
 
 const app = new Hono<{ Variables: { mcpSession: McpSession } }>();
 
-app.route('/api/theauth', theAuthHono(theauth, { mcp }));
+app.route('/api/theauth', theAuthHono(theauth, { mcp, authenticate }));
 
 app.use('/mcp/*', async (c, next) => {
   const check = await mcp.requireScopes(c.req.raw, ['mcp:read']);
@@ -329,6 +329,8 @@ These behaviors are on by default unless noted.
 **Resource and audience are mandatory.** `resource` (RFC 8707) is required at the authorize and token endpoints, and access tokens are always bound to it. Resource servers must say which audience they accept: set `config.resource` (used by `middleware`, `validateToken` and `requireScopes`) or pass `expectedAudience` to `withMcpAuth` and `validateAccessToken`. Calls without one return a `SERVER_ERROR` that names the missing option.
 
 ```ts
+import { withMcpAuth } from '@glinr/theauth/mcp';
+
 const result = await withMcpAuth(ctx, request, {
   expectedAudience: "https://mcp.example.com",
   requiredScopes: ["mcp:read"],
@@ -340,6 +342,9 @@ const result = await withMcpAuth(ctx, request, {
 **Refresh rotation with reuse detection (RFC 9700).** Each refresh token belongs to a family. Replaying a rotated token revokes the whole family. By default families live in process memory; for more than one instance pass the database-backed store:
 
 ```ts
+import { createMcpModule } from '@glinr/theauth/mcp';
+import { createTokenFamilyStore } from '@glinr/theauth';
+
 createMcpModule({
   config: { /* ... */ tokenFamilies: createTokenFamilyStore(db), refreshTokenAbsoluteTtl: 2592000 },
   revokeTokenFamily: async (familyId) => { /* delete stored tokens with this familyId */ },
@@ -354,6 +359,8 @@ On refresh, a `scope` that was not part of the original grant returns `invalid_s
 **Asymmetric signing (opt in).** HS256 with `signingSecret` stays the default. To publish keys and sign with ES256 or EdDSA:
 
 ```ts
+import { createMcpModule, generateMcpSigningKey } from '@glinr/theauth/mcp';
+
 const key = await generateMcpSigningKey("ES256", "2026-10");
 const mcp = createMcpModule({
   config: {

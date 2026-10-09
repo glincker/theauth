@@ -32,6 +32,7 @@ interface EnabledFeatures {
 	rebac: boolean;
 	federation: boolean;
 	secondaryStorage: boolean;
+	tokenVault: boolean;
 }
 
 const ALL_FEATURES_ENABLED: EnabledFeatures = {
@@ -61,6 +62,7 @@ const ALL_FEATURES_ENABLED: EnabledFeatures = {
 	rebac: true,
 	federation: true,
 	secondaryStorage: true,
+	tokenVault: true,
 };
 
 function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
@@ -74,6 +76,12 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 	const hasOAuth = config.plugins?.some((p) => p.id === "theauth-oauth") ?? false;
 	const hasOidc = config.plugins?.some((p) => p.id === "theauth-oidc-provider") ?? false;
 
+	// Plugin form (`plugins: [magicLink(...)]`) must create the same tables as
+	// the config-key form (`magicLink: {...}`), so look at plugin ids too.
+	const hasPlugin = (id: string): boolean => config.plugins?.some((p) => p.id === id) ?? false;
+	const hasMagicLink = !!config.magicLink || hasPlugin("theauth-magic-link");
+	const hasEmailOtp = !!config.emailOtp || hasPlugin("theauth-email-otp");
+
 	return {
 		core: true,
 		session: hasSession,
@@ -82,19 +90,19 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		oauth: hasOAuth,
 		tenant: hasAgents,
 		mcp: !!config.mcp,
-		org: !!config.org,
+		org: !!config.org || hasPlugin("theauth-organization"),
 		rateLimit: hasAgents,
 		budget: hasAgents,
-		magicLink: !!config.magicLink,
-		emailOtp: !!config.emailOtp,
-		totp: !!config.totp,
-		passkey: !!config.passkey,
+		magicLink: hasMagicLink,
+		emailOtp: hasEmailOtp,
+		totp: !!config.totp || hasPlugin("theauth-2fa"),
+		passkey: !!config.passkey || hasPlugin("theauth-passkey"),
 		sso: !!config.sso,
-		apiKey: !!config.apiKeys,
+		apiKey: !!config.apiKeys || hasPlugin("theauth-api-key"),
 		username: !!config.username,
 		phone: !!config.phone,
 		device: hasSession,
-		oneTimeToken: !!config.magicLink || !!config.emailOtp || !!config.passwordReset,
+		oneTimeToken: hasMagicLink || hasEmailOtp || !!config.passwordReset,
 		loginHistory: hasSession,
 		oidcProvider: hasOidc,
 		jwt: hasSession,
@@ -102,6 +110,7 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		federation: false, // only when explicitly configured (no config key yet)
 		// Tiny table, created always so `secondaryStorage: "database"` just works.
 		secondaryStorage: true,
+		tokenVault: hasPlugin("theauth-token-vault"),
 	};
 }
 
@@ -142,6 +151,8 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 	const bool = isPostgres ? "BOOLEAN" : isMysql ? "TINYINT(1)" : "INTEGER";
 	// IF NOT EXISTS is universally supported
 	const ifne = "IF NOT EXISTS";
+	/** Indexed text columns need a bounded type on MySQL. */
+	const vc = isMysql ? "VARCHAR(191)" : "TEXT";
 
 	return [
 		// ------------------------------------------------------------------
@@ -270,9 +281,25 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ip           TEXT,
   user_agent   TEXT,
   cache_hit    ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
-  timestamp    ${ts}   NOT NULL
+  timestamp    ${ts}   NOT NULL,
+  chain_seq    INTEGER,
+  prev_hash    TEXT,
+  hash         TEXT
 )`,
 		},
+		// Fork guard for the audit hash chain: two writers racing for the same
+		// (agent, seq) slot cannot both win. NULL seq rows (legacy) never collide.
+		// MySQL has no CREATE INDEX IF NOT EXISTS, so its index is created by
+		// upgradeAuditChainColumns, which tolerates "already exists".
+		...(isMysql
+			? []
+			: [
+					{
+						feature: "audit" as const,
+						sql: `CREATE UNIQUE INDEX ${ifne} theauth_audit_logs_chain
+  ON theauth_audit_logs (agent_id, chain_seq)`,
+					},
+				]),
 
 		// ------------------------------------------------------------------
 		// theauth_rate_limits
@@ -651,6 +678,44 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   public_key_jwk TEXT NOT NULL,
   did_document   TEXT NOT NULL,
   created_at     ${ts} NOT NULL
+)`,
+		},
+
+		// ------------------------------------------------------------------
+		// theauth_vault_connections / theauth_vault_consents (outbound token vault)
+		// ------------------------------------------------------------------
+		{
+			feature: "tokenVault",
+			sql: `CREATE TABLE ${ifne} theauth_vault_connections (
+  id                  TEXT NOT NULL PRIMARY KEY,
+  user_id             ${vc} NOT NULL,
+  tenant_id           ${vc} NOT NULL DEFAULT '',
+  provider            ${vc} NOT NULL,
+  provider_account_id TEXT NOT NULL,
+  access_token_enc    TEXT NOT NULL,
+  refresh_token_enc   TEXT,
+  key_id              TEXT NOT NULL,
+  scopes              ${json} NOT NULL,
+  status              VARCHAR(16) NOT NULL DEFAULT 'active',
+  expires_at          ${tsNull},
+  created_at          ${ts} NOT NULL,
+  updated_at          ${ts} NOT NULL,
+  UNIQUE (user_id, tenant_id, provider)
+)`,
+		},
+		{
+			feature: "tokenVault",
+			sql: `CREATE TABLE ${ifne} theauth_vault_consents (
+  id                  TEXT NOT NULL PRIMARY KEY,
+  user_id             TEXT NOT NULL,
+  agent_id            TEXT NOT NULL,
+  tenant_id           TEXT NOT NULL DEFAULT '',
+  provider            TEXT NOT NULL,
+  scopes              ${json} NOT NULL,
+  delegation_chain_id TEXT,
+  expires_at          ${tsNull},
+  revoked_at          ${tsNull},
+  created_at          ${ts} NOT NULL
 )`,
 		},
 
@@ -1227,7 +1292,47 @@ export async function createTables(
 		}
 	}
 
+	// A pre-chain audit table needs its new columns before the CREATE INDEX
+	// below can reference them. On a fresh database this pass finds no table
+	// and is a no-op; the pass after the loop covers MySQL's index.
+	if (features.audit) {
+		await upgradeAuditChainColumns(run, provider);
+	}
+
 	for (const sql of statements) {
 		await run(sql);
+	}
+
+	if (features.audit) {
+		await upgradeAuditChainColumns(run, provider);
+	}
+}
+
+/**
+ * Adds the hash chain columns and the fork guard index to an audit table that
+ * was created before they existed. Fresh tables already have them, so every
+ * statement here is allowed to fail with "already exists" and is ignored.
+ * SQLite and MySQL have no ADD COLUMN IF NOT EXISTS, so tolerance is the
+ * idempotency mechanism there; Postgres uses the native clause.
+ */
+async function upgradeAuditChainColumns(
+	run: (sql: string) => Promise<void>,
+	provider: DatabaseConfig["provider"],
+): Promise<void> {
+	const ifne = provider === "postgres" ? "IF NOT EXISTS " : "";
+	const stmts = [
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}chain_seq INTEGER`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}prev_hash TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}hash TEXT`,
+		provider === "mysql"
+			? "CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id(191), chain_seq)"
+			: "CREATE UNIQUE INDEX IF NOT EXISTS theauth_audit_logs_chain ON theauth_audit_logs (agent_id, chain_seq)",
+	];
+	for (const sql of stmts) {
+		try {
+			await run(sql);
+		} catch {
+			// Column or index already present (fresh install or earlier upgrade).
+		}
 	}
 }

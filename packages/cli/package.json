@@ -18,7 +18,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/prepare-assets.mjs",
     "dev": "tsup --watch",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
@@ -39,7 +39,10 @@
     "theauth",
     "auth",
     "agent",
-    "cli"
+    "cli",
+    "doctor",
+    "mcp",
+    "agent-auth"
   ],
   "author": "TheAuth <support@glinr.com>",
   "license": "MIT",

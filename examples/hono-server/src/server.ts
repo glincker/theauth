@@ -320,7 +320,9 @@ async function main(): Promise<void> {
 	createTables(auth);
 	seedUser(auth);
 
-	const api = theAuthHono(auth);
+	// Demo only: no authentication on the management routes. Real apps pass
+	// `authenticate` (see the adapter docs).
+	const api = theAuthHono(auth, { allowUnauthenticated: true });
 
 	const app = new Hono();
 

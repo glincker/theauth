@@ -1,4 +1,5 @@
 import type {
+	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -7,6 +8,7 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
@@ -201,7 +203,7 @@ function buildWebRequest(req: Request): globalThis.Request {
 
 // ─── TheAuth NestJS Options ─────────────────────────────────────────────────
 
-export interface TheAuthNestjsOptions {
+export interface TheAuthNestjsOptions extends AdapterSecurityOptions {
 	/** The TheAuth instance */
 	theauth: TheAuth;
 	/** Optional MCP OAuth 2.1 module */
@@ -218,8 +220,38 @@ export type AuthNestjsOptions = TheAuthNestjsOptions;
  * Used internally by `TheAuthModule` and can also be used directly in
  * Express-backed NestJS apps via `app.use`.
  */
-export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
+export function buildTheAuthRouter(
+	auth: TheAuth,
+	mcp?: McpAuthModule,
+	security?: AdapterSecurityOptions,
+): Router {
 	const router = Router();
+
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(auth, security, "TheAuthModule");
+	router.use((req: Request, res: Response, next: NextFunction) => {
+		if (!guard.isProtected(req.path)) {
+			next();
+			return;
+		}
+		guard
+			.check(buildWebRequest(req))
+			.then((denied) => {
+				if (!denied) {
+					next();
+					return;
+				}
+				res
+					.status(denied.status)
+					.type("application/json")
+					.send(
+						JSON.stringify({
+							error: { code: "UNAUTHORIZED", message: "Authentication required" },
+						}),
+					);
+			})
+			.catch(next);
+	});
 
 	// ── Agent REST API ──────────────────────────────────────────────
 
@@ -750,8 +782,10 @@ export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
+			// req.baseUrl is the prefix the router was mounted under; the plugin
+			// router needs it to strip the mount point before matching.
 			auth.plugins
-				.handleRequest(webReq)
+				.handleRequest(webReq, req.baseUrl)
 				.then((response) => {
 					if (!response) {
 						res.status(404).end();
@@ -759,8 +793,12 @@ export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
 					}
 					res.status(response.status);
 					response.headers.forEach((value, key) => {
-						res.setHeader(key, value);
+						if (key.toLowerCase() !== "set-cookie") res.setHeader(key, value);
 					});
+					// Headers.forEach folds repeated Set-Cookie into one comma-joined value,
+					// which browsers cannot parse. Send each cookie as its own header.
+					const cookies = response.headers.getSetCookie();
+					if (cookies.length > 0) res.setHeader("set-cookie", cookies);
 					return response.text().then((body) => {
 						res.send(body);
 					});
@@ -791,7 +829,7 @@ export function buildTheAuthRouter(auth: TheAuth, mcp?: McpAuthModule): Router {
  * ```
  */
 export function theAuthMiddleware(options: TheAuthNestjsOptions) {
-	const router = buildTheAuthRouter(options.theauth, options.mcp);
+	const router = buildTheAuthRouter(options.theauth, options.mcp, options);
 	return (req: Request, res: Response, next: NextFunction) => {
 		router(req, res, next);
 	};

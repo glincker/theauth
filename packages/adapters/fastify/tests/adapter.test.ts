@@ -31,7 +31,9 @@ async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; theau
 		.run();
 
 	const app = Fastify();
-	await app.register(theAuthFastify(theauth), { prefix: "/api/theauth" });
+	await app.register(theAuthFastify(theauth, { allowUnauthenticated: true }), {
+		prefix: "/api/theauth",
+	});
 
 	return { app, theauth };
 }

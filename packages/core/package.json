@@ -1,7 +1,7 @@
 {
   "name": "@glinr/theauth",
   "version": "0.6.0",
-  "description": "The auth OS for AI agents - identity, permissions, delegation, and audit for the agentic era",
+  "description": "Open-source auth for AI agents and humans: agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, and audit",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,6 +30,11 @@
       "types": "./dist/permission/index.d.ts",
       "import": "./dist/permission/index.js",
       "default": "./dist/permission/index.js"
+    },
+    "./migrate": {
+      "types": "./dist/migrate/index.d.ts",
+      "import": "./dist/migrate/index.js",
+      "default": "./dist/migrate/index.js"
     },
     "./audit": {
       "types": "./dist/audit/index.d.ts",
@@ -85,7 +90,19 @@
     "authorization",
     "oauth",
     "audit",
-    "permissions"
+    "permissions",
+    "auth-for-ai-agents",
+    "agent-identity",
+    "delegation",
+    "mcp-oauth",
+    "oauth2",
+    "oauth-2.1",
+    "dpop",
+    "passkeys",
+    "webauthn",
+    "device-flow",
+    "better-auth-alternative",
+    "typescript"
   ],
   "author": "TheAuth <support@glinr.com>",
   "license": "MIT",

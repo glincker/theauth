@@ -63,7 +63,8 @@ const policy = await theauth.policies.create({
   action: 'block',
 });
 
-// Per-user monthly cap (applies to all agents owned by this user)
+// Policy tagged with a user (stored for list() filtering). With no agentId it
+// is checked as a global policy, so it applies to every agent
 const userPolicy = await theauth.policies.create({
   userId: 'user-456',
   limits: {
@@ -72,7 +73,7 @@ const userPolicy = await theauth.policies.create({
   action: 'throttle',
 });
 
-// Tenant-wide monthly cap
+// Policy tagged with a tenant. Same caveat: with no agentId it is global
 const tenantPolicy = await theauth.policies.create({
   tenantId: 'tnt_acme',
   limits: {
@@ -176,6 +177,6 @@ When the agent hits 800, the `warn` policy triggers: `checkBudget` returns `allo
   Aggregate token costs per agent for billing reports.
 </Card>
   <Card title="Multi-tenant isolation" href="/multi-tenant">
-  Attach policies to entire tenants.
+  Policies can carry a tenant ID, but see the caveat above on how they are checked.
 </Card>
 </CardGroup>

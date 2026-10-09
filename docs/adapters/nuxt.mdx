@@ -53,7 +53,15 @@ In Nuxt, a file named `[...].ts` in the server routes directory catches all sub-
 import { theAuthNuxt } from '@glinr/theauth-nuxt';
 import { theauth, mcp } from '../utils/theauth';
 
-export default theAuthNuxt(theauth, { mcp });
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+export default theAuthNuxt(theauth, { mcp, authenticate });
 ```
 
 </Step>
@@ -128,7 +136,15 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-export default theAuthNuxt(theauth, { mcp });
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+export default theAuthNuxt(theauth, { mcp, authenticate });
 ```
 
 All theAuth routes are then available at `/api/theauth/...` within your Nuxt server.

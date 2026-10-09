@@ -22,6 +22,8 @@
  */
 
 import { generateId } from "../crypto/web-crypto.js";
+import type { TrustedProxyConfig } from "./client-ip.js";
+import { resolveClientIp } from "./client-ip.js";
 import { generateCodeVerifier } from "./oauth/pkce.js";
 import type { OAuthProvider } from "./oauth/types.js";
 import type { RateLimiter } from "./rate-limiter.js";
@@ -46,6 +48,8 @@ export interface OAuthProxyConfig {
 	 * Defaults to 600 (10 minutes).
 	 */
 	stateTtlSeconds?: number;
+	/** Trusted proxy setup for client IP resolution. Forwarded headers are ignored by default. */
+	trustedProxy?: TrustedProxyConfig;
 }
 
 export interface ProxyTokens {
@@ -132,14 +136,6 @@ function jsonError(message: string, status: number): Response {
 		status,
 		headers: { "Content-Type": "application/json" },
 	});
-}
-
-function getClientIp(request: Request): string {
-	return (
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-		request.headers.get("x-real-ip") ??
-		"unknown"
-	);
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +299,7 @@ export function createOAuthProxyModule(
 		// ── GET /auth/oauth-proxy/start ──────────────────────────────────────────
 
 		if (request.method === "GET" && pathname.endsWith("/auth/oauth-proxy/start")) {
-			const ip = getClientIp(request);
+			const ip = resolveClientIp(request, config.trustedProxy) ?? "unknown";
 			const rlResult = rateLimiter.check(ip);
 			if (!rlResult.allowed) {
 				return jsonError("Too many requests", 429);

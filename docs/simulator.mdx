@@ -1,0 +1,150 @@
+---
+title: Permission simulator
+description: Ask what an agent would be allowed to do, with a step by step trace and no side effects.
+icon: flask-conical
+---
+
+## What it does
+
+Before you ship a permission change, you want to know what it does. The simulator takes an agent (or a set of token claims), an action and a resource, and returns a decision with the reasoning behind it: `allow`, `deny` or `needs_approval`.
+
+It only reads. It does not write audit rows, bump rate limit counters, or record spend, so you can run it as often as you like against production data.
+
+## Decision parity with authorize
+
+The simulator is not a second implementation of the rules. Resource and action matching (`findMatchingPermission`) and constraint evaluation (`inspectConstraints`) live in `policy/abac.ts`, and the real `authorize()` path calls the same functions. A test runs the same fixtures through `theauth.authorize()` and the simulator and checks that they agree.
+
+Three places differ on purpose:
+
+- A `requireApproval` rule is `deny` from `authorize()` but `needs_approval` from the simulator.
+- Budget is checked only by the simulator, and only when it can tell the action would not fit: a `cost` is supplied and it is larger than what is left. `authorize()` does not look at budgets.
+- An agent whose `expiresAt` has passed but whose status is still `active` gets a warning step. `authorize()` by agent id looks at status only, so the simulator matches that and flags it instead.
+
+## Run it
+
+```ts
+import { createSimulator } from "@glinr/theauth";
+
+const sim = createSimulator({ db: theauth.db });
+
+const result = await sim.simulate({
+  agentId: "agent_123",
+  action: "read",
+  resource: "mcp:github:repos",
+  context: { ip: "10.1.2.3" },
+});
+
+if (result.success) {
+  console.log(result.data.decision); // "allow" | "deny" | "needs_approval"
+  console.log(result.data.reasons);
+  for (const step of result.data.trace) {
+    console.log(step.stage, step.outcome, step.detail);
+  }
+}
+```
+
+Calls return `{ success: true, data }` or `{ success: false, error }`, like the rest of the SDK.
+
+Without a stored agent, pass token claims instead:
+
+```ts
+await sim.simulate({
+  claims: { permissions: [{ resource: "tool:*", actions: ["read"] }] },
+  action: "read",
+  resource: "tool:search",
+});
+```
+
+## What the trace shows
+
+Each step has a `stage`, an `outcome` and a `detail`, plus structured `data` where it helps.
+
+| Stage | What it records |
+| --- | --- |
+| `agent` | The agent and its status. Revoked or expired agents stop here. |
+| `expiry` | When the agent expires, with a warning if that time has passed. |
+| `permission` | The rule that matched, its index, and whether the resource and action matched exactly or by wildcard. |
+| `constraint` | Each ABAC condition with the observed value next to the configured one: calls this hour, argument patterns, time window, IP allowlist. |
+| `approval` | A `requireApproval` rule that holds the call for a human. |
+| `delegation` | Each chain considered, its depth against its max depth, its expiry, and the rules it narrows to. |
+| `budget` | Limit, spent, remaining and cost. |
+
+If the agent's own rules deny the action, the simulator then tries delegation chains, in the same order `authorize()` does.
+
+## What-if overrides
+
+`overrides` changes the inputs for one run and never stores anything.
+
+```ts
+await sim.simulate({
+  agentId: "agent_123",
+  action: "write",
+  resource: "tool:db",
+  overrides: {
+    extraPermissions: [{ resource: "tool:*", actions: ["write"] }],
+    delegationChains: [
+      { permissions: [{ resource: "tool:*", actions: ["write"] }], depth: 2, maxDepth: 3 },
+    ],
+    budget: { limit: 50, spent: 48, cost: 5 },
+    rateUsage: 90,
+  },
+});
+```
+
+Supplied chains replace the stored ones. A chain whose `depth` is above its `maxDepth`, or that has expired, is listed in the trace and ignored.
+
+## Matrices and effective permissions
+
+```ts
+// Who can do what, across agents
+const matrix = await sim.simulateMany({
+  agentIds: ["agent_1", "agent_2"],
+  actions: ["read", "write"],
+  resources: ["tool:search", "mcp:github:repos"],
+});
+
+// Every rule an agent holds, with the decision for each
+const effective = await sim.effectivePermissions("agent_1");
+```
+
+`simulateMany` refuses grids over 2000 cells.
+
+## HTTP route
+
+The route is off until you add the plugin. Nobody is an admin by default, so you have to say who is.
+
+```ts
+import { createTheAuth, simulator } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  // ...
+  plugins: [simulator({ isAdmin: (user) => user.id === process.env.ADMIN_USER_ID })],
+});
+```
+
+`POST /agents/:id/simulate` needs a signed-in admin and accepts one of three bodies:
+
+```json
+{ "action": "read", "resource": "tool:search", "context": { "ip": "10.1.2.3" } }
+{ "matrix": { "actions": ["read", "write"], "resources": ["tool:search"] } }
+{ "effective": true }
+```
+
+All three accept `overrides`. The single form returns `{ decision, allowed, reasons, trace }`.
+
+## CLI
+
+Sign in as an admin with `theauth login`, then:
+
+```bash
+theauth simulate --agent agent_123 --action read --resource mcp:github:repos
+theauth simulate --agent agent_123 --action read --resource tool:db --ip 10.1.2.3 --json
+theauth permissions agent_123
+```
+
+`simulate` exits 0 on `allow` and 2 on anything else, so you can use it in scripts. `permissions` prints a table of resource, action, source (`own` or `delegation:<chain>`) and decision.
+
+## Limits
+
+- Time windows use the server's local clock, the same as `authorize()`. Pass `context.timestamp` to test another moment.
+- ReBAC relations and the unified policy engine's cache are not part of the simulation yet. It covers the direct permission path that `theauth.authorize()` uses.

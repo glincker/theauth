@@ -1,4 +1,5 @@
 import type {
+	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -7,8 +8,9 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -229,9 +231,40 @@ function buildWebRequest(req: Request): globalThis.Request {
  * app.use('/auth', theAuthExpress(theauth, { mcp }));
  * ```
  */
-export function theAuthExpress(theauth: TheAuth, options?: { mcp?: McpAuthModule }): Router {
+export interface TheAuthExpressOptions extends AdapterSecurityOptions {
+	/** MCP OAuth 2.1 module. When provided, MCP endpoints are enabled. */
+	mcp?: McpAuthModule;
+}
+
+export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions): Router {
 	const router = Router();
 	const mcp = options?.mcp;
+
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(theauth, options, "theAuthExpress");
+	router.use((req: Request, res: Response, next: NextFunction) => {
+		if (!guard.isProtected(req.path)) {
+			next();
+			return;
+		}
+		guard
+			.check(buildWebRequest(req))
+			.then((denied) => {
+				if (!denied) {
+					next();
+					return;
+				}
+				res
+					.status(denied.status)
+					.type("application/json")
+					.send(
+						JSON.stringify({
+							error: { code: "UNAUTHORIZED", message: "Authentication required" },
+						}),
+					);
+			})
+			.catch(next);
+	});
 
 	// ── Agent REST API ──────────────────────────────────────────────
 
@@ -665,6 +698,8 @@ export function theAuthExpress(theauth: TheAuth, options?: { mcp?: McpAuthModule
 			.then((result) => {
 				if (!result.success) {
 					const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
+					const nonce = result.error.details?.dpopNonce;
+					if (typeof nonce === "string") res.setHeader("DPoP-Nonce", nonce);
 					sendMcpNoStore(
 						res,
 						{
@@ -790,8 +825,10 @@ export function theAuthExpress(theauth: TheAuth, options?: { mcp?: McpAuthModule
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
+			// req.baseUrl is the prefix the router was mounted under; the plugin
+			// router needs it to strip the mount point before matching.
 			theauth.plugins
-				.handleRequest(webReq)
+				.handleRequest(webReq, req.baseUrl)
 				.then((response) => {
 					if (!response) {
 						res.status(404).end();
@@ -799,8 +836,12 @@ export function theAuthExpress(theauth: TheAuth, options?: { mcp?: McpAuthModule
 					}
 					res.status(response.status);
 					response.headers.forEach((value, key) => {
-						res.setHeader(key, value);
+						if (key.toLowerCase() !== "set-cookie") res.setHeader(key, value);
 					});
+					// Headers.forEach folds repeated Set-Cookie into one comma-joined value,
+					// which browsers cannot parse. Send each cookie as its own header.
+					const cookies = response.headers.getSetCookie();
+					if (cookies.length > 0) res.setHeader("set-cookie", cookies);
 					return response.text().then((body) => {
 						res.send(body);
 					});

@@ -187,6 +187,9 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 		return {
 			id: String(profile.id),
 			email,
+			// GitHub only exposes verified addresses here: the public profile email
+			// and the primary entry of /user/emails (filtered on verified).
+			emailVerified: true,
 			name: profile.name ?? profile.login,
 			avatar: profile.avatar_url,
 			raw,

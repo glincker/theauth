@@ -5,10 +5,10 @@ icon: code
 ---
 
 
-All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). Paths below are relative to the mount path. The Next.js, Astro, Fastify, and NestJS adapters default to `/api/theauth` (set with their `basePath` or `prefix` option); with Hono and Express you pick the mount path yourself, for example `app.route('/api/theauth', theAuthHono(theauth))`.
+All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). Paths below are relative to the mount path. The Next.js, Astro, Fastify, and NestJS adapters default to `/api/theauth` (set with their `basePath` or `prefix` option); with Hono and Express you pick the mount path yourself, for example `app.route('/api/theauth', theAuthHono(theauth, { authenticate }))`.
 
 <Note>
-  The adapters do not authenticate callers. Only `POST /authorize/token` reads a bearer token (the agent's own `kv_` token). Every other endpoint, including agent creation, audit queries, and the dashboard routes, is open to whoever can reach the mount path, so put your own authentication in front of it (middleware or a gateway).
+  The agent, delegation, audit and dashboard routes (`/agents`, `/delegations`, `/audit`, `/dashboard`) and `POST /authorize` require an authenticated caller. Pass `authenticate` to the adapter, or configure `auth.session` so the adapter accepts any signed-in user. With neither, the adapter throws when you create it, unless you set `allowUnauthenticated: true` (local development only). Unauthenticated requests get `401 UNAUTHORIZED`. See [Framework adapters](/adapters#authenticate-the-management-routes). `POST /authorize/token` is checked by the agent's own `kv_` bearer token, and the MCP, password reset and email verification routes carry their own checks.
 </Note>
 
 Successful responses wrap the payload as `{ "data": ... }`. Errors use `{ "error": { "code": "...", "message": "..." } }` with codes such as `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `NOT_FOUND` (404), and `INTERNAL_ERROR` (500). Examples below show the payload inside `data`. Dates are ISO 8601 strings and IDs are UUIDs (the `agt_...` IDs in the examples are illustrative). The MCP OAuth endpoints are the exception: they return bare OAuth JSON.
@@ -325,7 +325,7 @@ Exports the audit log as JSON or CSV, as evidence for compliance work. The expor
 
 ## MCP endpoints
 
-These endpoints implement the MCP OAuth 2.1 specification. They are served only when you pass an MCP module to the adapter (`theAuthHono(theauth, { mcp })`, built with `createMcpModule` from `@glinr/theauth/mcp`); otherwise they return `404` with `MCP module not configured`. Responses are bare OAuth JSON (no `data` wrapper), errors look like `{ "error": "invalid_request", "error_description": "..." }`, and CORS is open (`Access-Control-Allow-Origin: *`).
+These endpoints implement the MCP OAuth 2.1 specification. They are served only when you pass an MCP module to the adapter (`theAuthHono(theauth, { mcp, authenticate })`, built with `createMcpModule` from `@glinr/theauth/mcp`); otherwise they return `404` with `MCP module not configured`. Responses are bare OAuth JSON (no `data` wrapper), errors look like `{ "error": "invalid_request", "error_description": "..." }`, and CORS is open (`Access-Control-Allow-Origin: *`).
 
 ### Authorization Server Metadata
 

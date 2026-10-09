@@ -29,12 +29,10 @@ better-auth is a solid human-auth library. If your product now needs AI agents a
 // BEFORE: lib/auth.ts (better-auth)
 import { betterAuth } from 'better-auth';
 import { organization, twoFactor } from 'better-auth/plugins';
+import { Pool } from 'pg';
 
 export const auth = betterAuth({
-  database: {
-    provider: 'postgresql',
-    url: process.env.DATABASE_URL,
-  },
+  database: new Pool({ connectionString: process.env.DATABASE_URL }),
   emailAndPassword: { enabled: true },
   plugins: [organization(), twoFactor()],
 });
@@ -72,7 +70,7 @@ export const { GET, POST } = toNextJsHandler(auth);
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { theauth } from '@/lib/theauth';
 
-const handlers = theAuthNextjs(theauth);
+const handlers = theAuthNextjs(theauth, { authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -101,7 +99,7 @@ import { theauth } from './lib/theauth.js';
 
 const app = new Hono();
 
-app.route('/api/theauth', theAuthHono(theauth));
+app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
 ```
 
 ## Database adapter
@@ -134,7 +132,7 @@ theAuth runs its own schema migrations. You do not pass your Drizzle `db` instan
 
 ```ts
 // BEFORE: better-auth client
-import { createAuthClient } from 'better-auth/client';
+import { createAuthClient } from 'better-auth/react'; // 'better-auth/client' for non-React code
 import { organizationClient } from 'better-auth/client/plugins';
 
 export const authClient = createAuthClient({
@@ -142,7 +140,7 @@ export const authClient = createAuthClient({
   plugins: [organizationClient()],
 });
 
-const { data: session } = await authClient.useSession();
+const { data: session } = authClient.useSession(); // a React hook, call it inside a component
 ```
 
 ```ts
@@ -158,7 +156,8 @@ For React, swap the hook import:
 
 ```tsx
 // BEFORE (better-auth React hooks)
-import { useSession } from 'better-auth/react'; // verify against current better-auth docs
+import { authClient } from '@/lib/auth-client';
+const { data: session } = authClient.useSession();
 
 // AFTER (TheAuth React hooks)
 import { useSession } from '@glinr/theauth-react';

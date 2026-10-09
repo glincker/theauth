@@ -19,6 +19,15 @@
  * ```
  */
 
+// Email delivery adapters
+export type {
+	PostmarkConfig,
+	ResendConfig,
+	SendGridConfig,
+	SesConfig,
+	SmtpConfig,
+} from "../email/index.js";
+export { postmark, resend, sendgrid, ses, smtp } from "../email/index.js";
 export * from "../storage/index.js";
 export type { BearerAuthOptions } from "./adapters/bearer.js";
 // Built-in adapters
@@ -124,6 +133,26 @@ export type {
 	StreamEvent,
 } from "./event-stream.js";
 export { createEventStreamModule, EVENT_TYPES } from "./event-stream.js";
+// Federated logout: RP-initiated end_session and OIDC back-channel logout
+export type {
+	BackChannelLogoutReceiver,
+	BackChannelLogoutReceiverConfig,
+	EndSessionContext,
+	EndSessionHandler,
+	EndSessionHandlerConfig,
+	EndSessionUrlParams,
+	LogoutClient,
+	LogoutReplayStore,
+	LogoutTokenClaims,
+	SendBackChannelLogoutParams,
+} from "./federated-logout.js";
+export {
+	BACKCHANNEL_LOGOUT_EVENT,
+	buildEndSessionUrl,
+	createBackChannelLogoutReceiver,
+	createEndSessionHandler,
+	sendBackChannelLogout,
+} from "./federated-logout.js";
 // Agent identity federation (cross-instance auth)
 export type {
 	FederatedAgent,
@@ -252,6 +281,20 @@ export type {
 export { createOrgModule } from "./organization.js";
 // Organization plugin (TheAuthPlugin wrapper)
 export { organization } from "./organization-plugin.js";
+// Unified OTP service (email + SMS) and senders
+export type { OtpSendInput, OtpService, OtpServiceConfig, OtpVerifyInput } from "./otp.js";
+export { createOtpService, generateOtpCode } from "./otp.js";
+export type { OtpRoutesConfig } from "./otp-plugin.js";
+export { otpRoutes } from "./otp-plugin.js";
+export type {
+	EmailOtpSenderOptions,
+	OtpChannel,
+	OtpMessage,
+	OtpPurpose,
+	OtpSender,
+	TwilioSenderConfig,
+} from "./otp-senders.js";
+export { consoleOtpSender, emailOtpSender, twilioOtpSender } from "./otp-senders.js";
 // Passkey / WebAuthn authentication
 export type { PasskeyConfig, PasskeyCredential, PasskeyModule } from "./passkey.js";
 export { createPasskeyModule } from "./passkey.js";
@@ -329,7 +372,7 @@ export { stripe } from "./stripe-plugin.js";
 // TOTP two-factor authentication
 export type { TotpConfig, TotpModule, TotpSetup } from "./totp.js";
 export { createTotpModule } from "./totp.js";
-export type { TwoFactorConfig } from "./totp-plugin.js";
+export type { TwoFactorConfig, TwoFactorOtpConfig } from "./totp-plugin.js";
 // TOTP plugin (TheAuthPlugin wrapper)
 export { twoFactor } from "./totp-plugin.js";
 // Trusted device windows for 2FA

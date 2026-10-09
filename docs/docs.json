@@ -131,7 +131,12 @@
             "pages": [
               "add-to-existing-app",
               "configuration",
-              "database"
+              "database",
+              "choose-storage",
+              "benchmarks",
+              "production-checklist",
+              "troubleshooting",
+              "ai-assistants"
             ]
           },
           {
@@ -140,6 +145,7 @@
             "pages": [
               "sessions",
               "jwt-sessions",
+              "session-hardening",
               "cookies",
               "one-time-tokens",
               "secondary-storage"
@@ -178,6 +184,7 @@
                   "auth/magic-link",
                   "auth/email-otp",
                   "auth/phone",
+                  "auth/otp",
                   "auth/passkey",
                   "auth/siwe",
                   "auth/device"
@@ -278,7 +285,8 @@
                 "pages": [
                   "auth/auth0",
                   "auth/okta",
-                  "auth/yahoo"
+                  "auth/yahoo",
+                  "auth/more-providers"
                 ]
               }
             ]
@@ -311,7 +319,8 @@
             "pages": [
               "agents",
               "ephemeral-sessions",
-              "delegation"
+              "delegation",
+              "token-vault"
             ]
           },
           {
@@ -329,6 +338,7 @@
             "icon": "chart-line",
             "pages": [
               "audit",
+              "audit-trail",
               "analyzer",
               "trust",
               "anomaly"
@@ -339,8 +349,10 @@
             "icon": "gauge",
             "pages": [
               "approval",
+              "simulator",
               "rate-limiting",
               "cli-auth",
+              "cli-tools",
               "agent-registration-tokens",
               "budget-policies",
               "cost-attribution"
@@ -357,6 +369,7 @@
             "icon": "network-wired",
             "pages": [
               "mcp",
+              "dpop",
               "gateway"
             ]
           },
@@ -439,6 +452,7 @@
               "custom-session",
               "additional-fields",
               "email-templates",
+              "email-adapters",
               "i18n"
             ]
           },
@@ -470,8 +484,14 @@
             "icon": "arrow-right-arrow-left",
             "pages": [
               "migrate/index",
+              "migrate/choose-a-path",
+              "migrate/run-both-and-migrate",
+              "migrate/import-users",
+              "migrate/lazy-passwords",
+              "migrate/coexist-with-your-idp",
               "migrate/from-better-auth",
               "migrate/from-better-auth-agent-plugin",
+              "migrate/from-next-auth",
               "migrate/from-clerk",
               "migrate/from-auth0",
               "migrate/from-kavach"
@@ -577,6 +597,8 @@
               "go/guides/sqlite-storage",
               "go/guides/postgres-mysql-storage",
               "go/guides/custom-storage-backend",
+              "go/guides/pluggable-stores",
+              "go/guides/device-authorization",
               "go/guides/migrate-from-cognito",
               "go/guides/migrate-from-auth0"
             ]

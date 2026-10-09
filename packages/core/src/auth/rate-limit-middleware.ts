@@ -5,29 +5,20 @@
  */
 
 import type { PluginEndpoint } from "../plugin/types.js";
+import type { TrustedProxyConfig } from "./client-ip.js";
+import { resolveClientIp } from "./client-ip.js";
 import type { RateLimiter } from "./rate-limiter.js";
 
-export interface RateLimitMiddlewareOptions {
+export interface RateLimitMiddlewareOptions extends TrustedProxyConfig {
 	/**
 	 * Derive the rate-limit key from the incoming request.
 	 *
-	 * Defaults to the first non-empty value of:
-	 *   x-forwarded-for → first IP in the comma-separated list
-	 *   x-real-ip
-	 *   "unknown"
+	 * Defaults to the client IP resolved with the same trusted-proxy rules as
+	 * `rateLimit()`: forwarded headers are ignored unless `trustedProxyCount` or
+	 * `trustedHeader` is set here or on `createTheAuth({ trustedProxy })`. With
+	 * nothing trusted every caller shares the "unknown" bucket (fail closed).
 	 */
 	keyExtractor?: (request: Request) => string;
-}
-
-function defaultKeyExtractor(request: Request): string {
-	const forwarded = request.headers.get("x-forwarded-for");
-	if (forwarded) {
-		const first = (forwarded.split(",")[0] ?? "").trim();
-		if (first) return first;
-	}
-	const real = request.headers.get("x-real-ip");
-	if (real) return real.trim();
-	return "unknown";
 }
 
 export function withRateLimit(
@@ -35,10 +26,13 @@ export function withRateLimit(
 	limiter: RateLimiter,
 	options?: RateLimitMiddlewareOptions,
 ): PluginEndpoint["handler"] {
-	const extractKey = options?.keyExtractor ?? defaultKeyExtractor;
-
 	return async function rateLimitedHandler(request, ctx) {
-		const key = extractKey(request);
+		const key = options?.keyExtractor
+			? options.keyExtractor(request)
+			: (resolveClientIp(request, {
+					trustedProxyCount: options?.trustedProxyCount ?? ctx?.trustedProxy?.trustedProxyCount,
+					trustedHeader: options?.trustedHeader ?? ctx?.trustedProxy?.trustedHeader,
+				}) ?? "unknown");
 		const result = limiter.check(key);
 
 		if (!result.allowed) {

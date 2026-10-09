@@ -148,6 +148,7 @@ export function createGoogleProvider(config: OAuthProviderConfig): OAuthProvider
 		return {
 			id: data.sub,
 			email: data.email,
+			emailVerified: data.email_verified === true,
 			name: data.name,
 			avatar: data.picture,
 			raw,

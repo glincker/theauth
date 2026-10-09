@@ -1,0 +1,130 @@
+---
+title: Run both and migrate as users log in
+description: The strangler fig approach. Keep your current auth running, create theAuth accounts as people sign in, and widen a percentage until you can retire the old system.
+icon: seedling
+---
+
+This is the path for teams with real users and no appetite for a cutover day. Your current system keeps serving logins. theAuth sits beside it, picks up each user the first time they sign in, and takes over for more of them as you raise a number. Nobody is forced to do anything.
+
+## The flow
+
+```text
+                          user signs in
+                                |
+                                v
+                  +---------------------------+
+                  |  incumbent (Auth0, etc.)  |  always authenticates
+                  +---------------------------+
+                                |  verified token
+                                v
+                  +---------------------------+
+                  |  theAuth onboarding hook  |  never blocks the login
+                  +---------------------------+
+                     |                     |
+              rollout says            rollout says
+              "incumbent"             "theauth"
+                     |                     |
+                     v                     v
+              nothing created      create or link account
+              (percent 0 lands     migrate password if the
+               everyone here)      plaintext is available
+                     |                     |
+                     |                     v
+                     |             ledger: migrated_at,
+                     |             source, cohort
+                     |                     |
+                     +----------+----------+
+                                |
+                                v
+                  user continues, served by incumbent
+                  until you flip that cohort's routes
+```
+
+## The six steps
+
+### 1. Run both
+
+Leave your login alone. Add theAuth with an external issuer for your current provider, see [Coexist with your IdP](/migrate/coexist-with-your-idp). Agents and MCP clients can now call your API with theAuth credentials while humans still sign in the old way.
+
+### 2. Migrate on login
+
+Add the onboarding hook after your existing login succeeds:
+
+```ts
+const outcome = await onboarding.onLogin({
+  token: idTokenFromIncumbent,
+  password: submittedPassword, // optional, see below
+});
+// outcome: { servedBy, cohort, action, userId?, passwordMigrated, errorCode? }
+```
+
+If you pass the password the user just typed, and they have no theAuth hash yet, a theAuth hash is stored. The plaintext is used for that one hash and then dropped. If your incumbent never hands you the password (hosted login pages), leave it out and use [lazy migration](/migrate/lazy-passwords) with an imported export instead.
+
+Every outcome is written to the ledger with the source, the cohort and a timestamp. A failure becomes `action: "failed"` with a code, the incumbent keeps serving that user, and the login goes through.
+
+### 3. Roll out by cohort
+
+```ts
+const rollout = createRollout({
+  percent: 5,
+  salt: process.env.ROLLOUT_SALT!,
+  allowlist: { emails: ["you@yourcompany.com"], tenants: ["acme-internal"] },
+  rules: [{ name: "beta-flag", match: (u) => u.attributes?.beta === true }],
+});
+
+const { system, cohort } = await rollout.assignCohort({ id: userId, email, tenantId });
+```
+
+Order of evaluation: `percent: 0` first (everyone to the incumbent), then the allowlist, then rules, then the percentage.
+
+The percentage is sticky. A user is hashed with SHA-256 over your salt and their id into one of 10,000 buckets. Raising 5 to 20 only adds users, it never moves someone back and forth. There is no randomness, so the same user gets the same answer on every server and every restart. Do not change the salt once you start unless you want to reshuffle everyone.
+
+Pass a function instead of an object (`createRollout(() => loadFlag())`) to read the value from a feature flag service, so a change takes effect without a deploy.
+
+### 4. Shadow
+
+For decisions rather than logins (can this agent call this tool), run both systems and log where they disagree before you rely on theAuth. See shadow mode in [Coexist with your IdP](/migrate/coexist-with-your-idp). The shadow answer is never enforced.
+
+### 5. Rollback flag
+
+Set `percent` to 0. Every user and route goes back to the incumbent on the next request. It overrides the allowlist, the rules and any per route cutover. Test this switch before you need it: flip it in staging while a session is open and confirm the incumbent serves it.
+
+### 6. Retire
+
+When the ledger shows everyone active has moved and shadow differences have been quiet for a while:
+
+1. Raise to 100 and leave it for a full billing cycle.
+2. Import the remaining dormant users with `theauth migrate import` (they keep their old hashes for lazy migration).
+3. Turn off the incumbent login, keep its user export somewhere safe for the length of your retention policy, then delete the external issuer config.
+
+## Track progress
+
+```bash
+theauth migrate status --db ./theauth.db
+theauth migrate status --db ./theauth.db --json --out ./migration-report.json
+```
+
+```text
+Migration status (2026-10-08T09:30:00.000Z)
+  total 1480, migrated 612 (41.3%), pending 861, failed 7
+  auth0: migrated 612, pending 861, failed 7
+  cohort percent: 590
+  cohort allowlist: 22
+  failure EMAIL_CONFLICT: 5
+  failure NO_EMAIL: 2
+```
+
+From code, `getMigrationStatus(store)` returns the same numbers: migrated, pending, failed, by source, by cohort, and failures by code. The report holds counts only. No emails, names, hashes or user ids, so you can paste it into a status update.
+
+Pending means imported but not signed in yet. Failed means an onboarding attempt hit an error and the user stayed on the incumbent. A user counts once, by their latest state.
+
+## Rollback
+
+What you can undo, and how:
+
+- **Send everyone back:** `percent: 0`. Instant, no deploy if you read the value from a flag.
+- **Send one group back:** remove them from the allowlist or the rule, or set their route to `incumbent` in `cutover`.
+- **A bad batch of accounts:** theAuth accounts created by onboarding have `externalProvider` set to your issuer name. You can delete them by that column. The incumbent never changed, so there is nothing to restore on its side.
+- **Passwords:** a hash stored at login lives only in theAuth. If a user changes their password in the incumbent while on the old side, their theAuth hash is stale. Send them through a reset when you raise their cohort, or clear the theAuth hash from your incumbent's password change webhook.
+
+What you cannot undo: sessions and tokens issued by theAuth stay valid until they expire. Revoke them if you need them gone.

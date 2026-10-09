@@ -248,7 +248,9 @@ async function main(): Promise<void> {
 	});
 
 	// Mount all TheAuth routes (agents, audit, delegation, MCP OAuth)
-	const api = theAuthHono(auth, { mcp });
+	// Demo only: no authentication on the management routes. Real apps pass
+	// `authenticate` (see the adapter docs).
+	const api = theAuthHono(auth, { mcp, allowUnauthenticated: true });
 
 	const app = new Hono();
 

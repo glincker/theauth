@@ -25,7 +25,9 @@ import { TheAuthModule } from "@glinr/theauth-nestjs";
 @Module({
   imports: [
     TheAuthModule.forRoot({
-      database: { provider: "sqlite", url: "theauth.db" },
+      theauth,
+      // Required: who may call /agents, /audit and the other management routes.
+      authenticate: async (req) => (await theauth.auth.resolveUser(req)) ?? null,
     }),
   ],
 })
@@ -43,7 +45,7 @@ const theauth = createTheAuth({
 });
 
 // Apply as NestJS middleware
-app.use("/api/theauth", theAuthMiddleware(theauth));
+app.use("/api/theauth", theAuthMiddleware({ theauth, authenticate }));
 ```
 
 ## Docs

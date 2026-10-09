@@ -1,10 +1,11 @@
-import type { TheAuth } from "@glinr/theauth";
+import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { EventHandler, H3Event } from "h3";
 import { defineEventHandler, getRequestURL, readBody, setHeader, setResponseStatus } from "h3";
 import { dispatch } from "./dispatch.js";
 
-export interface TheAuthNuxtOptions {
+export interface TheAuthNuxtOptions extends AdapterSecurityOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -45,6 +46,8 @@ export type AuthNuxtOptions = TheAuthNuxtOptions;
 export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventHandler {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/theauth";
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(auth, options, "theAuthNuxt");
 
 	return defineEventHandler(async (event: H3Event) => {
 		// Build a standard Request from the H3 event so we can delegate to the
@@ -75,13 +78,16 @@ export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventH
 		}
 
 		const request = new Request(url.toString(), { method, headers, body });
-		const response = await dispatch(request, auth, mcp, basePath);
+		const response = await dispatch(request, auth, mcp, basePath, guard);
 
 		// Write the Response back through H3
 		setResponseStatus(event, response.status);
 		response.headers.forEach((value, key) => {
-			setHeader(event, key, value);
+			if (key.toLowerCase() !== "set-cookie") setHeader(event, key, value);
 		});
+		// Headers.forEach folds repeated Set-Cookie into one comma-joined value.
+		const cookies = response.headers.getSetCookie();
+		if (cookies.length > 0) setHeader(event, "set-cookie", cookies);
 
 		// H3 route handlers can return a string, Buffer, or null; return the
 		// body text directly so H3 sends it as-is.

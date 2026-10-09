@@ -25,7 +25,7 @@ const theauth = createTheAuth({
 });
 
 // Mount in your TanStack Start API routes
-export const { GET, POST } = theAuthTanStack(theauth);
+export const { GET, POST } = theAuthTanStack(theauth, { authenticate });
 ```
 
 ## Docs

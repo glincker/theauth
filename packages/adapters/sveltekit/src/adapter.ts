@@ -1,9 +1,10 @@
-import type { TheAuth } from "@glinr/theauth";
+import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
+import { createAdapterGuard } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { RequestHandler } from "@sveltejs/kit";
 import { dispatch } from "./dispatch.js";
 
-export interface TheAuthSvelteKitOptions {
+export interface TheAuthSvelteKitOptions extends AdapterSecurityOptions {
 	/**
 	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
 	 */
@@ -64,10 +65,12 @@ export function theAuthSvelteKit(
 ): TheAuthSvelteKitHandlers {
 	const mcp = options?.mcp;
 	const basePath = options?.basePath ?? "/api/theauth";
+	// Fails closed at construction when nothing can authenticate callers.
+	const guard = createAdapterGuard(auth, options, "theAuthSvelteKit");
 
 	// SvelteKit RequestHandler receives an event whose `request` property is a
 	// standard Web API Request, so we can pass it directly to dispatch.
-	const handler: RequestHandler = ({ request }) => dispatch(request, auth, mcp, basePath);
+	const handler: RequestHandler = ({ request }) => dispatch(request, auth, mcp, basePath, guard);
 
 	return {
 		GET: handler,

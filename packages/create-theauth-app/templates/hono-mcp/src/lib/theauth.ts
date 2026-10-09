@@ -11,7 +11,7 @@ export async function getTheAuth() {
 		instance = await createTheAuth({
 			database: {
 				provider,
-				url: process.env["DATABASE_URL"] ?? "file:./theauth.db",
+				url: process.env["DATABASE_URL"] ?? "./theauth.db",
 			},
 			secret: process.env["THEAUTH_SECRET"] ?? "dev-secret-change-me-in-prod",
 			agents: {

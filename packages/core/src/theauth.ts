@@ -3,6 +3,7 @@ import { createAgentModule } from "./agent/agent.js";
 import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
 import { createAuditModule } from "./audit/audit.js";
+import { enableAuditChain } from "./audit/chain.js";
 import type { AdminModule } from "./auth/admin.js";
 import { createAdminModule } from "./auth/admin.js";
 import type { ApiKeyManagerModule } from "./auth/api-key-manager.js";
@@ -147,7 +148,10 @@ export async function createTheAuth(config: TheAuthConfig) {
 		auditAll: config.agents?.auditAll ?? true,
 	});
 
-	const auditModule = createAuditModule({ db });
+	if (config.audit?.tamperEvident) {
+		enableAuditChain(db, { hmacKey: config.audit.hmacKey });
+	}
+	const auditModule = createAuditModule({ db, hmacKey: config.audit?.hmacKey });
 
 	const delegationModule = createDelegationModule({ db });
 
@@ -263,6 +267,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 	// We capture sessionManager in closure so it's available if configured.
 	const endpointCtx: EndpointContext = {
 		db,
+		trustedProxy: config.trustedProxy,
 		async getUser(request: Request): Promise<ResolvedUser | null> {
 			// 1. Try configured auth adapter first
 			if (authAdapter) {
@@ -600,7 +605,14 @@ export async function createTheAuth(config: TheAuthConfig) {
 		authorizeByToken,
 		delegate,
 		delegation: {
-			revoke: delegationModule.revokeDelegation,
+			revoke: async (chainId: string): Promise<void> => {
+				await delegationModule.revokeDelegation(chainId);
+				// Vault consents tied to this chain die with it (reads also re-check the chain).
+				const vault = pluginRegistry.pluginContext.tokenVault as
+					| { revokeForDelegation?: (id: string) => Promise<number> }
+					| undefined;
+				await vault?.revokeForDelegation?.(chainId);
+			},
 			getEffectivePermissions: delegationModule.getEffectivePermissions,
 			listChains: delegationModule.listChains,
 		},

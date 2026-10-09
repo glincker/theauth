@@ -1,6 +1,28 @@
 import { verifyAccessJwt } from "./keys.js";
-import type { McpAuthContext, McpSession, McpTokenPayload, Result } from "./types.js";
-import { extractBearerToken } from "./utils.js";
+import type {
+	McpActorClaim,
+	McpAuthContext,
+	McpDelegationHop,
+	McpSession,
+	McpTokenPayload,
+	Result,
+} from "./types.js";
+import { extractBearerToken, timingSafeEqual } from "./utils.js";
+
+const MAX_DELEGATION_DEPTH = 10;
+
+/** Flatten nested RFC 8693 `act` claims into a list, current actor first. */
+function readDelegationChain(act: McpActorClaim | undefined): McpDelegationHop[] {
+	const chain: McpDelegationHop[] = [];
+	let node: unknown = act;
+	while (chain.length < MAX_DELEGATION_DEPTH && typeof node === "object" && node !== null) {
+		const { sub, client_id, act: next } = node as McpActorClaim;
+		if (typeof sub !== "string") break;
+		chain.push({ sub, ...(typeof client_id === "string" ? { clientId: client_id } : {}) });
+		node = next;
+	}
+	return chain;
+}
 
 /**
  * Validate an MCP access token (JWT).
@@ -12,6 +34,9 @@ import { extractBearerToken } from "./utils.js";
  * 4. Audience validation (token must be bound to `expectedAudience`, required)
  * 5. Revocation check against the configured jti denylist, if any
  * 6. Scope validation (optional - checks all required scopes are present)
+ * 7. DPoP binding: a token with `cnf.jkt` is refused unless the caller passes
+ *    `presentedDpopJkt` (the thumbprint of a verified proof) and it matches.
+ *    A bound token therefore never validates as a plain bearer token.
  *
  * Target: < 5ms with cached keys (per CLAUDE.md performance rule).
  */
@@ -25,6 +50,11 @@ export async function validateAccessToken(
 		 * another resource must never be accepted here.
 		 */
 		expectedAudience?: string;
+		/**
+		 * Thumbprint of the DPoP key whose proof the caller already verified for
+		 * this request, or null/undefined for a bearer presentation.
+		 */
+		presentedDpopJkt?: string | null;
 	},
 ): Promise<Result<McpSession>> {
 	if (!options?.expectedAudience) {
@@ -104,6 +134,40 @@ export async function validateAccessToken(
 		};
 	}
 
+	// ── DPoP binding (RFC 9449 section 7) ───────────────────────────
+	const boundJkt = typeof payload.cnf?.jkt === "string" ? payload.cnf.jkt : undefined;
+	const presentedJkt = options.presentedDpopJkt ?? undefined;
+	if (boundJkt) {
+		if (!presentedJkt) {
+			return {
+				success: false,
+				error: {
+					code: "INVALID_TOKEN",
+					message: "Token is bound to a DPoP key and must be presented with a DPoP proof",
+					details: { dpopBound: true },
+				},
+			};
+		}
+		if (!timingSafeEqual(boundJkt, presentedJkt)) {
+			return {
+				success: false,
+				error: {
+					code: "INVALID_TOKEN",
+					message: "DPoP proof key does not match the key the token is bound to",
+					details: { dpopBound: true },
+				},
+			};
+		}
+	} else if (presentedJkt) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_TOKEN",
+				message: "Token is not DPoP-bound, so it cannot be used with the DPoP scheme",
+			},
+		};
+	}
+
 	// ── Scope validation ────────────────────────────────────────────
 	const tokenScopes = payload.scope ? payload.scope.split(" ") : [];
 	const requiredScopes = options?.requiredScopes ?? [];
@@ -135,6 +199,17 @@ export async function validateAccessToken(
 		resource,
 		expiresAt: new Date(payload.exp * 1000),
 		tokenId: payload.jti,
+		...(boundJkt ? { dpopJkt: boundJkt } : {}),
+		...(typeof payload.agent_id === "string"
+			? {
+					agent: {
+						id: payload.agent_id,
+						...(typeof payload.agent_type === "string" ? { type: payload.agent_type } : {}),
+						...(typeof payload.trust_tier === "string" ? { trustTier: payload.trust_tier } : {}),
+					},
+				}
+			: {}),
+		delegationChain: readDelegationChain(payload.act),
 	};
 
 	return { success: true, data: session };

@@ -1,4 +1,5 @@
 import type {
+	AdapterGuard,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
@@ -519,12 +520,20 @@ export async function dispatch(
 	theauth: TheAuth,
 	mcp: McpAuthModule | undefined,
 	basePath: string,
+	guard: AdapterGuard,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const raw = url.pathname;
 	const relative = raw.startsWith(basePath) ? raw.slice(basePath.length) : raw;
 	const pathname = relative.startsWith("/") ? relative : `/${relative}`;
 	const method = request.method.toUpperCase();
+
+	// Management routes (agents, delegations, audit, dashboard, authorize)
+	// require an authenticated caller.
+	if (guard.isProtected(pathname)) {
+		const denied = await guard.check(request);
+		if (denied) return denied;
+	}
 
 	// MCP OPTIONS preflight
 	if (method === "OPTIONS") {
@@ -696,6 +705,13 @@ export async function dispatch(
 	if (pathname === "/dashboard/audit") {
 		if (method === "GET") return handleAuditQuery(request, theauth);
 		return methodNotAllowed();
+	}
+
+	// ── Plugin Endpoints ────────────────────────────────────────────
+
+	const pluginResponse = await theauth.plugins.handleRequest(request, basePath);
+	if (pluginResponse !== null) {
+		return pluginResponse;
 	}
 
 	return notFound("Route not found");

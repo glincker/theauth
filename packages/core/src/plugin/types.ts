@@ -1,3 +1,4 @@
+import type { TrustedProxyConfig } from "../auth/client-ip.js";
 import type { ResolvedUser } from "../auth/types.js";
 import type { Database } from "../db/database.js";
 import type { Session, SessionManager } from "../session/session.js";
@@ -50,6 +51,8 @@ export interface EndpointContext {
 	getUser: (request: Request) => Promise<ResolvedUser | null>;
 	/** Get a session by token */
 	getSession: (token: string) => Promise<Session | null>;
+	/** Trusted proxy config from `createTheAuth({ trustedProxy })`, used to resolve client IPs. */
+	trustedProxy?: TrustedProxyConfig;
 }
 
 /** Plugin definition */

@@ -86,7 +86,7 @@ export const GET = handleAuth();
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { theauth } from '@/lib/theauth';
 
-const handlers = theAuthNextjs(theauth);
+const handlers = theAuthNextjs(theauth, { authenticate });
 
 export const { GET, POST, PATCH, DELETE, OPTIONS } = handlers;
 ```

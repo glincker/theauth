@@ -43,6 +43,8 @@ const theauth = await createTheAuth({
 <ParamField path="did" type="{ web?: DidWebConfig }">did:web domain and path. See [DIDs](/did).</ParamField>
 <ParamField path="plugins" type="TheAuthPlugin[]">Plugin factories such as `gdpr()`, `rateLimit()`, `twoFactor()`. See [Plugins](#plugins).</ParamField>
 <ParamField path="baseUrl" type="string">Base URL for the auth server (e.g. https://auth.example.com). Read by plugins that build callback URLs or decide on secure cookies (OAuth, passkey, OAuth proxy).</ParamField>
+<ParamField path="secondaryStorage" type={`"memory" | "database" | SecondaryStorage | { default?, rateLimit?, deviceCodes?, ... }`} default={`"memory"`}>Where short-lived state lives: rate limit counters, device login codes and similar. Memory is lost on restart and not shared between instances, so use `"database"` or Redis when you run more than one server. See [Secondary storage](/secondary-storage).</ParamField>
+<ParamField path="trustedProxy" type="{ trustedProxyCount?: number; trustedHeader?: string }">How plugin endpoint rate limits find the real client IP. Forwarded headers are ignored unless you set the number of proxies you run or a header your edge overwrites (for example `cf-connecting-ip`). Without either, all clients share one rate limit bucket. See [Rate limiting](/rate-limiting).</ParamField>
 <ParamField path="sessionFreshness" type="SessionFreshnessConfig">See [Session freshness config](#session-freshness-config).</ParamField>
 <ParamField path="webhooks" type="WebhookConfig[]">Webhook endpoints to notify on auth events. See [Webhooks](/webhooks).</ParamField>
 <ParamField path="passwordReset" type="PasswordResetConfig">Password reset flow. See [Password reset config](#password-reset-config).</ParamField>
@@ -168,7 +170,7 @@ Built-in adapters exported from `@glinr/theauth/auth` include `betterAuthAdapter
 
 <ParamField path="secret" type="string" required>Signing secret for session JWTs. Min 32 characters.</ParamField>
 <ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds.</ParamField>
-<ParamField path="cookieName" type="string" default="'theauth_session'">Name of the session cookie.</ParamField>
+<ParamField path="cookieName" type="string" default="'theauth_session'">Declared on the type but not read: plugins that set the session cookie (OAuth, passkey) and the default token lookup always use `theauth_session`. To rename the cookie, use `sessionName` on `createCookieSessionManager` (see [Cookie options](/cookies)).</ParamField>
 
 ## Password reset config
 
@@ -234,7 +236,7 @@ Plugins are factories passed in the `plugins` array. They register HTTP endpoint
 | `rateLimit(config?)` | Per-IP limits on `/auth/*` endpoints |
 | `oauth(config)` | Social OAuth sign-in endpoints |
 
-There is no `emailPassword` plugin. Username and password sign-in is the top-level `username` option (with `passwordReset` and `emailVerification` alongside it). Multi-session support lives in the session module, see [Multi-session](/multi-session).
+`emailPassword()` is not part of `@glinr/theauth`. It ships in the separate `@glinr/theauth-email` package (see [Email and password](/auth/email-password)). Inside core, username and password sign-in is the top-level `username` option (with `passwordReset` and `emailVerification` alongside it). `deviceAuth()` (see [Device authorization](/auth/device)) and `agentRegistration()` (see [Agent registration tokens](/agent-registration-tokens)) are exported from `@glinr/theauth/auth` too. Multi-session support lives in the session module, see [Multi-session](/multi-session).
 
 ## Environment variables pattern
 
@@ -246,7 +248,6 @@ const theauth = await createTheAuth({
     provider: 'postgres',
     url: process.env.DATABASE_URL!,
   },
-  secret: process.env.THEAUTH_SECRET!,
   auth: {
     session: { secret: process.env.THEAUTH_SESSION_SECRET! },
   },

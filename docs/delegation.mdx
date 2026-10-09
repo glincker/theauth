@@ -41,7 +41,7 @@ console.log(chain.expiresAt); // Date
 
 <ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated.</ParamField>
 <ParamField path="toAgent" type="string">Agent ID receiving the permissions.</ParamField>
-<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent\'s own permissions.</ParamField>
+<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent's own permissions.</ParamField>
 <ParamField path="expiresAt" type="Date">When the delegation expires. After this point, the chain is no longer valid.</ParamField>
 <ParamField path="maxDepth" type="number">Highest chain depth this call may create. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to this value, otherwise the call throws. Default is 3. The value is not inherited by later hops: each `delegate()` call is checked against its own `maxDepth`.</ParamField>
 
@@ -198,7 +198,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
 
 <CardGroup cols={2}>
   <Card title="Audit trail" href="/audit">
-  Every delegation is logged with agent and depth info.
+  Authorization decisions made through delegated permissions are recorded in the audit log.
 </Card>
   <Card title="Agent identity" href="/agents">
   Create the agents that participate in delegation chains.

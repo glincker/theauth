@@ -28,21 +28,44 @@ a, _ := theauth.New(theauth.Config{
 
 `EncryptionKey` is required when `AuthorizationServer` is set. It protects the Ed25519 signing key at rest.
 
-## Routes mounted by `a.Mount(r)`
+## Endpoints
 
-When `AuthorizationServer` is configured:
+Once `AuthorizationServer` is set, `a.Mount(r)` adds the endpoints below. They sit at the root of the router you pass in, not under `/auth` like the sign-in routes. A few things follow from that:
 
-| Endpoint | RFC |
+- Call `a.Mount` on your top-level router. If you mount it on a sub-router, every URL below gets that prefix, and the URLs the server advertises in its metadata will not match.
+- Set `Issuer` to a bare origin such as `https://as.example.com`. The metadata route is registered only at the root, so an issuer with a path (`https://example.com/tenant1`) will not be discoverable.
+
+To check a running server, fetch `/.well-known/oauth-authorization-server`. It lists the issuer and the full URL of every endpoint your configuration turned on.
+
+### Discovery
+
+Clients and resource servers start here.
+
+| Endpoint | What it returns |
 |---|---|
-| `GET /.well-known/oauth-authorization-server` | RFC 8414 |
-| `GET /.well-known/oauth-protected-resource` | RFC 9728 |
-| `GET /.well-known/oauth-protected-resource/{path}` | RFC 9728, per-resource |
-| `GET /oauth/jwks` | RFC 7517 |
-| `GET /oauth/authorize` | RFC 6749 / OAuth 2.1 |
-| `POST /oauth/token` | RFC 6749 / OAuth 2.1 |
-| `POST /oauth/revoke` | RFC 7009 |
-| `POST /oauth/introspect` | RFC 7662 |
-| `POST /oauth/register` | RFC 7591 |
+| `GET /.well-known/oauth-authorization-server` | The server's metadata: endpoint URLs, supported grant types, PKCE methods and signing algorithms (RFC 8414). Cached for 5 minutes. |
+| `GET /.well-known/oauth-protected-resource` | Metadata for the first entry in `Resources`: which server issues tokens for it and which scopes it accepts (RFC 9728). |
+| `GET /.well-known/oauth-protected-resource/{path}` | The same, for a specific resource. `{path}` is the resource's path under your issuer. For a resource with identifier `https://as.example.com/mcp`, request `/.well-known/oauth-protected-resource/mcp`. |
+| `GET /oauth/jwks` | The public keys that verify the tokens this server signs (RFC 7517). |
+
+The per-resource route only finds resources that live under the issuer's own host. If your API runs somewhere else, such as `https://api.example.com`, serve its protected resource metadata from that host. The [resource server](/go/concepts/resource-server) package does this for you.
+
+### Getting a token
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /oauth/authorize` | Starts the authorization code flow. The user must be signed in, so mount your sign-in routes on the same app (RFC 6749, OAuth 2.1). |
+| `POST /oauth/token` | Exchanges a code, refresh token or other grant for an access token (RFC 6749, OAuth 2.1). |
+| `POST /oauth/revoke` | Revokes a refresh token. The caller must be the client the token was issued to (RFC 7009). |
+| `POST /oauth/introspect` | Lets a resource server ask whether a token is still active (RFC 7662). |
+
+### Enabled by configuration
+
+| Endpoint | Turns on when |
+|---|---|
+| `POST /oauth/register` | The route always exists, but it only accepts requests when you set `RegistrationTokens` or `AllowAnonymousRegistration`. Otherwise it answers `401`. See [Dynamic Client Registration](#dynamic-client-registration) (RFC 7591). |
+| `POST /oauth/par` | Pushed authorization requests are enabled and your storage backend supports them. See [PAR and JAR](/go/concepts/par-jar) (RFC 9126). |
+| `POST /oauth/bc-authorize` | CIBA is configured and your storage backend supports it. See [CIBA](/go/concepts/ciba). |
 
 ## Dynamic Client Registration
 

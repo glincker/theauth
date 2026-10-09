@@ -53,7 +53,15 @@ Create `app/api/theauth/[...theauth]/route.ts`. The `[...theauth]` segment catch
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { theauth, mcp } from '@/lib/theauth';
 
-const handlers = theAuthNextjs(theauth, { mcp });
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+const handlers = theAuthNextjs(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -134,7 +142,15 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-const handlers = theAuthNextjs(theauth, { mcp });
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+const handlers = theAuthNextjs(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

@@ -28,7 +28,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | Variable | Required | Notes |
 |---|---|---|
 | `THEAUTH_SECRET` | Yes | Long random string, used to sign sessions |
-| `DATABASE_URL` | Yes | SQLite: `file:./theauth.db` · Postgres: connection string |
+| `DATABASE_URL` | Yes | SQLite: `./theauth.db` · Postgres: connection string |
 
 ## Project structure
 

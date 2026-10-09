@@ -43,6 +43,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
+import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
 // ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ export function createEmailVerificationModule(
 			return { success: false, error: makeError("INVALID_INPUT", "email must not be empty") };
 		}
 
-		const normalizedEmail = email.trim().toLowerCase();
+		const normalizedEmail = normalizeEmail(email);
 
 		// Check if already verified — no need to send again.
 		const userRows = await db

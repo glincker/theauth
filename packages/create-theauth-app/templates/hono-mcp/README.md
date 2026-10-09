@@ -14,7 +14,7 @@ A Hono server scaffolded with [theAuth](https://theauth.dev). Runs as an MCP OAu
 
 ```bash
 cp .env.example .env
-# Edit .env: set THEAUTH_SECRET to a 32+ byte random hex string
+# Edit .env: set THEAUTH_SECRET and ADMIN_API_KEY to 32+ byte random hex strings
 
 pnpm install
 pnpm run dev
@@ -29,6 +29,7 @@ The server listens on `http://localhost:3001`. Visit the root URL to see the MCP
 ```bash
 # 1. Create an agent with scoped MCP permissions
 curl -X POST http://localhost:3001/api/agents \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "ownerId": "user-1",
@@ -49,7 +50,8 @@ curl http://localhost:3001/tools/list \
 | Variable          | Required | Notes                                                                      |
 |-------------------|----------|----------------------------------------------------------------------------|
 | `THEAUTH_SECRET` | Yes      | Long random string. Signs sessions and access tokens.                      |
-| `DATABASE_URL`    | Yes      | SQLite: `file:./theauth.db`. Postgres: `postgres://user:pass@host:5432/db`. |
+| `ADMIN_API_KEY`   | Yes      | Bearer key for `/api/agents`, `/api/audit` and the other management routes. Unset means those routes reject every request. |
+| `DATABASE_URL`    | Yes      | SQLite: `./theauth.db`. Postgres: `postgres://user:pass@host:5432/db`. |
 | `BASE_URL`        | No       | Public URL this server is reachable at. Defaults to `http://localhost:3001`. Set it before deploying so the `.well-known` documents and access-token audience match what clients use. |
 | `PORT`            | No       | Port to bind. Defaults to `3001`.                                           |
 
@@ -61,6 +63,7 @@ src/
   tools.ts             Example MCP tool list
   lib/
     theauth.ts          Lazy createTheAuth singleton
+    admin-auth.ts       Bearer-key check for the management routes
 ```
 
 ## Deploying

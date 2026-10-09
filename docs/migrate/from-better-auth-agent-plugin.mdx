@@ -213,7 +213,7 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { mcp });
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { mcp, authenticate });
 ```
 
 `mcpStore` supplies `storeClient`, `findClient`, `storeAuthorizationCode`, `consumeAuthorizationCode`, `storeToken`, `findTokenByRefreshToken`, `revokeToken`, and `resolveUserId`. The adapter serves `/mcp/register`, `/mcp/authorize`, and `/mcp/token`, plus the two `.well-known` documents, all relative to its mount path (`/api/theauth` by default). MCP clients look for the `.well-known` documents at the root of your origin, so add root-level routes or rewrites when you mount under a prefix, see [MCP](/mcp).

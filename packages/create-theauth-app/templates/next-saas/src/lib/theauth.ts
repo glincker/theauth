@@ -9,9 +9,19 @@ export async function getTheAuth() {
 		instance = await createTheAuth({
 			database: {
 				provider: "__DB_DRIVER__" === "pg" ? "postgres" : "sqlite",
-				url: process.env["DATABASE_URL"] ?? "file:./theauth.db",
+				url: process.env["DATABASE_URL"] ?? "./theauth.db",
 			},
-			secret: process.env["THEAUTH_SECRET"] ?? "dev-secret-change-me",
+			secret: process.env["THEAUTH_SECRET"] ?? "dev-secret-change-me-at-least-32-chars",
+			// Sessions are what the API routes use to tell who is calling. The
+			// theAuthNextjs adapter rejects /agents, /audit and the other
+			// management routes unless the caller has a valid session. Any
+			// signed-in user passes, so pass your own `authenticate` to the
+			// adapter if only admins should reach them.
+			auth: {
+				session: {
+					secret: process.env["THEAUTH_SECRET"] ?? "dev-secret-change-me-at-least-32-chars",
+				},
+			},
 		});
 	}
 	return instance;

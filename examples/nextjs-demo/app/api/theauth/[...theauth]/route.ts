@@ -2,7 +2,7 @@ import { theAuthNextjs } from '@glinr/theauth-nextjs';
 import { getTheAuth } from '@/lib/theauth';
 
 const auth = await getTheAuth();
-const handlers = theAuthNextjs(auth, { basePath: '/api/theauth' });
+const handlers = theAuthNextjs(auth, { basePath: '/api/theauth', allowUnauthenticated: true });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

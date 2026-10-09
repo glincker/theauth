@@ -51,7 +51,15 @@ Create `src/routes/api/theauth/[...theauth].ts`. The `[...theauth]` segment catc
 import { theAuthSolidStart } from '@glinr/theauth-solidstart';
 import { theauth, mcp } from '~/lib/theauth';
 
-const handlers = theAuthSolidStart(theauth, { mcp });
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+const handlers = theAuthSolidStart(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;
@@ -132,7 +140,15 @@ const mcp = createMcpModule({
   ...mcpStore,
 });
 
-const handlers = theAuthSolidStart(theauth, { mcp });
+// Who may call the management routes. Return { id } to allow, null to reject (401).
+// resolveUser needs an auth.adapter; with only auth.session, omit authenticate
+// and any valid session is accepted.
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+const handlers = theAuthSolidStart(theauth, { mcp, authenticate });
 
 export const GET = handlers.GET;
 export const POST = handlers.POST;

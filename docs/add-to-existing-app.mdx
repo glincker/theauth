@@ -69,10 +69,17 @@ import { getTheAuth } from '@/lib/theauth';
 
 const theauth = await getTheAuth();
 
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth);
+// Return { id } for callers allowed to use the management routes, or null for a 401.
+// Replace this with a check against your existing auth (Clerk, Auth.js, ...).
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user ? { id: user.id } : null;
+};
+
+export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { authenticate });
 ```
 
-`theAuthNextjs` takes the resolved instance (not a function) and returns one handler per HTTP method. Export all five: the REST API uses `PATCH` and `DELETE` as well. Its default `basePath` is `/api/theauth`; pass `{ basePath }` if you mount it elsewhere. The route handler only exposes the theAuth endpoints and does not add authentication, so protect it with your own middleware (see the [REST API](/api)).
+`theAuthNextjs` takes the resolved instance (not a function) and returns one handler per HTTP method. Export all five: the REST API uses `PATCH` and `DELETE` as well. Its default `basePath` is `/api/theauth`; pass `{ basePath }` if you mount it elsewhere. The agent, delegation, audit and dashboard routes require an authenticated caller: pass `authenticate` (as above), or configure `auth.session` to accept any signed-in user. With neither, `theAuthNextjs` throws at startup. See [Framework adapters](/adapters#authenticate-the-management-routes). The `authenticate` function above is a placeholder; with Clerk or Auth.js, call their server helpers and return `{ id: userId }`.
 
 Pick a path that does not collide with your existing auth. `/api/theauth/*` lives next to `/api/auth/*` (Clerk / Auth.js) without stepping on it.
 

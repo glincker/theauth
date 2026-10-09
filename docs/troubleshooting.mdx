@@ -1,0 +1,220 @@
+---
+title: Troubleshooting
+description: Fixes for the problems people hit most often with theAuth, organized by symptom. Exact error codes, cookie and CORS pitfalls, OAuth redirects, clock skew, proxies, and serverless or edge runtimes.
+icon: wrench
+---
+
+Start with the symptom you see. Each entry says what the cause usually is and what to change. If you have an error code, jump to [Error codes you will meet](#error-codes-you-will-meet). The full list lives in [Error codes](/errors).
+
+## Sign-in works, then the user is signed out
+
+<AccordionGroup>
+<Accordion title="The session cookie never reaches the browser">
+Open the network tab and look at the `Set-Cookie` header on the sign-in or OAuth callback response. Three things stop a cookie from being stored:
+
+- It is marked `Secure` but the page is served over plain `http://`. Browsers drop it silently. The cookie session manager sets `Secure` only when `NODE_ENV=production`; the OAuth plugin sets it when `baseUrl` starts with `https://`. Behind a TLS-terminating proxy, make sure `baseUrl` is the public `https://` URL, not the internal `http://` one.
+- You set `cookieOptions.domain` to a domain the page is not on.
+- The response was cached or rewritten by a proxy that strips `Set-Cookie`.
+
+Details and defaults are on [Cookie options](/cookies).
+</Accordion>
+
+<Accordion title="Everyone is signed out after each deploy">
+The session `secret` changed. Session tokens are signed with it, so a new value invalidates every cookie. Keep it in an environment variable that is the same across deploys and across instances. theAuth takes a single secret, not a list, so there is no graceful rotation: plan a rotation as a sign-out of all users. The same applies to `signingSecret` for the MCP module.
+</Accordion>
+
+<Accordion title="Sessions work on one instance and fail on another">
+Instances are using different secrets, or something in the session path is in memory. Check that `auth.session.secret` is identical everywhere. If you use the `rateLimit()` plugin or device flow, also check that [secondary storage](/secondary-storage) is not left at the in-memory default.
+</Accordion>
+
+<Accordion title="Signed in on app.example.com, signed out on api.example.com">
+Cookies are host-only by default. Set `cookieOptions.domain` to `.example.com` for subdomains. For different registrable domains (`example.com` and `example.org`) cookies cannot be shared at all, use [JWT sessions](/jwt-sessions) with an `Authorization` header.
+</Accordion>
+
+<Accordion title="The session is fine in the browser but middleware cannot read it">
+Edge middleware cannot usually open your database, so it cannot validate a cookie session. Check only that the cookie is present there and validate in server code. See the middleware example in [Migrate from Clerk](/migrate/from-clerk#middleware-ts).
+</Accordion>
+</AccordionGroup>
+
+## CORS and cross-origin requests
+
+theAuth core adds CORS headers only to the MCP endpoints (`Access-Control-Allow-Origin: *`, with `WWW-Authenticate` exposed so browser MCP clients can read the challenge). The sign-in, session and management routes send no CORS headers. If your front end is on a different origin from the API, you add the headers yourself in your framework, for example with Hono's `cors()` middleware or Express's `cors` package, and you must allow credentials for cookies:
+
+```ts
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { theAuthHono } from '@glinr/theauth-hono';
+
+const app = new Hono();
+
+// Register CORS before the auth routes so preflight (OPTIONS) requests are answered.
+app.use('/api/theauth/*', cors({
+  origin: 'https://app.example.com', // a single origin, not '*', when credentials are on
+  credentials: true,
+}));
+app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
+```
+
+On the browser side, send `credentials: 'include'` on `fetch` calls. A wildcard origin together with credentials is rejected by browsers, which shows up as "CORS error" even though the request reached the server.
+
+For a cookie to be sent cross-site at all it needs `SameSite=None; Secure`, and recent browsers also block third-party cookies by default in some modes. If the front end and API can share a registrable domain, do that and keep `SameSite=Lax`. Otherwise use [JWT sessions](/jwt-sessions).
+
+The device approval endpoint is stricter on purpose. `POST /auth/device/authorize` answers `403 access_denied` to a browser `Origin` that is neither the origin of `verificationUri` nor listed in `trustedOrigins`. If your verification page is on another origin, add it to `trustedOrigins` on `deviceAuth()` ([Device authorization](/auth/device)).
+
+## OAuth and redirects
+
+<AccordionGroup>
+<Accordion title="redirect_uri_mismatch (reported by Google, GitHub and others)">
+The callback URL you registered with the provider must match exactly, character for character. For the `oauth()` plugin it is `{baseUrl}/auth/oauth/callback/{provider}`. Because `baseUrl` includes the adapter mount path, with `baseUrl: 'https://app.example.com/api/theauth'` and Google the URL is `https://app.example.com/api/theauth/auth/oauth/callback/google`. Trailing slashes, `http` versus `https`, and `localhost` versus `127.0.0.1` all count as different. To compute something else, pass `buildRedirectUri` to `oauth()`.
+</Accordion>
+
+<Accordion title='"OAuth callback: unknown or already-used state value."'>
+The `state` in the callback is not in the database. Common causes: the user pressed back and retried the same callback URL (state is deleted on first use), the callback went to a different deployment with a different database, or the state row was cleaned up. Restart the flow from the authorize URL.
+</Accordion>
+
+<Accordion title='"OAuth callback: state has expired. Restart the authorization flow."'>
+The user took too long on the provider screen, or a link was opened much later. Send them back to `/auth/oauth/authorize/{provider}`.
+</Accordion>
+
+<Accordion title='"OAuth callback: state was issued for provider X, not Y."'>
+The authorize step and the callback used different providers. Usually a copy and paste error in the callback URL registered with the provider.
+</Accordion>
+
+<Accordion title="After sign-in the user lands on a 404">
+After a successful OAuth callback the plugin redirects to `{baseUrl}/` with an `auth_user` query parameter. If `baseUrl` includes the mount path (which the callback URL needs), that is a path under your mount. Handle the redirect in your app, or use [`createRedirectChain`](/redirect) to send people to where they were going.
+</Accordion>
+
+<Accordion title="MCP client says redirect_uri is invalid (INVALID_REDIRECT_URI)">
+During dynamic registration, redirect URIs must be HTTPS (or `localhost` for development) and must not contain a fragment. During the authorize and consent steps the `redirect_uri` has to match one registered for the client exactly. See [MCP](/mcp).
+</Accordion>
+</AccordionGroup>
+
+## Clock skew
+
+JWT checks use the server's clock. The session and MCP token verification do not add a tolerance, so a server clock that runs ahead can reject a freshly issued token as not yet valid, and one that runs behind keeps expired tokens alive for longer. Run NTP (or your cloud's time sync) on every host that issues or verifies tokens. In containers, the host clock is what counts.
+
+SAML single sign-on is the exception. It allows `clockSkewSeconds` of drift, 120 by default, when checking the assertion's validity window ([SSO](/auth/sso)). If an IdP is rejected with a "not yet valid" or "expired" assertion error, fix the clock first and raise `clockSkewSeconds` only as a stopgap.
+
+Device and one-time codes use expiry timestamps stored by the server, so skew between the device and the server does not matter for them.
+
+## Proxies, load balancers and client IPs
+
+Rate limits are per client IP, and theAuth does not trust `X-Forwarded-For` by default because clients can forge it. When no trusted source is configured the plugin falls back to one shared `"unknown"` bucket. Behind a proxy that means every user shares one limit and a busy site returns `429 RATE_LIMITED` to everyone at once.
+
+Tell theAuth how your edge works, in one of two ways:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  // Option A: you run N proxies in front of the app.
+  // With "x-forwarded-for: a, b, c" and a count of 1, the client is c.
+  trustedProxy: { trustedProxyCount: 1 },
+
+  // Option B: your edge overwrites a single header and the app is only reachable through it.
+  // trustedProxy: { trustedHeader: 'cf-connecting-ip' },
+});
+```
+
+The `rateLimit()` plugin takes the same two options, `trustedProxyCount` and `trustedHeader`. Count from the right: the last entry was added by the proxy closest to you, the leftmost entries were written by the client. Do not set `trustedHeader` unless the app is truly unreachable except through that edge, otherwise anyone can send the header themselves. Standard header names: `cf-connecting-ip` (Cloudflare), `x-real-ip` (nginx), `fly-client-ip` (Fly.io). Values that are not a plain address-like string are discarded.
+
+`withRateLimit` still defaults to the first `x-forwarded-for` entry. Pass your own `keyExtractor` built on `resolveClientIp` when you use it behind a proxy ([Rate limiting](/rate-limiting)).
+
+Also behind a proxy: set `baseUrl` to the public URL with `https://`, or cookies and OAuth callback URLs will be built from the wrong scheme.
+
+## Serverless and edge runtimes
+
+<AccordionGroup>
+<Accordion title="Rate limits and device codes behave randomly on Vercel or Workers">
+The default [secondary storage](/secondary-storage) is process memory. On serverless each invocation or isolate may have its own, and they are discarded when idle, so counters reset and a device code created in one instance is unknown to the next. Use `"database"`, Redis (Upstash works over HTTP), or on Workers a D1 database. Cloudflare KV is eventually consistent and cannot count atomically, so treat KV limits as soft. See [Which storage should I pick](/choose-storage).
+</Accordion>
+
+<Accordion title="SQLite file database on Vercel">
+The filesystem of a serverless function is read-only apart from a temporary directory that does not persist. The `sqlite` provider keeps data in memory and rewrites the file, so nothing survives. Use Postgres or MySQL (a serverless-friendly host such as Neon helps with connection counts), or D1 on Cloudflare.
+</Accordion>
+
+<Accordion title="Postgres connection errors under load">
+Each cold instance opens its own connections, and a function that scales to hundreds of instances can exhaust the database. Point `database.url` at a pooled connection string (PgBouncer or your provider's pooler) and keep the pool small.
+</Accordion>
+
+<Accordion title="Next.js middleware cannot use theAuth">
+Middleware runs on the edge runtime by default. Keep it to a cookie presence check and validate the session in route handlers and server components, which run on Node.
+</Accordion>
+
+<Accordion title='Missing package: "TheAuth: provider ... requires the ... package"'>
+The `sqlite-native`, `postgres` and `mysql` providers need `better-sqlite3`, `pg` and `mysql2` respectively, installed in your app. The `sqlite` provider uses `sql.js`, which ships with theAuth, and `d1` uses `drizzle-orm/d1`. See [Database setup](/database).
+</Accordion>
+
+<Accordion title="Cookies are not marked Secure on a platform that does not set NODE_ENV">
+The cookie session manager chooses `Secure` from `NODE_ENV`. Set `NODE_ENV=production`, or pass `cookieOptions.secure: true` explicitly.
+</Accordion>
+</AccordionGroup>
+
+## Startup errors
+
+| Message | Cause |
+|---|---|
+| `SessionManager: secret must be at least 32 characters.` | The cookie session secret is short or empty. Same text pattern for `SessionRefresher`. |
+| `McpConfig.signingSecret must be at least 32 characters` | The MCP signing secret is short. `createMcpModule` also throws if neither `signingSecret` nor `signing` is set. |
+| `theauth-oauth plugin requires auth.session to be configured ...` | You added `oauth()` without `auth.session`. |
+| `TheAuth: unsupported database provider "..."` | `database.provider` is not one of `sqlite`, `sqlite-native`, `postgres`, `mysql`, `d1`. |
+| `[theauth] <adapter>: the management routes (/agents, /delegations, /audit, /dashboard, /authorize) require authentication, but none is configured.` | The framework adapter has no `authenticate` resolver and `auth.session` is not set. Pass `authenticate`, configure `auth.session`, or for local development only set `allowUnauthenticated: true`. See [Adapters](/adapters). |
+
+## Error codes you will meet
+
+These are returned by the code, not invented for the docs. For the complete list see [Error codes](/errors).
+
+**Email and password** (`@glinr/theauth-email`, JSON body `{ code, message }`):
+
+| Code | HTTP | What it means |
+|---|---|---|
+| `INVALID_CREDENTIALS` | 401 | Wrong email or password. |
+| `EMAIL_NOT_VERIFIED` | 401 | Sign-in blocked until the address is verified. |
+| `DUPLICATE_EMAIL` | 409 | An account with that email exists. |
+| `USER_NOT_FOUND` | 404 | No such user for the operation. |
+| `INVALID_TOKEN`, `TOKEN_EXPIRED` | 400 | The verification or reset token is wrong or old. |
+| `INVALID_PASSWORD`, `INVALID_EMAIL`, `WRONG_PASSWORD` | 400 | Validation failed. |
+
+**Username module:** `PASSWORD_RESET_REQUIRED` (403) when the user's `force_password_reset` flag is set, which is how imported users are forced through a reset ([Migrate from Auth0](/migrate/from-auth0#user-data-migration)).
+
+**Passwordless:** magic link answers `401 Invalid or expired magic link`, email OTP answers `401 Invalid or expired OTP code`. Both are deliberately vague about which part failed.
+
+**Rate limits:** `429` with `{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }` from `rateLimit()` and `withRateLimit`, with a `Retry-After` header. Plugin endpoints that declare their own limit answer `{ "error": "Rate limit exceeded" }`.
+
+**Session freshness:** `SESSION_NOT_FRESH` when an action needs a recent sign-in. Ask the user to re-authenticate.
+
+**Management routes:** `401 UNAUTHORIZED` "Authentication required" from the adapter guard when the caller is not signed in or `authenticate` returned `null`.
+
+**Device flow** (`/auth/device/token`): `authorization_pending` (keep polling), `slow_down` (the interval grew by 5 seconds, use the new one), `access_denied`, `expired_token`. `/auth/device/authorize` answers `401 login_required`, `403 access_denied`, `400 invalid_request`, `429`.
+
+**MCP and OAuth server:**
+
+| Code | Typical cause |
+|---|---|
+| `INVALID_CLIENT` | Unknown `client_id`, a disabled client, or a bad `client_secret`. |
+| `INVALID_GRANT` | Authorization code unknown, expired or already used; PKCE `code_verifier` failed; `redirect_uri` differs from the authorize request; refresh token expired. |
+| `INVALID_GRANT` "Refresh token reuse detected; the grant has been revoked" | An old refresh token was presented again. The whole token family is revoked on purpose. The client must restart authorization. |
+| `INVALID_TARGET` | `resource` is missing or is not a known MCP server, or differs from the grant's resource. |
+| `INVALID_SCOPE` | A scope that is not supported, or not granted by the original authorization. |
+| `LOGIN_REQUIRED` | The authorize request arrived without a signed-in user. |
+| `INVALID_AUDIENCE` | The access token has no audience, or the audience is not this resource. |
+| `INVALID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_ISSUER` | Bad signature or claims, `exp` in the past, wrong `iss`. A revoked token reports `INVALID_TOKEN`. |
+| `INSUFFICIENT_SCOPE` | The token lacks a scope the endpoint requires. The response is a `403` with a step-up challenge. |
+
+**JWT sessions** (`createJwtSessionModule`, returned as `Result` errors): `INVALID_INPUT` for an empty token, `INVALID_TOKEN` for a bad signature, wrong issuer or audience, or a token without `sub`, and `TOKEN_EXPIRED` once `exp` has passed.
+
+## Still stuck
+
+<CardGroup cols={2}>
+  <Card title="FAQ" href="/faq" icon="circle-question">
+    Short answers to the questions that come up most.
+  </Card>
+  <Card title="Error codes" href="/errors" icon="triangle-exclamation">
+    The full reference.
+  </Card>
+  <Card title="Production checklist" href="/production-checklist" icon="list-check">
+    Many of the problems above are avoided by checking these before launch.
+  </Card>
+  <Card title="Open an issue" href="https://github.com/glincker/theauth/issues" icon="github">
+    Include the exact error code and message, your runtime, and a minimal config.
+  </Card>
+</CardGroup>

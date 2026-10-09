@@ -1,4 +1,4 @@
-import type { TheAuth } from "@glinr/theauth";
+import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { Inject, Module } from "@nestjs/common";
@@ -10,7 +10,7 @@ const AUTH_OPTIONS = Symbol("AUTH_OPTIONS");
 
 // ─── Module Options ───────────────────────────────────────────────────────────
 
-export interface TheAuthModuleOptions {
+export interface TheAuthModuleOptions extends AdapterSecurityOptions {
 	/** The TheAuth instance created with `createTheAuth()` */
 	theauth: TheAuth;
 	/** Optional MCP OAuth 2.1 module created with `createMcpModule()` */
@@ -60,6 +60,8 @@ export class TheAuthModule implements NestModule {
 				theAuthMiddleware({
 					theauth: this.options.theauth,
 					mcp: this.options.mcp,
+					authenticate: this.options.authenticate,
+					allowUnauthenticated: this.options.allowUnauthenticated,
 				}),
 			)
 			.forRoutes(`${basePath}/*path`);

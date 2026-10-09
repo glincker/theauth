@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SiweConfig } from "../src/auth/siwe.js";
 import { createSiweModule } from "../src/auth/siwe.js";
+import { memoryStorage } from "../src/storage/index.js";
 
 const BASE_CONFIG: SiweConfig = {
 	domain: "example.com",
@@ -272,5 +273,32 @@ describe("handleRequest", () => {
 		const req = new Request("https://example.com/other", { method: "GET" });
 		const res = await mod.handleRequest(req);
 		expect(res).toBeNull();
+	});
+});
+
+describe("shared nonce storage", () => {
+	const SIG = "0x".padEnd(20, "a");
+
+	it("a nonce issued by one instance redeems exactly once on another", async () => {
+		const storage = memoryStorage();
+		const a = createSiweModule({ ...BASE_CONFIG, storage });
+		const b = createSiweModule({ ...BASE_CONFIG, storage });
+		const nonce = await a.generateNonce();
+		const message = a.buildMessage(VALID_ADDRESS, nonce, 1);
+		await expect(b.verify(message, SIG)).resolves.toMatchObject({ address: VALID_ADDRESS });
+		await expect(a.verify(message, SIG)).rejects.toThrow(/already used/);
+	});
+
+	it("concurrent redemptions of one nonce succeed once", async () => {
+		const storage = memoryStorage();
+		const a = createSiweModule({ ...BASE_CONFIG, storage });
+		const nonce = await a.generateNonce();
+		const message = a.buildMessage(VALID_ADDRESS, nonce, 1);
+		const results = await Promise.allSettled([
+			a.verify(message, SIG),
+			a.verify(message, SIG),
+			a.verify(message, SIG),
+		]);
+		expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
 	});
 });

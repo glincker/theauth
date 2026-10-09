@@ -37,7 +37,7 @@ const theauth = await createTheAuth({
 });
 
 const app = new Hono();
-app.route("/", theAuthHono(theauth));
+app.route("/", theAuthHono(theauth, { allowUnauthenticated: true }));
 
 app.get("/", (c) => c.text("theAuth SCIM server ready. hit /scim/v2/ServiceProviderConfig"));
 

@@ -30,6 +30,7 @@ import { generateId, randomBytesHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
+import { normalizeEmail } from "./normalize-email.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -113,7 +114,8 @@ export function createMagicLinkModule(
 
 	// ── public API ───────────────────────────────────────────────────────────
 
-	async function sendLink(email: string): Promise<{ sent: boolean }> {
+	async function sendLink(rawEmail: string): Promise<{ sent: boolean }> {
+		const email = normalizeEmail(rawEmail);
 		const token = randomBytesHex(32);
 		const now = new Date();
 		const expiresAt = new Date(now.getTime() + tokenExpiry * 1000);
@@ -142,18 +144,18 @@ export function createMagicLinkModule(
 	} | null> {
 		const now = new Date();
 
-		const rows = await db
-			.select()
-			.from(magicLinks)
+		// Claim the link with one conditional UPDATE so two concurrent requests
+		// cannot both redeem it: only the caller whose UPDATE flips used=false wins.
+		const claimed = await db
+			.update(magicLinks)
+			.set({ used: true })
 			.where(
 				and(eq(magicLinks.token, token), eq(magicLinks.used, false), gt(magicLinks.expiresAt, now)),
-			);
+			)
+			.returning({ email: magicLinks.email });
 
-		const link = rows[0];
+		const link = claimed[0];
 		if (!link) return null;
-
-		// Mark as used immediately to prevent replay.
-		await db.update(magicLinks).set({ used: true }).where(eq(magicLinks.id, link.id));
 
 		const user = await findOrCreateUser(link.email);
 		const { token: sessionToken, session } = await sessionManager.create(user.id);
@@ -191,9 +193,7 @@ export function createMagicLinkModule(
 				});
 			}
 
-			const email = String((body as Record<string, unknown>).email)
-				.trim()
-				.toLowerCase();
+			const email = normalizeEmail(String((body as Record<string, unknown>).email));
 			const result = await sendLink(email);
 			return new Response(JSON.stringify(result), {
 				status: 200,

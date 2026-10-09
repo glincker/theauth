@@ -3,6 +3,7 @@ import { generateId } from "../crypto/web-crypto.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 import { authenticateClient } from "./client-auth.js";
 import { resolveClient } from "./client-metadata.js";
+import { readDpopHeader, verifyDpopProof } from "./dpop.js";
 import { getAsymmetricSigner } from "./keys.js";
 import { revokeFamilyAndTokens, revokeStoredAccessToken } from "./revocation.js";
 import type {
@@ -46,6 +47,7 @@ async function issueAccessTokenJwt(
 	clientId: string,
 	scopes: string[],
 	resource: string | null,
+	dpopJkt: string | null = null,
 ): Promise<{ jwt: string; jti: string; expiresAt: Date }> {
 	const asymmetric = await getAsymmetricSigner(ctx);
 	const secret = ctx.config.signingSecret;
@@ -80,6 +82,7 @@ async function issueAccessTokenJwt(
 		client_id: clientId,
 		scope: scopes.join(" "),
 		jti,
+		...(dpopJkt ? { cnf: { jkt: dpopJkt } } : {}),
 		...agenticClaims,
 	})
 		.setProtectedHeader(
@@ -124,6 +127,37 @@ function resolveClientCredentials(
 		clientId,
 		clientSecret: body.client_secret ?? null,
 	};
+}
+
+/**
+ * Check the DPoP proof on a token request (RFC 9449 section 5). Returns the
+ * key thumbprint to bind the grant to, or null for a plain bearer request.
+ * Runs before any grant is consumed so a `use_dpop_nonce` retry can reuse
+ * the same authorization code.
+ */
+async function resolveTokenDpop(
+	ctx: McpAuthContext,
+	request: Request,
+): Promise<Result<string | null>> {
+	const dpop = ctx.config.dpop;
+	if (!dpop) return { success: true, data: null };
+	const proof = readDpopHeader(request);
+	if (proof === null) {
+		if (dpop.required) {
+			return {
+				success: false,
+				error: { code: "INVALID_DPOP_PROOF", message: "A DPoP proof is required" },
+			};
+		}
+		return { success: true, data: null };
+	}
+	const verified = await verifyDpopProof(ctx, {
+		proof,
+		method: request.method,
+		url: dpop.tokenEndpointUrl ?? `${ctx.config.baseUrl}/mcp/token`,
+	});
+	if (!verified.success) return verified;
+	return { success: true, data: verified.data.jkt };
 }
 
 /**
@@ -175,11 +209,14 @@ export async function handleTokenExchange(
 
 	const data = parsed.data;
 
+	const dpop = await resolveTokenDpop(ctx, request);
+	if (!dpop.success) return dpop;
+
 	if (data.grant_type === "authorization_code") {
-		return handleAuthorizationCodeGrant(ctx, data, credentials.clientSecret);
+		return handleAuthorizationCodeGrant(ctx, data, credentials.clientSecret, dpop.data);
 	}
 
-	return handleRefreshTokenGrant(ctx, data, credentials.clientSecret);
+	return handleRefreshTokenGrant(ctx, data, credentials.clientSecret, dpop.data);
 }
 
 /**
@@ -189,6 +226,7 @@ async function handleAuthorizationCodeGrant(
 	ctx: McpAuthContext,
 	data: Extract<McpTokenRequestParsed, { grant_type: "authorization_code" }>,
 	clientSecret: string | null,
+	dpopJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
 	// ── Look up the client ──────────────────────────────────────────
 	const client = await resolveClient(ctx, data.client_id);
@@ -278,6 +316,7 @@ async function handleAuthorizationCodeGrant(
 		data.client_id,
 		authCode.scope,
 		resource,
+		dpopJkt,
 	);
 
 	const includeRefreshToken = authCode.scope.includes("offline_access");
@@ -294,7 +333,8 @@ async function handleAuthorizationCodeGrant(
 		refreshToken: refreshToken ? await hashToken(refreshToken) : null,
 		jti,
 		...(familyId ? { familyId } : {}),
-		tokenType: "Bearer",
+		tokenType: dpopJkt ? "DPoP" : "Bearer",
+		...(dpopJkt ? { dpopJkt } : {}),
 		expiresIn: ctx.config.accessTokenTtl,
 		scope: authCode.scope,
 		clientId: data.client_id,
@@ -309,7 +349,7 @@ async function handleAuthorizationCodeGrant(
 	// ── Build response ──────────────────────────────────────────────
 	const response: McpTokenResponse = {
 		access_token: jwt,
-		token_type: "Bearer",
+		token_type: dpopJkt ? "DPoP" : "Bearer",
 		expires_in: ctx.config.accessTokenTtl,
 		scope: authCode.scope.join(" "),
 		...(refreshToken ? { refresh_token: refreshToken } : {}),
@@ -325,6 +365,7 @@ async function handleRefreshTokenGrant(
 	ctx: McpAuthContext,
 	data: Extract<McpTokenRequestParsed, { grant_type: "refresh_token" }>,
 	clientSecret: string | null,
+	presentedJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
 	// ── Look up the client ──────────────────────────────────────────
 	const client = await resolveClient(ctx, data.client_id);
@@ -363,6 +404,20 @@ async function handleRefreshTokenGrant(
 			error: { code: "INVALID_GRANT", message: "client_id does not match refresh token" },
 		};
 	}
+
+	// ── DPoP binding (RFC 9449 section 5): a bound grant only refreshes ─
+	// with a proof from the same key. Checked before rotation so a thief
+	// without the key cannot burn the legitimate client's token.
+	if (existingToken?.dpopJkt && existingToken.dpopJkt !== presentedJkt) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_DPOP_PROOF",
+				message: "Refresh token is bound to a different DPoP key",
+			},
+		};
+	}
+	const dpopJkt = existingToken?.dpopJkt ?? presentedJkt;
 
 	// ── Rotation and reuse detection (RFC 9700 section 4.14) ────────
 	const families = ctx.tokenFamilies;
@@ -460,6 +515,7 @@ async function handleRefreshTokenGrant(
 		data.client_id,
 		scopes,
 		resource,
+		dpopJkt,
 	);
 
 	const rotated = await issueRefreshToken(ctx, existingToken.userId, familyId);
@@ -470,7 +526,8 @@ async function handleRefreshTokenGrant(
 		refreshToken: await hashToken(newRefreshToken),
 		jti,
 		...(rotated.familyId ? { familyId: rotated.familyId } : {}),
-		tokenType: "Bearer",
+		tokenType: dpopJkt ? "DPoP" : "Bearer",
+		...(dpopJkt ? { dpopJkt } : {}),
 		expiresIn: ctx.config.accessTokenTtl,
 		scope: scopes,
 		clientId: data.client_id,
@@ -485,7 +542,7 @@ async function handleRefreshTokenGrant(
 	// ── Build response ──────────────────────────────────────────────
 	const response: McpTokenResponse = {
 		access_token: jwt,
-		token_type: "Bearer",
+		token_type: dpopJkt ? "DPoP" : "Bearer",
 		expires_in: ctx.config.accessTokenTtl,
 		refresh_token: newRefreshToken,
 		scope: scopes.join(" "),

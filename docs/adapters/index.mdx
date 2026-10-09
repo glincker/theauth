@@ -36,6 +36,35 @@ const mcp = createMcpModule({
 
 Pass `mcp` to the adapter to enable the MCP OAuth 2.1 endpoints under the same mount path. `createMcpModule` comes from `@glinr/theauth/mcp` and takes a config object plus storage callbacks, see [MCP](/mcp).
 
+## Authenticate the management routes
+
+The agent, delegation, audit and dashboard routes (`/agents`, `/delegations`, `/audit`, `/dashboard`, and `POST /authorize`) manage your whole agent fleet, so every adapter requires an authenticated caller. `/authorize/token` (agent bearer token), the MCP endpoints, password reset, email verification and plugin routes are not affected; they carry their own checks.
+
+Pass an `authenticate` function. It receives the standard `Request` and returns `{ id }` for an allowed caller or `null` to reject with 401:
+
+```ts
+const authenticate = async (request: Request) => {
+  const user = await theauth.auth.resolveUser(request);
+  return user?.id === process.env.ADMIN_USER_ID ? { id: user.id } : null;
+};
+
+app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
+```
+
+`theauth.auth.resolveUser` only consults the `auth.adapter` you configured. If you rely on `auth.session` alone, skip `authenticate` (see next paragraph) or validate the token yourself with `theauth.auth.session.validate(token)`.
+
+If you leave `authenticate` out and `auth.session` is configured on `createTheAuth`, the adapter accepts any valid session (cookie or `Authorization: Bearer <session token>`). That admits every signed-in user, so write your own resolver when only admins should reach these routes. If neither is configured, the adapter throws when you create it:
+
+```
+[theauth] theAuthHono: the management routes (/agents, /delegations, /audit, /dashboard, /authorize) require authentication, but none is configured.
+```
+
+For a local demo you can opt out with `allowUnauthenticated: true`. A warning is logged on startup. Do not ship it.
+
+### Upgrading
+
+Earlier versions mounted these routes with no authentication. After upgrading, pass `authenticate` (or configure `auth.session`) to each adapter call, or add `allowUnauthenticated: true` while you work on it locally.
+
 ## Available adapters
 
 | Package | Framework | Mount pattern |
