@@ -44,6 +44,8 @@
     "authentication",
     "client",
     "api",
-    "typescript"
+    "typescript",
+    "agent-auth",
+    "mcp"
   ]
 }

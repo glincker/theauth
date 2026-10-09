@@ -39,7 +39,10 @@
     "theauth",
     "auth",
     "agent",
-    "cli"
+    "cli",
+    "doctor",
+    "mcp",
+    "agent-auth"
   ],
   "author": "TheAuth <support@glinr.com>",
   "license": "MIT",

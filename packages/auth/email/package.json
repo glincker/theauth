@@ -50,6 +50,9 @@
     "email",
     "password",
     "authentication",
-    "typescript"
+    "typescript",
+    "email-otp",
+    "magic-link",
+    "agent-auth"
   ]
 }
