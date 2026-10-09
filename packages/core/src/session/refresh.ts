@@ -112,6 +112,15 @@ export interface RefreshSessionConfig {
 	reuseDetection?: boolean;
 
 	/**
+	 * Overlap window for a refresh token that was just rotated, e.g. `"10s"`.
+	 * A client that lost the rotation response, or two tabs refreshing at once,
+	 * can present the old token again inside this window and get a fresh pair
+	 * instead of having the family revoked. Capped at 5 minutes.
+	 * Defaults to off (strict one-time use).
+	 */
+	reuseGracePeriod?: string;
+
+	/**
 	 * Name of the httpOnly cookie that carries the refresh token.
 	 * Defaults to `"theauth_refresh"`.
 	 */
@@ -248,7 +257,8 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 	const accessCookieName = sessionCfg.accessCookieName ?? DEFAULT_ACCESS_COOKIE;
 
 	const keyBytes = new TextEncoder().encode(config.secret);
-	const families = createTokenFamilyStore(config.db);
+	const graceMs = sessionCfg.reuseGracePeriod ? parseDurationMs(sessionCfg.reuseGracePeriod) : 0;
+	const families = createTokenFamilyStore(config.db, { reuseGraceMs: graceMs });
 
 	// ── helpers ────────────────────────────────────────────────────────────
 

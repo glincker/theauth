@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { buildSetCookie } from "../../plugin/helpers.js";
 import type { TheAuthPlugin } from "../../plugin/types.js";
+import { createBaseUrlResolver } from "../../session/base-url.js";
 import { normalizeEmail } from "../normalize-email.js";
 import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
@@ -52,6 +53,13 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 			const module = createOAuthModule(ctx.db, config);
 
 			const baseUrl = ctx.config.baseUrl ?? "";
+			const baseUrls = ctx.config.allowedHosts?.length
+				? createBaseUrlResolver({
+						baseUrl: ctx.config.baseUrl,
+						allowedHosts: ctx.config.allowedHosts,
+						trustForwardedHeaders: ctx.config.trustForwardedHeaders,
+					})
+				: null;
 
 			const sessionManager = ctx.sessionManager;
 			if (!sessionManager) {
@@ -62,11 +70,16 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 
 			const authorizeLimiter = createRateLimiter({ max: 20, window: 60 });
 
-			function getRedirectUri(provider: string): string {
-				if (config.buildRedirectUri) {
-					return config.buildRedirectUri(provider, baseUrl);
+			function getRedirectUri(provider: string, request: Request): string {
+				let base = baseUrl;
+				if (baseUrls) {
+					const resolved = baseUrls.resolve(request);
+					if (resolved.success) base = resolved.data;
 				}
-				return `${baseUrl}/auth/oauth/callback/${provider}`;
+				if (config.buildRedirectUri) {
+					return config.buildRedirectUri(provider, base);
+				}
+				return `${base}/auth/oauth/callback/${provider}`;
 			}
 
 			// GET /auth/oauth/authorize/:provider
@@ -85,7 +98,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						return jsonResponse({ error: "Missing provider parameter" }, 400);
 					}
 
-					const redirectUri = getRedirectUri(provider);
+					const redirectUri = getRedirectUri(provider, request);
 
 					try {
 						const { url: authUrl } = await module.getAuthorizationUrl(provider, redirectUri);
@@ -118,7 +131,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						return jsonResponse({ error: "Missing code or state query parameter" }, 400);
 					}
 
-					const redirectUri = getRedirectUri(provider);
+					const redirectUri = getRedirectUri(provider, request);
 
 					try {
 						const result = await module.handleCallback(provider, code, state, redirectUri);

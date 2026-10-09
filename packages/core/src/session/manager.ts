@@ -39,6 +39,8 @@ import type { Database } from "../db/database.js";
 import { sessions as sessionsTable } from "../db/schema.js";
 import type { CookieOptions } from "./cookie.js";
 import { getCookie, serializeCookie, serializeCookieDeletion } from "./cookie.js";
+import type { SessionCookieCacheConfig } from "./cookie-cache.js";
+import { createSessionCookieCache } from "./cookie-cache.js";
 import type { Session, SessionConfig, SessionManager } from "./session.js";
 import { createSessionManager } from "./session.js";
 
@@ -64,6 +66,13 @@ export interface CookieSessionConfig extends SessionConfig {
 	 * expiry on every successful validation.  Defaults to `true`.
 	 */
 	autoRefresh?: boolean;
+
+	/**
+	 * Opt-in signed cookie cache. When set, a valid cache cookie answers
+	 * `validateSession` without a database read, at the cost of revocation lag
+	 * up to the cache `maxAge`. Off by default.
+	 */
+	cookieCache?: Omit<SessionCookieCacheConfig, "secret">;
 }
 
 export interface CreateSessionResult {
@@ -71,6 +80,8 @@ export interface CreateSessionResult {
 	session: Session;
 	/** Ready-to-use `Set-Cookie` header value. */
 	setCookieHeader: string;
+	/** `Set-Cookie` values for the cookie cache. Only set when `cookieCache` is configured. */
+	cacheCookieHeaders?: string[];
 }
 
 export interface ValidateSessionResult {
@@ -81,6 +92,14 @@ export interface ValidateSessionResult {
 	 * `Set-Cookie` header to forward to the client. `null` otherwise.
 	 */
 	refreshCookieHeader: string | null;
+	/**
+	 * `Set-Cookie` values to forward after a database read, to (re)seed the
+	 * cookie cache. Only set when `cookieCache` is configured and the cache was
+	 * missing or stale.
+	 */
+	cacheCookieHeaders?: string[];
+	/** True when the session came from the cookie cache without a database read. */
+	fromCache?: boolean;
 }
 
 export interface CookieSessionManager {
@@ -107,7 +126,9 @@ export interface CookieSessionManager {
 	 * Returns the updated session and a fresh `Set-Cookie` header.
 	 * Returns `null` when the session does not exist.
 	 */
-	refreshSession(sessionId: string): Promise<{ session: Session; setCookieHeader: string } | null>;
+	refreshSession(
+		sessionId: string,
+	): Promise<{ session: Session; setCookieHeader: string; cacheCookieHeaders?: string[] } | null>;
 
 	/**
 	 * Delete a session by ID (server-side) and return a deletion cookie that
@@ -132,6 +153,12 @@ export interface CookieSessionManager {
 	 * without any database operation.  Useful in error paths.
 	 */
 	buildLogoutCookie(): string;
+
+	/**
+	 * All `Set-Cookie` deletions for a sign-out: the session cookie plus the
+	 * cache cookie and its chunks when `cookieCache` is configured.
+	 */
+	buildLogoutCookies(cookieHeader?: string): string[];
 
 	/** Expose the underlying low-level session manager for advanced usage. */
 	raw: SessionManager;
@@ -165,6 +192,9 @@ export function createCookieSessionManager(
 	const autoRefresh = config.autoRefresh ?? true;
 
 	const raw = createSessionManager(config, db);
+	const cache = config.cookieCache
+		? createSessionCookieCache({ ...config.cookieCache, secret: config.secret })
+		: null;
 
 	// Base cookie attributes shared across all cookie operations.
 	const baseCookieOpts: CookieOptions = {
@@ -191,13 +221,23 @@ export function createCookieSessionManager(
 		metadata?: Record<string, unknown>,
 	): Promise<CreateSessionResult> {
 		const { session, token } = await raw.create(userId, metadata);
-		return { session, setCookieHeader: buildSetCookie(token) };
+		const cacheCookieHeaders = await seedCache(session, token, "");
+		return {
+			session,
+			setCookieHeader: buildSetCookie(token),
+			...(cacheCookieHeaders ? { cacheCookieHeaders } : {}),
+		};
 	}
 
 	async function validateSession(cookieHeader: string): Promise<ValidateSessionResult> {
 		const token = getCookie(cookieHeader, sessionName);
 		if (!token) {
 			return { session: null, refreshCookieHeader: null };
+		}
+
+		if (cache) {
+			const hit = await cache.decode(cookieHeader, token);
+			if (hit) return { session: hit.session, refreshCookieHeader: null, fromCache: true };
 		}
 
 		const session = await raw.validate(token);
@@ -207,18 +247,59 @@ export function createCookieSessionManager(
 
 		// Auto-refresh: extend expiry and return a fresh cookie.
 		if (autoRefresh) {
-			const refreshed = await refreshSession(session.id);
+			const refreshed = await refreshInternal(session.id);
 			if (refreshed) {
-				return { session: refreshed.session, refreshCookieHeader: refreshed.setCookieHeader };
+				const cacheCookieHeaders = await seedCache(
+					refreshed.session,
+					refreshed.token,
+					cookieHeader,
+				);
+				return {
+					session: refreshed.session,
+					refreshCookieHeader: refreshed.setCookieHeader,
+					...(cacheCookieHeaders ? { cacheCookieHeaders } : {}),
+				};
 			}
 		}
 
-		return { session, refreshCookieHeader: null };
+		const cacheCookieHeaders = await seedCache(session, token, cookieHeader);
+		return {
+			session,
+			refreshCookieHeader: null,
+			...(cacheCookieHeaders ? { cacheCookieHeaders } : {}),
+		};
+	}
+
+	/**
+	 * Build cache cookies. An oversized payload is not an auth failure: skip the
+	 * cache and the request falls back to database reads.
+	 */
+	async function seedCache(
+		session: Session,
+		token: string,
+		cookieHeader: string,
+	): Promise<string[] | undefined> {
+		if (!cache) return undefined;
+		const written = await cache.encode(session, token, cookieHeader);
+		return written.success ? written.data.headers : cache.clear(cookieHeader);
 	}
 
 	async function refreshSession(
 		sessionId: string,
-	): Promise<{ session: Session; setCookieHeader: string } | null> {
+	): Promise<{ session: Session; setCookieHeader: string; cacheCookieHeaders?: string[] } | null> {
+		const refreshed = await refreshInternal(sessionId);
+		if (!refreshed) return null;
+		const cacheCookieHeaders = await seedCache(refreshed.session, refreshed.token, "");
+		return {
+			session: refreshed.session,
+			setCookieHeader: refreshed.setCookieHeader,
+			...(cacheCookieHeaders ? { cacheCookieHeaders } : {}),
+		};
+	}
+
+	async function refreshInternal(
+		sessionId: string,
+	): Promise<{ session: Session; token: string; setCookieHeader: string } | null> {
 		// Look up the session row directly via the shared `db` instance.
 		// `raw.validate()` is token-based so we cannot use it here — only the
 		// sessionId is available at this call site.
@@ -241,7 +322,11 @@ export function createCookieSessionManager(
 			row.metadata ?? undefined,
 		);
 
-		return { session: newSession, setCookieHeader: buildSetCookie(newToken) };
+		return {
+			session: newSession,
+			token: newToken,
+			setCookieHeader: buildSetCookie(newToken),
+		};
 	}
 
 	async function revokeSession(sessionId: string): Promise<{ deleteCookieHeader: string }> {
@@ -262,6 +347,10 @@ export function createCookieSessionManager(
 		return buildDeleteCookie();
 	}
 
+	function buildLogoutCookies(cookieHeader = ""): string[] {
+		return [buildDeleteCookie(), ...(cache ? cache.clear(cookieHeader) : [])];
+	}
+
 	return {
 		createSession,
 		validateSession,
@@ -270,6 +359,7 @@ export function createCookieSessionManager(
 		revokeAllSessions,
 		listSessions,
 		buildLogoutCookie,
+		buildLogoutCookies,
 		raw,
 	};
 }

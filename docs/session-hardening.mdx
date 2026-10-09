@@ -1,0 +1,43 @@
+---
+title: Session hardening
+description: Opt-in cookie cache, refresh token reuse grace, per-request base URLs, stateless sessions and federated logout.
+icon: shield
+---
+
+Everything on this page is opt-in. Nothing changes until you pass the option.
+
+## Cookie cache
+
+A signed cookie that answers `validateSession` without a database read. A revoked session keeps working until the cache expires (5 minutes by default), so keep `maxAge` short.
+
+```typescript
+const sessions = createCookieSessionManager(
+  { secret: process.env.SESSION_SECRET!, cookieCache: { maxAge: 120, exclude: ["metadata.ipAddress"] } },
+  db,
+);
+const { session, setCookieHeader, cacheCookieHeaders } = await sessions.createSession(userId);
+// On sign-out, clear the session cookie and the cache cookies together:
+const deletions = sessions.buildLogoutCookies(request.headers.get("cookie") ?? "");
+```
+
+The cookie is signed, not encrypted, and tied to the session token it was issued for. Payloads past about 3.6 KB are chunked; oversized ones fall back to database reads.
+
+## Refresh token reuse grace
+
+Strict one-time use stays the default. Set `reuseGracePeriod` (capped at 5 minutes) to tolerate a lost rotation response or two tabs refreshing at once. A token reused inside the window gets a fresh pair; outside it, the whole family is revoked as before.
+
+```typescript
+createSessionRefresher({ db, secret, session: { reuseGracePeriod: "10s" } });
+```
+
+## Per-request base URL
+
+Set `allowedHosts` (and `trustForwardedHeaders` only behind a proxy that overwrites the headers) so OAuth redirect URIs follow the request host. Hosts outside the list fall back to `baseUrl`.
+
+```typescript
+createTheAuth({ baseUrl: "https://app.example.com", allowedHosts: ["app.example.com", "*.example.com"] });
+```
+
+## Stateless sessions and federated logout
+
+`createStatelessSessions` keeps an IdP identity in signed cookies and the IdP tokens in an encrypted cookie, with no database. Sessions cannot be revoked server side, so pair it with `isRevoked` and `createBackChannelLogoutReceiver`, which verifies OIDC logout tokens (issuer, audience, `jti` replay) and calls your `onLogout`. `createEndSessionHandler` and `buildEndSessionUrl` cover RP-initiated logout.

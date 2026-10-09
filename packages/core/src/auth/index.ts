@@ -124,6 +124,26 @@ export type {
 	StreamEvent,
 } from "./event-stream.js";
 export { createEventStreamModule, EVENT_TYPES } from "./event-stream.js";
+// Federated logout: RP-initiated end_session and OIDC back-channel logout
+export type {
+	BackChannelLogoutReceiver,
+	BackChannelLogoutReceiverConfig,
+	EndSessionContext,
+	EndSessionHandler,
+	EndSessionHandlerConfig,
+	EndSessionUrlParams,
+	LogoutClient,
+	LogoutReplayStore,
+	LogoutTokenClaims,
+	SendBackChannelLogoutParams,
+} from "./federated-logout.js";
+export {
+	BACKCHANNEL_LOGOUT_EVENT,
+	buildEndSessionUrl,
+	createBackChannelLogoutReceiver,
+	createEndSessionHandler,
+	sendBackChannelLogout,
+} from "./federated-logout.js";
 // Agent identity federation (cross-instance auth)
 export type {
 	FederatedAgent,

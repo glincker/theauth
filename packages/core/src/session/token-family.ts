@@ -60,7 +60,31 @@ export interface ConsumeTokenResult {
 	 * family is known, so callers can revoke state tied to it.
 	 */
 	family?: TokenFamily;
+	/**
+	 * Set to `true` when the token had already been consumed but was presented
+	 * inside the reuse grace window. The caller should issue a fresh token
+	 * without revoking the family (a lost response or a concurrent refresh, not
+	 * theft). Only ever set when a grace window is configured.
+	 */
+	graceReplay?: boolean;
 }
+
+export interface ConsumeTokenOptions {
+	/**
+	 * Overlap window in milliseconds. A token consumed less than this long ago
+	 * is accepted once more instead of triggering reuse handling. Overrides the
+	 * store-level `reuseGraceMs`. `0` (the default) keeps strict one-time use.
+	 */
+	graceMs?: number;
+}
+
+export interface TokenFamilyStoreOptions {
+	/** Default reuse grace window in ms for `consumeToken`. Default: 0 (strict). */
+	reuseGraceMs?: number;
+}
+
+/** Upper bound for the grace window: a longer overlap defeats reuse detection. */
+export const MAX_REUSE_GRACE_MS = 5 * 60_000;
 
 export interface TokenFamilyStore {
 	/**
@@ -83,10 +107,11 @@ export interface TokenFamilyStore {
 	 * - If the token is valid and unused, it is marked `used` and the caller
 	 *   should immediately call `issueToken` to rotate.
 	 * - If the token was already used, the **entire family is revoked** (reuse
-	 *   detection — token theft assumed).
+	 *   detection, token theft assumed), unless it was consumed within the
+	 *   grace window, in which case the result is `ok` with `graceReplay: true`.
 	 * - If the token has expired or is not found, returns the appropriate status.
 	 */
-	consumeToken(rawToken: string): Promise<ConsumeTokenResult>;
+	consumeToken(rawToken: string, options?: ConsumeTokenOptions): Promise<ConsumeTokenResult>;
 
 	/**
 	 * Revoke all token families (and their tokens) for a user.
@@ -113,7 +138,12 @@ export interface TokenFamilyStore {
 /**
  * Create a `TokenFamilyStore` backed by the TheAuth database.
  */
-export function createTokenFamilyStore(db: Database): TokenFamilyStore {
+export function createTokenFamilyStore(
+	db: Database,
+	storeOptions: TokenFamilyStoreOptions = {},
+): TokenFamilyStore {
+	const defaultGraceMs = clampGrace(storeOptions.reuseGraceMs ?? 0);
+
 	// ── helpers ────────────────────────────────────────────────────────────
 
 	function rowToFamily(row: {
@@ -130,6 +160,17 @@ export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 			revoked: Boolean(row.revoked),
 			createdAt: row.createdAt,
 		};
+	}
+
+	/**
+	 * The `used` column holds 0 for unused tokens and the consumption time in
+	 * epoch seconds once consumed. Rows written before the grace window existed
+	 * hold 1, which reads as 1970 and therefore never falls inside a window.
+	 */
+	function withinGrace(usedValue: number, nowMs: number, graceMs: number): boolean {
+		if (graceMs <= 0) return false;
+		const usedAtMs = usedValue * 1000;
+		return nowMs - usedAtMs <= graceMs;
 	}
 
 	// ── public API ──────────────────────────────────────────────────────────
@@ -171,7 +212,11 @@ export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 		return { rawToken: raw, expiresAt };
 	}
 
-	async function consumeToken(rawToken: string): Promise<ConsumeTokenResult> {
+	async function consumeToken(
+		rawToken: string,
+		options?: ConsumeTokenOptions,
+	): Promise<ConsumeTokenResult> {
+		const graceMs = options?.graceMs === undefined ? defaultGraceMs : clampGrace(options.graceMs);
 		const tokenHash = await sha256(rawToken);
 		const now = new Date();
 
@@ -208,6 +253,9 @@ export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 
 		// Reuse detection: token has already been consumed.
 		if (row.used) {
+			if (withinGrace(Number(row.used), now.getTime(), graceMs)) {
+				return { status: "ok", family, graceReplay: true };
+			}
 			// A previously-used token was presented — assume token theft.
 			// Revoke the entire family immediately.
 			await revokeFamily(family.id);
@@ -220,11 +268,21 @@ export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 		// indistinguishable from replay, so they trigger reuse handling.
 		const claimed = await db
 			.update(refreshTokens)
-			.set({ used: 1 })
+			.set({ used: Math.max(1, Math.floor(now.getTime() / 1000)) })
 			.where(and(eq(refreshTokens.tokenHash, tokenHash), eq(refreshTokens.used, 0)))
 			.returning({ id: refreshTokens.id });
 
 		if (claimed.length === 0) {
+			// Lost a race with a concurrent caller. Inside the grace window that is
+			// an overlapping refresh, not replay.
+			if (graceMs > 0) {
+				const fresh = (
+					await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash))
+				)[0];
+				if (fresh?.used && withinGrace(Number(fresh.used), now.getTime(), graceMs)) {
+					return { status: "ok", family, graceReplay: true };
+				}
+			}
 			await revokeFamily(family.id);
 			return { status: "reuse", family };
 		}
@@ -258,4 +316,9 @@ export function createTokenFamilyStore(db: Database): TokenFamilyStore {
 		revokeFamily,
 		isFamilyActive,
 	};
+}
+
+function clampGrace(ms: number): number {
+	if (!Number.isFinite(ms) || ms <= 0) return 0;
+	return Math.min(Math.floor(ms), MAX_REUSE_GRACE_MS);
 }

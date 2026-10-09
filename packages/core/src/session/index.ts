@@ -1,3 +1,5 @@
+export type { BaseUrlConfig, BaseUrlResolver } from "./base-url.js";
+export { createBaseUrlResolver } from "./base-url.js";
 export type { CookieOptions, SameSite } from "./cookie.js";
 export {
 	getCookie,
@@ -6,6 +8,21 @@ export {
 	serializeCookie,
 	serializeCookieDeletion,
 } from "./cookie.js";
+export type {
+	CachedSession,
+	SessionCookieCache,
+	SessionCookieCacheConfig,
+} from "./cookie-cache.js";
+export { createSessionCookieCache } from "./cookie-cache.js";
+export type { ChunkedCookieOptions, ChunkedCookieWrite } from "./cookie-chunks.js";
+export {
+	COOKIE_MAX_BYTES,
+	clearChunkedCookie,
+	DEFAULT_CHUNK_BYTES,
+	DEFAULT_MAX_CHUNKS,
+	readChunkedCookie,
+	serializeChunkedCookie,
+} from "./cookie-chunks.js";
 export type { CsrfValidationResult } from "./csrf.js";
 export { generateCsrfToken, validateCsrfToken, validateOrigin } from "./csrf.js";
 // Session freshness enforcement for sensitive operations
@@ -39,9 +56,19 @@ export { createSessionRefresher, RefreshTokenError } from "./refresh.js";
 export type { Session, SessionConfig, SessionManager } from "./session.js";
 export { createSessionManager } from "./session.js";
 export type {
+	StatelessIdentity,
+	StatelessSession,
+	StatelessSessions,
+	StatelessSessionsConfig,
+	StatelessTokens,
+} from "./stateless.js";
+export { createStatelessSessions } from "./stateless.js";
+export type {
+	ConsumeTokenOptions,
 	ConsumeTokenResult,
 	ConsumeTokenStatus,
 	TokenFamily,
 	TokenFamilyStore,
+	TokenFamilyStoreOptions,
 } from "./token-family.js";
-export { createTokenFamilyStore } from "./token-family.js";
+export { createTokenFamilyStore, MAX_REUSE_GRACE_MS } from "./token-family.js";
