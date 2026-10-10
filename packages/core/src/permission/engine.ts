@@ -77,8 +77,48 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 		return result;
 	}
 
-	return { authorize };
+	/**
+	 * Record a denial that happened before permission evaluation, such as a
+	 * revoked or expired agent. Respects `auditAll` and goes through the same
+	 * writer, so the agent's hash chain stays valid.
+	 *
+	 * Never throws: a failed audit write must not turn a denial into an
+	 * exception. On failure the denial stands and `auditId` is empty, meaning
+	 * no row was written.
+	 */
+	async function recordDenial(
+		target: { agentId: string; ownerId: string },
+		request: AuthorizeRequest,
+		reasonCode: DenialReasonCode,
+	): Promise<string> {
+		if (!auditAll) return "";
+		const auditId = generateId();
+		try {
+			await insertAuditRow(db, {
+				id: auditId,
+				agentId: target.agentId,
+				userId: target.ownerId,
+				action: request.action,
+				resource: request.resource,
+				parameters: request.arguments ?? {},
+				result: "denied",
+				reason: reasonCode,
+				durationMs: 0,
+				timestamp: new Date(),
+				ip: request.context?.ip ?? request.ip ?? null,
+				userAgent: request.context?.userAgent ?? null,
+			});
+			return auditId;
+		} catch {
+			return "";
+		}
+	}
+
+	return { authorize, recordDenial };
 }
+
+/** Stable reason codes stored on audit rows for denials made before permission evaluation. */
+export type DenialReasonCode = "agent_revoked" | "agent_expired";
 
 async function writeAuditLog(
 	db: Database,
