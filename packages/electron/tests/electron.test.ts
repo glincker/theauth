@@ -289,7 +289,9 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn(() => mockWin);
+		const MockBrowserWindow = vi.fn(function () {
+			return mockWin;
+		});
 		setElectronApiForTesting(
 			makeElectronApi({
 				BrowserWindow: MockBrowserWindow as unknown as ElectronApi["BrowserWindow"],
@@ -325,7 +327,7 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn((opts: unknown) => {
+		const MockBrowserWindow = vi.fn(function (opts: unknown) {
 			capturedOptions = opts as Record<string, unknown>;
 			return mockWin;
 		});
@@ -363,7 +365,9 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn(() => mockWin);
+		const MockBrowserWindow = vi.fn(function () {
+			return mockWin;
+		});
 		setElectronApiForTesting(
 			makeElectronApi({
 				BrowserWindow: MockBrowserWindow as unknown as ElectronApi["BrowserWindow"],
@@ -396,7 +400,9 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn(() => mockWin);
+		const MockBrowserWindow = vi.fn(function () {
+			return mockWin;
+		});
 		setElectronApiForTesting(
 			makeElectronApi({
 				BrowserWindow: MockBrowserWindow as unknown as ElectronApi["BrowserWindow"],
