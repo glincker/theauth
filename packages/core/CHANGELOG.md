@@ -1,5 +1,14 @@
 # theauth
 
+## 0.7.1
+
+### Patch Changes
+
+- 1fa2338: Resolve the client IP through the trusted proxy helper.
+- 1fa2338: Scope management routes to the signed in owner when the default guard is used. With the default session resolver, `/agents`, `/delegations`, `/audit`, `/dashboard` and `POST /authorize` only act on the caller's own agents, delegations and audit rows, and `POST /agents` requires `ownerId` to be the caller. A custom `authenticate` resolver behaves as before. Core adds `guard.resolve()` and the `AdapterScope` helper so the other adapters can adopt the same checks, and `audit.export()` accepts a `userId` filter.
+- 1fa2338: Upgrade notes for this release. With the default session guard, a signed in user is limited to their own agents, delegations and audit rows, so an app that used the default guard as a shared admin view must pass an `authenticate` resolver that checks admin rights. The adapters and the gateway no longer read `X-Forwarded-For` or `X-Real-IP` themselves: pass `trustedProxy: { trustedProxyCount }` or `trustedProxy: { trustedHeader }` to match your proxy, otherwise an `ipAllowlist` constraint denies because the client IP is unknown. The captcha helper no longer trusts `CF-Connecting-IP` unconditionally, use `trustedProxy: { trustedHeader: "cf-connecting-ip" }` to keep it. Adapters require `@glinr/theauth` 0.7.1 or newer.
+- 1fa2338: Resolve the client IP through the trusted proxy helper. The hono and express adapters no longer read `X-Forwarded-For` or `X-Real-IP` directly. By default forwarded headers are ignored (Express still falls back to `req.ip`), so an `ipAllowlist` constraint denies when the IP is unknown. Pass `trustedProxy: { trustedProxyCount }` or `trustedProxy: { trustedHeader }` to the adapter to match your proxy setup.
+
 ## 0.7.0
 
 ### Minor Changes
