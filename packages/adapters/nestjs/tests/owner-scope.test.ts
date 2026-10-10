@@ -265,4 +265,30 @@ describe("nestjs adapter client ip", () => {
 		expect((await authorize(w, { "x-forwarded-for": `9.9.9.9, ${ALLOWED_IP}` })).status).toBe(200);
 		expect((await authorize(w, { "x-forwarded-for": `${ALLOWED_IP}, 9.9.9.9` })).status).toBe(403);
 	});
+
+	it("passes authenticate, allowUnauthenticated and trustedProxy through TheAuthModule", async () => {
+		const custom = await makeWorld(
+			{ authenticate: async () => ({ id: "admin" }), trustedProxy: { trustedProxyCount: 1 } },
+			"module",
+		);
+		// A custom resolver admits an unauthenticated caller and is unrestricted.
+		const list = await request(custom.app).get(`${BASE}/agents`);
+		expect(list.status).toBe(200);
+		expect(list.body.data.length).toBe(2);
+		expect(
+			(
+				await request(custom.app)
+					.post(`${BASE}/authorize/token`)
+					.set("Authorization", `Bearer ${custom.a1.token}`)
+					.set("x-forwarded-for", `9.9.9.9, ${ALLOWED_IP}`)
+					.send({ action: "read", resource: "docs" })
+			).status,
+		).toBe(200);
+
+		const open = await makeWorld({ allowUnauthenticated: true }, "module");
+		expect((await request(open.app).get(`${BASE}/agents`)).status).toBe(200);
+
+		const guarded = await makeWorld({}, "module");
+		expect((await request(guarded.app).get(`${BASE}/agents`)).status).toBe(401);
+	});
 });
