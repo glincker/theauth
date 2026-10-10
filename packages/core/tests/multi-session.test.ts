@@ -385,19 +385,29 @@ describe("buildSessionMetadata", () => {
 		expect(meta.device).toBe("Firefox on Windows");
 	});
 
-	it("extracts ip from x-forwarded-for header", () => {
+	it("ignores a spoofed x-forwarded-for and x-real-ip by default", () => {
 		const req = new Request("http://localhost/", {
-			headers: { "x-forwarded-for": "203.0.113.42, 10.0.0.1" },
+			headers: { "x-forwarded-for": "203.0.113.42, 10.0.0.1", "x-real-ip": "198.51.100.7" },
 		});
 		const meta = buildSessionMetadata(req);
+		expect(meta.ip).toBeUndefined();
+	});
+
+	it("extracts the proxy appended ip with trustedProxyCount", () => {
+		const req = new Request("http://localhost/", {
+			headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.42" },
+		});
+		const meta = buildSessionMetadata(req, undefined, { trustedProxy: { trustedProxyCount: 1 } });
 		expect(meta.ip).toBe("203.0.113.42");
 	});
 
-	it("falls back to x-real-ip when x-forwarded-for is absent", () => {
+	it("reads the ip from a trustedHeader", () => {
 		const req = new Request("http://localhost/", {
-			headers: { "x-real-ip": "198.51.100.7" },
+			headers: { "x-real-ip": "198.51.100.7", "x-forwarded-for": "6.6.6.6" },
 		});
-		const meta = buildSessionMetadata(req);
+		const meta = buildSessionMetadata(req, undefined, {
+			trustedProxy: { trustedHeader: "x-real-ip" },
+		});
 		expect(meta.ip).toBe("198.51.100.7");
 	});
 
