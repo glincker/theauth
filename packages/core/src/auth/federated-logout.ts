@@ -42,9 +42,10 @@ async function verifyWith(
 	key: VerifyKey,
 	options: JWTVerifyOptions,
 ): Promise<JWTVerifyResult> {
-	return typeof key === "function"
-		? jwtVerify(token, key, options)
-		: jwtVerify(token, key, options);
+	// jose types the static-key and key-resolver forms as separate overloads, so a
+	// static key is wrapped in a resolver to reach a single call. Verification is identical.
+	const getKey: JWTVerifyGetKey = typeof key === "function" ? key : async () => key;
+	return jwtVerify(token, getKey, options);
 }
 
 // ---------------------------------------------------------------------------

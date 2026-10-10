@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "../compare.js";
 import { hmacSha256Raw, sha256, toHex } from "../crypto/web-crypto.js";
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
@@ -69,7 +70,7 @@ export function ses(config: SesConfig): EmailProvider {
 			};
 			if (config.sessionToken) headers["x-amz-security-token"] = config.sessionToken;
 
-			const names = Object.keys(headers).sort();
+			const names = Object.keys(headers).sort(compareCodeUnits);
 			const canonicalHeaders = names.map((n) => `${n}:${headers[n]}\n`).join("");
 			const signedHeaders = names.join(";");
 			const canonicalRequest = [

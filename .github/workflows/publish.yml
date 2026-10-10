@@ -18,12 +18,16 @@ concurrency:
 
 jobs:
   publish:
-    # On workflow_run, only publish if CI passed. Tag pushes and manual
+    # On workflow_run, only publish if CI passed on a push to main of this repo (never a fork PR whose head branch
+    # happens to be named main: workflow_run runs with secrets). Tag pushes and manual
     # dispatch always run. The version-diff step is the real guard against
     # double-publishing: if nothing changed it exits cleanly. Tags no longer trigger a publish; Release creates them.
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

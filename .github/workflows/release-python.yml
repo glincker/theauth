@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   PYTHON_VERSION: "3.11"
@@ -29,8 +29,8 @@ jobs:
       - name: Install dependencies
         working-directory: ./sdks/python
         run: |
-          pip install hatch
-          pip install -e ".[dev]"
+          pip install --only-binary :all: hatch
+          pip install --only-binary :all: -e ".[dev]"
 
       - name: Run tests
         working-directory: ./sdks/python
@@ -51,7 +51,7 @@ jobs:
       - name: Build and publish
         working-directory: ./sdks/python
         run: |
-          pip install hatch
+          pip install --only-binary :all: hatch
           hatch build
           hatch publish
         env:
@@ -70,6 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [publish]
     if: needs.publish.result == 'success'
+    permissions:
+      contents: write # create the GitHub release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
