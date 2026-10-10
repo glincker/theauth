@@ -53,7 +53,7 @@ app.route('/api/theauth', theAuthHono(theauth, { authenticate }));
 
 `theauth.auth.resolveUser` only consults the `auth.adapter` you configured. If you rely on `auth.session` alone, skip `authenticate` (see next paragraph) or validate the token yourself with `theauth.auth.session.validate(token)`.
 
-If you leave `authenticate` out and `auth.session` is configured on `createTheAuth`, the adapter accepts any valid session (cookie or `Authorization: Bearer <session token>`). That admits every signed-in user, so write your own resolver when only admins should reach these routes. If neither is configured, the adapter throws when you create it:
+If you leave `authenticate` out and `auth.session` is configured on `createTheAuth`, the adapter accepts any valid session (cookie or `Authorization: Bearer <session token>`). That admits every signed-in user, but each one only sees and acts on their own agents, delegations and audit rows. Write your own resolver when admins or service tokens need to reach everything; whatever a custom resolver accepts is unrestricted. If neither is configured, the adapter throws when you create it:
 
 ```
 [theauth] theAuthHono: the management routes (/agents, /delegations, /audit, /dashboard, /authorize) require authentication, but none is configured.

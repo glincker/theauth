@@ -59,6 +59,18 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 - `GET /mcp/authorize`
 - `POST /mcp/token`
 
+## Management routes and client IP
+
+With the default session guard, a signed-in user only acts on their own agents, delegations and audit rows. A custom `authenticate` resolver is a trust decision and sees everything.
+
+The adapter does not read forwarded headers for the client IP. Behind a proxy, set `trustedProxy` with `trustedProxyCount` or `trustedHeader`, or `ipAllowlist` constraints cannot match.
+
+```ts
+app.use("/api/theauth", theAuthExpress(theauth, { authenticate, trustedProxy: { trustedProxyCount: 1 } }));
+```
+
+On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites. Without `trustedProxy` the adapter uses `req.ip`, which is the socket peer unless your server framework is configured to trust the proxy.
+
 ## API surface
 
 `theAuthExpress(theauth, options?)` returns an Express `Router`. Pass it to `app.use()` with your chosen prefix.
