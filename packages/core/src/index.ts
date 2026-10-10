@@ -9,10 +9,12 @@ export { and, eq, like } from "drizzle-orm";
 export type {
 	AdapterAuthResolver,
 	AdapterGuard,
+	AdapterGuardResolution,
 	AdapterPrincipal,
 	AdapterSecurityOptions,
 } from "./adapter-guard.js";
 export { createAdapterGuard, isProtectedAdapterPath } from "./adapter-guard.js";
+export type { AdapterScope, ScopeDenial, ScopeResult } from "./adapter-scope.js";
 
 // Re-export submodules
 export * from "./agent/index.js";

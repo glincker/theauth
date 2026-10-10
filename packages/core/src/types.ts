@@ -481,6 +481,8 @@ export interface AuditExportOptions {
 	format: "json" | "csv";
 	since?: Date;
 	until?: Date;
+	/** Only export rows for agents owned by this user. */
+	userId?: string;
 }
 
 export interface McpServerInput {
