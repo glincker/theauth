@@ -5,16 +5,18 @@
 Scaffold a theAuth app in one command.
 
 ```bash
-npm create theauth-app@latest
-# or
-pnpm create theauth-app
-# or
-yarn create theauth-app
-# or
-bunx @glinr/create-theauth-app
+npx @glinr/create-theauth-app my-agent-app --yes && cd my-agent-app && npm start
 ```
 
-You'll be asked for a project directory, a template, and a database driver. The CLI then writes the project, installs deps, and prints the next commands to run.
+That writes the `first-run` template, runs the install, and starts a server where an agent is allowed one call and denied another, with both in the audit log. See [first run](https://github.com/glincker/theauth/blob/main/docs/first-run.md).
+
+Without arguments it asks for a directory, a template and a package manager:
+
+```bash
+npm create @glinr/theauth-app
+```
+
+Options: `--template <first-run|next-saas|hono-mcp>`, `--yes` (use defaults, no prompts), `--no-install`, `--help`.
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
 
@@ -22,6 +24,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 | Template | Status | Stack |
 | --- | --- | --- |
+| `first-run` | available (default) | One agent, one allowed call, one denied call, audit log. In memory SQLite |
 | `next-saas` | available | Next.js App Router · Drizzle · theAuth auth |
 | `hono-mcp` | available | Hono server · MCP OAuth 2.1 |
 | `expo-mobile` | coming soon | Expo Router · React Native |
@@ -31,7 +34,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 - `sql.js` (default): local SQLite compiled to WebAssembly, zero native build
 - `pg`: Postgres (you provide the connection string)
 
-## What you get
+## What you get with `next-saas`
 
 A working Next.js app with:
 
@@ -40,11 +43,10 @@ A working Next.js app with:
 - Sign-in / sign-up routes using the prebuilt React components
 - `.env.example` with the secrets you need to fill in
 
-## Next steps
+Then:
 
 ```bash
 cd my-theauth-app
-pnpm install
 cp .env.example .env       # then set THEAUTH_SECRET
 pnpm db:push
 pnpm dev

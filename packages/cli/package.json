@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@glinr/theauth": "workspace:*",
+    "@glinr/theauth-dashboard": "workspace:*",
     "@glinr/theauth-hono": "workspace:*",
     "hono": "^4.13.7",
     "@hono/node-server": "^1.19.15"
