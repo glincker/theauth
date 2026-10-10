@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "mcpName": "io.github.glincker/theauth-mcp",
   "description": "Read-only MCP server to inspect agent identity, permissions and audit in a theAuth deployment",
   "type": "module",
