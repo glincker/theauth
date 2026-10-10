@@ -65,7 +65,7 @@ const ALL_FEATURES_ENABLED: EnabledFeatures = {
 	tokenVault: true,
 };
 
-function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
+function resolveEnabledFeatures(config?: Partial<TheAuthConfig>): EnabledFeatures {
 	if (!config) {
 		// Backward compat: no config = create everything
 		return ALL_FEATURES_ENABLED;
@@ -1269,6 +1269,60 @@ function resolveExecutor(
 	throw new Error(`createTables: unsupported provider "${provider}"`);
 }
 
+/**
+ * Returns the CREATE TABLE and CREATE INDEX statements `createTables` would run
+ * for a provider, one statement per array entry and without trailing
+ * semicolons. Use it to write a migration file for tools that apply SQL
+ * themselves, for example `wrangler d1 migrations apply`:
+ *
+ * ```typescript
+ * const sql = getMigrationStatements("d1", { agents: { enabled: true } })
+ *   .map((s) => `${s};`)
+ *   .join("\n\n");
+ * ```
+ *
+ * Pass the same feature options you give `createTheAuth` (agents, sessions,
+ * plugins, and so on) so the file contains the tables that configuration
+ * needs. Without a config every table is included.
+ */
+export function getMigrationStatements(
+	provider: DatabaseConfig["provider"],
+	config?: Partial<TheAuthConfig>,
+): string[] {
+	const features = resolveEnabledFeatures(config);
+	return buildStatements(provider)
+		.filter((s) => features[s.feature])
+		.map((s) => s.sql);
+}
+
+/** Minimal shape of the D1 binding that drizzle keeps at `db.$client`. */
+interface D1Client {
+	prepare(query: string): unknown;
+	batch(statements: unknown[]): Promise<unknown>;
+}
+
+/**
+ * Creates the tables on Cloudflare D1 with one `batch()` call. The statements
+ * are all `IF NOT EXISTS`, and a batch is a single round trip that D1 runs as
+ * a transaction. `exec()` is avoided on purpose: D1 splits its input on
+ * newlines, which breaks multi line CREATE TABLE statements.
+ *
+ * D1 support was added after the table rename, so no legacy tables can exist
+ * there and the rename and audit column upgrade passes are skipped.
+ */
+async function createTablesD1(db: Database, statements: string[]): Promise<void> {
+	// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle client for raw DDL
+	const anyDb = db as any;
+	const client: D1Client | undefined = anyDb.$client ?? anyDb.session?.client;
+	if (!client || typeof client.prepare !== "function" || typeof client.batch !== "function") {
+		throw new Error(
+			"TheAuth createTables: cannot access the D1 binding from the Drizzle instance.",
+		);
+	}
+	if (statements.length === 0) return;
+	await client.batch(statements.map((sql) => client.prepare(sql)));
+}
+
 export async function createTables(
 	db: Database,
 	provider: DatabaseConfig["provider"],
@@ -1278,6 +1332,12 @@ export async function createTables(
 	const features = resolveEnabledFeatures(config);
 
 	const statements = allStatements.filter((s) => features[s.feature]).map((s) => s.sql);
+
+	if (provider === "d1") {
+		await createTablesD1(db, statements);
+		return;
+	}
+
 	const run = resolveExecutor(db, provider);
 
 	// Upgrade path: keep data in tables created under the previous name.

@@ -133,7 +133,9 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     };
     ```
 
-    The D1 provider takes a `binding` instead of a `url`. Set `skipMigrations: true` if you create the tables yourself.
+    The D1 provider takes a `binding` instead of a `url`. With the default settings theAuth creates the missing tables in a single D1 batch when `createTheAuth` runs. On Workers that is once per isolate if you build the instance at module level, or on every request if you build it inside the handler, so cache it.
+
+    To manage the schema with `wrangler d1 migrations apply`, set `skipMigrations: true` and generate the SQL with `getMigrationStatements('d1', config)`, passing the same feature options you give `createTheAuth`. See the [Cloudflare Workers example](https://github.com/glincker/theauth/tree/main/examples/cloudflare-workers).
   </Tab>
 </Tabs>
 

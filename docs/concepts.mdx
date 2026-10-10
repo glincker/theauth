@@ -78,7 +78,7 @@ When `agents.auditAll` is on (the default), every `authorize()` and `authorizeBy
 | `action`, `resource` | What they tried to do |
 | `parameters` | The `arguments` passed to `authorize()` |
 | `result` | `allowed` or `denied` |
-| `reason` | Why, if denied (free text) |
+| `reason` | Why, if denied (free text, or `agent_revoked` / `agent_expired` for a revoked or expired agent) |
 | `durationMs` | Evaluation latency in ms |
 
 The IP address and user agent are stored too, when the request carried them. Nothing in the API edits entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the retention window. Export as JSON or CSV for compliance.

@@ -99,7 +99,7 @@ Controls the agent identity lifecycle.
 <ParamField path="enabled" type="boolean" required>Required by the type, but not read: agent management is always available. Set it to `true`.</ParamField>
 <ParamField path="maxPerUser" type="number" default="10">Maximum number of active agents per owner. `agent.create()` throws when the owner is at the limit.</ParamField>
 <ParamField path="defaultPermissions" type="string[]">Accepted but not applied: new agents get only the permissions you pass to `agent.create()`.</ParamField>
-<ParamField path="auditAll" type="boolean" default="true">Write every `authorize()` outcome (allowed and denied) to the audit log. When `false`, no rows are written by the permission engine at all.</ParamField>
+<ParamField path="auditAll" type="boolean" default="true">Write every `authorize()` outcome (allowed and denied) to the audit log. This includes attempts by revoked or expired agents (reason `agent_revoked` or `agent_expired`). Unknown agent ids and unknown tokens write no row. When `false`, no rows are written by the permission engine at all.</ParamField>
 <ParamField path="tokenExpiry" type="string" default={`"24h"`}>Default agent lifetime when `agent.create()` is called without `expiresAt`. Format is a number followed by `s`, `m`, `h`, or `d` (for example `"30m"`, `"24h"`, `"7d"`); anything else makes `create()` throw. Every agent therefore has an expiry unless you pass `expiresAt`.</ParamField>
 
 ```typescript

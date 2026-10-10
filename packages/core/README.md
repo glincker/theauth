@@ -43,13 +43,18 @@ npm install @glinr/theauth
 ## Quick start
 
 ```typescript
-import { createTheAuth } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
+import { createTheAuth, users } from "@glinr/theauth";
 
-const theauth = createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
-  plugins: [emailPassword()],
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true }, // creates the agent and audit tables
 });
+
+// An agent needs an owner row in theauth_users (human auth creates these for you).
+theauth.db.insert(users).values({
+  id: "user-123", email: "owner@example.com", name: "Owner",
+  createdAt: new Date(), updatedAt: new Date(),
+}).run();
 
 // Create an AI agent with scoped permissions
 const agent = await theauth.agent.create({
@@ -63,7 +68,7 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// Authorize and audit (< 1ms)
+// Authorize and audit
 const result = await theauth.authorize(agent.id, {
   action: "read",
   resource: "mcp:github:repos",
@@ -126,7 +131,7 @@ Organizations + RBAC, SAML SSO, SCIM directory sync, admin controls, API key man
 <td>
 
 ### Edge compatible
-Runs on Cloudflare Workers (D1), Deno, Bun, and Node.js. Only 3 runtime deps: `drizzle-orm`, `jose`, `zod`.
+Runs on Cloudflare Workers (D1), Deno, Bun, and Node.js. Only 4 runtime deps: `drizzle-orm`, `jose`, `sql.js`, `zod`.
 
 </td>
 </tr>
@@ -192,6 +197,16 @@ createTheAuth({ database: { provider: "d1", binding: env.THEAUTH_DB } });
 
 // PostgreSQL
 createTheAuth({ database: { provider: "postgres", url: process.env.DATABASE_URL } });
+```
+
+On D1, the tables are created in one batch the first time an isolate builds the instance. If you would rather run `wrangler d1 migrations apply`, set `skipMigrations: true` and write the SQL to a migration file with `getMigrationStatements`:
+
+```typescript
+import { getMigrationStatements } from "@glinr/theauth";
+
+const sql = getMigrationStatements("d1", { agents: { enabled: true } })
+  .map((statement) => `${statement};`)
+  .join("\n\n");
 ```
 
 ## Plugins

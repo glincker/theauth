@@ -706,7 +706,24 @@ database_name = "theauth"
 database_id = "<your-database-id>"
 ```
 
-Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the schema yourself (and set `skipMigrations: true` inside `database`), or leave it at its default of `false` and theAuth creates the tables with `CREATE TABLE IF NOT EXISTS` on startup.
+By default theAuth creates the tables it needs the first time a Worker isolate starts, with one D1 batch of `CREATE TABLE IF NOT EXISTS` statements. That is fine for a first try.
+
+For production, create the tables in your deploy step instead and set `skipMigrations: true` inside `database`, so requests never run a schema check. `getMigrationStatements` returns the same SQL theAuth would run, so you can write it to a file that `wrangler d1 migrations apply` picks up:
+
+```typescript
+import { writeFileSync } from 'node:fs';
+import { getMigrationStatements } from '@glinr/theauth';
+
+// Pass the same feature options you give createTheAuth (agents, auth, plugins).
+const statements = getMigrationStatements('d1', { agents: { enabled: true } });
+writeFileSync('migrations/0001_initial.sql', statements.map((s) => `${s};`).join('\n\n'));
+```
+
+```bash
+npx wrangler d1 migrations apply theauth --remote
+```
+
+The [Cloudflare Workers example](https://github.com/glincker/theauth/tree/main/examples/cloudflare-workers) has this wired up end to end.
 
 <Info>
 `createTheAuth` is always async, not only with D1. Workers and Deno both support top-level await, so you can also initialize outside the handler if you use a module worker.

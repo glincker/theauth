@@ -527,6 +527,7 @@
             "icon": "code-compare",
             "pages": [
               "compare/index",
+              "comparison",
               "compare/vs-ba",
               "compare/vs-hanko",
               "compare/vs-casdoor",

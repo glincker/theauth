@@ -24,6 +24,30 @@ const theauth = await createTheAuth({
 });
 ```
 
+## What gets recorded
+
+With `agents.auditAll` on (the default), every decision about a known agent writes one row, allowed or denied. That includes a request from an agent that is revoked or expired. Those rows have `result: "denied"` and a stable `reason` code, so you can filter for them:
+
+| `reason` | Written when |
+|---|---|
+| `agent_revoked` | `authorize(agentId)` or `authorizeByToken(token)` is called for a revoked agent |
+| `agent_expired` | The same calls for an agent whose status is `expired`, or whose token has passed its expiry |
+
+The `reason` string on the returned result is unchanged (for example `Agent "deploy-bot" is revoked`). The row stores the short code. The row never stores the token. It stores the action, resource, `arguments`, IP and user agent, like any other row, and it goes through the same writer, so with `tamperEvident` on it joins the agent's chain like any other row.
+
+Some denials write no row:
+
+- **Unknown agent id** (`authorize("no-such-agent")`). There is no agent to attach a row or a chain to, and the audit table requires a real agent. Writing rows keyed by arbitrary ids would let a caller fill the table with junk.
+- **Unknown token** (`authorizeByToken` with a token that matches no agent). Same reason. Nothing identifies an agent.
+- **Blocked by a `beforeAuthorize` hook.** The hook runs before any database work by design. Use `onViolation` to log these.
+- **`agents.auditAll: false`.** No rows are written for any decision, including these.
+
+When no row is written, `auditId` on the result is an empty string.
+
+A failed audit write on one of these denials does not change the outcome. The call still returns `allowed: false` and does not throw, and `auditId` is empty. This differs from an allow or a permission denial, where a failed audit insert propagates as an error.
+
+A caller holding a revoked token can produce one row per attempt. Use `audit.cleanup({ retentionDays })` and your gateway's rate limiting if that matters for you.
+
 ## How the chain works
 
 There is one chain per agent. Each row gets `chain_seq` (1, 2, 3...), `prev_hash` and `hash`. The hash is SHA-256 over the canonical JSON (sorted keys) of the row fields, the sequence number and `prev_hash`. With `hmacKey` it is HMAC-SHA256 instead.

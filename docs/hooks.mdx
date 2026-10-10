@@ -90,7 +90,7 @@ const theauth = await createTheAuth({
 });
 ```
 
-The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Blocked-by-hook and unknown-agent denials return an empty `auditId`.
+The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Blocked-by-hook and unknown-agent denials return an empty `auditId`. Denials for a revoked or expired agent return the id of the row that was written.
 
 ## Enforcing a sandbox check
 

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340" role="img" aria-labelledby="t d">
+  <title id="t">How theAuth works</title>
+  <desc id="d">A human owner creates an agent and delegates permissions with a depth limit and an expiry. The agent calls with its own token. The theAuth gate checks permission, writes the audit log and forwards allowed calls to resources such as an MCP server or your API.</desc>
+  <style>
+    .bg { fill: #FFFFFF; stroke: #D0D7DE; }
+    .box { fill: #F6F8FA; stroke: #57606A; stroke-width: 1.5; }
+    .gate { fill: #FBF5E1; stroke: #8B6914; stroke-width: 2.5; }
+    .note { fill: none; stroke: #8B6914; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .title { fill: #1F2328; font-family: Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; }
+    .txt { fill: #424A53; font-family: Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 13px; }
+    .lbl { fill: #1F2328; font-family: Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11.5px; font-weight: 600; }
+    .mono { fill: #1F2328; font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+    .line { stroke: #424A53; stroke-width: 1.8; fill: none; }
+    .head { fill: #424A53; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; stroke: #30363D; }
+      .box { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #2A2410; stroke: #C9A84C; }
+      .note { stroke: #C9A84C; }
+      .title { fill: #F0F6FC; }
+      .txt { fill: #C9D1D9; }
+      .lbl { fill: #F0F6FC; }
+      .mono { fill: #F0F6FC; }
+      .line { stroke: #C9D1D9; }
+      .head { fill: #C9D1D9; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path class="head" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="719" height="339" rx="10"/>
+
+  <!-- Human -->
+  <rect class="box" x="20" y="36" width="138" height="124" rx="8"/>
+  <text class="title" x="34" y="64">Human (owner)</text>
+  <text class="txt" x="34" y="90">Signs in as usual</text>
+  <text class="txt" x="34" y="112">Creates agents</text>
+  <text class="txt" x="34" y="134">Grants permissions</text>
+
+  <!-- Agent -->
+  <rect class="box" x="210" y="36" width="138" height="124" rx="8"/>
+  <text class="title" x="224" y="64">Agent</text>
+  <text class="txt" x="224" y="90">Own identity</text>
+  <text class="txt" x="224" y="112">Own token</text>
+  <text class="txt" x="224" y="134">Limited permissions</text>
+
+  <!-- Gate -->
+  <rect class="gate" x="400" y="36" width="138" height="124" rx="8"/>
+  <text class="title" x="414" y="64">theAuth gate</text>
+  <text class="txt" x="414" y="90">Checks permission</text>
+  <text class="txt" x="414" y="112">Allow or deny</text>
+  <text class="txt" x="414" y="134">Writes audit log</text>
+
+  <!-- Resources -->
+  <rect class="box" x="590" y="36" width="110" height="124" rx="8"/>
+  <text class="title" x="604" y="64">Resources</text>
+  <text class="txt" x="604" y="90">MCP server</text>
+  <text class="txt" x="604" y="112">Your API</text>
+
+  <!-- Arrows between columns -->
+  <line class="line" x1="158" y1="98" x2="208" y2="98" marker-end="url(#arrow)"/>
+  <text class="lbl" x="183" y="88" text-anchor="middle">delegates</text>
+  <line class="line" x1="348" y1="98" x2="398" y2="98" marker-end="url(#arrow)"/>
+  <text class="lbl" x="373" y="88" text-anchor="middle">calls</text>
+  <line class="line" x1="538" y1="98" x2="588" y2="98" marker-end="url(#arrow)"/>
+  <text class="lbl" x="563" y="88" text-anchor="middle">allowed</text>
+
+  <!-- Delegation note -->
+  <rect class="note" x="20" y="196" width="328" height="112" rx="8"/>
+  <text class="title" x="34" y="224">Delegation</text>
+  <text class="txt" x="34" y="248">Each link has a depth limit and an expiry.</text>
+  <text class="txt" x="34" y="270">An agent can only pass on permissions it has.</text>
+  <text class="txt" x="34" y="292">Revoking a link revokes the links below it.</text>
+  <line class="line" x1="84" y1="160" x2="84" y2="194" marker-end="url(#arrow)" stroke-dasharray="4 4"/>
+
+  <!-- Audit log -->
+  <line class="line" x1="469" y1="160" x2="469" y2="224" marker-end="url(#arrow)"/>
+  <rect class="box" x="400" y="226" width="300" height="82" rx="8"/>
+  <text class="title" x="414" y="254">Audit log</text>
+  <text class="txt" x="414" y="278">One row per decision, allowed or denied.</text>
+  <text class="mono" x="414" y="298">agent, action, resource, result</text>
+</svg>

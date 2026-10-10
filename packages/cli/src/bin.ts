@@ -39,7 +39,10 @@ const HELP = `
 theauth - The Auth OS for AI Agents
 
 Usage:
-  theauth <command> [options]
+  npx @glinr/theauth-cli <command> [options]
+  theauth <command> [options]        (after a global or local install)
+
+  The short form "npx theauth" will work once the alias package is published.
 
 Commands:
   init          Initialize TheAuth in your project (--agent for coding assistants)
@@ -63,11 +66,13 @@ Options:
   --version     Show version number
 
 Examples:
-  theauth init
-  theauth init --agent --target claude,cursor
-  theauth mcp
-  theauth migrate
-  theauth dashboard --port 3100
+  npx @glinr/theauth-cli init
+  npx @glinr/theauth-cli init --agent --target claude,cursor
+  npx @glinr/theauth-cli mcp
+  npx @glinr/theauth-cli migrate
+  npx @glinr/theauth-cli dashboard --port 3100
+
+Want a running server first? npx @glinr/create-theauth-app my-agent-app --yes
 
 Documentation: https://theauth.dev/docs
 `;
