@@ -1,0 +1,28 @@
+# TheAuth demo worker. Placeholders only: nothing here is a real id or secret.
+# Deploy steps are in README.md.
+name = "theauth-demo"
+main = "src/worker.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Replace database_id with the id printed by:
+#   wrangler d1 create theauth-demo
+[[d1_databases]]
+binding = "DB"
+database_name = "theauth-demo"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Removes agents and audit rows older than DEMO_TTL_MINUTES.
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Limits. All optional, these are the defaults.
+[vars]
+DEMO_TTL_MINUTES = "60"
+DEMO_MAX_AGENTS = "200"
+DEMO_MAX_AGENTS_PER_CLIENT = "3"
+DEMO_MAX_ACTIONS_PER_AGENT = "40"
+DEMO_REQUESTS_PER_MINUTE = "30"
+
+# Optional secret (not stored here): wrangler secret put DEMO_CLIENT_SALT
