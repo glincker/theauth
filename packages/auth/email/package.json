@@ -29,7 +29,7 @@
     "@types/node": "^22.0.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   },
   "homepage": "https://docs.theauth.dev/auth/email-password",
   "bugs": {
