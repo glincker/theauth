@@ -28,6 +28,18 @@ const theauth = createTheAuth({
 export const { GET, POST } = theAuthTanStack(theauth, { authenticate });
 ```
 
+## Management routes and client IP
+
+With the default session guard, a signed-in user only acts on their own agents, delegations and audit rows. A custom `authenticate` resolver is a trust decision and sees everything.
+
+The adapter does not read forwarded headers for the client IP. Behind a proxy, set `trustedProxy` with `trustedProxyCount` or `trustedHeader`, or `ipAllowlist` constraints cannot match.
+
+```ts
+const handlers = theAuthTanStack(theauth, { authenticate, trustedProxy: { trustedProxyCount: 1 } });
+```
+
+On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites.
+
 ## Docs
 
 [docs.theauth.dev/adapters/tanstack](https://docs.theauth.dev/adapters/tanstack)

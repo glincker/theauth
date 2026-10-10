@@ -328,13 +328,23 @@ describe("Express adapter", () => {
 				],
 			});
 
-			const allowed = await request(app)
+			// Forwarded headers are only honored when the host declares its proxies.
+			const proxied = express();
+			proxied.use(express.json());
+			proxied.use(
+				theAuthExpress(theauth, {
+					allowUnauthenticated: true,
+					trustedProxy: { trustedProxyCount: 1 },
+				}),
+			);
+
+			const allowed = await request(proxied)
 				.post("/authorize")
 				.set("X-Forwarded-For", "203.0.113.9")
 				.send({ agentId: id, action: "read", resource: "mcp:github" });
 			expect(allowed.status).toBe(200);
 
-			const denied = await request(app)
+			const denied = await request(proxied)
 				.post("/authorize")
 				.set("X-Forwarded-For", "198.51.100.1")
 				.send({ agentId: id, action: "read", resource: "mcp:github" });

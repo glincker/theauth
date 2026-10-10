@@ -20,6 +20,8 @@ const PACKAGE_DIRS = [
 	"packages/core",
 	"packages/client",
 	"packages/cli",
+	"packages/mcp",
+	"packages/theauth-alias",
 	"packages/dashboard",
 	"packages/react",
 	"packages/vue",

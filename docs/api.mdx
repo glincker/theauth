@@ -162,7 +162,7 @@ Checks whether an agent has permission to perform an action on a resource. The a
 }
 ```
 
-`agentId`, `action`, and `resource` are required. The client IP (first entry of `X-Forwarded-For`, else `X-Real-IP`) and `User-Agent` are read from the request headers and stored on the audit entry. A `context` object in the body is ignored.
+`agentId`, `action`, and `resource` are required. The client IP and `User-Agent` are stored on the audit entry. The IP comes from the adapter's `trustedProxy` setting (`trustedProxyCount` or `trustedHeader`). With neither set, forwarded headers are ignored and the IP is unknown, so an `ipAllowlist` constraint denies. Express, Fastify and NestJS fall back to the socket address. A `context` object in the body is ignored.
 
 **Response** `200 OK` when allowed
 

@@ -4,8 +4,8 @@
 
 <h1 align="center">theAuth</h1>
 
-<p align="center"><strong>Open-source auth for AI agents and humans.</strong><br>
-Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, device flow. A self-hostable Better Auth alternative for TypeScript.</p>
+<p align="center"><strong>Auth where AI agents get their own identity, limited permissions and an audit trail, next to normal human sign in.</strong><br>
+Open source, MIT, TypeScript and a Go SDK. Includes an MCP OAuth 2.1 server.</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/v/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
@@ -36,9 +36,13 @@ Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, device flow. A
 
 ## What it is
 
-Most auth libraries stop at human sign-in. Once an AI agent needs its own identity, scoped permissions, delegation from a user, and an audit trail, you end up bolting a second system on. theAuth puts agents and humans in one library: sign-in methods, an OAuth 2.1 authorization server for MCP, and agent tokens with permissions you can check and audit.
+Most auth libraries stop at human sign in. When an AI agent calls your API or an MCP server, it usually borrows a user's session or a shared key, and afterwards you cannot tell who did what. theAuth gives each agent its own identity and token, limited permissions granted by a human owner, delegation with a depth limit and an expiry, and an audit row for every decision. Human sign in and an OAuth 2.1 authorization server for MCP live in the same library.
 
-It runs on Node, Bun, Deno and Cloudflare Workers with three runtime dependencies (`drizzle-orm`, `jose`, `zod`). MIT licensed. No hosted service required.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/glincker/theauth/main/docs/assets/model-diagram.svg" alt="A human owner creates an agent and delegates permissions with a depth limit and an expiry. The agent calls with its own token. The theAuth gate checks permission, writes the audit log and passes allowed calls to resources such as an MCP server or your API." width="720" />
+</p>
+
+It is 0.x and has not had an independent security audit. It runs on Node, Bun, Deno and Cloudflare Workers, and core has four runtime dependencies (`drizzle-orm`, `jose`, `sql.js`, `zod`). MIT licensed. No hosted service required.
 
 ## 30 second quickstart
 
@@ -51,7 +55,10 @@ npm install @glinr/theauth
 ```typescript
 import { createTheAuth, users } from "@glinr/theauth";
 
-const auth = await createTheAuth({ database: { provider: "sqlite", url: ":memory:" } });
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true }, // creates the agent and audit tables
+});
 
 // Agents need an owner row in theauth_users (human auth creates these for you).
 auth.db.insert(users).values({
@@ -84,7 +91,7 @@ To mount it over HTTP, pick an adapter such as `@glinr/theauth-hono` or `@glinr/
 | DPoP | Sender-constrained tokens for MCP resource servers | [DPoP](https://docs.theauth.dev/dpop) |
 | Token vault | Encrypted third-party OAuth tokens for agents, refresh with a shared lock, key rotation | [Token vault](https://docs.theauth.dev/token-vault) |
 | Human sign-in | Email and password (HIBP check), magic link, email OTP, phone OTP, passkeys, TOTP, anonymous, Google One Tap, SIWE, device flow, username, captcha | [Auth](https://docs.theauth.dev/auth) |
-| Providers and presets | 17 first-class OAuth providers, a generic OIDC factory, and ready-made presets for more | [Providers](https://docs.theauth.dev/auth/more-providers) |
+| Providers and presets | 17 OAuth providers with their own factories, a generic OIDC factory, and ready-made presets for more | [Providers](https://docs.theauth.dev/auth/more-providers) |
 | Enterprise | Organizations with RBAC, SAML 2.0 and OIDC SSO, SCIM, admin controls, API keys, GDPR export and delete, compliance evidence export (not a certification) | [Docs](https://docs.theauth.dev) |
 | CLI | `theauth doctor` checks your setup for common mistakes (`--json` for CI) | [CLI tools](https://docs.theauth.dev/cli-tools) |
 
@@ -160,7 +167,7 @@ Checked against each vendor's public docs on 2026-10-07. Vendors change fast, so
 | Agent identity as its own model | Add-on: Token Vault, CIBA | Not found in docs | Plugin, not yet stable | **Yes, core** |
 | Enterprise SSO | Yes | Yes | Plugin | **SAML 2.0, OIDC, SCIM** |
 
-Where theAuth is the weaker choice: Better Auth has a larger community, more tutorials and a bigger plugin catalog. Auth0 and Clerk are managed products with hosted UIs and support contracts, which we do not match. Pick theAuth when agents are first-class users of your system and you want to run the whole thing yourself. Migration guides: [`migrate-from-auth0`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0), [`migrate-from-better-auth-agent-plugin`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-better-auth-agent-plugin).
+Where theAuth is the weaker choice: Better Auth has a larger community, more tutorials and a bigger plugin catalog. Auth0 and Clerk are managed products with hosted UIs and support contracts, which we do not match. Pick theAuth when agents need their own identity and audit trail in your system and you want to run the whole thing yourself. Migration guides: [`migrate-from-auth0`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0), [`migrate-from-better-auth-agent-plugin`](https://github.com/glincker/theauth/tree/main/examples/migrate-from-better-auth-agent-plugin).
 
 ## Packages
 
@@ -192,7 +199,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Issues labeled `good first issue` are a 
 
 ## Security
 
-Report vulnerabilities privately to support@glincker.com or through the GitHub advisory form. Do not open a public issue. Details in [SECURITY.md](SECURITY.md).
+Report vulnerabilities privately to support@glinr.com or through the GitHub advisory form. Do not open a public issue. Details in [SECURITY.md](SECURITY.md).
 
 ## License
 

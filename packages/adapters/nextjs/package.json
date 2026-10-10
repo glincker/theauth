@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-nextjs",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Next.js App Router adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
@@ -37,7 +37,7 @@
     "directory": "packages/adapters/nextjs"
   },
   "peerDependencies": {
-    "@glinr/theauth": ">=0.6.0 <1.0.0",
+    "@glinr/theauth": ">=0.7.1 <1.0.0",
     "next": ">=14.0.0",
     "zod": ">=3.0.0"
   },

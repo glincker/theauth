@@ -8,6 +8,10 @@
  * authenticate a caller.
  */
 
+import type { AdapterScope } from "./adapter-scope.js";
+import { createOwnerScope, createUnrestrictedScope } from "./adapter-scope.js";
+import type { TrustedProxyConfig } from "./auth/client-ip.js";
+import { resolveClientIp } from "./auth/client-ip.js";
 import { extractToken } from "./plugin/helpers.js";
 import type { TheAuth } from "./theauth.js";
 
@@ -33,8 +37,11 @@ export interface AdapterSecurityOptions {
 	 * session (cookie or `Authorization: Bearer <session token>`) and requires
 	 * `auth.session` to be configured on the TheAuth instance.
 	 *
-	 * The default accepts any signed-in user. Pass your own resolver to limit
-	 * these routes to admins or service tokens.
+	 * With the default, any signed-in user is accepted, but each one is limited
+	 * to their own agents, delegations and audit rows (see `AdapterScope`).
+	 * Passing your own resolver is an explicit trust decision: every principal
+	 * it returns is treated as authorized for all management routes, so verify
+	 * ownership or admin rights inside the resolver.
 	 */
 	authenticate?: AdapterAuthResolver;
 	/**
@@ -42,13 +49,32 @@ export interface AdapterSecurityOptions {
 	 * only: a warning is logged on startup. Never enable this in production.
 	 */
 	allowUnauthenticated?: boolean;
+	/**
+	 * How to find the client IP behind your proxies. Used for `ipAllowlist`
+	 * constraints and audit rows. Default: forwarded headers are ignored and the
+	 * IP is unknown, so an `ipAllowlist` constraint denies. Set
+	 * `trustedProxyCount` or `trustedHeader` to match your deployment.
+	 */
+	trustedProxy?: TrustedProxyConfig;
 }
+
+/** Result of resolving the caller: a 401 Response, or the caller's scope. */
+export type AdapterGuardResolution =
+	| { ok: true; scope: AdapterScope }
+	| { ok: false; response: Response };
 
 export interface AdapterGuard {
 	/** True when `relativePath` (relative to the adapter mount) needs a caller. */
 	isProtected(relativePath: string): boolean;
 	/** Returns a 401 Response to send, or null when the request may proceed. */
 	check(request: Request): Promise<Response | null>;
+	/**
+	 * Authenticate the caller and return what they may touch. Prefer this over
+	 * `check` in handlers that need owner scoping, and call it once per request.
+	 */
+	resolve(request: Request): Promise<AdapterGuardResolution>;
+	/** Client IP through the configured trusted proxy rules, or null when unknown. */
+	clientIp(request: Request): string | null;
 }
 
 const PROTECTED_PREFIXES = ["/agents", "/delegations", "/audit", "/dashboard"];
@@ -110,15 +136,25 @@ export function createAdapterGuard(
 	options: AdapterSecurityOptions | undefined,
 	adapterName: string,
 ): AdapterGuard {
+	const trustedProxy = options?.trustedProxy;
+	const clientIp = (request: Request): string | null => resolveClientIp(request, trustedProxy);
+
 	if (options?.allowUnauthenticated === true) {
 		// biome-ignore lint/suspicious/noConsole: deliberate startup warning for an unsafe opt-out
 		console.warn(
 			`[theauth] ${adapterName}: allowUnauthenticated is enabled. Agent, delegation, audit and dashboard routes are open to anyone. Use this for local development only.`,
 		);
-		return { isProtected: () => false, check: async () => null };
+		const open = createUnrestrictedScope();
+		return {
+			isProtected: () => false,
+			check: async () => null,
+			resolve: async () => ({ ok: true, scope: open }),
+			clientIp,
+		};
 	}
 
-	const resolver = options?.authenticate ?? sessionResolver(theauth);
+	const custom = options?.authenticate;
+	const resolver = custom ?? sessionResolver(theauth);
 	if (!resolver) {
 		throw new Error(
 			`[theauth] ${adapterName}: the management routes (/agents, /delegations, /audit, /dashboard, /authorize) require authentication, but none is configured. ` +
@@ -127,15 +163,31 @@ export function createAdapterGuard(
 		);
 	}
 
+	const unrestricted = createUnrestrictedScope();
+
+	async function resolve(request: Request): Promise<AdapterGuardResolution> {
+		try {
+			const principal = await resolver?.(request);
+			if (!principal) return { ok: false, response: jsonUnauthorized() };
+			// An explicit `authenticate` is a trust decision made by the host.
+			if (custom) return { ok: true, scope: unrestricted };
+			// Default resolver: limit the caller to their own resources.
+			if (typeof principal.id !== "string" || principal.id.length === 0) {
+				return { ok: false, response: jsonUnauthorized() };
+			}
+			return { ok: true, scope: createOwnerScope(theauth, principal.id) };
+		} catch {
+			return { ok: false, response: jsonUnauthorized() };
+		}
+	}
+
 	return {
 		isProtected: isProtectedAdapterPath,
 		async check(request) {
-			try {
-				const principal = await resolver(request);
-				return principal ? null : jsonUnauthorized();
-			} catch {
-				return jsonUnauthorized();
-			}
+			const resolved = await resolve(request);
+			return resolved.ok ? null : resolved.response;
 		},
+		resolve,
+		clientIp,
 	};
 }

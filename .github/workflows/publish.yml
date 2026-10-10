@@ -18,12 +18,16 @@ concurrency:
 
 jobs:
   publish:
-    # On workflow_run, only publish if CI passed. Tag pushes and manual
+    # On workflow_run, only publish if CI passed on a push to main of this repo (never a fork PR whose head branch
+    # happens to be named main: workflow_run runs with secrets). Tag pushes and manual
     # dispatch always run. The version-diff step is the real guard against
     # double-publishing: if nothing changed it exits cleanly. Tags no longer trigger a publish; Release creates them.
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -54,7 +58,9 @@ jobs:
       - name: Detect changed packages
         id: detect
         run: |
-          PACKAGES="packages/core packages/client packages/cli packages/dashboard packages/react packages/vue packages/svelte packages/ui packages/test-utils packages/expo packages/electron packages/auth/email packages/plugins/telemetry packages/plugins/discovery packages/gateway packages/adapters/hono packages/adapters/express packages/adapters/nextjs packages/adapters/nextjs-auth packages/adapters/fastify packages/adapters/nuxt packages/adapters/sveltekit packages/adapters/astro packages/adapters/nestjs packages/adapters/solidstart packages/adapters/tanstack packages/adapters/prisma packages/ui-headless packages/create-theauth-app"
+          # packages/theauth-alias is deliberately not listed until the unscoped `theauth` name has been published once
+          # by hand: a rejected first publish would fail the whole run.
+          PACKAGES="packages/core packages/client packages/cli packages/mcp packages/dashboard packages/react packages/vue packages/svelte packages/ui packages/test-utils packages/expo packages/electron packages/auth/email packages/plugins/telemetry packages/plugins/discovery packages/gateway packages/adapters/hono packages/adapters/express packages/adapters/nextjs packages/adapters/nextjs-auth packages/adapters/fastify packages/adapters/nuxt packages/adapters/sveltekit packages/adapters/astro packages/adapters/nestjs packages/adapters/solidstart packages/adapters/tanstack packages/adapters/prisma packages/ui-headless packages/create-theauth-app"
 
           # Parallel: for each package, compare local pkg.json version to the
           # published version on npm. Emit "<dir>" for any package that needs
@@ -117,7 +123,8 @@ jobs:
               echo "✓ $name@$version is already published, skipping"
               continue
             fi
-            if [ ! -d "$dir/dist" ]; then
+            # Only packages with a build script produce dist/ (the theauth alias is a plain forwarder with no build).
+            if [ -n "$(node -p "require('./$dir/package.json').scripts?.build ?? ''")" ] && [ ! -d "$dir/dist" ]; then
               echo "✗ $dir has no dist/ - build step likely failed"
               exit 1
             fi

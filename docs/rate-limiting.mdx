@@ -164,7 +164,7 @@ const handler = withRateLimit(
 );
 ```
 
-When the limit is exceeded, `withRateLimit` returns a `429` response with a `Retry-After` header and the body `{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }`, and does not call the wrapped handler. Unlike the plugin, `withRateLimit` still defaults to the first `x-forwarded-for` entry, then `x-real-ip`, then `"unknown"`. Pass your own `keyExtractor` (for example one built on `resolveClientIp`) when you run behind a proxy.
+When the limit is exceeded, `withRateLimit` returns a `429` response with a `Retry-After` header and the body `{ "error": { "code": "RATE_LIMITED", "message": "Too many requests" } }`, and does not call the wrapped handler. Like the plugin, `withRateLimit` ignores forwarded headers by default and keys on `"unknown"` when the client IP cannot be resolved, so every caller shares one bucket. Pass `trustedProxyCount` or `trustedHeader`, or your own `keyExtractor` built on `resolveClientIp`, when you run behind a proxy.
 
 ## Next steps
 

@@ -13,17 +13,27 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 No install required. Run with `npx`:
 
 ```bash
-npx theauth <command>
+npx @glinr/theauth-cli <command>
+```
+
+The binary is called `theauth`, so after `npm install -D @glinr/theauth-cli` you can run `npx theauth <command>` from that project. The bare `npx theauth` from an empty directory will work once the `theauth` alias package is published; until then use the scoped name above.
+
+## First run
+
+To see an agent allowed and denied in under a minute, scaffold the first-run project:
+
+```bash
+npx @glinr/create-theauth-app my-agent-app --yes && cd my-agent-app && npm start
 ```
 
 ## Commands
 
 ### `init`
 
-Prints setup instructions for adding theAuth to a project, including install steps, configuration scaffold, and adapter options:
+Asks for a framework and database, then writes `theauth.config.ts` and `theauth.example.ts` and prints the install steps:
 
 ```bash
-npx theauth init
+npx @glinr/theauth-cli init
 ```
 
 ### `migrate`
@@ -31,18 +41,21 @@ npx theauth init
 Runs database migrations (auto-applies schema on first run):
 
 ```bash
-npx theauth migrate
+npx @glinr/theauth-cli migrate
 ```
 
 ### `dashboard`
 
-Launches the standalone admin UI on port 3100 by default:
+Starts the admin dashboard on port 3100 with an in-memory database and sample data (three agents, one delegation, ten audit entries). It is a separate instance from your own server and does not read your data:
 
 ```bash
-npx theauth dashboard
+npx @glinr/theauth-cli dashboard
+```
 
-# Custom port and API URL
-npx theauth dashboard --port 4000 --api http://localhost:3000
+To serve the dashboard against an API you run yourself, use `--static`. The dashboard expects the unwrapped response shapes of the demo server, so this only works with an API that returns them:
+
+```bash
+npx @glinr/theauth-cli dashboard --static --port 4000 --api http://localhost:3000
 ```
 
 ### `codemod rename`
@@ -50,8 +63,8 @@ npx theauth dashboard --port 4000 --api http://localhost:3000
 Migrates `Kavach*` names, `KAVACH_*` env vars and old import paths to TheAuth. Dry run by default:
 
 ```bash
-npx theauth codemod rename src
-npx theauth codemod rename src --write --include-env
+npx @glinr/theauth-cli codemod rename src
+npx @glinr/theauth-cli codemod rename src --write --include-env
 ```
 
 Reports `X-Kavach-*` headers, `kavach_*` table names and any other leftover mention without editing them. See the [migration guide](https://theauth.dev/docs/migrate/from-kavach).
@@ -61,7 +74,8 @@ Reports `X-Kavach-*` headers, `kavach_*` table names and any other leftover ment
 | Flag | Default | Description |
 |---|---|---|
 | `--port` | `3100` | Port for the dashboard server |
-| `--api` | `http://localhost:3000` | theAuth API URL |
+| `--static` | off | Serve only the dashboard files, no demo API |
+| `--api` | `http://localhost:3000` | theAuth API URL (with `--static`) |
 | `--help, -h` | | Show help |
 | `--version` | | Show version |
 

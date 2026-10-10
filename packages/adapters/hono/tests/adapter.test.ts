@@ -321,8 +321,13 @@ describe("Hono adapter", () => {
 					},
 				],
 			});
+			// Forwarded headers are only honored when the host declares its proxies.
+			const proxied = theAuthHono(theauth, {
+				allowUnauthenticated: true,
+				trustedProxy: { trustedProxyCount: 1 },
+			});
 			const call = (ip: string) =>
-				app.request("/authorize", {
+				proxied.request("/authorize", {
 					method: "POST",
 					headers: { "Content-Type": "application/json", "X-Forwarded-For": ip },
 					body: JSON.stringify({ agentId: id, action: "read", resource: "mcp:github" }),

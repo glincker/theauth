@@ -1,10 +1,12 @@
 import type {
+	AdapterScope,
 	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
 	Permission,
+	ScopeDenial,
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
@@ -219,15 +221,27 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// require an authenticated caller. The guard is registered per route
 	// pattern, so it keeps working when a parent app mounts this one with
 	// `app.route("/x", ...)`.
+	const scopes = new WeakMap<Request, AdapterScope>();
 	const requireCaller = async (
 		c: Context,
 		next: () => Promise<void>,
 	): Promise<Response | undefined> => {
-		const denied = await guard.check(c.req.raw);
-		if (denied) return c.newResponse(denied.body, denied);
+		const resolved = await guard.resolve(c.req.raw);
+		if (!resolved.ok) return c.newResponse(resolved.response.body, resolved.response);
+		scopes.set(c.req.raw, resolved.scope);
 		await next();
 		return undefined;
 	};
+	// What the caller may touch. With the default session resolver this is
+	// the caller's own resources; with a custom `authenticate` it is
+	// unrestricted. A missing scope (a route that skipped the guard) is a denial.
+	const scopeOf = (c: Context): AdapterScope | null => scopes.get(c.req.raw) ?? null;
+	const refuse = (c: Context, denial: ScopeDenial) => {
+		const res = errorResponse(denial.code, denial.message, denial.status);
+		return c.newResponse(res.body, res);
+	};
+	const noScope = (c: Context) =>
+		refuse(c, { status: 403, code: "FORBIDDEN", message: "Caller scope is unavailable" });
 	for (const root of ["/agents", "/delegations", "/audit", "/dashboard"]) {
 		app.use(root, requireCaller);
 		app.use(`${root}/*`, requireCaller);
@@ -250,6 +264,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			const res = validationError(parsed.error.issues);
 			return c.newResponse(res.body, res);
 		}
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const createDenial = scope.checkAgentCreate(parsed.data.ownerId);
+		if (createDenial) return refuse(c, createDenial);
 		try {
 			const input: CreateAgentInput = {
 				...parsed.data,
@@ -280,8 +298,13 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			filter.type = typeRaw;
 		}
 
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const scoped = scope.scopeAgentFilter(filter);
+		if (!scoped.ok) return refuse(c, scoped.denial);
+
 		try {
-			const agents = await theauth.agent.list(filter);
+			const agents = await theauth.agent.list(scoped.value);
 			const res = ok(agents);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -294,6 +317,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// GET /agents/:id - get agent
 	app.get("/agents/:id", async (c) => {
 		const id = c.req.param("id");
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const denial = await scope.checkAgent(id);
+		if (denial) return refuse(c, denial);
 		try {
 			const agent = await theauth.agent.get(id);
 			if (!agent) {
@@ -312,6 +339,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// PATCH /agents/:id - update agent
 	app.patch("/agents/:id", async (c) => {
 		const id = c.req.param("id");
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const denial = await scope.checkAgent(id);
+		if (denial) return refuse(c, denial);
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -346,6 +377,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// DELETE /agents/:id - revoke agent
 	app.delete("/agents/:id", async (c) => {
 		const id = c.req.param("id");
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const denial = await scope.checkAgent(id);
+		if (denial) return refuse(c, denial);
 		try {
 			await theauth.agent.revoke(id);
 			return new Response(null, { status: 204 });
@@ -363,6 +398,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// POST /agents/:id/rotate - rotate token
 	app.post("/agents/:id/rotate", async (c) => {
 		const id = c.req.param("id");
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const denial = await scope.checkAgent(id);
+		if (denial) return refuse(c, denial);
 		try {
 			const agent = await theauth.agent.rotate(id);
 			const res = ok(agent);
@@ -394,11 +433,12 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			const res = validationError(parsed.error.issues);
 			return c.newResponse(res.body, res);
 		}
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const agentDenial = await scope.checkAgent(parsed.data.agentId);
+		if (agentDenial) return refuse(c, agentDenial);
 		try {
-			const ip =
-				c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-				c.req.header("x-real-ip") ??
-				undefined;
+			const ip = guard.clientIp(c.req.raw) ?? undefined;
 			const userAgent = c.req.header("user-agent") ?? undefined;
 			const result = await theauth.authorize(
 				parsed.data.agentId,
@@ -444,10 +484,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			return c.newResponse(res.body, res);
 		}
 		try {
-			const ip =
-				c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-				c.req.header("x-real-ip") ??
-				undefined;
+			const ip = guard.clientIp(c.req.raw) ?? undefined;
 			const userAgent = c.req.header("user-agent") ?? undefined;
 			const result = await theauth.authorizeByToken(
 				token,
@@ -487,6 +524,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			const res = validationError(parsed.error.issues);
 			return c.newResponse(res.body, res);
 		}
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const fromDenial = await scope.checkAgent(parsed.data.fromAgent);
+		if (fromDenial) return refuse(c, fromDenial);
 		try {
 			const input: DelegateInput = {
 				...parsed.data,
@@ -514,6 +555,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// DELETE /delegations/:id - revoke delegation
 	app.delete("/delegations/:id", async (c) => {
 		const id = c.req.param("id");
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const denial = await scope.checkChain(id);
+		if (denial) return refuse(c, denial);
 		try {
 			await theauth.delegation.revoke(id);
 			return new Response(null, { status: 204 });
@@ -531,6 +576,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// GET /delegations/:agentId - list chains for agent
 	app.get("/delegations/:agentId", async (c) => {
 		const agentId = c.req.param("agentId");
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const denial = await scope.checkAgent(agentId);
+		if (denial) return refuse(c, denial);
 		try {
 			const chains = await theauth.delegation.listChains(agentId);
 			const res = ok(chains);
@@ -580,8 +629,13 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const scoped = scope.scopeAuditFilter(filter);
+		if (!scoped.ok) return refuse(c, scoped.denial);
+
 		try {
-			const entries = await theauth.audit.query(filter);
+			const entries = await theauth.audit.query(scoped.value);
 			const res = ok(entries);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -612,8 +666,13 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			if (!Number.isNaN(d.getTime())) options.until = d;
 		}
 
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const scopedExport = scope.scopeAuditExport(options);
+		if (!scopedExport.ok) return refuse(c, scopedExport.denial);
+
 		try {
-			const exported = await theauth.audit.export(options);
+			const exported = await theauth.audit.export(scopedExport.value);
 			const contentType = format === "csv" ? "text/csv" : "application/json";
 			return new Response(exported, {
 				status: 200,
@@ -754,12 +813,18 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 
 	// GET /dashboard/stats
 	app.get("/dashboard/stats", async (c) => {
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		// Default guard: aggregate only the caller's own agents and audit rows.
+		const statsOwner = scope.statsOwnerId();
+
 		try {
 			const [agents, recentAudit] = await Promise.all([
-				theauth.agent.list(),
+				theauth.agent.list(statsOwner ? { userId: statsOwner } : undefined),
 				theauth.audit.query({
 					since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 					limit: 1000,
+					...(statsOwner ? { userId: statsOwner } : {}),
 				}),
 			]);
 
@@ -809,8 +874,13 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			filter.type = typeRaw;
 		}
 
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const scoped = scope.scopeAgentFilter(filter);
+		if (!scoped.ok) return refuse(c, scoped.denial);
+
 		try {
-			const agents = await theauth.agent.list(filter);
+			const agents = await theauth.agent.list(scoped.value);
 			const res = ok(agents);
 			return c.newResponse(res.body, res);
 		} catch (err) {
@@ -856,8 +926,13 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
+		const scope = scopeOf(c);
+		if (!scope) return noScope(c);
+		const scoped = scope.scopeAuditFilter(filter);
+		if (!scoped.ok) return refuse(c, scoped.denial);
+
 		try {
-			const entries = await theauth.audit.query(filter);
+			const entries = await theauth.audit.query(scoped.value);
 			const res = ok(entries);
 			return c.newResponse(res.body, res);
 		} catch (err) {

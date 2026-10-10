@@ -25,6 +25,26 @@ export interface TheAuthModuleOptions extends AdapterSecurityOptions {
 /** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
 export type AuthModuleOptions = TheAuthModuleOptions;
 
+// ─── Security option passthrough ──────────────────────────────────────────────
+
+/**
+ * Every `AdapterSecurityOptions` key. Typed as a full record so adding a key to
+ * the core interface fails the build here until it is listed.
+ */
+const SECURITY_OPTION_KEYS: Record<keyof AdapterSecurityOptions, true> = {
+	authenticate: true,
+	allowUnauthenticated: true,
+	trustedProxy: true,
+};
+
+function pickSecurityOptions(options: AdapterSecurityOptions): AdapterSecurityOptions {
+	const picked: AdapterSecurityOptions = {};
+	for (const key of Object.keys(SECURITY_OPTION_KEYS) as Array<keyof AdapterSecurityOptions>) {
+		if (options[key] !== undefined) Object.assign(picked, { [key]: options[key] });
+	}
+	return picked;
+}
+
 // ─── TheAuthModule ────────────────────────────────────────────────────────────
 
 /**
@@ -60,8 +80,7 @@ export class TheAuthModule implements NestModule {
 				theAuthMiddleware({
 					theauth: this.options.theauth,
 					mcp: this.options.mcp,
-					authenticate: this.options.authenticate,
-					allowUnauthenticated: this.options.allowUnauthenticated,
+					...pickSecurityOptions(this.options),
 				}),
 			)
 			.forRoutes(`${basePath}/*path`);

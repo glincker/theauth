@@ -1,5 +1,15 @@
 # marquee-demo
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [1fa2338]
+- Updated dependencies [1fa2338]
+- Updated dependencies [1fa2338]
+- Updated dependencies [1fa2338]
+  - @glinr/theauth@0.7.1
+
 ## 0.1.6
 
 ### Patch Changes

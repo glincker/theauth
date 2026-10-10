@@ -32,7 +32,8 @@ None of these items is exotic. Each one is something that works in development a
 
 ## Management routes and sessions
 
-- [ ] **Your framework adapter has a real `authenticate` resolver.** The default accepts any signed-in user, which is wrong if ordinary users should not see agents and audit logs. Restrict `/agents`, `/delegations`, `/audit` and `/dashboard` to admins or service tokens ([Adapters](/adapters)).
+- [ ] **Your framework adapter's `authenticate` resolver matches who should see what.** The default guard accepts any signed-in user, limited to their own agents, delegations and audit rows. A custom resolver is a trust decision and sees everything, so verify admin rights inside it ([Adapters](/adapters)).
+- [ ] **`trustedProxy` is set on the adapter** when you use `ipAllowlist`. The adapter ignores forwarded headers for the client IP unless `trustedProxyCount` or `trustedHeader` is configured.
 - [ ] **`allowUnauthenticated` is not set anywhere.** Search your code and config.
 - [ ] **Email verification is on** for password sign-up if email identity matters to you, and verification and reset links expire.
 - [ ] **Compromised-password checking is on.** `createHibpModule` rejects passwords found in breaches using k-anonymity, so the password never leaves your server ([HIBP](/hibp)). Decide whether `onError` should be `'allow'` (default) or `'block'` when the API is down.

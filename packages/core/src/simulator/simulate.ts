@@ -275,7 +275,7 @@ export function createSimulator(config: { db: Database }) {
 		const override = input.overrides?.delegationChains;
 		let chains: ResolvedChain[];
 		if (override) {
-			chains = override.map(fromOverride);
+			chains = override.map((chain, index) => fromOverride(chain, index));
 			trace.push({
 				stage: "delegation",
 				outcome: "info",

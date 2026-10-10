@@ -1,5 +1,12 @@
 # @glinr/theauth-gateway
 
+## 4.0.2
+
+### Patch Changes
+
+- 1fa2338: Resolve the client IP through the trusted proxy helper.
+- 1fa2338: Expose trustedProxy in the gateway config file and CLI.
+
 ## 4.0.1
 
 ### Patch Changes

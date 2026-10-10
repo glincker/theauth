@@ -1,0 +1,73 @@
+---
+title: How theAuth compares
+description: A sourced comparison of theAuth with Better Auth, Auth.js, Clerk and Auth0 for apps where AI agents act on behalf of users. Competitor claims link to official docs, checked 2026-10-10.
+icon: scale-balanced
+---
+
+This page compares theAuth with Better Auth, Auth.js (NextAuth), Clerk and Auth0, for one case: apps where AI agents act on behalf of users. Every statement about a competitor links to its official documentation or repository and was checked on 2026-10-10. Products change quickly, so treat the links as the source of truth and tell us if one is out of date (support@glinr.com).
+
+## Read this first
+
+theAuth is at 0.x. It has not had an independent security audit. It is a library you run inside your own stack, not a hosted identity provider, and it has no managed dashboard run by us. It has fewer integrations, a smaller community and less production mileage than Auth0, Clerk or Better Auth. If you need a vendor with a support contract, SOC reports or a hosted login page, theAuth does not give you that today.
+
+## Who should use what
+
+If you want a managed service with a vendor to call, Auth0 or Clerk fit, and Auth0 documents a dedicated product for agents (Token Vault, async authorization, Auth for MCP). If you want an open source TypeScript library with a large community and many plugins, Better Auth fits, and it also has an agent auth plugin that its docs describe as not yet stable. Auth.js is now part of Better Auth, and its repository recommends Better Auth for new projects. theAuth fits when you want to run the whole thing yourself and need agents modeled as their own entity with permissions, delegation limits, a hash chained audit log, an MCP OAuth 2.1 server and a token vault in one package, and you accept 0.x maturity.
+
+## Agent capabilities
+
+Values: **supported** means the official docs describe the capability. **partial** means a related capability is documented but not the full row, explained in the cell. **not documented** means we read the named page and found nothing. **not verified** means we did not confirm it either way. Checked 2026-10-10.
+
+| Capability | theAuth | Better Auth | Auth.js | Clerk | Auth0 |
+| --- | --- | --- | --- | --- | --- |
+| Agent identity separate from the user | Supported. `AgentIdentity` with an `ownerId` ([docs](/agents)) | Supported, plugin says it is not yet stable ([src](https://better-auth.com/docs/plugins/agent-auth)) | Not verified | Partial. M2M machines for service to service calls ([src](https://clerk.com/docs/machine-auth/m2m-tokens)); Agent Tasks are in beta and create sessions as a user ([src](https://clerk.com/docs/guides/development/testing/agent-tasks)) | Partial. Product page describes distinct agent identities and lists "Agent as Principal" under what is shipping next ([src](https://auth0.com/ai.md)) |
+| Scoped agent permissions | Supported. Resource and action patterns with constraints ([docs](/permissions)) | Supported. Capabilities with optional JSON Schema input ([src](https://better-auth.com/docs/plugins/agent-auth)) | Not verified | Partial. Scopes between machines for M2M tokens ([src](https://clerk.com/docs/machine-auth/m2m-tokens)) | Partial. RBAC permissions in the access token scope claim ([src](https://auth0.com/docs/get-started/apis/enable-role-based-access-control-for-apis)); per agent permissions not verified |
+| Delegation with limits (depth, expiry, subset rule) | Supported. `delegate()` with `maxDepth`, `expiresAt`, subset rule, cascading revoke ([docs](/delegation)) | Not documented on the agent auth page for sub agent chains ([src](https://better-auth.com/docs/plugins/agent-auth)) | Not verified | Not verified | Not verified |
+| Audit of agent actions | Supported. Per agent audit rows, optional SHA-256 or HMAC hash chain ([docs](/audit-trail)) | Partial. `onEvent` hooks for agent and capability lifecycle events ([src](https://better-auth.com/docs/plugins/agent-auth)) | Not verified | Not verified | Partial. Tenant logs of authentication events and configuration changes, with log streaming ([src](https://auth0.com/docs/deploy-monitor/logs)) |
+| MCP OAuth 2.1 authorization server | Supported. PKCE S256, RFC 9728, 8414, 8707, 7591; you supply storage callbacks ([docs](/mcp)) | Supported. MCP plugin, plus an OAuth provider plugin ([src](https://www.better-auth.com/docs/plugins/mcp)) | Not verified | Supported. CIMD and DCR ([src](https://clerk.com/docs/nextjs/mcp/build-mcp-server)) | Supported. "Auth for MCP" ([src](https://auth0.com/ai/docs/mcp/intro/overview)) |
+| Token vault for third party credentials | Supported. Encrypted at rest, per agent consent, audit row on use ([docs](/token-vault)) | Not documented on the agent auth page ([src](https://better-auth.com/docs/plugins/agent-auth)) | Not verified | Partial. Backend method returns a user's social provider access tokens ([src](https://clerk.com/docs/reference/backend/user/get-user-oauth-access-token)); agent consent gating not verified | Supported. Token Vault stores and exchanges tokens for connected accounts ([src](https://auth0.com/ai/docs/intro/token-vault)) |
+| DPoP (RFC 9449) | Supported, opt-in on the MCP module ([docs](/dpop)) | Supported. MCP plugin enforces DPoP when a token is bound ([src](https://www.better-auth.com/docs/plugins/mcp)) | Not verified | Not verified. Not mentioned on the M2M tokens page ([src](https://clerk.com/docs/machine-auth/m2m-tokens)) | Supported. DPoP documented; plan and release status not stated on the page ([src](https://auth0.com/docs/secure/sender-constraining/demonstrating-proof-of-possession-dpop)) |
+
+Things the table does not show:
+
+- Auth0 documents human in the loop approval for agents through asynchronous authorization (CIBA) ([source](https://auth0.com/ai/docs/intro/asynchronous-authorization)). Better Auth's agent auth plugin documents device authorization and CIBA approval flows ([source](https://better-auth.com/docs/plugins/agent-auth)). theAuth has approval gates on permissions and an `approval` module ([permissions docs](/permissions), [approval](/approval)), but it is not a CIBA implementation.
+- Auth0 lists framework integrations for LangChain, LlamaIndex, Cloudflare Agents, Vercel AI SDK and Firebase Genkit ([source](https://www.auth0.com/ai)). theAuth has no equivalent integration list, and Auth0 runs the service for you.
+- Better Auth and Auth0 have far more production use than theAuth.
+
+## Human auth breadth
+
+| | theAuth | Better Auth | Auth.js | Clerk | Auth0 |
+| --- | --- | --- | --- | --- | --- |
+| Passkeys | Supported, `passkey()` plugin ([docs](/auth/passkey)) | Supported ([src](https://www.better-auth.com/docs/plugins/passkey)) | Experimental, "not recommended for production use" ([src](https://authjs.dev/getting-started/authentication/webauthn)) | Supported, up to 10 per account ([src](https://clerk.com/docs/guides/configure/auth-strategies/sign-up-sign-in-options)) | Supported for database connections ([src](https://auth0.com/docs/authenticate/database-connections/passkeys)) |
+| SSO with SAML | SAML 2.0 and OIDC via `sso` config ([docs](/auth/sso)); SCIM 2.0 ([docs](/auth/scim)) | SAML 2.0 and OIDC in `@better-auth/sso` ([src](https://www.better-auth.com/docs/plugins/sso)) | Not mentioned on the database and sessions page checked ([src](https://authjs.dev/getting-started/database)) | SAML and OIDC enterprise connections ([src](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/overview)) | SAML with Auth0 as IdP or SP ([src](https://auth0.com/docs/authenticate/protocols/saml/saml-sso-integrations)) |
+| Organizations and RBAC | `organization` plugin with roles ([docs](/auth/organizations)) | Organization plugin with roles, access control and teams ([src](https://www.better-auth.com/docs/plugins/organization)) | Not mentioned on the page checked ([src](https://authjs.dev/getting-started/database)) | Organizations with roles and permissions ([src](https://clerk.com/docs/guides/organizations/overview)) | Organizations with member roles ([src](https://auth0.com/docs/manage-users/organizations)) |
+
+Clerk and Auth0 also give you hosted login pages and prebuilt UI. theAuth ships headless building blocks and React, Vue and Svelte UI packages that you mount in your app.
+
+## Hosting and licensing
+
+| | Model | License or terms | Source |
+| --- | --- | --- | --- |
+| theAuth | Library you run in your own process and database. No hosted service. The dashboard package is an admin UI you embed | MIT ([LICENSE](https://github.com/glincker/theauth/blob/main/LICENSE)) | This repository |
+| Better Auth | Library you run yourself | MIT | [GitHub](https://github.com/better-auth/better-auth) |
+| Auth.js | Library you run yourself, now part of Better Auth | ISC | [GitHub](https://github.com/nextauthjs/next-auth), [Better Auth announcement](https://www.better-auth.com/blog/authjs-joins-better-auth) |
+| Clerk | Hosted service. Self-hosting is not described on the pricing page | Proprietary, not verified | [Pricing page](https://clerk.com/pricing) |
+| Auth0 | Hosted SaaS. A "Private Deployment" add-on is listed for Enterprise | Proprietary, not verified | [Pricing page](https://auth0.com/pricing) |
+
+We did not copy any pricing numbers. Use the vendors' pricing pages for current figures.
+
+On Auth.js, the project README says it is part of Better Auth and recommends new projects start with Better Auth "unless there are some very specific feature gaps (most notably stateless session management without a database)" ([source](https://github.com/nextauthjs/next-auth)). Its maintainers say they will keep addressing "security patches and urgent issues" ([source](https://www.better-auth.com/blog/authjs-joins-better-auth)).
+
+## Migration paths
+
+theAuth has guides and runnable examples for moving off several of these. The examples are tested against fixtures in this repository, not against your tenant, so read them as a starting point.
+
+- Auth0: [migration guide](/migrate/from-auth0) and the [`migrate-from-auth0` example](https://github.com/glincker/theauth/tree/main/examples/migrate-from-auth0)
+- Better Auth: [guide](/migrate/from-better-auth), [agent plugin guide](/migrate/from-better-auth-agent-plugin) and the [`migrate-from-better-auth-agent-plugin` example](https://github.com/glincker/theauth/tree/main/examples/migrate-from-better-auth-agent-plugin)
+- Clerk: [guide](/migrate/from-clerk)
+- Auth.js (NextAuth): [guide](/migrate/from-next-auth)
+- Running theAuth next to your current provider: [coexist with your IdP](/migrate/coexist-with-your-idp)
+
+## Other comparison pages
+
+For per product pages on Hanko, Casdoor and paid platforms, see [Compare theAuth](/compare).

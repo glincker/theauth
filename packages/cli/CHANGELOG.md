@@ -1,5 +1,16 @@
 # @glinr/theauth-cli
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [1fa2338]
+- Updated dependencies [1fa2338]
+- Updated dependencies [1fa2338]
+- Updated dependencies [1fa2338]
+  - @glinr/theauth@0.7.1
+  - @glinr/theauth-hono@5.0.1
+
 ## 0.3.1
 
 ### Patch Changes

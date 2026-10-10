@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-astro",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Astro adapter for TheAuth - exposes agent auth as HTTP REST endpoints",
   "type": "module",
   "main": "dist/index.js",
@@ -35,13 +35,13 @@
     "directory": "packages/adapters/astro"
   },
   "peerDependencies": {
-    "@glinr/theauth": ">=0.6.0 <1.0.0",
+    "@glinr/theauth": ">=0.7.1 <1.0.0",
     "astro": ">=4.0.0",
     "zod": ">=3.0.0"
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
-    "astro": "^5.6.0",
+    "astro": "^7.2.8",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",

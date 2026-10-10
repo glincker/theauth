@@ -22,6 +22,9 @@
  * ```
  */
 
+import type { TrustedProxyConfig } from "./client-ip.js";
+import { resolveClientIp } from "./client-ip.js";
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -41,6 +44,13 @@ export interface CaptchaConfig {
 	 * Requests scoring below this are rejected. Default: 0.5
 	 */
 	minScore?: number;
+	/**
+	 * How to find the client IP behind your proxies, used as the captcha
+	 * `remoteip` in `middleware`. Default: forwarded headers are ignored and no
+	 * remote IP is sent. Set `trustedProxyCount` or `trustedHeader` to match
+	 * your deployment.
+	 */
+	trustedProxy?: TrustedProxyConfig;
 }
 
 export interface CaptchaVerifyResult {
@@ -182,10 +192,7 @@ export function createCaptchaModule(config: CaptchaConfig): CaptchaModule {
 			return { valid: false, error: "Missing X-Captcha-Token header" };
 		}
 
-		const ip =
-			request.headers.get("CF-Connecting-IP") ??
-			request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ??
-			undefined;
+		const ip = resolveClientIp(request, config.trustedProxy) ?? undefined;
 
 		const result = await verify(token, ip);
 		return result.success ? { valid: true } : { valid: false, error: result.error };
