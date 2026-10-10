@@ -1,0 +1,43 @@
+{
+  "name": "theauth",
+  "version": "0.1.0",
+  "description": "Alias for @glinr/theauth-cli so `npx theauth` works: set up agent identity and MCP OAuth 2.1 with theAuth.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "theauth": "./bin/theauth.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@glinr/theauth-cli": "workspace:*"
+  },
+  "keywords": [
+    "theauth",
+    "auth",
+    "authentication",
+    "ai-agents",
+    "agent-identity",
+    "mcp",
+    "oauth21",
+    "cli",
+    "npx"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glincker/theauth.git",
+    "directory": "packages/theauth-alias"
+  },
+  "homepage": "https://docs.theauth.dev/quickstart",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

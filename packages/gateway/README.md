@@ -4,6 +4,45 @@
 
 Standalone auth proxy that enforces theAuth policies in front of any HTTP service.
 
+Protect any MCP server with OAuth 2.1: run the gateway in front of it, and MCP clients authenticate against the gateway before a request reaches your server.
+
+```bash
+npx @glinr/theauth-gateway --upstream http://localhost:8080 --port 3000
+```
+
+Point your MCP client at the gateway instead of the upstream server. The examples below assume your server serves MCP at `/mcp`; use your own path.
+
+Claude Code:
+
+```bash
+claude mcp add --transport http my-server http://localhost:3000/mcp
+```
+
+Cursor (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+Claude Desktop (`claude_desktop_config.json`, using the `mcp-remote` bridge):
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:3000/mcp"]
+    }
+  }
+}
+```
+
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway)
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).

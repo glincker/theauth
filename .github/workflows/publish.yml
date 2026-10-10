@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  # Required for npm provenance (OIDC token used to sign the attestation).
+  id-token: write
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -99,19 +101,26 @@ jobs:
           done
           pnpm turbo build $filters
 
+      # Provenance: `id-token: write` above plus NPM_CONFIG_PROVENANCE make npm attach an attestation to every
+      # publish (pnpm delegates the upload to npm). Failures are NOT swallowed. The only tolerated case is a
+      # version that is already on the registry, which is checked explicitly per package before publishing.
       - name: Publish changed packages
         if: steps.detect.outputs.changed_dirs != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
         run: |
           for dir in ${{ steps.detect.outputs.changed_dirs }}; do
-            if [ -d "$dir/dist" ]; then
-              name=$(node -p "require('./$dir/package.json').name")
-              version=$(node -p "require('./$dir/package.json').version")
-              echo "▲ Publishing $name@$version"
-              (cd "$dir" && pnpm publish --access public --no-git-checks)
-            else
-              echo "✗ $dir has no dist/ — skipping (build step likely failed)"
+            name=$(node -p "require('./$dir/package.json').name")
+            version=$(node -p "require('./$dir/package.json').version")
+            if [ -n "$(npm view "$name@$version" version 2>/dev/null)" ]; then
+              echo "✓ $name@$version is already published, skipping"
+              continue
+            fi
+            if [ ! -d "$dir/dist" ]; then
+              echo "✗ $dir has no dist/ - build step likely failed"
               exit 1
             fi
+            echo "▲ Publishing $name@$version"
+            (cd "$dir" && pnpm publish --access public --no-git-checks)
           done
