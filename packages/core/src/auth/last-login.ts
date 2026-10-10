@@ -14,7 +14,8 @@
  * await loginHistory.recordLogin({
  *   userId: 'usr_123',
  *   method: 'magic-link',
- *   ip: request.headers.get('x-forwarded-for') ?? undefined,
+ *   // resolveClientIp ignores forwarded headers unless you tell it how many proxies you run
+ *   ip: resolveClientIp(request, { trustedProxyCount: 1 }) ?? undefined,
  *   userAgent: request.headers.get('user-agent') ?? undefined,
  * });
  *

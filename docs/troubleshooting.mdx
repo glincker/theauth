@@ -117,7 +117,7 @@ const theauth = await createTheAuth({
 
 The `rateLimit()` plugin takes the same two options, `trustedProxyCount` and `trustedHeader`. Count from the right: the last entry was added by the proxy closest to you, the leftmost entries were written by the client. Do not set `trustedHeader` unless the app is truly unreachable except through that edge, otherwise anyone can send the header themselves. Standard header names: `cf-connecting-ip` (Cloudflare), `x-real-ip` (nginx), `fly-client-ip` (Fly.io). Values that are not a plain address-like string are discarded.
 
-`withRateLimit` still defaults to the first `x-forwarded-for` entry. Pass your own `keyExtractor` built on `resolveClientIp` when you use it behind a proxy ([Rate limiting](/rate-limiting)).
+`withRateLimit` resolves the IP the same way: it ignores forwarded headers unless you pass `trustedProxyCount` or `trustedHeader` (or the instance sets `trustedProxy`). Without one of them every caller shares the `"unknown"` key, so set it when you run behind a proxy, or pass your own `keyExtractor` built on `resolveClientIp` ([Rate limiting](/rate-limiting)).
 
 Also behind a proxy: set `baseUrl` to the public URL with `https://`, or cookies and OAuth callback URLs will be built from the wrong scheme.
 
