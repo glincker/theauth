@@ -23,6 +23,12 @@ Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, device flow. A
   <a href="https://discord.gg/Ar5pcaZB99"><strong>GLINR Discord</strong></a>
 </p>
 
+<p align="center">
+  <a href="https://theauth.dev">
+    <img src="https://theauth.dev/og.png" alt="theAuth, open-source auth for AI agents and humans" width="720" />
+  </a>
+</p>
+
 ---
 
 ## What it is

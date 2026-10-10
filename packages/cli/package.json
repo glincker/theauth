@@ -1,7 +1,7 @@
 {
   "name": "@glinr/theauth-cli",
   "version": "0.3.0",
-  "description": "TheAuth CLI - setup wizard, dashboard launcher, and development tools",
+  "description": "CLI for theAuth: set up agent identity and MCP OAuth 2.1, run migrations, launch the admin dashboard, codemod from Kavach.",
   "type": "module",
   "bin": {
     "theauth": "./dist/bin.js"
@@ -17,6 +17,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsup && node scripts/prepare-assets.mjs",
     "dev": "tsup --watch",
@@ -38,10 +41,19 @@
   "keywords": [
     "theauth",
     "auth",
-    "agent",
-    "cli",
-    "doctor",
+    "authentication",
+    "ai-agents",
+    "agent-identity",
     "mcp",
+    "model-context-protocol",
+    "oauth2",
+    "oauth21",
+    "cli",
+    "setup-wizard",
+    "passkeys",
+    "typescript",
+    "agent",
+    "doctor",
     "agent-auth"
   ],
   "author": "TheAuth <support@glinr.com>",
@@ -56,6 +68,7 @@
     "url": "https://github.com/glincker/theauth/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   }
 }
