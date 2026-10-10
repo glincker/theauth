@@ -126,7 +126,7 @@ Organizations + RBAC, SAML SSO, SCIM directory sync, admin controls, API key man
 <td>
 
 ### Edge compatible
-Runs on Cloudflare Workers (D1), Deno, Bun, and Node.js. Only 3 runtime deps: `drizzle-orm`, `jose`, `zod`.
+Runs on Cloudflare Workers (D1), Deno, Bun, and Node.js. Only 4 runtime deps: `drizzle-orm`, `jose`, `sql.js`, `zod`.
 
 </td>
 </tr>
@@ -192,6 +192,16 @@ createTheAuth({ database: { provider: "d1", binding: env.THEAUTH_DB } });
 
 // PostgreSQL
 createTheAuth({ database: { provider: "postgres", url: process.env.DATABASE_URL } });
+```
+
+On D1, the tables are created in one batch the first time an isolate builds the instance. If you would rather run `wrangler d1 migrations apply`, set `skipMigrations: true` and write the SQL to a migration file with `getMigrationStatements`:
+
+```typescript
+import { getMigrationStatements } from "@glinr/theauth";
+
+const sql = getMigrationStatements("d1", { agents: { enabled: true } })
+  .map((statement) => `${statement};`)
+  .join("\n\n");
 ```
 
 ## Plugins

@@ -29,7 +29,7 @@ export * from "./crypto/web-crypto.js";
 // (DatabaseConfig is already exported below from types.ts — skip it here.)
 export type { D1DatabaseBinding, Database } from "./db/database.js";
 export { createDatabase, createDatabaseSync } from "./db/database.js";
-export { createTables } from "./db/migrations.js";
+export { createTables, getMigrationStatements } from "./db/migrations.js";
 // Schema tables (export all except apiKeys which conflicts with the auth plugin name)
 export {
 	agentCards,
