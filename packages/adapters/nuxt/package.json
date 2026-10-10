@@ -43,7 +43,7 @@
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
     "h3": "^1.15.11",
-    "nuxt": "^3.16.0",
+    "nuxt": "^3.21.10",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.0",
