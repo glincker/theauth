@@ -1,0 +1,46 @@
+name: Publish to MCP Registry
+
+# Manual only. Publish @glinr/theauth-mcp to npm first: the registry verifies
+# the npm package (mcpName in package.json) and only hosts metadata.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC login to the MCP Registry, no stored secret
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check server.json matches package.json
+        working-directory: packages/mcp
+        run: |
+          node -e '
+            const p = require("./package.json");
+            const s = require("./server.json");
+            const bad = [];
+            if (s.name !== p.mcpName) bad.push("name != mcpName");
+            if (s.version !== p.version) bad.push("version != package.json version");
+            for (const pkg of s.packages) {
+              if (pkg.identifier !== p.name) bad.push("identifier != package name");
+              if (pkg.version !== p.version) bad.push("package version != package.json version");
+            }
+            if (bad.length) { console.error(bad.join("\n")); process.exit(1); }
+          '
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        working-directory: packages/mcp
+        run: ../../mcp-publisher publish

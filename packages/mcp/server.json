@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.glincker/theauth-mcp",
+  "description": "Inspect agent identity, permissions and audit in a theAuth deployment from any MCP client.",
+  "repository": {
+    "url": "https://github.com/glincker/theauth",
+    "source": "github",
+    "subfolder": "packages/mcp"
+  },
+  "version": "0.1.0",
+  "websiteUrl": "https://theauth.dev",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@glinr/theauth-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "THEAUTH_API_URL",
+          "description": "Base URL of the theAuth HTTP API, including any mount prefix",
+          "isRequired": true,
+          "format": "string"
+        },
+        {
+          "name": "THEAUTH_API_KEY",
+          "description": "Bearer key accepted by the deployment's management routes",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "THEAUTH_TIMEOUT_MS",
+          "description": "Per-request timeout in milliseconds",
+          "isRequired": false,
+          "format": "number",
+          "default": "10000"
+        }
+      ]
+    }
+  ]
+}

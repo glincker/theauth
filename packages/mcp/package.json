@@ -1,0 +1,60 @@
+{
+  "name": "@glinr/theauth-mcp",
+  "version": "0.1.0",
+  "mcpName": "io.github.glincker/theauth-mcp",
+  "description": "Read-only MCP server to inspect agent identity, permissions and audit in a theAuth deployment",
+  "type": "module",
+  "bin": {
+    "theauth-mcp": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "tsup": "^8.4.0",
+    "typescript": "^6.0.3",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "claude",
+    "cursor",
+    "vscode",
+    "agent-identity",
+    "audit",
+    "theauth",
+    "oauth21"
+  ],
+  "author": "TheAuth <support@glinr.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glincker/theauth.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://theauth.dev",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
