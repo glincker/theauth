@@ -135,8 +135,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.27)
+        specifier: ^1.19.15
+        version: 1.19.15(hono@4.12.27)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -163,8 +163,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.27)
+        specifier: ^1.19.15
+        version: 1.19.15(hono@4.12.27)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -321,8 +321,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.27)
+        specifier: ^1.19.15
+        version: 1.19.15(hono@4.12.27)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -668,8 +668,8 @@ importers:
         specifier: workspace:*
         version: link:../adapters/hono
       '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.11(hono@4.12.27)
+        specifier: ^1.19.15
+        version: 1.19.15(hono@4.12.27)
       hono:
         specifier: ^4.12.27
         version: 4.12.27
@@ -2687,8 +2687,8 @@ packages:
   '@fastify/proxy-addr@5.1.1':
     resolution: {integrity: sha512-zv07Y9GEuDsJPegZoDFd4SDWaZOW8N2pa0GSrYmKpId/tjt1Hgo3BjZBVjdVpfVrHaA+Qv5jawtS2O50J5xM9g==}
 
-  '@hono/node-server@1.19.11':
-    resolution: {integrity: sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g==}
+  '@hono/node-server@1.19.15':
+    resolution: {integrity: sha512-Za2ai6TLdKjUvnur+eenO6nuYYipVAEhyCAdaV8IRvmU9kK8crOZUSYvIXn72E4f8fJqyAbpcJuTsYYmZp9Deg==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
@@ -11902,7 +11902,7 @@ snapshots:
       '@fastify/forwarded': 3.0.2
       ipaddr.js: 2.5.0
 
-  '@hono/node-server@1.19.11(hono@4.12.27)':
+  '@hono/node-server@1.19.15(hono@4.12.27)':
     dependencies:
       hono: 4.12.27
 
@@ -12327,7 +12327,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.32.1(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 1.19.11(hono@4.12.27)
+      '@hono/node-server': 1.19.15(hono@4.12.27)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5
