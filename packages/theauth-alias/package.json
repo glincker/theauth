@@ -1,6 +1,6 @@
 {
   "name": "theauth",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Alias for @glinr/theauth-cli so `npx theauth` works: set up agent identity and MCP OAuth 2.1 with theAuth.",
   "type": "module",
   "license": "MIT",
