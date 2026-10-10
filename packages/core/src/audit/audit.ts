@@ -59,6 +59,7 @@ export function createAuditModule(config: AuditModuleConfig) {
 		const entries = await query({
 			since: options.since,
 			until: options.until,
+			...(options.userId ? { userId: options.userId } : {}),
 			limit: 10000, // cap exports
 		});
 

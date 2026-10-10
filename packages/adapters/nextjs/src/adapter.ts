@@ -1,15 +1,17 @@
 import type {
 	AdapterGuard,
+	AdapterScope,
 	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
 	Permission,
+	ScopeDenial,
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
+import { createAdapterGuard, isProtectedAdapterPath } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { z } from "zod";
 
@@ -123,6 +125,14 @@ function internalError(message = "Internal server error"): Response {
 	return errorResponse("INTERNAL_ERROR", message, 500);
 }
 
+function refuse(denial: ScopeDenial): Response {
+	return errorResponse(denial.code, denial.message, denial.status);
+}
+
+function noScope(): Response {
+	return refuse({ status: 403, code: "FORBIDDEN", message: "Caller scope is unavailable" });
+}
+
 function validationError(issues: z.ZodIssue[]): Response {
 	const message = issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
 	return badRequest(`Validation failed: ${message}`);
@@ -182,7 +192,11 @@ async function parseJsonBody(
 
 // ─── Route Handlers ──────────────────────────────────────────────────────────
 
-async function handleAgentList(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleAgentList(
+	request: Request,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
 	const url = new URL(request.url);
 	const userId = getSearchParam(url, "userId");
 	const statusRaw = getSearchParam(url, "status");
@@ -197,8 +211,11 @@ async function handleAgentList(request: Request, theauth: TheAuth): Promise<Resp
 		filter.type = typeRaw;
 	}
 
+	const scoped = scope.scopeAgentFilter(filter);
+	if (!scoped.ok) return refuse(scoped.denial);
+
 	try {
-		const agents = await theauth.agent.list(filter);
+		const agents = await theauth.agent.list(scoped.value);
 		return ok(agents);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -206,12 +223,19 @@ async function handleAgentList(request: Request, theauth: TheAuth): Promise<Resp
 	}
 }
 
-async function handleAgentCreate(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleAgentCreate(
+	request: Request,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
 	const parsed = CreateAgentSchema.safeParse(bodyResult.data);
 	if (!parsed.success) return validationError(parsed.error.issues);
+
+	const createDenial = scope.checkAgentCreate(parsed.data.ownerId);
+	if (createDenial) return refuse(createDenial);
 
 	try {
 		const input: CreateAgentInput = {
@@ -226,7 +250,13 @@ async function handleAgentCreate(request: Request, theauth: TheAuth): Promise<Re
 	}
 }
 
-async function handleAgentGet(id: string, theauth: TheAuth): Promise<Response> {
+async function handleAgentGet(
+	id: string,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
+	const denial = await scope.checkAgent(id);
+	if (denial) return refuse(denial);
 	try {
 		const agent = await theauth.agent.get(id);
 		if (!agent) return notFound(`Agent "${id}" not found`);
@@ -241,7 +271,11 @@ async function handleAgentUpdate(
 	id: string,
 	request: Request,
 	theauth: TheAuth,
+	scope: AdapterScope,
 ): Promise<Response> {
+	const denial = await scope.checkAgent(id);
+	if (denial) return refuse(denial);
+
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
@@ -262,7 +296,13 @@ async function handleAgentUpdate(
 	}
 }
 
-async function handleAgentRevoke(id: string, theauth: TheAuth): Promise<Response> {
+async function handleAgentRevoke(
+	id: string,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
+	const denial = await scope.checkAgent(id);
+	if (denial) return refuse(denial);
 	try {
 		await theauth.agent.revoke(id);
 		return new Response(null, { status: 204 });
@@ -273,7 +313,13 @@ async function handleAgentRevoke(id: string, theauth: TheAuth): Promise<Response
 	}
 }
 
-async function handleAgentRotate(id: string, theauth: TheAuth): Promise<Response> {
+async function handleAgentRotate(
+	id: string,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
+	const denial = await scope.checkAgent(id);
+	if (denial) return refuse(denial);
 	try {
 		const agent = await theauth.agent.rotate(id);
 		return ok(agent);
@@ -284,24 +330,32 @@ async function handleAgentRotate(id: string, theauth: TheAuth): Promise<Response
 	}
 }
 
-function extractRequestContext(request: Request): { ip?: string; userAgent?: string } {
-	const ip =
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-		request.headers.get("x-real-ip") ??
-		undefined;
+function extractRequestContext(
+	request: Request,
+	guard: AdapterGuard,
+): { ip?: string; userAgent?: string } {
+	const ip = guard.clientIp(request) ?? undefined;
 	const userAgent = request.headers.get("user-agent") ?? undefined;
 	return { ip, userAgent };
 }
 
-async function handleAuthorize(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleAuthorize(
+	request: Request,
+	theauth: TheAuth,
+	guard: AdapterGuard,
+	scope: AdapterScope,
+): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
 	const parsed = AuthorizeSchema.safeParse(bodyResult.data);
 	if (!parsed.success) return validationError(parsed.error.issues);
 
+	const agentDenial = await scope.checkAgent(parsed.data.agentId);
+	if (agentDenial) return refuse(agentDenial);
+
 	try {
-		const context = extractRequestContext(request);
+		const context = extractRequestContext(request, guard);
 		const result = await theauth.authorize(
 			parsed.data.agentId,
 			{
@@ -322,7 +376,11 @@ async function handleAuthorize(request: Request, theauth: TheAuth): Promise<Resp
 	}
 }
 
-async function handleAuthorizeByToken(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleAuthorizeByToken(
+	request: Request,
+	theauth: TheAuth,
+	guard: AdapterGuard,
+): Promise<Response> {
 	const authHeader = request.headers.get("Authorization");
 	if (!authHeader?.startsWith("Bearer ")) {
 		return unauthorized("Missing or invalid Authorization header");
@@ -336,7 +394,7 @@ async function handleAuthorizeByToken(request: Request, theauth: TheAuth): Promi
 	if (!parsed.success) return validationError(parsed.error.issues);
 
 	try {
-		const context = extractRequestContext(request);
+		const context = extractRequestContext(request, guard);
 		const result = await theauth.authorizeByToken(
 			token,
 			{
@@ -357,12 +415,19 @@ async function handleAuthorizeByToken(request: Request, theauth: TheAuth): Promi
 	}
 }
 
-async function handleDelegationCreate(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleDelegationCreate(
+	request: Request,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
 	const bodyResult = await parseJsonBody(request);
 	if (!bodyResult.success) return bodyResult.response;
 
 	const parsed = DelegateSchema.safeParse(bodyResult.data);
 	if (!parsed.success) return validationError(parsed.error.issues);
+
+	const fromDenial = await scope.checkAgent(parsed.data.fromAgent);
+	if (fromDenial) return refuse(fromDenial);
 
 	try {
 		const input: DelegateInput = {
@@ -380,7 +445,13 @@ async function handleDelegationCreate(request: Request, theauth: TheAuth): Promi
 	}
 }
 
-async function handleDelegationRevoke(id: string, theauth: TheAuth): Promise<Response> {
+async function handleDelegationRevoke(
+	id: string,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
+	const denial = await scope.checkChain(id);
+	if (denial) return refuse(denial);
 	try {
 		await theauth.delegation.revoke(id);
 		return new Response(null, { status: 204 });
@@ -391,7 +462,13 @@ async function handleDelegationRevoke(id: string, theauth: TheAuth): Promise<Res
 	}
 }
 
-async function handleDelegationList(agentId: string, theauth: TheAuth): Promise<Response> {
+async function handleDelegationList(
+	agentId: string,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
+	const denial = await scope.checkAgent(agentId);
+	if (denial) return refuse(denial);
 	try {
 		const chains = await theauth.delegation.listChains(agentId);
 		return ok(chains);
@@ -439,12 +516,19 @@ function buildAuditFilter(url: URL): AuditFilter {
 	return filter;
 }
 
-async function handleAuditQuery(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleAuditQuery(
+	request: Request,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
 	const url = new URL(request.url);
 	const filter = buildAuditFilter(url);
 
+	const scoped = scope.scopeAuditFilter(filter);
+	if (!scoped.ok) return refuse(scoped.denial);
+
 	try {
-		const entries = await theauth.audit.query(filter);
+		const entries = await theauth.audit.query(scoped.value);
 		return ok(entries);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Failed to query audit logs";
@@ -452,7 +536,11 @@ async function handleAuditQuery(request: Request, theauth: TheAuth): Promise<Res
 	}
 }
 
-async function handleAuditExport(request: Request, theauth: TheAuth): Promise<Response> {
+async function handleAuditExport(
+	request: Request,
+	theauth: TheAuth,
+	scope: AdapterScope,
+): Promise<Response> {
 	const url = new URL(request.url);
 	const format = getSearchParam(url, "format") ?? "json";
 	if (format !== "json" && format !== "csv") {
@@ -462,7 +550,11 @@ async function handleAuditExport(request: Request, theauth: TheAuth): Promise<Re
 	const since = getSearchParam(url, "since");
 	const until = getSearchParam(url, "until");
 
-	const options: { format: "json" | "csv"; since?: Date; until?: Date } = { format };
+	const options: { format: "json" | "csv"; since?: Date; until?: Date; userId?: string } = {
+		format,
+	};
+	const userId = getSearchParam(url, "userId");
+	if (userId) options.userId = userId;
 	if (since) {
 		const d = new Date(since);
 		if (!Number.isNaN(d.getTime())) options.since = d;
@@ -472,8 +564,11 @@ async function handleAuditExport(request: Request, theauth: TheAuth): Promise<Re
 		if (!Number.isNaN(d.getTime())) options.until = d;
 	}
 
+	const scopedExport = scope.scopeAuditExport(options);
+	if (!scopedExport.ok) return refuse(scopedExport.denial);
+
 	try {
-		const exported = await theauth.audit.export(options);
+		const exported = await theauth.audit.export(scopedExport.value);
 		const contentType = format === "csv" ? "text/csv" : "application/json";
 		return new Response(exported, {
 			status: 200,
@@ -488,13 +583,16 @@ async function handleAuditExport(request: Request, theauth: TheAuth): Promise<Re
 	}
 }
 
-async function handleDashboardStats(theauth: TheAuth): Promise<Response> {
+async function handleDashboardStats(theauth: TheAuth, scope: AdapterScope): Promise<Response> {
+	// Default guard: aggregate only the caller's own agents and audit rows.
+	const statsOwner = scope.statsOwnerId();
 	try {
 		const [agents, recentAudit] = await Promise.all([
-			theauth.agent.list(),
+			theauth.agent.list(statsOwner ? { userId: statsOwner } : undefined),
 			theauth.audit.query({
 				since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 				limit: 1000,
+				...(statsOwner ? { userId: statsOwner } : {}),
 			}),
 		]);
 
@@ -553,9 +651,13 @@ async function dispatch(
 
 	// Management routes (agents, delegations, audit, dashboard, authorize)
 	// require an authenticated caller.
-	if (guard.isProtected(pathname)) {
-		const denied = await guard.check(request);
-		if (denied) return denied;
+	let scope: AdapterScope | null = null;
+	// The guard resolves the caller once and returns what they may touch. With
+	// `allowUnauthenticated` it still returns a scope (unrestricted).
+	if (isProtectedAdapterPath(pathname)) {
+		const resolved = await guard.resolve(request);
+		if (!resolved.ok) return resolved.response;
+		scope = resolved.scope;
 	}
 
 	// MCP OPTIONS preflight
@@ -649,8 +751,9 @@ async function dispatch(
 	// ── Agents ──────────────────────────────────────────────────────
 
 	if (pathname === "/agents") {
-		if (method === "GET") return handleAgentList(request, theauth);
-		if (method === "POST") return handleAgentCreate(request, theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleAgentList(request, theauth, scope);
+		if (method === "POST") return handleAgentCreate(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
@@ -659,7 +762,8 @@ async function dispatch(
 	if (rotateMatch) {
 		const id = rotateMatch[1];
 		if (!id) return badRequest("Missing agent id");
-		if (method === "POST") return handleAgentRotate(id, theauth);
+		if (!scope) return noScope();
+		if (method === "POST") return handleAgentRotate(id, theauth, scope);
 		return methodNotAllowed();
 	}
 
@@ -668,28 +772,31 @@ async function dispatch(
 	if (agentMatch) {
 		const id = agentMatch[1];
 		if (!id) return badRequest("Missing agent id");
-		if (method === "GET") return handleAgentGet(id, theauth);
-		if (method === "PATCH") return handleAgentUpdate(id, request, theauth);
-		if (method === "DELETE") return handleAgentRevoke(id, theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleAgentGet(id, theauth, scope);
+		if (method === "PATCH") return handleAgentUpdate(id, request, theauth, scope);
+		if (method === "DELETE") return handleAgentRevoke(id, theauth, scope);
 		return methodNotAllowed();
 	}
 
 	// ── Authorization ───────────────────────────────────────────────
 
 	if (pathname === "/authorize") {
-		if (method === "POST") return handleAuthorize(request, theauth);
+		if (!scope) return noScope();
+		if (method === "POST") return handleAuthorize(request, theauth, guard, scope);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/authorize/token") {
-		if (method === "POST") return handleAuthorizeByToken(request, theauth);
+		if (method === "POST") return handleAuthorizeByToken(request, theauth, guard);
 		return methodNotAllowed();
 	}
 
 	// ── Delegations ─────────────────────────────────────────────────
 
 	if (pathname === "/delegations") {
-		if (method === "POST") return handleDelegationCreate(request, theauth);
+		if (!scope) return noScope();
+		if (method === "POST") return handleDelegationCreate(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
@@ -698,37 +805,43 @@ async function dispatch(
 	if (delegationMatch) {
 		const id = delegationMatch[1];
 		if (!id) return badRequest("Missing delegation id");
-		if (method === "DELETE") return handleDelegationRevoke(id, theauth);
-		if (method === "GET") return handleDelegationList(id, theauth);
+		if (!scope) return noScope();
+		if (method === "DELETE") return handleDelegationRevoke(id, theauth, scope);
+		if (method === "GET") return handleDelegationList(id, theauth, scope);
 		return methodNotAllowed();
 	}
 
 	// ── Audit ───────────────────────────────────────────────────────
 
 	if (pathname === "/audit/export") {
-		if (method === "GET") return handleAuditExport(request, theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleAuditExport(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/audit") {
-		if (method === "GET") return handleAuditQuery(request, theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleAuditQuery(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
 	// ── Dashboard ───────────────────────────────────────────────────
 
 	if (pathname === "/dashboard/stats") {
-		if (method === "GET") return handleDashboardStats(theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleDashboardStats(theauth, scope);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/dashboard/agents") {
-		if (method === "GET") return handleAgentList(request, theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleAgentList(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
 	if (pathname === "/dashboard/audit") {
-		if (method === "GET") return handleAuditQuery(request, theauth);
+		if (!scope) return noScope();
+		if (method === "GET") return handleAuditQuery(request, theauth, scope);
 		return methodNotAllowed();
 	}
 

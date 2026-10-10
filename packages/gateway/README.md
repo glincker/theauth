@@ -85,6 +85,44 @@ const config = await loadConfigFile('./theauth-gateway.json');
 const gateway = createGateway(config);
 ```
 
+### Behind a proxy
+
+By default the gateway trusts no forwarded headers (`X-Forwarded-For`, `X-Real-IP`
+and similar are ignored), so the client IP is unknown. Without an IP,
+`ipAllowlist` constraints always deny and per client rate limits fall back to a
+request fingerprint. If the gateway runs behind a reverse proxy or CDN, tell it
+how to find the client IP with a `trustedProxy` section.
+
+One reverse proxy that appends to `X-Forwarded-For`:
+
+```json
+{
+  "upstream": "http://localhost:8080",
+  "trustedProxy": { "trustedProxyCount": 1 }
+}
+```
+
+Cloudflare, which sets a single header at its edge:
+
+```json
+{
+  "upstream": "http://localhost:8080",
+  "trustedProxy": { "trustedHeader": "cf-connecting-ip" }
+}
+```
+
+- `trustedProxyCount`: non negative integer, the number of proxies you operate in
+  front of the gateway. Default `0`.
+- `trustedHeader`: header name (lowercased on load). Takes precedence over
+  `trustedProxyCount`.
+
+The CLI accepts the same settings as flags, which override the file:
+`--trusted-proxy-count 1` or `--trusted-header cf-connecting-ip`.
+
+Warning: set this only when the gateway is reachable solely through that proxy.
+If clients can reach the gateway directly, they can send the header themselves
+and choose their own IP.
+
 ## Exports
 
 - `createGateway`: creates a gateway instance

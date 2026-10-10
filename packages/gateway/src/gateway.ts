@@ -1,4 +1,5 @@
-import type { TheAuth } from "@glinr/theauth";
+import type { TheAuth, TrustedProxyConfig } from "@glinr/theauth";
+import { resolveClientIp } from "@glinr/theauth";
 import { buildCorsHeaders, isPreflight } from "./cors.js";
 import { matchPolicy } from "./policy-matcher.js";
 import { createGatewayRateLimiter } from "./rate-limiter.js";
@@ -41,18 +42,52 @@ function extractBearerToken(request: Request): string | null {
 	return auth.slice(7).trim() || null;
 }
 
-function extractClientIp(request: Request): string | undefined {
-	const forwarded = request.headers.get("x-forwarded-for");
-	if (forwarded) return forwarded.split(",")[0]?.trim();
-	return request.headers.get("x-real-ip") ?? undefined;
+/**
+ * Resolve the client IP through the trusted proxy helper. With no
+ * `trustedProxy` config the result is undefined: forwarded headers are
+ * client controlled and are ignored. Callers must fail closed on undefined.
+ */
+function extractClientIp(request: Request, trustedProxy?: TrustedProxyConfig): string | undefined {
+	return resolveClientIp(request, trustedProxy) ?? undefined;
 }
 
 // ─── Rate Limit Key ──────────────────────────────────────────────────────────
 
-function rateLimitKey(identity: ResolvedIdentity | null, request: Request): string {
+/** Small non-cryptographic hash that keeps limiter keys bounded in size. */
+function fingerprint(value: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < value.length; i++) {
+		h ^= value.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	return (h >>> 0).toString(36);
+}
+
+/**
+ * Key for the rate limiter. Authenticated callers are keyed by agent. Others
+ * are keyed by the trusted client IP when one is configured. When the IP is
+ * unknown the key is a fingerprint of the presented token and ordinary client
+ * headers, never one constant bucket: a single shared key would let one
+ * client exhaust the budget of every unauthenticated caller. The fingerprint
+ * is best effort (a client can vary its headers); configure `trustedProxy`
+ * for strict per-IP limiting.
+ */
+function rateLimitKey(
+	identity: ResolvedIdentity | null,
+	request: Request,
+	trustedProxy?: TrustedProxyConfig,
+): string {
 	if (identity) return `agent:${identity.agentId}`;
-	const ip = extractClientIp(request);
-	return ip ? `ip:${ip}` : "ip:unknown";
+	const ip = extractClientIp(request, trustedProxy);
+	if (ip) return `ip:${ip}`;
+	const h = request.headers;
+	const material = [
+		h.get("authorization") ?? "",
+		h.get("user-agent") ?? "",
+		h.get("accept-language") ?? "",
+		h.get("accept-encoding") ?? "",
+	].join("\n");
+	return `anon:${fingerprint(material)}`;
 }
 
 // ─── Proxy Request Builder ───────────────────────────────────────────────────
@@ -93,11 +128,12 @@ async function checkPermissions(
 	identity: ResolvedIdentity,
 	policy: GatewayPolicy,
 	request: Request,
+	trustedProxy?: TrustedProxyConfig,
 ): Promise<{ allowed: boolean; reason?: string }> {
 	const required = policy.requiredPermissions;
 	if (!required || required.length === 0) return { allowed: true };
 
-	const ip = extractClientIp(request);
+	const ip = extractClientIp(request, trustedProxy);
 	const userAgent = request.headers.get("user-agent") ?? undefined;
 
 	for (const perm of required) {
@@ -124,6 +160,7 @@ async function recordAuditEntry(
 	identity: ResolvedIdentity | null,
 	result: "allowed" | "denied" | "rate_limited",
 	reason?: string,
+	trustedProxy?: TrustedProxyConfig,
 ): Promise<void> {
 	try {
 		const url = new URL(request.url);
@@ -134,7 +171,7 @@ async function recordAuditEntry(
 				resource: `gateway:${url.pathname}`,
 			},
 			{
-				ip: extractClientIp(request),
+				ip: extractClientIp(request, trustedProxy),
 				userAgent: request.headers.get("user-agent") ?? undefined,
 			},
 		);
@@ -183,6 +220,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 		rateLimit,
 		audit = true,
 		stripAuthHeader = false,
+		trustedProxy,
 	} = config;
 
 	// One limiter per unique config object reference — global limiter is shared
@@ -243,18 +281,32 @@ export function createGateway(config: GatewayConfig): Gateway {
 		// ── Auth Enforcement ────────────────────────────────────────
 		if (requireAuth && !identity) {
 			if (audit) {
-				await recordAuditEntry(theauth, request, null, "denied", "missing or invalid token");
+				await recordAuditEntry(
+					theauth,
+					request,
+					null,
+					"denied",
+					"missing or invalid token",
+					trustedProxy,
+				);
 			}
 			return errorResponse("UNAUTHORIZED", "Missing or invalid Bearer token", 401, corsHeaders);
 		}
 
 		// ── Global Rate Limit ───────────────────────────────────────
 		if (globalLimiter) {
-			const key = rateLimitKey(identity, request);
+			const key = rateLimitKey(identity, request, trustedProxy);
 			const rl = globalLimiter.check(key);
 			if (!rl.allowed) {
 				if (audit && identity) {
-					await recordAuditEntry(theauth, request, identity, "rate_limited", "global rate limit");
+					await recordAuditEntry(
+						theauth,
+						request,
+						identity,
+						"rate_limited",
+						"global rate limit",
+						trustedProxy,
+					);
 				}
 				return errorResponse("RATE_LIMITED", "Too many requests", 429, {
 					...corsHeaders,
@@ -267,11 +319,18 @@ export function createGateway(config: GatewayConfig): Gateway {
 		if (matchedPolicy) {
 			const policyLimiter = getPolicyLimiter(matchedPolicy);
 			if (policyLimiter) {
-				const key = rateLimitKey(identity, request);
+				const key = rateLimitKey(identity, request, trustedProxy);
 				const rl = policyLimiter.check(key);
 				if (!rl.allowed) {
 					if (audit && identity) {
-						await recordAuditEntry(theauth, request, identity, "rate_limited", "policy rate limit");
+						await recordAuditEntry(
+							theauth,
+							request,
+							identity,
+							"rate_limited",
+							"policy rate limit",
+							trustedProxy,
+						);
 					}
 					return errorResponse("RATE_LIMITED", "Too many requests", 429, {
 						...corsHeaders,
@@ -282,10 +341,23 @@ export function createGateway(config: GatewayConfig): Gateway {
 
 			// ── Permission Check ────────────────────────────────────
 			if (identity && matchedPolicy.requiredPermissions) {
-				const permCheck = await checkPermissions(theauth, identity, matchedPolicy, request);
+				const permCheck = await checkPermissions(
+					theauth,
+					identity,
+					matchedPolicy,
+					request,
+					trustedProxy,
+				);
 				if (!permCheck.allowed) {
 					if (audit) {
-						await recordAuditEntry(theauth, request, identity, "denied", permCheck.reason);
+						await recordAuditEntry(
+							theauth,
+							request,
+							identity,
+							"denied",
+							permCheck.reason,
+							trustedProxy,
+						);
 					}
 					return errorResponse(
 						"FORBIDDEN",
@@ -305,14 +377,21 @@ export function createGateway(config: GatewayConfig): Gateway {
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Upstream unreachable";
 			if (audit && identity) {
-				await recordAuditEntry(theauth, request, identity, "denied", `upstream error: ${message}`);
+				await recordAuditEntry(
+					theauth,
+					request,
+					identity,
+					"denied",
+					`upstream error: ${message}`,
+					trustedProxy,
+				);
 			}
 			return errorResponse("BAD_GATEWAY", `Upstream error: ${message}`, 502, corsHeaders);
 		}
 
 		// ── Audit allowed ────────────────────────────────────────────
 		if (audit && identity) {
-			await recordAuditEntry(theauth, request, identity, "allowed");
+			await recordAuditEntry(theauth, request, identity, "allowed", undefined, trustedProxy);
 		}
 
 		// Add CORS headers to upstream response

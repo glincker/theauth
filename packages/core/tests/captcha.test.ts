@@ -172,4 +172,54 @@ describe("CaptchaModule.middleware", () => {
 		expect(result.valid).toBe(false);
 		expect(result.error).toContain("X-Captcha-Token");
 	});
+
+	describe("client ip", () => {
+		function remoteIpOf(fetchMock: ReturnType<typeof vi.fn>): string | null {
+			const call = fetchMock.mock.calls[0] as [string, RequestInit];
+			return new URLSearchParams(call[1].body as string).get("remoteip");
+		}
+
+		function request(headers: Record<string, string>): Request {
+			return new Request("https://app.example.com/auth/sign-in", {
+				method: "POST",
+				headers: { "X-Captcha-Token": "t", ...headers },
+			});
+		}
+
+		it("does not send a spoofed forwarded ip by default", async () => {
+			const fetchMock = mockFetchSuccess({ success: true });
+			globalThis.fetch = fetchMock;
+			const mod = createCaptchaModule({ provider: "hcaptcha", secretKey: "secret" });
+			await mod.middleware(
+				request({ "X-Forwarded-For": "6.6.6.6", "CF-Connecting-IP": "7.7.7.7" }),
+			);
+			expect(remoteIpOf(fetchMock)).toBeNull();
+		});
+
+		it("uses the proxy appended entry with trustedProxyCount", async () => {
+			const fetchMock = mockFetchSuccess({ success: true });
+			globalThis.fetch = fetchMock;
+			const mod = createCaptchaModule({
+				provider: "hcaptcha",
+				secretKey: "secret",
+				trustedProxy: { trustedProxyCount: 1 },
+			});
+			await mod.middleware(request({ "X-Forwarded-For": "6.6.6.6, 203.0.113.9" }));
+			expect(remoteIpOf(fetchMock)).toBe("203.0.113.9");
+		});
+
+		it("uses a configured trustedHeader", async () => {
+			const fetchMock = mockFetchSuccess({ success: true });
+			globalThis.fetch = fetchMock;
+			const mod = createCaptchaModule({
+				provider: "turnstile",
+				secretKey: "secret",
+				trustedProxy: { trustedHeader: "cf-connecting-ip" },
+			});
+			await mod.middleware(
+				request({ "CF-Connecting-IP": "203.0.113.10", "X-Forwarded-For": "6.6.6.6" }),
+			);
+			expect(remoteIpOf(fetchMock)).toBe("203.0.113.10");
+		});
+	});
 });

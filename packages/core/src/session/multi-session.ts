@@ -24,6 +24,8 @@
  */
 
 import { and, eq, ne } from "drizzle-orm";
+import type { TrustedProxyConfig } from "../auth/client-ip.js";
+import { resolveClientIp } from "../auth/client-ip.js";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { SessionManager } from "./session.js";
@@ -263,16 +265,17 @@ export function createMultiSessionModule(
  * const meta = buildSessionMetadata(request, { role: 'admin' });
  * const { token } = await sessionManager.create(userId, meta);
  * ```
+ *
+ * The client IP is only recorded when `options.trustedProxy` says which
+ * forwarded header to trust; by default forwarded headers are ignored.
  */
 export function buildSessionMetadata(
 	request: Request,
 	extra?: Record<string, unknown>,
+	options?: { trustedProxy?: TrustedProxyConfig },
 ): Record<string, unknown> {
 	const ua = request.headers.get("user-agent");
-	const ip =
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-		request.headers.get("x-real-ip") ??
-		undefined;
+	const ip = resolveClientIp(request, options?.trustedProxy) ?? undefined;
 
 	const device = parseUserAgent(ua);
 

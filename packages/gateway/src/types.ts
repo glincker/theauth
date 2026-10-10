@@ -1,4 +1,4 @@
-import type { TheAuth } from "@glinr/theauth";
+import type { TheAuth, TrustedProxyConfig } from "@glinr/theauth";
 
 // ─── Gateway Configuration ───────────────────────────────────────────────────
 
@@ -57,6 +57,13 @@ export interface GatewayConfig {
 	audit?: boolean;
 	/** Remove the Authorization header before forwarding. Default: false */
 	stripAuthHeader?: boolean;
+	/**
+	 * How to find the client IP behind your proxies. Default: forwarded headers
+	 * are ignored, so the IP is unknown (ip allowlist constraints deny and
+	 * unauthenticated rate limiting falls back to a request fingerprint). Set
+	 * `trustedProxyCount` or `trustedHeader` to match your deployment.
+	 */
+	trustedProxy?: TrustedProxyConfig;
 }
 
 // ─── Gateway Public Interface ────────────────────────────────────────────────

@@ -1,14 +1,16 @@
 import type {
+	AdapterScope,
 	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
 	Permission,
+	ScopeDenial,
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
+import { createAdapterGuard, isProtectedAdapterPath } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -167,6 +169,23 @@ function sendMcpNoStore<T>(reply: FastifyReply, data: T, status = 200): FastifyR
 		.send(data);
 }
 
+/** Build a Web Request carrying the incoming headers, for the shared guard helpers. */
+function toWebRequest(request: FastifyRequest): Request {
+	const headers = new Headers();
+	for (const [key, value] of Object.entries(request.headers)) {
+		if (value === undefined) continue;
+		if (Array.isArray(value)) {
+			for (const v of value) headers.append(key, v);
+		} else {
+			headers.set(key, value);
+		}
+	}
+	return new Request(`${request.protocol}://${request.hostname}${request.url}`, {
+		method: "GET",
+		headers,
+	});
+}
+
 // ─── Audit Filter Builder ────────────────────────────────────────────────────
 
 function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
@@ -254,6 +273,20 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 	const guard = createAdapterGuard(auth, options, "theAuthFastify");
 
 	return async function plugin(fastify: FastifyInstance): Promise<void> {
+		// What the caller may touch, resolved once per request by the hook below.
+		// A missing scope (a route that skipped the guard) is a denial.
+		const scopes = new WeakMap<FastifyRequest, AdapterScope>();
+		const scopeFor = (request: FastifyRequest, reply: FastifyReply): AdapterScope | null => {
+			const scope = scopes.get(request);
+			if (!scope) {
+				sendError(reply, "FORBIDDEN", "Caller scope is unavailable", 403);
+				return null;
+			}
+			return scope;
+		};
+		const refuse = (reply: FastifyReply, denial: ScopeDenial): FastifyReply =>
+			sendError(reply, denial.code, denial.message, denial.status);
+
 		// Management routes (agents, delegations, audit, dashboard, authorize)
 		// require an authenticated caller. The hook is scoped to this plugin.
 		fastify.addHook("onRequest", async (request, reply) => {
@@ -261,18 +294,17 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			const prefix = fastify.prefix === "/" ? "" : fastify.prefix;
 			const relative =
 				prefix && pathname.startsWith(prefix) ? pathname.slice(prefix.length) : pathname;
-			if (!guard.isProtected(relative)) return;
-			const webReq = new Request(`${request.protocol}://${request.hostname}${request.url}`, {
-				method: "GET",
-				headers: new Headers(request.headers as Record<string, string>),
-			});
-			const denied = await guard.check(webReq);
-			if (denied) {
+			// With `allowUnauthenticated` the guard resolves an open scope, so this
+			// matches on the management paths themselves rather than `guard.isProtected`.
+			if (!isProtectedAdapterPath(relative)) return;
+			const resolved = await guard.resolve(toWebRequest(request));
+			if (!resolved.ok) {
 				return reply
-					.status(denied.status)
+					.status(resolved.response.status)
 					.header("Content-Type", "application/json")
-					.send(await denied.text());
+					.send(await resolved.response.text());
 			}
+			scopes.set(request, resolved.scope);
 		});
 
 		// ── MCP OPTIONS preflight ────────────────────────────────────
@@ -291,6 +323,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		fastify.post("/agents", async (request, reply) => {
 			const parsed = CreateAgentSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const createDenial = scope.checkAgentCreate(parsed.data.ownerId);
+			if (createDenial) return refuse(reply, createDenial);
 
 			try {
 				const input: CreateAgentInput = {
@@ -320,8 +356,13 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 				filter.type = typeRaw;
 			}
 
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const scoped = scope.scopeAgentFilter(filter);
+			if (!scoped.ok) return refuse(reply, scoped.denial);
+
 			try {
-				const agents = await auth.agent.list(filter);
+				const agents = await auth.agent.list(scoped.value);
 				return sendOk(reply, agents);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -332,6 +373,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// GET /agents/:id
 		fastify.get<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkAgent(id);
+			if (denial) return refuse(reply, denial);
 			try {
 				const agent = await auth.agent.get(id);
 				if (!agent) return sendNotFound(reply, `Agent "${id}" not found`);
@@ -345,6 +390,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// PATCH /agents/:id
 		fastify.patch<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkAgent(id);
+			if (denial) return refuse(reply, denial);
 			const parsed = UpdateAgentSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
 
@@ -365,6 +414,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// DELETE /agents/:id
 		fastify.delete<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkAgent(id);
+			if (denial) return refuse(reply, denial);
 			try {
 				await auth.agent.revoke(id);
 				return reply.status(204).send();
@@ -378,6 +431,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// POST /agents/:id/rotate
 		fastify.post<{ Params: { id: string } }>("/agents/:id/rotate", async (request, reply) => {
 			const { id } = request.params;
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkAgent(id);
+			if (denial) return refuse(reply, denial);
 			try {
 				const agent = await auth.agent.rotate(id);
 				return sendOk(reply, agent);
@@ -394,15 +451,15 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		fastify.post("/authorize", async (request, reply) => {
 			const parsed = AuthorizeSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkAgent(parsed.data.agentId);
+			if (denial) return refuse(reply, denial);
 
 			try {
-				const xForwardedFor = request.headers["x-forwarded-for"];
-				const ip =
-					(Array.isArray(xForwardedFor)
-						? xForwardedFor[0]
-						: xForwardedFor?.split(",")[0]?.trim()) ??
-					request.ip ??
-					undefined;
+				// Forwarded headers are only honored through `trustedProxy`. `request.ip`
+				// is the socket peer unless the host enabled Fastify's own `trustProxy`.
+				const ip = guard.clientIp(toWebRequest(request)) ?? request.ip ?? undefined;
 				const userAgent =
 					(Array.isArray(request.headers["user-agent"])
 						? request.headers["user-agent"][0]
@@ -439,13 +496,9 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
 
 			try {
-				const xForwardedFor = request.headers["x-forwarded-for"];
-				const ip =
-					(Array.isArray(xForwardedFor)
-						? xForwardedFor[0]
-						: xForwardedFor?.split(",")[0]?.trim()) ??
-					request.ip ??
-					undefined;
+				// Forwarded headers are only honored through `trustedProxy`. `request.ip`
+				// is the socket peer unless the host enabled Fastify's own `trustProxy`.
+				const ip = guard.clientIp(toWebRequest(request)) ?? request.ip ?? undefined;
 				const userAgent =
 					(Array.isArray(request.headers["user-agent"])
 						? request.headers["user-agent"][0]
@@ -476,6 +529,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		fastify.post("/delegations", async (request, reply) => {
 			const parsed = DelegateSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkAgent(parsed.data.fromAgent);
+			if (denial) return refuse(reply, denial);
 
 			try {
 				const input: DelegateInput = {
@@ -496,6 +553,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// DELETE /delegations/:id
 		fastify.delete<{ Params: { id: string } }>("/delegations/:id", async (request, reply) => {
 			const { id } = request.params;
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const denial = await scope.checkChain(id);
+			if (denial) return refuse(reply, denial);
 			try {
 				await auth.delegation.revoke(id);
 				return reply.status(204).send();
@@ -511,6 +572,10 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			"/delegations/:agentId",
 			async (request, reply) => {
 				const { agentId } = request.params;
+				const scope = scopeFor(request, reply);
+				if (!scope) return reply;
+				const denial = await scope.checkAgent(agentId);
+				if (denial) return refuse(reply, denial);
 				try {
 					const chains = await auth.delegation.listChains(agentId);
 					return sendOk(reply, chains);
@@ -541,8 +606,13 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 				if (!Number.isNaN(d.getTime())) options.until = d;
 			}
 
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const scopedExport = scope.scopeAuditExport(options);
+			if (!scopedExport.ok) return refuse(reply, scopedExport.denial);
+
 			try {
-				const exported = await auth.audit.export(options);
+				const exported = await auth.audit.export(scopedExport.value);
 				const contentType = format === "csv" ? "text/csv" : "application/json";
 				return reply
 					.status(200)
@@ -558,8 +628,12 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// GET /audit
 		fastify.get("/audit", async (request, reply) => {
 			const filter = buildAuditFilter(request.query);
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const scoped = scope.scopeAuditFilter(filter);
+			if (!scoped.ok) return refuse(reply, scoped.denial);
 			try {
-				const entries = await auth.audit.query(filter);
+				const entries = await auth.audit.query(scoped.value);
 				return sendOk(reply, entries);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to query audit logs";
@@ -570,13 +644,19 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// ── Dashboard API ────────────────────────────────────────────
 
 		// GET /dashboard/stats
-		fastify.get("/dashboard/stats", async (_request, reply) => {
+		fastify.get("/dashboard/stats", async (request, reply) => {
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			// Default guard: aggregate only the caller's own agents and audit rows.
+			const statsOwner = scope.statsOwnerId();
+
 			try {
 				const [agents, recentAudit] = await Promise.all([
-					auth.agent.list(),
+					auth.agent.list(statsOwner ? { userId: statsOwner } : undefined),
 					auth.audit.query({
 						since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 						limit: 1000,
+						...(statsOwner ? { userId: statsOwner } : {}),
 					}),
 				]);
 
@@ -624,8 +704,13 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 				filter.type = typeRaw;
 			}
 
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const scoped = scope.scopeAgentFilter(filter);
+			if (!scoped.ok) return refuse(reply, scoped.denial);
+
 			try {
-				const agents = await auth.agent.list(filter);
+				const agents = await auth.agent.list(scoped.value);
 				return sendOk(reply, agents);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -636,8 +721,12 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		// GET /dashboard/audit
 		fastify.get("/dashboard/audit", async (request, reply) => {
 			const filter = buildAuditFilter(request.query);
+			const scope = scopeFor(request, reply);
+			if (!scope) return reply;
+			const scoped = scope.scopeAuditFilter(filter);
+			if (!scoped.ok) return refuse(reply, scoped.denial);
 			try {
-				const entries = await auth.audit.query(filter);
+				const entries = await auth.audit.query(scoped.value);
 				return sendOk(reply, entries);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to query audit logs";
