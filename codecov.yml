@@ -1,0 +1,13 @@
+# Informational only: report coverage without blocking PRs while the baseline is built up.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, files"
+  require_changes: true
