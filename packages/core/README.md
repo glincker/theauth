@@ -43,13 +43,18 @@ npm install @glinr/theauth
 ## Quick start
 
 ```typescript
-import { createTheAuth } from "@glinr/theauth";
-import { emailPassword } from "@glinr/theauth/auth";
+import { createTheAuth, users } from "@glinr/theauth";
 
-const theauth = createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
-  plugins: [emailPassword()],
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true }, // creates the agent and audit tables
 });
+
+// An agent needs an owner row in theauth_users (human auth creates these for you).
+theauth.db.insert(users).values({
+  id: "user-123", email: "owner@example.com", name: "Owner",
+  createdAt: new Date(), updatedAt: new Date(),
+}).run();
 
 // Create an AI agent with scoped permissions
 const agent = await theauth.agent.create({
@@ -63,7 +68,7 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// Authorize and audit (< 1ms)
+// Authorize and audit
 const result = await theauth.authorize(agent.id, {
   action: "read",
   resource: "mcp:github:repos",

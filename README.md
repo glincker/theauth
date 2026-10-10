@@ -51,7 +51,10 @@ npm install @glinr/theauth
 ```typescript
 import { createTheAuth, users } from "@glinr/theauth";
 
-const auth = await createTheAuth({ database: { provider: "sqlite", url: ":memory:" } });
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true }, // creates the agent and audit tables
+});
 
 // Agents need an owner row in theauth_users (human auth creates these for you).
 auth.db.insert(users).values({
