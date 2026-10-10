@@ -245,17 +245,31 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	/**
-	 * Validate an agent token and return the agent identity.
-	 * Used internally by the authorization engine.
+	 * Look up an agent by token and say why it was refused when it was.
+	 * `rejected` is set only when the token matches a known agent that is
+	 * revoked or expired, so the caller can record the denied attempt. An
+	 * unknown token yields `{ agent: null }` with no `rejected`.
 	 */
-	async function validateToken(token: string): Promise<AgentIdentity | null> {
+	async function resolveToken(token: string): Promise<{
+		agent: AgentIdentity | null;
+		rejected?: { agentId: string; ownerId: string; reason: "revoked" | "expired" };
+	}> {
 		const hash = await sha256(token);
 		const rows = await db.select().from(agents).where(eq(agents.tokenHash, hash)).limit(1);
 		const agent = rows[0];
-		if (!agent) return null;
+		if (!agent) return { agent: null };
 
 		// Check status
-		if (agent.status !== "active") return null;
+		if (agent.status !== "active") {
+			return {
+				agent: null,
+				rejected: {
+					agentId: agent.id,
+					ownerId: agent.ownerId,
+					reason: agent.status === "expired" ? "expired" : "revoked",
+				},
+			};
+		}
 
 		// Check expiry
 		if (agent.expiresAt && agent.expiresAt < new Date()) {
@@ -263,7 +277,10 @@ export function createAgentModule(config: AgentModuleConfig) {
 				.update(agents)
 				.set({ status: "expired", updatedAt: new Date() })
 				.where(eq(agents.id, agent.id));
-			return null;
+			return {
+				agent: null,
+				rejected: { agentId: agent.id, ownerId: agent.ownerId, reason: "expired" },
+			};
 		}
 
 		// Update last active
@@ -272,21 +289,31 @@ export function createAgentModule(config: AgentModuleConfig) {
 		const perms = await db.select().from(permissions).where(eq(permissions.agentId, agent.id));
 
 		return {
-			id: agent.id,
-			ownerId: agent.ownerId,
-			tenantId: agent.tenantId ?? undefined,
-			name: agent.name,
-			type: agent.type as AgentIdentity["type"],
-			token: "",
-			permissions: perms.map(toPermission),
-			status: "active",
-			expiresAt: agent.expiresAt,
-			createdAt: agent.createdAt,
-			updatedAt: agent.updatedAt,
+			agent: {
+				id: agent.id,
+				ownerId: agent.ownerId,
+				tenantId: agent.tenantId ?? undefined,
+				name: agent.name,
+				type: agent.type as AgentIdentity["type"],
+				token: "",
+				permissions: perms.map(toPermission),
+				status: "active",
+				expiresAt: agent.expiresAt,
+				createdAt: agent.createdAt,
+				updatedAt: agent.updatedAt,
+			},
 		};
 	}
 
-	return { create, get, list, update, revoke, rotate, validateToken };
+	/**
+	 * Validate an agent token and return the agent identity.
+	 * Used internally by the authorization engine.
+	 */
+	async function validateToken(token: string): Promise<AgentIdentity | null> {
+		return (await resolveToken(token)).agent;
+	}
+
+	return { create, get, list, update, revoke, rotate, validateToken, resolveToken };
 }
 
 function toPermission(row: {

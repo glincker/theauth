@@ -405,10 +405,15 @@ export async function createTheAuth(config: TheAuthConfig) {
 			};
 		}
 		if (agent.status !== "active") {
+			const auditId = await permissionEngine.recordDenial(
+				{ agentId: agent.id, ownerId: agent.ownerId },
+				context ? { ...request, context } : request,
+				agent.status === "expired" ? "agent_expired" : "agent_revoked",
+			);
 			return {
 				allowed: false,
 				reason: `Agent "${agent.name}" is ${agent.status}`,
-				auditId: "",
+				auditId,
 			};
 		}
 
@@ -471,12 +476,21 @@ export async function createTheAuth(config: TheAuthConfig) {
 		request: AuthorizeRequest,
 		context?: RequestContext,
 	): Promise<AuthorizeResult> {
-		const agent = await agentModule.validateToken(token);
+		const { agent, rejected } = await agentModule.resolveToken(token);
 		if (!agent) {
+			// A token that belongs to a known revoked or expired agent is recorded.
+			// An unknown token has no agent to attach a row to and is not.
+			const auditId = rejected
+				? await permissionEngine.recordDenial(
+						rejected,
+						context ? { ...request, context } : request,
+						rejected.reason === "expired" ? "agent_expired" : "agent_revoked",
+					)
+				: "";
 			return {
 				allowed: false,
 				reason: "Invalid or expired agent token",
-				auditId: "",
+				auditId,
 			};
 		}
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;

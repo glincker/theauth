@@ -159,6 +159,8 @@ await theauth.agent.revoke(agentId);
 // The agent's token is rejected immediately
 ```
 
+Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded).
+
 <Warning>
 Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
 </Warning>
