@@ -192,7 +192,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Issues labeled `good first issue` are a 
 
 ## Security
 
-Report vulnerabilities privately to support@glincker.com or through the GitHub advisory form. Do not open a public issue. Details in [SECURITY.md](SECURITY.md).
+Report vulnerabilities privately to support@glinr.com or through the GitHub advisory form. Do not open a public issue. Details in [SECURITY.md](SECURITY.md).
 
 ## License
 
