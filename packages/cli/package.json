@@ -1,7 +1,7 @@
 {
   "name": "@glinr/theauth-cli",
   "version": "0.3.1",
-  "description": "CLI for theAuth: set up agent identity and MCP OAuth 2.1, run migrations, launch the admin dashboard, codemod from Kavach.",
+  "description": "CLI for theAuth: set up agent identity and MCP OAuth 2.1, check your setup with doctor, run migrations, launch the admin dashboard.",
   "type": "module",
   "bin": {
     "theauth": "./dist/bin.js"
