@@ -7,12 +7,10 @@ on:
       - "**/*.md"
       - "docs/**"
       - "docs-local/**"
+  # No paths-ignore here: `ci` is a required status check, and a workflow that never starts would leave it pending
+  # forever on docs-only PRs. The `changes` job below already skips the heavy job when nothing relevant changed.
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "docs-local/**"
 
 permissions:
   contents: read
