@@ -1,7 +1,7 @@
 {
   "name": "@glinr/theauth",
   "version": "0.7.1",
-  "description": "Open-source auth for AI agents and humans: agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, and audit",
+  "description": "Auth where AI agents get their own identity, limited permissions and an audit trail, next to human sign in. MCP OAuth 2.1 server, DPoP, passkeys. TypeScript, MIT, 0.x.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -123,11 +123,11 @@
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
     "@types/sql.js": "^1.4.11",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.1.11",
     "better-sqlite3": "^12.9.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   },
   "peerDependencies": {
     "@libsql/client": ">=0.6.0",

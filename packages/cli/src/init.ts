@@ -92,10 +92,10 @@ function exampleTemplate(answers: InitAnswers): string {
 	};
 
 	const frameworkComment: Record<Framework, string> = {
-		hono: "// Hono example — mount theauth middleware on your app",
-		express: "// Express example — mount theauth middleware on your app",
-		nextjs: "// Next.js example — use in API routes or middleware",
-		fastify: "// Fastify example — register theauth as a plugin",
+		hono: "// Hono example: mount theauth middleware on your app",
+		express: "// Express example: mount theauth middleware on your app",
+		nextjs: "// Next.js example: use in API routes or middleware",
+		fastify: "// Fastify example: register theauth as a plugin",
 	};
 
 	const dbSetup =
@@ -140,7 +140,7 @@ const result = await theauth.authorize(agent.id, {
 });
 
 if (result.allowed) {
-  console.log("Authorized — audit ID:", result.auditId);
+  console.log("Authorized, audit ID:", result.auditId);
 } else {
   console.log("Denied:", result.reason);
 }
@@ -154,8 +154,8 @@ console.log("New token:", rotated.token);
 // ── Main init flow ────────────────────────────────────────────────────────────
 
 export async function runInit(): Promise<InitResult | InitError> {
-	stdout.write("\nTheAuth — project setup\n");
-	stdout.write("─────────────────────────────────────\n");
+	stdout.write("\nTheAuth: project setup\n");
+	stdout.write("-------------------------------------\n");
 
 	const rl = createInterface({ input: stdin, output: stdout });
 
@@ -225,11 +225,11 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		// Print next steps
 		stdout.write("\n  Files written\n");
-		stdout.write(`  theauth.config.ts   — your TheAuth configuration\n`);
-		stdout.write(`  theauth.example.ts  — minimal agent + authorization example\n`);
+		stdout.write(`  theauth.config.ts   your TheAuth configuration\n`);
+		stdout.write(`  theauth.example.ts  minimal agent and authorization example\n`);
 
 		stdout.write("\nNext steps\n");
-		stdout.write("──────────\n");
+		stdout.write("----------\n");
 		stdout.write("  1. Install the core package:\n");
 		stdout.write("       npm install @glinr/theauth\n");
 		if (framework !== "hono") {
@@ -240,15 +240,19 @@ export async function runInit(): Promise<InitResult | InitError> {
 			};
 			stdout.write(`       npm install ${adapterPkg[framework]}\n`);
 		} else {
-			stdout.write("       npm install @glinr/@glinr/theauth-hono\n");
+			stdout.write("       npm install @glinr/theauth-hono\n");
 		}
 		if (database === "postgres") {
 			stdout.write("       npm install pg\n");
 		}
 		stdout.write("  2. Set DATABASE_URL in your environment (if using Postgres).\n");
-		stdout.write("  3. Run your app — TheAuth creates tables automatically on first start.\n");
+		stdout.write("  3. Run your app. TheAuth creates the tables on first start.\n");
 		stdout.write(
 			"  4. Open theauth.example.ts to see how to create agents and authorize requests.\n",
+		);
+		stdout.write(
+			"\n  Want a running server that allows one agent call and denies another?\n" +
+				"    npx @glinr/create-theauth-app my-agent-app --yes\n",
 		);
 		stdout.write("\n  Docs: https://theauth.dev/docs\n\n");
 
