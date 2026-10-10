@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI stdout/stderr is intentional here
 import { parseArgs } from "node:util";
-import { loadConfigFile } from "./config-loader.js";
+import { loadConfigFile, resolveTrustedProxy } from "./config-loader.js";
 import { createGateway } from "./gateway.js";
 import type { GatewayTheAuth } from "./init.js";
 import { initTheAuth } from "./init.js";
@@ -17,6 +17,8 @@ async function main(): Promise<void> {
 			database: { type: "string", short: "d", default: ":memory:" },
 			"strip-auth": { type: "boolean", default: false },
 			"no-audit": { type: "boolean", default: false },
+			"trusted-proxy-count": { type: "string" },
+			"trusted-header": { type: "string" },
 			help: { type: "boolean", short: "h", default: false },
 		},
 		allowPositionals: false,
@@ -47,6 +49,17 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
+	let trustedProxy: GatewayConfig["trustedProxy"];
+	try {
+		trustedProxy = resolveTrustedProxy(fileConfig.trustedProxy, {
+			count: values["trusted-proxy-count"],
+			header: values["trusted-header"],
+		});
+	} catch (err) {
+		console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+		process.exit(1);
+	}
+
 	const dbUrl = values.database ?? ":memory:";
 
 	let theauth: GatewayTheAuth;
@@ -66,6 +79,7 @@ async function main(): Promise<void> {
 		rateLimit: fileConfig.rateLimit,
 		audit: values["no-audit"] ? false : (fileConfig.audit ?? true),
 		stripAuthHeader: values["strip-auth"] ?? fileConfig.stripAuthHeader ?? false,
+		trustedProxy,
 	};
 
 	const gateway = createGateway(gatewayConfig);
@@ -99,6 +113,12 @@ Options:
   -d, --database <path>   SQLite database path (default: :memory:)
       --strip-auth        Remove Authorization header before forwarding
       --no-audit          Disable audit trail recording
+      --trusted-proxy-count <n>
+                          Number of reverse proxies in front of the gateway
+                          (default: 0, forwarded headers are ignored)
+      --trusted-header <name>
+                          Single header your edge sets, e.g. cf-connecting-ip
+                          (takes precedence over --trusted-proxy-count)
   -h, --help              Show this help
 
 Examples:
