@@ -1,5 +1,12 @@
 # @glinr/theauth-nestjs
 
+## 5.0.1
+
+### Patch Changes
+
+- 1fa2338: Pass every security option through TheAuthModule.
+- 1fa2338: Scope management routes to the signed in owner when the default guard is used, and resolve the client IP through the trusted proxy helper.
+
 ## 5.0.0
 
 ### Major Changes

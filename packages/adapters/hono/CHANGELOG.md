@@ -1,5 +1,12 @@
 # @glinr/theauth-hono
 
+## 5.0.1
+
+### Patch Changes
+
+- 1fa2338: Scope management routes to the signed in owner when the default guard is used. With the default session resolver, `/agents`, `/delegations`, `/audit`, `/dashboard` and `POST /authorize` only act on the caller's own agents, delegations and audit rows, and `POST /agents` requires `ownerId` to be the caller. A custom `authenticate` resolver behaves as before. Core adds `guard.resolve()` and the `AdapterScope` helper so the other adapters can adopt the same checks, and `audit.export()` accepts a `userId` filter.
+- 1fa2338: Resolve the client IP through the trusted proxy helper. The hono and express adapters no longer read `X-Forwarded-For` or `X-Real-IP` directly. By default forwarded headers are ignored (Express still falls back to `req.ip`), so an `ipAllowlist` constraint denies when the IP is unknown. Pass `trustedProxy: { trustedProxyCount }` or `trustedProxy: { trustedHeader }` to the adapter to match your proxy setup.
+
 ## 5.0.0
 
 ### Major Changes
