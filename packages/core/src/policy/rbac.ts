@@ -7,6 +7,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { compareCodeUnits } from "../compare.js";
 import type { Database } from "../db/database.js";
 import { orgMembers, orgRoles } from "../db/schema.js";
 import type { Permission } from "../types.js";
@@ -62,7 +63,7 @@ function toPermissions(rawStrings: string[]): Permission[] {
 	}
 	return Array.from(map.entries()).map(([resource, actionsSet]) => ({
 		resource,
-		actions: Array.from(actionsSet).sort(),
+		actions: Array.from(actionsSet).sort(compareCodeUnits),
 	}));
 }
 
@@ -73,7 +74,7 @@ function deduplicate(permissions: Permission[]): Permission[] {
 	const seen = new Set<string>();
 	const result: Permission[] = [];
 	for (const perm of permissions) {
-		const key = `${perm.resource}|${[...perm.actions].sort().join(",")}`;
+		const key = `${perm.resource}|${[...perm.actions].sort(compareCodeUnits).join(",")}`;
 		if (!seen.has(key)) {
 			seen.add(key);
 			result.push(perm);

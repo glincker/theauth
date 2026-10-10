@@ -80,7 +80,13 @@ export function readEnvVarNames(cwd: string): string[] {
 			if (m?.[1] && /THEAUTH|AUTH|MCP|DATABASE|SESSION|APP_URL/.test(m[1])) names.add(m[1]);
 		}
 	}
-	return [...names].sort();
+	return [...names].sort(compareCodeUnits);
+}
+
+/** UTF-16 code unit order, the same order a bare `sort()` gives, kept explicit. */
+function compareCodeUnits(a: string, b: string): number {
+	if (a < b) return -1;
+	return a > b ? 1 : 0;
 }
 
 export function inspectProject(cwd: string): InspectReport {

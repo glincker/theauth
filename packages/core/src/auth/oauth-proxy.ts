@@ -325,8 +325,7 @@ export function createOAuthProxyModule(
 				});
 			} catch (err) {
 				if (err instanceof OAuthProxyError) {
-					const status = err.code === "redirect_uri_not_allowed" ? 400 : 400;
-					return jsonError(err.message, status);
+					return jsonError(err.message, 400);
 				}
 				return jsonError("Failed to start OAuth proxy flow", 500);
 			}

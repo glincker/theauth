@@ -17,6 +17,7 @@
  */
 
 import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { compareCodeUnits } from "../compare.js";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
@@ -54,7 +55,7 @@ export function canonicalJson(value: unknown): string {
 	if (typeof value === "object") {
 		const obj = value as Record<string, unknown>;
 		const parts: string[] = [];
-		for (const key of Object.keys(obj).sort()) {
+		for (const key of Object.keys(obj).sort(compareCodeUnits)) {
 			if (obj[key] === undefined) continue;
 			parts.push(`${JSON.stringify(key)}:${canonicalJson(obj[key])}`);
 		}

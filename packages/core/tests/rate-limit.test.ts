@@ -308,10 +308,10 @@ describe("rateLimit() plugin — window string parsing", () => {
 		vi.useRealTimers();
 	});
 
-	it("throws on invalid window string", () => {
+	it("throws on invalid window string", async () => {
 		// The error is thrown lazily when the first request hits the endpoint
 		const plugin = rateLimit({ default: { window: "invalid", max: 5 } });
-		expect(runHook(plugin, makeRequest("/auth/sign-in", "50.0.0.1"))).rejects.toThrow(
+		await expect(runHook(plugin, makeRequest("/auth/sign-in", "50.0.0.1"))).rejects.toThrow(
 			/Invalid rate limit window/,
 		);
 	});

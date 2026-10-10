@@ -534,8 +534,7 @@ export function createPasswordResetModule(
 			const result = await resetPassword(b.token, b.password);
 			if (!result.success) {
 				// Don't reveal specific error details to the client
-				const status = result.error.code === "INVALID_PASSWORD" ? 400 : 400;
-				return jsonResponse({ error: result.error.message }, status);
+				return jsonResponse({ error: result.error.message }, 400);
 			}
 
 			return new Response(null, { status: 204 });
