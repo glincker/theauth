@@ -1,10 +1,12 @@
 import type {
+	AdapterScope,
 	AdapterSecurityOptions,
 	AgentFilter,
 	AuditFilter,
 	CreateAgentInput,
 	DelegateInput,
 	Permission,
+	ScopeDenial,
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
@@ -229,18 +231,67 @@ export function buildTheAuthRouter(
 
 	// Fails closed at construction when nothing can authenticate callers.
 	const guard = createAdapterGuard(auth, security, "TheAuthModule");
+	// What the caller may touch. With the default session resolver this is the
+	// caller's own resources; with a custom `authenticate` it is unrestricted.
+	// A missing scope (a route that skipped the guard) is a denial.
+	const scopes = new WeakMap<Response, AdapterScope>();
+	const sendDenial = (res: Response, denial: ScopeDenial): void => {
+		sendError(res, denial.code, denial.message, denial.status);
+	};
+	const noScope: ScopeDenial = {
+		status: 403,
+		code: "FORBIDDEN",
+		message: "Caller scope is unavailable",
+	};
+	const requireScope = (res: Response): AdapterScope | null => {
+		const scope = scopes.get(res) ?? null;
+		if (!scope) sendDenial(res, noScope);
+		return scope;
+	};
+	/** Run `proceed` only when the caller may act on `agentId`. */
+	const withAgent = (res: Response, agentId: string, proceed: () => void): void => {
+		const scope = requireScope(res);
+		if (!scope) return;
+		scope
+			.checkAgent(agentId)
+			.then((denial) => {
+				if (denial) sendDenial(res, denial);
+				else proceed();
+			})
+			.catch(() => {
+				if (!res.headersSent) sendDenial(res, noScope);
+			});
+	};
+	/** Run `proceed` only when the caller may act on delegation chain `chainId`. */
+	const withChain = (res: Response, chainId: string, proceed: () => void): void => {
+		const scope = requireScope(res);
+		if (!scope) return;
+		scope
+			.checkChain(chainId)
+			.then((denial) => {
+				if (denial) sendDenial(res, denial);
+				else proceed();
+			})
+			.catch(() => {
+				if (!res.headersSent) sendDenial(res, noScope);
+			});
+	};
 	router.use((req: Request, res: Response, next: NextFunction) => {
-		if (!guard.isProtected(req.path)) {
+		// With `allowUnauthenticated` nothing is protected, but handlers still
+		// need a scope, so resolve it (this never authenticates in that mode).
+		if (!guard.isProtected(req.path) && security?.allowUnauthenticated !== true) {
 			next();
 			return;
 		}
 		guard
-			.check(buildWebRequest(req))
-			.then((denied) => {
-				if (!denied) {
+			.resolve(buildWebRequest(req))
+			.then((resolved) => {
+				if (resolved.ok) {
+					scopes.set(res, resolved.scope);
 					next();
 					return;
 				}
+				const denied = resolved.response;
 				res
 					.status(denied.status)
 					.type("application/json")
@@ -259,6 +310,13 @@ export function buildTheAuthRouter(
 		const parsed = CreateAgentSchema.safeParse(req.body);
 		if (!parsed.success) {
 			sendValidationError(res, parsed.error.issues);
+			return;
+		}
+		const createScope = requireScope(res);
+		if (!createScope) return;
+		const createDenial = createScope.checkAgentCreate(parsed.data.ownerId);
+		if (createDenial) {
+			sendDenial(res, createDenial);
 			return;
 		}
 		const input: CreateAgentInput = {
@@ -284,8 +342,15 @@ export function buildTheAuthRouter(
 		if (typeof type === "string" && ["autonomous", "delegated", "service"].includes(type)) {
 			filter.type = type as AgentFilter["type"];
 		}
+		const scope = requireScope(res);
+		if (!scope) return;
+		const scoped = scope.scopeAgentFilter(filter);
+		if (!scoped.ok) {
+			sendDenial(res, scoped.denial);
+			return;
+		}
 		auth.agent
-			.list(filter)
+			.list(scoped.value)
 			.then((agents) => sendOk(res, agents))
 			.catch((err: unknown) => {
 				const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -295,19 +360,21 @@ export function buildTheAuthRouter(
 
 	router.get("/agents/:id", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		auth.agent
-			.get(id)
-			.then((agent) => {
-				if (!agent) {
-					sendNotFound(res, `Agent "${id}" not found`);
-					return;
-				}
-				sendOk(res, agent);
-			})
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to get agent";
-				sendInternalError(res, message);
-			});
+		withAgent(res, id, () => {
+			auth.agent
+				.get(id)
+				.then((agent) => {
+					if (!agent) {
+						sendNotFound(res, `Agent "${id}" not found`);
+						return;
+					}
+					sendOk(res, agent);
+				})
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to get agent";
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	router.patch("/agents/:id", (req: Request, res: Response) => {
@@ -321,47 +388,53 @@ export function buildTheAuthRouter(
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[] | undefined,
 		};
-		auth.agent
-			.update(id, input)
-			.then((agent) => sendOk(res, agent))
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to update agent";
-				if (message.includes("not found")) {
-					sendNotFound(res, message);
-					return;
-				}
-				sendInternalError(res, message);
-			});
+		withAgent(res, id, () => {
+			auth.agent
+				.update(id, input)
+				.then((agent) => sendOk(res, agent))
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to update agent";
+					if (message.includes("not found")) {
+						sendNotFound(res, message);
+						return;
+					}
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	router.delete("/agents/:id", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		auth.agent
-			.revoke(id)
-			.then(() => sendNoContent(res))
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to revoke agent";
-				if (message.includes("not found")) {
-					sendNotFound(res, message);
-					return;
-				}
-				sendInternalError(res, message);
-			});
+		withAgent(res, id, () => {
+			auth.agent
+				.revoke(id)
+				.then(() => sendNoContent(res))
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to revoke agent";
+					if (message.includes("not found")) {
+						sendNotFound(res, message);
+						return;
+					}
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	router.post("/agents/:id/rotate", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		auth.agent
-			.rotate(id)
-			.then((agent) => sendOk(res, agent))
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to rotate agent token";
-				if (message.includes("not found")) {
-					sendNotFound(res, message);
-					return;
-				}
-				sendInternalError(res, message);
-			});
+		withAgent(res, id, () => {
+			auth.agent
+				.rotate(id)
+				.then((agent) => sendOk(res, agent))
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to rotate agent token";
+					if (message.includes("not found")) {
+						sendNotFound(res, message);
+						return;
+					}
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	// ── Authorization ───────────────────────────────────────────────
@@ -372,33 +445,33 @@ export function buildTheAuthRouter(
 			sendValidationError(res, parsed.error.issues);
 			return;
 		}
-		const xForwardedFor = req.headers["x-forwarded-for"];
-		const ip =
-			(Array.isArray(xForwardedFor) ? xForwardedFor[0] : xForwardedFor?.split(",")[0]?.trim()) ??
-			req.ip ??
-			undefined;
+		// Forwarded headers are only honored through `trustedProxy`. `req.ip` is
+		// the socket peer unless the host enabled Express's own `trust proxy`.
+		const ip = guard.clientIp(buildWebRequest(req)) ?? req.ip ?? undefined;
 		const userAgent =
 			(Array.isArray(req.headers["user-agent"])
 				? req.headers["user-agent"][0]
 				: req.headers["user-agent"]) ?? undefined;
-		auth
-			.authorize(
-				parsed.data.agentId,
-				{
-					action: parsed.data.action,
-					resource: parsed.data.resource,
-					arguments: parsed.data.arguments,
-				},
-				{ ip, userAgent },
-			)
-			.then((result) => {
-				const status = result.allowed ? 200 : 403;
-				res.status(status).json({ data: result });
-			})
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Authorization check failed";
-				sendInternalError(res, message);
-			});
+		withAgent(res, parsed.data.agentId, () => {
+			auth
+				.authorize(
+					parsed.data.agentId,
+					{
+						action: parsed.data.action,
+						resource: parsed.data.resource,
+						arguments: parsed.data.arguments,
+					},
+					{ ip, userAgent },
+				)
+				.then((result) => {
+					const status = result.allowed ? 200 : 403;
+					res.status(status).json({ data: result });
+				})
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Authorization check failed";
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	router.post("/authorize/token", (req: Request, res: Response) => {
@@ -414,11 +487,9 @@ export function buildTheAuthRouter(
 			sendValidationError(res, parsed.error.issues);
 			return;
 		}
-		const xForwardedFor = req.headers["x-forwarded-for"];
-		const ip =
-			(Array.isArray(xForwardedFor) ? xForwardedFor[0] : xForwardedFor?.split(",")[0]?.trim()) ??
-			req.ip ??
-			undefined;
+		// Forwarded headers are only honored through `trustedProxy`. `req.ip` is
+		// the socket peer unless the host enabled Express's own `trust proxy`.
+		const ip = guard.clientIp(buildWebRequest(req)) ?? req.ip ?? undefined;
 		const userAgent =
 			(Array.isArray(req.headers["user-agent"])
 				? req.headers["user-agent"][0]
@@ -455,48 +526,54 @@ export function buildTheAuthRouter(
 			...parsed.data,
 			permissions: parsed.data.permissions as Permission[],
 		};
-		auth
-			.delegate(input)
-			.then((chain) => sendCreated(res, chain))
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to create delegation";
-				if (message.includes("not found")) {
-					sendNotFound(res, message);
-					return;
-				}
-				const delegationCode = delegationErrorCode(err);
-				if (delegationCode) {
-					sendError(res, delegationCode, message, 400);
-					return;
-				}
-				sendInternalError(res, message);
-			});
+		withAgent(res, input.fromAgent, () => {
+			auth
+				.delegate(input)
+				.then((chain) => sendCreated(res, chain))
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to create delegation";
+					if (message.includes("not found")) {
+						sendNotFound(res, message);
+						return;
+					}
+					const delegationCode = delegationErrorCode(err);
+					if (delegationCode) {
+						sendError(res, delegationCode, message, 400);
+						return;
+					}
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	router.delete("/delegations/:id", (req: Request, res: Response) => {
 		const id = routeParam(req, "id");
-		auth.delegation
-			.revoke(id)
-			.then(() => sendNoContent(res))
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to revoke delegation";
-				if (message.includes("not found")) {
-					sendNotFound(res, message);
-					return;
-				}
-				sendInternalError(res, message);
-			});
+		withChain(res, id, () => {
+			auth.delegation
+				.revoke(id)
+				.then(() => sendNoContent(res))
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to revoke delegation";
+					if (message.includes("not found")) {
+						sendNotFound(res, message);
+						return;
+					}
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	router.get("/delegations/:agentId", (req: Request, res: Response) => {
 		const agentId = routeParam(req, "agentId");
-		auth.delegation
-			.listChains(agentId)
-			.then((chains) => sendOk(res, chains))
-			.catch((err: unknown) => {
-				const message = err instanceof Error ? err.message : "Failed to list delegation chains";
-				sendInternalError(res, message);
-			});
+		withAgent(res, agentId, () => {
+			auth.delegation
+				.listChains(agentId)
+				.then((chains) => sendOk(res, chains))
+				.catch((err: unknown) => {
+					const message = err instanceof Error ? err.message : "Failed to list delegation chains";
+					sendInternalError(res, message);
+				});
+		});
 	});
 
 	// ── Audit ───────────────────────────────────────────────────────
@@ -530,8 +607,15 @@ export function buildTheAuthRouter(
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
+		const scope = requireScope(res);
+		if (!scope) return;
+		const scoped = scope.scopeAuditFilter(filter);
+		if (!scoped.ok) {
+			sendDenial(res, scoped.denial);
+			return;
+		}
 		auth.audit
-			.query(filter)
+			.query(scoped.value)
 			.then((entries) => sendOk(res, entries))
 			.catch((err: unknown) => {
 				const message = err instanceof Error ? err.message : "Failed to query audit logs";
@@ -546,7 +630,9 @@ export function buildTheAuthRouter(
 			return;
 		}
 
-		const options: { format: "json" | "csv"; since?: Date; until?: Date } = { format };
+		const options: { format: "json" | "csv"; since?: Date; until?: Date; userId?: string } = {
+			format,
+		};
 		const { since, until } = req.query;
 		if (typeof since === "string") {
 			const d = new Date(since);
@@ -557,8 +643,15 @@ export function buildTheAuthRouter(
 			if (!Number.isNaN(d.getTime())) options.until = d;
 		}
 
+		const scope = requireScope(res);
+		if (!scope) return;
+		const scopedExport = scope.scopeAuditExport(options);
+		if (!scopedExport.ok) {
+			sendDenial(res, scopedExport.denial);
+			return;
+		}
 		auth.audit
-			.export(options)
+			.export(scopedExport.value)
 			.then((exported) => {
 				const contentType = format === "csv" ? "text/csv" : "application/json";
 				res.setHeader("Content-Type", contentType);
@@ -574,11 +667,16 @@ export function buildTheAuthRouter(
 	// ── Dashboard API ───────────────────────────────────────────────
 
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
+		const scope = requireScope(res);
+		if (!scope) return;
+		// Default guard: aggregate only the caller's own agents and audit rows.
+		const statsOwner = scope.statsOwnerId();
 		Promise.all([
-			auth.agent.list(),
+			auth.agent.list(statsOwner ? { userId: statsOwner } : undefined),
 			auth.audit.query({
 				since: new Date(Date.now() - 24 * 60 * 60 * 1000),
 				limit: 1000,
+				...(statsOwner ? { userId: statsOwner } : {}),
 			}),
 		])
 			.then(([agents, recentAudit]) => {
@@ -618,8 +716,15 @@ export function buildTheAuthRouter(
 		if (typeof type === "string" && ["autonomous", "delegated", "service"].includes(type)) {
 			filter.type = type as AgentFilter["type"];
 		}
+		const scope = requireScope(res);
+		if (!scope) return;
+		const scoped = scope.scopeAgentFilter(filter);
+		if (!scoped.ok) {
+			sendDenial(res, scoped.denial);
+			return;
+		}
 		auth.agent
-			.list(filter)
+			.list(scoped.value)
 			.then((agents) => sendOk(res, agents))
 			.catch((err: unknown) => {
 				const message = err instanceof Error ? err.message : "Failed to list agents";
@@ -656,8 +761,15 @@ export function buildTheAuthRouter(
 			if (!Number.isNaN(n) && n >= 0) filter.offset = n;
 		}
 
+		const scope = requireScope(res);
+		if (!scope) return;
+		const scoped = scope.scopeAuditFilter(filter);
+		if (!scoped.ok) {
+			sendDenial(res, scoped.denial);
+			return;
+		}
 		auth.audit
-			.query(filter)
+			.query(scoped.value)
 			.then((entries) => sendOk(res, entries))
 			.catch((err: unknown) => {
 				const message = err instanceof Error ? err.message : "Failed to query audit logs";

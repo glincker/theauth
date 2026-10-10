@@ -62,6 +62,7 @@ export class TheAuthModule implements NestModule {
 					mcp: this.options.mcp,
 					authenticate: this.options.authenticate,
 					allowUnauthenticated: this.options.allowUnauthenticated,
+					trustedProxy: this.options.trustedProxy,
 				}),
 			)
 			.forRoutes(`${basePath}/*path`);
