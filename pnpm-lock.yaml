@@ -664,6 +664,9 @@ importers:
       '@glinr/theauth':
         specifier: workspace:*
         version: link:../core
+      '@glinr/theauth-dashboard':
+        specifier: workspace:*
+        version: link:../dashboard
       '@glinr/theauth-hono':
         specifier: workspace:*
         version: link:../adapters/hono
