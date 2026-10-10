@@ -31,7 +31,7 @@
     "@glinr/theauth": "workspace:*",
     "@glinr/theauth-hono": "workspace:*",
     "hono": "^4.12.27",
-    "@hono/node-server": "^1.13.0"
+    "@hono/node-server": "^1.19.15"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
