@@ -1,5 +1,11 @@
 # @glinr/theauth-gateway
 
+## 4.0.1
+
+### Patch Changes
+
+- 8997cae: Package metadata: add `engines` (Node 20+) and npm provenance to `publishConfig`, refresh the CLI description and keywords, and document MCP client setup in the gateway README.
+
 ## 4.0.0
 
 ### Minor Changes
