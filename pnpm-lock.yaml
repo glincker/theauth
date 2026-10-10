@@ -126,6 +126,43 @@ importers:
         specifier: ^4.83.0
         version: 4.83.0(@cloudflare/workers-types@4.20260418.1)
 
+  examples/demo-worker:
+    dependencies:
+      '@glinr/theauth':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@hono/node-server':
+        specifier: ^1.19.15
+        version: 1.19.15(hono@4.13.13)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.4(@cloudflare/workers-types@4.20260418.1)(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@prisma/client@7.5.0(typescript@6.0.3))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(@types/sql.js@1.4.11)(better-sqlite3@12.9.0)(mysql2@3.20.0(@types/node@25.6.0))(pg@8.20.0)(sql.js@1.14.1)
+      hono:
+        specifier: ^4.13.7
+        version: 4.13.13
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260418.1
+        version: 4.20260418.1
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.3.4(@types/node@25.6.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
+      wrangler:
+        specifier: ^4.83.0
+        version: 4.83.0(@cloudflare/workers-types@4.20260418.1)
+
   examples/hono-server:
     dependencies:
       '@glinr/theauth':
@@ -13252,7 +13289,7 @@ snapshots:
 
   '@types/ws@8.18.2':
     dependencies:
-      '@types/node': 25.9.9
+      '@types/node': 25.6.0
 
   '@types/yargs-parser@21.0.3': {}
 
