@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "migrations:generate": "node scripts/generate-migration.mjs",
+    "migrations:apply": "wrangler d1 migrations apply theauth-db --remote",
+    "migrations:apply:local": "wrangler d1 migrations apply theauth-db --local",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

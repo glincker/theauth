@@ -48,6 +48,22 @@ async function runMigrations(
 	// biome-ignore lint/suspicious/noExplicitAny: raw DDL on pg/mysql adapter boundary
 	const anyDb = db as any;
 
+	if (provider === "d1") {
+		// D1 has no multi statement exec that is safe for multi line DDL, so run
+		// the statements as one batch of prepared statements.
+		const client: {
+			prepare: (sql: string) => unknown;
+			batch: (stmts: unknown[]) => Promise<unknown>;
+		} = anyDb.$client ?? anyDb.session?.client;
+		if (!client) {
+			throw new Error(
+				"TheAuth plugin migrations: cannot access the D1 binding from the Drizzle instance.",
+			);
+		}
+		await client.batch(statements.map((sql) => client.prepare(sql)));
+		return;
+	}
+
 	if (provider === "postgres") {
 		const client: { query: (sql: string) => Promise<unknown> } =
 			anyDb.$client ?? anyDb.session?.client;
