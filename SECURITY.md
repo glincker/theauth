@@ -6,11 +6,12 @@ Packages in this repo are versioned independently and are mostly pre-1.0. Securi
 
 | Package | Supported line |
 | ------- | -------------- |
-| `@glinr/theauth` (core) | 0.5.x |
+| `@glinr/theauth` (core) | 0.7.x |
 | `@glinr/theauth-react` | 0.6.x |
 | `@glinr/theauth-client`, `-vue`, `-svelte`, `-expo`, `-electron` | 0.2.x |
-| `@glinr/theauth-gateway` | 3.0.x |
-| `@glinr/theauth-cli`, `@glinr/theauth-dashboard` | 0.1.x |
+| `@glinr/theauth-gateway` | 4.0.x |
+| `@glinr/theauth-cli` | 0.3.x |
+| `@glinr/theauth-dashboard` | 0.1.x |
 | `@glinr/theauth-ui`, `-ui-headless`, `-test-utils` | 0.1.x |
 | Older lines | No |
 
