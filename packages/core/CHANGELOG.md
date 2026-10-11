@@ -1,5 +1,12 @@
 # theauth
 
+## 0.7.2
+
+### Patch Changes
+
+- 43fa729: Fix the quick start snippet in the package README: enable the agent tables with `agents: { enabled: true }`, await `createTheAuth`, and create the owner row first.
+- 8930a06: Record denied attempts by revoked and expired agents in the audit log. `authorize()` and `authorizeByToken()` now write a `denied` row with reason `agent_revoked` or `agent_expired` for a known agent, so the attempt is visible and stays on the agent's hash chain. Decisions are unchanged. Unknown agent ids and unknown tokens still write no row.
+
 ## 0.7.1
 
 ### Patch Changes
