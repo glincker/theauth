@@ -16,6 +16,14 @@ export type {
 	DPoPPublicJwk,
 } from "./dpop.js";
 export { createDPoPClient, createDPoPProver, normalizeHtu } from "./dpop.js";
+export type {
+	EndpointCallInput,
+	EndpointClient,
+	EndpointClientOptions,
+	EndpointResult,
+	RouteShape,
+} from "./endpoint-client.js";
+export { createEndpointClient } from "./endpoint-client.js";
 export { AuthApiError, TheAuthApiError } from "./error.js";
 export {
 	createTheAuthGoClient,
