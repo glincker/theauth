@@ -80,6 +80,19 @@ const IMMUTABLE_PATHS = new Set<string>([
 // so none of them may be used to walk or assign through these.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
+/**
+ * Write an own data property. `defineProperty` with the key "__proto__" creates
+ * a plain property and never reaches the prototype, unlike `obj[key] = value`.
+ */
+function setOwn(target: MutableResource, key: string, value: unknown): void {
+	Object.defineProperty(target, key, {
+		value,
+		writable: true,
+		enumerable: true,
+		configurable: true,
+	});
+}
+
 /** Read an own property only, so walking a path can never reach a prototype. */
 function ownValue(target: MutableResource, key: string): unknown {
 	return Object.hasOwn(target, key) ? target[key] : undefined;
@@ -282,7 +295,7 @@ function containerFor(resource: MutableResource, schemaUrn?: string): MutableRes
 		return existing as MutableResource;
 	}
 	const next: MutableResource = {};
-	resource[schemaUrn] = next;
+	setOwn(resource, schemaUrn, next);
 	return next;
 }
 
@@ -301,10 +314,10 @@ function mergeInto(
 			throw new ScimPatchError(`Attribute "${key}" is immutable`, "mutability");
 		}
 		if (op === "add" && Array.isArray(target[key]) && Array.isArray(value)) {
-			target[key] = (target[key] as unknown[]).concat(value);
+			setOwn(target, key, (target[key] as unknown[]).concat(value));
 			continue;
 		}
-		target[key] = value;
+		setOwn(target, key, value);
 	}
 }
 
@@ -330,7 +343,11 @@ function applyToResource(
 		}
 		const arr = currentBase as MutableResource[];
 		if (op === "remove") {
-			container[base] = arr.filter((item) => !evaluateFilter(path.valueFilter as FilterAst, item));
+			setOwn(
+				container,
+				base,
+				arr.filter((item) => !evaluateFilter(path.valueFilter as FilterAst, item)),
+			);
 			return;
 		}
 		// add / replace — apply `value` to each matching element.
@@ -355,7 +372,7 @@ function applyToResource(
 		if (path.subPath && path.subPath.length > 0) {
 			deleteDeep(currentBase, path.subPath);
 		} else {
-			container[base] = undefined;
+			setOwn(container, base, undefined);
 		}
 		return;
 	}
@@ -367,11 +384,11 @@ function applyToResource(
 	}
 
 	if (op === "add" && Array.isArray(currentBase) && Array.isArray(value)) {
-		container[base] = currentBase.concat(value);
+		setOwn(container, base, currentBase.concat(value));
 		return;
 	}
 
-	container[base] = value;
+	setOwn(container, base, value);
 }
 
 function ensureObject(container: MutableResource, key: string): MutableResource {
@@ -383,7 +400,7 @@ function ensureObject(container: MutableResource, key: string): MutableResource 
 		return current as MutableResource;
 	}
 	const next: MutableResource = {};
-	container[key] = next;
+	setOwn(container, key, next);
 	return next;
 }
 
@@ -400,7 +417,7 @@ function setDeep(target: unknown, path: string[], value: unknown): void {
 			cursor = next as MutableResource;
 		} else {
 			const fresh: MutableResource = {};
-			cursor[segment] = fresh;
+			setOwn(cursor, segment, fresh);
 			cursor = fresh;
 		}
 	}
@@ -408,7 +425,7 @@ function setDeep(target: unknown, path: string[], value: unknown): void {
 	if (leaf === "__proto__" || leaf === "constructor" || leaf === "prototype") {
 		throw new ScimPatchError(`PATCH path contains a reserved name "${leaf}"`, "invalidPath");
 	}
-	cursor[leaf] = value;
+	setOwn(cursor, leaf, value);
 }
 
 function deleteDeep(target: unknown, path: string[]): void {
@@ -423,5 +440,5 @@ function deleteDeep(target: unknown, path: string[]): void {
 	}
 	const leaf = path[path.length - 1] as string;
 	if (leaf === "__proto__" || leaf === "constructor" || leaf === "prototype") return;
-	cursor[leaf] = undefined;
+	setOwn(cursor, leaf, undefined);
 }
