@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260" role="img" aria-labelledby="t d" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<title id="t">Push and poll delivery</title><desc id="d">Push: the transmitter calls the receiver. Poll: the receiver asks the transmitter and acknowledges.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3b82f6"/></marker></defs>
+<rect width="720" height="260" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+<line x1="360" y1="24" x2="360" y2="236" stroke="#e2e8f0" stroke-dasharray="4 4"/>
+<g font-size="13" text-anchor="middle" fill="#0f172a">
+<text x="180" y="40" font-weight="700" font-size="15">Push (RFC 8935)</text>
+<rect x="30" y="80" width="110" height="60" rx="10" fill="#fff" stroke="#cbd5e1"/><text x="85" y="115">Transmitter</text>
+<rect x="220" y="80" width="110" height="60" rx="10" fill="#fff" stroke="#cbd5e1"/><text x="275" y="115">Receiver</text>
+<path d="M140 100H218" stroke="#3b82f6" stroke-width="2" marker-end="url(#a)"/><text x="180" y="92" font-size="11" fill="#64748b">POST SET</text>
+<text x="180" y="180" font-size="12" fill="#64748b">Lowest latency. Retries with backoff.</text><text x="180" y="200" font-size="12" fill="#64748b">Receiver needs a public HTTPS URL.</text>
+<text x="540" y="40" font-weight="700" font-size="15">Poll (RFC 8936)</text>
+<rect x="390" y="80" width="110" height="60" rx="10" fill="#fff" stroke="#cbd5e1"/><text x="445" y="115">Transmitter</text>
+<rect x="580" y="80" width="110" height="60" rx="10" fill="#fff" stroke="#cbd5e1"/><text x="635" y="115">Receiver</text>
+<path d="M578 100H502" stroke="#3b82f6" stroke-width="2" marker-end="url(#a)"/><text x="540" y="92" font-size="11" fill="#64748b">poll + ack</text>
+<path d="M502 124H578" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/><text x="540" y="140" font-size="11" fill="#64748b">events</text>
+<text x="540" y="180" font-size="12" fill="#64748b">Works behind a firewall or on serverless.</text><text x="540" y="200" font-size="12" fill="#64748b">Receiver controls the pace.</text></g>
+</svg>

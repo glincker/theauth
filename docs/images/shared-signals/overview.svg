@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" role="img" aria-labelledby="t d" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<title id="t">Shared signals overview</title><desc id="d">A transmitter sends signed security events to receivers, and a receiver revokes sessions when it gets one.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3b82f6"/></marker>
+<pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#e5e7eb" stroke-width="1"/></pattern></defs>
+<rect width="720" height="300" rx="16" fill="#f8fafc" stroke="#e2e8f0"/><rect width="720" height="300" rx="16" fill="url(#g)" opacity=".6"/>
+<g><rect x="36" y="70" width="190" height="140" rx="12" fill="#fff" stroke="#cbd5e1"/>
+<text x="131" y="100" text-anchor="middle" font-size="15" font-weight="600" fill="#0f172a">Transmitter</text>
+<text x="131" y="120" text-anchor="middle" font-size="12" fill="#64748b">your theAuth server</text>
+<rect x="56" y="140" width="150" height="26" rx="13" fill="#eff6ff" stroke="#bfdbfe"/><text x="131" y="157" text-anchor="middle" font-size="12" fill="#1d4ed8">session revoked</text>
+<rect x="56" y="172" width="150" height="26" rx="13" fill="#eff6ff" stroke="#bfdbfe"/><text x="131" y="189" text-anchor="middle" font-size="12" fill="#1d4ed8">account disabled</text></g>
+<g><rect x="260" y="105" width="200" height="70" rx="12" fill="#fff" stroke="#3b82f6" stroke-width="2"/>
+<text x="360" y="133" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Signed event (SET)</text>
+<text x="360" y="153" text-anchor="middle" font-size="12" fill="#64748b">JWT, typ secevent+jwt</text></g>
+<g><rect x="494" y="40" width="190" height="90" rx="12" fill="#fff" stroke="#cbd5e1"/>
+<text x="589" y="70" text-anchor="middle" font-size="15" font-weight="600" fill="#0f172a">Receiver A</text>
+<text x="589" y="92" text-anchor="middle" font-size="12" fill="#64748b">revokes local sessions</text>
+<rect x="494" y="170" width="190" height="90" rx="12" fill="#fff" stroke="#cbd5e1"/>
+<text x="589" y="200" text-anchor="middle" font-size="15" font-weight="600" fill="#0f172a">Receiver B</text>
+<text x="589" y="222" text-anchor="middle" font-size="12" fill="#64748b">custom handler</text></g>
+<path d="M226 140H258" stroke="#3b82f6" stroke-width="2" marker-end="url(#a)" fill="none"/>
+<path d="M460 130C480 120 480 100 492 90" stroke="#3b82f6" stroke-width="2" marker-end="url(#a)" fill="none"/>
+<path d="M460 150C480 160 480 200 492 210" stroke="#3b82f6" stroke-width="2" marker-end="url(#a)" fill="none"/>
+<text x="360" y="280" text-anchor="middle" font-size="12" fill="#64748b">Push over HTTPS or poll, your choice per stream</text>
+</svg>
