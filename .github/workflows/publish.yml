@@ -54,13 +54,14 @@ jobs:
       - name: Report version drift
         run: node scripts/check-versions.mjs || true
 
-      # Single list — keep in sync with the publishable packages.
+      # The list comes from scripts/publishable-packages.mjs (every public workspace package), so a new package is
+      # never skipped by accident. The unscoped `theauth` alias is excluded there until it has been published once
+      # by hand: a rejected first publish would fail the whole run.
       - name: Detect changed packages
         id: detect
         run: |
-          # packages/theauth-alias is deliberately not listed until the unscoped `theauth` name has been published once
-          # by hand: a rejected first publish would fail the whole run.
-          PACKAGES="packages/core packages/client packages/cli packages/mcp packages/dashboard packages/react packages/vue packages/svelte packages/ui packages/test-utils packages/expo packages/electron packages/auth/email packages/plugins/telemetry packages/plugins/discovery packages/gateway packages/adapters/hono packages/adapters/express packages/adapters/nextjs packages/adapters/nextjs-auth packages/adapters/fastify packages/adapters/nuxt packages/adapters/sveltekit packages/adapters/astro packages/adapters/nestjs packages/adapters/solidstart packages/adapters/tanstack packages/adapters/prisma packages/ui-headless packages/create-theauth-app"
+          PACKAGES=$(node scripts/publishable-packages.mjs | tr '\n' ' ')
+          echo "Checking $(echo $PACKAGES | wc -w | tr -d ' ') public packages"
 
           # Parallel: for each package, compare local pkg.json version to the
           # published version on npm. Emit "<dir>" for any package that needs
