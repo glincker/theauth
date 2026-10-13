@@ -100,6 +100,17 @@ export interface SocialSignInConfig {
 	sha256?(input: string): Promise<Uint8Array>;
 }
 
+/**
+ * A platform passkey authenticator. Options and results are the WebAuthn JSON
+ * forms, so `react-native-passkey`'s `Passkey` object satisfies this directly.
+ */
+export interface PasskeyAuthenticator {
+	/** Create a credential from the server's registration options. */
+	create(options: Record<string, unknown>): Promise<Record<string, unknown>>;
+	/** Sign the server's authentication challenge. */
+	get(options: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
+
 /** The slice of React Native's `AppState` the provider uses. */
 export interface AppStateLike {
 	addEventListener(type: "change", listener: (state: string) => void): { remove(): void };
@@ -114,6 +125,13 @@ export interface TheAuthExpoConfig {
 	storage?: TheAuthStorage;
 	/** Enables `signInWithProvider`. */
 	social?: SocialSignInConfig;
+	/** Enables `signInWithPasskey` and `registerPasskey`. */
+	passkeys?: PasskeyAuthenticator;
+	/**
+	 * `fetch` used for every request, e.g. `createDPoPClient({ ... }).fetch` from
+	 * `@glinr/theauth-client` to attach DPoP proofs, or a pinned-certificate fetch.
+	 */
+	fetch?: typeof fetch;
 	/**
 	 * React Native's `AppState`. When set, the session is refreshed each time the
 	 * app returns to the foreground, so a revoked session signs the user out.
@@ -135,6 +153,10 @@ export interface TheAuthContextValue {
 	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
 	/** Sign in with a social provider through the system browser. Needs `config.social`. */
 	signInWithProvider: (provider: string) => Promise<ActionResult>;
+	/** Sign in with a passkey. Needs `config.passkeys`. */
+	signInWithPasskey: (userId?: string) => Promise<ActionResult>;
+	/** Add a passkey to the signed-in user. Needs `config.passkeys`. */
+	registerPasskey: (deviceName?: string) => Promise<ActionResult>;
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 }

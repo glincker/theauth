@@ -148,6 +148,36 @@ The mount path in `basePath` must expose the OAuth plugin routes `/auth/oauth/au
 
 Pass React Native's `AppState` as `appState` and the session is re-checked every time the app comes back to the foreground, so a session revoked elsewhere signs the user out.
 
+## Passkeys
+
+Pass a platform authenticator and the provider can sign users in with a passkey and add one to a signed-in account. The server's passkey routes already return WebAuthn JSON options and a session token, so [`react-native-passkey`](https://github.com/f-23/react-native-passkey) works as is:
+
+```tsx
+import { Passkey } from 'react-native-passkey';
+import { usePasskeys } from '@glinr/theauth-expo';
+
+const config = { basePath: '...', passkeys: Passkey };
+
+const { signInWithPasskey, registerPasskey, isLoading, error } = usePasskeys();
+<Button title="Sign in with a passkey" onPress={() => signInWithPasskey()} />
+<Button title="Add a passkey" onPress={() => registerPasskey('My phone')} />
+```
+
+`registerPasskey` needs a session, so call it after another sign-in method. Your app's associated domains (iOS) and Digital Asset Links (Android) must list the relying party ID the server uses. A required second factor comes back as a failure naming the gate, the same as social sign-in.
+
+## Custom fetch (DPoP, pinning)
+
+Every request the provider makes goes through `config.fetch` when set. Pass a DPoP client's `fetch` from `@glinr/theauth-client` to attach proofs, or your own pinned-certificate implementation:
+
+```tsx
+import { createDPoPClient } from '@glinr/theauth-client';
+
+const dpop = createDPoPClient({ keyPair });   // needs a WebCrypto implementation
+const config = { basePath: '...', fetch: dpop.fetch };
+```
+
+React Native has no `crypto.subtle` by default, so supply one (for example `react-native-quick-crypto`) and generate the key pair with it. Session tokens are plain bearer tokens on the server today, so proofs are useful for OAuth and MCP access tokens you also send through this fetch.
+
 ## Hooks reference
 
 ### `useSession`
@@ -199,6 +229,8 @@ Manages agent identity records for the current user. Requires the full base URL 
 | `storage` | `AuthStorage?` | Token persistence adapter. Defaults to in-memory |
 | `social` | `SocialSignInConfig?` | Enables `signInWithProvider`. See Social sign-in |
 | `appState` | `AppStateLike?` | React Native `AppState`. Refreshes the session on foreground |
+| `passkeys` | `PasskeyAuthenticator?` | Enables `signInWithPasskey` and `registerPasskey` |
+| `fetch` | `typeof fetch?` | Used for every request, for DPoP or certificate pinning |
 
 <Warning>
 The default in-memory storage loses the session when the app restarts. Always pass a real storage adapter in production.

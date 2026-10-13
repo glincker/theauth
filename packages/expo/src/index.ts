@@ -3,6 +3,7 @@
 // Hooks
 export {
 	useAgents,
+	usePasskeys,
 	useSession,
 	useSignIn,
 	useSignOut,
@@ -10,6 +11,7 @@ export {
 	useSocialSignIn,
 	useUser,
 } from "./hooks.js";
+export { runPasskeyRegistration, runPasskeySignIn } from "./passkey.js";
 export type {
 	AuthExpoProviderProps,
 	TheAuthExpoProviderProps,
@@ -38,6 +40,7 @@ export type {
 	AuthStorage,
 	AuthUser,
 	CreateAgentInput,
+	PasskeyAuthenticator,
 	SocialSignInConfig,
 	TheAuthAgent,
 	TheAuthContextValue,
