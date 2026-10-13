@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 586" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 666" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">Stateless sessions bound to the user</title><desc id="d">A browser holds an identity cookie and a token cookie. The server checks that the token cookie is bound to the identity cookie and refuses a token cookie taken from another user.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 468.8)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 351.59999999999997)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 468.8)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(380 532.8000000000001)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(380 0) scale(266 399.59999999999997)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(760 0) scale(342 532.8000000000001)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
@@ -16,185 +16,184 @@
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="586" rx="16" fill="#06080a"/>
-<rect width="640" height="586" rx="16" fill="url(#g1)"/><rect width="640" height="586" rx="16" fill="url(#g2)"/><rect width="640" height="586" rx="16" fill="url(#g3)"/>
-<rect width="640" height="586" rx="16" filter="url(#n)" opacity=".10"/>
-<polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<circle cx="320" cy="109.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="123.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="136.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="179.7" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="156.3" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="132.9" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="123.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="136.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="179.7" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="156.3" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="136.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="179.7" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="460.3" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="483.7" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="460.3" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="312.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="507.1" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="483.7" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="460.3" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="312.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="325.6" r="1" fill="#46585f" opacity=".6"/>
-<polygon points="495.4,189.2 546.8,218.9 490.7,251.3 439.2,221.6" fill="#8b7cf6" fill-opacity=".05" stroke="#8b7cf6" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>
-<rect x="386.2" y="217.6" width="70" height="24" rx="12" fill="#8b7cf6" fill-opacity=".14" stroke="#8b7cf6" stroke-opacity=".6"/><text x="421.2" y="233.6" text-anchor="middle" font-size="12.5" fill="#8b7cf6" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Server</text>
-<polygon points="147,195.1 197.5,224.3 147,253.5 96.5,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="147,193.3 189.1,217.6 147,241.9 104.9,217.6" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
-<polygon points="109.6,217.6 147,239.2 147,206.8 109.6,185.2" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="184.4,217.6 147,239.2 147,206.8 184.4,185.2" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="147,163.5 184.4,185.2 147,206.8 109.6,185.2" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="109.6,185.2 147,206.8 184.4,185.2" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="109.6,214.9 147,236.5 184.4,214.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(37.411 21.6 -37.411 21.6 147 163.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polygon points="263.9,195.1 314.4,224.3 263.9,253.5 213.4,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="263.9,193.3 306,217.6 263.9,241.9 221.8,217.6" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
-<polygon points="226.5,217.6 263.9,239.2 263.9,217.6 226.5,196" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="301.3,217.6 263.9,239.2 263.9,217.6 301.3,196" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="263.9,174.4 301.3,196 263.9,217.6 226.5,196" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="226.5,196 263.9,217.6 301.3,196" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="226.5,214.9 263.9,236.5 301.3,214.9" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(37.411 21.6 -37.411 21.6 263.9 174.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".5" r=".3" fill="#eef35f" fill-opacity=".14" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".42" cy=".42" r=".035" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".58" cy=".5" r=".035" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".46" cy=".62" r=".035" fill="#eef35f" stroke="none"/></g>
-<polygon points="376.1,195.1 426.6,224.3 376.1,253.5 325.6,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="376.1,193.3 418.2,217.6 376.1,241.9 334,217.6" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
-<polygon points="338.7,217.6 376.1,239.2 376.1,217.6 338.7,196" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="413.5,217.6 376.1,239.2 376.1,217.6 413.5,196" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="376.1,174.4 413.5,196 376.1,217.6 338.7,196" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="338.7,196 376.1,217.6 413.5,196" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="338.7,214.9 376.1,236.5 413.5,214.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(37.411 21.6 -37.411 21.6 376.1 174.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".5" r=".3" fill="#19d9b8" fill-opacity=".14" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".42" cy=".42" r=".035" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".58" cy=".5" r=".035" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".46" cy=".62" r=".035" fill="#19d9b8" stroke="none"/></g>
-<polygon points="493,195.1 543.5,224.3 493,253.5 442.5,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="493,193.3 535.1,217.6 493,241.9 450.9,217.6" fill="#8b7cf6" opacity=".16" filter="url(#bl)"/>
-<polygon points="455.6,217.6 493,239.2 493,204.1 455.6,182.5" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="530.4,217.6 493,239.2 493,204.1 530.4,182.5" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="493,160.8 530.4,182.5 493,204.1 455.6,182.5" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="455.6,182.5 493,204.1 530.4,182.5" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="455.6,214.9 493,236.5 530.4,214.9" fill="none" stroke="#8b7cf6" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(37.411 21.6 -37.411 21.6 493 160.8)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><path vector-effect="non-scaling-stroke" d="M.5 .16L.78 .27V.5C.78 .66 .66 .78 .5 .84C.34 .78 .22 .66 .22 .5V.27Z" fill="#8b7cf6" fill-opacity=".16" stroke="#8b7cf6"/><path vector-effect="non-scaling-stroke" d="M.37 .5L.47 .6L.64 .4" fill="none" stroke="#8b7cf6"/></g>
-<polyline points="193.7,214.9 217.1,214.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="193.7,214.9 217.1,214.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
-<circle cx="193.7" cy="214.9" r="4" fill="#eef35f"/>
-<polyline points="310.6,214.9 329.4,214.9" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="310.6,214.9 329.4,214.9" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
-<circle cx="310.6" cy="214.9" r="4" fill="#19d9b8"/>
-<polyline points="422.9,214.9 446.3,214.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="422.9,214.9 446.3,214.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
-<circle cx="422.9" cy="214.9" r="4" fill="#eef35f"/>
-<polygon points="329.4,261.3 377.5,289.1 329.4,316.9 281.2,289.1" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="329.4,259.4 369.1,282.4 329.4,305.3 289.6,282.4" fill="#f87171" opacity=".16" filter="url(#bl)"/>
-<polygon points="294.3,282.4 329.4,302.6 329.4,283.7 294.3,263.5" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="364.4,282.4 329.4,302.6 329.4,283.7 364.4,263.5" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="329.4,243.2 364.4,263.5 329.4,283.7 294.3,263.5" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="294.3,263.5 329.4,283.7 364.4,263.5" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="294.3,279.7 329.4,299.9 364.4,279.7" fill="none" stroke="#f87171" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(35.073 20.25 -35.073 20.25 329.4 243.2)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".36" r=".13" fill="#f87171" fill-opacity=".18" stroke="#f87171"/><path vector-effect="non-scaling-stroke" d="M.24 .78C.26 .58 .38 .54 .5 .54S.74 .58 .76 .78Z" fill="#f87171" fill-opacity=".18" stroke="#f87171"/></g>
-<polyline points="336.4,299.9 371.4,193.2" fill="none" stroke="#f87171" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="336.4,299.9 371.4,193.2" fill="none" stroke="#f87171" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mr)"/>
-<circle cx="336.4" cy="299.9" r="4" fill="#f87171"/>
-<circle cx="348.1" cy="250" r="12" fill="#f87171"/><path d="M343.6 245.5L352.6 254.5M352.6 245.5L343.6 254.5" stroke="#06080a" stroke-width="2.5" stroke-linecap="round"/>
-<line x1="147" y1="158.2" x2="147" y2="185.2" stroke="#19d9b8" stroke-width="1.5"/><circle cx="147" cy="185.2" r="3" fill="#19d9b8"/>
-<rect x="102.9" y="128.2" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="147" y="148.2" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Browser</text>
-<line x1="263.9" y1="109" x2="263.9" y2="196" stroke="#19d9b8" stroke-width="1.5"/><circle cx="263.9" cy="196" r="3" fill="#19d9b8"/>
-<rect x="185.4" y="79" width="157" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="263.9" y="99" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Identity cookie</text>
-<line x1="376.1" y1="169" x2="376.1" y2="196" stroke="#19d9b8" stroke-width="1.5"/><circle cx="376.1" cy="196" r="3" fill="#19d9b8"/>
-<rect x="310.5" y="139" width="131.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="376.1" y="159" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Token cookie</text>
-<line x1="493" y1="131.5" x2="493" y2="182.5" stroke="#19d9b8" stroke-width="1.5"/><circle cx="493" cy="182.5" r="3" fill="#19d9b8"/>
-<rect x="388.7" y="101.5" width="208.6" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="493" y="121.5" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Server checks binding</text>
-<line x1="329.4" y1="302.6" x2="329.4" y2="317.6" stroke="#19d9b8" stroke-width="1.5"/><circle cx="329.4" cy="302.6" r="3" fill="#19d9b8"/>
-<rect x="212.2" y="317.6" width="234.4" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="329.4" y="337.6" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Cookie from another user</text>
-<path d="M147 239.2L147 265.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="147" cy="239.2" r="3" fill="#eef35f"/>
-<rect x="80.3" y="265.2" width="133.4" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
-<circle cx="99.3" cy="283.2" r="10" fill="#eef35f"/><text x="99.3" y="287.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">1</text>
-<text x="116.3" y="287.7" font-size="12.5" fill="#f4f4f5">Two cookies</text>
-<path d="M263.9 239.2L263.9 360.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="263.9" cy="239.2" r="3" fill="#eef35f"/>
-<rect x="182.4" y="360.2" width="163" height="46" rx="23" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
-<circle cx="201.4" cy="383.2" r="10" fill="#eef35f"/><text x="201.4" y="387.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">2</text>
-<text x="218.4" y="381.2" font-size="12.5" fill="#f4f4f5">Token sealed to</text>
-<text x="218.4" y="396.2" font-size="12.5" fill="#f4f4f5">identity</text>
-<path d="M376.1 239.2L376.1 265.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="376.1" cy="239.2" r="3" fill="#eef35f"/>
-<rect x="294.6" y="265.2" width="163" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
-<circle cx="313.6" cy="283.2" r="10" fill="#eef35f"/><text x="313.6" y="287.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">3</text>
-<text x="330.6" y="287.7" font-size="12.5" fill="#f4f4f5">Binding checked</text>
-<path d="M493 239.2L493 365.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="493" cy="239.2" r="3" fill="#eef35f"/>
-<rect x="385.6" y="365.2" width="214.8" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
-<circle cx="404.6" cy="383.2" r="10" fill="#eef35f"/><text x="404.6" y="387.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">4</text>
-<text x="421.6" y="387.7" font-size="12.5" fill="#f4f4f5">Foreign cookie refused</text>
+<rect width="760" height="666" rx="16" fill="#06080a"/>
+<rect width="760" height="666" rx="16" fill="url(#g1)"/><rect width="760" height="666" rx="16" fill="url(#g2)"/><rect width="760" height="666" rx="16" fill="url(#g3)"/>
+<rect width="760" height="666" rx="16" filter="url(#n)" opacity=".10"/>
+<polygon points="50.9,282 380,472 380,458.7 50.9,268.7" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="709.1,282 380,472 380,458.7 709.1,268.7" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="380,78.7 709.1,268.7 380,458.7 50.9,268.7" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<circle cx="380" cy="116.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="135.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="154.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="182.6" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="149.6" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="116.7" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="135.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="154.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="182.6" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="149.6" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="154.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="182.6" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="577.4" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="382.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="610.4" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="577.4" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="382.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="401.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="643.3" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="610.4" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="577.4" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="382.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="401.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="420.7" r="1" fill="#46585f" opacity=".6"/>
+<polygon points="626.8,228.8 699.2,270.6 620.2,316.2 547.8,274.4" fill="#8b7cf6" fill-opacity=".05" stroke="#8b7cf6" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>
+<polygon points="136.5,237.2 207.6,278.2 136.5,319.2 65.4,278.2" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="136.5,234.5 195.7,268.7 136.5,302.9 77.2,268.7" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
+<polygon points="83.8,268.7 136.5,299.1 136.5,253.5 83.8,223.1" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="189.1,268.7 136.5,299.1 136.5,253.5 189.1,223.1" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="136.5,192.7 189.1,223.1 136.5,253.5 83.8,223.1" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="83.8,223.1 136.5,253.5 189.1,223.1" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="83.8,264.9 136.5,295.3 189.1,264.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(52.653 30.4 -52.653 30.4 136.5 192.7)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
+<polygon points="301,237.2 372.1,278.2 301,319.2 229.9,278.2" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="301,234.5 360.3,268.7 301,302.9 241.8,268.7" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
+<polygon points="248.4,268.7 301,299.1 301,268.7 248.4,238.3" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="353.7,268.7 301,299.1 301,268.7 353.7,238.3" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="301,207.9 353.7,238.3 301,268.7 248.4,238.3" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="248.4,238.3 301,268.7 353.7,238.3" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="248.4,264.9 301,295.3 353.7,264.9" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(52.653 30.4 -52.653 30.4 301 207.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".5" r=".3" fill="#eef35f" fill-opacity=".14" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".42" cy=".42" r=".035" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".58" cy=".5" r=".035" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".46" cy=".62" r=".035" fill="#eef35f" stroke="none"/></g>
+<polygon points="459,237.2 530.1,278.2 459,319.2 387.9,278.2" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="459,234.5 518.2,268.7 459,302.9 399.7,268.7" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
+<polygon points="406.3,268.7 459,299.1 459,268.7 406.3,238.3" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="511.6,268.7 459,299.1 459,268.7 511.6,238.3" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="459,207.9 511.6,238.3 459,268.7 406.3,238.3" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="406.3,238.3 459,268.7 511.6,238.3" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="406.3,264.9 459,295.3 511.6,264.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(52.653 30.4 -52.653 30.4 459 207.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".5" r=".3" fill="#19d9b8" fill-opacity=".14" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".42" cy=".42" r=".035" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".58" cy=".5" r=".035" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".46" cy=".62" r=".035" fill="#19d9b8" stroke="none"/></g>
+<polygon points="623.5,237.2 694.6,278.2 623.5,319.2 552.4,278.2" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="623.5,234.5 682.8,268.7 623.5,302.9 564.3,268.7" fill="#8b7cf6" opacity=".16" filter="url(#bl)"/>
+<polygon points="570.9,268.7 623.5,299.1 623.5,249.7 570.9,219.3" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="676.2,268.7 623.5,299.1 623.5,249.7 676.2,219.3" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="623.5,188.9 676.2,219.3 623.5,249.7 570.9,219.3" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="570.9,219.3 623.5,249.7 676.2,219.3" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="570.9,264.9 623.5,295.3 676.2,264.9" fill="none" stroke="#8b7cf6" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(52.653 30.4 -52.653 30.4 623.5 188.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><path vector-effect="non-scaling-stroke" d="M.5 .16L.78 .27V.5C.78 .66 .66 .78 .5 .84C.34 .78 .22 .66 .22 .5V.27Z" fill="#8b7cf6" fill-opacity=".16" stroke="#8b7cf6"/><path vector-effect="non-scaling-stroke" d="M.37 .5L.47 .6L.64 .4" fill="none" stroke="#8b7cf6"/></g>
+<polyline points="202.3,264.9 235.2,264.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="202.3,264.9 235.2,264.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="202.3" cy="264.9" r="4" fill="#eef35f"/>
+<polyline points="366.8,264.9 393.2,264.9" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="366.8,264.9 393.2,264.9" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="366.8" cy="264.9" r="4" fill="#19d9b8"/>
+<polyline points="524.8,264.9 557.7,264.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="524.8,264.9 557.7,264.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="524.8" cy="264.9" r="4" fill="#eef35f"/>
+<polygon points="393.2,330.3 461,369.4 393.2,408.5 325.4,369.4" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="393.2,327.6 449.1,359.9 393.2,392.2 337.2,359.9" fill="#f87171" opacity=".16" filter="url(#bl)"/>
+<polygon points="343.8,359.9 393.2,388.4 393.2,361.8 343.8,333.3" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="442.5,359.9 393.2,388.4 393.2,361.8 442.5,333.3" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="393.2,304.8 442.5,333.3 393.2,361.8 343.8,333.3" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="343.8,333.3 393.2,361.8 442.5,333.3" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="343.8,356.1 393.2,384.6 442.5,356.1" fill="none" stroke="#f87171" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(49.361999999999995 28.5 -49.361999999999995 28.5 393.2 304.8)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".36" r=".13" fill="#f87171" fill-opacity=".18" stroke="#f87171"/><path vector-effect="non-scaling-stroke" d="M.24 .78C.26 .58 .38 .54 .5 .54S.74 .58 .76 .78Z" fill="#f87171" fill-opacity=".18" stroke="#f87171"/></g>
+<polyline points="403,384.6 452.4,234.5" fill="none" stroke="#f87171" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="403,384.6 452.4,234.5" fill="none" stroke="#f87171" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mr)"/>
+<circle cx="403" cy="384.6" r="4" fill="#f87171"/>
+<circle cx="419.5" cy="314.3" r="12" fill="#f87171"/><path d="M415 309.8L424 318.8M424 309.8L415 318.8" stroke="#06080a" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="506.8" y="270.4" width="70" height="24" rx="12" fill="#0a0f12" stroke="#8b7cf6" stroke-opacity=".7"/><text x="541.8" y="286.4" text-anchor="middle" font-size="12.5" fill="#8b7cf6" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Server</text>
+<line x1="136.5" y1="179.7" x2="136.5" y2="223.1" stroke="#19d9b8" stroke-width="1.5"/><circle cx="136.5" cy="223.1" r="3" fill="#19d9b8"/>
+<rect x="92.4" y="149.7" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="136.5" y="169.7" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Browser</text>
+<line x1="301" y1="187.3" x2="301" y2="238.3" stroke="#19d9b8" stroke-width="1.5"/><circle cx="301" cy="238.3" r="3" fill="#19d9b8"/>
+<rect x="222.5" y="157.3" width="157" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="301" y="177.3" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Identity cookie</text>
+<line x1="459" y1="194.9" x2="459" y2="238.3" stroke="#19d9b8" stroke-width="1.5"/><circle cx="459" cy="238.3" r="3" fill="#19d9b8"/>
+<rect x="393.4" y="164.9" width="131.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="459" y="184.9" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Token cookie</text>
+<line x1="623.5" y1="150.3" x2="623.5" y2="219.3" stroke="#19d9b8" stroke-width="1.5"/><circle cx="623.5" cy="219.3" r="3" fill="#19d9b8"/>
+<rect x="519.2" y="120.30000000000001" width="208.6" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="623.5" y="140.3" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Server checks binding</text>
+<line x1="393.2" y1="388.4" x2="393.2" y2="403.4" stroke="#19d9b8" stroke-width="1.5"/><circle cx="393.2" cy="388.4" r="3" fill="#19d9b8"/>
+<rect x="276" y="403.4" width="234.4" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="393.2" y="423.4" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Cookie from another user</text>
+<path d="M136.5 299.1L136.5 325.1" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="136.5" cy="299.1" r="3" fill="#eef35f"/>
+<rect x="68.8" y="325.1" width="135.4" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="87.8" cy="343.1" r="10" fill="#eef35f"/><text x="87.8" y="347.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">1</text>
+<text x="104.8" y="347.6" font-size="12.5" fill="#f4f4f5">Two cookies</text>
+<path d="M301 299.1L301 467.1" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="301" cy="299.1" r="3" fill="#eef35f"/>
+<rect x="185.2" y="467.1" width="231.6" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="204.2" cy="485.1" r="10" fill="#eef35f"/><text x="204.2" y="489.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">2</text>
+<text x="221.2" y="489.6" font-size="12.5" fill="#f4f4f5">Token sealed to identity</text>
+<path d="M459 299.1L579 325.1" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="459" cy="299.1" r="3" fill="#eef35f"/>
+<rect x="496.5" y="325.1" width="165" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="515.5" cy="343.1" r="10" fill="#eef35f"/><text x="515.5" y="347.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">3</text>
+<text x="532.5" y="347.6" font-size="12.5" fill="#f4f4f5">Binding checked</text>
+<path d="M623.5 299.1L643.6 377.1" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="623.5" cy="299.1" r="3" fill="#eef35f"/>
+<rect x="535.2" y="377.1" width="216.8" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="554.2" cy="395.1" r="10" fill="#eef35f"/><text x="554.2" y="399.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">4</text>
+<text x="571.2" y="399.6" font-size="12.5" fill="#f4f4f5">Foreign cookie refused</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="480" width="640" height="106" fill="#000" opacity=".35"/>
-<line x1="0" y1="480" x2="640" y2="480" stroke="#26343b"/>
-<text x="24" y="512" font-size="20" font-weight="650" fill="#f4f4f5">Stateless sessions bound to the user</text>
-<text x="24" y="536" font-size="14.5" fill="#a1a1aa">The token cookie is sealed against the identity cookie, so a</text>
-<text x="24" y="556" font-size="14.5" fill="#a1a1aa">copy from another user is refused.</text>
-<text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
+<rect x="0" y="560" width="760" height="106" fill="#000" opacity=".35"/>
+<line x1="0" y1="560" x2="760" y2="560" stroke="#26343b"/>
+<text x="24" y="592" font-size="20" font-weight="650" fill="#f4f4f5">Stateless sessions bound to the user</text>
+<text x="24" y="616" font-size="14.5" fill="#a1a1aa">The token cookie is sealed against the identity cookie, so a</text>
+<text x="24" y="636" font-size="14.5" fill="#a1a1aa">copy from another user is refused.</text>
+<text x="736" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>

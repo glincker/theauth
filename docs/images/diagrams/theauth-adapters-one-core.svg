@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 586" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 666" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">One core, every framework</title><desc id="d">A single theAuth core connected to five framework adapters: Next.js, Express, Hono, Fastify and SvelteKit.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 468.8)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 351.59999999999997)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 468.8)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(380 532.8000000000001)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(380 0) scale(266 399.59999999999997)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(760 0) scale(342 532.8000000000001)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
@@ -16,179 +16,179 @@
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="586" rx="16" fill="#06080a"/>
-<rect width="640" height="586" rx="16" fill="url(#g1)"/><rect width="640" height="586" rx="16" fill="url(#g2)"/><rect width="640" height="586" rx="16" fill="url(#g3)"/>
-<rect width="640" height="586" rx="16" filter="url(#n)" opacity=".10"/>
-<polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<circle cx="320" cy="109.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="123.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="136.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="179.7" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="156.3" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="132.9" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="123.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="136.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="179.7" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="156.3" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="136.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="179.7" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="150.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="203.1" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="163.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="226.5" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="177.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="249.9" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="460.3" cy="190.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="273.2" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="483.7" cy="204.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="460.3" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="296.6" cy="312.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="507.1" cy="217.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="483.7" cy="231.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="460.3" cy="244.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="436.9" cy="258.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="413.5" cy="271.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="390.1" cy="285.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="366.8" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="343.4" cy="312.1" r="1" fill="#46585f" opacity=".6"/>
-<circle cx="320" cy="325.6" r="1" fill="#46585f" opacity=".6"/>
-<polygon points="238.2,150.6 284,177.1 238.2,203.5 192.3,177.1" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="238.2,148.7 275.6,170.3 238.2,191.9 200.8,170.3" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
-<polygon points="205.4,170.3 238.2,189.2 238.2,170.3 205.4,151.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="270.9,170.3 238.2,189.2 238.2,170.3 270.9,151.4" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="238.2,132.5 270.9,151.4 238.2,170.3 205.4,151.4" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="205.4,151.4 238.2,170.3 270.9,151.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="205.4,167.6 238.2,186.5 270.9,167.6" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(32.735 18.9 -32.735 18.9 238.2 132.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="261.5,181.1 284.9,194.6" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="261.5,181.1 284.9,194.6" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
-<circle cx="261.5" cy="181.1" r="4" fill="#19d9b8"/>
-<polygon points="401.8,150.6 447.7,177.1 401.8,203.5 356,177.1" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="401.8,148.7 439.2,170.3 401.8,191.9 364.4,170.3" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
-<polygon points="369.1,170.3 401.8,189.2 401.8,170.3 369.1,151.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="434.6,170.3 401.8,189.2 401.8,170.3 434.6,151.4" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="401.8,132.5 434.6,151.4 401.8,170.3 369.1,151.4" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="369.1,151.4 401.8,170.3 434.6,151.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="369.1,167.6 401.8,186.5 434.6,167.6" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(32.735 18.9 -32.735 18.9 401.8 132.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#eef35f" fill-opacity=".1" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#eef35f" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#eef35f" stroke-opacity=".6"/></g>
-<polyline points="378.5,181.1 355.1,194.6" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="378.5,181.1 355.1,194.6" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
-<circle cx="378.5" cy="181.1" r="4" fill="#eef35f"/>
-<polygon points="467.3,201.9 513.1,228.4 467.3,254.8 421.5,228.4" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="467.3,200 504.7,221.6 467.3,243.2 429.9,221.6" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
-<polygon points="434.6,221.6 467.3,240.5 467.3,221.6 434.6,202.7" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="500,221.6 467.3,240.5 467.3,221.6 500,202.7" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="467.3,183.8 500,202.7 467.3,221.6 434.6,202.7" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="434.6,202.7 467.3,221.6 500,202.7" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="434.6,218.9 467.3,237.8 500,218.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(32.735 18.9 -32.735 18.9 467.3 183.8)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="434.3,218 369.5,216.2" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="434.3,218 369.5,216.2" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
-<circle cx="434.3" cy="218" r="4" fill="#19d9b8"/>
-<polygon points="320,259.9 365.8,286.4 320,312.9 274.2,286.4" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="320,258.1 357.4,279.7 320,301.3 282.6,279.7" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
-<polygon points="287.3,279.7 320,298.6 320,279.7 287.3,260.8" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="352.7,279.7 320,298.6 320,279.7 352.7,260.8" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="320,241.9 352.7,260.8 320,279.7 287.3,260.8" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="287.3,260.8 320,279.7 352.7,260.8" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="287.3,277 320,295.9 352.7,277" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(32.735 18.9 -32.735 18.9 320 241.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#eef35f" fill-opacity=".1" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#eef35f" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#eef35f" stroke-opacity=".6"/></g>
-<polyline points="320,257.9 320,243.5" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="320,257.9 320,243.5" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
-<circle cx="320" cy="257.9" r="4" fill="#eef35f"/>
-<polygon points="175,200.5 220.9,227 175,253.5 129.2,227" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="175,198.7 212.4,220.3 175,241.9 137.6,220.2" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
-<polygon points="142.3,220.3 175,239.2 175,220.2 142.3,201.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="207.8,220.3 175,239.2 175,220.2 207.8,201.4" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="175,182.5 207.8,201.4 175,220.2 142.3,201.4" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="142.3,201.4 175,220.2 207.8,201.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="142.3,217.6 175,236.4 207.8,217.6" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(32.735 18.9 -32.735 18.9 175 182.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="208.1,216.9 270.4,215.8" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="208.1,216.9 270.4,215.8" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
-<circle cx="208.1" cy="216.9" r="4" fill="#19d9b8"/>
-<polygon points="320,187 384.5,224.3 320,261.6 255.5,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
-<polygon points="320,185.2 376.1,217.6 320,250 263.9,217.6" fill="#8b7cf6" opacity=".16" filter="url(#bl)"/>
-<polygon points="268.6,217.6 320,247.3 320,204 268.6,174.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="371.4,217.6 320,247.3 320,204 371.4,174.4" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
-<polygon points="320,144.7 371.4,174.4 320,204 268.6,174.4" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
-<polyline points="268.6,174.4 320,204 371.4,174.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
-<polyline points="268.6,214.9 320,244.6 371.4,214.9" fill="none" stroke="#8b7cf6" stroke-width="1.8" opacity=".95"/>
-<g transform="matrix(51.44 29.7 -51.44 29.7 320 144.7)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".18" y=".18" width=".64" height=".64" rx=".17" fill="none" stroke="#8b7cf6"/><rect vector-effect="non-scaling-stroke" x=".32" y=".32" width=".36" height=".36" rx=".1" fill="none" stroke="#f4f4f5"/><rect vector-effect="non-scaling-stroke" x=".44" y=".44" width=".12" height=".12" rx=".04" fill="#eef35f" stroke="none"/></g>
-<line x1="320" y1="115.4" x2="320" y2="174.4" stroke="#19d9b8" stroke-width="1.5"/><circle cx="320" cy="174.4" r="3" fill="#19d9b8"/>
-<rect x="254.4" y="85.4" width="131.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="320" y="105.4" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theAuth core</text>
-<line x1="238.2" y1="58.400000000000006" x2="238.2" y2="151.4" stroke="#19d9b8" stroke-width="1.5"/><circle cx="238.2" cy="151.4" r="3" fill="#19d9b8"/>
-<rect x="194.1" y="28.400000000000006" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="238.2" y="48.400000000000006" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Next.js</text>
-<line x1="401.8" y1="58.400000000000006" x2="401.8" y2="151.4" stroke="#19d9b8" stroke-width="1.5"/><circle cx="401.8" cy="151.4" r="3" fill="#19d9b8"/>
-<rect x="357.7" y="28.400000000000006" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="401.8" y="48.400000000000006" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Express</text>
-<line x1="467.3" y1="181.7" x2="467.3" y2="202.7" stroke="#19d9b8" stroke-width="1.5"/><circle cx="467.3" cy="202.7" r="3" fill="#19d9b8"/>
-<rect x="431.3" y="151.7" width="72" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="467.3" y="171.7" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Hono</text>
-<line x1="320" y1="298.6" x2="320" y2="311.6" stroke="#19d9b8" stroke-width="1.5"/><circle cx="320" cy="298.6" r="3" fill="#19d9b8"/>
-<rect x="275.9" y="311.6" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="320" y="331.6" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Fastify</text>
-<line x1="175" y1="239.2" x2="175" y2="252.2" stroke="#19d9b8" stroke-width="1.5"/><circle cx="175" cy="239.2" r="3" fill="#19d9b8"/>
-<rect x="122.3" y="252.2" width="105.4" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
-<text x="175" y="272.2" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">SvelteKit</text>
+<rect width="760" height="666" rx="16" fill="#06080a"/>
+<rect width="760" height="666" rx="16" fill="url(#g1)"/><rect width="760" height="666" rx="16" fill="url(#g2)"/><rect width="760" height="666" rx="16" fill="url(#g3)"/>
+<rect width="760" height="666" rx="16" filter="url(#n)" opacity=".10"/>
+<polygon points="50.9,282 380,472 380,458.7 50.9,268.7" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="709.1,282 380,472 380,458.7 709.1,268.7" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="380,78.7 709.1,268.7 380,458.7 50.9,268.7" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<circle cx="380" cy="116.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="135.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="154.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="182.6" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="149.6" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="116.7" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="135.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="154.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="182.6" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="149.6" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="154.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="182.6" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="173.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="215.5" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="192.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="248.4" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="211.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="281.3" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="577.4" cy="230.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="314.2" cy="382.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="610.4" cy="249.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="577.4" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="382.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="347.1" cy="401.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="643.3" cy="268.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="610.4" cy="287.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="577.4" cy="306.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="544.5" cy="325.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="511.6" cy="344.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="478.7" cy="363.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="445.8" cy="382.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="412.9" cy="401.7" r="1" fill="#46585f" opacity=".6"/>
+<circle cx="380" cy="420.7" r="1" fill="#46585f" opacity=".6"/>
+<polygon points="264.8,174.5 329.3,211.7 264.8,248.9 200.3,211.7" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="264.8,171.8 317.5,202.2 264.8,232.6 212.2,202.2" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
+<polygon points="218.8,202.2 264.8,228.8 264.8,202.2 218.8,175.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="310.9,202.2 264.8,228.8 264.8,202.2 310.9,175.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="264.8,149 310.9,175.6 264.8,202.2 218.8,175.6" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="218.8,175.6 264.8,202.2 310.9,175.6" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="218.8,198.4 264.8,225 310.9,198.4" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(46.071000000000005 26.6 -46.071000000000005 26.6 264.8 149)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
+<polyline points="297.7,217.4 330.6,236.4" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="297.7,217.4 330.6,236.4" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="297.7" cy="217.4" r="4" fill="#19d9b8"/>
+<polygon points="495.2,174.5 559.7,211.7 495.2,248.9 430.7,211.7" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="495.2,171.8 547.8,202.2 495.2,232.6 442.5,202.2" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
+<polygon points="449.1,202.2 495.2,228.8 495.2,202.2 449.1,175.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="541.2,202.2 495.2,228.8 495.2,202.2 541.2,175.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="495.2,149 541.2,175.6 495.2,202.2 449.1,175.6" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="449.1,175.6 495.2,202.2 541.2,175.6" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="449.1,198.4 495.2,225 541.2,198.4" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(46.071000000000005 26.6 -46.071000000000005 26.6 495.2 149)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#eef35f" fill-opacity=".1" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#eef35f" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#eef35f" stroke-opacity=".6"/></g>
+<polyline points="462.3,217.4 429.4,236.4" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="462.3,217.4 429.4,236.4" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="462.3" cy="217.4" r="4" fill="#eef35f"/>
+<polygon points="587.3,246.7 651.8,283.9 587.3,321.1 522.8,283.9" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="587.3,244 640,274.4 587.3,304.8 534.7,274.4" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
+<polygon points="541.2,274.4 587.3,301 587.3,274.4 541.2,247.8" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="633.4,274.4 587.3,301 587.3,274.4 633.4,247.8" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="587.3,221.2 633.4,247.8 587.3,274.4 541.2,247.8" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="541.2,247.8 587.3,274.4 633.4,247.8" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="541.2,270.6 587.3,297.2 633.4,270.6" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(46.071000000000005 26.6 -46.071000000000005 26.6 587.3 221.2)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
+<polyline points="540.8,269.3 449.7,266.8" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="540.8,269.3 449.7,266.8" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="540.8" cy="269.3" r="4" fill="#19d9b8"/>
+<polygon points="380,328.4 444.5,365.6 380,402.8 315.5,365.6" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="380,325.7 432.7,356.1 380,386.5 327.3,356.1" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
+<polygon points="333.9,356.1 380,382.7 380,356.1 333.9,329.5" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="426.1,356.1 380,382.7 380,356.1 426.1,329.5" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="380,302.9 426.1,329.5 380,356.1 333.9,329.5" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="333.9,329.5 380,356.1 426.1,329.5" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="333.9,352.3 380,378.9 426.1,352.3" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(46.071000000000005 26.6 -46.071000000000005 26.6 380 302.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#eef35f" fill-opacity=".1" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#eef35f" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#eef35f" stroke-opacity=".6"/></g>
+<polyline points="380,325.4 380,305.2" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="380,325.4 380,305.2" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="380" cy="325.4" r="4" fill="#eef35f"/>
+<polygon points="176,244.8 240.5,282 176,319.2 111.5,282" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="176,242.1 228.6,272.5 176,302.9 123.3,272.5" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
+<polygon points="129.9,272.5 176,299.1 176,272.5 129.9,245.9" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="222,272.5 176,299.1 176,272.5 222,245.9" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="176,219.3 222,245.9 176,272.5 129.9,245.9" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="129.9,245.9 176,272.5 222,245.9" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="129.9,268.7 176,295.3 222,268.7" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(46.071000000000005 26.6 -46.071000000000005 26.6 176 219.3)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
+<polyline points="222.5,267.8 310.2,266.2" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="222.5,267.8 310.2,266.2" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="222.5" cy="267.8" r="4" fill="#19d9b8"/>
+<polygon points="380,225.8 470.8,278.2 380,330.6 289.2,278.2" fill="#000" opacity=".6" filter="url(#bl)"/>
+<polygon points="380,223.1 459,268.7 380,314.3 301,268.7" fill="#8b7cf6" opacity=".16" filter="url(#bl)"/>
+<polygon points="307.6,268.7 380,310.5 380,249.7 307.6,207.9" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="452.4,268.7 380,310.5 380,249.7 452.4,207.9" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
+<polygon points="380,166.1 452.4,207.9 380,249.7 307.6,207.9" fill="url(#tf)" stroke="#3d5058" stroke-width="1" stroke-linejoin="round" />
+<polyline points="307.6,207.9 380,249.7 452.4,207.9" fill="none" stroke="#52666f" stroke-width="1.2"/>
+<polyline points="307.6,264.9 380,306.7 452.4,264.9" fill="none" stroke="#8b7cf6" stroke-width="1.8" opacity=".95"/>
+<g transform="matrix(72.398 41.8 -72.398 41.8 380 166.1)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".18" y=".18" width=".64" height=".64" rx=".17" fill="none" stroke="#8b7cf6"/><rect vector-effect="non-scaling-stroke" x=".32" y=".32" width=".36" height=".36" rx=".1" fill="none" stroke="#f4f4f5"/><rect vector-effect="non-scaling-stroke" x=".44" y=".44" width=".12" height=".12" rx=".04" fill="#eef35f" stroke="none"/></g>
+<line x1="380" y1="310.5" x2="380" y2="395.7" stroke="#19d9b8" stroke-width="1.5"/><circle cx="380" cy="310.5" r="3" fill="#19d9b8"/>
+<rect x="314.4" y="395.7" width="131.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="380" y="415.7" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theAuth core</text>
+<line x1="264.8" y1="136" x2="264.8" y2="175.6" stroke="#19d9b8" stroke-width="1.5"/><circle cx="264.8" cy="175.6" r="3" fill="#19d9b8"/>
+<rect x="220.7" y="106" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="264.8" y="126" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Next.js</text>
+<line x1="495.2" y1="136" x2="495.2" y2="175.6" stroke="#19d9b8" stroke-width="1.5"/><circle cx="495.2" cy="175.6" r="3" fill="#19d9b8"/>
+<rect x="451.1" y="106" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="495.2" y="126" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Express</text>
+<line x1="587.3" y1="208.2" x2="587.3" y2="247.8" stroke="#19d9b8" stroke-width="1.5"/><circle cx="587.3" cy="247.8" r="3" fill="#19d9b8"/>
+<rect x="551.3" y="178.2" width="72" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="587.3" y="198.2" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Hono</text>
+<line x1="380" y1="382.7" x2="380" y2="431.7" stroke="#19d9b8" stroke-width="1.5"/><circle cx="380" cy="382.7" r="3" fill="#19d9b8"/>
+<rect x="335.9" y="431.7" width="88.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="380" y="451.7" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Fastify</text>
+<line x1="176" y1="299.1" x2="176" y2="312.1" stroke="#19d9b8" stroke-width="1.5"/><circle cx="176" cy="299.1" r="3" fill="#19d9b8"/>
+<rect x="123.3" y="312.1" width="105.4" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
+<text x="176" y="332.1" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">SvelteKit</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="480" width="640" height="106" fill="#000" opacity=".35"/>
-<line x1="0" y1="480" x2="640" y2="480" stroke="#26343b"/>
-<text x="24" y="512" font-size="20" font-weight="650" fill="#f4f4f5">One core, every framework</text>
-<text x="24" y="536" font-size="14.5" fill="#a1a1aa">The core speaks Web Request and Response, and a thin adapter</text>
-<text x="24" y="556" font-size="14.5" fill="#a1a1aa">mounts it in your framework.</text>
-<text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
+<rect x="0" y="560" width="760" height="106" fill="#000" opacity=".35"/>
+<line x1="0" y1="560" x2="760" y2="560" stroke="#26343b"/>
+<text x="24" y="592" font-size="20" font-weight="650" fill="#f4f4f5">One core, every framework</text>
+<text x="24" y="616" font-size="14.5" fill="#a1a1aa">The core speaks Web Request and Response, and a thin adapter</text>
+<text x="24" y="636" font-size="14.5" fill="#a1a1aa">mounts it in your framework.</text>
+<text x="736" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>
