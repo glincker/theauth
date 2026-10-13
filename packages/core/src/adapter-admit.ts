@@ -8,6 +8,7 @@ import type { TrustedProxyConfig } from "./auth/client-ip.js";
 import { resolveClientIp } from "./auth/client-ip.js";
 import type { RateLimitConfig, RateLimiter } from "./auth/rate-limiter.js";
 import { createRateLimiter } from "./auth/rate-limiter.js";
+import type { SecondaryStorage } from "./storage/types.js";
 
 /** Per-tier limits for the adapter routes. Each is requests per window (seconds). */
 export interface AdapterRateLimitOptions {
@@ -34,7 +35,7 @@ export interface AdapterAdmitOptions {
 
 export interface AdapterAdmission {
 	/** A 429 or 403 Response to send, or null when the request may proceed. */
-	admit(request: Request, relativePath: string): Response | null;
+	admit(request: Request, relativePath: string): Promise<Response | null>;
 }
 
 const STRICT_PATHS = ["/mcp/token", "/mcp/register", "/mcp/authorize", "/authorize"];
@@ -47,7 +48,7 @@ function json(status: number, code: string, message: string, headers?: HeadersIn
 	});
 }
 
-function tierOf(method: string, path: string): "strict" | "mutation" | "read" {
+function tierOf(method: string, path: string): Tier {
 	const p = path.split("?")[0]?.toLowerCase() ?? "";
 	if (STRICT_PATHS.some((s) => p === s || p.startsWith(`${s}/`))) return "strict";
 	return SAFE_METHODS.has(method) ? "read" : "mutation";
@@ -106,33 +107,70 @@ function crossSiteDenial(request: Request, trusted: Set<string>): Response | nul
 	return deny();
 }
 
+const DEFAULT_LIMITS: Record<Tier, RateLimitConfig> = {
+	strict: { max: 30, window: 60 },
+	mutation: { max: 120, window: 60 },
+	read: { max: 300, window: 60 },
+};
+
+type Tier = "strict" | "mutation" | "read";
+
+/**
+ * @param store Shared counter store (the `rateLimit` secondary storage). Counts
+ * are then enforced across instances. Without it each process counts alone.
+ * A store failure lets the request through, so an outage there never takes
+ * authentication down with it.
+ */
 export function createAdapterAdmission(
 	options: AdapterAdmitOptions | undefined,
 	proxy: TrustedProxyConfig | undefined,
+	store?: SecondaryStorage,
 ): AdapterAdmission {
 	const limits = options?.rateLimit === false ? null : (options?.rateLimit ?? {});
-	const limiters: Record<"strict" | "mutation" | "read", RateLimiter> | null = limits
-		? {
-				strict: createRateLimiter(limits.strict ?? { max: 30, window: 60 }),
-				mutation: createRateLimiter(limits.mutation ?? { max: 120, window: 60 }),
-				read: createRateLimiter(limits.read ?? { max: 300, window: 60 }),
+	const configured: Record<Tier, RateLimitConfig> = {
+		strict: limits?.strict ?? DEFAULT_LIMITS.strict,
+		mutation: limits?.mutation ?? DEFAULT_LIMITS.mutation,
+		read: limits?.read ?? DEFAULT_LIMITS.read,
+	};
+	const limiters: Record<Tier, RateLimiter> | null =
+		limits && !store
+			? {
+					strict: createRateLimiter(configured.strict),
+					mutation: createRateLimiter(configured.mutation),
+					read: createRateLimiter(configured.read),
+				}
+			: null;
+
+	const tooMany = (retrySeconds: number): Response =>
+		json(429, "RATE_LIMITED", "Too many requests", {
+			"Retry-After": String(Math.max(1, Math.ceil(retrySeconds))),
+		});
+
+	async function overLimit(tier: Tier, key: string): Promise<Response | null> {
+		if (!limits) return null;
+		if (store) {
+			try {
+				const { max, window } = configured[tier];
+				const hit = await store.incr(`adapter:${tier}:${key}`, window);
+				return hit.count > max ? tooMany((hit.expiresAt - Date.now()) / 1000) : null;
+			} catch {
+				return null;
 			}
-		: null;
+		}
+		const result = limiters?.[tier].check(key);
+		if (result && !result.allowed) return tooMany((result.resetAt.getTime() - Date.now()) / 1000);
+		return null;
+	}
 	const trusted = new Set(
 		(options?.trustedOrigins ?? []).map(originOf).filter((o): o is string => o !== null),
 	);
 	const csrf = options?.csrf !== false;
 
 	return {
-		admit(request, relativePath) {
-			if (limiters) {
-				const tier = tierOf(request.method.toUpperCase(), relativePath);
-				const result = limiters[tier].check(`${tier}:${bucketKey(request, proxy)}`);
-				if (!result.allowed) {
-					const retry = Math.max(1, Math.ceil((result.resetAt.getTime() - Date.now()) / 1000));
-					return json(429, "RATE_LIMITED", "Too many requests", { "Retry-After": String(retry) });
-				}
-			}
+		async admit(request, relativePath) {
+			const tier = tierOf(request.method.toUpperCase(), relativePath);
+			const limited = await overLimit(tier, bucketKey(request, proxy));
+			if (limited) return limited;
 			return csrf ? crossSiteDenial(request, trusted) : null;
 		},
 	};
