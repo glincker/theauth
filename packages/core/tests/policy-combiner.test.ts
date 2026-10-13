@@ -10,9 +10,7 @@ import type { PartialDecision } from "../src/policy/combiner.js";
 import { combine } from "../src/policy/combiner.js";
 import { POLICY_ERROR_CODES } from "../src/policy/types.js";
 
-// ---------------------------------------------------------------------------
 // deny-overrides (default strategy)
-// ---------------------------------------------------------------------------
 
 describe("combine, deny-overrides", () => {
 	it("empty array returns indeterminate with allowed=false", () => {
@@ -93,9 +91,7 @@ describe("combine, deny-overrides", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // permit-overrides
-// ---------------------------------------------------------------------------
 
 describe("combine, permit-overrides", () => {
 	it("mixed [permit, deny] returns permit", () => {
@@ -129,9 +125,7 @@ describe("combine, permit-overrides", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Field passthrough
-// ---------------------------------------------------------------------------
 
 describe("combine, field passthrough", () => {
 	it("matchedPermissionId from winning partial appears on result", () => {

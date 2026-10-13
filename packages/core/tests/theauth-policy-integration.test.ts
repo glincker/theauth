@@ -10,9 +10,7 @@ import { agents, permissions as permissionsTable, users } from "../src/db/schema
 import type { TheAuth } from "../src/theauth.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ──────────────────────────────────────────────────────────────────────────────
 
 async function createTestTheAuth(): Promise<TheAuth> {
 	return createTheAuth({
@@ -52,9 +50,7 @@ async function seedFixtures(theauth: TheAuth): Promise<{ agentId: string; userId
 	return { agentId, userId };
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Suite
-// ──────────────────────────────────────────────────────────────────────────────
 
 describe("theauth.policy integration", () => {
 	let theauth: TheAuth;

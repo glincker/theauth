@@ -16,7 +16,7 @@ import type {
 	UpdateAgentInput,
 } from "./types.js";
 
-// ─── Client config ────────────────────────────────────────────────────────────
+// Client config
 
 export interface TheAuthClientOptions {
 	baseUrl: string;
@@ -26,7 +26,7 @@ export interface TheAuthClientOptions {
 	headers?: Record<string, string>;
 }
 
-// ─── Authorize input (no agentId – passed as path param) ─────────────────────
+// Authorize input (no agentId – passed as path param)
 
 export interface AuthorizeRequest {
 	action: string;
@@ -34,7 +34,7 @@ export interface AuthorizeRequest {
 	arguments?: Record<string, unknown>;
 }
 
-// ─── Client interface ─────────────────────────────────────────────────────────
+// Client interface
 
 export interface TheAuthClient {
 	agents: {
@@ -66,7 +66,7 @@ export interface TheAuthClient {
 	};
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// Internal helpers
 
 function buildQuery(params: Record<string, string | number | string[] | undefined>): string {
 	const parts: string[] = [];
@@ -83,7 +83,7 @@ function buildQuery(params: Record<string, string | number | string[] | undefine
 	return parts.length > 0 ? `?${parts.join("&")}` : "";
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
+// Factory
 
 export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClient {
 	const base = options.baseUrl.replace(/\/$/, "");
@@ -204,7 +204,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 	}
 
 	return {
-		// ── Agents ─────────────────────────────────────────────────────────────
+		// Agents
 
 		agents: {
 			create(input: CreateAgentInput) {
@@ -249,7 +249,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			},
 		},
 
-		// ── Authorization ───────────────────────────────────────────────────────
+		// Authorization
 
 		authorize(agentId: string, request: AuthorizeRequest) {
 			return fetchJson<AuthorizeResult>(`/agents/${encodeURIComponent(agentId)}/authorize`, {
@@ -267,7 +267,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			});
 		},
 
-		// ── Delegations ─────────────────────────────────────────────────────────
+		// Delegations
 
 		delegations: {
 			create(input: DelegateInput) {
@@ -292,7 +292,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			},
 		},
 
-		// ── Audit ───────────────────────────────────────────────────────────────
+		// Audit
 
 		audit: {
 			query(filters?: AuditFilters) {
@@ -321,7 +321,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			},
 		},
 
-		// ── MCP servers ─────────────────────────────────────────────────────────
+		// MCP servers
 
 		mcp: {
 			register(input: RegisterMcpServerInput) {
@@ -342,7 +342,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 	};
 }
 
-// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Deprecated aliases
 // Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 

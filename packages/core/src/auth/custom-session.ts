@@ -40,9 +40,7 @@ import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface CustomSessionConfig {
 	/** Fields merged into every new session's metadata.custom on creation. */
@@ -70,9 +68,7 @@ export interface CustomSessionModule {
 	updateSessionFields(sessionId: string, fields: Record<string, unknown>): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
 // Module factory (used directly or via the TheAuthPlugin wrapper below)
-// ---------------------------------------------------------------------------
 
 export function createCustomSessionModule(
 	_config: CustomSessionConfig,
@@ -131,9 +127,7 @@ export function createCustomSessionModule(
 	return { getSessionFields, updateSessionFields };
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 	return {
@@ -241,9 +235,7 @@ export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {

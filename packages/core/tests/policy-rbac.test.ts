@@ -9,9 +9,7 @@ import { createTables } from "../src/db/migrations.js";
 import { organizations, orgMembers, orgRoles, users } from "../src/db/schema.js";
 import { createRbacResolver } from "../src/policy/rbac.js";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -45,9 +43,7 @@ function seedMember(db: Database, id: string, orgId: string, userId: string, rol
 	db.insert(orgMembers).values({ id, orgId, userId, role, joinedAt: new Date() }).run();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Suite
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("createRbacResolver", () => {
 	let db: Database;
@@ -62,7 +58,7 @@ describe("createRbacResolver", () => {
 		seedOrg(db, "org-b", "org-b", "user-2");
 	});
 
-	// ── no memberships ─────────────────────────────────────────────────────
+	// no memberships
 
 	it("returns empty array when user has no memberships", async () => {
 		const resolver = createRbacResolver({ db });
@@ -80,7 +76,7 @@ describe("createRbacResolver", () => {
 		expect(perms).toEqual([]);
 	});
 
-	// ── single role, orgId provided ────────────────────────────────────────
+	// single role, orgId provided
 
 	it("returns role permissions when orgId is provided", async () => {
 		seedRole(db, "role-member", "org-a", "member", ["agents:create", "agents:manage"]);
@@ -94,7 +90,7 @@ describe("createRbacResolver", () => {
 		expect(perms[0]?.actions?.sort()).toEqual(["create", "manage"]);
 	});
 
-	// ── single role, orgId omitted ─────────────────────────────────────────
+	// single role, orgId omitted
 
 	it("returns role permissions when orgId is omitted", async () => {
 		seedRole(db, "role-member", "org-a", "member", ["agents:create", "agents:manage"]);
@@ -142,7 +138,7 @@ describe("createRbacResolver", () => {
 		expect(resources).not.toContain("agents");
 	});
 
-	// ── deduplication ──────────────────────────────────────────────────────
+	// deduplication
 
 	it("deduplicates identical permissions that appear in multiple roles", async () => {
 		// Two separate orgs both grant agents:create to user-1.

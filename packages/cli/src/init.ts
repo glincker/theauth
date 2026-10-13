@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 type Framework = "hono" | "express" | "nextjs" | "fastify";
 type Database = "sqlite" | "postgres";
@@ -25,7 +25,7 @@ interface InitError {
 	error: { code: string; message: string };
 }
 
-// ── Prompt helpers ────────────────────────────────────────────────────────────
+// Prompt helpers
 
 function printMenu(title: string, options: string[]): void {
 	stdout.write(`\n${title}\n`);
@@ -58,7 +58,7 @@ async function fileExists(path: string): Promise<boolean> {
 	}
 }
 
-// ── Template generators ───────────────────────────────────────────────────────
+// Template generators
 
 function configTemplate(answers: InitAnswers): string {
 	const dbConfig =
@@ -151,7 +151,7 @@ console.log("New token:", rotated.token);
 `;
 }
 
-// ── Main init flow ────────────────────────────────────────────────────────────
+// Main init flow
 
 export async function runInit(): Promise<InitResult | InitError> {
 	stdout.write("\nTheAuth — project setup\n");

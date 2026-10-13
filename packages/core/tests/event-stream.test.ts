@@ -4,7 +4,7 @@ import { createEventStreamModule, EVENT_TYPES } from "../src/auth/event-stream.j
 import * as schema from "../src/db/schema.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 async function createTestDb() {
 	const theauth = await createTheAuth({
@@ -82,7 +82,7 @@ async function drainStream(response: Response, timeoutMs = 200): Promise<string>
 	return result;
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// Tests
 
 describe("event stream: response headers", () => {
 	let db: Awaited<ReturnType<typeof createTestDb>>;

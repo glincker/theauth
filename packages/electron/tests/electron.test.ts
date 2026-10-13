@@ -4,7 +4,7 @@ import { setElectronApiForTesting } from "../src/electron-api.js";
 import type { SecureStorage } from "../src/storage.js";
 import { createMemoryStorage } from "../src/storage.js";
 
-// ─── fs/path mocks ────────────────────────────────────────────────────────────
+// fs/path mocks
 
 const mockFs: Record<string, string> = {};
 
@@ -25,7 +25,7 @@ vi.mock("node:path", () => ({
 	dirname: vi.fn((p: string) => p.split("/").slice(0, -1).join("/")),
 }));
 
-// ─── Electron mock factory ────────────────────────────────────────────────────
+// Electron mock factory
 
 function makeMockSafeStorage(available = true) {
 	return {
@@ -76,7 +76,7 @@ function makeElectronApi(overrides: Partial<ElectronApi> = {}): ElectronApi {
 	};
 }
 
-// ─── Memory storage tests ─────────────────────────────────────────────────────
+// Memory storage tests
 
 describe("createMemoryStorage", () => {
 	it("returns null for unknown keys", async () => {
@@ -131,7 +131,7 @@ describe("createMemoryStorage", () => {
 	});
 });
 
-// ─── ElectronStorage: encryption available ────────────────────────────────────
+// ElectronStorage: encryption available
 
 describe("createElectronStorage (encryption available)", () => {
 	let storage: SecureStorage;
@@ -202,7 +202,7 @@ describe("createElectronStorage (encryption available)", () => {
 	});
 });
 
-// ─── ElectronStorage: encryption unavailable (fallback) ───────────────────────
+// ElectronStorage: encryption unavailable (fallback)
 
 describe("createElectronStorage (encryption unavailable)", () => {
 	let storage: SecureStorage;
@@ -263,7 +263,7 @@ describe("createElectronStorage (encryption unavailable)", () => {
 	});
 });
 
-// ─── OAuth window ─────────────────────────────────────────────────────────────
+// OAuth window
 
 describe("openOAuthWindow", () => {
 	afterEach(() => {
@@ -421,7 +421,7 @@ describe("openOAuthWindow", () => {
 	});
 });
 
-// ─── setupTheAuthIpc ───────────────────────────────────────────────────────────
+// setupTheAuthIpc
 
 describe("setupTheAuthIpc", () => {
 	let mockIpcMain: ReturnType<typeof makeMockIpcMain>;
@@ -531,7 +531,7 @@ describe("setupTheAuthIpc", () => {
 	});
 });
 
-// ─── createIpcStorage (renderer-side) ────────────────────────────────────────
+// createIpcStorage (renderer-side)
 
 describe("createIpcStorage", () => {
 	let mockIpcRenderer: ReturnType<typeof makeMockIpcRenderer>;
@@ -604,7 +604,7 @@ describe("createIpcStorage", () => {
 	});
 });
 
-// ─── THEAUTH_IPC_CHANNELS constant ─────────────────────────────────────────────
+// THEAUTH_IPC_CHANNELS constant
 
 describe("THEAUTH_IPC_CHANNELS", () => {
 	it("exposes all four channel names", async () => {

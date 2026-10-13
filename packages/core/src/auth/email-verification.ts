@@ -46,15 +46,11 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
-// ---------------------------------------------------------------------------
 // Re-export shared types
-// ---------------------------------------------------------------------------
 
 export type { AuthError, Result, TheAuthError };
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface EmailVerificationConfig {
 	/**
@@ -122,16 +118,12 @@ export interface EmailVerificationModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_TOKEN_TTL_SECONDS = 86400; // 24 hours
 const TOKEN_PURPOSE = "email-verify" as const;
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -144,9 +136,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createEmailVerificationModule(
 	config: EmailVerificationConfig,
@@ -155,7 +145,7 @@ export function createEmailVerificationModule(
 ): EmailVerificationModule {
 	const tokenTtl = config.tokenTtlSeconds ?? DEFAULT_TOKEN_TTL_SECONDS;
 
-	// ── sendVerification ──────────────────────────────────────────────────
+	// sendVerification
 
 	async function sendVerification(
 		userId: string,
@@ -216,7 +206,7 @@ export function createEmailVerificationModule(
 		return { success: true, data: { sent: true } };
 	}
 
-	// ── verify ────────────────────────────────────────────────────────────
+	// verify
 
 	async function verify(token: string): Promise<Result<{ userId: string; email: string }>> {
 		if (typeof token !== "string" || token.trim() === "") {
@@ -267,7 +257,7 @@ export function createEmailVerificationModule(
 		return { success: true, data: { userId: resolvedUserId, email } };
 	}
 
-	// ── isVerified ────────────────────────────────────────────────────────
+	// isVerified
 
 	async function isVerified(userId: string): Promise<boolean> {
 		const rows = await db
@@ -279,7 +269,7 @@ export function createEmailVerificationModule(
 		return user?.emailVerified === 1;
 	}
 
-	// ── handleRequest ─────────────────────────────────────────────────────
+	// handleRequest
 
 	const HANDLED_PATHS = new Set(["/auth/verify-email/send", "/auth/verify-email/confirm"]);
 

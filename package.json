@@ -31,7 +31,8 @@
     "prepare": "simple-git-hooks",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "turbo build && changeset publish"
+    "release": "turbo build && changeset publish",
+    "audit:gate": "node scripts/audit-gate.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
@@ -47,11 +48,24 @@
   "simple-git-hooks": {
     "pre-commit": "pnpm lint && pnpm --filter @glinr/theauth typecheck",
     "commit-msg": "node scripts/check-commit-title.mjs $1",
-    "pre-push": "pnpm typecheck && pnpm test"
+    "pre-push": "pnpm audit:gate && pnpm typecheck && pnpm test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3"
-    ]
+    ],
+    "overrides": {
+      "proxy-addr@<2.0.8": "^2.0.8",
+      "shell-quote@<1.9.0": "^1.9.0",
+      "fast-uri@<3.1.6": "^3.1.6",
+      "browserslist@<4.28.7": "^4.28.7",
+      "picomatch@<2.3.2": "^2.3.2",
+      "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
+      "postcss@<8.5.18": "^8.5.18",
+      "ws@>=7.0.0 <7.5.11": "^7.5.11",
+      "js-yaml@>=3.0.0 <3.15.2": "^3.15.2",
+      "mysql2@<3.22.0": "^3.22.0",
+      "brace-expansion@<1.1.20": "^1.1.20"
+    }
   }
 }

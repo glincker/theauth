@@ -25,9 +25,7 @@ import { createTables } from "../src/db/migrations.js";
 import { emailOtps } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-chars!!";
 
@@ -43,9 +41,7 @@ function makeSendOtp() {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("EmailOtpModule.sendCode", () => {
 	let db: Database;

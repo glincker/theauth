@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OAuthProvider, OAuthTokens, OAuthUserInfo } from "../src/auth/oauth/types.js";
 import { createOAuthProxyModule, OAuthProxyError } from "../src/auth/oauth-proxy.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeProvider(overrides: Partial<OAuthProvider> = {}): OAuthProvider {
 	return {
@@ -61,9 +59,7 @@ function makeModule(
 	);
 }
 
-// ---------------------------------------------------------------------------
 // startFlow
-// ---------------------------------------------------------------------------
 
 describe("startFlow", () => {
 	it("returns authUrl and proxyState for an allowed redirect_uri", async () => {
@@ -119,9 +115,7 @@ describe("startFlow", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleCallback
-// ---------------------------------------------------------------------------
 
 describe("handleCallback", () => {
 	it("exchanges the code and returns a redirect URL with tokens", async () => {
@@ -194,9 +188,7 @@ describe("handleCallback", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // State TTL enforcement
-// ---------------------------------------------------------------------------
 
 describe("state TTL", () => {
 	beforeEach(() => {
@@ -241,9 +233,7 @@ describe("state TTL", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // PKCE passthrough
-// ---------------------------------------------------------------------------
 
 describe("PKCE passthrough", () => {
 	it("passes the server-generated code verifier to the provider on exchange", async () => {
@@ -300,9 +290,7 @@ describe("PKCE passthrough", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest — HTTP routing
-// ---------------------------------------------------------------------------
 
 describe("handleRequest", () => {
 	it("GET /auth/oauth-proxy/start returns JSON with authUrl and proxyState", async () => {

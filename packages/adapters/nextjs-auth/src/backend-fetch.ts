@@ -4,9 +4,7 @@ import { buildAuthHeaders } from "./headers.js";
 import { refreshSession } from "./refresh.js";
 import type { ResolvedAuthConfig } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // fetchWithRefresh — REST fetch with 401-retry
-// ---------------------------------------------------------------------------
 
 /**
  * Authenticated server-side fetch for REST endpoints with automatic 401-retry.
@@ -46,9 +44,7 @@ export async function fetchWithRefresh<TUser>(
 	return response;
 }
 
-// ---------------------------------------------------------------------------
 // graphqlWithRefresh — GraphQL fetch with 401-retry + UNAUTHENTICATED retry
-// ---------------------------------------------------------------------------
 
 interface GraphQLResponse<T> {
 	data?: T;

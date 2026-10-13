@@ -10,7 +10,7 @@ import { PageHeader } from "../components/layout.js";
 import { Modal } from "../components/modal.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function statusVariant(status: McpServerInfo["status"]): "green" | "red" | "gray" {
 	switch (status) {
@@ -23,7 +23,7 @@ function statusVariant(status: McpServerInfo["status"]): "green" | "red" | "gray
 	}
 }
 
-// ─── Register MCP Server Modal ────────────────────────────────────────────────
+// Register MCP Server Modal
 
 interface RegisterModalProps {
 	open: boolean;
@@ -184,7 +184,7 @@ function RegisterMcpServerModal({ open, onClose, onSubmit, loading }: RegisterMo
 	);
 }
 
-// ─── MCP Servers Page ─────────────────────────────────────────────────────────
+// MCP Servers Page
 
 interface McpServersPageProps {
 	client: TheAuthApiClient;

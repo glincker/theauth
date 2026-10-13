@@ -28,9 +28,7 @@ import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface EmailOtpConfig {
 	/** Send the OTP code via email. */
@@ -77,17 +75,13 @@ export interface EmailOtpModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_CODE_LENGTH = 6;
 const DEFAULT_CODE_EXPIRY_SECONDS = 300; // 5 minutes
 const DEFAULT_MAX_ATTEMPTS = 5;
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function hashCode(code: string): Promise<string> {
 	return sha256(code);
@@ -108,9 +102,7 @@ function generateNumericCode(length: number): string {
 	return digits.join("");
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createEmailOtpModule(
 	config: EmailOtpConfig,
@@ -124,7 +116,7 @@ export function createEmailOtpModule(
 	const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 	const resendCooldown = config.resendCooldownSeconds ?? 0;
 
-	// ── helpers ─────────────────────────────────────────────────────────────
+	// helpers
 
 	async function findOrCreateUser(email: string): Promise<{ id: string; email: string }> {
 		const existing = await db
@@ -146,7 +138,7 @@ export function createEmailOtpModule(
 		return { id, email };
 	}
 
-	// ── public API ───────────────────────────────────────────────────────────
+	// public API
 
 	async function sendCode(rawEmail: string): Promise<{ sent: boolean; retryAfter?: number }> {
 		const email = normalizeEmail(rawEmail);

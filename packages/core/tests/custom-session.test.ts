@@ -27,9 +27,7 @@ import { createTables } from "../src/db/migrations.js";
 import { sessions, users } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-session-secret-for-custom-session-tests!!";
 
@@ -69,9 +67,7 @@ async function insertSession(
 	return id;
 }
 
-// ---------------------------------------------------------------------------
 // createCustomSessionModule — getSessionFields
-// ---------------------------------------------------------------------------
 
 describe("CustomSessionModule.getSessionFields", () => {
 	let db: Database;
@@ -111,9 +107,7 @@ describe("CustomSessionModule.getSessionFields", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createCustomSessionModule — updateSessionFields
-// ---------------------------------------------------------------------------
 
 describe("CustomSessionModule.updateSessionFields", () => {
 	let db: Database;
@@ -182,9 +176,7 @@ describe("CustomSessionModule.updateSessionFields", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // customSession plugin — onSessionCreate hook (defaultFields + callback)
-// ---------------------------------------------------------------------------
 
 describe("customSession plugin — onSessionCreate hook", () => {
 	it("stores defaultFields in metadata.custom when a session is created via the hook", async () => {
@@ -273,9 +265,7 @@ describe("customSession plugin — onSessionCreate hook", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Plugin endpoints
-// ---------------------------------------------------------------------------
 
 describe("customSession plugin endpoints", () => {
 	it("GET /auth/session/fields returns fields for a session", async () => {
@@ -456,9 +446,7 @@ describe("customSession plugin endpoints", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createSessionManager integration — custom fields round-trip
-// ---------------------------------------------------------------------------
 
 describe("customSession — round-trip via SessionManager", () => {
 	it("can write and read back custom fields on a real session token", async () => {

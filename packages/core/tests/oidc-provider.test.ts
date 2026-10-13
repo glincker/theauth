@@ -25,9 +25,7 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -122,9 +120,7 @@ async function runAuthCodeFlow(
 	return { authorizeResult, tokenResult };
 }
 
-// ---------------------------------------------------------------------------
 // Client registration
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.registerClient", () => {
 	let db: Database;
@@ -202,9 +198,7 @@ describe("OidcProvider.registerClient", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Client retrieval
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.getClient", () => {
 	let db: Database;
@@ -252,9 +246,7 @@ describe("OidcProvider.getClient", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Client deletion
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.deleteClient", () => {
 	let db: Database;
@@ -294,9 +286,7 @@ describe("OidcProvider.deleteClient", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.authorize", () => {
 	let db: Database;
@@ -397,9 +387,7 @@ describe("OidcProvider.authorize", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Token exchange (authorization_code grant)
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.exchangeToken (authorization_code)", () => {
 	let db: Database;
@@ -585,9 +573,7 @@ describe("OidcProvider.exchangeToken (authorization_code)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Token exchange with PKCE
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.exchangeToken (PKCE)", () => {
 	let db: Database;
@@ -676,9 +662,7 @@ describe("OidcProvider.exchangeToken (PKCE)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Token refresh
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.exchangeToken (refresh_token)", () => {
 	let db: Database;
@@ -789,9 +773,7 @@ describe("OidcProvider.exchangeToken (refresh_token)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // ID token claims
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider ID token claims", () => {
 	let db: Database;
@@ -922,9 +904,7 @@ describe("OidcProvider ID token claims", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // UserInfo
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.getUserInfo", () => {
 	let db: Database;
@@ -975,9 +955,7 @@ describe("OidcProvider.getUserInfo", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Discovery document
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.getDiscoveryDocument", () => {
 	let mod: OidcProviderModule;
@@ -1056,9 +1034,7 @@ describe("OidcProvider.getDiscoveryDocument", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // JWKS
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.getJwks", () => {
 	let mod: OidcProviderModule;
@@ -1132,9 +1108,7 @@ describe("OidcProvider.getJwks", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Access token validation
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider.validateAccessToken", () => {
 	let db: Database;
@@ -1227,9 +1201,7 @@ describe("OidcProvider.validateAccessToken", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Expired authorization code
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider expired authorization code", () => {
 	it("rejects an expired authorization code", async () => {
@@ -1269,9 +1241,7 @@ describe("OidcProvider expired authorization code", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Config TTL overrides
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider config overrides", () => {
 	it("uses custom accessTokenTtl in expiresIn response", async () => {
@@ -1298,9 +1268,7 @@ describe("OidcProvider config overrides", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // JWK import (passing JWK object instead of CryptoKey)
-// ---------------------------------------------------------------------------
 
 describe("OidcProvider with JWK config", () => {
 	it("works when signingKey is a JWK object", async () => {

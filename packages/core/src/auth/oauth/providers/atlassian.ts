@@ -22,9 +22,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://auth.atlassian.com/authorize";
 const TOKEN_URL = "https://auth.atlassian.com/oauth/token";
@@ -33,9 +31,7 @@ const ATLASSIAN_AUDIENCE = "api.atlassian.com";
 
 export const DEFAULT_ATLASSIAN_SCOPES = ["read:me"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface AtlassianTokenResponse {
 	access_token: string;
@@ -53,9 +49,7 @@ interface AtlassianUserResponse {
 	account_type?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as AtlassianUserResponse;
@@ -73,9 +67,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an Atlassian OAuth provider instance.
@@ -185,9 +177,7 @@ export function createAtlassianProvider(config: OAuthProviderConfig): OAuthProvi
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

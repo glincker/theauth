@@ -27,9 +27,7 @@
 import type { Result } from "../mcp/types.js";
 import type { Session } from "./session.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface SessionFreshnessConfig {
 	/**
@@ -74,15 +72,11 @@ export interface SessionFreshnessModule {
 	guard(session: Session): Response | null;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_FRESH_AGE_SECONDS = 300; // 5 minutes
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createSessionFreshnessModule(
 	config: SessionFreshnessConfig = {},

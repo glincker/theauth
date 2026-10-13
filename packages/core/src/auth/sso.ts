@@ -37,9 +37,7 @@ import { generateId, randomBytesHex, sha256Raw, toHex } from "../crypto/web-cryp
 import type { Database } from "../db/database.js";
 import { ssoConnections } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Error codes
-// ---------------------------------------------------------------------------
 
 const SSO_ERROR = {
 	CONNECTION_NOT_FOUND: "SSO_CONNECTION_NOT_FOUND",
@@ -66,9 +64,7 @@ const SSO_ERROR = {
 	RATE_LIMITED: "SSO_RATE_LIMITED",
 } as const;
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface SsoConfig {
 	/** SAML Identity Provider configurations */
@@ -165,9 +161,7 @@ export interface SsoModule {
 	validateState: (state: string) => Promise<boolean>;
 }
 
-// ---------------------------------------------------------------------------
 // Minimal XML parser (no regex for structure)
-// ---------------------------------------------------------------------------
 
 /**
  * Parsed XML node. This is a minimal representation that handles namespaces,
@@ -517,9 +511,7 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 	throw new SsoError(SSO_ERROR.SAML_XML_PARSE_ERROR, `Unterminated element: <${tagName}>`);
 }
 
-// ---------------------------------------------------------------------------
 // XML query helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Find the first descendant node matching a local name (namespace-agnostic).
@@ -582,9 +574,7 @@ function getSamlAttributeValue(assertion: XmlNode, attributeName: string): strin
 	return null;
 }
 
-// ---------------------------------------------------------------------------
 // SAML helpers
-// ---------------------------------------------------------------------------
 
 function deflateRawAsync(input: string): Promise<Uint8Array> {
 	const encoder = new TextEncoder();
@@ -618,9 +608,7 @@ async function buildSamlAuthnRequest(
 	return { requestId, encoded: encodeURIComponent(b64) };
 }
 
-// ---------------------------------------------------------------------------
 // PEM / base64 helpers for Web Crypto
-// ---------------------------------------------------------------------------
 
 /** Convert a PEM-encoded certificate or public key to an ArrayBuffer (DER). */
 function pemToArrayBuffer(pem: string): ArrayBuffer {
@@ -996,9 +984,7 @@ async function parseSamlResponse(
 	return { email, name };
 }
 
-// ---------------------------------------------------------------------------
 // OIDC helpers
-// ---------------------------------------------------------------------------
 
 interface OidcDiscoveryResponse {
 	authorization_endpoint: string;
@@ -1026,9 +1012,7 @@ interface OidcTokenResponse {
 	expires_in?: number;
 }
 
-// ---------------------------------------------------------------------------
 // Rate limiter (in-memory sliding window)
-// ---------------------------------------------------------------------------
 
 interface RateLimitEntry {
 	timestamps: number[];
@@ -1075,9 +1059,7 @@ class RateLimiter {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // State token helpers
-// ---------------------------------------------------------------------------
 
 /** Encode a timestamp into a state token for expiry checking. */
 async function encodeState(stateTtlSeconds: number): Promise<string> {
@@ -1109,9 +1091,7 @@ async function validateStateToken(state: string): Promise<boolean> {
 	return Date.now() < expires;
 }
 
-// ---------------------------------------------------------------------------
 // Row mapper
-// ---------------------------------------------------------------------------
 
 function rowToConnection(row: {
 	id: string;
@@ -1133,9 +1113,7 @@ function rowToConnection(row: {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	const samlProviders = new Map<string, SamlProvider>((config.saml ?? []).map((p) => [p.id, p]));
@@ -1647,9 +1625,7 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Exported for testing
-// ---------------------------------------------------------------------------
 
 export type { XmlNode };
 export {
@@ -1667,9 +1643,7 @@ export {
 	verifySamlSignature,
 };
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {
 	return uint8ArrayToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

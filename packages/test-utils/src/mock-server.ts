@@ -6,7 +6,7 @@
  * that call `resolveUser`, `getUser`, or `syncUser`.
  */
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 /**
  * Minimal resolved user — matches `ResolvedUser` from `@glinr/theauth/auth`
@@ -46,7 +46,7 @@ export interface MockAuthServer extends MockAuthAdapter {
 	setActiveUser(userId: string | null): void;
 }
 
-// ─── Internal header ──────────────────────────────────────────────────────────
+// Internal header
 
 /**
  * Setting this header on a `Request` object overrides the active user for
@@ -55,7 +55,7 @@ export interface MockAuthServer extends MockAuthAdapter {
  */
 export const MOCK_USER_ID_HEADER = "x-mock-theauth-user-id";
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Creates a lightweight in-memory auth adapter for tests.

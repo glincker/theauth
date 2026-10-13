@@ -5,9 +5,7 @@ import { createOrgModule } from "./organization.js";
 
 export type { OrgConfig };
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -27,9 +25,7 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 // Admin roles that can perform privileged member management actions.
 const ADMIN_ROLES = new Set(["owner", "admin"]);
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function organization(config?: OrgConfig): TheAuthPlugin {
 	return {

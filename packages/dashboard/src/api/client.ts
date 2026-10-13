@@ -16,7 +16,7 @@ import type {
 	User,
 } from "./types.js";
 
-// ─── Client Factory ───────────────────────────────────────────────────────────
+// Client Factory
 
 export interface TheAuthApiClient {
 	getStats: () => Promise<ApiResult<DashboardStats>>;
@@ -57,7 +57,7 @@ export interface TheAuthApiClient {
 	) => Promise<ApiResult<TheAuthSettings>>;
 }
 
-// ─── Internal Fetch Helper ────────────────────────────────────────────────────
+// Internal Fetch Helper
 
 async function apiFetch<T>(
 	baseUrl: string,
@@ -103,7 +103,7 @@ async function apiFetch<T>(
 	}
 }
 
-// ─── Client Constructor ───────────────────────────────────────────────────────
+// Client Constructor
 
 /** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
 export type AuthApiClient = TheAuthApiClient;

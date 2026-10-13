@@ -1,0 +1,14 @@
+{
+  "allow": [
+    {
+      "module": "braces",
+      "reason": "No patched version exists upstream. Reached only through the Expo and React Native build toolchain in packages/expo, not at runtime in a consuming app.",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "module": "image-size",
+      "reason": "Patched in 2.0.3 but the vulnerable 1.2.x is pinned by the Expo CLI toolchain. Overriding to a new major risks breaking expo tooling. Build time only.",
+      "reviewBy": "2026-12-31"
+    }
+  ]
+}

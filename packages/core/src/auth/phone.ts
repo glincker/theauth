@@ -27,9 +27,7 @@ import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface PhoneAuthConfig {
 	/** Called to deliver the OTP code to the user via SMS. */
@@ -76,17 +74,13 @@ export interface PhoneAuthModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_CODE_LENGTH = 6;
 const DEFAULT_CODE_EXPIRY_SECONDS = 300;
 const DEFAULT_MAX_ATTEMPTS = 5;
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function hashCode(code: string): Promise<string> {
 	return sha256(code);
@@ -124,9 +118,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createPhoneAuthModule(
 	config: PhoneAuthConfig,
@@ -163,7 +155,7 @@ export function createPhoneAuthModule(
 		return { id, phone };
 	}
 
-	// ── public API ─────────────────────────────────────────────────────────
+	// public API
 
 	async function sendCode(phoneNumber: string): Promise<{ sent: boolean; retryAfter?: number }> {
 		const phone = normalisePhone(phoneNumber);

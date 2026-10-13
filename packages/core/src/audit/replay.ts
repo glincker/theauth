@@ -233,7 +233,7 @@ export async function replayAgent(
 	}
 }
 
-// ─── Export ──────────────────────────────────────────────────────────────────
+// Export
 
 export interface AuditChainExportOptions {
 	since?: Date;

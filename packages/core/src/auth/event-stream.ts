@@ -35,7 +35,7 @@ import type { Database } from "../db/database.js";
 import { streamEvents } from "../db/schema.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export const EVENT_TYPES = [
 	"audit",
@@ -96,7 +96,7 @@ export interface EventStreamModule {
 	close(): void;
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+// Validation
 
 const eventTypeSchema = z.enum(EVENT_TYPES);
 
@@ -106,7 +106,7 @@ const queryParamsSchema = z.object({
 	since: z.string().datetime({ offset: true }).optional(),
 });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function ok<T>(data: T): Result<T> {
 	return { success: true, data };
@@ -153,7 +153,7 @@ function isSseRequest(request: Request): boolean {
 	return accept.includes("text/event-stream");
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
+// Factory
 
 export function createEventStreamModule(config: EventStreamConfig): EventStreamModule {
 	const {

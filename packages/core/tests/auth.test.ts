@@ -20,9 +20,7 @@ import { headerAuth } from "../src/auth/adapters/header.js";
 import { usernameAccounts, users } from "../src/db/schema.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const TEST_SECRET = "super-secret-key-at-least-32-chars-long!!";
 
@@ -51,9 +49,7 @@ async function signJwt(
 	return builder.sign(secret);
 }
 
-// ---------------------------------------------------------------------------
 // headerAuth
-// ---------------------------------------------------------------------------
 
 describe("headerAuth", () => {
 	it("resolves user from default X-User-Id header", async () => {
@@ -103,9 +99,7 @@ describe("headerAuth", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // bearerAuth
-// ---------------------------------------------------------------------------
 
 describe("bearerAuth", () => {
 	it("resolves user from a valid HS256 JWT", async () => {
@@ -202,9 +196,7 @@ describe("bearerAuth", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // customAuth
-// ---------------------------------------------------------------------------
 
 describe("customAuth", () => {
 	it("calls the provided resolver and returns its result", async () => {
@@ -229,9 +221,7 @@ describe("customAuth", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createTheAuth.resolveUser integration
-// ---------------------------------------------------------------------------
 
 describe("createTheAuth.resolveUser", () => {
 	it("returns null when no auth adapter is configured", async () => {

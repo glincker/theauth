@@ -8,7 +8,7 @@
 
 import type { ActionResult } from "@glinr/theauth-react";
 
-// ─── Assertion helpers ────────────────────────────────────────────────────────
+// Assertion helpers
 
 /**
  * Asserts that an `ActionResult` succeeded.

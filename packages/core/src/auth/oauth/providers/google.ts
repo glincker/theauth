@@ -16,18 +16,14 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const USER_INFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 const DEFAULT_SCOPES = ["openid", "email", "profile"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface GoogleTokenResponse {
 	access_token: string;
@@ -49,9 +45,7 @@ interface GoogleUserInfoResponse {
 	locale?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Google OAuth provider instance.
@@ -175,9 +169,7 @@ export function createGoogleProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-zoom-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USER_RAW = {
 	id: "AbCdEfGhIjKlMnOp",
@@ -27,9 +25,7 @@ const CANNED_USER_RAW = {
 	pic_url: "https://lh3.googleusercontent.com/a/grace-zoom-avatar",
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createZoomProvider", () => {
 	it("creates a provider with id zoom", () => {
@@ -62,9 +58,7 @@ describe("createZoomProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createZoomProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
@@ -96,9 +90,7 @@ describe("createZoomProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeZoomProfile", () => {
 	it("maps Zoom user to OAuthUserInfo", () => {

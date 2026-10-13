@@ -5,7 +5,7 @@ import { createFederationModule } from "../src/auth/federation.js";
 import { generateDidKey } from "../src/did/key-method.js";
 import { createVCIssuer } from "../src/vc/issuer.js";
 
-// ─── Test Helpers ───────────────────────────────────────────────────────────
+// Test Helpers
 
 async function createTestInstance(overrides?: Partial<FederationConfig>) {
 	const { publicKey, privateKey } = await generateKeyPair("EdDSA", { extractable: true });
@@ -51,7 +51,7 @@ async function createTwoInstances() {
 	return { instanceA, instanceB };
 }
 
-// ─── Token Issuance ─────────────────────────────────────────────────────────
+// Token Issuance
 
 describe("federation – token issuance", () => {
 	it("issues a federation token for an agent", async () => {
@@ -174,7 +174,7 @@ describe("federation – token issuance", () => {
 	});
 });
 
-// ─── Token Verification ─────────────────────────────────────────────────────
+// Token Verification
 
 describe("federation – token verification", () => {
 	it("verifies a valid token from a trusted instance", async () => {
@@ -301,7 +301,7 @@ describe("federation – token verification", () => {
 	});
 });
 
-// ─── Trust Level Behavior ───────────────────────────────────────────────────
+// Trust Level Behavior
 
 describe("federation – trust levels", () => {
 	it("full trust preserves all permissions and trust score", async () => {
@@ -425,7 +425,7 @@ describe("federation – trust levels", () => {
 	});
 });
 
-// ─── Trust Management ───────────────────────────────────────────────────────
+// Trust Management
 
 describe("federation – trust management", () => {
 	it("adds a trusted instance", async () => {
@@ -540,7 +540,7 @@ describe("federation – trust management", () => {
 	});
 });
 
-// ─── Instance Identity ──────────────────────────────────────────────────────
+// Instance Identity
 
 describe("federation – instance identity", () => {
 	it("returns correct instance identity", async () => {
@@ -567,7 +567,7 @@ describe("federation – instance identity", () => {
 	});
 });
 
-// ─── Discovery ──────────────────────────────────────────────────────────────
+// Discovery
 
 describe("federation – instance discovery", () => {
 	it("discovers an instance via well-known URL", async () => {
@@ -668,7 +668,7 @@ describe("federation – instance discovery", () => {
 	});
 });
 
-// ─── Auto Trust ─────────────────────────────────────────────────────────────
+// Auto Trust
 
 describe("federation – auto trust mode", () => {
 	it("auto-trust still requires a public key", async () => {
@@ -729,7 +729,7 @@ describe("federation – auto trust mode", () => {
 	});
 });
 
-// ─── Round-trip Federation ──────────────────────────────────────────────────
+// Round-trip Federation
 
 describe("federation – round trip", () => {
 	it("issue at A, verify at B, preserves full agent data", async () => {
@@ -775,7 +775,7 @@ describe("federation – round trip", () => {
 	});
 });
 
-// ─── Federation with VCs ────────────────────────────────────────────────────
+// Federation with VCs
 
 describe("federation – with verifiable credentials", () => {
 	it("embeds a VC in the federation token", async () => {
@@ -834,7 +834,7 @@ describe("federation – with verifiable credentials", () => {
 	});
 });
 
-// ─── Config Validation ──────────────────────────────────────────────────────
+// Config Validation
 
 describe("federation – config validation", () => {
 	it("throws on invalid config (missing instanceId)", async () => {
@@ -860,7 +860,7 @@ describe("federation – config validation", () => {
 	});
 });
 
-// ─── Edge Cases ─────────────────────────────────────────────────────────────
+// Edge Cases
 
 describe("federation – edge cases", () => {
 	it("handles token signed with wrong key", async () => {

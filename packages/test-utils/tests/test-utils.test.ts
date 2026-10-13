@@ -23,7 +23,7 @@ import {
 } from "../src/factories.js";
 import { createMockAuthServer, MOCK_USER_ID_HEADER } from "../src/mock-server.js";
 
-// ─── Factories ────────────────────────────────────────────────────────────────
+// Factories
 
 describe("createMockUser", () => {
 	it("returns a user with all required fields", () => {
@@ -117,7 +117,7 @@ describe("createMockAgent", () => {
 	});
 });
 
-// ─── Mock auth server ─────────────────────────────────────────────────────────
+// Mock auth server
 
 describe("createMockAuthServer", () => {
 	it("starts with an empty store", () => {
@@ -234,7 +234,7 @@ describe("createMockAuthServer", () => {
 	});
 });
 
-// ─── Assertions ───────────────────────────────────────────────────────────────
+// Assertions
 
 describe("expectAuthenticated", () => {
 	it("does not throw for a success result", () => {

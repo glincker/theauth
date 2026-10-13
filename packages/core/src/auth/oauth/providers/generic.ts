@@ -16,9 +16,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 export interface GenericOIDCConfig {
 	/** Machine-readable provider ID, e.g. `'okta'`, `'auth0'`. */
@@ -46,7 +44,7 @@ export interface GenericOIDCConfig {
 	 * When omitted the URI passed at call time is used.
 	 */
 	redirectUri?: string;
-	// --- Optional endpoint overrides (skip discovery) ---
+	// Optional endpoint overrides (skip discovery)
 	/** Authorization endpoint. Overrides discovery. */
 	authorizationUrl?: string;
 	/** Token endpoint. Overrides discovery. */
@@ -68,9 +66,7 @@ export interface GenericOIDCConfig {
 	userinfoAuthScheme?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Discovery cache — one entry per issuer, populated lazily at first use
-// ---------------------------------------------------------------------------
 
 interface DiscoveredEndpoints {
 	authorizationUrl: string;
@@ -116,9 +112,7 @@ function assertString(value: unknown, field: string, issuer: string): string {
 	return value;
 }
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface OIDCTokenResponse {
 	access_token: string;
@@ -137,9 +131,7 @@ interface OIDCUserInfoResponse {
 	[key: string]: unknown;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an OAuthProvider backed by a standard OIDC issuer.
@@ -315,9 +307,7 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

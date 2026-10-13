@@ -3,7 +3,7 @@ import type { SecondaryStorage } from "../storage/types.js";
 import type { DnsResolver } from "./safe-fetch.js";
 import type { McpClient } from "./types.js";
 
-// ─── Identifiers ────────────────────────────────────────────────────────────
+// Identifiers
 
 export const GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials";
 /** RFC 8693 */
@@ -20,7 +20,7 @@ export const ID_JAG_TYP = "oauth-id-jag+jwt";
 /** Default cap on nested `act` hops produced by token exchange. */
 export const DEFAULT_MAX_CHAIN_DEPTH = 3;
 
-// ─── Lenient client compatibility ───────────────────────────────────────────
+// Lenient client compatibility
 
 /**
  * Compatibility switches for real-world MCP clients that bend the strict
@@ -55,7 +55,7 @@ export interface McpLenientClientsConfig {
 	pathAudience?: boolean;
 }
 
-// ─── client_credentials ─────────────────────────────────────────────────────
+// client_credentials
 
 /** The principal a client_credentials token acts as. */
 export interface McpClientPrincipal {
@@ -82,7 +82,7 @@ export interface McpClientCredentialsConfig {
 	resolvePrincipal: (client: McpClient) => Promise<McpClientPrincipal | null>;
 }
 
-// ─── RFC 8693 token exchange ────────────────────────────────────────────────
+// RFC 8693 token exchange
 
 export interface McpTokenExchangeInput {
 	client: McpClient;
@@ -100,7 +100,7 @@ export interface McpTokenExchangeConfig {
 	authorize?: (input: McpTokenExchangeInput) => Promise<boolean>;
 }
 
-// ─── RFC 7523 jwt-bearer and ID-JAG ─────────────────────────────────────────
+// RFC 7523 jwt-bearer and ID-JAG
 
 export interface McpTrustedIssuer {
 	/** Exact `iss` value of assertions from this issuer. */

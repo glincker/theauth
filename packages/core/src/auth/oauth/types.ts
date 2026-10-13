@@ -6,9 +6,7 @@
  * interception attacks on both public and confidential clients.
  */
 
-// ---------------------------------------------------------------------------
 // Provider configuration
-// ---------------------------------------------------------------------------
 
 export interface OAuthProviderConfig {
 	/** OAuth application client ID. */
@@ -27,9 +25,7 @@ export interface OAuthProviderConfig {
 	redirectUri?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Provider interface
-// ---------------------------------------------------------------------------
 
 export interface OAuthProvider {
 	/** Machine-readable provider ID, e.g. `'google'`, `'github'`. */
@@ -85,9 +81,7 @@ export interface OAuthProvider {
 	refreshTokens?(refreshToken: string): Promise<OAuthTokens>;
 }
 
-// ---------------------------------------------------------------------------
 // Token response
-// ---------------------------------------------------------------------------
 
 export interface OAuthTokens {
 	accessToken: string;
@@ -99,9 +93,7 @@ export interface OAuthTokens {
 	raw: Record<string, unknown>;
 }
 
-// ---------------------------------------------------------------------------
 // User profile
-// ---------------------------------------------------------------------------
 
 export interface OAuthUserInfo {
 	/** Stable user ID at the provider. */
@@ -125,9 +117,7 @@ export interface OAuthUserInfo {
 	raw: Record<string, unknown>;
 }
 
-// ---------------------------------------------------------------------------
 // Module config
-// ---------------------------------------------------------------------------
 
 export interface OAuthModuleConfig {
 	/**
@@ -198,9 +188,7 @@ export interface OAuthLinkedAccount {
 	updatedAt: Date;
 }
 
-// ---------------------------------------------------------------------------
 // Module surface
-// ---------------------------------------------------------------------------
 
 export interface OAuthModule {
 	/**
@@ -281,9 +269,7 @@ export interface OAuthCallbackResult {
 	tokens: OAuthTokens;
 }
 
-// ---------------------------------------------------------------------------
 // DB row shapes (public, so tests / adapters can reference them)
-// ---------------------------------------------------------------------------
 
 export interface OAuthAccount {
 	id: string;

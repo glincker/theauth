@@ -232,7 +232,7 @@ export default function DemoPage() {
 	);
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// Sub-components
 
 interface PanelProps {
 	number: number;

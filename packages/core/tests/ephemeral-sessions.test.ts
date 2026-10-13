@@ -6,7 +6,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 
-// ─── Test harness ─────────────────────────────────────────────────────────────
+// Test harness
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -47,7 +47,7 @@ function makeModule(
 
 const BASE_PERMS = [{ resource: "tool:browser", actions: ["navigate", "click"] }];
 
-// ─── Session creation ─────────────────────────────────────────────────────────
+// Session creation
 
 describe("createSession", () => {
 	let db: Database;
@@ -184,7 +184,7 @@ describe("createSession", () => {
 	});
 });
 
-// ─── Token validation ─────────────────────────────────────────────────────────
+// Token validation
 
 describe("validateSession", () => {
 	let db: Database;
@@ -258,7 +258,7 @@ describe("validateSession", () => {
 	});
 });
 
-// ─── Action consumption ───────────────────────────────────────────────────────
+// Action consumption
 
 describe("consumeAction", () => {
 	let db: Database;
@@ -363,7 +363,7 @@ describe("consumeAction", () => {
 	});
 });
 
-// ─── Session revocation ───────────────────────────────────────────────────────
+// Session revocation
 
 describe("revokeSession", () => {
 	let db: Database;
@@ -405,7 +405,7 @@ describe("revokeSession", () => {
 	});
 });
 
-// ─── Listing active sessions ──────────────────────────────────────────────────
+// Listing active sessions
 
 describe("listActiveSessions", () => {
 	let db: Database;
@@ -471,7 +471,7 @@ describe("listActiveSessions", () => {
 	});
 });
 
-// ─── Cleanup ──────────────────────────────────────────────────────────────────
+// Cleanup
 
 describe("cleanupExpired", () => {
 	let db: Database;
@@ -546,7 +546,7 @@ describe("cleanupExpired", () => {
 	});
 });
 
-// ─── Audit grouping ───────────────────────────────────────────────────────────
+// Audit grouping
 
 describe("audit grouping", () => {
 	let db: Database;
@@ -583,7 +583,7 @@ describe("audit grouping", () => {
 	});
 });
 
-// ─── Auto-revoke on expiry/exhaustion ─────────────────────────────────────────
+// Auto-revoke on expiry/exhaustion
 
 describe("autoRevokeOnExpiry", () => {
 	let db: Database;
@@ -633,7 +633,7 @@ describe("autoRevokeOnExpiry", () => {
 	});
 });
 
-// ─── maxActions enforcement edge cases ───────────────────────────────────────
+// maxActions enforcement edge cases
 
 describe("maxActions edge cases", () => {
 	let db: Database;

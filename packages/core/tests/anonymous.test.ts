@@ -24,9 +24,7 @@ import { users } from "../src/db/schema.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-session-secret-for-anonymous-auth-min32chars!!";
 
@@ -36,9 +34,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ---------------------------------------------------------------------------
 // createAnonymousUser
-// ---------------------------------------------------------------------------
 
 describe("AnonymousAuthModule.createAnonymousUser", () => {
 	let db: Database;
@@ -87,9 +83,7 @@ describe("AnonymousAuthModule.createAnonymousUser", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // isAnonymous
-// ---------------------------------------------------------------------------
 
 describe("AnonymousAuthModule.isAnonymous", () => {
 	let db: Database;
@@ -117,9 +111,7 @@ describe("AnonymousAuthModule.isAnonymous", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // upgradeUser
-// ---------------------------------------------------------------------------
 
 describe("AnonymousAuthModule.upgradeUser", () => {
 	let db: Database;
@@ -173,9 +165,7 @@ describe("AnonymousAuthModule.upgradeUser", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // cleanup
-// ---------------------------------------------------------------------------
 
 describe("AnonymousAuthModule.cleanup", () => {
 	let db: Database;
@@ -231,9 +221,7 @@ describe("AnonymousAuthModule.cleanup", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Plugin endpoints (via createTheAuth + anonymousAuth plugin)
-// ---------------------------------------------------------------------------
 
 describe("anonymousAuth plugin endpoints", () => {
 	it("POST /auth/anonymous returns 200 with userId and sessionToken", async () => {

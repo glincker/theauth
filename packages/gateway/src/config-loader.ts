@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 
-// ─── JSON Config Schema ───────────────────────────────────────────────────────
+// JSON Config Schema
 
 const RateLimitConfigSchema = z.object({
 	windowMs: z.number().int().positive(),

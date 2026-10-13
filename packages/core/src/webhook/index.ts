@@ -44,9 +44,7 @@ export type {
 // Re-export modules
 export { createDeliveryEngine };
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export interface WebhooksPlugin {
 	/**

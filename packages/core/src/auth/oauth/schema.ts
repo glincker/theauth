@@ -12,9 +12,7 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { users } from "../../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // theauth_oauth_accounts
-// ---------------------------------------------------------------------------
 
 /**
  * Persists the link between a TheAuth user and an external OAuth provider
@@ -43,9 +41,7 @@ export const oauthAccounts = sqliteTable("theauth_oauth_accounts", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ---------------------------------------------------------------------------
 // theauth_oauth_states
-// ---------------------------------------------------------------------------
 
 /**
  * Short-lived state entries that tie an authorization request to its callback.

@@ -7,7 +7,7 @@ import { Button } from "../components/button.js";
 import { FormGroup, Input, Label } from "../components/input.js";
 import { PageHeader } from "../components/layout.js";
 
-// ─── Section Card ─────────────────────────────────────────────────────────────
+// Section Card
 
 import type { ReactNode } from "react";
 
@@ -35,7 +35,7 @@ function SectionCard({ icon, title, description, children }: SectionCardProps) {
 	);
 }
 
-// ─── Read-only Field ──────────────────────────────────────────────────────────
+// Read-only Field
 
 interface ReadOnlyFieldProps {
 	label: string;
@@ -53,7 +53,7 @@ function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
 	);
 }
 
-// ─── Settings Form ────────────────────────────────────────────────────────────
+// Settings Form
 
 interface SettingsFormProps {
 	settings: TheAuthSettings;
@@ -205,7 +205,7 @@ function SettingsForm({ settings, onSave, loading }: SettingsFormProps) {
 	);
 }
 
-// ─── Settings Page ────────────────────────────────────────────────────────────
+// Settings Page
 
 interface SettingsPageProps {
 	client: TheAuthApiClient;

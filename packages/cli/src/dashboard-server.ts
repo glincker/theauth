@@ -1,19 +1,21 @@
+import { timingSafeEqual } from "node:crypto";
+import type { Stats } from "node:fs";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { env, stdout } from "node:process";
 
-// ─── Options ──────────────────────────────────────────────────────────────────
+// Options
 
 export interface DashboardServerOptions {
 	port: number;
 	apiUrl: string;
 }
 
-// ─── MIME Types ───────────────────────────────────────────────────────────────
+// MIME Types
 
 const MIME_TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",
@@ -37,7 +39,7 @@ function getMimeType(filePath: string): string {
 	return MIME_TYPES[ext] ?? "application/octet-stream";
 }
 
-// ─── Dist Dir Resolution ──────────────────────────────────────────────────────
+// Dist Dir Resolution
 
 function resolveDashboardDistDir(): string {
 	// Try resolving from the @glinr/theauth-dashboard package first
@@ -74,7 +76,7 @@ function resolveDashboardDistDir(): string {
 	);
 }
 
-// ─── HTML Injection ───────────────────────────────────────────────────────────
+// HTML Injection
 
 async function readIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const indexPath = join(distDir, "index.html");
@@ -90,24 +92,63 @@ async function readIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	return injection + html;
 }
 
-// ─── Static File Handler ──────────────────────────────────────────────────────
+// Static File Handler
 
 function send404(res: ServerResponse): void {
 	res.writeHead(404, { "Content-Type": "text/plain" });
 	res.end("Not Found");
 }
 
-function serveFile(filePath: string, res: ServerResponse): void {
-	const stat = statSync(filePath);
+/**
+ * Decode a request path. Returns null for a malformed escape (which makes
+ * decodeURIComponent throw) or an embedded NUL byte, so the caller can answer
+ * 400 instead of crashing the process.
+ */
+export function decodePathname(raw: string): string | null {
+	try {
+		const decoded = decodeURIComponent(raw);
+		return decoded.includes("\0") ? null : decoded;
+	} catch {
+		return null;
+	}
+}
+
+/** Compare two secrets without leaking their common prefix through timing. */
+export function secretsMatch(provided: string, expected: string): boolean {
+	const a = Buffer.from(provided);
+	const b = Buffer.from(expected);
+	return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Serve a regular file from inside `root`. Answers 404 and returns true when
+ * the request escapes the root, and returns false when there is no such file
+ * so the caller can fall back to index.html.
+ */
+export function serveStatic(root: string, pathname: string, res: ServerResponse): boolean {
+	const rootPrefix = resolve(root) + sep;
+	const target = resolve(rootPrefix, `.${pathname}`);
+	if (!target.startsWith(rootPrefix)) {
+		send404(res);
+		return true;
+	}
+	let stat: Stats;
+	try {
+		stat = statSync(target);
+	} catch {
+		return false;
+	}
+	if (!stat.isFile()) return false;
 	res.writeHead(200, {
-		"Content-Type": getMimeType(filePath),
+		"Content-Type": getMimeType(target),
 		"Content-Length": stat.size,
 		"Cache-Control": "public, max-age=31536000, immutable",
 	});
-	createReadStream(filePath).pipe(res);
+	createReadStream(target).pipe(res);
+	return true;
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+// Auth
 
 function sendJson(res: ServerResponse, status: number, body: Record<string, unknown>): void {
 	const payload = JSON.stringify(body);
@@ -141,7 +182,7 @@ function handleAuthRequest(
 	const authHeader = req.headers.authorization ?? "";
 	const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
-	if (provided === secret) {
+	if (secretsMatch(provided, secret)) {
 		sendJson(res, 200, { ok: true });
 	} else {
 		sendJson(res, 401, { code: "UNAUTHORIZED", message: "Invalid dashboard secret." });
@@ -149,7 +190,7 @@ function handleAuthRequest(
 	return true;
 }
 
-// ─── Server ───────────────────────────────────────────────────────────────────
+// Server
 
 export async function startDashboardServer(options: DashboardServerOptions): Promise<void> {
 	const { port, apiUrl } = options;
@@ -169,7 +210,11 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 	function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 		const rawUrl = req.url ?? "/";
 		// Strip query string and decode
-		const pathname = decodeURIComponent(rawUrl.split("?")[0] ?? "/");
+		const pathname = decodePathname(rawUrl.split("?")[0] ?? "/");
+		if (pathname === null) {
+			sendJson(res, 400, { code: "BAD_REQUEST", message: "Malformed request path." });
+			return;
+		}
 
 		// Auth endpoint — handled before static files
 		if (handleAuthRequest(req, res, dashboardSecret)) return;
@@ -186,29 +231,14 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 			return;
 		}
 
-		// Static asset
-		const filePath = join(distDir, pathname);
-
-		// Security: ensure file is within distDir
-		const resolvedPath = resolve(filePath);
-		const resolvedDist = resolve(distDir);
-		if (!resolvedPath.startsWith(`${resolvedDist}/`) && resolvedPath !== resolvedDist) {
-			send404(res);
-			return;
-		}
-
-		if (!existsSync(resolvedPath)) {
-			// Fallback to index.html for unknown paths (SPA catch-all)
-			res.writeHead(200, {
-				"Content-Type": "text/html; charset=utf-8",
-				"Content-Length": indexHtmlBuffer.byteLength,
-				"Cache-Control": "no-cache",
-			});
-			res.end(indexHtmlBuffer);
-			return;
-		}
-
-		serveFile(resolvedPath, res);
+		// Static asset, falling back to index.html for unknown paths (SPA catch-all)
+		if (serveStatic(distDir, pathname, res)) return;
+		res.writeHead(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"Content-Length": indexHtmlBuffer.byteLength,
+			"Cache-Control": "no-cache",
+		});
+		res.end(indexHtmlBuffer);
 	}
 
 	const server = createServer(handleRequest);

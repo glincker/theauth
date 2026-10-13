@@ -123,7 +123,7 @@ async function gotoAuthenticatedDashboard(page: Page) {
 	await expect(page.locator("main h1", { hasText: "Overview" })).toBeVisible();
 }
 
-// ─── Login page (unauthenticated) ─────────────────────────────────────────────
+// Login page (unauthenticated)
 
 test.describe("login screen", () => {
 	test.beforeEach(async ({ page }) => {
@@ -176,7 +176,7 @@ test.describe("login screen", () => {
 	});
 });
 
-// ─── Authenticated shell ───────────────────────────────────────────────────────
+// Authenticated shell
 
 test.describe("authenticated dashboard", () => {
 	test.beforeEach(async ({ page }) => {

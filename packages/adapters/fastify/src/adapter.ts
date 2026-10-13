@@ -15,7 +15,7 @@ import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 
-// ─── Zod Validation Schemas ──────────────────────────────────────────────────
+// Zod Validation Schemas
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -73,7 +73,7 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// ─── Response Helpers ────────────────────────────────────────────────────────
+// Response Helpers
 
 function sendOk<T>(reply: FastifyReply, data: T, status = 200): FastifyReply {
 	return reply.status(status).header("Content-Type", "application/json").send({ data });
@@ -128,7 +128,7 @@ function sendValidationError(reply: FastifyReply, issues: z.ZodIssue[]): Fastify
 	return sendBadRequest(reply, `Validation failed: ${message}`);
 }
 
-// ─── MCP CORS Headers ────────────────────────────────────────────────────────
+// MCP CORS Headers
 
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -187,7 +187,7 @@ function toWebRequest(request: FastifyRequest): Request {
 	});
 }
 
-// ─── Audit Filter Builder ────────────────────────────────────────────────────
+// Audit Filter Builder
 
 function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 	const q = query as Record<string, string | undefined>;
@@ -223,7 +223,7 @@ function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 	return filter;
 }
 
-// ─── Adapter Options ─────────────────────────────────────────────────────────
+// Adapter Options
 
 export interface TheAuthFastifyOptions extends AdapterSecurityOptions {
 	/**
@@ -242,7 +242,7 @@ export interface TheAuthFastifyOptions extends AdapterSecurityOptions {
 /** @deprecated Use `TheAuthFastifyOptions` instead. Will be removed in a future major version. */
 export type AuthFastifyOptions = TheAuthFastifyOptions;
 
-// ─── Adapter Factory ─────────────────────────────────────────────────────────
+// Adapter Factory
 
 /**
  * Create a Fastify plugin that registers all TheAuth REST API routes.
@@ -308,7 +308,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			scopes.set(request, resolved.scope);
 		});
 
-		// ── MCP OPTIONS preflight ────────────────────────────────────
+		// MCP OPTIONS preflight
 
 		fastify.options("/mcp/*", (_request, reply) => {
 			return reply.status(204).headers(MCP_CORS_HEADERS).send();
@@ -318,7 +318,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			return reply.status(204).headers(MCP_CORS_HEADERS).send();
 		});
 
-		// ── Agent REST API ───────────────────────────────────────────
+		// Agent REST API
 
 		// POST /agents
 		fastify.post("/agents", async (request, reply) => {
@@ -446,7 +446,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// ── Authorization ────────────────────────────────────────────
+		// Authorization
 
 		// POST /authorize
 		fastify.post("/authorize", async (request, reply) => {
@@ -524,7 +524,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// ── Delegation ───────────────────────────────────────────────
+		// Delegation
 
 		// POST /delegations
 		fastify.post("/delegations", async (request, reply) => {
@@ -587,7 +587,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			},
 		);
 
-		// ── Audit ─────────────────────────────────────────────────────
+		// Audit
 
 		// GET /audit/export — must be registered before /audit to avoid route shadowing
 		fastify.get("/audit/export", async (request, reply) => {
@@ -642,7 +642,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// ── Dashboard API ────────────────────────────────────────────
+		// Dashboard API
 
 		// GET /dashboard/stats
 		fastify.get("/dashboard/stats", async (request, reply) => {
@@ -735,7 +735,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// ── MCP OAuth 2.1 Endpoints ──────────────────────────────────
+		// MCP OAuth 2.1 Endpoints
 
 		// GET /.well-known/oauth-authorization-server
 		fastify.get("/.well-known/oauth-authorization-server", (_request, reply) => {
@@ -801,7 +801,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// ── Plugin Endpoints ─────────────────────────────────────────
+		// Plugin Endpoints
 
 		for (const endpoint of auth.plugins.getEndpoints()) {
 			const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";

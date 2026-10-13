@@ -24,9 +24,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Test DB helper
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -47,9 +45,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ---------------------------------------------------------------------------
 // Mock provider factory
-// ---------------------------------------------------------------------------
 
 function createMockProvider(
 	id: string,
@@ -94,9 +90,7 @@ function createMockProvider(
 	};
 }
 
-// ---------------------------------------------------------------------------
 // PKCE
-// ---------------------------------------------------------------------------
 
 describe("PKCE", () => {
 	it("generates a non-empty code verifier", () => {
@@ -151,9 +145,7 @@ describe("PKCE", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Google provider
-// ---------------------------------------------------------------------------
 
 describe("Google provider", () => {
 	const google = createGoogleProvider({
@@ -230,9 +222,7 @@ describe("Google provider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // GitHub provider
-// ---------------------------------------------------------------------------
 
 describe("GitHub provider", () => {
 	const github = createGithubProvider({
@@ -288,9 +278,7 @@ describe("GitHub provider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // OAuth module — state management
-// ---------------------------------------------------------------------------
 
 describe("createOAuthModule — state management", () => {
 	let db: Database;
@@ -400,9 +388,7 @@ describe("createOAuthModule — state management", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // OAuth module — callback and account management
-// ---------------------------------------------------------------------------
 
 describe("createOAuthModule — handleCallback", () => {
 	let db: Database;
@@ -484,9 +470,7 @@ describe("createOAuthModule — handleCallback", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // OAuth module — linkAccount and findLinkedUser
-// ---------------------------------------------------------------------------
 
 describe("createOAuthModule — linkAccount / findLinkedUser", () => {
 	let db: Database;

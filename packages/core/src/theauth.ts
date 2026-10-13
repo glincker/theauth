@@ -575,7 +575,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 		validateToken: agentModule.validateToken,
 	};
 
-	// ── MCP server registry ─────────────────────────────────────────
+	// MCP server registry
 	// Uses the theauth_mcp_servers table (defined in db/schema.ts).
 	const mcpRegistry = {
 		/**

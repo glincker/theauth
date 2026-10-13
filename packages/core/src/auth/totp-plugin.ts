@@ -4,9 +4,7 @@ import type { OtpChannel } from "./otp-senders.js";
 import type { TotpConfig } from "./totp.js";
 import { createTotpModule } from "./totp.js";
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 /**
  * Optional second method: a one-time code sent by email or SMS. Off unless
@@ -20,9 +18,7 @@ export interface TwoFactorOtpConfig {
 
 export type TwoFactorConfig = TotpConfig & { otp?: TwoFactorOtpConfig };
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -39,9 +35,7 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function twoFactor(config?: TwoFactorConfig): TheAuthPlugin {
 	return {

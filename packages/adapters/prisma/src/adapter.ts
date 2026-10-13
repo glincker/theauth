@@ -27,7 +27,7 @@ import type {
 	TheAuthPrismaAdapter,
 } from "./types.js";
 
-// ─── Minimal PrismaClient shape ───────────────────────────────────────────────
+// Minimal PrismaClient shape
 // We define only the parts we call so the adapter compiles without @prisma/client
 // being installed in this package. Users supply their own generated PrismaClient.
 
@@ -76,7 +76,7 @@ interface PrismaClientLike {
 	$transaction<T>(fn: (tx: PrismaClientLike) => Promise<T>): Promise<T>;
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Create a TheAuth Prisma adapter.
@@ -99,7 +99,7 @@ interface PrismaClientLike {
  * ```
  */
 export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdapter {
-	// ── Users ──────────────────────────────────────────────────────────────────
+	// Users
 
 	async function findUserById(id: string): Promise<PrismaUser | null> {
 		return prisma.theAuthUser.findUnique({ where: { id } });
@@ -121,7 +121,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthUser.delete({ where: { id } });
 	}
 
-	// ── Agents ─────────────────────────────────────────────────────────────────
+	// Agents
 
 	async function findAgentById(id: string): Promise<PrismaAgent | null> {
 		return prisma.theAuthAgent.findUnique({ where: { id } });
@@ -152,7 +152,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthAgent.delete({ where: { id } });
 	}
 
-	// ── Permissions ────────────────────────────────────────────────────────────
+	// Permissions
 
 	async function findPermissionsByAgentId(agentId: string): Promise<PrismaPermission[]> {
 		return prisma.theAuthPermission.findMany({ where: { agentId } });
@@ -170,7 +170,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthPermission.delete({ where: { id } });
 	}
 
-	// ── Delegation chains ──────────────────────────────────────────────────────
+	// Delegation chains
 
 	async function findDelegationChain(id: string): Promise<PrismaDelegationChain | null> {
 		return prisma.theAuthDelegationChain.findUnique({ where: { id } });
@@ -196,7 +196,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return prisma.theAuthDelegationChain.update({ where: { id }, data });
 	}
 
-	// ── Audit logs ─────────────────────────────────────────────────────────────
+	// Audit logs
 
 	async function createAuditLog(input: CreateAuditLogInput): Promise<PrismaAuditLog> {
 		return prisma.theAuthAuditLog.create({ data: input });
@@ -223,7 +223,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		});
 	}
 
-	// ── Sessions ───────────────────────────────────────────────────────────────
+	// Sessions
 
 	async function findSessionById(id: string): Promise<PrismaSession | null> {
 		return prisma.theAuthSession.findUnique({ where: { id } });
@@ -244,7 +244,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return result.count;
 	}
 
-	// ── Rate limits ────────────────────────────────────────────────────────────
+	// Rate limits
 
 	async function findRateLimit(
 		agentId: string,
@@ -276,7 +276,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		});
 	}
 
-	// ── OAuth clients ──────────────────────────────────────────────────────────
+	// OAuth clients
 
 	async function findOAuthClientById(clientId: string): Promise<PrismaOAuthClient | null> {
 		return prisma.theAuthOAuthClient.findFirst({ where: { clientId } });
@@ -295,7 +295,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return prisma.theAuthOAuthClient.update({ where: { clientId }, data });
 	}
 
-	// ── OAuth access tokens ────────────────────────────────────────────────────
+	// OAuth access tokens
 
 	async function findOAuthAccessToken(accessToken: string): Promise<PrismaOAuthAccessToken | null> {
 		return prisma.theAuthOAuthAccessToken.findFirst({ where: { accessToken } });
@@ -317,7 +317,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthOAuthAccessToken.deleteMany({ where: { accessToken } });
 	}
 
-	// ── OAuth authorization codes ──────────────────────────────────────────────
+	// OAuth authorization codes
 
 	async function findOAuthAuthorizationCode(
 		code: string,
@@ -335,7 +335,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthOAuthAuthorizationCode.delete({ where: { id } });
 	}
 
-	// ── MCP servers ────────────────────────────────────────────────────────────
+	// MCP servers
 
 	async function findMcpServerByEndpoint(endpoint: string): Promise<PrismaMcpServer | null> {
 		return prisma.theAuthMcpServer.findFirst({ where: { endpoint } });
@@ -351,7 +351,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return prisma.theAuthMcpServer.create({ data: input });
 	}
 
-	// ── API keys ───────────────────────────────────────────────────────────────
+	// API keys
 
 	async function findApiKeyByHash(keyHash: string): Promise<PrismaApiKey | null> {
 		return prisma.theAuthApiKey.findFirst({ where: { keyHash } });
@@ -378,7 +378,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthApiKey.delete({ where: { id } });
 	}
 
-	// ── Organizations ──────────────────────────────────────────────────────────
+	// Organizations
 
 	async function findOrgById(id: string): Promise<PrismaOrganization | null> {
 		return prisma.theAuthOrganization.findUnique({ where: { id } });
@@ -398,7 +398,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthOrganization.delete({ where: { id } });
 	}
 
-	// ── Org members ────────────────────────────────────────────────────────────
+	// Org members
 
 	async function findOrgMember(orgId: string, userId: string): Promise<PrismaOrgMember | null> {
 		return prisma.theAuthOrgMember.findFirst({ where: { orgId, userId } });
@@ -421,7 +421,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthOrgMember.deleteMany({ where: { orgId, userId } });
 	}
 
-	// ── Org invitations ────────────────────────────────────────────────────────
+	// Org invitations
 
 	async function findOrgInvitation(id: string): Promise<PrismaOrgInvitation | null> {
 		return prisma.theAuthOrgInvitation.findUnique({ where: { id } });
@@ -440,7 +440,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return prisma.theAuthOrgInvitation.update({ where: { id }, data });
 	}
 
-	// ── JWT refresh tokens ─────────────────────────────────────────────────────
+	// JWT refresh tokens
 
 	async function findJwtRefreshToken(tokenHash: string): Promise<PrismaJwtRefreshToken | null> {
 		return prisma.theAuthJwtRefreshToken.findFirst({ where: { tokenHash } });
@@ -456,7 +456,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		await prisma.theAuthJwtRefreshToken.update({ where: { id }, data: { used: true } });
 	}
 
-	// ── Trust scores ───────────────────────────────────────────────────────────
+	// Trust scores
 
 	async function findTrustScore(agentId: string): Promise<PrismaTrustScore | null> {
 		return prisma.theAuthTrustScore.findUnique({ where: { agentId } });
@@ -475,7 +475,7 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		});
 	}
 
-	// ── Approval requests ──────────────────────────────────────────────────────
+	// Approval requests
 
 	async function findApprovalRequest(id: string): Promise<PrismaApprovalRequest | null> {
 		return prisma.theAuthApprovalRequest.findUnique({ where: { id } });
@@ -501,13 +501,13 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return prisma.theAuthApprovalRequest.update({ where: { id }, data });
 	}
 
-	// ── Transactions ───────────────────────────────────────────────────────────
+	// Transactions
 
 	async function transaction<T>(fn: (adapter: TheAuthPrismaAdapter) => Promise<T>): Promise<T> {
 		return prisma.$transaction((tx) => fn(createPrismaAdapter(tx as PrismaClientLike)));
 	}
 
-	// ── Return adapter ─────────────────────────────────────────────────────────
+	// Return adapter
 
 	return {
 		findUserById,

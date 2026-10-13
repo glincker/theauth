@@ -78,7 +78,7 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── Verify JWT ──────────────────────────────────────────────────
+	// Verify JWT
 	let payload: McpTokenPayload;
 	try {
 		payload = (await verifyAccessJwt(ctx, token, {
@@ -103,7 +103,7 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── Validate required fields exist ──────────────────────────────
+	// Validate required fields exist
 	if (!payload.sub || !payload.client_id || !payload.jti) {
 		return {
 			success: false,
@@ -114,7 +114,7 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── Revocation (opt-in jti denylist) ────────────────────────────
+	// Revocation (opt-in jti denylist)
 	if (ctx.config.jtiDenylist && (await ctx.config.jtiDenylist.isRevoked(payload.jti))) {
 		return {
 			success: false,
@@ -122,7 +122,7 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── Audience claim must exist (jose already matched it) ─────────
+	// Audience claim must exist (jose already matched it)
 	const audience = payload.aud;
 	if (!audience) {
 		return {
@@ -134,7 +134,7 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── DPoP binding (RFC 9449 section 7) ───────────────────────────
+	// DPoP binding (RFC 9449 section 7)
 	const boundJkt = typeof payload.cnf?.jkt === "string" ? payload.cnf.jkt : undefined;
 	const presentedJkt = options.presentedDpopJkt ?? undefined;
 	if (boundJkt) {
@@ -168,7 +168,7 @@ export async function validateAccessToken(
 		};
 	}
 
-	// ── Scope validation ────────────────────────────────────────────
+	// Scope validation
 	const tokenScopes = payload.scope ? payload.scope.split(" ") : [];
 	const requiredScopes = options?.requiredScopes ?? [];
 
@@ -188,10 +188,10 @@ export async function validateAccessToken(
 		}
 	}
 
-	// ── Determine resource from audience ────────────────────────────
+	// Determine resource from audience
 	const resource = Array.isArray(audience) ? (audience[0] ?? null) : audience;
 
-	// ── Build session ───────────────────────────────────────────────
+	// Build session
 	const session: McpSession = {
 		userId: payload.sub,
 		clientId: payload.client_id,

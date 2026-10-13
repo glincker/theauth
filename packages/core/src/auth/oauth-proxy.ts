@@ -29,9 +29,7 @@ import type { OAuthProvider } from "./oauth/types.js";
 import type { RateLimiter } from "./rate-limiter.js";
 import { createRateLimiter } from "./rate-limiter.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface OAuthProxyConfig {
 	/**
@@ -97,9 +95,7 @@ export interface OAuthProxyModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal state entry
-// ---------------------------------------------------------------------------
 
 interface ProxyStateEntry {
 	provider: string;
@@ -113,9 +109,7 @@ interface ProxyStateEntry {
 	expiresAt: number;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const DEFAULT_STATE_TTL_SECONDS = 600;
 const DEFAULT_RATE_LIMIT = { max: 20, windowSeconds: 60 };
@@ -138,9 +132,7 @@ function jsonError(message: string, status: number): Response {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createOAuthProxyModule(
 	config: OAuthProxyConfig,
@@ -158,9 +150,7 @@ export function createOAuthProxyModule(
 	// The TheAuth-side callback URL registered with the provider.
 	const serverCallbackUri = `${baseUrl.replace(/\/$/, "")}/auth/oauth-proxy/callback`;
 
-	// ---------------------------------------------------------------------------
 	// Periodic cleanup: prune expired entries whenever we write.
-	// ---------------------------------------------------------------------------
 
 	function pruneExpired(): void {
 		const now = Date.now();
@@ -171,9 +161,7 @@ export function createOAuthProxyModule(
 		}
 	}
 
-	// ---------------------------------------------------------------------------
 	// startFlow
-	// ---------------------------------------------------------------------------
 
 	async function startFlow(
 		providerId: string,
@@ -219,9 +207,7 @@ export function createOAuthProxyModule(
 		return { authUrl, proxyState };
 	}
 
-	// ---------------------------------------------------------------------------
 	// handleCallback
-	// ---------------------------------------------------------------------------
 
 	async function handleCallback(
 		code: string,
@@ -288,15 +274,13 @@ export function createOAuthProxyModule(
 		return { redirectUrl, tokens };
 	}
 
-	// ---------------------------------------------------------------------------
 	// handleRequest
-	// ---------------------------------------------------------------------------
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const pathname = url.pathname.replace(/\/$/, "");
 
-		// ── GET /auth/oauth-proxy/start ──────────────────────────────────────────
+		// GET /auth/oauth-proxy/start
 
 		if (request.method === "GET" && pathname.endsWith("/auth/oauth-proxy/start")) {
 			const ip = resolveClientIp(request, config.trustedProxy) ?? "unknown";
@@ -331,7 +315,7 @@ export function createOAuthProxyModule(
 			}
 		}
 
-		// ── GET /auth/oauth-proxy/callback ───────────────────────────────────────
+		// GET /auth/oauth-proxy/callback
 
 		if (request.method === "GET" && pathname.endsWith("/auth/oauth-proxy/callback")) {
 			const code = url.searchParams.get("code");
@@ -376,9 +360,7 @@ export function createOAuthProxyModule(
 	return { startFlow, handleCallback, handleRequest };
 }
 
-// ---------------------------------------------------------------------------
 // Error class
-// ---------------------------------------------------------------------------
 
 export class OAuthProxyError extends Error {
 	readonly code: string;

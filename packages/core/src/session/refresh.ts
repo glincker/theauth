@@ -42,9 +42,7 @@ import { getCookie, serializeCookie, serializeCookieDeletion } from "./cookie.js
 import type { TokenFamily } from "./token-family.js";
 import { createTokenFamilyStore } from "./token-family.js";
 
-// ---------------------------------------------------------------------------
 // Duration parsing
-// ---------------------------------------------------------------------------
 
 const DURATION_RE = /^(\d+)(ms|s|m|h|d)$/;
 
@@ -73,9 +71,7 @@ function parseDurationMs(duration: string): number {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface RefreshSessionConfig {
 	/**
@@ -225,9 +221,7 @@ export class RefreshTokenError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_ACCESS_TOKEN_TTL = "15m";
 const DEFAULT_REFRESH_TOKEN_TTL = "30d";
@@ -235,9 +229,7 @@ const DEFAULT_ABSOLUTE_TIMEOUT = "90d";
 const DEFAULT_REFRESH_COOKIE = "theauth_refresh";
 const DEFAULT_ACCESS_COOKIE = "theauth_access";
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a `SessionRefresher` backed by the TheAuth database.
@@ -260,7 +252,7 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 	const graceMs = sessionCfg.reuseGracePeriod ? parseDurationMs(sessionCfg.reuseGracePeriod) : 0;
 	const families = createTokenFamilyStore(config.db, { reuseGraceMs: graceMs });
 
-	// ── helpers ────────────────────────────────────────────────────────────
+	// helpers
 
 	async function signAccessToken(
 		userId: string,
@@ -325,7 +317,7 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 		};
 	}
 
-	// ── public API ─────────────────────────────────────────────────────────
+	// public API
 
 	async function issueInitial(userId: string): Promise<RefreshResult> {
 		const now = Date.now();

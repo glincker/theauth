@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
 import type { Page, Theme } from "../types.js";
 import { DemoBanner } from "./demo-banner.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface NavItem {
 	id: Page;
@@ -41,7 +41,7 @@ interface LayoutProps {
 	onThemeToggle: () => void;
 }
 
-// ─── Nav Config ───────────────────────────────────────────────────────────────
+// Nav Config
 
 const NAV_ITEMS: NavItem[] = [
 	{
@@ -100,7 +100,7 @@ const NAV_ITEMS: NavItem[] = [
 	},
 ];
 
-// ─── Logo ─────────────────────────────────────────────────────────────────────
+// Logo
 
 function TheAuthLogo() {
 	return (
@@ -118,7 +118,7 @@ function TheAuthLogo() {
 	);
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+// Sidebar
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
 	return (
@@ -169,7 +169,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
 	);
 }
 
-// ─── Theme Toggle ─────────────────────────────────────────────────────────────
+// Theme Toggle
 
 export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
 	const isDark = theme === "dark";
@@ -186,7 +186,7 @@ export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () =>
 	);
 }
 
-// ─── Page Header ──────────────────────────────────────────────────────────────
+// Page Header
 
 interface PageHeaderProps {
 	title: string;
@@ -210,7 +210,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
 	);
 }
 
-// ─── Main Layout ──────────────────────────────────────────────────────────────
+// Main Layout
 
 export function Layout({
 	currentPage,

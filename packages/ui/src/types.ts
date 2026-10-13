@@ -1,12 +1,12 @@
 import type { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactNode } from "react";
 
-// ─── Class name overrides ────────────────────────────────────────────────────
+// Class name overrides
 // Every component exposes a classNames prop keyed by sub-element name.
 // Pass a string to append classes, or a function that receives defaults.
 
 export type ClassNameOverride = string | ((defaultClassName: string) => string);
 
-// ─── Slot replacement ────────────────────────────────────────────────────────
+// Slot replacement
 // Every component exposes a components prop for full slot replacement.
 
 export interface InputSlotProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -42,7 +42,7 @@ export interface AvatarSlotProps {
 	className?: string;
 }
 
-// ─── Shared component slots ──────────────────────────────────────────────────
+// Shared component slots
 
 export interface SharedSlots {
 	Input?: ComponentType<InputSlotProps>;
@@ -52,7 +52,7 @@ export interface SharedSlots {
 	Error?: ComponentType<ErrorSlotProps>;
 }
 
-// ─── OAuth provider metadata ─────────────────────────────────────────────────
+// OAuth provider metadata
 
 export interface OAuthProviderMeta {
 	id: string;
@@ -61,7 +61,7 @@ export interface OAuthProviderMeta {
 	color?: string;
 }
 
-// ─── Sign-in component ──────────────────────────────────────────────────────
+// Sign-in component
 
 export interface SignInClassNames {
 	root?: ClassNameOverride;
@@ -95,7 +95,7 @@ export interface SignInProps {
 	className?: string;
 }
 
-// ─── Sign-up component ──────────────────────────────────────────────────────
+// Sign-up component
 
 export interface SignUpClassNames {
 	root?: ClassNameOverride;
@@ -128,7 +128,7 @@ export interface SignUpProps {
 	className?: string;
 }
 
-// ─── User button ─────────────────────────────────────────────────────────────
+// User button
 
 export interface UserButtonClassNames {
 	root?: ClassNameOverride;
@@ -158,7 +158,7 @@ export interface UserButtonProps {
 	className?: string;
 }
 
-// ─── OAuth buttons ───────────────────────────────────────────────────────────
+// OAuth buttons
 
 export interface OAuthButtonsClassNames {
 	root?: ClassNameOverride;
@@ -180,7 +180,7 @@ export interface OAuthButtonsProps {
 	className?: string;
 }
 
-// ─── Forgot password ─────────────────────────────────────────────────────────
+// Forgot password
 
 export interface ForgotPasswordClassNames {
 	root?: ClassNameOverride;
@@ -205,7 +205,7 @@ export interface ForgotPasswordProps {
 	className?: string;
 }
 
-// ─── Two-factor verify ───────────────────────────────────────────────────────
+// Two-factor verify
 
 export interface TwoFactorClassNames {
 	root?: ClassNameOverride;
@@ -231,7 +231,7 @@ export interface TwoFactorVerifyProps {
 	className?: string;
 }
 
-// ─── Auth card ───────────────────────────────────────────────────────────────
+// Auth card
 
 export interface AuthCardClassNames {
 	root?: ClassNameOverride;

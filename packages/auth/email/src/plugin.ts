@@ -4,9 +4,7 @@ import { createEmailAuth } from "./email-auth.js";
 import { EmailAuthError, ErrorCodes, gateErrorResponse } from "./errors.js";
 import type { EmailAuthConfig, EmailSignInGate } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // HTTP helpers
-// ---------------------------------------------------------------------------
 
 function jsonOk(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify(data), {
@@ -47,9 +45,7 @@ function errorToResponse(err: unknown): Response {
 	return jsonError("INTERNAL_ERROR", "An unexpected error occurred.", 500);
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 /**
  * Email + password authentication plugin for TheAuth.

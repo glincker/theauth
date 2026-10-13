@@ -16,15 +16,11 @@ import type { OAuthProvider } from "../types.js";
 import type { GenericOIDCConfig } from "./generic.js";
 import { genericOIDC } from "./generic.js";
 
-// ---------------------------------------------------------------------------
 // Re-export type so callers can annotate their config objects
-// ---------------------------------------------------------------------------
 
 export type { GenericOIDCConfig };
 
-// ---------------------------------------------------------------------------
 // Providers that use explicit endpoints (no OIDC discovery)
-// ---------------------------------------------------------------------------
 
 /**
  * Facebook (Meta) OAuth 2.0.
@@ -333,9 +329,7 @@ export function coinbaseProvider(
 	});
 }
 
-// ---------------------------------------------------------------------------
 // New preset providers
-// ---------------------------------------------------------------------------
 
 /**
  * TikTok OAuth 2.0.
@@ -659,9 +653,7 @@ export function polarProvider(
 	});
 }
 
-// ---------------------------------------------------------------------------
 // OIDC-discovery providers (tenant/domain required)
-// ---------------------------------------------------------------------------
 
 /**
  * Auth0 OIDC provider.
@@ -758,9 +750,7 @@ export function cognitoProvider(
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Self-hosted and identity-platform providers (discovery)
-// ---------------------------------------------------------------------------
 
 function trimUrl(url: string): string {
 	return url.replace(/\/+$/, "");
@@ -883,9 +873,7 @@ export function giteaProvider(
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Providers with non-OIDC userinfo (use mapProfile)
-// ---------------------------------------------------------------------------
 
 /**
  * Patreon OAuth 2.0 (API v2 identity endpoint).

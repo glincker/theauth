@@ -25,9 +25,7 @@ import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Token-signing helpers
-// ---------------------------------------------------------------------------
 
 // We bypass the remote JWKS entirely by mocking the jose module at the
 // module boundary. The mock replaces `createRemoteJWKSet` with a function
@@ -86,9 +84,7 @@ async function makeIdToken(overrides: {
 	return jwt.sign(TEST_SECRET);
 }
 
-// ---------------------------------------------------------------------------
 // Mock jose's createRemoteJWKSet
-// ---------------------------------------------------------------------------
 
 // We mock the entire jose module so that createRemoteJWKSet returns a local
 // verifier backed by our test secret instead of fetching Google's JWKS.
@@ -107,9 +103,7 @@ vi.mock("jose", async (importOriginal) => {
 	};
 });
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-chars!!";
 
@@ -142,9 +136,7 @@ function makeCallbackRequest(opts: {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Suite: verify()
-// ---------------------------------------------------------------------------
 
 describe("OneTapModule.verify", () => {
 	let db: Database;
@@ -222,9 +214,7 @@ describe("OneTapModule.verify", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Suite: handleRequest() — routing + CSRF
-// ---------------------------------------------------------------------------
 
 describe("OneTapModule.handleRequest — routing and CSRF", () => {
 	let db: Database;
@@ -303,9 +293,7 @@ describe("OneTapModule.handleRequest — routing and CSRF", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Suite: handleRequest() — user flows
-// ---------------------------------------------------------------------------
 
 describe("OneTapModule.handleRequest — user flows", () => {
 	let db: Database;

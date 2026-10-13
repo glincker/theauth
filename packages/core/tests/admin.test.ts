@@ -29,9 +29,7 @@ import { users } from "../src/db/schema.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-admin-secret-that-is-at-least-32-chars!!";
 const ADMIN_USER_ID = "user_admin_001";
@@ -49,9 +47,7 @@ async function seedUser(db: Database, id: string, email: string, name?: string):
 	await db.insert(users).values({ id, email, name: name ?? null, createdAt: now, updatedAt: now });
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("AdminModule.isAdmin", () => {
 	let db: Database;

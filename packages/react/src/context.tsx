@@ -20,7 +20,7 @@ import type {
 	TheAuthUser,
 } from "./types.js";
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// Context
 
 export const TheAuthContext = createContext<TheAuthContextValue | null>(null);
 
@@ -32,7 +32,7 @@ export function useTheAuthContext(): TheAuthContextValue {
 	return ctx;
 }
 
-// ─── Provider props ───────────────────────────────────────────────────────────
+// Provider props
 
 export interface TheAuthProviderProps {
 	children: ReactNode;
@@ -71,7 +71,7 @@ export interface TheAuthProviderProps {
 	debug?: boolean;
 }
 
-// ─── Debug helper ─────────────────────────────────────────────────────────────
+// Debug helper
 
 function resolveDebug(propDebug?: boolean): boolean {
 	if (propDebug) return true;
@@ -89,7 +89,7 @@ function makeLogger(enabled: boolean) {
 	};
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// Provider
 
 export function TheAuthProvider({
 	children,
@@ -112,7 +112,7 @@ export function TheAuthProvider({
 	);
 }
 
-// ─── Rotation defaults ────────────────────────────────────────────────────────
+// Rotation defaults
 
 const DEFAULT_PROACTIVE_LEAD_MS = 120_000;
 const DEFAULT_RETRY: Required<RotateRetryConfig> = {
@@ -153,7 +153,7 @@ function makeNoopRotation(message: string): () => Promise<RotateResult> {
 	});
 }
 
-// ─── External auth provider ───────────────────────────────────────────────────
+// External auth provider
 
 function ExternalProvider({
 	children,
@@ -217,7 +217,7 @@ function ExternalProvider({
 		errorCodeMapRef.current = config.errorCodeMap;
 	}, [config.onAuthError, config.onSessionRotated, config.errorCodeMap]);
 
-	// ── /me bootstrap ──────────────────────────────────────────────────────
+	// /me bootstrap
 
 	const refresh = useCallback(async (): Promise<void> => {
 		if (typeof window === "undefined") {
@@ -249,7 +249,7 @@ function ExternalProvider({
 		void refresh();
 	}, [refresh]);
 
-	// ── Rotation core ──────────────────────────────────────────────────────
+	// Rotation core
 
 	const mapServerCode = useCallback((raw: unknown): RotateErrorCode => {
 		if (typeof raw !== "string") return "unknown";
@@ -461,7 +461,7 @@ function ExternalProvider({
 		runRotationRef.current = runRotation;
 	}, [runRotation]);
 
-	// ── Online / offline tracking ──────────────────────────────────────────
+	// Online / offline tracking
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -490,7 +490,7 @@ function ExternalProvider({
 		};
 	}, [rotationEnabled, runRotation, scheduleProactive, log]);
 
-	// ── Proactive bootstrap once user is loaded ────────────────────────────
+	// Proactive bootstrap once user is loaded
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -522,7 +522,7 @@ function ExternalProvider({
 		};
 	}, [user, rotationEnabled, proactiveLeadMs, runRotation, scheduleProactive]);
 
-	// ── Auth actions ───────────────────────────────────────────────────────
+	// Auth actions
 
 	const signIn = useCallback(async (): Promise<ActionResult> => {
 		log("signIn:redirect", { url: `${apiUrl}${loginPath}` });
@@ -583,7 +583,7 @@ function ExternalProvider({
 	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
 
-// ─── Default user mapper ──────────────────────────────────────────────────────
+// Default user mapper
 
 function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 	return {
@@ -594,7 +594,7 @@ function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 	};
 }
 
-// ─── Managed (original) provider ──────────────────────────────────────────────
+// Managed (original) provider
 
 function ManagedProvider({
 	children,
@@ -778,7 +778,7 @@ function ManagedProvider({
 	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
 
-// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Deprecated aliases
 // Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 

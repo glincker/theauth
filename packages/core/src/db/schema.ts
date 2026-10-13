@@ -1,8 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// ============================================================
 // Users (basic human identity - integrates with external auth)
-// ============================================================
 export const users = sqliteTable("theauth_users", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull().unique(),
@@ -39,9 +37,7 @@ export const users = sqliteTable("theauth_users", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Tenants (multi-tenant isolation — must come before agents)
-// ============================================================
 export const tenants = sqliteTable("theauth_tenants", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -61,9 +57,7 @@ interface TenantSettingsRow {
 	allowedAgentTypes?: string[];
 }
 
-// ============================================================
 // Agents (the core differentiator - AI agent identities)
-// ============================================================
 export const agents = sqliteTable("theauth_agents", {
 	id: text("id").primaryKey(),
 	ownerId: text("owner_id")
@@ -84,9 +78,7 @@ export const agents = sqliteTable("theauth_agents", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Permissions (scoped access control per agent)
-// ============================================================
 export const permissions = sqliteTable("theauth_permissions", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -108,9 +100,7 @@ interface PermissionConstraintsRow {
 	ipAllowlist?: string[];
 }
 
-// ============================================================
 // Delegation Chains (agent-to-agent permission delegation)
-// ============================================================
 export const delegationChains = sqliteTable("theauth_delegation_chains", {
 	id: text("id").primaryKey(),
 	fromAgentId: text("from_agent_id")
@@ -134,9 +124,7 @@ interface DelegationPermissionRow {
 	actions: string[];
 }
 
-// ============================================================
 // Audit Logs (immutable record of every agent action)
-// ============================================================
 export const auditLogs = sqliteTable("theauth_audit_logs", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -164,9 +152,7 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	hash: text("hash"),
 });
 
-// ============================================================
 // Rate Limit Counters (track per-agent call rates)
-// ============================================================
 export const rateLimits = sqliteTable("theauth_rate_limits", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -177,9 +163,7 @@ export const rateLimits = sqliteTable("theauth_rate_limits", {
 	count: integer("count").notNull().default(0),
 });
 
-// ============================================================
 // MCP Servers (registered MCP servers)
-// ============================================================
 export const mcpServers = sqliteTable("theauth_mcp_servers", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -194,9 +178,7 @@ export const mcpServers = sqliteTable("theauth_mcp_servers", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Sessions (human user sessions managed by TheAuth)
-// ============================================================
 export const sessions = sqliteTable("theauth_sessions", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -207,9 +189,7 @@ export const sessions = sqliteTable("theauth_sessions", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OAuth Clients (for MCP OAuth 2.1 - dynamic client registration)
-// ============================================================
 export const oauthClients = sqliteTable("theauth_oauth_clients", {
 	id: text("id").primaryKey(),
 	clientId: text("client_id").notNull().unique(),
@@ -237,9 +217,7 @@ export const oauthClients = sqliteTable("theauth_oauth_clients", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OAuth Access Tokens (issued tokens for MCP auth)
-// ============================================================
 export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
 	id: text("id").primaryKey(),
 	accessToken: text("access_token").notNull().unique(),
@@ -257,9 +235,7 @@ export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OAuth Authorization Codes (temporary codes for code exchange)
-// ============================================================
 export const oauthAuthorizationCodes = sqliteTable("theauth_oauth_authorization_codes", {
 	id: text("id").primaryKey(),
 	code: text("code").notNull().unique(),
@@ -278,9 +254,7 @@ export const oauthAuthorizationCodes = sqliteTable("theauth_oauth_authorization_
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Budget Policies (agent execution budget caps)
-// ============================================================
 export const budgetPolicies = sqliteTable("theauth_budget_policies", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id").references(() => agents.id, { onDelete: "cascade" }), // nullable
@@ -312,9 +286,7 @@ interface BudgetUsageRow {
 	lastUpdated: string;
 }
 
-// ============================================================
 // Agent Capability Cards (A2A discovery)
-// ============================================================
 export const agentCards = sqliteTable("theauth_agent_cards", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -334,9 +306,7 @@ export const agentCards = sqliteTable("theauth_agent_cards", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Approval Requests (CIBA async approval flows)
-// ============================================================
 export const approvalRequests = sqliteTable("theauth_approval_requests", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -357,9 +327,7 @@ export const approvalRequests = sqliteTable("theauth_approval_requests", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Trust Scores (graduated autonomy scoring)
-// ============================================================
 export const trustScores = sqliteTable("theauth_trust_scores", {
 	agentId: text("agent_id")
 		.primaryKey()
@@ -372,9 +340,7 @@ export const trustScores = sqliteTable("theauth_trust_scores", {
 	computedAt: integer("computed_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Magic Links (passwordless email login)
-// ============================================================
 export const magicLinks = sqliteTable("theauth_magic_links", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
@@ -384,9 +350,7 @@ export const magicLinks = sqliteTable("theauth_magic_links", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Email OTPs (one-time password login)
-// ============================================================
 export const emailOtps = sqliteTable("theauth_email_otps", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
@@ -396,9 +360,7 @@ export const emailOtps = sqliteTable("theauth_email_otps", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // TOTP (Two-Factor Authentication)
-// ============================================================
 export const totpRecords = sqliteTable("theauth_totp", {
 	userId: text("user_id")
 		.primaryKey()
@@ -415,9 +377,7 @@ interface TotpBackupCode {
 	used: boolean;
 }
 
-// ============================================================
 // Organizations (multi-member org with RBAC)
-// ============================================================
 export const organizations = sqliteTable("theauth_organizations", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -468,9 +428,7 @@ export const orgRoles = sqliteTable("theauth_org_roles", {
 	permissions: text("permissions", { mode: "json" }).notNull().$type<string[]>(),
 });
 
-// ============================================================
 // Passkey Credentials (WebAuthn / FIDO2)
-// ============================================================
 export const passkeyCredentials = sqliteTable("theauth_passkey_credentials", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -485,9 +443,7 @@ export const passkeyCredentials = sqliteTable("theauth_passkey_credentials", {
 	lastUsedAt: integer("last_used_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // SSO Connections (SAML / OIDC enterprise SSO)
-// ============================================================
 export const ssoConnections = sqliteTable("theauth_sso_connections", {
 	id: text("id").primaryKey(),
 	orgId: text("org_id").notNull(),
@@ -498,9 +454,7 @@ export const ssoConnections = sqliteTable("theauth_sso_connections", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // API Keys (static bearer tokens with permission scopes)
-// ============================================================
 export const apiKeys = sqliteTable("theauth_api_keys", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -515,9 +469,7 @@ export const apiKeys = sqliteTable("theauth_api_keys", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Passkey Challenges (WebAuthn challenge state — short-lived)
-// ============================================================
 export const passkeyChallenges = sqliteTable("theauth_passkey_challenges", {
 	id: text("id").primaryKey(),
 	challenge: text("challenge").notNull().unique(),
@@ -527,9 +479,7 @@ export const passkeyChallenges = sqliteTable("theauth_passkey_challenges", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Username Accounts (username + password auth)
-// ============================================================
 export const usernameAccounts = sqliteTable("theauth_username_accounts", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -541,9 +491,7 @@ export const usernameAccounts = sqliteTable("theauth_username_accounts", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Phone Verifications (SMS OTP)
-// ============================================================
 export const phoneVerifications = sqliteTable("theauth_phone_verifications", {
 	id: text("id").primaryKey(),
 	phoneNumber: text("phone_number").notNull(),
@@ -553,9 +501,7 @@ export const phoneVerifications = sqliteTable("theauth_phone_verifications", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Trusted Devices (skip 2FA on known devices for a time window)
-// ============================================================
 export const trustedDevices = sqliteTable("theauth_trusted_devices", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -567,9 +513,7 @@ export const trustedDevices = sqliteTable("theauth_trusted_devices", {
 	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // One-Time Tokens (email verify, password reset, invitation, custom)
-// ============================================================
 export const oneTimeTokens = sqliteTable("theauth_one_time_tokens", {
 	id: text("id").primaryKey(),
 	tokenHash: text("token_hash").notNull().unique(), // SHA-256 hex of the raw token
@@ -583,9 +527,7 @@ export const oneTimeTokens = sqliteTable("theauth_one_time_tokens", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Login History (last login method tracking per user)
-// ============================================================
 export const loginHistory = sqliteTable("theauth_login_history", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -597,9 +539,7 @@ export const loginHistory = sqliteTable("theauth_login_history", {
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
 });
 
-// ============================================================
 // Agent DIDs (W3C Decentralized Identifiers per agent)
-// ============================================================
 export const agentDids = sqliteTable("theauth_agent_dids", {
 	agentId: text("agent_id")
 		.primaryKey()
@@ -611,9 +551,7 @@ export const agentDids = sqliteTable("theauth_agent_dids", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OIDC Provider — Clients (apps authenticating against TheAuth IdP)
-// ============================================================
 export const oidcClients = sqliteTable("theauth_oidc_clients", {
 	id: text("id").primaryKey(),
 	clientId: text("client_id").notNull().unique(),
@@ -630,9 +568,7 @@ export const oidcClients = sqliteTable("theauth_oidc_clients", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OIDC Provider — Authorization Codes
-// ============================================================
 export const oidcAuthCodes = sqliteTable("theauth_oidc_auth_codes", {
 	id: text("id").primaryKey(),
 	codeHash: text("code_hash").notNull().unique(), // SHA-256 hex of the raw code
@@ -648,9 +584,7 @@ export const oidcAuthCodes = sqliteTable("theauth_oidc_auth_codes", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OIDC Provider — Refresh Tokens
-// ============================================================
 export const oidcRefreshTokens = sqliteTable("theauth_oidc_refresh_tokens", {
 	id: text("id").primaryKey(),
 	tokenHash: text("token_hash").notNull().unique(), // SHA-256 hex of the raw token
@@ -662,9 +596,7 @@ export const oidcRefreshTokens = sqliteTable("theauth_oidc_refresh_tokens", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OIDC Provider: logout configuration per client
-// ============================================================
 export const oidcLogoutClients = sqliteTable("theauth_oidc_logout_clients", {
 	clientId: text("client_id").primaryKey(),
 	postLogoutRedirectUris: text("post_logout_redirect_uris", { mode: "json" })
@@ -674,9 +606,7 @@ export const oidcLogoutClients = sqliteTable("theauth_oidc_logout_clients", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // OIDC Provider: sid index (which RPs hold which provider session)
-// ============================================================
 export const oidcSessions = sqliteTable("theauth_oidc_sessions", {
 	id: text("id").primaryKey(),
 	sid: text("sid").notNull(),
@@ -687,9 +617,7 @@ export const oidcSessions = sqliteTable("theauth_oidc_sessions", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Cost Events (per-agent cost attribution and observability)
-// ============================================================
 export const costEvents = sqliteTable("theauth_cost_events", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -706,9 +634,7 @@ export const costEvents = sqliteTable("theauth_cost_events", {
 	recordedAt: integer("recorded_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Ephemeral Sessions (short-lived agent credentials for single-task use)
-// ============================================================
 export const ephemeralSessions = sqliteTable("theauth_ephemeral_sessions", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
@@ -729,9 +655,7 @@ export const ephemeralSessions = sqliteTable("theauth_ephemeral_sessions", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Stream Events (persisted SSE events for replay)
-// ============================================================
 export const streamEvents = sqliteTable("theauth_stream_events", {
 	id: text("id").primaryKey(),
 	type: text("type").notNull(),
@@ -741,9 +665,7 @@ export const streamEvents = sqliteTable("theauth_stream_events", {
 	userId: text("user_id"),
 });
 
-// ============================================================
 // JWT Session Refresh Tokens (general-purpose session plugin)
-// ============================================================
 export const jwtRefreshTokens = sqliteTable("theauth_jwt_refresh_tokens", {
 	id: text("id").primaryKey(),
 	/** SHA-256 hex of the raw refresh token. The raw token is never stored. */
@@ -758,9 +680,7 @@ export const jwtRefreshTokens = sqliteTable("theauth_jwt_refresh_tokens", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // ReBAC Resources (relationship-based access control — resource hierarchy)
-// ============================================================
 export const rebacResources = sqliteTable("theauth_rebac_resources", {
 	id: text("id").notNull().primaryKey(),
 	type: text("type").notNull(), // 'org', 'workspace', 'project', 'document', etc.
@@ -769,9 +689,7 @@ export const rebacResources = sqliteTable("theauth_rebac_resources", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // ReBAC Relationships (subject-relation-object tuples, Zanzibar style)
-// ============================================================
 export const rebacRelationships = sqliteTable("theauth_rebac_relationships", {
 	id: text("id").primaryKey(),
 	subjectType: text("subject_type").notNull(), // 'user', 'agent', 'team', 'role'
@@ -782,9 +700,7 @@ export const rebacRelationships = sqliteTable("theauth_rebac_relationships", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Federation Instances (trusted remote TheAuth instances)
-// ============================================================
 export const federationInstances = sqliteTable("theauth_federation_instances", {
 	id: text("id").primaryKey(),
 	instanceId: text("instance_id").notNull().unique(),
@@ -798,9 +714,7 @@ export const federationInstances = sqliteTable("theauth_federation_instances", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Federation Tokens (issued/received federation tokens for audit)
-// ============================================================
 export const federationTokens = sqliteTable("theauth_federation_tokens", {
 	id: text("id").primaryKey(),
 	tokenJti: text("token_jti").notNull().unique(), // JWT ID for dedup
@@ -814,9 +728,7 @@ export const federationTokens = sqliteTable("theauth_federation_tokens", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Refresh Token Families (token rotation / reuse detection)
-// ============================================================
 export const refreshTokenFamilies = sqliteTable("theauth_refresh_token_families", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -829,9 +741,7 @@ export const refreshTokenFamilies = sqliteTable("theauth_refresh_token_families"
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Refresh Tokens (individual one-time-use tokens per family)
-// ============================================================
 export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
 	id: text("id").primaryKey(),
 	familyId: text("family_id")
@@ -845,9 +755,7 @@ export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-// ============================================================
 // Secondary storage (database adapter for SecondaryStorage)
-// ============================================================
 export const secondaryStorageEntries = sqliteTable("theauth_secondary_storage", {
 	storageKey: text("storage_key").primaryKey(),
 	value: text("value"),
@@ -856,9 +764,7 @@ export const secondaryStorageEntries = sqliteTable("theauth_secondary_storage", 
 	expiresAt: integer("expires_at"),
 });
 
-// ============================================================
 // Agent registration tokens (one-time, scoped, hashed at rest)
-// ============================================================
 export const agentRegistrationTokens = sqliteTable("theauth_agent_registration_tokens", {
 	id: text("id").primaryKey(),
 	tokenHash: text("token_hash").notNull().unique(), // SHA-256 hex of the raw token

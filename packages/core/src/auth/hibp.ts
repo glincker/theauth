@@ -10,9 +10,7 @@
 
 import { sha1 } from "../crypto/web-crypto.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface HibpConfig {
 	/** Reject passwords seen in more than N breaches (default: 0, reject any). */
@@ -54,18 +52,14 @@ export class HibpBreachedError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // SHA-1 helper (Web Crypto API)
-// ---------------------------------------------------------------------------
 
 async function sha1Hex(input: string): Promise<string> {
 	const hex = await sha1(input);
 	return hex.toUpperCase();
 }
 
-// ---------------------------------------------------------------------------
 // Response parser
-// ---------------------------------------------------------------------------
 
 /**
  * Parse the HIBP range response body.
@@ -94,9 +88,7 @@ function parseRangeResponse(body: string): Map<string, number> {
 	return entries;
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createHibpModule(config?: HibpConfig): HibpModule {
 	const threshold = config?.threshold ?? 0;

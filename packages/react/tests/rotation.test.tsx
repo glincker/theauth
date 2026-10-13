@@ -7,7 +7,7 @@ import { TheAuthProvider } from "../src/context.js";
 import { useRotateSession, useUser } from "../src/hooks.js";
 import type { ExternalAuthConfig, RotateResult } from "../src/types.js";
 
-// ─── Probe ───────────────────────────────────────────────────────────────────
+// Probe
 
 type Snapshot = {
 	rotate: ReturnType<typeof useRotateSession>;
@@ -87,7 +87,7 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// Tests
 
 describe("@glinr/theauth-react v0.5 rotation", () => {
 	it("single-flights concurrent rotateSession calls", async () => {

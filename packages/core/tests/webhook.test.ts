@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebhookEvent } from "../src/webhooks/webhook.js";
 import { createWebhookModule, verifyWebhookSignature } from "../src/webhooks/webhook.js";
 
-// ---------------------------------------------------------------------------
 // fetch mock helpers
-// ---------------------------------------------------------------------------
 
 function mockFetchOk(statusCode = 200): void {
 	vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: statusCode })));

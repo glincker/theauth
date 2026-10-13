@@ -5,9 +5,7 @@ import { createStripeModule } from "./stripe.js";
 
 export type { StripeConfig };
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function stripe(config: StripeConfig): TheAuthPlugin {
 	return {

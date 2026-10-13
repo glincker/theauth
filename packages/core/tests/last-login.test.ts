@@ -33,9 +33,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { loginHistory, users } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -54,9 +52,7 @@ async function seedUser(db: Database, id: string): Promise<void> {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // recordLogin — all methods
-// ---------------------------------------------------------------------------
 
 describe("LastLoginModule.recordLogin", () => {
 	let db: Database;
@@ -201,9 +197,7 @@ describe("LastLoginModule.recordLogin", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // History pruning
-// ---------------------------------------------------------------------------
 
 describe("LastLoginModule — history pruning", () => {
 	it("keeps only the N most recent logins by default (default N = 10)", async () => {
@@ -288,9 +282,7 @@ describe("LastLoginModule — history pruning", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getLastLogin
-// ---------------------------------------------------------------------------
 
 describe("LastLoginModule.getLastLogin", () => {
 	let db: Database;
@@ -366,9 +358,7 @@ describe("LastLoginModule.getLastLogin", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getLoginHistory
-// ---------------------------------------------------------------------------
 
 describe("LastLoginModule.getLoginHistory", () => {
 	let db: Database;
@@ -485,9 +475,7 @@ describe("LastLoginModule.getLoginHistory", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User isolation
-// ---------------------------------------------------------------------------
 
 describe("LastLoginModule — user isolation", () => {
 	it("histories for different users do not interfere", async () => {

@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { ElectronSafeStorage } from "./electron-api.js";
 import { getElectronApi } from "./electron-api.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface ElectronStorageConfig {
 	/** File name for the session data. Defaults to "theauth-session.json". */
@@ -19,7 +19,7 @@ export interface SecureStorage {
 	clear(): Promise<void>;
 }
 
-// ─── XOR cipher for optional encryptionKey ────────────────────────────────────
+// XOR cipher for optional encryptionKey
 
 function xorWithKey(data: Uint8Array, key: string): Uint8Array {
 	if (key.length === 0) return data;
@@ -32,7 +32,7 @@ function xorWithKey(data: Uint8Array, key: string): Uint8Array {
 	return result;
 }
 
-// ─── Base64 helpers (no Buffer) ───────────────────────────────────────────────
+// Base64 helpers (no Buffer)
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
 	let binary = "";
@@ -51,7 +51,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
 	return bytes;
 }
 
-// ─── Storage file helpers ─────────────────────────────────────────────────────
+// Storage file helpers
 
 type StorageMap = Record<string, string>;
 
@@ -74,7 +74,7 @@ function writeStorageFile(filePath: string, data: StorageMap): void {
 	fs.writeFileSync(filePath, JSON.stringify(data), "utf8");
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Creates a SecureStorage adapter backed by Electron's safeStorage API.

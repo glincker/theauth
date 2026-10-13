@@ -27,9 +27,7 @@
 
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://api.notion.com/v1/oauth/authorize";
 const TOKEN_URL = "https://api.notion.com/v1/oauth/token";
@@ -39,9 +37,7 @@ const NOTION_VERSION = "2022-06-28";
 // managed at the integration level in the Notion workspace settings.
 export const DEFAULT_NOTION_SCOPES: string[] = [];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface NotionTokenResponse {
 	access_token: string;
@@ -69,9 +65,7 @@ interface NotionUser {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const tokenData = raw as unknown as NotionTokenResponse;
@@ -93,9 +87,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Notion OAuth provider instance.

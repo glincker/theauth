@@ -1,4 +1,4 @@
-// ─── Agent Types ──────────────────────────────────────────────────────────────
+// Agent Types
 
 export type AgentStatus = "active" | "revoked" | "expired";
 
@@ -40,7 +40,7 @@ export interface CreateAgentResponse {
 	token: string;
 }
 
-// ─── Audit Log Types ──────────────────────────────────────────────────────────
+// Audit Log Types
 
 export type AuditResult = "allowed" | "denied" | "rate_limited";
 
@@ -73,7 +73,7 @@ export interface PaginatedAuditLogs {
 	offset: number;
 }
 
-// ─── Permission Template Types ────────────────────────────────────────────────
+// Permission Template Types
 
 export interface PermissionTemplate {
 	id: string;
@@ -94,7 +94,7 @@ export interface CreatePermissionTemplateInput {
 	constraints?: Record<string, unknown>;
 }
 
-// ─── Settings Types ───────────────────────────────────────────────────────────
+// Settings Types
 
 export interface DatabaseInfo {
 	adapter: string;
@@ -114,7 +114,7 @@ export interface TheAuthSettings {
 /** @deprecated Use `TheAuthSettings` instead. Will be removed in a future major version. */
 export type AuthSettings = TheAuthSettings;
 
-// ─── Dashboard Stats Types ────────────────────────────────────────────────────
+// Dashboard Stats Types
 
 export interface DashboardStats {
 	totalAgents: number;
@@ -125,7 +125,7 @@ export interface DashboardStats {
 	activeDelegations: number;
 }
 
-// ─── User Types ───────────────────────────────────────────────────────────────
+// User Types
 
 export interface User {
 	id: string;
@@ -135,7 +135,7 @@ export interface User {
 	createdAt: string;
 }
 
-// ─── Delegation Types ─────────────────────────────────────────────────────────
+// Delegation Types
 
 export type DelegationStatus = "active" | "expired" | "revoked";
 
@@ -153,7 +153,7 @@ export interface DelegationChain {
 	createdAt: string;
 }
 
-// ─── MCP Server Types ─────────────────────────────────────────────────────────
+// MCP Server Types
 
 export interface McpServerInfo {
 	id: string;
@@ -174,7 +174,7 @@ export interface RegisterMcpServerInput {
 	rateLimit?: { rpm: number };
 }
 
-// ─── API Response Wrapper ─────────────────────────────────────────────────────
+// API Response Wrapper
 
 export type ApiResult<T> =
 	| { success: true; data: T }

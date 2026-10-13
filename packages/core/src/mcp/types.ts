@@ -10,7 +10,7 @@ import type {
 import type { McpProtectedHandler, RequireMcpAuthOptions } from "./require-mcp-auth.js";
 import type { DnsResolver } from "./safe-fetch.js";
 
-// ─── Result Type ────────────────────────────────────────────────────────────
+// Result Type
 
 export interface TheAuthError {
 	code: string;
@@ -25,7 +25,7 @@ export type AuthError = TheAuthError;
 
 export type Result<T> = { success: true; data: T } | { success: false; error: TheAuthError };
 
-// ─── MCP Module Configuration ───────────────────────────────────────────────
+// MCP Module Configuration
 
 export interface McpConfig {
 	/** Enable MCP authorization server */
@@ -215,7 +215,7 @@ export interface McpTokenFamilyStore {
 	revokeFamily: (familyId: string) => Promise<void>;
 }
 
-// ─── OAuth 2.0 Authorization Server Metadata (RFC 8414) ─────────────────────
+// OAuth 2.0 Authorization Server Metadata (RFC 8414)
 
 export interface McpServerMetadata {
 	issuer: string;
@@ -242,7 +242,7 @@ export interface McpServerMetadata {
 	dpop_signing_alg_values_supported?: string[];
 }
 
-// ─── Protected Resource Metadata (RFC 9728) ─────────────────────────────────
+// Protected Resource Metadata (RFC 9728)
 
 export interface McpProtectedResourceMetadata {
 	resource: string;
@@ -257,7 +257,7 @@ export interface McpProtectedResourceMetadata {
 	dpop_bound_access_tokens_required?: boolean;
 }
 
-// ─── OAuth Client (RFC 7591 Dynamic Client Registration) ────────────────────
+// OAuth Client (RFC 7591 Dynamic Client Registration)
 
 export interface McpClient {
 	clientId: string;
@@ -328,7 +328,7 @@ export interface McpClientRegistrationResponse {
 	jwks_uri?: string;
 }
 
-// ─── Authorization Code ─────────────────────────────────────────────────────
+// Authorization Code
 
 export interface McpAuthorizationCode {
 	code: string;
@@ -343,7 +343,7 @@ export interface McpAuthorizationCode {
 	createdAt: Date;
 }
 
-// ─── Authorization Request ──────────────────────────────────────────────────
+// Authorization Request
 
 export interface McpAuthorizeRequest {
 	response_type: string;
@@ -362,7 +362,7 @@ export interface McpAuthorizeResult {
 	state: string | null;
 }
 
-// ─── Access Token ───────────────────────────────────────────────────────────
+// Access Token
 
 export interface McpAccessToken {
 	/**
@@ -394,7 +394,7 @@ export interface McpAccessToken {
 	createdAt: Date;
 }
 
-// ─── Token Request / Response ───────────────────────────────────────────────
+// Token Request / Response
 
 export interface McpTokenRequest {
 	grant_type: string;
@@ -418,7 +418,7 @@ export interface McpTokenResponse {
 	issued_token_type?: string;
 }
 
-// ─── Token Validation ───────────────────────────────────────────────────────
+// Token Validation
 
 export interface McpTokenPayload {
 	sub: string;
@@ -466,7 +466,7 @@ export interface McpSession {
 	delegationChain?: McpDelegationHop[];
 }
 
-// ─── MCP Auth Context (passed to all handler functions) ─────────────────────
+// MCP Auth Context (passed to all handler functions)
 
 export interface McpAuthContext {
 	config: Required<
@@ -509,7 +509,7 @@ export interface McpAuthContext {
 	resolveUserId: (request: Request) => Promise<string | null>;
 }
 
-// ─── MCP Module (public API shape) ──────────────────────────────────────────
+// MCP Module (public API shape)
 
 export interface ApproveConsentParams {
 	/** Authenticated user who approved the consent */
@@ -576,7 +576,7 @@ export interface McpAuthModule {
 	>;
 }
 
-// ─── Zod Schemas ────────────────────────────────────────────────────────────
+// Zod Schemas
 // Defined in schemas.ts, re-exported here so existing imports keep working.
 
 export {

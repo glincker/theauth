@@ -11,9 +11,7 @@ import { OAuthTokenError } from "./errors.js";
 import { createOAuthModule } from "./module.js";
 import type { OAuthModuleConfig, OAuthTokens, OAuthUserInfo } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 export interface OAuthPluginConfig extends OAuthModuleConfig {
 	/**
@@ -25,9 +23,7 @@ export interface OAuthPluginConfig extends OAuthModuleConfig {
 	buildRedirectUri?: (provider: string, baseUrl: string) => string;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -59,9 +55,7 @@ function tokenErrorResponse(err: unknown, fallback: string): Response {
 	return jsonResponse({ error: fallback }, 500);
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 	return {

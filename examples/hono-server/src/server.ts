@@ -17,7 +17,7 @@ import { Hono } from "hono";
 
 const PORT = 3000;
 
-// ─── Database setup ───────────────────────────────────────────────────────────
+// Database setup
 
 function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	auth.db.run(sql`
@@ -117,7 +117,7 @@ function seedUser(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 		.run();
 }
 
-// ─── Homepage HTML ────────────────────────────────────────────────────────────
+// Homepage HTML
 
 function homepageHtml(): string {
 	return `<!DOCTYPE html>
@@ -303,7 +303,7 @@ curl http://localhost:${PORT}/api/audit</code>
 </html>`;
 }
 
-// ─── Server bootstrap ─────────────────────────────────────────────────────────
+// Server bootstrap
 
 async function main(): Promise<void> {
 	const auth = await createTheAuth({

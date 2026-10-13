@@ -17,9 +17,7 @@ import * as schema from "../src/db/schema.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 const TEST_SECRET = "a-test-secret-that-is-at-least-32-chars-long!!";
 const TEST_USER_ID = "user-session-test";
@@ -42,9 +40,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("createSessionManager", () => {
 	it("throws when the secret is shorter than 32 characters", () => {
@@ -246,9 +242,7 @@ describe("SessionManager.list", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Integration: createTheAuth wires session manager when auth.session is set
-// ---------------------------------------------------------------------------
 
 describe("createTheAuth auth.session integration", () => {
 	it("exposes a session manager on theauth.auth.session when configured", async () => {

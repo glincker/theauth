@@ -29,9 +29,7 @@ import type { Database } from "../db/database.js";
 import { passkeyChallenges, passkeyCredentials } from "../db/schema.js";
 import { decodeCbor } from "./cbor.js";
 
-// ---------------------------------------------------------------------------
 // Error codes
-// ---------------------------------------------------------------------------
 
 export const PASSKEY_ERROR = {
 	CHALLENGE_NOT_FOUND: "CHALLENGE_NOT_FOUND",
@@ -63,9 +61,7 @@ export class PasskeyError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface PasskeyConfig {
 	/** Relying Party name (your app name) */
@@ -152,9 +148,7 @@ export interface PasskeyModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal types
-// ---------------------------------------------------------------------------
 
 interface CoseKey {
 	kty: number;
@@ -184,15 +178,11 @@ const MAX_CHALLENGE_TIMEOUT = 300_000;
 /** Default challenge timeout: 60 seconds */
 const DEFAULT_CHALLENGE_TIMEOUT = 60_000;
 
-// ---------------------------------------------------------------------------
 // Base64url helpers (no Buffer -- uses btoa/atob via Uint8Array)
-// ---------------------------------------------------------------------------
 
 // toBase64Url and fromBase64Url are imported from ../crypto/web-crypto.js
 
-// ---------------------------------------------------------------------------
 // Crypto helpers
-// ---------------------------------------------------------------------------
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
 	const buf = (data.buffer as ArrayBuffer).slice(
@@ -212,9 +202,7 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 	return constantTimeEqual(a, b);
 }
 
-// ---------------------------------------------------------------------------
 // COSE key parsing and verification
-// ---------------------------------------------------------------------------
 
 function parseCoseKey(coseMap: Map<unknown, unknown>): CoseKey {
 	const kty = coseMap.get(1) as number;
@@ -439,9 +427,7 @@ async function verifyCoseSignature(
 	}
 }
 
-// ---------------------------------------------------------------------------
 // AuthData parsing
-// ---------------------------------------------------------------------------
 
 interface ParsedAuthData {
 	rpIdHash: Uint8Array;
@@ -508,9 +494,7 @@ function parseAuthData(authData: Uint8Array): ParsedAuthData {
 	return { rpIdHash, flags, signCount, attestedCredentialData };
 }
 
-// ---------------------------------------------------------------------------
 // HTTP helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -531,18 +515,14 @@ function getPathSegments(url: URL): string[] {
 	return url.pathname.split("/").filter(Boolean);
 }
 
-// ---------------------------------------------------------------------------
 // Origin validation
-// ---------------------------------------------------------------------------
 
 function isOriginAllowed(origin: string, allowed: string | string[]): boolean {
 	const origins = Array.isArray(allowed) ? allowed : [allowed];
 	return origins.includes(origin);
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createPasskeyModule(config: PasskeyConfig, db: Database): PasskeyModule {
 	const timeout = Math.min(
@@ -552,7 +532,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 	const userVerification = config.userVerification ?? "preferred";
 	const attestation = config.attestation ?? "none";
 
-	// ── getRegistrationOptions ───────────────────────────────────────────────
+	// getRegistrationOptions
 
 	async function getRegistrationOptions(
 		userId: string,
@@ -608,7 +588,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		};
 	}
 
-	// ── verifyRegistration ───────────────────────────────────────────────────
+	// verifyRegistration
 
 	async function verifyRegistration(
 		userId: string,
@@ -773,7 +753,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		return { credential };
 	}
 
-	// ── getAuthenticationOptions ─────────────────────────────────────────────
+	// getAuthenticationOptions
 
 	async function getAuthenticationOptions(
 		userId?: string,
@@ -819,7 +799,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		};
 	}
 
-	// ── verifyAuthentication ─────────────────────────────────────────────────
+	// verifyAuthentication
 
 	async function verifyAuthentication(
 		response: Parameters<PasskeyModule["verifyAuthentication"]>[0],
@@ -978,7 +958,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		return { userId: credRow.userId, credential };
 	}
 
-	// ── listCredentials ──────────────────────────────────────────────────────
+	// listCredentials
 
 	async function listCredentials(userId: string): Promise<PasskeyCredential[]> {
 		const rows = await db
@@ -999,7 +979,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		}));
 	}
 
-	// ── removeCredential ─────────────────────────────────────────────────────
+	// removeCredential
 
 	async function removeCredential(credentialId: string, userId: string): Promise<void> {
 		await db
@@ -1012,7 +992,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 	}
 
-	// ── handleRequest ────────────────────────────────────────────────────────
+	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

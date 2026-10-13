@@ -30,7 +30,7 @@ const MIME: Record<string, string> = {
 	".map": "application/json; charset=utf-8",
 };
 
-// ─── Dashboard dist resolution ───────────────────────────────────────────────
+// Dashboard dist resolution
 
 function resolveDashboardDistDir(): string {
 	try {
@@ -60,7 +60,7 @@ function resolveDashboardDistDir(): string {
 	);
 }
 
-// ─── HTML injection ──────────────────────────────────────────────────────────
+// HTML injection
 
 async function patchIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const html = await readFile(join(distDir, "index.html"), "utf-8");
@@ -70,7 +70,7 @@ async function patchIndexHtml(distDir: string, apiUrl: string): Promise<string> 
 		: injection + html;
 }
 
-// ─── Seed data ───────────────────────────────────────────────────────────────
+// Seed data
 
 async function seedDemoData(theauth: TheAuth): Promise<void> {
 	// Seed a demo user
@@ -151,7 +151,7 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 	stdout.write(`  Seeded: 3 agents, 1 delegation, ${authorizeChecks.length} audit entries\n`);
 }
 
-// ─── Auth middleware ─────────────────────────────────────────────────────────
+// Auth middleware
 
 function createAuthRoute(secret: string | null): Hono {
 	const auth = new Hono();
@@ -173,7 +173,7 @@ function createAuthRoute(secret: string | null): Hono {
 	return auth;
 }
 
-// ─── Server ──────────────────────────────────────────────────────────────────
+// Server
 
 export async function startDemoServer(options: DemoServerOptions): Promise<void> {
 	const { port } = options;

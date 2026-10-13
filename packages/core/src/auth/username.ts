@@ -28,9 +28,7 @@ import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface UsernameAuthConfig {
 	/** Minimum username length (default: 3) */
@@ -75,18 +73,14 @@ export interface UsernameAuthModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_MIN_USERNAME = 3;
 const DEFAULT_MAX_USERNAME = 32;
 const DEFAULT_ALLOWED_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const DEFAULT_MIN_PASSWORD = 8;
 const DEFAULT_MAX_PASSWORD = 128;
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function hashPassword(password: string): Promise<string> {
 	return pbkdf2Hash(password);
@@ -103,9 +97,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createUsernameAuthModule(
 	config: UsernameAuthConfig,
@@ -148,7 +140,7 @@ export function createUsernameAuthModule(
 		return null;
 	}
 
-	// ── public API ─────────────────────────────────────────────────────────
+	// public API
 
 	async function signUp(input: { username: string; password: string; name?: string }): Promise<{
 		user: { id: string; username: string; name: string | null };

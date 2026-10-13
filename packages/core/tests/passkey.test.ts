@@ -26,9 +26,7 @@ import { createPasskeyModule, PASSKEY_ERROR, PasskeyError } from "../src/auth/pa
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function makeDb() {
 	const sqlite = new Database(":memory:");
@@ -71,9 +69,7 @@ async function seedUser(db: ReturnType<typeof makeDb>, userId: string): Promise<
 	});
 }
 
-// ---------------------------------------------------------------------------
 // CBOR decoder tests
-// ---------------------------------------------------------------------------
 
 describe("decodeCbor", () => {
 	it("decodes unsigned integers", () => {
@@ -196,9 +192,7 @@ describe("decodeCbor", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Registration options tests
-// ---------------------------------------------------------------------------
 
 describe("getRegistrationOptions", () => {
 	it("returns correct rpId and rpName", async () => {
@@ -288,9 +282,7 @@ describe("getRegistrationOptions", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authentication options tests
-// ---------------------------------------------------------------------------
 
 describe("getAuthenticationOptions", () => {
 	it("returns correct rpId", async () => {
@@ -347,9 +339,7 @@ describe("getAuthenticationOptions", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // listCredentials tests
-// ---------------------------------------------------------------------------
 
 describe("listCredentials", () => {
 	it("returns empty array for user with no credentials", async () => {
@@ -419,9 +409,7 @@ describe("listCredentials", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // removeCredential tests
-// ---------------------------------------------------------------------------
 
 describe("removeCredential", () => {
 	it("removes the matching credential", async () => {
@@ -470,9 +458,7 @@ describe("removeCredential", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Challenge expiry tests
-// ---------------------------------------------------------------------------
 
 describe("challenge expiry", () => {
 	it("verifyRegistration rejects an expired challenge", async () => {
@@ -568,9 +554,7 @@ describe("challenge expiry", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Challenge replay tests (one-time use)
-// ---------------------------------------------------------------------------
 
 describe("challenge replay prevention", () => {
 	it("deletes challenge after use in verifyRegistration (prevents replay)", async () => {
@@ -689,9 +673,7 @@ describe("challenge replay prevention", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Origin mismatch tests
-// ---------------------------------------------------------------------------
 
 describe("origin validation", () => {
 	it("verifyRegistration rejects wrong origin", async () => {
@@ -821,9 +803,7 @@ describe("origin validation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // clientData.type mismatch tests
-// ---------------------------------------------------------------------------
 
 describe("clientData type validation", () => {
 	it("verifyRegistration rejects webauthn.get type", async () => {
@@ -882,9 +862,7 @@ describe("clientData type validation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // signCount rollback detection
-// ---------------------------------------------------------------------------
 
 describe("signCount rollback detection", () => {
 	it("rejects authentication when signCount does not increase", async () => {
@@ -958,9 +936,7 @@ describe("signCount rollback detection", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User verification enforcement
-// ---------------------------------------------------------------------------
 
 describe("user verification enforcement", () => {
 	it("rejects registration when UV required but not set", async () => {
@@ -1058,9 +1034,7 @@ describe("user verification enforcement", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Error code coverage
-// ---------------------------------------------------------------------------
 
 describe("error codes", () => {
 	it("verifyAuthentication throws CREDENTIAL_NOT_FOUND for unknown credential", async () => {
@@ -1166,9 +1140,7 @@ describe("error codes", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest route dispatch tests
-// ---------------------------------------------------------------------------
 
 describe("handleRequest", () => {
 	it("returns null for unrelated routes", async () => {

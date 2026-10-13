@@ -3,7 +3,7 @@ import type { McpAuthContext, McpSession } from "./types.js";
 import { extractBearerToken } from "./utils.js";
 import { buildUnauthorizedResponse, validateAccessToken } from "./validate.js";
 
-// ─── Scope challenge helper ───────────────────────────────────────────────────
+// Scope challenge helper
 
 /**
  * Validate the Bearer token on a request and assert that it carries all of
@@ -27,7 +27,7 @@ export async function requireScopes(
 	request: Request,
 	requiredScopes: string[],
 ): Promise<{ authorized: true; session: McpSession } | { authorized: false; response: Response }> {
-	// ── Step 1: Extract Bearer token ────────────────────────────────
+	// Step 1: Extract Bearer token
 	const token = extractBearerToken(request);
 
 	if (!token) {
@@ -40,7 +40,7 @@ export async function requireScopes(
 		};
 	}
 
-	// ── Step 2: Validate the token (without scope enforcement yet) ──
+	// Step 2: Validate the token (without scope enforcement yet)
 	// We validate first without requiredScopes so we can distinguish
 	// "bad token" (401) from "valid token but wrong scopes" (403).
 	const tokenResult = await validateAccessToken(ctx, token, {
@@ -59,7 +59,7 @@ export async function requireScopes(
 
 	const session = tokenResult.data;
 
-	// ── Step 3: Check required scopes ───────────────────────────────
+	// Step 3: Check required scopes
 	if (requiredScopes.length > 0) {
 		const missingScopes = requiredScopes.filter((s) => !session.scopes.includes(s));
 
@@ -75,6 +75,6 @@ export async function requireScopes(
 		}
 	}
 
-	// ── Step 4: All checks passed ────────────────────────────────────
+	// Step 4: All checks passed
 	return { authorized: true, session };
 }

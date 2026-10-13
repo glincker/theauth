@@ -58,7 +58,7 @@ export async function handleJwtBearerGrant(
 	if (!authenticated.success) return authenticated;
 	const client = authenticated.data;
 
-	// ── Header and issuer ───────────────────────────────────────────
+	// Header and issuer
 	const algs = config.algs ?? DEFAULT_ALGS;
 	let alg: string | undefined;
 	let unverified: JWTPayload;
@@ -75,7 +75,7 @@ export async function handleJwtBearerGrant(
 	const trusted = config.trustedIssuers.find((i) => i.issuer === unverified.iss);
 	if (!trusted) return grantError("Assertion issuer is not trusted");
 
-	// ── Signature and claims ────────────────────────────────────────
+	// Signature and claims
 	const skew = config.clockSkewSeconds ?? DEFAULT_SKEW;
 	const fetchOptions: SafeFetchOptions = {
 		...(config.resolver ? { resolver: config.resolver } : {}),
@@ -136,7 +136,7 @@ export async function handleJwtBearerGrant(
 		return grantError("Assertion has no subject");
 	}
 
-	// ── Replay ──────────────────────────────────────────────────────
+	// Replay
 	const replayId = toBase64Url(await sha256Raw(`${trusted.issuer}\n${payload.jti ?? ""}`));
 	const seen = await getAssertionStorage(ctx).incr(
 		`mcp:jwt-bearer:jti:${replayId}`,
@@ -144,7 +144,7 @@ export async function handleJwtBearerGrant(
 	);
 	if (seen.count > 1) return grantError("Assertion has already been used");
 
-	// ── Scope: bounded by the assertion ─────────────────────────────
+	// Scope: bounded by the assertion
 	const claimScope =
 		typeof payload.scope === "string" ? payload.scope.split(" ").filter(Boolean) : null;
 	const supported = supportedScopes(ctx);
@@ -160,7 +160,7 @@ export async function handleJwtBearerGrant(
 	const scopes = narrowScopes(ctx, data.scope, allowed);
 	if (!scopes.success) return scopes;
 
-	// ── Resource: from the assertion and/or the request ─────────────
+	// Resource: from the assertion and/or the request
 	const claimResource = typeof payload.resource === "string" ? payload.resource : undefined;
 	if (
 		claimResource !== undefined &&
@@ -175,7 +175,7 @@ export async function handleJwtBearerGrant(
 	const resource = resolveResource(ctx, data.resource ?? claimResource);
 	if (!resource.success) return resource;
 
-	// ── Subject mapping ─────────────────────────────────────────────
+	// Subject mapping
 	const userId = await config.mapSubject({
 		issuer: trusted.issuer,
 		subject: payload.sub,

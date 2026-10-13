@@ -16,9 +16,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Test setup
-// ---------------------------------------------------------------------------
 
 const USER_A = "user-trusted-a";
 const USER_B = "user-trusted-b";
@@ -78,8 +76,6 @@ function makeRequest(ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"): Re
 	});
 }
 
-// ---------------------------------------------------------------------------
-
 describe("createTrustedDeviceModule", () => {
 	let db: Database;
 	let mod: TrustedDeviceModule;
@@ -89,7 +85,7 @@ describe("createTrustedDeviceModule", () => {
 		mod = makeModule(db);
 	});
 
-	// ── generateFingerprint ────────────────────────────────────────────────
+	// generateFingerprint
 
 	describe("generateFingerprint()", () => {
 		it("returns a hex string", async () => {
@@ -116,7 +112,7 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// ── trustDevice + isTrusted ────────────────────────────────────────────
+	// trustDevice + isTrusted
 
 	describe("trustDevice() / isTrusted()", () => {
 		it("marks a device as trusted and verifies it", async () => {
@@ -155,7 +151,7 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// ── expired trust ──────────────────────────────────────────────────────
+	// expired trust
 
 	describe("expiry", () => {
 		it("expired trust is rejected by isTrusted", async () => {
@@ -187,7 +183,7 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// ── revokeDevice ──────────────────────────────────────────────────────
+	// revokeDevice
 
 	describe("revokeDevice()", () => {
 		it("revokes trust for a specific device", async () => {
@@ -213,7 +209,7 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// ── revokeAllDevices ──────────────────────────────────────────────────
+	// revokeAllDevices
 
 	describe("revokeAllDevices()", () => {
 		it("revokes all devices for a user", async () => {
@@ -242,7 +238,7 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// ── max device limit ──────────────────────────────────────────────────
+	// max device limit
 
 	describe("maxDevices enforcement", () => {
 		it("evicts the oldest device when the limit is reached", async () => {
@@ -270,7 +266,7 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// ── listDevices ───────────────────────────────────────────────────────
+	// listDevices
 
 	describe("listDevices()", () => {
 		it("lists all active trusted devices with metadata", async () => {
@@ -300,9 +296,7 @@ describe("createTrustedDeviceModule", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Label helper tests
-// ---------------------------------------------------------------------------
 
 describe("_labelFromUserAgent", () => {
 	it.each([

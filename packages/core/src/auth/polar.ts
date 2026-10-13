@@ -28,9 +28,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface PolarConfig {
 	/** Polar access token */
@@ -68,9 +66,7 @@ export interface PolarModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal Polar REST types (minimal — only fields we use)
-// ---------------------------------------------------------------------------
 
 interface PolarCheckoutResponse {
 	id: string;
@@ -94,9 +90,7 @@ interface PolarWebhookEvent {
 	data: Record<string, unknown>;
 }
 
-// ---------------------------------------------------------------------------
 // Polar REST API client helpers
-// ---------------------------------------------------------------------------
 
 const POLAR_API_BASE = "https://api.polar.sh/v1";
 const POLAR_SANDBOX_API_BASE = "https://sandbox.api.polar.sh/v1";
@@ -134,9 +128,7 @@ async function polarRequest<T>(
 	return json as T;
 }
 
-// ---------------------------------------------------------------------------
 // Webhook signature verification (HMAC-SHA256)
-// ---------------------------------------------------------------------------
 
 async function verifyWebhookSignature(
 	payload: string,
@@ -189,9 +181,7 @@ async function verifyWebhookSignature(
 	return JSON.parse(payload) as PolarWebhookEvent;
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createPolarModule(config: PolarConfig, db: Database): PolarModule {
 	const baseUrl = config.sandbox ? POLAR_SANDBOX_API_BASE : POLAR_API_BASE;
@@ -204,9 +194,7 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 		return polarRequest<T>(config.accessToken, baseUrl, method, path, body);
 	}
 
-	// -------------------------------------------------------------------------
 	// Internal helpers
-	// -------------------------------------------------------------------------
 
 	async function getUserRow(userId: string) {
 		const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -270,9 +258,7 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 			.where(eq(users.id, userId));
 	}
 
-	// -------------------------------------------------------------------------
 	// Webhook event handlers
-	// -------------------------------------------------------------------------
 
 	async function handleSubscriptionCreatedOrUpdated(obj: Record<string, unknown>): Promise<void> {
 		const sub = obj as unknown as PolarSubscriptionResponse;
@@ -334,9 +320,7 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 		}
 	}
 
-	// -------------------------------------------------------------------------
 	// Public API
-	// -------------------------------------------------------------------------
 
 	async function createCheckout(
 		userId: string,

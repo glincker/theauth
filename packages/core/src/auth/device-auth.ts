@@ -32,9 +32,7 @@ import { memoryStorage } from "../storage/memory.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import { SignInGateError, signInGateResponse } from "./sign-in-gate-http.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
@@ -142,9 +140,7 @@ export class DeviceAuthError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Internals
-// ---------------------------------------------------------------------------
 
 type GrantState = "pending" | "authorized" | "denied";
 
@@ -234,9 +230,7 @@ function buildCompleteUri(base: string, userCode: string): string {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModule {
 	const segmentLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
@@ -379,7 +373,7 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 		});
 	}
 
-	// -- HTTP handlers -------------------------------------------------------
+	// HTTP handlers
 
 	async function handleCode(request: Request): Promise<Response> {
 		const body = await parseBody(request);
@@ -519,9 +513,7 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 	return { requestCode, checkAuthorization, authorize, deny, handleRequest };
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export type DeviceAuthPluginConfig = Omit<DeviceAuthConfig, "resolveUser">;
 

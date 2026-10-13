@@ -2,14 +2,12 @@ import type { MockInstance } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
-// ---------------------------------------------------------------------------
 // We test the refresh logic in isolation by mocking:
 //   1. The `next/headers` cookies store (via vi.mock)
 //   2. global.fetch
 //
 // The actual refreshSession() function imports server-only and cookies() from
 // next/headers — we mock both at the module level.
-// ---------------------------------------------------------------------------
 
 // Mock server-only so the import doesn't throw in Node test env.
 vi.mock("server-only", () => ({}));

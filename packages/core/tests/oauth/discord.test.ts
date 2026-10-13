@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-discord-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USER_RAW = {
 	id: "123456789012345678",
@@ -27,9 +25,7 @@ const CANNED_USER_RAW = {
 	avatar: "a_1234abcd5678efgh",
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createDiscordProvider", () => {
 	it("creates a provider with id discord", () => {
@@ -61,9 +57,7 @@ describe("createDiscordProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createDiscordProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
@@ -96,9 +90,7 @@ describe("createDiscordProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeDiscordProfile", () => {
 	it("maps Discord user to OAuthUserInfo with CDN avatar URL", () => {

@@ -1,7 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import type { PermissionTemplate } from "../api/types.js";
 
-// ─── Conflict detection logic ─────────────────────────────────────────────────
+// Conflict detection logic
 
 interface ConflictResult {
 	kind: "overlap" | "redundancy" | "contradiction";
@@ -113,7 +113,7 @@ function detectConflicts(
 	return results;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// Component
 
 export interface ConflictWarningProps {
 	resource: string;

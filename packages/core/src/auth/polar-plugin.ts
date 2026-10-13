@@ -5,9 +5,7 @@ import { createPolarModule } from "./polar.js";
 
 export type { PolarConfig };
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function polar(config: PolarConfig): TheAuthPlugin {
 	return {

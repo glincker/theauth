@@ -42,9 +42,7 @@ import {
 	users,
 } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface UserDataExport {
 	user: { id: string; email: string; name: string | null; createdAt: string };
@@ -101,9 +99,7 @@ export interface GdprModule {
 	anonymizeUser(userId: string): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Produce a stable short hash for an ID so anonymized audit logs from the
@@ -122,9 +118,7 @@ async function anonymizedEmail(userId: string): Promise<string> {
 	return `deleted-${await stableHash(userId)}@anon.invalid`;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createGdprModule(db: Database): GdprModule {
 	async function exportUserData(userId: string): Promise<UserDataExport> {

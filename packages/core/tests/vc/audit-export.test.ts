@@ -10,7 +10,7 @@ import type { VCIssuerConfig } from "../../src/vc/types.js";
 import { VC_CONTEXT_V2 } from "../../src/vc/types.js";
 import { createVCVerifier } from "../../src/vc/verifier.js";
 
-// ─── Fixtures ────────────────────────────────────────────────────────────────
+// Fixtures
 
 const T0 = new Date("2025-06-01T00:00:00Z");
 const T2 = new Date("2025-06-01T02:00:00Z");
@@ -55,7 +55,7 @@ async function makeConfig(): Promise<{ config: VCIssuerConfig; did: string }> {
 	return { config, did: keyPair.did };
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// Tests
 
 describe("exportAuditAsVC – ldp_vc individual", () => {
 	it("returns 20 credentials with correct shape", async () => {

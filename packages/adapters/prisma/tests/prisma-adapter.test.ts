@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrismaAdapter } from "../src/adapter.js";
 import type { TheAuthPrismaAdapter } from "../src/types.js";
 
-// ─── Mock PrismaClient ────────────────────────────────────────────────────────
+// Mock PrismaClient
 
 function makeModelMock() {
 	return {
@@ -45,7 +45,7 @@ function createMockPrisma() {
 
 type MockPrisma = ReturnType<typeof createMockPrisma>;
 
-// ─── Test fixtures ────────────────────────────────────────────────────────────
+// Test fixtures
 
 const NOW = new Date("2025-01-01T00:00:00Z");
 
@@ -126,7 +126,7 @@ const SESSION = {
 	createdAt: NOW,
 };
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// Tests
 
 describe("createPrismaAdapter", () => {
 	let prisma: MockPrisma;
@@ -137,7 +137,7 @@ describe("createPrismaAdapter", () => {
 		db = createPrismaAdapter(prisma as any);
 	});
 
-	// ── Users ──────────────────────────────────────────────────────────────────
+	// Users
 
 	describe("users", () => {
 		it("findUserById calls findUnique with the correct where clause", async () => {
@@ -188,7 +188,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Agents ─────────────────────────────────────────────────────────────────
+	// Agents
 
 	describe("agents", () => {
 		it("findAgentById returns the agent", async () => {
@@ -259,7 +259,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Permissions ────────────────────────────────────────────────────────────
+	// Permissions
 
 	describe("permissions", () => {
 		it("findPermissionsByAgentId returns permissions list", async () => {
@@ -298,7 +298,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Audit logs ─────────────────────────────────────────────────────────────
+	// Audit logs
 
 	describe("audit logs", () => {
 		it("createAuditLog calls create with input", async () => {
@@ -358,7 +358,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Sessions ───────────────────────────────────────────────────────────────
+	// Sessions
 
 	describe("sessions", () => {
 		it("findSessionById returns session", async () => {
@@ -392,7 +392,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Delegation chains ──────────────────────────────────────────────────────
+	// Delegation chains
 
 	describe("delegation chains", () => {
 		const CHAIN = {
@@ -430,7 +430,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Organizations ──────────────────────────────────────────────────────────
+	// Organizations
 
 	describe("organizations", () => {
 		const ORG = {
@@ -484,7 +484,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Trust scores ───────────────────────────────────────────────────────────
+	// Trust scores
 
 	describe("trust scores", () => {
 		const TRUST = {
@@ -511,7 +511,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Approval requests ──────────────────────────────────────────────────────
+	// Approval requests
 
 	describe("approval requests", () => {
 		const APPROVAL = {
@@ -549,7 +549,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Transactions ───────────────────────────────────────────────────────────
+	// Transactions
 
 	describe("transactions", () => {
 		it("wraps the callback in prisma.$transaction", async () => {
@@ -576,7 +576,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── Rate limits ────────────────────────────────────────────────────────────
+	// Rate limits
 
 	describe("rate limits", () => {
 		it("upsertRateLimit calls upsert with a derived id", async () => {
@@ -593,7 +593,7 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// ── OAuth ──────────────────────────────────────────────────────────────────
+	// OAuth
 
 	describe("oauth", () => {
 		it("findOAuthClientById queries by clientId field", async () => {

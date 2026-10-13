@@ -30,7 +30,7 @@ export function Badge({ variant, children }: BadgeProps) {
 	);
 }
 
-// ─── Dot indicator ────────────────────────────────────────────────────────────
+// Dot indicator
 
 interface StatusDotProps {
 	variant: BadgeVariant;

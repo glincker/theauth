@@ -5,7 +5,7 @@ import type {
 	TextareaHTMLAttributes,
 } from "react";
 
-// ─── Label ────────────────────────────────────────────────────────────────────
+// Label
 
 interface LabelProps {
 	htmlFor?: string;
@@ -25,7 +25,7 @@ export function Label({ htmlFor, children, required }: LabelProps) {
 	);
 }
 
-// ─── Input ────────────────────────────────────────────────────────────────────
+// Input
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 	error?: string;
@@ -46,7 +46,7 @@ export function Input({ error, className = "", ...props }: InputProps) {
 	);
 }
 
-// ─── Select ───────────────────────────────────────────────────────────────────
+// Select
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 	error?: string;
@@ -72,7 +72,7 @@ export function Select({ error, className = "", children, ...props }: SelectProp
 	);
 }
 
-// ─── Textarea ─────────────────────────────────────────────────────────────────
+// Textarea
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 	error?: string;
@@ -90,7 +90,7 @@ export function Textarea({ error, className = "", ...props }: TextareaProps) {
 	);
 }
 
-// ─── Form Group ───────────────────────────────────────────────────────────────
+// Form Group
 
 interface FormGroupProps {
 	children: ReactNode;

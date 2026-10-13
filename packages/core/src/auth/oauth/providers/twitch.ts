@@ -23,9 +23,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://id.twitch.tv/oauth2/authorize";
 const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
@@ -34,9 +32,7 @@ const USER_INFO_URL = "https://api.twitch.tv/helix/users";
 export const DEFAULT_TWITCH_SCOPES = ["user:read:email"];
 const DEFAULT_SCOPES = DEFAULT_TWITCH_SCOPES;
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface TwitchTokenResponse {
 	access_token: string;
@@ -58,9 +54,7 @@ interface TwitchUserResponse {
 	data: TwitchUser[];
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Twitch OAuth provider instance.
@@ -193,9 +187,7 @@ export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const body = raw as unknown as TwitchUserResponse;
@@ -220,9 +212,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

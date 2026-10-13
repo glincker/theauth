@@ -26,9 +26,7 @@ import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { apiKeys as apiKeysTable } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface ApiKeyManagerConfig {
 	/** Prefix for API keys (default: "kos_") */
@@ -69,17 +67,13 @@ export interface ApiKeyManagerModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function hashKey(key: string): Promise<string> {
 	return sha256(key);
 }
 
-// ---------------------------------------------------------------------------
 // Row mapper
-// ---------------------------------------------------------------------------
 
 interface ApiKeyRow {
 	id: string;
@@ -106,9 +100,7 @@ function rowToApiKey(row: ApiKeyRow): ApiKey {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createApiKeyManagerModule(
 	config: ApiKeyManagerConfig,
@@ -238,7 +230,7 @@ export function createApiKeyManagerModule(
 		});
 	}
 
-	// ── HTTP handler ──────────────────────────────────────────────────────────
+	// HTTP handler
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

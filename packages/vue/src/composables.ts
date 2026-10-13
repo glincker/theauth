@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { useRequiredContext } from "./plugin.js";
 import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
 
-// ─── useSession ───────────────────────────────────────────────────────────────
+// useSession
 
 /**
  * Returns the current session, loading state, and a manual refresh function.
@@ -20,7 +20,7 @@ export function useSession() {
 	};
 }
 
-// ─── useUser ──────────────────────────────────────────────────────────────────
+// useUser
 
 /**
  * Returns the current user, loading state, and authentication status.
@@ -40,7 +40,7 @@ export function useUser() {
 	};
 }
 
-// ─── useSignIn ────────────────────────────────────────────────────────────────
+// useSignIn
 
 /**
  * Returns a signIn function plus local loading and error state.
@@ -64,7 +64,7 @@ export function useSignIn() {
 	return { signIn, isLoading, error };
 }
 
-// ─── useSignUp ────────────────────────────────────────────────────────────────
+// useSignUp
 
 /**
  * Returns a signUp function plus local loading and error state.
@@ -88,7 +88,7 @@ export function useSignUp() {
 	return { signUp, isLoading, error };
 }
 
-// ─── useSignOut ───────────────────────────────────────────────────────────────
+// useSignOut
 
 /**
  * Returns a signOut function.
@@ -98,7 +98,7 @@ export function useSignOut() {
 	return { signOut: ctx.signOut };
 }
 
-// ─── useAgents ────────────────────────────────────────────────────────────────
+// useAgents
 
 interface AgentApiResponse {
 	data: TheAuthAgent[];

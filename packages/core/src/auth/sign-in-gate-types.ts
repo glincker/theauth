@@ -2,9 +2,7 @@
 
 import type { TrustedDevice } from "./trusted-device.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 /**
  * Every sign-in method that goes through the gate. Which of them require a

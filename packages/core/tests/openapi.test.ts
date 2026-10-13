@@ -39,9 +39,7 @@ import { describe, expect, it } from "vitest";
 import type { EndpointGroup, OpenApiDocument, OpenApiOperation } from "../src/auth/openapi.js";
 import { createOpenApiModule } from "../src/auth/openapi.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeRequest(url: string): Request {
 	return new Request(url);
@@ -59,9 +57,7 @@ function collectOperations(doc: OpenApiDocument): OpenApiOperation[] {
 	return ops;
 }
 
-// ---------------------------------------------------------------------------
 // generateSpec — defaults
-// ---------------------------------------------------------------------------
 
 describe("OpenApiModule.generateSpec defaults", () => {
 	const mod = createOpenApiModule();
@@ -102,9 +98,7 @@ describe("OpenApiModule.generateSpec defaults", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // generateSpec — custom config
-// ---------------------------------------------------------------------------
 
 describe("OpenApiModule.generateSpec custom config", () => {
 	const mod = createOpenApiModule();
@@ -151,9 +145,7 @@ describe("OpenApiModule.generateSpec custom config", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // generateSpec — include filter
-// ---------------------------------------------------------------------------
 
 describe("OpenApiModule.generateSpec include filter", () => {
 	const mod = createOpenApiModule();
@@ -212,9 +204,7 @@ describe("OpenApiModule.generateSpec include filter", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // generateSpec — security
-// ---------------------------------------------------------------------------
 
 describe("OpenApiModule.generateSpec security", () => {
 	const mod = createOpenApiModule();
@@ -250,9 +240,7 @@ describe("OpenApiModule.generateSpec security", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // generateSpec — schema validity
-// ---------------------------------------------------------------------------
 
 describe("OpenApiModule.generateSpec schemas", () => {
 	const mod = createOpenApiModule();
@@ -339,9 +327,7 @@ describe("OpenApiModule.generateSpec schemas", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest
-// ---------------------------------------------------------------------------
 
 describe("OpenApiModule.handleRequest", () => {
 	const mod = createOpenApiModule();

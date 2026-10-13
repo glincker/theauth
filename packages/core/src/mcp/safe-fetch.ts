@@ -60,7 +60,7 @@ const BLOCKED_HOSTNAMES = new Set([
 ]);
 const BLOCKED_SUFFIXES = [".localhost", ".local", ".internal", ".localdomain", ".home.arpa"];
 
-// ─── IP classification ──────────────────────────────────────────────────────
+// IP classification
 
 function parseIPv4(input: string): number[] | null {
 	const parts = input.split(".");
@@ -175,7 +175,7 @@ function isIpLiteral(host: string): boolean {
 	return parseIPv4(h) !== null || h.includes(":");
 }
 
-// ─── DNS ────────────────────────────────────────────────────────────────────
+// DNS
 
 /**
  * Default resolver: Node's `dns.lookup` with `all: true`. On runtimes without
@@ -188,7 +188,7 @@ export const defaultDnsResolver: DnsResolver = async (hostname) => {
 	return records.map((r) => r.address);
 };
 
-// ─── Fetch ──────────────────────────────────────────────────────────────────
+// Fetch
 
 /** Check a URL's scheme, authority and host. Returns a failure or the parsed URL. */
 export function checkFetchableUrl(

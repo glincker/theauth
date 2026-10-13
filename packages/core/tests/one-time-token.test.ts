@@ -36,9 +36,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { oneTimeTokens } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -50,9 +48,7 @@ function sha256(value: string): string {
 	return createHash("sha256").update(value).digest("hex");
 }
 
-// ---------------------------------------------------------------------------
 // createToken
-// ---------------------------------------------------------------------------
 
 describe("OneTimeTokenModule.createToken", () => {
 	let db: Database;
@@ -219,9 +215,7 @@ describe("OneTimeTokenModule.createToken", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // validateToken
-// ---------------------------------------------------------------------------
 
 describe("OneTimeTokenModule.validateToken", () => {
 	let db: Database;
@@ -372,9 +366,7 @@ describe("OneTimeTokenModule.validateToken", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // revokeTokens
-// ---------------------------------------------------------------------------
 
 describe("OneTimeTokenModule.revokeTokens", () => {
 	let db: Database;

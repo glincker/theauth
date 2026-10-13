@@ -11,7 +11,7 @@
     "@glinr/theauth-hono": "workspace:*",
     "hono": "^4.13.7",
     "@hono/node-server": "^1.19.15",
-    "drizzle-orm": "^0.41.0",
+    "drizzle-orm": "^0.45.2",
     "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {

@@ -22,9 +22,7 @@
  * ```
  */
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export type EndpointGroup =
 	| "agents"
@@ -55,7 +53,7 @@ export interface OpenApiConfig {
 	include?: EndpointGroup[];
 }
 
-// ── OpenAPI 3.1 document shape (plain objects, JSON-serializable) ────────────
+// OpenAPI 3.1 document shape (plain objects, JSON-serializable)
 
 export interface OpenApiInfo {
 	title: string;
@@ -162,18 +160,14 @@ export interface OpenApiModule {
 	handleRequest(request: Request, config?: OpenApiConfig): Response | null;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_TITLE = "TheAuth API";
 const DEFAULT_VERSION = "0.0.1";
 const DEFAULT_SERVER_URL = "/";
 const DEFAULT_BASE_PATH = "/api/theauth";
 
-// ---------------------------------------------------------------------------
 // Shared schema fragments
-// ---------------------------------------------------------------------------
 
 const ERROR_SCHEMA: OpenApiSchema = {
 	type: "object",
@@ -200,9 +194,7 @@ const ERROR_RESPONSE_SCHEMA: OpenApiSchema = {
 
 const BEARER_SECURITY: OpenApiSecurityRequirement[] = [{ BearerAuth: [] }];
 
-// ---------------------------------------------------------------------------
 // Shared response builders
-// ---------------------------------------------------------------------------
 
 function errorResponses(
 	includeAuth = true,
@@ -255,9 +247,7 @@ function pathParam(name: string, description?: string): OpenApiParameter {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Endpoint group definitions
-// ---------------------------------------------------------------------------
 
 function agentsPaths(base: string): Record<string, OpenApiPathItem> {
 	const agentSchema: OpenApiSchema = {
@@ -1117,9 +1107,7 @@ function webhooksPaths(base: string): Record<string, OpenApiPathItem> {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Tag definitions
-// ---------------------------------------------------------------------------
 
 const ALL_TAGS: Array<{ name: string; description: string }> = [
 	{ name: "Agents", description: "Agent identity management" },
@@ -1151,9 +1139,7 @@ const GROUP_TAG_MAP: Record<EndpointGroup, string> = {
 	webhooks: "Webhooks",
 };
 
-// ---------------------------------------------------------------------------
 // Path builder registry
-// ---------------------------------------------------------------------------
 
 type PathBuilder = (base: string) => Record<string, OpenApiPathItem>;
 
@@ -1181,9 +1167,7 @@ const ALL_GROUPS: EndpointGroup[] = [
 	"webhooks",
 ];
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an OpenAPI module that generates TheAuth API specifications.

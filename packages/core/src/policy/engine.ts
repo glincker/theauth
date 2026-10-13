@@ -232,9 +232,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 	return { evaluate, invalidate, stats };
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Internals
-// ──────────────────────────────────────────────────────────────────────────────
 
 function buildCacheKey(input: EvaluateInput): string {
 	// orgId scopes RBAC role lookup, so two requests from the same user against

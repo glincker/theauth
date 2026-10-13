@@ -5,9 +5,7 @@ import { createEmailAuth } from "../src/email-auth.js";
 import { ErrorCodes } from "../src/errors.js";
 import type { EmailAuthModule } from "../src/types.js";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 function makeMocks() {
 	const sentVerifications: Array<{ email: string; token: string; url: string }> = [];
@@ -46,9 +44,7 @@ async function createTestModule(
 	return { auth, mocks };
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createEmailAuth", () => {
 	describe("signUp", () => {
@@ -91,6 +87,40 @@ describe("createEmailAuth", () => {
 			await expect(
 				auth.signUp({ email: "charlie@example.com", password: "short" }),
 			).rejects.toMatchObject({ code: ErrorCodes.INVALID_PASSWORD });
+		});
+
+		it.each([
+			["a@b.c", true],
+			["first.last@sub.example.com", true],
+			["a@b.c.", true],
+			["a@..c", true],
+			["a@.c", false],
+			["a@b.", false],
+			["a@bc", false],
+			["@b.c", false],
+			["a@@b.c", false],
+			["a b@c.d", false],
+			["a@b .c", false],
+		])("accepts or rejects %s as an email address", async (email, valid) => {
+			const { auth } = await createTestModule();
+			const attempt = auth.signUp({ email: email as string, password: "Password123" });
+			if (valid) {
+				await expect(attempt).resolves.toBeDefined();
+			} else {
+				await expect(attempt).rejects.toMatchObject({ code: ErrorCodes.INVALID_EMAIL });
+			}
+		});
+
+		it("rejects a very long run of dots followed by a space in linear time", async () => {
+			const { auth } = await createTestModule();
+			// The trailing space makes the old /...\.[^\s@]+$/ pattern backtrack at
+			// every dot, which is quadratic in the length of the run.
+			const hostile = `!@!${".!".repeat(50_000)} `;
+			const started = performance.now();
+			await expect(auth.signUp({ email: hostile, password: "Password123" })).rejects.toMatchObject({
+				code: ErrorCodes.INVALID_EMAIL,
+			});
+			expect(performance.now() - started).toBeLessThan(500);
 		});
 
 		it("rejects invalid email format", async () => {

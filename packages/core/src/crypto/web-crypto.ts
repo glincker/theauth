@@ -6,9 +6,7 @@
  * No `node:crypto` imports are used, making the core package edge-compatible.
  */
 
-// ---------------------------------------------------------------------------
 // Encoding helpers
-// ---------------------------------------------------------------------------
 
 const HEX_CHARS = "0123456789abcdef";
 
@@ -65,9 +63,7 @@ export function fromBase64Url(b64: string): Uint8Array {
 	return bytes;
 }
 
-// ---------------------------------------------------------------------------
 // Random generation
-// ---------------------------------------------------------------------------
 
 /** Generate a v4 UUID using the globally available crypto.randomUUID(). */
 export function generateId(): string {
@@ -86,9 +82,7 @@ export function randomBytesHex(length: number): string {
 	return toHex(randomBytes(length));
 }
 
-// ---------------------------------------------------------------------------
 // Text encoding helper (internal)
-// ---------------------------------------------------------------------------
 
 const TEXT_ENCODER = new TextEncoder();
 
@@ -103,9 +97,7 @@ function toBytes(data: string | Uint8Array): ArrayBuffer {
 	return (data.buffer as ArrayBuffer).slice(data.byteOffset, data.byteOffset + data.byteLength);
 }
 
-// ---------------------------------------------------------------------------
 // Hashing
-// ---------------------------------------------------------------------------
 
 /** SHA-256 hash, returns hex string. */
 export async function sha256(data: string | Uint8Array): Promise<string> {
@@ -125,9 +117,7 @@ export async function sha1(data: string | Uint8Array): Promise<string> {
 	return toHex(new Uint8Array(digest));
 }
 
-// ---------------------------------------------------------------------------
 // HMAC
-// ---------------------------------------------------------------------------
 
 /** Import a secret key for HMAC operations. */
 export async function importHmacKey(
@@ -178,9 +168,7 @@ export async function hmacSha1Raw(key: Uint8Array, data: Uint8Array): Promise<Ui
 	return new Uint8Array(signature);
 }
 
-// ---------------------------------------------------------------------------
 // PBKDF2 password hashing
-// ---------------------------------------------------------------------------
 
 const PBKDF2_ITERATIONS = 100_000; // CF Workers caps at 100K; OWASP recommends 600K for Node.js
 const PBKDF2_KEY_LENGTH = 64; // bytes
@@ -269,9 +257,7 @@ export async function pbkdf2Verify(password: string, stored: string): Promise<bo
 	return constantTimeEqual(new Uint8Array(derived), storedHash);
 }
 
-// ---------------------------------------------------------------------------
 // Constant-time comparison
-// ---------------------------------------------------------------------------
 
 /**
  * Constant-time comparison of two Uint8Arrays.
