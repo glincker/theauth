@@ -295,6 +295,13 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			const prefix = fastify.prefix === "/" ? "" : fastify.prefix;
 			const relative =
 				prefix && pathname.startsWith(prefix) ? pathname.slice(prefix.length) : pathname;
+			const refused = guard.admit(toWebRequest(request), relative);
+			if (refused) {
+				return reply
+					.status(refused.status)
+					.headers(Object.fromEntries(refused.headers))
+					.send(await refused.text());
+			}
 			// With `allowUnauthenticated` the guard resolves an open scope, so this
 			// matches on the management paths themselves rather than `guard.isProtected`.
 			if (!isProtectedAdapterPath(relative)) return;

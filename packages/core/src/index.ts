@@ -6,6 +6,7 @@
  */
 
 export { and, eq, like } from "drizzle-orm";
+export type { AdapterAdmitOptions, AdapterRateLimitOptions } from "./adapter-admit.js";
 export type {
 	AdapterAuthResolver,
 	AdapterGuard,

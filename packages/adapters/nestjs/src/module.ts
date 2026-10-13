@@ -35,6 +35,9 @@ const SECURITY_OPTION_KEYS: Record<keyof AdapterSecurityOptions, true> = {
 	authenticate: true,
 	allowUnauthenticated: true,
 	trustedProxy: true,
+	rateLimit: true,
+	trustedOrigins: true,
+	csrf: true,
 };
 
 function pickSecurityOptions(options: AdapterSecurityOptions): AdapterSecurityOptions {
