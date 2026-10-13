@@ -41,7 +41,7 @@
     "better-sqlite3": "^12.9.0",
     "knip": "^5.0.0",
     "simple-git-hooks": "^2.11.0",
-    "turbo": "^2.5.0",
+    "turbo": "^2.9.14",
     "typescript": "^6.0.3",
     "vitest": "^3.2.7"
   },
