@@ -68,6 +68,51 @@ Paths support `:param` segments. The router copies captured values into the requ
 
 The JSON, body-parsing and cookie helpers that built-in plugins use are internal, so write small equivalents in your own plugin (the `json` function above is one).
 
+## Typed endpoints
+
+`defineEndpoint` validates path parameters, the query string and the JSON body with zod before your handler runs, and records the shapes so a browser or mobile client can call the route with full type inference. It returns a normal endpoint, so `ctx.addEndpoint` takes it.
+
+```typescript
+import { defineEndpoint, type ApiOf } from '@glinr/theauth';
+import { z } from 'zod';
+
+export const invite = defineEndpoint({
+  method: 'POST',
+  path: '/team/:teamId/invite',
+  params: z.object({ teamId: z.string().min(1) }),
+  query: z.object({ notify: z.enum(['yes', 'no']).default('yes') }),
+  body: z.object({ email: z.string().email() }),
+  response: z.object({ invited: z.string() }),
+  async handler({ params, query, body }, ctx) {
+    const user = await ctx.getUser(ctx.request);
+    if (!user) return new Response('Unauthorized', { status: 401 });
+    return { invited: `${body.email}@${params.teamId}` };
+  },
+});
+
+export const endpoints = [invite] as const;
+export type TeamApi = ApiOf<typeof endpoints>;
+```
+
+Input that does not match the schemas returns `400` with `{ error: { code: 'INVALID_INPUT', issues } }`. Return a plain value for a JSON `200`, or a `Response` to control the status yourself. A `response` schema, when given, is checked before sending and a mismatch returns `500` instead of leaking an unexpected shape.
+
+Call it from the client without importing any server code:
+
+```typescript
+import { createEndpointClient } from '@glinr/theauth-client';
+import type { TeamApi } from './server/endpoints'; // type only
+
+const api = createEndpointClient<TeamApi>({ baseUrl: '/api/theauth' });
+const out = await api.call('POST /team/:teamId/invite', {
+  params: { teamId: 't1' },
+  body: { email: 'a@b.co' },
+});
+if (out.ok) console.log(out.data.invited);
+else console.log(out.error.code, out.error.issues);
+```
+
+The route key, input and result are all inferred, and a route with no required input takes no argument. Cookies are sent by default (`credentials: 'include'`); pass `headers` for bearer tokens.
+
 ## Lifecycle hooks
 
 ```ts
