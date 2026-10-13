@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useId } from "react";
 import type { AuthCardProps } from "../types.js";
 import { cx } from "../utils.js";
 
@@ -9,6 +10,7 @@ export function AuthCard({
 	children,
 	className,
 }: AuthCardProps): ReactNode {
+	const titleId = useId();
 	return (
 		<div
 			className={cx(
@@ -16,7 +18,8 @@ export function AuthCard({
 				classNames?.root ?? className,
 			)}
 		>
-			<div
+			<section
+				aria-labelledby={title ? titleId : undefined}
 				className={cx(
 					"theauth-auth-card w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900",
 					classNames?.card,
@@ -24,6 +27,7 @@ export function AuthCard({
 			>
 				{title && (
 					<h2
+						id={titleId}
 						className={cx(
 							"theauth-auth-card-title mb-1 text-center text-xl font-semibold text-zinc-900 dark:text-zinc-100",
 							classNames?.title,
@@ -44,7 +48,7 @@ export function AuthCard({
 				)}
 				{!description && title && <div className="mb-6" />}
 				{children}
-			</div>
+			</section>
 		</div>
 	);
 }

@@ -1,58 +1,11 @@
 import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useCallback, useRef, useState } from "react";
-import type { ButtonSlotProps, ErrorSlotProps, TwoFactorVerifyProps } from "../types.js";
+import type { TwoFactorVerifyProps } from "../types.js";
 import { cx } from "../utils.js";
 import { AuthCard } from "./auth-card.js";
+import { DefaultButton, DefaultError } from "./defaults.js";
 
 // Default slots
-
-function DefaultButton({ loading, children, ...rest }: ButtonSlotProps): ReactNode {
-	return (
-		<button
-			{...rest}
-			disabled={rest.disabled ?? loading}
-			className={
-				rest.className ??
-				"theauth-btn w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-			}
-		>
-			{loading ? (
-				<span className="flex items-center justify-center gap-2">
-					<Spinner />
-					{children}
-				</span>
-			) : (
-				children
-			)}
-		</button>
-	);
-}
-
-function DefaultError({ message, className }: ErrorSlotProps): ReactNode {
-	return (
-		<div
-			className={
-				className ??
-				"theauth-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
-			}
-		>
-			{message}
-		</div>
-	);
-}
-
-function Spinner(): ReactNode {
-	return (
-		<svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-			<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-			<path
-				className="opacity-75"
-				fill="currentColor"
-				d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-			/>
-		</svg>
-	);
-}
 
 // Component
 
@@ -193,6 +146,7 @@ export function TwoFactorVerify({
 							value={backupCode}
 							onChange={(e) => setBackupCode(e.target.value)}
 							placeholder="Backup code"
+							aria-label="Backup code"
 							autoComplete="one-time-code"
 							disabled={isLoading}
 							className={cx(
@@ -201,7 +155,10 @@ export function TwoFactorVerify({
 							)}
 						/>
 					) : (
-						<div className="flex justify-center gap-2">
+						<fieldset
+							className="m-0 flex min-w-0 justify-center gap-2 border-0 p-0"
+							aria-label="Verification code"
+						>
 							{Array.from({ length: digits }).map((_, i) => (
 								<input
 									key={digitKeys[i]}
@@ -210,6 +167,7 @@ export function TwoFactorVerify({
 									}}
 									type="text"
 									inputMode="numeric"
+									aria-label={`Digit ${i + 1} of ${digits}`}
 									autoComplete={i === 0 ? "one-time-code" : "off"}
 									maxLength={1}
 									value={code[i]}
@@ -223,7 +181,7 @@ export function TwoFactorVerify({
 									)}
 								/>
 							))}
-						</div>
+						</fieldset>
 					)}
 
 					<Btn type="submit" loading={isLoading}>

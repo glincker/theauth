@@ -85,6 +85,8 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 									onChange={(e) => setSecret(e.target.value)}
 									placeholder="Enter your dashboard secret"
 									autoComplete="current-password"
+									aria-invalid={error ? true : undefined}
+									aria-describedby={error ? "theauth-secret-error" : undefined}
 									className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-600 pr-10 focus:outline-none focus:border-yellow-600/60 focus:ring-1 focus:ring-yellow-600/20 transition-colors"
 								/>
 								<button
@@ -92,6 +94,7 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 									onClick={() => setShowSecret((v) => !v)}
 									className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
 									aria-label={showSecret ? "Hide secret" : "Show secret"}
+									aria-pressed={showSecret}
 								>
 									{showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 								</button>
@@ -100,7 +103,11 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 
 						{/* Error */}
 						{error && (
-							<p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+							<p
+								id="theauth-secret-error"
+								role="alert"
+								className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+							>
 								{error}
 							</p>
 						)}
