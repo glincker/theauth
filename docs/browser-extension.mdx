@@ -8,6 +8,10 @@ icon: puzzle-piece
 
 It has no runtime dependencies. DPoP support uses `@glinr/theauth-client`, which is an optional peer.
 
+<Frame caption="Extension sign-in with PKCE, token held by the background worker.">
+  <img src="/images/diagrams/theauth-browser-extension-sign-in.svg" alt="A browser extension signs in against theAuth with the authorization code flow and PKCE, keeps the token in its background worker, and calls your API with it." />
+</Frame>
+
 ## Install
 
 ```bash

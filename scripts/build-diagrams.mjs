@@ -815,3 +815,115 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	s.callout(boxes[1].front, 2, "Writes source files", 44);
 	save("diagrams", "theauth-add-components-cli", s);
 }
+
+// shared chain builder for the four-step flows below
+function chain(s, cs, spec, labels, callouts) {
+	const boxes = cs.map((c, i) => s.cuboid(...box(...c, 1.6), spec[i].h, spec[i]));
+	for (let i = 0; i < cs.length - 1; i++)
+		s.route(along(cs[i], cs[i + 1], 1.0), i % 2 ? C.teal : C.lime);
+	for (const [i, b] of boxes.entries()) s.tag(b.top, labels[i], i % 2 ? 66 : 42);
+	for (const [i, b] of boxes.entries()) s.callout(b.front, i + 1, callouts[i], 44 + (i % 2) * 52);
+}
+const FOUR = [
+	[1.3, 8.7],
+	[3.8, 6.2],
+	[6.2, 3.8],
+	[8.7, 1.3],
+];
+
+// web oauth sign-in
+{
+	const s = scene(10, 10, {
+		title: "Social sign-in on the web",
+		line: "The browser goes to the provider and back, and theAuth finishes the exchange on the server.",
+		alt: "A browser is redirected through the theAuth handler to an OAuth provider, comes back with a code, and theAuth sets a session cookie.",
+	});
+	s.platform(0, 0, 10, 10);
+	chain(
+		s,
+		FOUR,
+		[
+			{ accent: C.teal, kind: "window", h: 1.2 },
+			{ accent: C.purple, kind: "mark", h: 1.5 },
+			{ accent: C.lime, kind: "server", h: 1.2 },
+			{ accent: C.teal, kind: "cookie", h: 0.8 },
+		],
+		["Browser", "theAuth handler", "OAuth provider", "Session cookie"],
+		["Starts sign-in", "Redirects with state", "User approves", "Code exchanged, cookie set"],
+	);
+	save("diagrams", "theauth-web-oauth-sign-in", s);
+}
+
+// mobile oauth (rfc 8252 + pkce)
+{
+	const s = scene(10, 10, {
+		title: "Social sign-in in a mobile app",
+		line: "The system browser does the sign-in, and the app trades a one-time code for its tokens.",
+		alt: "A mobile app opens the system browser with a PKCE challenge, theAuth returns a one-time code through a deep link, and the app exchanges it and stores the token securely.",
+	});
+	s.platform(0, 0, 10, 10);
+	chain(
+		s,
+		FOUR,
+		[
+			{ accent: C.teal, kind: "window", h: 1.2 },
+			{ accent: C.lime, kind: "window", h: 0.9 },
+			{ accent: C.purple, kind: "mark", h: 1.5 },
+			{ accent: C.teal, kind: "shield", h: 1.2 },
+		],
+		["Mobile app", "System browser", "theAuth", "Secure storage"],
+		[
+			"Sends PKCE challenge",
+			"Provider sign-in",
+			"One-time code by deep link",
+			"Token kept in keychain",
+		],
+	);
+	save("diagrams", "theauth-mobile-oauth-sign-in", s);
+}
+
+// browser extension
+{
+	const s = scene(10, 10, {
+		title: "Sign-in for a browser extension",
+		line: "The extension runs the authorization code flow with PKCE and keeps tokens out of content scripts.",
+		alt: "A browser extension signs in against theAuth with the authorization code flow and PKCE, keeps the token in its background worker, and calls your API with it.",
+	});
+	s.platform(0, 0, 10, 10);
+	chain(
+		s,
+		FOUR,
+		[
+			{ accent: C.teal, kind: "window", h: 1.1 },
+			{ accent: C.lime, kind: "bolt", h: 1.2 },
+			{ accent: C.purple, kind: "mark", h: 1.5 },
+			{ accent: C.teal, kind: "server", h: 1.2 },
+		],
+		["Extension popup", "Background worker", "theAuth", "Your API"],
+		["User clicks sign in", "Holds the token", "Code flow with PKCE", "Bearer token on requests"],
+	);
+	save("diagrams", "theauth-browser-extension-sign-in", s);
+}
+
+// cli device flow
+{
+	const s = scene(10, 10, {
+		title: "Sign-in for a command line tool",
+		line: "The CLI asks for a code, the user approves in a browser, and the CLI polls until it gets a token.",
+		alt: "A command line tool requests a device code from theAuth, the user approves it in a browser, and the tool polls and receives an access token.",
+	});
+	s.platform(0, 0, 10, 10);
+	chain(
+		s,
+		FOUR,
+		[
+			{ accent: C.lime, kind: "term", h: 1.2 },
+			{ accent: C.purple, kind: "mark", h: 1.5 },
+			{ accent: C.teal, kind: "window", h: 1.1 },
+			{ accent: C.lime, kind: "key", h: 1 },
+		],
+		["CLI", "theAuth", "Browser", "Access token"],
+		["Asks for a device code", "Issues code and URL", "User approves", "CLI polls, gets token"],
+	);
+	save("diagrams", "theauth-cli-device-sign-in", s);
+}

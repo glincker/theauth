@@ -8,6 +8,10 @@ icon: terminal
 
 The device flow lets a program with no browser (a CLI, a headless agent, an MCP client) get a signed-in session. The program asks for a short code, the user approves it in a browser where they are already signed in, and the program receives a token.
 
+<Frame caption="Device flow for command line tools.">
+  <img src="/images/diagrams/theauth-cli-device-sign-in.svg" alt="A command line tool requests a device code from theAuth, the user approves it in a browser, and the tool polls and receives an access token." />
+</Frame>
+
 ## Server setup
 
 ```ts

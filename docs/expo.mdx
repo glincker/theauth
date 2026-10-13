@@ -93,6 +93,10 @@ import { TheAuthExpoProvider, createSecureStoreStorage } from '@glinr/theauth-ex
 </TheAuthExpoProvider>
 ```
 
+<Frame caption="Mobile sign-in with the system browser and a one-time code.">
+  <img src="/images/diagrams/theauth-mobile-oauth-sign-in.svg" alt="A mobile app opens the system browser with a PKCE challenge, theAuth returns a one-time code through a deep link, and the app exchanges it and stores the token securely." />
+</Frame>
+
 ## Social sign-in
 
 The app opens the provider in the system browser, and the server sends the browser back to your app with a single-use code. The app trades that code, together with a PKCE verifier that never left the device, for a session. The session token is never placed in a URL.
