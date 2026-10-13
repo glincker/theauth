@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 608" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 586" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">Shared signals event lifecycle</title><desc id="d">Four steps: an admin action happens, theAuth signs an event, it is delivered by push or poll, and the receiver revokes the session.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 486.40000000000003)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 364.8)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 486.40000000000003)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 468.8)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 351.59999999999997)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 468.8)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
@@ -16,9 +16,9 @@
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="608" rx="16" fill="#06080a"/>
-<rect width="640" height="608" rx="16" fill="url(#g1)"/><rect width="640" height="608" rx="16" fill="url(#g2)"/><rect width="640" height="608" rx="16" fill="url(#g3)"/>
-<rect width="640" height="608" rx="16" filter="url(#n)" opacity=".10"/>
+<rect width="640" height="586" rx="16" fill="#06080a"/>
+<rect width="640" height="586" rx="16" fill="url(#g1)"/><rect width="640" height="586" rx="16" fill="url(#g2)"/><rect width="640" height="586" rx="16" fill="url(#g3)"/>
+<rect width="640" height="586" rx="16" filter="url(#n)" opacity=".10"/>
 <polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -158,15 +158,28 @@
 <line x1="493" y1="95.5" x2="493" y2="182.5" stroke="#19d9b8" stroke-width="1.5"/><circle cx="493" cy="182.5" r="3" fill="#19d9b8"/>
 <rect x="410.2" y="65.5" width="165.6" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="493" y="85.5" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">4 Revoke session</text>
+<path d="M147 239.2L147 261.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="147" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="72.9" y="261.2" width="148.2" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="91.9" cy="279.2" r="10" fill="#eef35f"/><text x="91.9" y="283.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">1</text>
+<text x="108.9" y="283.7" font-size="12.5" fill="#f4f4f5">Ban or revoke</text>
+<path d="M263.9 239.2L263.9 315.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="263.9" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="160.2" y="315.2" width="207.4" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="179.2" cy="333.2" r="10" fill="#eef35f"/><text x="179.2" y="337.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">2</text>
+<text x="196.2" y="337.7" font-size="12.5" fill="#f4f4f5">SET signed and stored</text>
+<path d="M376.1 239.2L376.1 261.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="376.1" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="290.9" y="261.2" width="170.4" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="309.9" cy="279.2" r="10" fill="#eef35f"/><text x="309.9" y="283.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">3</text>
+<text x="326.9" y="283.7" font-size="12.5" fill="#f4f4f5">Pushed or polled</text>
+<path d="M493 239.2L493 310.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="493" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="404.1" y="310.2" width="177.8" height="46" rx="23" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="423.1" cy="333.2" r="10" fill="#eef35f"/><text x="423.1" y="337.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">4</text>
+<text x="440.1" y="331.2" font-size="12.5" fill="#f4f4f5">Verified, session</text>
+<text x="440.1" y="346.2" font-size="12.5" fill="#f4f4f5">revoked</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="370" width="640" height="238" fill="#000" opacity=".35"/>
-<line x1="0" y1="370" x2="640" y2="370" stroke="#26343b"/>
-<text x="24" y="402" font-size="20" font-weight="650" fill="#f4f4f5">Shared signals event lifecycle</text>
-<text x="24" y="426" font-size="14.5" fill="#a1a1aa">An admin action becomes a signed event, is pushed or polled,</text>
-<text x="24" y="446" font-size="14.5" fill="#a1a1aa">and the receiver revokes the session.</text>
-<rect x="24" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="494" r="12" fill="#eef35f"/><text x="48" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">1</text><text x="70" y="490" font-size="13.5" fill="#f4f4f5">An admin bans a user or</text><text x="70" y="508" font-size="13.5" fill="#f4f4f5">revokes a session.</text>
-<rect x="325" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="494" r="12" fill="#eef35f"/><text x="349" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">2</text><text x="371" y="490" font-size="13.5" fill="#f4f4f5">theAuth signs a SET and stores</text><text x="371" y="508" font-size="13.5" fill="#f4f4f5">it for the stream.</text>
-<rect x="24" y="528" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="554" r="12" fill="#eef35f"/><text x="48" y="559" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">3</text><text x="70" y="550" font-size="13.5" fill="#f4f4f5">It is pushed to the receiver</text><text x="70" y="568" font-size="13.5" fill="#f4f4f5">or fetched by poll.</text>
-<rect x="325" y="528" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="554" r="12" fill="#eef35f"/><text x="349" y="559" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">4</text><text x="371" y="550" font-size="13.5" fill="#f4f4f5">The receiver verifies it and</text><text x="371" y="568" font-size="13.5" fill="#f4f4f5">revokes the session.</text>
+<rect x="0" y="480" width="640" height="106" fill="#000" opacity=".35"/>
+<line x1="0" y1="480" x2="640" y2="480" stroke="#26343b"/>
+<text x="24" y="512" font-size="20" font-weight="650" fill="#f4f4f5">Shared signals event lifecycle</text>
+<text x="24" y="536" font-size="14.5" fill="#a1a1aa">An admin action becomes a signed event, is pushed or polled,</text>
+<text x="24" y="556" font-size="14.5" fill="#a1a1aa">and the receiver revokes the session.</text>
 <text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>
