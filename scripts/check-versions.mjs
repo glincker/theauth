@@ -8,7 +8,7 @@
 // summary has a clear "what's about to change" line.
 
 import { execFile } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -16,36 +16,10 @@ import { promisify } from "node:util";
 const exec = promisify(execFile);
 const ROOT = resolve(import.meta.dirname, "..");
 
-const PACKAGE_DIRS = [
-	"packages/core",
-	"packages/client",
-	"packages/cli",
-	"packages/mcp",
-	"packages/theauth-alias",
-	"packages/dashboard",
-	"packages/react",
-	"packages/vue",
-	"packages/svelte",
-	"packages/ui",
-	"packages/test-utils",
-	"packages/expo",
-	"packages/electron",
-	"packages/auth/email",
-	"packages/plugins/telemetry",
-	"packages/plugins/discovery",
-	"packages/gateway",
-	"packages/create-theauth-app",
-];
-
-const ADAPTERS_DIR = join(ROOT, "packages/adapters");
-if (existsSync(ADAPTERS_DIR)) {
-	for (const entry of readdirSync(ADAPTERS_DIR)) {
-		const dir = `packages/adapters/${entry}`;
-		if (existsSync(join(ROOT, dir, "package.json"))) {
-			PACKAGE_DIRS.push(dir);
-		}
-	}
-}
+// Same discovery as publish.yml. The alias is included here so the report shows when it is unpublished.
+process.env.INCLUDE_ALIAS = "1";
+const { listPublishable } = await import("./publishable-packages.mjs");
+const PACKAGE_DIRS = listPublishable();
 
 async function probe(dir) {
 	const pjPath = join(ROOT, dir, "package.json");
