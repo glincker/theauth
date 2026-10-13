@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { runSocialSignIn } from "./social.js";
 import { createMemoryStorage } from "./storage.js";
 import type {
 	ActionResult,
@@ -169,6 +170,34 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		[base],
 	);
 
+	// Social sign-in
+
+	const socialConfig = config.social;
+	const signInWithProvider = useCallback(
+		async (provider: string): Promise<ActionResult> => {
+			if (!socialConfig) {
+				return { success: false, error: "Social sign-in is not configured" };
+			}
+			const result = await runSocialSignIn(base, provider, socialConfig);
+			if (!result.success) return result;
+			await storageRef.current.setItem(SESSION_KEY, result.data.token);
+			setSession(result.data);
+			return { success: true, data: undefined };
+		},
+		[base, socialConfig],
+	);
+
+	// Refresh when the app returns to the foreground
+
+	const appState = config.appState;
+	useEffect(() => {
+		if (!appState) return;
+		const sub = appState.addEventListener("change", (state) => {
+			if (state === "active") void fetchSession();
+		});
+		return () => sub.remove();
+	}, [appState, fetchSession]);
+
 	// Sign out
 
 	const signOut = useCallback(async (): Promise<void> => {
@@ -195,6 +224,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		isAuthenticated: session !== null,
 		signIn,
 		signUp,
+		signInWithProvider,
 		signOut,
 		refresh,
 	};

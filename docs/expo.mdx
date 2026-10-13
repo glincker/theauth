@@ -80,36 +80,73 @@ export function LoginScreen() {
 
 ## Secure token storage
 
-For production apps, use `expo-secure-store` to encrypt the session token at rest:
+For production apps, use `expo-secure-store` to keep the session token in the Keychain (iOS) or Keystore (Android):
 
 ```tsx
 import * as SecureStore from 'expo-secure-store';
-import { TheAuthExpoProvider } from '@glinr/theauth-expo';
+import { TheAuthExpoProvider, createSecureStoreStorage } from '@glinr/theauth-expo';
 
-const secureStorage = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
-};
-
-<TheAuthExpoProvider config={{ basePath: '...', storage: secureStorage }}>
+<TheAuthExpoProvider
+  config={{ basePath: 'https://api.myapp.com/api/theauth', storage: createSecureStoreStorage(SecureStore) }}
+>
   {children}
 </TheAuthExpoProvider>
 ```
 
-## OAuth (deep link redirect)
+## Social sign-in
 
-For OAuth flows in Expo, use the `oauth-proxy` plugin on your server alongside `Linking.openURL` on the client:
+The app opens the provider in the system browser, and the server sends the browser back to your app with a single-use code. The app trades that code, together with a PKCE verifier that never left the device, for a session. The session token is never placed in a URL.
 
-```tsx
-import { Linking } from 'react-native';
-
-async function signInWithGitHub() {
-  const authUrl = 'https://api.myapp.com/api/theauth/auth/oauth/github/authorize';
-  await Linking.openURL(authUrl);
-  // Handle the redirect via Linking.addEventListener or expo-linking
-}
+<Steps>
+<Step title="Allow your app's redirect URI on the server">
+```typescript
+oauth({
+  providers: { github: github({ clientId, clientSecret }) },
+  mobile: { redirectUris: ['myapp://auth/callback'] },
+})
 ```
+Matching is exact. Without `mobile`, the mobile flow is off.
+</Step>
+<Step title="Configure the provider in the app">
+```tsx
+import * as WebBrowser from 'expo-web-browser';
+import * as Crypto from 'expo-crypto';
+import * as Linking from 'expo-linking';
+import { AppState } from 'react-native';
+
+const config = {
+  basePath: 'https://api.myapp.com/api/theauth',
+  storage: createSecureStoreStorage(SecureStore),
+  appState: AppState,
+  social: {
+    redirectUri: Linking.createURL('auth/callback'),
+    openAuthSession: (url, redirectUri) => WebBrowser.openAuthSessionAsync(url, redirectUri),
+    randomBytes: (n) => Crypto.getRandomBytesAsync(n),
+    sha256: async (input) =>
+      new Uint8Array(
+        await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, new TextEncoder().encode(input)),
+      ),
+  },
+};
+```
+</Step>
+<Step title="Call the hook">
+```tsx
+import { useSocialSignIn } from '@glinr/theauth-expo';
+
+const { signInWithProvider, isLoading, error } = useSocialSignIn();
+<Button title="Continue with GitHub" onPress={() => signInWithProvider('github')} />
+```
+</Step>
+</Steps>
+
+If the user has a required second factor, `signInWithProvider` returns a failure whose message names the gate (`two_factor_required`). Complete the factor, then sign in again.
+
+The mount path in `basePath` must expose the OAuth plugin routes `/auth/oauth/authorize/:provider` and `/auth/oauth/mobile/exchange`. The OAuth provider's own redirect URI stays your server callback, not the app link.
+
+### Refresh on foreground
+
+Pass React Native's `AppState` as `appState` and the session is re-checked every time the app comes back to the foreground, so a session revoked elsewhere signs the user out.
 
 ## Hooks reference
 
@@ -160,6 +197,8 @@ Manages agent identity records for the current user. Requires the full base URL 
 |---|---|---|
 | `basePath` | `string` | Full URL to your theAuth mount point |
 | `storage` | `AuthStorage?` | Token persistence adapter. Defaults to in-memory |
+| `social` | `SocialSignInConfig?` | Enables `signInWithProvider`. See Social sign-in |
+| `appState` | `AppStateLike?` | React Native `AppState`. Refreshes the session on foreground |
 
 <Warning>
 The default in-memory storage loses the session when the app restarts. Always pass a real storage adapter in production.

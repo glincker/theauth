@@ -1,13 +1,16 @@
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
-import { buildSetCookie } from "../../plugin/helpers.js";
+import { buildClearCookie, buildSetCookie, getCookie } from "../../plugin/helpers.js";
 import type { PluginInitResult, TheAuthPlugin } from "../../plugin/types.js";
 import { createBaseUrlResolver } from "../../session/base-url.js";
 import { normalizeEmail } from "../normalize-email.js";
+import { createOneTimeTokenModule } from "../one-time-token.js";
 import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
 import { signInGateRedirect } from "../sign-in-gate.js";
 import { OAuthTokenError } from "./errors.js";
+import type { MobileFlow, MobileOAuthConfig } from "./mobile.js";
+import { createMobileOAuth, MOBILE_COOKIE } from "./mobile.js";
 import { createOAuthModule } from "./module.js";
 import type { OAuthModuleConfig, OAuthTokens, OAuthUserInfo } from "./types.js";
 
@@ -21,6 +24,12 @@ export interface OAuthPluginConfig extends OAuthModuleConfig {
 	 * using the pattern `{baseUrl}/auth/oauth/callback/{provider}`.
 	 */
 	buildRedirectUri?: (provider: string, baseUrl: string) => string;
+	/**
+	 * Native app sign-in. When set, `authorize` accepts `mobile_redirect` and a
+	 * PKCE `code_challenge`, and the app trades the code it receives for a
+	 * session at `POST /auth/oauth/mobile/exchange`. Off when omitted.
+	 */
+	mobile?: MobileOAuthConfig;
 }
 
 // Helpers
@@ -81,6 +90,10 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 			}
 
 			const authorizeLimiter = createRateLimiter({ max: 20, window: 60 });
+			const exchangeLimiter = createRateLimiter({ max: 20, window: 60 });
+			const mobile = config.mobile
+				? createMobileOAuth(config.mobile, createOneTimeTokenModule({}, ctx.db))
+				: null;
 
 			function getRedirectUri(provider: string, request: Request): string {
 				let base = baseUrl;
@@ -112,8 +125,27 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 
 					const redirectUri = getRedirectUri(provider, request);
 
+					let mobileFlow: MobileFlow | null = null;
+					if (url.searchParams.has("mobile_redirect")) {
+						const parsed = mobile?.parseStart(url.searchParams);
+						if (!parsed) return jsonResponse({ error: "Mobile sign-in is not enabled" }, 400);
+						if ("error" in parsed) return jsonResponse({ error: parsed.error }, 400);
+						mobileFlow = parsed.flow;
+					}
+
 					try {
 						const { url: authUrl } = await module.getAuthorizationUrl(provider, redirectUri);
+						if (mobile && mobileFlow) {
+							const pending = await mobile.begin(mobileFlow);
+							const secure = baseUrl.startsWith("https://");
+							return new Response(null, {
+								status: 302,
+								headers: {
+									Location: authUrl,
+									"Set-Cookie": buildSetCookie(MOBILE_COOKIE, pending, 600, "/", secure),
+								},
+							});
+						}
 						return redirectResponse(authUrl);
 					} catch (err) {
 						return jsonResponse(
@@ -135,12 +167,27 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 					const code = url.searchParams.get("code");
 					const state = url.searchParams.get("state");
 
+					// A native app started this flow in the system browser. The
+					// pending flow is consumed here, so a failure restarts it.
+					const flow = mobile ? await mobile.resume(getCookie(request, MOBILE_COOKIE)) : null;
+					const clearMobile = buildClearCookie(MOBILE_COOKIE);
+					const fail = (message: string, status: number): Response => {
+						if (!mobile || !flow) return jsonResponse({ error: message }, status);
+						return new Response(null, {
+							status: 302,
+							headers: {
+								Location: mobile.redirectWith(flow.redirectUri, { error: message }),
+								"Set-Cookie": clearMobile,
+							},
+						});
+					};
+
 					if (!provider) {
-						return jsonResponse({ error: "Missing provider parameter" }, 400);
+						return fail("Missing provider parameter", 400);
 					}
 
 					if (!code || !state) {
-						return jsonResponse({ error: "Missing code or state query parameter" }, 400);
+						return fail("Missing code or state query parameter", 400);
 					}
 
 					const redirectUri = getRedirectUri(provider, request);
@@ -162,11 +209,8 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								// a provider account with the victim's address sign in as them,
 								// and an unverified local account may be a pre-registered squat.
 								if (result.userInfo.emailVerified !== true || !existing[0].emailVerified) {
-									return jsonResponse(
-										{
-											error:
-												"An account with this email already exists. Sign in with your existing method and link this provider from account settings.",
-										},
+									return fail(
+										"An account with this email already exists. Sign in with your existing method and link this provider from account settings.",
 										409,
 									);
 								}
@@ -205,7 +249,20 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								request,
 							});
 							if (gateDecision && gateDecision.action !== "allow") {
+								if (flow) return signInGateRedirect(flow.redirectUri, gateDecision, [clearMobile]);
 								return signInGateRedirect(`${baseUrl}/`, gateDecision);
+							}
+
+							// Native apps get a single-use code, never the session.
+							if (mobile && flow) {
+								const exchangeCode = await mobile.issueCode(flow, userId);
+								return new Response(null, {
+									status: 302,
+									headers: {
+										Location: mobile.redirectWith(flow.redirectUri, { code: exchangeCode }),
+										"Set-Cookie": clearMobile,
+									},
+								});
 							}
 
 							const { session, token } = await sessionManager.create(userId);
@@ -233,13 +290,49 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 							userInfo: result.userInfo,
 						});
 					} catch (err) {
-						return jsonResponse(
-							{ error: err instanceof Error ? err.message : "OAuth callback failed" },
-							400,
-						);
+						return fail(err instanceof Error ? err.message : "OAuth callback failed", 400);
 					}
 				},
 			});
+
+			// POST /auth/oauth/mobile/exchange
+			if (mobile) {
+				ctx.addEndpoint({
+					method: "POST",
+					path: "/auth/oauth/mobile/exchange",
+					metadata: {
+						description: "Trade a native app sign-in code and PKCE verifier for a session",
+						rateLimit: { window: 60, max: 20 },
+					},
+					handler: withRateLimit(async (request) => {
+						let body: unknown;
+						try {
+							body = await request.json();
+						} catch {
+							return jsonResponse({ error: "Invalid JSON body" }, 400);
+						}
+						const b = (body ?? {}) as Record<string, unknown>;
+						const code = typeof b.code === "string" ? b.code : "";
+						const verifier = typeof b.code_verifier === "string" ? b.code_verifier : "";
+						const userId = code && verifier ? await mobile.redeem(code, verifier) : null;
+						if (!userId) {
+							return jsonResponse({ error: "Invalid or expired code" }, 400);
+						}
+						const found = await ctx.db?.select().from(users).where(eq(users.id, userId));
+						const user = found?.[0];
+						if (!user) return jsonResponse({ error: "Invalid or expired code" }, 400);
+
+						const { session, token } = await sessionManager.create(userId);
+						return jsonResponse({
+							data: {
+								token,
+								user: { id: user.id, email: user.email, name: user.name ?? undefined },
+								expiresAt: session.expiresAt.toISOString(),
+							},
+						});
+					}, exchangeLimiter),
+				});
+			}
 
 			// POST /auth/oauth/link
 			ctx.addEndpoint({

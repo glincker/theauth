@@ -79,6 +79,32 @@ export interface TheAuthStorage {
 /** @deprecated Use `TheAuthStorage` instead. Will be removed in a future major version. */
 export type AuthStorage = TheAuthStorage;
 
+// Social sign-in
+
+/**
+ * Native app sign-in through the system browser. The browser and crypto
+ * pieces are injected so this package has no hard dependency on
+ * `expo-web-browser` or `expo-crypto`.
+ */
+export interface SocialSignInConfig {
+	/** The app's redirect URI. Must be listed in the server's `mobile.redirectUris`. */
+	redirectUri: string;
+	/**
+	 * Open the URL in the system browser and resolve when it redirects to
+	 * `redirectUri`. With expo: `WebBrowser.openAuthSessionAsync`.
+	 */
+	openAuthSession(url: string, redirectUri: string): Promise<{ type: string; url?: string }>;
+	/** Secure random bytes. With expo: `Crypto.getRandomBytesAsync`. Defaults to Web Crypto. */
+	randomBytes?(length: number): Uint8Array | Promise<Uint8Array>;
+	/** SHA-256 of a string. Defaults to Web Crypto. */
+	sha256?(input: string): Promise<Uint8Array>;
+}
+
+/** The slice of React Native's `AppState` the provider uses. */
+export interface AppStateLike {
+	addEventListener(type: "change", listener: (state: string) => void): { remove(): void };
+}
+
 // Config
 
 export interface TheAuthExpoConfig {
@@ -86,6 +112,13 @@ export interface TheAuthExpoConfig {
 	basePath: string;
 	/** Storage adapter for persisting session tokens. Defaults to in-memory. */
 	storage?: TheAuthStorage;
+	/** Enables `signInWithProvider`. */
+	social?: SocialSignInConfig;
+	/**
+	 * React Native's `AppState`. When set, the session is refreshed each time the
+	 * app returns to the foreground, so a revoked session signs the user out.
+	 */
+	appState?: AppStateLike;
 }
 
 /** @deprecated Use `TheAuthExpoConfig` instead. Will be removed in a future major version. */
@@ -100,6 +133,8 @@ export interface TheAuthContextValue {
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
 	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
+	/** Sign in with a social provider through the system browser. Needs `config.social`. */
+	signInWithProvider: (provider: string) => Promise<ActionResult>;
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 }
