@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { runPasskeyRegistration, runPasskeySignIn } from "./passkey.js";
 import { runSocialSignIn } from "./social.js";
 import { createMemoryStorage } from "./storage.js";
 import type {
@@ -51,6 +52,12 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	// Storage adapter — stable ref so callbacks don't re-create on each render
 	const storageRef = useRef<TheAuthStorage>(config.storage ?? createMemoryStorage());
 
+	// Every request goes through this, so a DPoP or pinned fetch applies everywhere.
+	const fetchRef = useRef<typeof fetch>(config.fetch ?? fetch);
+	useEffect(() => {
+		fetchRef.current = config.fetch ?? fetch;
+	}, [config.fetch]);
+
 	// Keep storage ref in sync when config changes
 	useEffect(() => {
 		storageRef.current = config.storage ?? createMemoryStorage();
@@ -66,7 +73,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		}
 
 		try {
-			const res = await fetch(`${base}/session`, {
+			const res = await fetchRef.current(`${base}/session`, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
 			if (res.ok) {
@@ -101,7 +108,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const signIn = useCallback(
 		async (email: string, password: string): Promise<ActionResult> => {
 			try {
-				const res = await fetch(`${base}/sign-in/email`, {
+				const res = await fetchRef.current(`${base}/sign-in/email`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email, password }),
@@ -138,7 +145,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const signUp = useCallback(
 		async (email: string, password: string, name?: string): Promise<ActionResult> => {
 			try {
-				const res = await fetch(`${base}/sign-up/email`, {
+				const res = await fetchRef.current(`${base}/sign-up/email`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email, password, name }),
@@ -178,13 +185,40 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 			if (!socialConfig) {
 				return { success: false, error: "Social sign-in is not configured" };
 			}
-			const result = await runSocialSignIn(base, provider, socialConfig);
+			const result = await runSocialSignIn(base, provider, socialConfig, fetchRef.current);
 			if (!result.success) return result;
 			await storageRef.current.setItem(SESSION_KEY, result.data.token);
 			setSession(result.data);
 			return { success: true, data: undefined };
 		},
 		[base, socialConfig],
+	);
+
+	// Passkeys
+
+	const passkeys = config.passkeys;
+	const signInWithPasskey = useCallback(
+		async (userId?: string): Promise<ActionResult> => {
+			if (!passkeys) return { success: false, error: "Passkeys are not configured" };
+			const result = await runPasskeySignIn(base, passkeys, fetchRef.current, userId);
+			if (!result.success) return result;
+			await storageRef.current.setItem(SESSION_KEY, result.data.token);
+			setSession(result.data);
+			// The sign-in response carries only the user id, so load the full profile.
+			void fetchSession();
+			return { success: true, data: undefined };
+		},
+		[base, passkeys, fetchSession],
+	);
+
+	const registerPasskey = useCallback(
+		async (deviceName?: string): Promise<ActionResult> => {
+			if (!passkeys) return { success: false, error: "Passkeys are not configured" };
+			const token = await storageRef.current.getItem(SESSION_KEY);
+			if (!token) return { success: false, error: "Sign in before adding a passkey" };
+			return runPasskeyRegistration(base, passkeys, fetchRef.current, token, deviceName);
+		},
+		[base, passkeys],
 	);
 
 	// Refresh when the app returns to the foreground
@@ -204,7 +238,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		const token = await storageRef.current.getItem(SESSION_KEY);
 		try {
 			if (token) {
-				await fetch(`${base}/sign-out`, {
+				await fetchRef.current(`${base}/sign-out`, {
 					method: "POST",
 					headers: { Authorization: `Bearer ${token}` },
 				});
@@ -225,6 +259,8 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		signIn,
 		signUp,
 		signInWithProvider,
+		signInWithPasskey,
+		registerPasskey,
 		signOut,
 		refresh,
 	};
