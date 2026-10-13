@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
-const SESSION_KEY = "theauth_dashboard_secret";
 const THEME_KEY = "theauth-theme";
 
 const STATS_FIXTURE = {
@@ -110,14 +109,12 @@ async function mockAuthenticatedDashboard(page: Page) {
 }
 
 async function gotoAuthenticatedDashboard(page: Page) {
-	await page.goto("/");
-	await page.evaluate(
-		([sessionKey, themeKey]) => {
-			sessionStorage.setItem(sessionKey, "test-secret");
-			localStorage.removeItem(themeKey);
-		},
-		[SESSION_KEY, THEME_KEY],
+	// The session is an HttpOnly cookie, so pretend the server accepts it.
+	await page.route("**/api/dashboard/auth", (route) =>
+		route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' }),
 	);
+	await page.goto("/");
+	await page.evaluate((themeKey) => localStorage.removeItem(themeKey), THEME_KEY);
 	await page.reload();
 	await expect(page.locator("aside nav")).toBeVisible();
 	await expect(page.locator("main h1", { hasText: "Overview" })).toBeVisible();
@@ -130,8 +127,6 @@ test.describe("login screen", () => {
 		// Clear any stored session so we always land on login
 		await page.context().clearCookies();
 		await page.goto("/");
-		await page.evaluate((sessionKey) => sessionStorage.removeItem(sessionKey), SESSION_KEY);
-		await page.reload();
 	});
 
 	test("shows TheAuth branding", async ({ page }) => {
