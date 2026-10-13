@@ -33,6 +33,7 @@ import * as jose from "jose";
 import { z } from "zod";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
+import { trimTrailingSlashes } from "../trim-slashes.js";
 
 // Constants
 
@@ -523,7 +524,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		url: string,
 		fetchFn: typeof globalThis.fetch = globalThis.fetch,
 	): Promise<Result<TrustedInstance>> {
-		const wellKnownUrl = url.replace(/\/+$/, "") + WELL_KNOWN_PATH;
+		const wellKnownUrl = trimTrailingSlashes(url) + WELL_KNOWN_PATH;
 
 		try {
 			const response = await fetchFn(wellKnownUrl);
