@@ -85,6 +85,38 @@ export function useSocialSignIn() {
 	return { signInWithProvider: execute, isLoading, error };
 }
 
+// usePasskeys
+
+/**
+ * Passkey sign-in and registration with local loading and error state.
+ * Needs `passkeys` in the provider config.
+ */
+export function usePasskeys() {
+	const { signInWithPasskey, registerPasskey } = useRequiredContext("usePasskeys");
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const run = useCallback(async (action: () => Promise<ActionResult>): Promise<ActionResult> => {
+		setIsLoading(true);
+		setError(null);
+		const result = await action();
+		if (!result.success) setError(result.error);
+		setIsLoading(false);
+		return result;
+	}, []);
+
+	const signIn = useCallback(
+		(userId?: string) => run(() => signInWithPasskey(userId)),
+		[run, signInWithPasskey],
+	);
+	const register = useCallback(
+		(deviceName?: string) => run(() => registerPasskey(deviceName)),
+		[run, registerPasskey],
+	);
+
+	return { signInWithPasskey: signIn, registerPasskey: register, isLoading, error };
+}
+
 // useSignUp
 
 /**

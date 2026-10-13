@@ -50,6 +50,7 @@ export async function runSocialSignIn(
 	base: string,
 	provider: string,
 	config: SocialSignInConfig,
+	fetchFn: typeof fetch = fetch,
 ): Promise<ActionResult<TheAuthSession>> {
 	try {
 		const randomBytes = config.randomBytes ?? defaultRandomBytes;
@@ -76,7 +77,7 @@ export async function runSocialSignIn(
 		}
 		if (!query.code) return { success: false, error: "Sign-in did not return a code" };
 
-		const res = await fetch(`${base}/auth/oauth/mobile/exchange`, {
+		const res = await fetchFn(`${base}/auth/oauth/mobile/exchange`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ code: query.code, code_verifier: verifier }),
