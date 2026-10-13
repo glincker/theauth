@@ -144,3 +144,12 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Client SDK](https://docs.theauth.dev/client-sdk)
+- [Quickstart](https://docs.theauth.dev/quickstart)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

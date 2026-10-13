@@ -4,7 +4,7 @@ description: Switch from @better-auth/agent-auth to theAuth AgentIdentity. Maps 
 icon: arrow-right-arrow-left
 ---
 
-`@better-auth/agent-auth` is better-auth's attempt to add AI-agent support alongside a human-first auth library. It is marked "heavy development, not yet stable" in their repo as of 2026-03. If you started there to get agent identity with the broader better-auth feature set, moving to theAuth gives you a single codebase where agents are a first-class entity instead of a separate package bolted onto the user model.
+`@better-auth/agent-auth` adds agent features to better-auth as a separate plugin. If you used it to get agent identity next to your human sign-in, theAuth gives you one codebase where agents are a first-class identity in the same model as users, with delegation, budgets, approvals and an audit trail in the core.
 
 Both libraries share the same ancestor on the human-auth side. Most of the familiar hooks keep their names. The agent story is the part that changes materially.
 

@@ -1,5 +1,7 @@
 # @glinr/theauth-test-utils
 
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-test-utils?style=flat&colorA=000000&colorB=000000&label=npm)](https://www.npmjs.com/package/@glinr/theauth-test-utils) [![downloads](https://img.shields.io/npm/dm/@glinr/theauth-test-utils?style=flat&colorA=000000&colorB=000000&label=downloads)](https://www.npmjs.com/package/@glinr/theauth-test-utils) [![docs](https://img.shields.io/badge/docs-docs.theauth.dev-000000?style=flat)](https://docs.theauth.dev/test-utils) [![license](https://img.shields.io/badge/license-MIT-000000?style=flat)](https://github.com/glincker/theauth/blob/main/LICENSE)
+
 [npm](https://www.npmjs.com/package/@glinr/theauth-test-utils) · [Source](https://github.com/glincker/theauth/tree/main/packages/test-utils) · [Docs](https://docs.theauth.dev/test-utils) · [All packages](https://github.com/glincker/theauth#packages)
 
 Test helpers for apps using theAuth: mock providers, factories, and assertions so your auth tests don't have to spin up a real database or an OAuth round-trip.
@@ -52,3 +54,11 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Test utilities](https://docs.theauth.dev/test-utils)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

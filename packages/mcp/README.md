@@ -2,6 +2,8 @@
 
 # @glinr/theauth-mcp
 
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-mcp?style=flat&colorA=000000&colorB=000000&label=npm)](https://www.npmjs.com/package/@glinr/theauth-mcp) [![downloads](https://img.shields.io/npm/dm/@glinr/theauth-mcp?style=flat&colorA=000000&colorB=000000&label=downloads)](https://www.npmjs.com/package/@glinr/theauth-mcp) [![docs](https://img.shields.io/badge/docs-docs.theauth.dev-000000?style=flat)](https://docs.theauth.dev/mcp) [![license](https://img.shields.io/badge/license-MIT-000000?style=flat)](https://github.com/glincker/theauth/blob/main/LICENSE)
+
 Read-only MCP server for theAuth. Inspect agent identities, dry-run permission checks, query the audit log and decode tokens in a running theAuth deployment, straight from Claude, Cursor, VS Code or any MCP client. No tool changes state.
 
 [npm](https://www.npmjs.com/package/@glinr/theauth-mcp) · [Source](https://github.com/glincker/theauth/tree/main/packages/mcp) · [theAuth](https://theauth.dev)
@@ -96,3 +98,12 @@ VS Code (`.vscode/mcp.json`):
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [MCP OAuth 2.1](https://docs.theauth.dev/mcp)
+- [DPoP](https://docs.theauth.dev/dpop)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

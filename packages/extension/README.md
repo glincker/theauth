@@ -1,5 +1,7 @@
 # @glinr/theauth-extension
 
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-extension?style=flat&colorA=000000&colorB=000000&label=npm)](https://www.npmjs.com/package/@glinr/theauth-extension) [![downloads](https://img.shields.io/npm/dm/@glinr/theauth-extension?style=flat&colorA=000000&colorB=000000&label=downloads)](https://www.npmjs.com/package/@glinr/theauth-extension) [![docs](https://img.shields.io/badge/docs-docs.theauth.dev-000000?style=flat)](https://docs.theauth.dev/browser-extension) [![license](https://img.shields.io/badge/license-MIT-000000?style=flat)](https://github.com/glincker/theauth/blob/main/LICENSE)
+
 OAuth 2.1 sign in for Manifest V3 browser extensions. Authorization code with PKCE (S256), refresh that survives service worker restarts, optional DPoP, and a message bridge so content scripts never see the refresh token.
 
 Zero runtime dependencies. DPoP uses `@glinr/theauth-client` as an optional peer.
@@ -49,3 +51,12 @@ Full guide: [docs/browser-extension.mdx](../../docs/browser-extension.mdx). Exam
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Browser extensions](https://docs.theauth.dev/browser-extension)
+- [DPoP](https://docs.theauth.dev/dpop)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

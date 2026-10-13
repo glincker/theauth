@@ -47,3 +47,12 @@ On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your 
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [solidstart adapter guide](https://docs.theauth.dev/adapters/solidstart)
+- [All adapters](https://docs.theauth.dev/adapters)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

@@ -84,3 +84,12 @@ For full docs on agent identity, permissions, delegation, and audit, see the mai
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [nuxt adapter guide](https://docs.theauth.dev/adapters/nuxt)
+- [All adapters](https://docs.theauth.dev/adapters)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

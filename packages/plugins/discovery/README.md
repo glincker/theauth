@@ -36,3 +36,11 @@ const discovery = await createDiscoveryModule({
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Plugins](https://docs.theauth.dev/plugins)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)
