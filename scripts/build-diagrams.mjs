@@ -3,7 +3,7 @@
 // Each SVG carries its own title, one line explanation and theauth.dev, so it
 // still makes sense when it is found on its own (search, social, slides).
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -412,13 +412,21 @@ function save(dir, name, s) {
 function exportAll() {
 	const chrome =
 		process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+	// Absolute paths only, so a writable PATH entry cannot swap the binary.
+	const magick =
+		process.env.MAGICK ??
+		["/opt/homebrew/bin/magick", "/usr/local/bin/magick", "/usr/bin/magick"].find((p) =>
+			existsSync(p),
+		);
+	if (!magick) throw new Error("ImageMagick not found. Set MAGICK to the magick binary.");
 	for (const e of exportsList) {
 		const out = join(ROOT, e.dir);
 		mkdirSync(out, { recursive: true });
 		const html = join(BUILD, `${e.name}.html`);
+		const svgPath = join(BUILD, `${e.name}.svg`);
 		writeFileSync(
 			html,
-			`<html><body style="margin:0;background:#06080a"><img src="${join(BUILD, `${e.name}.svg`)}" width="${e.w}" height="${e.h}" style="display:block"></body></html>`,
+			`<html><body style="margin:0;background:#06080a"><img src="${svgPath}" width="${e.w}" height="${e.h}" style="display:block"></body></html>`,
 		);
 		const png = join(BUILD, `${e.name}.png`);
 		execFileSync(
@@ -434,7 +442,7 @@ function exportAll() {
 			],
 			{ stdio: "ignore" },
 		);
-		execFileSync("magick", [
+		execFileSync(magick, [
 			png,
 			"-quality",
 			"86",
