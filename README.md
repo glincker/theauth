@@ -40,6 +40,42 @@ Most auth libraries stop at human sign-in. Once an AI agent needs its own identi
 
 It runs on Node, Bun, Deno and Cloudflare Workers with three runtime dependencies (`drizzle-orm`, `jose`, `zod`). MIT licensed. No hosted service required.
 
+## Works with
+
+<p align="center">
+  <a href="https://docs.theauth.dev/works-with" title="GitHub"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/github-dark.svg"><img src="docs/brand-icons/works-with/github.svg" alt="GitHub" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Google"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/google-dark.svg"><img src="docs/brand-icons/works-with/google.svg" alt="Google" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Apple"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/apple-dark.svg"><img src="docs/brand-icons/works-with/apple.svg" alt="Apple" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Microsoft"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/microsoft-dark.svg"><img src="docs/brand-icons/works-with/microsoft.svg" alt="Microsoft" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Discord"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/discord-dark.svg"><img src="docs/brand-icons/works-with/discord.svg" alt="Discord" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="GitLab"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/gitlab-dark.svg"><img src="docs/brand-icons/works-with/gitlab.svg" alt="GitLab" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Slack"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/slack-dark.svg"><img src="docs/brand-icons/works-with/slack.svg" alt="Slack" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="LinkedIn"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/linkedin-dark.svg"><img src="docs/brand-icons/works-with/linkedin.svg" alt="LinkedIn" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Auth0"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/auth0-dark.svg"><img src="docs/brand-icons/works-with/auth0.svg" alt="Auth0" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Okta"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/okta-dark.svg"><img src="docs/brand-icons/works-with/okta.svg" alt="Okta" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Keycloak"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/keycloak-dark.svg"><img src="docs/brand-icons/works-with/keycloak.svg" alt="Keycloak" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Next.js"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/nextjs-dark.svg"><img src="docs/brand-icons/works-with/nextjs.svg" alt="Next.js" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Hono"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/hono-dark.svg"><img src="docs/brand-icons/works-with/hono.svg" alt="Hono" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Express"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/express-dark.svg"><img src="docs/brand-icons/works-with/express.svg" alt="Express" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Fastify"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/fastify-dark.svg"><img src="docs/brand-icons/works-with/fastify.svg" alt="Fastify" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="NestJS"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/nestjs-dark.svg"><img src="docs/brand-icons/works-with/nestjs.svg" alt="NestJS" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Nuxt"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/nuxt-dark.svg"><img src="docs/brand-icons/works-with/nuxt.svg" alt="Nuxt" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="SvelteKit"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/sveltekit-dark.svg"><img src="docs/brand-icons/works-with/sveltekit.svg" alt="SvelteKit" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Astro"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/astro-dark.svg"><img src="docs/brand-icons/works-with/astro.svg" alt="Astro" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="React"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/react-dark.svg"><img src="docs/brand-icons/works-with/react.svg" alt="React" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Expo"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/expo-dark.svg"><img src="docs/brand-icons/works-with/expo.svg" alt="Expo" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Electron"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/electron-dark.svg"><img src="docs/brand-icons/works-with/electron.svg" alt="Electron" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="PostgreSQL"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/postgresql-dark.svg"><img src="docs/brand-icons/works-with/postgresql.svg" alt="PostgreSQL" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="MySQL"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/mysql-dark.svg"><img src="docs/brand-icons/works-with/mysql.svg" alt="MySQL" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="SQLite"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/sqlite-dark.svg"><img src="docs/brand-icons/works-with/sqlite.svg" alt="SQLite" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="MCP"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/modelcontextprotocol-dark.svg"><img src="docs/brand-icons/works-with/modelcontextprotocol.svg" alt="MCP" height="32" width="32"></picture></a>
+  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Go"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/go-dark.svg"><img src="docs/brand-icons/works-with/go.svg" alt="Go" height="32" width="32"></picture></a>
+</p>
+
+<p align="center"><a href="https://docs.theauth.dev/works-with">See everything theAuth works with</a>: 40 OAuth providers, ten framework adapters, four runtimes and the databases you already run.</p>
+
+> Names and logos belong to their owners and are shown only to indicate compatibility.
+
 ## 30 second quickstart
 
 Runs as pasted with SQLite. Needs Node 20 or newer.
