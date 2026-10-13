@@ -31,9 +31,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { sessions, users } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -67,9 +65,7 @@ async function insertSession(db: Database, userId: string): Promise<string> {
 	return id;
 }
 
-// ---------------------------------------------------------------------------
 // validate
-// ---------------------------------------------------------------------------
 
 describe("AdditionalFieldsModule.validate", () => {
 	let mod: AdditionalFieldsModule;
@@ -127,9 +123,7 @@ describe("AdditionalFieldsModule.validate", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getUserFields
-// ---------------------------------------------------------------------------
 
 describe("AdditionalFieldsModule.getUserFields", () => {
 	let db: Database;
@@ -175,9 +169,7 @@ describe("AdditionalFieldsModule.getUserFields", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // setUserFields
-// ---------------------------------------------------------------------------
 
 describe("AdditionalFieldsModule.setUserFields", () => {
 	let db: Database;
@@ -250,9 +242,7 @@ describe("AdditionalFieldsModule.setUserFields", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getSessionFields / setSessionFields
-// ---------------------------------------------------------------------------
 
 describe("AdditionalFieldsModule.getSessionFields / setSessionFields", () => {
 	let db: Database;
@@ -296,9 +286,7 @@ describe("AdditionalFieldsModule.getSessionFields / setSessionFields", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Plugin endpoints
-// ---------------------------------------------------------------------------
 
 describe("additionalFields plugin endpoints", () => {
 	it("GET /auth/users/fields returns user fields", async () => {

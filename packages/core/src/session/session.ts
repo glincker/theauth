@@ -34,9 +34,7 @@ import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import { MultiSessionLimitError } from "./multi-session.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface SessionConfig {
 	/** Signing secret for session tokens. Must be at least 32 characters. */
@@ -118,15 +116,11 @@ export interface SessionManager {
 	list(userId: string): Promise<Session[]>;
 }
 
-// ---------------------------------------------------------------------------
 // Default values
-// ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a `SessionManager` backed by the `theauth_sessions` database table.
@@ -147,7 +141,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			: undefined;
 	const onLimit = config.onLimit ?? "evict-oldest";
 
-	// ── helpers ────────────────────────────────────────────────────────────
+	// helpers
 
 	function rowToSession(row: {
 		id: string;
@@ -165,7 +159,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		};
 	}
 
-	// ── public API ─────────────────────────────────────────────────────────
+	// public API
 
 	/**
 	 * Apply `maxConcurrent` before a new session is inserted. Evicts the oldest

@@ -36,7 +36,7 @@ const PORT = 3001;
 const BASE_URL = `http://localhost:${PORT}`;
 const SIGNING_SECRET = "theauth-example-secret-key-at-least-32-chars-long";
 
-// ─── In-memory MCP stores ─────────────────────────────────────────────────────
+// In-memory MCP stores
 // In production, back these with your database.
 
 const clients = new Map<string, McpClient>();
@@ -44,7 +44,7 @@ const authCodes = new Map<string, McpAuthorizationCode>();
 const tokens = new Map<string, McpAccessToken>();
 const refreshTokenIndex = new Map<string, string>(); // refreshToken -> accessToken
 
-// ─── Seed data ───────────────────────────────────────────────────────────────
+// Seed data
 
 function seedUser(auth: TheAuth): void {
 	auth.db
@@ -59,7 +59,7 @@ function seedUser(auth: TheAuth): void {
 		.run();
 }
 
-// ─── MCP tools (the resources being protected) ───────────────────────────────
+// MCP tools (the resources being protected)
 
 interface Tool {
 	name: string;
@@ -103,7 +103,7 @@ const MCP_TOOLS: Tool[] = [
 	},
 ];
 
-// ─── Homepage ─────────────────────────────────────────────────────────────────
+// Homepage
 
 function homepageHtml(): string {
 	return `<!DOCTYPE html>
@@ -181,7 +181,7 @@ curl ${BASE_URL}/api/audit</code>
 </html>`;
 }
 
-// ─── Server bootstrap ─────────────────────────────────────────────────────────
+// Server bootstrap
 
 async function main(): Promise<void> {
 	const auth = await createTheAuth({
@@ -260,7 +260,7 @@ async function main(): Promise<void> {
 	// TheAuth API + MCP OAuth endpoints
 	app.route("/api", api);
 
-	// ── Protected MCP tool endpoints ─────────────────────────────────────────
+	// Protected MCP tool endpoints
 	// These require a valid Bearer token (either a kv_ agent token or an MCP JWT)
 
 	app.get("/tools/list", async (c) => {

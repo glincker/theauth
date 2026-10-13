@@ -159,7 +159,7 @@ export function requireMcpAuth(
 			});
 		}
 
-		// ── DPoP proof ────────────────────────────────────────────────
+		// DPoP proof
 		let proofJkt: string | null = null;
 		if (presented.scheme === "DPoP") {
 			if (!dpopConfig) {
@@ -211,7 +211,7 @@ export function requireMcpAuth(
 			proofJkt = verified.data.jkt;
 		}
 
-		// ── Access token (also catches bearer use of a bound token) ───
+		// Access token (also catches bearer use of a bound token)
 		const result = await validateAccessToken(ctx, presented.token, {
 			expectedAudience: audience,
 			presentedDpopJkt: proofJkt,
@@ -245,7 +245,7 @@ export function requireMcpAuth(
 			});
 		}
 
-		// ── Scopes ────────────────────────────────────────────────────
+		// Scopes
 		const required = options.requiredScopes ?? [];
 		if (required.some((scope) => !session.scopes.includes(scope))) {
 			const params = {

@@ -43,7 +43,7 @@ export async function registerClient(
 	ctx: McpAuthContext,
 	body: unknown,
 ): Promise<Result<McpClientRegistrationResponse>> {
-	// ── Validate input ──────────────────────────────────────────────────
+	// Validate input
 	const parsed = McpClientRegistrationSchema.safeParse(body);
 	if (!parsed.success) {
 		return {
@@ -62,7 +62,7 @@ export async function registerClient(
 	const responseTypes = data.response_types ?? ["code"];
 	const authMethod = data.token_endpoint_auth_method ?? "client_secret_basic";
 
-	// ── Validate redirect_uris are required for authorization_code ────
+	// Validate redirect_uris are required for authorization_code
 	if (grantTypes.includes("authorization_code") && redirectUris.length === 0) {
 		return {
 			success: false,
@@ -73,7 +73,7 @@ export async function registerClient(
 		};
 	}
 
-	// ── Validate grant_type / response_type consistency ──────────────
+	// Validate grant_type / response_type consistency
 	if (grantTypes.includes("authorization_code") && !responseTypes.includes("code")) {
 		return {
 			success: false,
@@ -85,14 +85,14 @@ export async function registerClient(
 		};
 	}
 
-	// ── Grant types gated by configuration ───────────────────────────
+	// Grant types gated by configuration
 	const gated = disabledGrant(ctx, grantTypes);
 	if (gated !== null) return metadataError(`grant_type is not enabled on this server: ${gated}`);
 	if (grantTypes.includes(GRANT_TYPE_CLIENT_CREDENTIALS) && authMethod === "none") {
 		return metadataError("client_credentials requires a confidential client");
 	}
 
-	// ── private_key_jwt needs exactly one key source ────────────────
+	// private_key_jwt needs exactly one key source
 	if (authMethod === "private_key_jwt") {
 		if ((data.jwks === undefined) === (data.jwks_uri === undefined)) {
 			return metadataError("private_key_jwt requires exactly one of jwks or jwks_uri");
@@ -109,7 +109,7 @@ export async function registerClient(
 		return metadataError("jwks and jwks_uri are only valid with private_key_jwt");
 	}
 
-	// ── Validate redirect URIs ──────────────────────────────────────
+	// Validate redirect URIs
 	for (const uri of redirectUris) {
 		try {
 			const parsed = new URL(uri);
@@ -149,13 +149,13 @@ export async function registerClient(
 		}
 	}
 
-	// ── Generate credentials ────────────────────────────────────────
+	// Generate credentials
 	const clientId = generateId();
 	const isPublic = authMethod === "none";
 	const clientSecret =
 		isPublic || authMethod === "private_key_jwt" ? null : generateSecureToken(48);
 
-	// ── Persist ─────────────────────────────────────────────────────
+	// Persist
 	const now = new Date();
 	const client: McpClient = {
 		clientId,
@@ -185,7 +185,7 @@ export async function registerClient(
 
 	await ctx.storeClient(client);
 
-	// ── Build response ──────────────────────────────────────────────
+	// Build response
 	const response: McpClientRegistrationResponse = {
 		client_id: clientId,
 		client_id_issued_at: Math.floor(now.getTime() / 1000),

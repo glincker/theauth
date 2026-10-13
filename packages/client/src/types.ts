@@ -1,4 +1,4 @@
-// ─── Shared domain types ──────────────────────────────────────────────────────
+// Shared domain types
 
 export interface Permission {
 	resource: string;
@@ -49,7 +49,7 @@ export interface AgentFilters {
 	type?: "autonomous" | "delegated" | "service";
 }
 
-// ─── Authorization ────────────────────────────────────────────────────────────
+// Authorization
 
 export interface AuthorizeInput {
 	agentId: string;
@@ -70,7 +70,7 @@ export interface AuthorizeResult {
 	auditId: string;
 }
 
-// ─── Delegation ───────────────────────────────────────────────────────────────
+// Delegation
 
 export interface DelegateInput {
 	fromAgent: string;
@@ -90,7 +90,7 @@ export interface DelegationChain {
 	createdAt: string;
 }
 
-// ─── Audit ────────────────────────────────────────────────────────────────────
+// Audit
 
 export interface AuditEntry {
 	id: string;
@@ -128,7 +128,7 @@ export interface ExportOptions {
 	until?: string;
 }
 
-// ─── MCP ──────────────────────────────────────────────────────────────────────
+// MCP
 
 export interface RegisterMcpServerInput {
 	name: string;
@@ -147,7 +147,7 @@ export interface McpServer {
 	createdAt: string;
 }
 
-// ─── Result / Error types ─────────────────────────────────────────────────────
+// Result / Error types
 
 export interface TheAuthError {
 	code: string;
@@ -164,7 +164,7 @@ export interface TheAuthApiErrorBody {
 
 export type TheAuthResult<T> = { success: true; data: T } | { success: false; error: TheAuthError };
 
-// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Deprecated aliases
 // Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 

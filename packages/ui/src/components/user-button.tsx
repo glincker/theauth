@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AvatarSlotProps, UserButtonProps } from "../types.js";
 import { cx } from "../utils.js";
 
-// ─── Default avatar ──────────────────────────────────────────────────────────
+// Default avatar
 
 function DefaultAvatar({ src, name, className }: AvatarSlotProps): ReactNode {
 	if (src) {
@@ -36,7 +36,7 @@ function DefaultAvatar({ src, name, className }: AvatarSlotProps): ReactNode {
 	);
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Component
 
 export function UserButton({
 	classNames,

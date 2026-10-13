@@ -4,7 +4,7 @@ import type { Database } from "../db/database.js";
 import { agents, budgetPolicies, costEvents } from "../db/schema.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// Types
 
 export interface CostAttributionConfig {
 	/** ISO 4217 currency code, default 'USD' */
@@ -65,7 +65,7 @@ export interface CostAttributionModule {
 	cleanup(options?: { retentionDays?: number }): Promise<Result<{ deleted: number }>>;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 function ok<T>(data: T): Result<T> {
 	return { success: true, data };
@@ -89,7 +89,7 @@ function rowToEventCost(row: CostEventRow): number {
 	return row.costMicros / 1_000_000;
 }
 
-// ─── Module factory ───────────────────────────────────────────────────────────
+// Module factory
 
 export function createCostAttributionModule(
 	db: Database,

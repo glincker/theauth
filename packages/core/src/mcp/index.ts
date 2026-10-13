@@ -1,4 +1,4 @@
-// ─── MCP OAuth 2.1 Authorization Server Module ─────────────────────────────
+// MCP OAuth 2.1 Authorization Server Module
 //
 // Implements:
 // - OAuth 2.1 (draft-ietf-oauth-v2-1-13)

@@ -23,9 +23,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://github.com/login/oauth/authorize";
 const TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -33,9 +31,7 @@ const USER_URL = "https://api.github.com/user";
 const USER_EMAILS_URL = "https://api.github.com/user/emails";
 const DEFAULT_SCOPES = ["user:email"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface GitHubTokenResponse {
 	access_token: string;
@@ -63,9 +59,7 @@ interface GitHubEmailEntry {
 	visibility: string | null;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a GitHub OAuth provider instance.
@@ -216,9 +210,7 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function fetchPrimaryEmail(
 	_accessToken: string,

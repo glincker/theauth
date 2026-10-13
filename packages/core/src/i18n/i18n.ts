@@ -1,8 +1,6 @@
 import { en } from "./locales/en.js";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface TranslationKeys {
 	// Auth errors
@@ -59,9 +57,7 @@ export interface I18nModule {
 	getLocales(): string[];
 }
 
-// ---------------------------------------------------------------------------
 // Implementation
-// ---------------------------------------------------------------------------
 
 function interpolate(template: string, vars: Record<string, string>): string {
 	return template.replace(/\{\{(\w+)\}\}/g, (match, key: string): string => {

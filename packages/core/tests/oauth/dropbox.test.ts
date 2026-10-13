@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-dropbox-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USER_RAW = {
 	account_id: "dbid:AAH4f99T0taONIb-OurWxbNQ6ywGRopQngc",
@@ -31,9 +29,7 @@ const CANNED_USER_RAW = {
 	profile_photo_url: "https://dl-web.dropbox.com/account_photo/get/dbid:AAH4f99",
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createDropboxProvider", () => {
 	it("creates a provider with id dropbox", () => {
@@ -66,9 +62,7 @@ describe("createDropboxProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createDropboxProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and token_access_type=offline", async () => {
@@ -101,9 +95,7 @@ describe("createDropboxProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeDropboxProfile", () => {
 	it("maps Dropbox user to OAuthUserInfo", () => {

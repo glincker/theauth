@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 import { Input, Label } from "./input.js";
 
-// ─── Constraint shape ─────────────────────────────────────────────────────────
+// Constraint shape
 
 interface RateLimit {
 	maxCallsPerHour: number;
@@ -53,7 +53,7 @@ function serializeConstraints(parsed: ParsedConstraints): Record<string, unknown
 	return out;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// Sub-components
 
 interface SectionToggleProps {
 	id: string;
@@ -123,7 +123,7 @@ function TagList({ tags, onRemove }: TagListProps) {
 	);
 }
 
-// ─── Main ConstraintEditor ────────────────────────────────────────────────────
+// Main ConstraintEditor
 
 export interface ConstraintEditorProps {
 	constraints: Record<string, unknown>;

@@ -9,7 +9,7 @@ import { Select } from "../components/input.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function resultVariant(result: AuditResult) {
 	switch (result) {
@@ -44,7 +44,7 @@ function formatDuration(ms: number) {
 	return `${(ms / 1000).toFixed(1)}s`;
 }
 
-// ─── Filter Bar ───────────────────────────────────────────────────────────────
+// Filter Bar
 
 interface FilterBarProps {
 	filters: AuditLogFilters;
@@ -159,7 +159,7 @@ function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
 	);
 }
 
-// ─── Export Button ────────────────────────────────────────────────────────────
+// Export Button
 
 interface ExportButtonProps {
 	client: TheAuthApiClient;
@@ -226,7 +226,7 @@ function ExportButton({ client, filters }: ExportButtonProps) {
 	);
 }
 
-// ─── Audit Log Page ───────────────────────────────────────────────────────────
+// Audit Log Page
 
 const PAGE_SIZE = 50;
 

@@ -21,11 +21,11 @@ export async function handleRefreshTokenGrant(
 	auth: GrantClientAuth,
 	presentedJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
-	// ── Look up and authenticate the client ─────────────────────────
+	// Look up and authenticate the client
 	const resolved = await resolveAuthenticatedClient(ctx, data.client_id, auth);
 	if (!resolved.success) return resolved;
 
-	// ── Find the stored token (hash first, legacy plaintext second) ─
+	// Find the stored token (hash first, legacy plaintext second) ─
 	const presented = data.refresh_token;
 	const presentedHash = await hashToken(presented);
 	const existingToken =
@@ -41,7 +41,7 @@ export async function handleRefreshTokenGrant(
 		};
 	}
 
-	// ── DPoP binding (RFC 9449 section 5): a bound grant only refreshes ─
+	// DPoP binding (RFC 9449 section 5): a bound grant only refreshes ─
 	// with a proof from the same key. Checked before rotation so a thief
 	// without the key cannot burn the legitimate client's token.
 	if (existingToken?.dpopJkt && existingToken.dpopJkt !== presentedJkt) {
@@ -55,7 +55,7 @@ export async function handleRefreshTokenGrant(
 	}
 	const dpopJkt = existingToken?.dpopJkt ?? presentedJkt;
 
-	// ── Rotation and reuse detection (RFC 9700 section 4.14) ────────
+	// Rotation and reuse detection (RFC 9700 section 4.14)
 	const families = ctx.tokenFamilies;
 	let familyId = existingToken?.familyId;
 	if (families) {
@@ -96,7 +96,7 @@ export async function handleRefreshTokenGrant(
 		};
 	}
 
-	// ── Check refresh token expiry ──────────────────────────────────
+	// Check refresh token expiry
 	const refreshExpiry = new Date(
 		existingToken.createdAt.getTime() + ctx.config.refreshTokenTtl * 1000,
 	);
@@ -107,7 +107,7 @@ export async function handleRefreshTokenGrant(
 		};
 	}
 
-	// ── Scopes: may be narrowed, never widened or unknown ───────────
+	// Scopes: may be narrowed, never widened or unknown
 	let scopes = existingToken.scope;
 	if (data.scope) {
 		let requested = data.scope.split(" ").filter(Boolean);
@@ -136,7 +136,7 @@ export async function handleRefreshTokenGrant(
 		}
 	}
 
-	// ── Resource: equal to (or a subset of) the original grant ──────
+	// Resource: equal to (or a subset of) the original grant
 	// A grant is bound to one resource, so the only valid subset is that
 	// resource itself. Omitting the parameter keeps the original binding.
 	const originalResource = existingToken.resource;
@@ -154,10 +154,10 @@ export async function handleRefreshTokenGrant(
 	}
 	const resource = originalResource;
 
-	// ── Revoke the old access token ─────────────────────────────────
+	// Revoke the old access token
 	await revokeStoredAccessToken(ctx, existingToken);
 
-	// ── Issue new tokens (rotation) ─────────────────────────────────
+	// Issue new tokens (rotation)
 	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
 		ctx,
 		existingToken.userId,
@@ -188,7 +188,7 @@ export async function handleRefreshTokenGrant(
 
 	await ctx.storeToken(tokenRecord);
 
-	// ── Build response ──────────────────────────────────────────────
+	// Build response
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",

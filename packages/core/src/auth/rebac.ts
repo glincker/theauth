@@ -21,9 +21,7 @@ import type { Database } from "../db/database.js";
 import { rebacRelationships, rebacResources } from "../db/schema.js";
 import type { Result } from "../mcp/types.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface ReBACConfig {
 	/** Maximum graph traversal depth for permission checks (default: 10). */
@@ -129,9 +127,7 @@ export interface ReBACModule {
 	expand(params: ExpandParams): Promise<Result<Relationship[]>>;
 }
 
-// ---------------------------------------------------------------------------
 // Default permission rules
-// ---------------------------------------------------------------------------
 
 const DEFAULT_PERMISSION_RULES: Record<string, PermissionRuleSet> = {
 	org: {
@@ -176,9 +172,7 @@ const DEFAULT_PERMISSION_RULES: Record<string, PermissionRuleSet> = {
 	},
 };
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function ok<T>(data: T): Result<T> {
 	return { success: true, data };
@@ -222,9 +216,7 @@ function rowToRelationship(row: {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createReBACModule(config: ReBACConfig, db: Database): ReBACModule {
 	const maxDepth = config.maxDepth ?? 10;
@@ -233,7 +225,7 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 		...config.permissionRules,
 	};
 
-	// ── Helpers ────────────────────────────────────────────────────────────
+	// Helpers
 
 	/**
 	 * Get all relations that effectively grant `permission` on resource type
@@ -340,7 +332,7 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 		return { allowed: false };
 	}
 
-	// ── Public API ─────────────────────────────────────────────────────────
+	// Public API
 
 	const createResource: ReBACModule["createResource"] = async (node) => {
 		// Validate parent exists if specified

@@ -44,9 +44,7 @@ import {
 	users,
 } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // DB helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -235,9 +233,7 @@ async function seedApprovalRequest(db: Database, agentId: string, userId: string
 	});
 }
 
-// ---------------------------------------------------------------------------
 // exportUserData
-// ---------------------------------------------------------------------------
 
 describe("GdprModule.exportUserData", () => {
 	let db: Database;
@@ -344,9 +340,7 @@ describe("GdprModule.exportUserData", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // deleteUser
-// ---------------------------------------------------------------------------
 
 describe("GdprModule.deleteUser", () => {
 	let db: Database;
@@ -566,9 +560,7 @@ describe("GdprModule.deleteUser", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // anonymizeUser
-// ---------------------------------------------------------------------------
 
 describe("GdprModule.anonymizeUser", () => {
 	let db: Database;
@@ -633,9 +625,7 @@ describe("GdprModule.anonymizeUser", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // GDPR plugin endpoints
-// ---------------------------------------------------------------------------
 
 describe("gdpr plugin", () => {
 	it("GET /auth/gdpr/export returns 401 when no user is authenticated", async () => {

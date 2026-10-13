@@ -4,9 +4,7 @@
 
 import type { PolicyCacheConfig, PolicyCacheStats, PolicyDecision } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Public interface
-// ---------------------------------------------------------------------------
 
 export interface PolicyCache {
 	get(key: string): PolicyDecision | undefined;
@@ -18,18 +16,14 @@ export interface PolicyCache {
 	stats(): PolicyCacheStats;
 }
 
-// ---------------------------------------------------------------------------
 // Internal entry shape
-// ---------------------------------------------------------------------------
 
 interface CacheEntry {
 	value: PolicyDecision;
 	expiresAt: number;
 }
 
-// ---------------------------------------------------------------------------
 // Env-var helpers (edge-safe)
-// ---------------------------------------------------------------------------
 
 function readEnvNumber(name: string): number | undefined {
 	if (typeof process === "undefined") return undefined;
@@ -46,16 +40,12 @@ function readEnvBool(name: string): boolean | undefined {
 	return raw.toLowerCase() !== "false" && raw !== "0";
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_ENTRIES = 10_000;
 const DEFAULT_TTL_MS = 60_000;
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
 	const rawMax =
@@ -73,7 +63,7 @@ export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
 	let misses = 0;
 	let evictions = 0;
 
-	// ── Internal helpers ─────────────────────────────────────────────────────
+	// Internal helpers
 
 	/**
 	 * Remove the oldest entry (first key in Map iteration).
@@ -94,7 +84,7 @@ export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
 		return Date.now() >= entry.expiresAt;
 	}
 
-	// ── Public methods ───────────────────────────────────────────────────────
+	// Public methods
 
 	function get(key: string): PolicyDecision | undefined {
 		if (!enabled) {

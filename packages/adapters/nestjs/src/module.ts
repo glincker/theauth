@@ -4,11 +4,11 @@ import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/comm
 import { Inject, Module } from "@nestjs/common";
 import { theAuthMiddleware } from "./adapter.js";
 
-// ─── Injection Token ──────────────────────────────────────────────────────────
+// Injection Token
 
 const AUTH_OPTIONS = Symbol("AUTH_OPTIONS");
 
-// ─── Module Options ───────────────────────────────────────────────────────────
+// Module Options
 
 export interface TheAuthModuleOptions extends AdapterSecurityOptions {
 	/** The TheAuth instance created with `createTheAuth()` */
@@ -25,7 +25,7 @@ export interface TheAuthModuleOptions extends AdapterSecurityOptions {
 /** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
 export type AuthModuleOptions = TheAuthModuleOptions;
 
-// ─── Security option passthrough ──────────────────────────────────────────────
+// Security option passthrough
 
 /**
  * Every `AdapterSecurityOptions` key. Typed as a full record so adding a key to
@@ -45,7 +45,7 @@ function pickSecurityOptions(options: AdapterSecurityOptions): AdapterSecurityOp
 	return picked;
 }
 
-// ─── TheAuthModule ────────────────────────────────────────────────────────────
+// TheAuthModule
 
 /**
  * NestJS dynamic module that mounts all TheAuth REST routes as Express

@@ -22,9 +22,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -37,9 +35,7 @@ async function seedUser(db: Database, id: string, email: string): Promise<void> 
 	await db.insert(users).values({ id, email, createdAt: now, updatedAt: now });
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("OrgModule", () => {
 	let db: Database;
@@ -56,7 +52,7 @@ describe("OrgModule", () => {
 		await seedUser(db, guestId, "guest@example.com");
 	});
 
-	// ── create ─────────────────────────────────────────────────────────────
+	// create
 
 	it("creates an org and auto-adds owner as member", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -103,7 +99,7 @@ describe("OrgModule", () => {
 		);
 	});
 
-	// ── get / list ──────────────────────────────────────────────────────────
+	// get / list
 
 	it("gets an org by id", async () => {
 		const created = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -132,7 +128,7 @@ describe("OrgModule", () => {
 		expect(myOrgs).toHaveLength(1);
 	});
 
-	// ── update / remove ─────────────────────────────────────────────────────
+	// update / remove
 
 	it("updates org name and metadata", async () => {
 		const org = await mod.create({ name: "Old Name", slug: "old-slug", ownerId });
@@ -148,7 +144,7 @@ describe("OrgModule", () => {
 		expect(await mod.get(org.id)).toBeNull();
 	});
 
-	// ── members ─────────────────────────────────────────────────────────────
+	// members
 
 	it("adds a member with a valid role", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -189,7 +185,7 @@ describe("OrgModule", () => {
 		expect(updated.role).toBe("admin");
 	});
 
-	// ── permissions ─────────────────────────────────────────────────────────
+	// permissions
 
 	it("owner has all permissions", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -219,7 +215,7 @@ describe("OrgModule", () => {
 		expect(await mod.hasPermission(org.id, guestId, "agents:create")).toBe(false);
 	});
 
-	// ── invitations ─────────────────────────────────────────────────────────
+	// invitations
 
 	it("creates an invitation with 7-day expiry", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -304,7 +300,7 @@ describe("OrgModule", () => {
 		expect(remaining.find((i) => i.id === inv.id)).toBeUndefined();
 	});
 
-	// ── custom roles ────────────────────────────────────────────────────────
+	// custom roles
 
 	it("creates a custom role", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -342,7 +338,7 @@ describe("OrgModule", () => {
 		expect(roles.map((r) => r.name)).not.toContain("billing");
 	});
 
-	// ── handleRequest ───────────────────────────────────────────────────────
+	// handleRequest
 
 	it("POST /auth/org creates an org via HTTP", async () => {
 		const req = new Request("http://localhost/auth/org", {
@@ -395,7 +391,7 @@ describe("OrgModule", () => {
 		expect(res?.status).toBe(201);
 	});
 
-	// ── owner protection ───────────────────────────────────────────────────
+	// owner protection
 
 	it("prevents removing the last owner", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -426,7 +422,7 @@ describe("OrgModule", () => {
 		expect(updated.role).toBe("admin");
 	});
 
-	// ── invitation hardening ────────────────────────────────────────────────
+	// invitation hardening
 
 	it("rejects duplicate pending invitations for the same email", async () => {
 		const org = await mod.create({ name: "Acme", slug: "acme", ownerId });
@@ -487,7 +483,7 @@ describe("OrgModule", () => {
 		).rejects.toThrow(/rate limit/i);
 	});
 
-	// ── cascade deletion ────────────────────────────────────────────────────
+	// cascade deletion
 
 	it("cascade deletes members, invitations, and roles when org is removed", async () => {
 		const org = await mod.create({ name: "Cascade", slug: "cascade", ownerId });
@@ -507,7 +503,7 @@ describe("OrgModule", () => {
 		expect(await mod.getRoles(org.id)).toHaveLength(0);
 	});
 
-	// ── transfer ownership ──────────────────────────────────────────────────
+	// transfer ownership
 
 	it("transfers ownership to another member", async () => {
 		const org = await mod.create({ name: "Transfer", slug: "transfer", ownerId });
@@ -536,7 +532,7 @@ describe("OrgModule", () => {
 		await expect(mod.transferOwnership(org.id, ownerId, guestId)).rejects.toThrow(/not a member/);
 	});
 
-	// ── decline invitation ──────────────────────────────────────────────────
+	// decline invitation
 
 	it("declines a pending invitation", async () => {
 		const org = await mod.create({ name: "Decline", slug: "decline", ownerId });

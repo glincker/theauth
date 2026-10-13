@@ -2,7 +2,7 @@ import { CheckCircle, Info, X, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 type ToastVariant = "success" | "error" | "info";
 
@@ -16,11 +16,11 @@ interface ToastContextValue {
 	toast: (variant: ToastVariant, message: string) => void;
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// Context
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// Config
 
 const AUTO_DISMISS_MS = 3000;
 
@@ -36,7 +36,7 @@ const VARIANT_ICONS: Record<ToastVariant, typeof CheckCircle> = {
 	info: Info,
 };
 
-// ─── Single Toast Item ────────────────────────────────────────────────────────
+// Single Toast Item
 
 interface ToastItemProps {
 	toast: Toast;
@@ -77,7 +77,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 	);
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// Provider
 
 interface ToastProviderProps {
 	children: ReactNode;
@@ -113,7 +113,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
 	);
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// Hook
 
 export function useToast(): ToastContextValue {
 	const ctx = useContext(ToastContext);

@@ -7,14 +7,14 @@ import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
 import type { Page } from "../types.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface OverviewPageProps {
 	client: TheAuthApiClient;
 	onNavigate: (page: Page) => void;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function formatTimestamp(iso: string): string {
 	return new Date(iso).toLocaleString("en-US", {
@@ -48,7 +48,7 @@ function resultLabel(result: AuditResult): string {
 	}
 }
 
-// ─── Stats Card ───────────────────────────────────────────────────────────────
+// Stats Card
 
 interface StatCardProps {
 	title: string;
@@ -79,7 +79,7 @@ function StatCard({ title, value, subtitle, icon: Icon, iconColor }: StatCardPro
 	);
 }
 
-// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+// Loading Skeleton
 
 function SkeletonCard() {
 	return (
@@ -96,7 +96,7 @@ function SkeletonCard() {
 	);
 }
 
-// ─── Activity Feed ────────────────────────────────────────────────────────────
+// Activity Feed
 
 interface ActivityFeedProps {
 	client: TheAuthApiClient;
@@ -183,7 +183,7 @@ function ActivityFeed({ client }: ActivityFeedProps) {
 	);
 }
 
-// ─── Overview Page ────────────────────────────────────────────────────────────
+// Overview Page
 
 export function OverviewPage({ client, onNavigate }: OverviewPageProps) {
 	const { data: statsResult, isLoading: statsLoading } = useQuery({

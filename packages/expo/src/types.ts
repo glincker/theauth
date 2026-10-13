@@ -1,4 +1,4 @@
-// ─── Domain types ─────────────────────────────────────────────────────────────
+// Domain types
 
 export interface TheAuthUser {
 	id: string;
@@ -59,11 +59,11 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-// ─── Result type ──────────────────────────────────────────────────────────────
+// Result type
 
 export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
 
-// ─── Storage adapter ──────────────────────────────────────────────────────────
+// Storage adapter
 
 /**
  * Storage adapter interface - matches AsyncStorage and SecureStore APIs.
@@ -79,7 +79,7 @@ export interface TheAuthStorage {
 /** @deprecated Use `TheAuthStorage` instead. Will be removed in a future major version. */
 export type AuthStorage = TheAuthStorage;
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// Config
 
 export interface TheAuthExpoConfig {
 	/** Full base URL including path: "https://api.myapp.com/api/theauth" */
@@ -91,7 +91,7 @@ export interface TheAuthExpoConfig {
 /** @deprecated Use `TheAuthExpoConfig` instead. Will be removed in a future major version. */
 export type AuthExpoConfig = TheAuthExpoConfig;
 
-// ─── Context value ────────────────────────────────────────────────────────────
+// Context value
 
 export interface TheAuthContextValue {
 	session: TheAuthSession | null;
@@ -104,7 +104,7 @@ export interface TheAuthContextValue {
 	refresh: () => Promise<void>;
 }
 
-// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Deprecated aliases
 // Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 

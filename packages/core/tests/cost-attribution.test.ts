@@ -3,7 +3,7 @@ import { createCostAttributionModule } from "../src/auth/cost-attribution.js";
 import * as schema from "../src/db/schema.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// ─── Test helpers ─────────────────────────────────────────────────────────────
+// Test helpers
 
 async function createTestTheAuth() {
 	const theauth = await createTheAuth({
@@ -44,7 +44,7 @@ async function seedAgent(
 	});
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// Tests
 
 describe("cost attribution module", () => {
 	let theauth: Awaited<ReturnType<typeof createTestTheAuth>>;
@@ -53,7 +53,7 @@ describe("cost attribution module", () => {
 		theauth = await createTestTheAuth();
 	});
 
-	// ─── recordCost ────────────────────────────────────────────────────────────
+	// recordCost
 
 	describe("recordCost", () => {
 		it("records a cost event and returns success", async () => {
@@ -188,7 +188,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── getAgentCost ──────────────────────────────────────────────────────────
+	// getAgentCost
 
 	describe("getAgentCost", () => {
 		it("returns empty report for agent with no costs", async () => {
@@ -314,7 +314,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── getOwnerCost ──────────────────────────────────────────────────────────
+	// getOwnerCost
 
 	describe("getOwnerCost", () => {
 		it("returns empty report for owner with no agents", async () => {
@@ -372,7 +372,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── getTopAgentsByCost ────────────────────────────────────────────────────
+	// getTopAgentsByCost
 
 	describe("getTopAgentsByCost", () => {
 		it("returns empty array when no costs exist", async () => {
@@ -429,7 +429,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── getDelegationChainCost ────────────────────────────────────────────────
+	// getDelegationChainCost
 
 	describe("getDelegationChainCost", () => {
 		it("returns empty report for chain with no events", async () => {
@@ -490,7 +490,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── checkBudget ──────────────────────────────────────────────────────────
+	// checkBudget
 
 	describe("checkBudget", () => {
 		it("returns withinBudget: true when no budget policy exists", async () => {
@@ -590,7 +590,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── cleanup ──────────────────────────────────────────────────────────────
+	// cleanup
 
 	describe("cleanup", () => {
 		it("returns 0 deleted when no old events exist", async () => {
@@ -615,7 +615,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── alert system ─────────────────────────────────────────────────────────
+	// alert system
 
 	describe("alert system", () => {
 		it("does not fire alerts when no thresholds configured", async () => {
@@ -677,7 +677,7 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// ─── currency ─────────────────────────────────────────────────────────────
+	// currency
 
 	describe("currency config", () => {
 		it("defaults to USD currency", async () => {

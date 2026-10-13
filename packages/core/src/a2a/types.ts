@@ -13,13 +13,13 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
 export type { AuthError, Result, TheAuthError };
 
-// ─── Protocol Constants ─────────────────────────────────────────────────────
+// Protocol Constants
 
 export const A2A_PROTOCOL_VERSION = "0.3";
 export const A2A_JSONRPC_VERSION = "2.0";
 export const A2A_WELL_KNOWN_PATH = "/.well-known/agent.json";
 
-// ─── Roles & States ─────────────────────────────────────────────────────────
+// Roles & States
 
 export type A2ARole = "user" | "agent";
 
@@ -33,7 +33,7 @@ export type A2ATaskState =
 	| "auth-required"
 	| "rejected";
 
-// ─── Parts (content atoms inside messages/artifacts) ─────────────────────────
+// Parts (content atoms inside messages/artifacts)
 
 export interface A2ATextPart {
 	type: "text";
@@ -55,7 +55,7 @@ export interface A2ADataPart {
 
 export type A2APart = A2ATextPart | A2AFilePart | A2ADataPart;
 
-// ─── Message ─────────────────────────────────────────────────────────────────
+// Message
 
 export interface A2AMessage {
 	id: string;
@@ -66,7 +66,7 @@ export interface A2AMessage {
 	referenceTaskIds?: string[];
 }
 
-// ─── Artifact ────────────────────────────────────────────────────────────────
+// Artifact
 
 export interface A2AArtifact {
 	id: string;
@@ -77,7 +77,7 @@ export interface A2AArtifact {
 	createdAt: string;
 }
 
-// ─── Task Status ─────────────────────────────────────────────────────────────
+// Task Status
 
 export interface A2ATaskStatus {
 	code: A2ATaskState;
@@ -85,7 +85,7 @@ export interface A2ATaskStatus {
 	progress?: number; // 0–100
 }
 
-// ─── Task ────────────────────────────────────────────────────────────────────
+// Task
 
 export interface A2ATask {
 	id: string;
@@ -98,7 +98,7 @@ export interface A2ATask {
 	metadata?: Record<string, unknown>;
 }
 
-// ─── Streaming Events ────────────────────────────────────────────────────────
+// Streaming Events
 
 export interface A2ATaskStatusUpdateEvent {
 	taskId: string;
@@ -123,7 +123,7 @@ export type A2AStreamEvent =
 	| { type: "statusUpdate"; event: A2ATaskStatusUpdateEvent }
 	| { type: "artifactUpdate"; event: A2ATaskArtifactUpdateEvent };
 
-// ─── Security Schemes (OpenAPI-style, per A2A spec) ──────────────────────────
+// Security Schemes (OpenAPI-style, per A2A spec)
 
 export interface A2AApiKeySecurityScheme {
 	type: "apiKey";
@@ -176,7 +176,7 @@ export type A2ASecurityScheme =
 	| A2AOidcSecurityScheme
 	| A2AMutualTlsSecurityScheme;
 
-// ─── Agent Card ──────────────────────────────────────────────────────────────
+// Agent Card
 
 export interface A2AAgentProvider {
 	name: string;
@@ -225,7 +225,7 @@ export interface A2AAgentCard {
 	metadata?: Record<string, unknown>;
 }
 
-// ─── JSON-RPC Envelope ───────────────────────────────────────────────────────
+// JSON-RPC Envelope
 
 export interface A2AJsonRpcRequest<P = unknown> {
 	jsonrpc: "2.0";
@@ -247,7 +247,7 @@ export interface A2AJsonRpcError {
 	data?: unknown;
 }
 
-// ─── JSON-RPC Standard Error Codes ───────────────────────────────────────────
+// JSON-RPC Standard Error Codes
 
 export const A2A_ERROR_CODES = {
 	PARSE_ERROR: -32700,
@@ -264,7 +264,7 @@ export const A2A_ERROR_CODES = {
 	TASK_ALREADY_COMPLETED: -32006,
 } as const;
 
-// ─── JSON-RPC Method Params ──────────────────────────────────────────────────
+// JSON-RPC Method Params
 
 export interface A2ASendMessageParams {
 	message: A2AMessage;
@@ -292,7 +292,7 @@ export interface A2ASubscribeToTaskParams {
 	id: string;
 }
 
-// ─── JSON-RPC Method Names ───────────────────────────────────────────────────
+// JSON-RPC Method Names
 
 export const A2A_METHODS = {
 	SEND_MESSAGE: "message/send",
@@ -301,7 +301,7 @@ export const A2A_METHODS = {
 	CANCEL_TASK: "tasks/cancel",
 } as const;
 
-// ─── A2A Server Config ───────────────────────────────────────────────────────
+// A2A Server Config
 
 export interface A2ATaskHandler {
 	/** Handle an incoming message and produce a task result */
@@ -343,7 +343,7 @@ export interface A2AAuditEvent {
 	error?: string;
 }
 
-// ─── A2A Client Config ───────────────────────────────────────────────────────
+// A2A Client Config
 
 export interface A2AClientConfig {
 	/** Base URL of the remote A2A agent, or a discovered Agent Card */
@@ -369,7 +369,7 @@ export interface A2AClient {
 	sendStreamingMessage: (params: A2ASendMessageParams) => AsyncIterable<A2AStreamEvent>;
 }
 
-// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+// Zod Schemas
 
 export const A2ATextPartSchema = z.object({
 	type: z.literal("text"),

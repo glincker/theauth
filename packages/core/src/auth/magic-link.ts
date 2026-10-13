@@ -34,9 +34,7 @@ import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface MagicLinkConfig {
 	/** Send the magic link email. You provide the transport. */
@@ -78,16 +76,12 @@ export interface MagicLinkModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_EXPIRY_SECONDS = 900; // 15 minutes
 const DEFAULT_CALLBACK_PATH = "/auth/magic-link/verify";
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createMagicLinkModule(
 	config: MagicLinkConfig,
@@ -99,7 +93,7 @@ export function createMagicLinkModule(
 	const tokenExpiry = config.tokenExpiry ?? DEFAULT_EXPIRY_SECONDS;
 	const callbackPath = config.callbackPath ?? DEFAULT_CALLBACK_PATH;
 
-	// ── helpers ─────────────────────────────────────────────────────────────
+	// helpers
 
 	/** Find an existing user by email or create a new one. */
 	async function findOrCreateUser(email: string): Promise<{ id: string; email: string }> {
@@ -122,7 +116,7 @@ export function createMagicLinkModule(
 		return { id, email };
 	}
 
-	// ── public API ───────────────────────────────────────────────────────────
+	// public API
 
 	async function sendLink(rawEmail: string): Promise<{ sent: boolean }> {
 		const email = normalizeEmail(rawEmail);

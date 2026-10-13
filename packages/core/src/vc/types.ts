@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-// ─── W3C VC Constants ────────────────────────────────────────────────────────
+// W3C VC Constants
 
 export const VC_CONTEXT_V2 = "https://www.w3.org/ns/credentials/v2";
 export const VC_CONTEXT_V1 = "https://www.w3.org/2018/credentials/v1";
@@ -28,7 +28,7 @@ export const AUTH_PERMISSION_CREDENTIAL = THEAUTH_PERMISSION_CREDENTIAL;
 /** @deprecated Use `THEAUTH_DELEGATION_CREDENTIAL` instead. Will be removed in a future major version. */
 export const AUTH_DELEGATION_CREDENTIAL = THEAUTH_DELEGATION_CREDENTIAL;
 
-// ─── Proof Types ─────────────────────────────────────────────────────────────
+// Proof Types
 
 export const ProofSchema = z.object({
 	type: z.enum(["Ed25519Signature2020", "JsonWebSignature2020"]),
@@ -41,7 +41,7 @@ export const ProofSchema = z.object({
 
 export type Proof = z.infer<typeof ProofSchema>;
 
-// ─── Credential Status ──────────────────────────────────────────────────────
+// Credential Status
 
 export const CredentialStatusSchema = z.object({
 	id: z.string(),
@@ -53,7 +53,7 @@ export const CredentialStatusSchema = z.object({
 
 export type CredentialStatus = z.infer<typeof CredentialStatusSchema>;
 
-// ─── Credential Subject ─────────────────────────────────────────────────────
+// Credential Subject
 
 export const CredentialSubjectSchema = z
 	.object({
@@ -81,7 +81,7 @@ export const CredentialSubjectSchema = z
 
 export type CredentialSubject = z.infer<typeof CredentialSubjectSchema>;
 
-// ─── Verifiable Credential ──────────────────────────────────────────────────
+// Verifiable Credential
 
 export const VerifiableCredentialSchema = z.object({
 	"@context": z.array(z.string()).min(1),
@@ -97,7 +97,7 @@ export const VerifiableCredentialSchema = z.object({
 
 export type VerifiableCredential = z.infer<typeof VerifiableCredentialSchema>;
 
-// ─── Verifiable Presentation ────────────────────────────────────────────────
+// Verifiable Presentation
 
 export const VerifiablePresentationSchema = z.object({
 	"@context": z.array(z.string()).min(1),
@@ -110,7 +110,7 @@ export const VerifiablePresentationSchema = z.object({
 
 export type VerifiablePresentation = z.infer<typeof VerifiablePresentationSchema>;
 
-// ─── Issuer Config ──────────────────────────────────────────────────────────
+// Issuer Config
 
 export interface VCIssuerConfig {
 	/** DID of the issuer (e.g. did:key:z6Mk...) */
@@ -125,7 +125,7 @@ export interface VCIssuerConfig {
 	statusEndpoint?: string;
 }
 
-// ─── Verifier Config ────────────────────────────────────────────────────────
+// Verifier Config
 
 export interface VCVerifierConfig {
 	/**
@@ -140,7 +140,7 @@ export interface VCVerifierConfig {
 	checkRevocationStatus?: (status: CredentialStatus) => Promise<boolean>;
 }
 
-// ─── JWT VC Types ───────────────────────────────────────────────────────────
+// JWT VC Types
 
 /** Claims embedded in a JWT-encoded Verifiable Credential */
 export interface VCJwtPayload {

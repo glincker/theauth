@@ -5,9 +5,7 @@ import { createEmailAuth } from "../src/email-auth.js";
 import { ErrorCodes } from "../src/errors.js";
 import type { EmailAuthModule } from "../src/types.js";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 function makeMocks() {
 	const sentVerifications: Array<{ email: string; token: string; url: string }> = [];
@@ -46,9 +44,7 @@ async function createTestModule(
 	return { auth, mocks };
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createEmailAuth", () => {
 	describe("signUp", () => {

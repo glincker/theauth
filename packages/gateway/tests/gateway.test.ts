@@ -5,7 +5,7 @@ import { createTheAuth } from "../../core/src/theauth.js";
 import { createGateway } from "../src/gateway.js";
 import type { Gateway } from "../src/types.js";
 
-// ─── Mock Upstream ────────────────────────────────────────────────────────────
+// Mock Upstream
 
 const UPSTREAM = "http://upstream.test";
 
@@ -32,7 +32,7 @@ function upstreamOk(body = '{"ok":true}', status = 200): Response {
 	});
 }
 
-// ─── Test Helpers ─────────────────────────────────────────────────────────────
+// Test Helpers
 
 async function createTestTheAuth(): Promise<TheAuth> {
 	const theauth = await createTheAuth({
@@ -96,7 +96,7 @@ function makeRequest(
 	});
 }
 
-// ─── Test Suite ───────────────────────────────────────────────────────────────
+// Test Suite
 
 describe("TheAuth Gateway", () => {
 	let theauth: TheAuth;
@@ -112,7 +112,7 @@ describe("TheAuth Gateway", () => {
 		fetchSpy.mockRestore();
 	});
 
-	// ── Health Check ────────────────────────────────────────────────────────────
+	// Health Check
 
 	describe("health check", () => {
 		it("returns 200 with status ok at /_theauth/health", async () => {
@@ -131,7 +131,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Auth Enforcement ────────────────────────────────────────────────────────
+	// Auth Enforcement
 
 	describe("auth enforcement", () => {
 		it("rejects requests with no token (401)", async () => {
@@ -170,7 +170,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Public Paths ────────────────────────────────────────────────────────────
+	// Public Paths
 
 	describe("public path bypass", () => {
 		it("allows unauthenticated access to public paths", async () => {
@@ -204,7 +204,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Permission Checks ───────────────────────────────────────────────────────
+	// Permission Checks
 
 	describe("permission checks", () => {
 		it("allows access when agent has the required permission", async () => {
@@ -253,7 +253,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Path Glob Matching ──────────────────────────────────────────────────────
+	// Path Glob Matching
 
 	describe("path glob matching", () => {
 		it("matches single-level wildcard /*", async () => {
@@ -298,7 +298,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Method Matching ─────────────────────────────────────────────────────────
+	// Method Matching
 
 	describe("method matching", () => {
 		it("applies policy only to the specified method", async () => {
@@ -332,7 +332,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Multiple Policies ───────────────────────────────────────────────────────
+	// Multiple Policies
 
 	describe("multiple policies", () => {
 		it("uses the first matching policy", async () => {
@@ -349,7 +349,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Rate Limiting ───────────────────────────────────────────────────────────
+	// Rate Limiting
 
 	describe("rate limiting", () => {
 		it("enforces global rate limit", async () => {
@@ -449,7 +449,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── CORS ────────────────────────────────────────────────────────────────────
+	// CORS
 
 	describe("CORS", () => {
 		it("adds CORS headers to proxied responses", async () => {
@@ -499,7 +499,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Header Forwarding ───────────────────────────────────────────────────────
+	// Header Forwarding
 
 	describe("header forwarding", () => {
 		it("forwards custom headers to upstream", async () => {
@@ -581,7 +581,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Error Handling ──────────────────────────────────────────────────────────
+	// Error Handling
 
 	describe("upstream error handling", () => {
 		it("returns 502 when upstream is unreachable", async () => {
@@ -611,7 +611,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Proxy Behaviour ─────────────────────────────────────────────────────────
+	// Proxy Behaviour
 
 	describe("proxy behaviour", () => {
 		it("forwards request path and query string to upstream", async () => {
@@ -670,7 +670,7 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// ── Audit Trail ─────────────────────────────────────────────────────────────
+	// Audit Trail
 
 	describe("audit trail", () => {
 		it("records audit entries for allowed requests", async () => {

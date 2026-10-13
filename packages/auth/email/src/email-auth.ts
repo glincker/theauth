@@ -11,9 +11,7 @@ import type {
 	SignUpInput,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Email validation
-// ---------------------------------------------------------------------------
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -21,9 +19,7 @@ function isValidEmail(email: string): boolean {
 	return EMAIL_REGEX.test(email);
 }
 
-// ---------------------------------------------------------------------------
 // ID generation
-// ---------------------------------------------------------------------------
 
 function generateUserId(): string {
 	return `usr_${randomUUID().replace(/-/g, "")}`;
@@ -37,9 +33,7 @@ function generateToken(): string {
 	return randomBytes(32).toString("hex");
 }
 
-// ---------------------------------------------------------------------------
 // Raw SQL helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Execute a raw SQL statement against the underlying SQLite connection.
@@ -111,9 +105,7 @@ function runRaw(db: Database, sql: string, params: unknown[] = []): void {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Table initialisation
-// ---------------------------------------------------------------------------
 
 function initTables(db: Database): void {
 	execRaw(
@@ -146,9 +138,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_email_accounts_reset_token
 	);
 }
 
-// ---------------------------------------------------------------------------
 // Row → domain type helpers
-// ---------------------------------------------------------------------------
 
 interface UserRow {
 	id: string;
@@ -182,9 +172,7 @@ function rowToEmailUser(user: UserRow, account: AccountRow): EmailUser {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an email+password authentication module backed by the TheAuth database.
@@ -208,7 +196,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 	// Initialise the email accounts table
 	initTables(db);
 
-	// ── helpers ──────────────────────────────────────────────────────────────
+	// helpers
 
 	function findUserByEmail(email: string): { user: UserRow; account: AccountRow } | null {
 		const rows = queryRaw(
@@ -288,7 +276,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { user, account };
 	}
 
-	// ── createSession helper (simple bearer token stored in theauth_sessions) ─
+	// createSession helper (simple bearer token stored in theauth_sessions) ─
 
 	function enforceSessionLimit(userId: string): void {
 		const max = config.sessionLimit?.maxConcurrent;
@@ -336,7 +324,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		runRaw(db, `DELETE FROM theauth_sessions WHERE user_id = ?`, [userId]);
 	}
 
-	// ── signUp ────────────────────────────────────────────────────────────────
+	// signUp
 
 	async function signUp(input: SignUpInput): Promise<{ user: EmailUser; token: string }> {
 		if (!isValidEmail(input.email)) {
@@ -403,7 +391,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { user: emailUser, token };
 	}
 
-	// ── signIn ────────────────────────────────────────────────────────────────
+	// signIn
 
 	async function signIn(
 		input: SignInInput,
@@ -463,7 +451,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		};
 	}
 
-	// ── verifyEmail ───────────────────────────────────────────────────────────
+	// verifyEmail
 
 	async function verifyEmail(token: string): Promise<{ verified: boolean }> {
 		const rows = queryRaw(
@@ -496,7 +484,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { verified: true };
 	}
 
-	// ── requestReset ──────────────────────────────────────────────────────────
+	// requestReset
 
 	async function requestReset(email: string): Promise<void> {
 		const result = findUserByEmail(email);
@@ -521,7 +509,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		await config.sendResetEmail(email, resetToken, resetUrl);
 	}
 
-	// ── resetPassword ─────────────────────────────────────────────────────────
+	// resetPassword
 
 	async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
 		const rows = queryRaw(
@@ -576,7 +564,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { success: true };
 	}
 
-	// ── changePassword ────────────────────────────────────────────────────────
+	// changePassword
 
 	async function changePassword(
 		userId: string,
@@ -637,7 +625,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		});
 	}
 
-	// ── getUser ───────────────────────────────────────────────────────────────
+	// getUser
 
 	async function getUser(userId: string): Promise<EmailUser | null> {
 		const result = findUserById(userId);
@@ -651,7 +639,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return rowToEmailUser(result.user, result.account);
 	}
 
-	// ── handleRequest ─────────────────────────────────────────────────────────
+	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

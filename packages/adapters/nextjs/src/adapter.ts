@@ -15,7 +15,7 @@ import { createAdapterGuard, isProtectedAdapterPath } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { z } from "zod";
 
-// ─── Zod Validation Schemas ──────────────────────────────────────────────────
+// Zod Validation Schemas
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -73,7 +73,7 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// ─── Response Helpers ────────────────────────────────────────────────────────
+// Response Helpers
 
 function ok<T>(data: T, status = 200): Response {
 	return new Response(JSON.stringify({ data }), {
@@ -138,7 +138,7 @@ function validationError(issues: z.ZodIssue[]): Response {
 	return badRequest(`Validation failed: ${message}`);
 }
 
-// ─── MCP CORS Headers ────────────────────────────────────────────────────────
+// MCP CORS Headers
 
 const MCP_CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
@@ -174,7 +174,7 @@ function mcpNoStore<T>(data: T, status = 200): Response {
 	});
 }
 
-// ─── URL Parsing Helpers ─────────────────────────────────────────────────────
+// URL Parsing Helpers
 
 function getSearchParam(url: URL, key: string): string | null {
 	return url.searchParams.get(key);
@@ -191,7 +191,7 @@ async function parseJsonBody(
 	}
 }
 
-// ─── Route Handlers ──────────────────────────────────────────────────────────
+// Route Handlers
 
 async function handleAgentList(
 	request: Request,
@@ -626,7 +626,7 @@ async function handleDashboardStats(theauth: TheAuth, scope: AdapterScope): Prom
 	}
 }
 
-// ─── Route Dispatcher ────────────────────────────────────────────────────────
+// Route Dispatcher
 
 /**
  * Dispatches an incoming Web API Request to the correct TheAuth handler based
@@ -668,7 +668,7 @@ async function dispatch(
 		}
 	}
 
-	// ── MCP / well-known ────────────────────────────────────────────
+	// MCP / well-known
 
 	if (pathname === "/.well-known/oauth-authorization-server" && method === "GET") {
 		if (!mcp) return notFound("MCP module not configured");
@@ -752,7 +752,7 @@ async function dispatch(
 		}
 	}
 
-	// ── Agents ──────────────────────────────────────────────────────
+	// Agents
 
 	if (pathname === "/agents") {
 		if (!scope) return noScope();
@@ -783,7 +783,7 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// ── Authorization ───────────────────────────────────────────────
+	// Authorization
 
 	if (pathname === "/authorize") {
 		if (!scope) return noScope();
@@ -796,7 +796,7 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// ── Delegations ─────────────────────────────────────────────────
+	// Delegations
 
 	if (pathname === "/delegations") {
 		if (!scope) return noScope();
@@ -815,7 +815,7 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// ── Audit ───────────────────────────────────────────────────────
+	// Audit
 
 	if (pathname === "/audit/export") {
 		if (!scope) return noScope();
@@ -829,7 +829,7 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// ── Dashboard ───────────────────────────────────────────────────
+	// Dashboard
 
 	if (pathname === "/dashboard/stats") {
 		if (!scope) return noScope();
@@ -849,7 +849,7 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// ── Plugin Endpoints ────────────────────────────────────────────
+	// Plugin Endpoints
 
 	const pluginResponse = await theauth.plugins.handleRequest(request, basePath);
 	if (pluginResponse !== null) {
@@ -859,7 +859,7 @@ async function dispatch(
 	return notFound("Route not found");
 }
 
-// ─── Adapter Factory ─────────────────────────────────────────────────────────
+// Adapter Factory
 
 export interface TheAuthNextjsOptions extends AdapterSecurityOptions {
 	/**

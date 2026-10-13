@@ -8,9 +8,7 @@ import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../src/plug
 import { createTheAuth } from "../src/theauth.js";
 import type { TheAuthConfig } from "../src/types.js";
 
-// ---------------------------------------------------------------------------
 // Shared helpers
-// ---------------------------------------------------------------------------
 
 const testDbConfig = { provider: "sqlite" as const, url: ":memory:" };
 const baseConfig: TheAuthConfig = { database: testDbConfig };
@@ -41,9 +39,7 @@ function makeRequest(method: string, url: string, body?: unknown): Request {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // initializePlugins
-// ---------------------------------------------------------------------------
 
 describe("initializePlugins", () => {
 	let db: Database;
@@ -199,9 +195,7 @@ describe("initializePlugins", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createPluginRouter
-// ---------------------------------------------------------------------------
 
 describe("createPluginRouter", () => {
 	let db: Database;
@@ -379,9 +373,7 @@ describe("createPluginRouter", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createTheAuth with plugins — end-to-end
-// ---------------------------------------------------------------------------
 
 describe("createTheAuth with plugins", () => {
 	it("initializes plugins and exposes the plugins API", async () => {

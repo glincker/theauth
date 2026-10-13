@@ -1,8 +1,6 @@
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 export interface ConsoleConfig {
 	/**
@@ -12,9 +10,7 @@ export interface ConsoleConfig {
 	logger?: (message: string) => void;
 }
 
-// ---------------------------------------------------------------------------
 // Provider
-// ---------------------------------------------------------------------------
 
 /**
  * Development / testing email provider that logs emails to stdout instead of

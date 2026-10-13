@@ -42,9 +42,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { jwtRefreshTokens, users } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SAMPLE_USER = {
 	id: "user-abc-123",
@@ -83,9 +81,7 @@ async function generateRsaKeyPair(): Promise<{ privateKey: CryptoKey; publicKey:
 	return { privateKey: pair.privateKey, publicKey: pair.publicKey };
 }
 
-// ---------------------------------------------------------------------------
 // createSession — HS256
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule.createSession (HS256)", () => {
 	let db: Database;
@@ -213,9 +209,7 @@ describe("JwtSessionModule.createSession (HS256)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createSession — RS256
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule.createSession (RS256)", () => {
 	let db: Database;
@@ -241,9 +235,7 @@ describe("JwtSessionModule.createSession (RS256)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // verifySession
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule.verifySession", () => {
 	let db: Database;
@@ -346,9 +338,7 @@ describe("JwtSessionModule.verifySession", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // refreshSession
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule.refreshSession", () => {
 	let db: Database;
@@ -448,9 +438,7 @@ describe("JwtSessionModule.refreshSession", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // revokeSession
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule.revokeSession", () => {
 	let db: Database;

@@ -30,9 +30,7 @@
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export type PatchOpKind = "add" | "replace" | "remove";
 
@@ -75,9 +73,7 @@ const IMMUTABLE_PATHS = new Set<string>([
 	"meta.resourcetype",
 ]);
 
-// ---------------------------------------------------------------------------
 // Path parser
-// ---------------------------------------------------------------------------
 
 /**
  * Parse a PATCH path expression into the structured form.
@@ -165,9 +161,7 @@ function splitSchemaUrn(raw: string): { schemaUrn?: string; parts: string[] } {
 	return { schemaUrn, parts: tail.split(".").filter((p) => p.length > 0) };
 }
 
-// ---------------------------------------------------------------------------
 // Operation applicator
-// ---------------------------------------------------------------------------
 
 export interface ApplyPatchOptions {
 	/** Maximum number of operations. Default 1000. Exceeding this throws `tooMany`. */

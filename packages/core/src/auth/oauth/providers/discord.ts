@@ -22,9 +22,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://discord.com/api/oauth2/authorize";
 const TOKEN_URL = "https://discord.com/api/oauth2/token";
@@ -34,9 +32,7 @@ const CDN_BASE = "https://cdn.discordapp.com";
 export const DEFAULT_DISCORD_SCOPES = ["identify", "email"];
 const DEFAULT_SCOPES = DEFAULT_DISCORD_SCOPES;
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface DiscordTokenResponse {
 	access_token: string;
@@ -56,9 +52,7 @@ interface DiscordUserResponse {
 	avatar?: string | null;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Discord OAuth provider instance.
@@ -189,9 +183,7 @@ export function createDiscordProvider(config: OAuthProviderConfig): OAuthProvide
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as DiscordUserResponse;
@@ -216,9 +208,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function buildAvatarUrl(userId: string, avatarHash: string | null | undefined): string | undefined {
 	if (!avatarHash) return undefined;

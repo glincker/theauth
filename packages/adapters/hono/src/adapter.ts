@@ -16,7 +16,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 
-// ─── Zod Validation Schemas ──────────────────────────────────────────────────
+// Zod Validation Schemas
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -74,7 +74,7 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// ─── Response Helpers ────────────────────────────────────────────────────────
+// Response Helpers
 
 function ok<T>(data: T, status = 200) {
 	return new Response(JSON.stringify({ data }), {
@@ -127,7 +127,7 @@ function validationError(issues: z.ZodIssue[]) {
 	return badRequest(`Validation failed: ${message}`);
 }
 
-// ─── MCP CORS Headers ────────────────────────────────────────────────────────
+// MCP CORS Headers
 
 const MCP_CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
@@ -163,7 +163,7 @@ function mcpNoStore<T>(data: T, status = 200) {
 	});
 }
 
-// ─── Mount-prefix handling ───────────────────────────────────────────────────
+// Mount-prefix handling
 
 /**
  * Work out the prefix a parent app added with `app.route("/x", ...)`.
@@ -179,7 +179,7 @@ function mountPrefix(requestPath: string, endpointPath: string): string {
 	return extra > 0 ? `/${reqSegments.slice(0, extra).join("/")}` : "";
 }
 
-// ─── Adapter Factory ─────────────────────────────────────────────────────────
+// Adapter Factory
 
 /**
  * Create a Hono app with all TheAuth REST API routes mounted.
@@ -249,7 +249,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	}
 	app.use("/authorize", requireCaller);
 
-	// ── Agent REST API ──────────────────────────────────────────────
+	// Agent REST API
 
 	// POST /agents - create agent
 	app.post("/agents", async (c) => {
@@ -418,7 +418,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Authorization ───────────────────────────────────────────────
+	// Authorization
 
 	// POST /authorize - authorize action by agentId
 	app.post("/authorize", async (c) => {
@@ -509,7 +509,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Delegation ──────────────────────────────────────────────────
+	// Delegation
 
 	// POST /delegations - create delegation
 	app.post("/delegations", async (c) => {
@@ -592,7 +592,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Audit ───────────────────────────────────────────────────────
+	// Audit
 
 	// GET /audit - query audit logs
 	app.get("/audit", async (c) => {
@@ -689,7 +689,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── MCP OAuth 2.1 Endpoints ─────────────────────────────────────
+	// MCP OAuth 2.1 Endpoints
 
 	// OPTIONS preflight for MCP routes
 	app.options("/mcp/*", (_c) => {
@@ -810,7 +810,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Dashboard API ───────────────────────────────────────────────
+	// Dashboard API
 
 	// GET /dashboard/stats
 	app.get("/dashboard/stats", async (c) => {
@@ -943,7 +943,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Password Reset ──────────────────────────────────────────────
+	// Password Reset
 
 	// POST /auth/forgot-password - request a reset link
 	app.post("/auth/forgot-password", async (c) => {
@@ -981,7 +981,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Email Verification ──────────────────────────────────────────
+	// Email Verification
 
 	// POST /auth/verify-email/send - send a verification email
 	app.post("/auth/verify-email/send", async (c) => {
@@ -1019,7 +1019,7 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// ── Plugin Endpoints ────────────────────────────────────────────
+	// Plugin Endpoints
 
 	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";

@@ -16,7 +16,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// ─── Module mocks ─────────────────────────────────────────────────────────────
+// Module mocks
 
 // Must be defined before imports that depend on @glinr/theauth-react
 const mockSignIn = vi.fn();
@@ -44,7 +44,7 @@ vi.mock("@glinr/theauth-react", () => ({
 	}),
 }));
 
-// ─── Component imports (after mocks) ─────────────────────────────────────────
+// Component imports (after mocks)
 
 import { AuthCard } from "../src/components/auth-card.js";
 import { ForgotPassword } from "../src/components/forgot-password.js";
@@ -60,7 +60,7 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function getForm(submitButtonName: string): HTMLFormElement {
 	const btn = screen.getByRole("button", { name: submitButtonName });
@@ -69,7 +69,7 @@ function getForm(submitButtonName: string): HTMLFormElement {
 	return form;
 }
 
-// ─── cx() ─────────────────────────────────────────────────────────────────────
+// cx()
 
 describe("cx()", () => {
 	it("returns defaults when override is undefined", () => {
@@ -91,7 +91,7 @@ describe("cx()", () => {
 	});
 });
 
-// ─── AuthCard ─────────────────────────────────────────────────────────────────
+// AuthCard
 
 describe("AuthCard", () => {
 	it("renders children", () => {
@@ -131,7 +131,7 @@ describe("AuthCard", () => {
 	});
 });
 
-// ─── OAuthButtons ─────────────────────────────────────────────────────────────
+// OAuthButtons
 
 describe("OAuthButtons", () => {
 	const providers = [
@@ -181,7 +181,7 @@ describe("OAuthButtons", () => {
 	});
 });
 
-// ─── SignIn ───────────────────────────────────────────────────────────────────
+// SignIn
 
 describe("SignIn", () => {
 	it("renders email and password inputs", () => {
@@ -233,7 +233,7 @@ describe("SignIn", () => {
 	});
 });
 
-// ─── SignUp ───────────────────────────────────────────────────────────────────
+// SignUp
 
 describe("SignUp", () => {
 	it("renders name, email, password, and confirm password fields by default", () => {
@@ -289,7 +289,7 @@ describe("SignUp", () => {
 	});
 });
 
-// ─── UserButton ───────────────────────────────────────────────────────────────
+// UserButton
 
 describe("UserButton", () => {
 	it("renders the avatar trigger button", () => {
@@ -351,7 +351,7 @@ describe("UserButton", () => {
 	});
 });
 
-// ─── TwoFactorVerify ──────────────────────────────────────────────────────────
+// TwoFactorVerify
 
 describe("TwoFactorVerify", () => {
 	it("renders 6 digit inputs by default", () => {
@@ -419,7 +419,7 @@ describe("TwoFactorVerify", () => {
 	});
 });
 
-// ─── ForgotPassword ───────────────────────────────────────────────────────────
+// ForgotPassword
 
 describe("ForgotPassword", () => {
 	it("renders the email input", () => {

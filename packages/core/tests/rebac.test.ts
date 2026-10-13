@@ -22,9 +22,7 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -32,9 +30,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("ReBACModule", () => {
 	let db: Database;
@@ -45,7 +41,7 @@ describe("ReBACModule", () => {
 		rebac = createReBACModule({}, db);
 	});
 
-	// ── Resource management ───────────────────────────────────────────────
+	// Resource management
 
 	describe("createResource", () => {
 		it("creates a root resource", async () => {
@@ -162,7 +158,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Relationship management ───────────────────────────────────────────
+	// Relationship management
 
 	describe("addRelationship", () => {
 		it("creates a relationship", async () => {
@@ -243,7 +239,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Permission checks ─────────────────────────────────────────────────
+	// Permission checks
 
 	describe("check", () => {
 		it("grants direct access", async () => {
@@ -445,7 +441,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Complex hierarchy ─────────────────────────────────────────────────
+	// Complex hierarchy
 
 	describe("complex hierarchy (org > workspace > project > document)", () => {
 		beforeEach(async () => {
@@ -540,7 +536,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Max depth enforcement ─────────────────────────────────────────────
+	// Max depth enforcement
 
 	describe("max depth", () => {
 		it("denies when depth limit is exceeded", async () => {
@@ -605,7 +601,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── listObjects ───────────────────────────────────────────────────────
+	// listObjects
 
 	describe("listObjects", () => {
 		it("lists directly accessible objects", async () => {
@@ -683,7 +679,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── listSubjects ──────────────────────────────────────────────────────
+	// listSubjects
 
 	describe("listSubjects", () => {
 		it("lists subjects with direct access", async () => {
@@ -755,7 +751,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── expand ────────────────────────────────────────────────────────────
+	// expand
 
 	describe("expand", () => {
 		it("returns all relationships for a subject", async () => {
@@ -813,7 +809,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Agent-specific checks ─────────────────────────────────────────────
+	// Agent-specific checks
 
 	describe("agent checks", () => {
 		it("grants access to agent subject type", async () => {
@@ -884,7 +880,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Custom permission rules ───────────────────────────────────────────
+	// Custom permission rules
 
 	describe("custom permission rules", () => {
 		it("respects custom implies rules", async () => {
@@ -1023,7 +1019,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Team subject type ─────────────────────────────────────────────────
+	// Team subject type
 
 	describe("team relationships", () => {
 		it("supports team as subject type", async () => {
@@ -1047,7 +1043,7 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// ── Edge cases ────────────────────────────────────────────────────────
+	// Edge cases
 
 	describe("edge cases", () => {
 		it("handles unknown resource type gracefully (no rules = exact match only)", async () => {

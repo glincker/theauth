@@ -22,18 +22,14 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://gitlab.com/oauth/authorize";
 const TOKEN_URL = "https://gitlab.com/oauth/token";
 const USER_INFO_URL = "https://gitlab.com/api/v4/user";
 const DEFAULT_SCOPES = ["read_user"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface GitLabTokenResponse {
 	access_token: string;
@@ -53,9 +49,7 @@ interface GitLabUserResponse {
 	state?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a GitLab OAuth provider instance.
@@ -186,9 +180,7 @@ export function createGitlabProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

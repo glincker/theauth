@@ -19,7 +19,7 @@ import type {
 } from "./types.js";
 import { VerifiableCredentialSchema, VerifiablePresentationSchema } from "./types.js";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -30,7 +30,7 @@ function getIssuerString(issuer: string | { id: string; name?: string }): string
 	return issuer.id;
 }
 
-// ─── VC Verifier Interface ──────────────────────────────────────────────────
+// VC Verifier Interface
 
 export interface VCVerifier {
 	/** Verify a single credential (JWT string or JSON-LD object) */
@@ -47,7 +47,7 @@ export interface VCVerifier {
 	extractPermissions(vc: VerifiableCredential): ExtractedPermissions;
 }
 
-// ─── Factory ────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Create a VC verifier that checks signatures, expiry, and revocation.
@@ -292,7 +292,7 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 		}
 	}
 
-	// ── Public API ────────────────────────────────────────────────────────
+	// Public API
 
 	async function verifyCredential(
 		vc: string | VerifiableCredential,

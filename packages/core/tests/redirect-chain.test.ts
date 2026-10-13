@@ -22,9 +22,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createRedirectChain } from "../src/redirect/chain.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Build a mock Request with the given URL and optional existing chain cookie. */
 function makeRequest(url: string, cookieValue?: string): Request {
@@ -42,9 +40,7 @@ function extractCookieValue(header: string): string {
 	return eqIdx === -1 ? "" : part.slice(eqIdx + 1);
 }
 
-// ---------------------------------------------------------------------------
 // capture()
-// ---------------------------------------------------------------------------
 
 describe("capture()", () => {
 	it("stores the request URL as the origin", () => {
@@ -122,9 +118,7 @@ describe("capture()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // push() and pop()
-// ---------------------------------------------------------------------------
 
 describe("push() and pop()", () => {
 	it("pop() returns steps in order then the origin", () => {
@@ -216,9 +210,7 @@ describe("push() and pop()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // peek()
-// ---------------------------------------------------------------------------
 
 describe("peek()", () => {
 	it("returns next step without consuming it", () => {
@@ -256,9 +248,7 @@ describe("peek()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getOrigin()
-// ---------------------------------------------------------------------------
 
 describe("getOrigin()", () => {
 	it("returns the original URL", () => {
@@ -282,9 +272,7 @@ describe("getOrigin()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // clear()
-// ---------------------------------------------------------------------------
 
 describe("clear()", () => {
 	it("removes the chain by returning a Max-Age=0 cookie", () => {
@@ -315,9 +303,7 @@ describe("clear()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Expiry
-// ---------------------------------------------------------------------------
 
 describe("expiry", () => {
 	it("expired chains return defaultPath on pop()", () => {
@@ -357,9 +343,7 @@ describe("expiry", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Query params and hash fragments
-// ---------------------------------------------------------------------------
 
 describe("query params and hash preservation", () => {
 	it("preserves query params in origin", () => {
@@ -424,9 +408,7 @@ describe("query params and hash preservation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createEntry()
-// ---------------------------------------------------------------------------
 
 describe("createEntry()", () => {
 	it("creates a valid entry from a URL string", () => {
@@ -459,9 +441,7 @@ describe("createEntry()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Cookie attributes
-// ---------------------------------------------------------------------------
 
 describe("cookie attributes", () => {
 	it("includes HttpOnly, Secure, SameSite by default", () => {

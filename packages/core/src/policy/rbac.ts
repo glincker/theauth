@@ -12,9 +12,7 @@ import type { Database } from "../db/database.js";
 import { orgMembers, orgRoles } from "../db/schema.js";
 import type { Permission } from "../types.js";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Public interface
-// ─────────────────────────────────────────────────────────────────────────────
 
 export interface RbacResolver {
 	/**
@@ -27,9 +25,7 @@ export interface RbacResolver {
 	resolveRolePermissions(input: { userId: string; orgId?: string }): Promise<Permission[]>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Parse a stored "resource:action" string into a { resource, action } pair.
@@ -83,9 +79,7 @@ function deduplicate(permissions: Permission[]): Permission[] {
 	return result;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Factory
-// ─────────────────────────────────────────────────────────────────────────────
 
 export function createRbacResolver(deps: { db: Database }): RbacResolver {
 	const { db } = deps;

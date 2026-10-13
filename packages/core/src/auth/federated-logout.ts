@@ -50,9 +50,7 @@ async function verifyWith(
 	return jwtVerify(token, getKey, options);
 }
 
-// ---------------------------------------------------------------------------
 // RP-initiated logout: building the request
-// ---------------------------------------------------------------------------
 
 export interface EndSessionUrlParams {
 	idTokenHint?: string;
@@ -100,9 +98,7 @@ export function buildEndSessionUrl(
 	return { success: true, data: url.toString() };
 }
 
-// ---------------------------------------------------------------------------
 // RP-initiated logout: the OP endpoint
-// ---------------------------------------------------------------------------
 
 export interface LogoutClient {
 	/** Exact-match allowlist for `post_logout_redirect_uri`. */
@@ -253,9 +249,7 @@ export function createEndSessionHandler(config: EndSessionHandlerConfig): EndSes
 	return { handleRequest };
 }
 
-// ---------------------------------------------------------------------------
 // Back-channel logout: receiving
-// ---------------------------------------------------------------------------
 
 export interface LogoutTokenClaims {
 	iss: string;
@@ -407,9 +401,7 @@ export function createBackChannelLogoutReceiver(
 	return { verifyLogoutToken, handleRequest };
 }
 
-// ---------------------------------------------------------------------------
 // Back-channel logout: sending
-// ---------------------------------------------------------------------------
 
 export interface SendBackChannelLogoutParams {
 	issuer: string;

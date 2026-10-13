@@ -21,9 +21,7 @@ import { jwtVerify } from "jose";
 import { z } from "zod";
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
-// ---------------------------------------------------------------------------
 // Options schema
-// ---------------------------------------------------------------------------
 
 const BearerAuthOptionsSchema = z.object({
 	/**
@@ -39,9 +37,7 @@ const BearerAuthOptionsSchema = z.object({
 
 export type BearerAuthOptions = z.infer<typeof BearerAuthOptionsSchema>;
 
-// ---------------------------------------------------------------------------
 // Payload schema – only the fields TheAuth cares about
-// ---------------------------------------------------------------------------
 
 const JwtPayloadSchema = z.object({
 	sub: z.string(),
@@ -52,9 +48,7 @@ const JwtPayloadSchema = z.object({
 	image: z.string().optional(),
 });
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an `AuthAdapter` that validates a JWT from the `Authorization: Bearer`

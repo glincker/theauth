@@ -18,7 +18,7 @@ import type {
 } from "../src/mcp/types.js";
 import { computeS256Challenge, generateSecureToken } from "../src/mcp/utils.js";
 
-// ─── Shared constants ─────────────────────────────────────────────────────────
+// Shared constants
 
 const ISSUER = "https://auth.theauth.test";
 const BASE_URL = "https://auth.theauth.test/api/auth";
@@ -27,7 +27,7 @@ const REDIRECT_URI = "https://app.theauth.test/callback";
 const TEST_USER_ID = "user_01HXYZ";
 const RESOURCE = "https://mcp.theauth.test";
 
-// ─── In-memory store factory ──────────────────────────────────────────────────
+// In-memory store factory
 
 interface InMemoryStore {
 	clients: Map<string, McpClient>;
@@ -96,7 +96,7 @@ function createMcpModuleWithStore(
 	});
 }
 
-// ─── Helper: build an authorize Request ──────────────────────────────────────
+// Helper: build an authorize Request
 
 function buildAuthorizeRequest(params: Record<string, string>): Request {
 	const url = new URL(`${BASE_URL}/mcp/authorize`);
@@ -106,7 +106,7 @@ function buildAuthorizeRequest(params: Record<string, string>): Request {
 	return new Request(url.toString());
 }
 
-// ─── Helper: build a token Request ───────────────────────────────────────────
+// Helper: build a token Request
 
 function buildTokenRequest(body: Record<string, string>): Request {
 	const withResource =
@@ -118,7 +118,7 @@ function buildTokenRequest(body: Record<string, string>): Request {
 	});
 }
 
-// ─── Helper: generate a valid PKCE pair ──────────────────────────────────────
+// Helper: generate a valid PKCE pair
 
 async function generatePkcePair(): Promise<{ verifier: string; challenge: string }> {
 	// code_verifier must be 43-128 chars (URL-safe)
@@ -127,7 +127,7 @@ async function generatePkcePair(): Promise<{ verifier: string; challenge: string
 	return { verifier, challenge };
 }
 
-// ─── Fixture: register a public client and return its registration ────────────
+// Fixture: register a public client and return its registration
 
 async function registerPublicClient(mcp: McpAuthModule): Promise<McpClientRegistrationResponse> {
 	const result = await mcp.registerClient({
@@ -144,7 +144,7 @@ async function registerPublicClient(mcp: McpAuthModule): Promise<McpClientRegist
 	return result.data;
 }
 
-// ─── Fixture: full auth-code + PKCE exchange returning tokens ────────────────
+// Fixture: full auth-code + PKCE exchange returning tokens
 
 async function runFullAuthCodeFlow(
 	mcp: McpAuthModule,
@@ -184,7 +184,7 @@ async function runFullAuthCodeFlow(
 	return tokenResult.data;
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// Tests
 
 describe("MCP OAuth 2.1 end-to-end flow", () => {
 	let store: InMemoryStore;
@@ -195,7 +195,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		mcp = createMcpModuleWithStore(store);
 	});
 
-	// ── 1. Metadata ──────────────────────────────────────────────────────────
+	// 1. Metadata
 
 	describe("1 · metadata endpoints", () => {
 		it("authorization server metadata has all required RFC 8414 fields", () => {
@@ -227,7 +227,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 2. Dynamic client registration ───────────────────────────────────────
+	// 2. Dynamic client registration
 
 	describe("2 · dynamic client registration (RFC 7591)", () => {
 		it("registers a public client and returns client_id without client_secret", async () => {
@@ -331,7 +331,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 3. Authorization code flow with PKCE ─────────────────────────────────
+	// 3. Authorization code flow with PKCE
 
 	describe("3 · authorization code flow with PKCE", () => {
 		it("issues an authorization code for a valid request", async () => {
@@ -462,7 +462,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 4. Token validation ───────────────────────────────────────────────────
+	// 4. Token validation
 
 	describe("4 · token validation", () => {
 		it("validates a freshly issued access token", async () => {
@@ -598,7 +598,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 5. Refresh token flow ─────────────────────────────────────────────────
+	// 5. Refresh token flow
 
 	describe("5 · refresh token flow", () => {
 		it("exchanges a refresh_token for a new access_token", async () => {
@@ -693,7 +693,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 6. withMcpAuth middleware ─────────────────────────────────────────────
+	// 6. withMcpAuth middleware
 
 	describe("6 · withMcpAuth middleware", () => {
 		it("returns a valid session for a request bearing a valid token", async () => {
@@ -797,7 +797,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 7. Authorization error cases ─────────────────────────────────────────
+	// 7. Authorization error cases
 
 	describe("7 · authorization error cases", () => {
 		it("rejects authorize with unknown client_id", async () => {
@@ -911,7 +911,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 8. Token-exchange error cases ─────────────────────────────────────────
+	// 8. Token-exchange error cases
 
 	describe("8 · token-exchange error cases", () => {
 		it("rejects token exchange with wrong code_verifier", async () => {
@@ -1123,7 +1123,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// ── 9. createMcpModule config validation ─────────────────────────────────
+	// 9. createMcpModule config validation
 
 	describe("9 · createMcpModule config validation", () => {
 		it("throws when issuer is missing", () => {

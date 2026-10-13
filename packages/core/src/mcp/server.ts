@@ -21,7 +21,7 @@ import type {
 import { hashClientSecret } from "./utils.js";
 import { buildUnauthorizedResponse, validateAccessToken, withMcpAuth } from "./validate.js";
 
-// ─── Default Configuration ──────────────────────────────────────────────────
+// Default Configuration
 
 const DEFAULT_ACCESS_TOKEN_TTL = 3600; // 1 hour
 const DEFAULT_REFRESH_TOKEN_TTL = 604800; // 7 days
@@ -83,7 +83,7 @@ export function createMcpModule(params: {
 	revokeTokenFamily?: McpAuthContext["revokeTokenFamily"];
 	resolveUserId: McpAuthContext["resolveUserId"];
 }): McpAuthModule {
-	// ── Validate required config ────────────────────────────────────
+	// Validate required config
 	const config = params.config;
 	if (!config.issuer) {
 		throw new Error("McpConfig.issuer is required");
@@ -118,7 +118,7 @@ export function createMcpModule(params: {
 		}
 	}
 
-	// ── Build resolved config with defaults ─────────────────────────
+	// Build resolved config with defaults
 	const resolvedConfig = {
 		...config,
 		issuer: config.issuer,
@@ -129,7 +129,7 @@ export function createMcpModule(params: {
 		codeTtl: config.codeTtl ?? DEFAULT_CODE_TTL,
 	};
 
-	// ── Build the context shared by all handlers ────────────────────
+	// Build the context shared by all handlers
 	const ctx: McpAuthContext = {
 		config: resolvedConfig,
 		storeClient: params.storeClient,
@@ -145,7 +145,7 @@ export function createMcpModule(params: {
 		resolveUserId: params.resolveUserId,
 	};
 
-	// ── Pre-register static clients ─────────────────────────────────
+	// Pre-register static clients
 	// Store each pre-registered client via storeClient during module
 	// initialisation.  Returns a Promise that callers may await if needed.
 	const preRegistrationPromise: Promise<void> = (async () => {
@@ -182,7 +182,7 @@ export function createMcpModule(params: {
 	// Expose the promise so tests/callers can await full initialisation.
 	void preRegistrationPromise;
 
-	// ── Return the public module API ────────────────────────────────
+	// Return the public module API
 	return {
 		getJwks: () => getJwks(ctx),
 

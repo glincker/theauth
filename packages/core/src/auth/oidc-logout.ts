@@ -24,9 +24,7 @@ import { extractToken } from "../plugin/helpers.js";
 import type { Session, SessionManager } from "../session/session.js";
 import { createEndSessionHandler, sendBackChannelLogout } from "./federated-logout.js";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface OidcLogoutConfig {
 	/** Path of the end session endpoint under the issuer. Default `/logout`. */
@@ -116,16 +114,14 @@ function validateHttpsUri(uri: string, allowInsecure: boolean): boolean {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 	const { db, issuer, config } = deps;
 	const path = config.endSessionPath ?? DEFAULT_PATH;
 	const allowInsecure = config.allowInsecureBackchannel === true;
 
-	// ── client logout config ────────────────────────────────────────────────
+	// client logout config
 
 	async function getClientLogoutConfig(clientId: string): Promise<ClientLogoutConfig | null> {
 		const rows = await db
@@ -163,7 +159,7 @@ export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 		await db.delete(oidcLogoutClients).where(eq(oidcLogoutClients.clientId, clientId));
 	}
 
-	// ── fan-out ─────────────────────────────────────────────────────────────
+	// fan-out
 
 	async function fanOut(target: {
 		sid?: string;
@@ -238,7 +234,7 @@ export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 		return total;
 	}
 
-	// ── end session endpoint ────────────────────────────────────────────────
+	// end session endpoint
 
 	async function endProviderSession(ctx: {
 		request: Request;
@@ -308,9 +304,7 @@ export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // sid index helpers used by the provider
-// ---------------------------------------------------------------------------
 
 export interface OidcSidIndex {
 	/** Record an authorization for a client; returns the sid used. */

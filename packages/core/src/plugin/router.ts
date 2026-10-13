@@ -107,7 +107,7 @@ export function createPluginRouter(
 				const params = matchPath(endpoint.path, pathname);
 				if (params === null) continue;
 
-				// --- Rate limit enforcement ---
+				// Rate limit enforcement
 				if (endpoint.metadata?.rateLimit) {
 					const { window: windowSec, max } = endpoint.metadata.rateLimit;
 					// Forwarded headers are only honoured when `trustedProxy` is configured.
@@ -118,7 +118,7 @@ export function createPluginRouter(
 					}
 				}
 
-				// --- Auth enforcement ---
+				// Auth enforcement
 				if (endpoint.metadata?.requireAuth) {
 					const user = await endpointCtx.getUser(request);
 					if (!user) {

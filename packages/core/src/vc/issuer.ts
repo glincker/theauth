@@ -25,11 +25,11 @@ import {
 	VC_TYPE_CREDENTIAL,
 } from "./types.js";
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+// Constants
 
 const DEFAULT_TTL_SECONDS = 86400; // 24 hours
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -43,7 +43,7 @@ function futureISO(seconds: number): string {
 	return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
-// ─── Agent Credential Input ─────────────────────────────────────────────────
+// Agent Credential Input
 
 export interface IssueAgentCredentialInput {
 	/** Agent ID (used as credentialSubject.id and sub claim) */
@@ -62,7 +62,7 @@ export interface IssueAgentCredentialInput {
 	format?: CredentialFormat;
 }
 
-// ─── Permission Credential Input ────────────────────────────────────────────
+// Permission Credential Input
 
 export interface IssuePermissionCredentialInput {
 	/** Agent DID or ID that receives the permissions */
@@ -75,7 +75,7 @@ export interface IssuePermissionCredentialInput {
 	format?: CredentialFormat;
 }
 
-// ─── Delegation Credential Input ────────────────────────────────────────────
+// Delegation Credential Input
 
 export interface DelegationLink {
 	delegator: string;
@@ -97,7 +97,7 @@ export interface IssueDelegationCredentialInput {
 	format?: CredentialFormat;
 }
 
-// ─── VC Issuer Interface ────────────────────────────────────────────────────
+// VC Issuer Interface
 
 export interface VCIssuer {
 	/** Issue a VC encoding agent identity, permissions, and trust score */
@@ -116,7 +116,7 @@ export interface VCIssuer {
 	readonly issuerDid: string;
 }
 
-// ─── Factory ────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Create a VC issuer bound to a specific DID and keypair.
@@ -238,7 +238,7 @@ export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 		return signAsJsonLd(credential);
 	}
 
-	// ── Public API ────────────────────────────────────────────────────────
+	// Public API
 
 	async function issueAgentCredential(
 		input: IssueAgentCredentialInput,

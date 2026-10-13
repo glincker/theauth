@@ -26,7 +26,7 @@ import {
 	A2ASendMessageParamsSchema,
 } from "./types.js";
 
-// ─── In-memory task store (default) ──────────────────────────────────────────
+// In-memory task store (default)
 
 function createInMemoryTaskStore(): A2ATaskStore {
 	const tasks = new Map<string, A2ATask>();
@@ -43,7 +43,7 @@ function createInMemoryTaskStore(): A2ATaskStore {
 	};
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 function jsonRpcError(id: string | number | null, error: A2AJsonRpcError): Response {
 	const body: A2AJsonRpcResponse = {
@@ -69,7 +69,7 @@ function jsonRpcSuccess(id: string | number, result: unknown): Response {
 	});
 }
 
-// ─── Create A2A Server ───────────────────────────────────────────────────────
+// Create A2A Server
 
 export interface A2AServer {
 	/** Handle an incoming HTTP request (JSON-RPC or agent card discovery) */

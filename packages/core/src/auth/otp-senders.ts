@@ -35,9 +35,7 @@ function describe(message: OtpMessage): string {
 	return `Your ${PURPOSE_LABEL[message.purpose]} is ${message.code}. It expires in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 }
 
-// ---------------------------------------------------------------------------
 // Email: wraps any EmailProvider (resend, ses, postmark, sendgrid, smtp, console)
-// ---------------------------------------------------------------------------
 
 export interface EmailOtpSenderOptions {
 	subject?: (message: OtpMessage) => string;
@@ -69,9 +67,7 @@ export function emailOtpSender(
 	};
 }
 
-// ---------------------------------------------------------------------------
 // SMS: Twilio (raw fetch, no SDK)
-// ---------------------------------------------------------------------------
 
 export interface TwilioSenderConfig {
 	accountSid: string;
@@ -119,9 +115,7 @@ export function twilioOtpSender(config: TwilioSenderConfig): OtpSender {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Console (development)
-// ---------------------------------------------------------------------------
 
 export function consoleOtpSender(logger?: (line: string) => void): OtpSender {
 	// biome-ignore lint/suspicious/noConsole: the console sender exists to print codes in development

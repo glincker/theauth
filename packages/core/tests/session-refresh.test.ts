@@ -22,9 +22,7 @@ import { createSessionRefresher, RefreshTokenError } from "../src/session/refres
 import type { TokenFamilyStore } from "../src/session/token-family.js";
 import { createTokenFamilyStore } from "../src/session/token-family.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const TEST_SECRET = "a-test-secret-that-is-at-least-32-chars-long!!";
 const TEST_USER_ID = "user-refresh-test";
@@ -57,9 +55,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ---------------------------------------------------------------------------
 // TokenFamilyStore unit tests
-// ---------------------------------------------------------------------------
 
 describe("TokenFamilyStore.createFamily", () => {
 	let db: Database;
@@ -203,9 +199,7 @@ describe("TokenFamilyStore.revokeFamily / revokeFamiliesForUser", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SessionRefresher unit tests
-// ---------------------------------------------------------------------------
 
 describe("createSessionRefresher — constructor guards", () => {
 	it("throws when secret is shorter than 32 characters", () => {
@@ -464,9 +458,7 @@ describe("SessionRefresher.revokeAll", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SessionRefresher.handleRequest — HTTP layer
-// ---------------------------------------------------------------------------
 
 describe("SessionRefresher.handleRequest — success", () => {
 	let db: Database;

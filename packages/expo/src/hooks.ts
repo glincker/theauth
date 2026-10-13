@@ -2,7 +2,7 @@ import { useCallback, useContext, useState } from "react";
 import { TheAuthExpoContext } from "./provider.js";
 import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
 
-// ─── Guards ────────────────────────────────────────────────────────────────────
+// Guards
 
 function useRequiredContext(hookName: string) {
 	const ctx = useContext(TheAuthExpoContext);
@@ -12,7 +12,7 @@ function useRequiredContext(hookName: string) {
 	return ctx;
 }
 
-// ─── useSession ───────────────────────────────────────────────────────────────
+// useSession
 
 /**
  * Returns the current session, loading state, and a manual refresh function.
@@ -22,7 +22,7 @@ export function useSession() {
 	return { session, isLoading, refresh };
 }
 
-// ─── useUser ──────────────────────────────────────────────────────────────────
+// useUser
 
 /**
  * Returns the current user, loading state, and authentication status.
@@ -32,7 +32,7 @@ export function useUser() {
 	return { user, isLoading, isAuthenticated };
 }
 
-// ─── useSignIn ────────────────────────────────────────────────────────────────
+// useSignIn
 
 /**
  * Returns a signIn function plus local loading and error state.
@@ -59,7 +59,7 @@ export function useSignIn() {
 	return { signIn: execute, isLoading, error };
 }
 
-// ─── useSignUp ────────────────────────────────────────────────────────────────
+// useSignUp
 
 /**
  * Returns a signUp function plus local loading and error state.
@@ -86,7 +86,7 @@ export function useSignUp() {
 	return { signUp: execute, isLoading, error };
 }
 
-// ─── useSignOut ───────────────────────────────────────────────────────────────
+// useSignOut
 
 /**
  * Returns a signOut function.
@@ -96,7 +96,7 @@ export function useSignOut() {
 	return { signOut };
 }
 
-// ─── useAgents ────────────────────────────────────────────────────────────────
+// useAgents
 
 interface AgentApiResponse {
 	data: TheAuthAgent[];

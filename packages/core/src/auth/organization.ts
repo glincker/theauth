@@ -11,9 +11,7 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { organizations, orgInvitations, orgMembers, orgRoles } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface OrgConfig {
 	/** Default roles for new organizations */
@@ -111,9 +109,7 @@ export interface OrgModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_ROLES: OrgRole[] = [
 	{
@@ -155,9 +151,7 @@ const DEFAULT_MAX_ORGS_PER_USER = 5;
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const DEFAULT_MAX_INVITATIONS_PER_HOUR = 50;
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function slugRegex(): RegExp {
 	return /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -248,9 +242,7 @@ function errorResponse(message: string, status: number): Response {
 	return jsonResponse({ error: message }, status);
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 	const maxMembers = config.maxMembers ?? DEFAULT_MAX_MEMBERS;
@@ -260,7 +252,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 	const invitationExpiryMs = config.invitationExpiryMs ?? INVITATION_EXPIRY_MS;
 	const maxInvitationsPerHour = config.maxInvitationsPerHour ?? DEFAULT_MAX_INVITATIONS_PER_HOUR;
 
-	// ── org CRUD ─────────────────────────────────────────────────────────────
+	// org CRUD
 
 	async function create(input: {
 		name: string;
@@ -402,7 +394,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(organizations).where(eq(organizations.id, orgId));
 	}
 
-	// ── members ──────────────────────────────────────────────────────────────
+	// members
 
 	async function addMember(orgId: string, userId: string, role: string): Promise<OrgMember> {
 		const org = await get(orgId);
@@ -514,7 +506,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		return rowToMember(row);
 	}
 
-	// ── invitations ──────────────────────────────────────────────────────────
+	// invitations
 
 	async function invite(input: {
 		orgId: string;
@@ -637,7 +629,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(orgInvitations).where(eq(orgInvitations.id, invitationId));
 	}
 
-	// ── roles & permissions ──────────────────────────────────────────────────
+	// roles & permissions
 
 	async function hasPermission(
 		orgId: string,
@@ -702,7 +694,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(orgRoles).where(and(eq(orgRoles.orgId, orgId), eq(orgRoles.name, roleName)));
 	}
 
-	// ── ownership transfer ──────────────────────────────────────────────────
+	// ownership transfer
 
 	async function transferOwnership(
 		orgId: string,
@@ -746,7 +738,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		return updated;
 	}
 
-	// ── decline invitation ──────────────────────────────────────────────────
+	// decline invitation
 
 	async function declineInvitation(invitationId: string): Promise<void> {
 		const rows = await db
@@ -763,7 +755,7 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(orgInvitations).where(eq(orgInvitations.id, invitationId));
 	}
 
-	// ── HTTP handler ─────────────────────────────────────────────────────────
+	// HTTP handler
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

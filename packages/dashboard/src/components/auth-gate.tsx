@@ -2,7 +2,7 @@ import { LogOut } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { LoginScreen } from "./login.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface AuthGateProps {
 	apiUrl: string;
@@ -13,7 +13,7 @@ type AuthState = "checking" | "authenticated" | "unauthenticated";
 
 const SESSION_KEY = "theauth_dashboard_secret";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 async function validateSecret(apiUrl: string, secret: string): Promise<boolean> {
 	try {
@@ -27,7 +27,7 @@ async function validateSecret(apiUrl: string, secret: string): Promise<boolean> 
 	}
 }
 
-// ─── Logout Button ────────────────────────────────────────────────────────────
+// Logout Button
 
 export interface LogoutButtonProps {
 	onLogout: () => void;
@@ -47,7 +47,7 @@ export function LogoutButton({ onLogout }: LogoutButtonProps) {
 	);
 }
 
-// ─── Auth Gate ────────────────────────────────────────────────────────────────
+// Auth Gate
 
 export function AuthGate({ apiUrl, children }: AuthGateProps) {
 	const [state, setState] = useState<AuthState>("checking");

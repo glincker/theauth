@@ -13,7 +13,7 @@ import { cx } from "../utils.js";
 import { AuthCard } from "./auth-card.js";
 import { OAuthButtons } from "./oauth-buttons.js";
 
-// ─── Default slots ───────────────────────────────────────────────────────────
+// Default slots
 
 function DefaultInput({ label, error, ...rest }: InputSlotProps): ReactNode {
 	return (
@@ -111,7 +111,7 @@ function Spinner(): ReactNode {
 	);
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Component
 
 export function SignUp({
 	classNames,

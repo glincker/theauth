@@ -15,9 +15,7 @@ import type { RebacBridge } from "../src/policy/rebac-bridge.js";
 import { createRebacBridge } from "../src/policy/rebac-bridge.js";
 import type { PolicyDecisionSubject } from "../src/policy/types.js";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -25,9 +23,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Suite
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("createRebacBridge", () => {
 	let db: Database;
@@ -49,7 +45,7 @@ describe("createRebacBridge", () => {
 		});
 	});
 
-	// ── Wildcard / malformed resource ─────────────────────────────────────────
+	// Wildcard / malformed resource
 
 	it("returns matched=false for wildcard resource 'doc:*'", async () => {
 		const subject: PolicyDecisionSubject = { userId: "user-1" };
@@ -84,7 +80,7 @@ describe("createRebacBridge", () => {
 		expect(result.reason).toBe("rebac:wildcard-resource-not-supported");
 	});
 
-	// ── Invalid subject combinations ──────────────────────────────────────────
+	// Invalid subject combinations
 
 	it("returns matched=false when subject has no identity fields set", async () => {
 		const subject: PolicyDecisionSubject = {};
@@ -123,7 +119,7 @@ describe("createRebacBridge", () => {
 		expect(result.reason).toBe("rebac:invalid-subject");
 	});
 
-	// ── Positive path: tuple exists ───────────────────────────────────────────
+	// Positive path: tuple exists
 
 	it("returns matched=true when user has the relation on the resource", async () => {
 		const subject: PolicyDecisionSubject = { userId: "user-1" };
@@ -178,7 +174,7 @@ describe("createRebacBridge", () => {
 		expect(result.reason).toBe("rebac:matched");
 	});
 
-	// ── Negative path: tuple absent ───────────────────────────────────────────
+	// Negative path: tuple absent
 
 	it("returns matched=false with no-tuple reason when relation does not exist", async () => {
 		const subject: PolicyDecisionSubject = { userId: "user-1" };
@@ -202,7 +198,7 @@ describe("createRebacBridge", () => {
 		expect(result.reason).toBe("rebac:no-tuple");
 	});
 
-	// ── Graph error handling ──────────────────────────────────────────────────
+	// Graph error handling
 
 	it("returns matched=false with graph-query-failed when db throws", async () => {
 		// Create a stub db that throws on select

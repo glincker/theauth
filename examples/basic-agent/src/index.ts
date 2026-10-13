@@ -15,7 +15,7 @@
 
 import { createTheAuth, users } from "@glinr/theauth";
 
-// ─── Formatting helpers ──────────────────────────────────────────────────────
+// Formatting helpers
 
 function header(text: string): void {
 	const bar = "─".repeat(60);
@@ -36,10 +36,10 @@ function info(text: string): void {
 	console.log(`        ${text}`);
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// Main
 
 async function main(): Promise<void> {
-	// ── Step 1: Create a TheAuth instance ─────────────────────────────────────
+	// Step 1: Create a TheAuth instance
 	//
 	// Pass provider "sqlite" with url ":memory:" for a fast, disposable database.
 	// In production use a file path (SQLite) or a Postgres/MySQL connection URL.
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
 
 	ok("instance created", "SQLite :memory:");
 
-	// ── Step 2: Tables are auto-created ─────────────────────────────────────────
+	// Step 2: Tables are auto-created
 	//
 	// createTheAuth() automatically runs CREATE TABLE IF NOT EXISTS for all
 	// 10 tables on startup. No manual migration needed for development.
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
 	header("Step 2 — Create database tables");
 	ok("tables auto-created", "10 tables (handled by createTheAuth)");
 
-	// ── Step 3: Create a user ───────────────────────────────────────────────────
+	// Step 3: Create a user
 	//
 	// TheAuth is agent-first, but agents are always owned by a human user.
 	// In production you would sync users from your auth provider (better-auth,
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
 
 	ok("user created", "alice@example.com  (id: user-demo)");
 
-	// ── Step 4: Create agents ───────────────────────────────────────────────────
+	// Step 4: Create agents
 	//
 	// Each agent has:
 	//   - type:        "autonomous" | "delegated" | "service"
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
 
 	ok("agent created", `${subAgent.name}  (id: ${subAgent.id.slice(0, 16)}…)`);
 
-	// ── Step 5: Authorize actions ───────────────────────────────────────────────
+	// Step 5: Authorize actions
 	//
 	// auth.authorize(agentId, { action, resource }) checks:
 	//   1. Is the agent active?
@@ -214,7 +214,7 @@ async function main(): Promise<void> {
 		deny("read  anything (bad id)", r6.reason ?? "denied");
 	}
 
-	// ── Step 6: Audit trail ─────────────────────────────────────────────────────
+	// Step 6: Audit trail
 	//
 	// Every authorize() call is written to theauth_audit_logs.
 	// You can filter by agent, user, action, result, or time window.
@@ -236,7 +236,7 @@ async function main(): Promise<void> {
 	const csvLines = csv.trim().split("\n");
 	ok("CSV export", `${csvLines.length - 1} rows  (first col: ${csvLines[0]?.split(",")[0] ?? ""})`);
 
-	// ── Step 7: Token-based authorization ──────────────────────────────────────
+	// Step 7: Token-based authorization
 	//
 	// Agents receive an opaque bearer token (prefix: kv_) at creation time.
 	// Token validation is fast: it hashes the incoming token and does a single
@@ -278,7 +278,7 @@ async function main(): Promise<void> {
 		deny("old token after rotation", "rejected — token no longer valid");
 	}
 
-	// ── Step 8: Delegation chains ───────────────────────────────────────────────
+	// Step 8: Delegation chains
 	//
 	// An agent can delegate a subset of its permissions to another agent.
 	// Constraints:
@@ -314,7 +314,7 @@ async function main(): Promise<void> {
 		info(`  resource: ${p.resource}  actions: [${p.actions.join(", ")}]`);
 	}
 
-	// ── Done ────────────────────────────────────────────────────────────────────
+	// Done
 	header("Done");
 	ok("example complete", "all steps passed");
 	console.log("");

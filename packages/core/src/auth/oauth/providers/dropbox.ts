@@ -22,9 +22,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://www.dropbox.com/oauth2/authorize";
 const TOKEN_URL = "https://api.dropboxapi.com/oauth2/token";
@@ -32,9 +30,7 @@ const USER_INFO_URL = "https://api.dropboxapi.com/2/users/get_current_account";
 
 export const DEFAULT_DROPBOX_SCOPES = ["account_info.read"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface DropboxTokenResponse {
 	access_token: string;
@@ -65,9 +61,7 @@ interface DropboxUserResponse {
 	profile_photo?: DropboxProfilePhoto;
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as DropboxUserResponse;
@@ -89,9 +83,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Dropbox OAuth provider instance.
@@ -209,9 +201,7 @@ export function createDropboxProvider(config: OAuthProviderConfig): OAuthProvide
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

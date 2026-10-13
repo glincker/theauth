@@ -1,8 +1,6 @@
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 export interface SendGridConfig {
 	/** SendGrid API key (required). */
@@ -11,9 +9,7 @@ export interface SendGridConfig {
 	from?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Provider
-// ---------------------------------------------------------------------------
 
 /**
  * Email provider backed by SendGrid (https://sendgrid.com).

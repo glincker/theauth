@@ -1,14 +1,14 @@
 import { getElectronApi } from "./electron-api.js";
 import type { SecureStorage } from "./storage.js";
 
-// ─── IPC channel names ────────────────────────────────────────────────────────
+// IPC channel names
 
 const CHANNEL_GET = "theauth:storage:get";
 const CHANNEL_SET = "theauth:storage:set";
 const CHANNEL_REMOVE = "theauth:storage:remove";
 const CHANNEL_CLEAR = "theauth:storage:clear";
 
-// ─── Request/response types ───────────────────────────────────────────────────
+// Request/response types
 
 interface StorageGetRequest {
 	key: string;
@@ -27,7 +27,7 @@ interface StorageGetResponse {
 	value: string | null;
 }
 
-// ─── Main process side ────────────────────────────────────────────────────────
+// Main process side
 
 /**
  * Registers IPC handlers in the main process so the renderer can securely
@@ -66,7 +66,7 @@ export function setupTheAuthIpc(storage: SecureStorage): void {
 	});
 }
 
-// ─── Renderer process side ────────────────────────────────────────────────────
+// Renderer process side
 
 /**
  * Creates a SecureStorage implementation that delegates all operations to the
@@ -102,7 +102,7 @@ export function createIpcStorage(): SecureStorage {
 	};
 }
 
-// ─── Preload bridge helper ────────────────────────────────────────────────────
+// Preload bridge helper
 
 /**
  * The IPC channel names exposed for use in a preload script with contextBridge.

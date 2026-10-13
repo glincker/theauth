@@ -6,7 +6,7 @@ import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 import type { Page } from "../types.js";
 
-// ─── Users Page ───────────────────────────────────────────────────────────────
+// Users Page
 
 interface UsersPageProps {
 	client: TheAuthApiClient;

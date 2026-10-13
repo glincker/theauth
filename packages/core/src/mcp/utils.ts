@@ -62,7 +62,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
 	return diff === 0;
 }
 
-// ─── Secret and token hashing ────────────────────────────────────────────────
+// Secret and token hashing
 
 /** Prefix that marks a stored client secret as a SHA-256 hash. */
 export const SECRET_HASH_PREFIX = "sha256:";

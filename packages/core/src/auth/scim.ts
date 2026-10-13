@@ -31,9 +31,7 @@ import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface ScimConfig {
 	/** Bearer token for SCIM API authentication */
@@ -88,9 +86,7 @@ export interface ScimModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal row types
-// ---------------------------------------------------------------------------
 
 interface UserRow {
 	id: string;
@@ -123,9 +119,7 @@ interface OrgMemberRow {
 	joinedAt: Date;
 }
 
-// ---------------------------------------------------------------------------
 // SCIM constants
-// ---------------------------------------------------------------------------
 
 const SCIM_CONTENT_TYPE = "application/scim+json";
 
@@ -139,9 +133,7 @@ const SCHEMA_SP_CONFIG = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderC
 const SCHEMA_RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType";
 const SCHEMA_ENTERPRISE = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function scimResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -179,9 +171,7 @@ function extractId(pathname: string, prefix: string): string | null {
 	return seg !== undefined ? decodeURIComponent(seg) : null;
 }
 
-// ---------------------------------------------------------------------------
 // Mapping functions
-// ---------------------------------------------------------------------------
 
 function userRowToScim(row: UserRow, baseUrl: string): Record<string, unknown> {
 	const primaryEmail = row.email;
@@ -249,14 +239,12 @@ function orgRowToScim(
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Filter parsing (RFC 7644 §3.4.2.2)
 // Full grammar lives in scim-filter.ts. We keep a legacy clause-array shape
 // here so the SQL translator below stays simple for the common Okta filters
 // (pure "and" of eq/co/sw/pr). For expressions that do not flatten to that
 // shape (or / not / value-paths / ne / ew / gt / ge / lt / le) the caller
 // falls back to in-memory evaluation against the serialized resource.
-// ---------------------------------------------------------------------------
 
 type LegacyFilterOp = "eq" | "co" | "sw" | "pr";
 
@@ -315,9 +303,7 @@ function parseScimFilter(filter: string): { ast: FilterAst; clauses: FilterClaus
 	return { ast, clauses };
 }
 
-// ---------------------------------------------------------------------------
 // PATCH operation types (RFC 7644 §3.5.2)
-// ---------------------------------------------------------------------------
 
 interface PatchOperation {
 	op: "add" | "replace" | "remove";
@@ -330,9 +316,7 @@ interface PatchBody {
 	Operations: PatchOperation[];
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	const {
@@ -345,9 +329,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		audit,
 	} = config;
 
-	// ---------------------------------------------------------------------------
 	// Audit helper
-	// ---------------------------------------------------------------------------
 	// Writes one `auditLogs` row per successful provisioning write. Intentionally
 	// tolerant: a failed audit write must never corrupt the response path, so
 	// errors are swallowed after logging. Every call site records its own
@@ -383,9 +365,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 	}
 
-	// -------------------------------------------------------------------------
 	// Auth guard
-	// -------------------------------------------------------------------------
 
 	function isAuthorized(request: Request): boolean {
 		const authHeader = request.headers.get("Authorization");
@@ -394,18 +374,14 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return scheme?.toLowerCase() === "bearer" && token === bearerToken;
 	}
 
-	// -------------------------------------------------------------------------
 	// Base URL extraction
-	// -------------------------------------------------------------------------
 
 	function getBaseUrl(request: Request): string {
 		const url = new URL(request.url);
 		return `${url.protocol}//${url.host}`;
 	}
 
-	// -------------------------------------------------------------------------
 	// Sort helper
-	// -------------------------------------------------------------------------
 	// RFC 7644 §3.4.2.3. sortBy is a dotted attribute path into the serialized
 	// SCIM resource. sortOrder is "ascending" (default) or "descending". Ties
 	// break on `id` for determinism across pages.
@@ -468,9 +444,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return String(a).localeCompare(String(b));
 	}
 
-	// -------------------------------------------------------------------------
 	// User handlers
-	// -------------------------------------------------------------------------
 
 	async function handleListUsers(request: Request): Promise<Response> {
 		const url = new URL(request.url);
@@ -917,9 +891,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return new Response(null, { status: 204 });
 	}
 
-	// -------------------------------------------------------------------------
 	// Group handlers
-	// -------------------------------------------------------------------------
 
 	async function getMembersForOrg(orgId: string): Promise<OrgMemberRow[]> {
 		return (await db
@@ -1352,9 +1324,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return new Response(null, { status: 204 });
 	}
 
-	// -------------------------------------------------------------------------
 	// Discovery endpoints
-	// -------------------------------------------------------------------------
 
 	function handleServiceProviderConfig(request: Request): Response {
 		const baseUrl = getBaseUrl(request);
@@ -1507,9 +1477,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		});
 	}
 
-	// -------------------------------------------------------------------------
 	// /Bulk endpoint (RFC 7644 §3.7)
-	// -------------------------------------------------------------------------
 	// Bulk is advertised as unsupported in /ServiceProviderConfig. We still
 	// handle the route so clients that probe `/Bulk` get a spec-correct 501
 	// rather than a generic 404 or an HTML error page.
@@ -1535,9 +1503,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		);
 	}
 
-	// -------------------------------------------------------------------------
 	// /Me endpoint (RFC 7644 §3.11)
-	// -------------------------------------------------------------------------
 
 	async function handleMe(request: Request): Promise<Response> {
 		if (!resolveSelf) {
@@ -1568,9 +1534,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return scimResponse(userRowToScim(row, getBaseUrl(request)));
 	}
 
-	// -------------------------------------------------------------------------
 	// Request router
-	// -------------------------------------------------------------------------
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

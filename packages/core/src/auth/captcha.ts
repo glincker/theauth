@@ -25,9 +25,7 @@
 import type { TrustedProxyConfig } from "./client-ip.js";
 import { resolveClientIp } from "./client-ip.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface CaptchaConfig {
 	/** Captcha provider */
@@ -69,9 +67,7 @@ export interface CaptchaModule {
 	middleware: (request: Request) => Promise<{ valid: boolean; error?: string }>;
 }
 
-// ---------------------------------------------------------------------------
 // Provider endpoints
-// ---------------------------------------------------------------------------
 
 const PROVIDER_URLS: Record<CaptchaConfig["provider"], string> = {
 	recaptcha: "https://www.google.com/recaptcha/api/siteverify",
@@ -79,9 +75,7 @@ const PROVIDER_URLS: Record<CaptchaConfig["provider"], string> = {
 	turnstile: "https://challenges.cloudflare.com/turnstile/v0/siteverify",
 };
 
-// ---------------------------------------------------------------------------
 // Types for provider responses
-// ---------------------------------------------------------------------------
 
 interface RecaptchaResponse {
 	success: boolean;
@@ -105,16 +99,12 @@ interface TurnstileResponse {
 
 type ProviderResponse = RecaptchaResponse | HcaptchaResponse | TurnstileResponse;
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 // const DEFAULT_PROTECTED_ENDPOINTS = ["sign-up", "sign-in", "reset-password"];
 const DEFAULT_MIN_SCORE = 0.5;
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createCaptchaModule(config: CaptchaConfig): CaptchaModule {
 	const verifyUrl = PROVIDER_URLS[config.provider];

@@ -15,7 +15,7 @@ import { SettingsPage } from "./pages/settings.js";
 import { UsersPage } from "./pages/users.js";
 import type { DashboardProps, Page } from "./types.js";
 
-// ─── Query Client (module-scoped singleton for library mode) ──────────────────
+// Query Client (module-scoped singleton for library mode)
 
 const defaultQueryClient = new QueryClient({
 	defaultOptions: {
@@ -27,7 +27,7 @@ const defaultQueryClient = new QueryClient({
 	},
 });
 
-// ─── Inner Dashboard (requires QueryClientProvider above) ─────────────────────
+// Inner Dashboard (requires QueryClientProvider above)
 
 interface InnerDashboardProps {
 	apiUrl: string;
@@ -78,7 +78,7 @@ function InnerDashboard({ apiUrl, onLogout, demo, theme, onThemeToggle }: InnerD
 	);
 }
 
-// ─── Public Component ─────────────────────────────────────────────────────────
+// Public Component
 
 const STORAGE_KEY = "theauth-theme";
 

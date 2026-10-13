@@ -29,9 +29,7 @@ import { generateCsrfToken, validateCsrfToken, validateOrigin } from "../src/ses
 import type { CookieSessionManager } from "../src/session/manager.js";
 import { createCookieSessionManager } from "../src/session/manager.js";
 
-// ---------------------------------------------------------------------------
 // Shared test helpers
-// ---------------------------------------------------------------------------
 
 const TEST_SECRET = "a-test-secret-that-is-at-least-32-chars-long!!";
 const TEST_USER_ID = "user-cookie-test";
@@ -53,9 +51,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ===========================================================================
 // Cookie utilities
-// ===========================================================================
 
 describe("serializeCookie", () => {
 	it("produces the expected base string with defaults", () => {
@@ -192,9 +188,7 @@ describe("parseCookiesFromRequest", () => {
 	});
 });
 
-// ===========================================================================
 // CSRF utilities
-// ===========================================================================
 
 describe("generateCsrfToken", () => {
 	it("returns a non-empty string", () => {
@@ -306,9 +300,7 @@ describe("validateOrigin", () => {
 	});
 });
 
-// ===========================================================================
 // Cookie-aware session manager
-// ===========================================================================
 
 describe("CookieSessionManager — createSession", () => {
 	let db: Database;

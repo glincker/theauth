@@ -42,15 +42,11 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { OidcLogoutConfig, OidcLogoutModule, OidcSidIndex } from "./oidc-logout.js";
 import { createOidcLogoutModule, createOidcSidIndex } from "./oidc-logout.js";
 
-// ---------------------------------------------------------------------------
 // Re-export shared types
-// ---------------------------------------------------------------------------
 
 export type { AuthError, Result, TheAuthError };
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface OidcProviderConfig {
 	/** Issuer identifier, e.g. "https://auth.example.com". Must be a URL. */
@@ -201,9 +197,7 @@ export interface OidcProviderModule {
 	logout?: OidcLogoutModule;
 }
 
-// ---------------------------------------------------------------------------
 // Zod schemas
-// ---------------------------------------------------------------------------
 
 const registerClientSchema = z.object({
 	clientName: z.string().min(1, "clientName must not be empty"),
@@ -255,9 +249,7 @@ const tokenSchema = z.discriminatedUnion("grantType", [
 	}),
 ]);
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_ACCESS_TOKEN_TTL = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL = 86400 * 30;
@@ -270,9 +262,7 @@ const CLIENT_SECRET_BYTE_LENGTH = 32;
 const AUTH_CODE_BYTE_LENGTH = 32;
 const REFRESH_TOKEN_BYTE_LENGTH = 32;
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -293,9 +283,7 @@ async function computeS256Challenge(codeVerifier: string): Promise<string> {
 	return jose.base64url.encode(new Uint8Array(digest));
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an OIDC Provider module that turns TheAuth into an identity provider.
@@ -353,7 +341,7 @@ export function createOidcProviderModule(
 		return publicJwkPromise;
 	}
 
-	// ── logout wiring (opt-in) ──────────────────────────────────────────────
+	// logout wiring (opt-in)
 
 	const logout: OidcLogoutModule | undefined = config.logout
 		? createOidcLogoutModule({
@@ -374,7 +362,7 @@ export function createOidcProviderModule(
 		? createOidcSidIndex(db, issuer, config.logout.indexTtlSeconds)
 		: undefined;
 
-	// ── registerClient ──────────────────────────────────────────────────────
+	// registerClient
 
 	async function registerClient(input: RegisterClientInput): Promise<Result<OidcClient>> {
 		const parsed = registerClientSchema.safeParse(input);
@@ -471,7 +459,7 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// ── getClient ───────────────────────────────────────────────────────────
+	// getClient
 
 	async function getClient(clientId: string): Promise<Result<OidcClient>> {
 		if (!clientId || clientId.trim() === "") {
@@ -501,7 +489,7 @@ export function createOidcProviderModule(
 		};
 	}
 
-	// ── deleteClient ────────────────────────────────────────────────────────
+	// deleteClient
 
 	async function deleteClient(clientId: string): Promise<Result<void>> {
 		if (!clientId || clientId.trim() === "") {
@@ -532,7 +520,7 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// ── authorize ───────────────────────────────────────────────────────────
+	// authorize
 
 	async function authorize(
 		params: AuthorizeParams,
@@ -632,7 +620,7 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// ── exchangeToken ───────────────────────────────────────────────────────
+	// exchangeToken
 
 	async function exchangeToken(params: TokenParams): Promise<Result<TokenResponse>> {
 		const parsed = tokenSchema.safeParse(params);
@@ -921,7 +909,7 @@ export function createOidcProviderModule(
 		};
 	}
 
-	// ── getUserInfo ─────────────────────────────────────────────────────────
+	// getUserInfo
 
 	async function getUserInfo(accessToken: string): Promise<Result<UserInfoClaims>> {
 		const validation = await validateAccessToken(accessToken);
@@ -946,7 +934,7 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// ── getDiscoveryDocument ────────────────────────────────────────────────
+	// getDiscoveryDocument
 
 	function getDiscoveryDocument(): OidcDiscoveryDocument {
 		return {
@@ -983,14 +971,14 @@ export function createOidcProviderModule(
 		};
 	}
 
-	// ── getJwks ─────────────────────────────────────────────────────────────
+	// getJwks
 
 	async function getJwks(): Promise<JsonWebKeySet> {
 		const publicJwk = await getPublicJwk();
 		return { keys: [publicJwk] };
 	}
 
-	// ── validateAccessToken ─────────────────────────────────────────────────
+	// validateAccessToken
 
 	async function validateAccessToken(token: string): Promise<Result<AccessTokenClaims>> {
 		if (!token || token.trim() === "") {

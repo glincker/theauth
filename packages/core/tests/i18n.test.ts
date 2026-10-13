@@ -7,9 +7,7 @@ import { fr } from "../src/i18n/locales/fr.js";
 import { ja } from "../src/i18n/locales/ja.js";
 import { zh } from "../src/i18n/locales/zh.js";
 
-// ---------------------------------------------------------------------------
 // Default English
-// ---------------------------------------------------------------------------
 
 describe("default English translations", () => {
 	it("returns the English string for a known key", () => {
@@ -32,9 +30,7 @@ describe("default English translations", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Variable interpolation
-// ---------------------------------------------------------------------------
 
 describe("variable interpolation", () => {
 	it("replaces a single {{var}} placeholder", () => {
@@ -78,9 +74,7 @@ describe("variable interpolation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Custom locale
-// ---------------------------------------------------------------------------
 
 describe("custom locale", () => {
 	it("uses custom translation when locale matches", () => {
@@ -117,9 +111,7 @@ describe("custom locale", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Locale fallback (en-US -> en)
-// ---------------------------------------------------------------------------
 
 describe("locale resolution fallback", () => {
 	it("resolves 'en-US' to the 'en' locale", () => {
@@ -154,9 +146,7 @@ describe("locale resolution fallback", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Missing key fallback
-// ---------------------------------------------------------------------------
 
 describe("missing key fallback", () => {
 	it("returns the key string when no translation exists", () => {
@@ -194,9 +184,7 @@ describe("missing key fallback", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // addLocale at runtime
-// ---------------------------------------------------------------------------
 
 describe("addLocale", () => {
 	it("registers a new locale and makes it immediately available", () => {
@@ -230,9 +218,7 @@ describe("addLocale", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Built-in locale bundles
-// ---------------------------------------------------------------------------
 
 describe("built-in locale bundles", () => {
 	const allLocales: Array<[string, Record<string, string>]> = [
@@ -264,9 +250,7 @@ describe("built-in locale bundles", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getLocales
-// ---------------------------------------------------------------------------
 
 describe("getLocales", () => {
 	it("returns 'en' by default", () => {

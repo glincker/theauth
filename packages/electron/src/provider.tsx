@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { SecureStorage } from "./storage.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface TheAuthUser {
 	id: string;
@@ -40,11 +40,11 @@ export interface ElectronTheAuthProviderProps {
 	persistSession?: boolean;
 }
 
-// ─── Storage key ──────────────────────────────────────────────────────────────
+// Storage key
 
 const SESSION_STORAGE_KEY = "theauth:session";
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// Context
 
 export const ElectronTheAuthContext = createContext<TheAuthContextValue | null>(null);
 
@@ -56,7 +56,7 @@ export function useElectronTheAuthContext(): TheAuthContextValue {
 	return ctx;
 }
 
-// ─── JSON fetch helpers ───────────────────────────────────────────────────────
+// JSON fetch helpers
 
 type JsonErrorBody = { error?: { code?: string; message?: string } };
 
@@ -73,7 +73,7 @@ function extractErrorMessage(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// Provider
 
 /**
  * Wraps your Electron renderer with TheAuth auth state.
@@ -97,7 +97,7 @@ export function ElectronTheAuthProvider({
 
 	const base = basePath.replace(/\/$/, "");
 
-	// ── Persist / restore helpers ───────────────────────────────────────────
+	// Persist / restore helpers
 
 	const persistToStorage = useCallback(
 		async (s: TheAuthSession | null): Promise<void> => {
@@ -133,7 +133,7 @@ export function ElectronTheAuthProvider({
 		}
 	}, [storage, persistSession]);
 
-	// ── Session fetch ───────────────────────────────────────────────────────
+	// Session fetch
 
 	const fetchSession = useCallback(async (): Promise<void> => {
 		try {
@@ -151,7 +151,7 @@ export function ElectronTheAuthProvider({
 		}
 	}, [base, persistToStorage]);
 
-	// ── Mount: restore from storage, then verify with server ───────────────
+	// Mount: restore from storage, then verify with server
 
 	useEffect(() => {
 		setIsLoading(true);
@@ -167,7 +167,7 @@ export function ElectronTheAuthProvider({
 		})();
 	}, [restoreFromStorage, fetchSession]);
 
-	// ── Auth actions ────────────────────────────────────────────────────────
+	// Auth actions
 
 	const refresh = useCallback(async (): Promise<void> => {
 		await fetchSession();
@@ -253,7 +253,7 @@ export function ElectronTheAuthProvider({
 		}
 	}, [base, persistToStorage]);
 
-	// ── Context value ───────────────────────────────────────────────────────
+	// Context value
 
 	const value: TheAuthContextValue = {
 		session,

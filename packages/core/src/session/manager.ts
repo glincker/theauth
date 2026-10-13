@@ -44,9 +44,7 @@ import { createSessionCookieCache } from "./cookie-cache.js";
 import type { Session, SessionConfig, SessionManager } from "./session.js";
 import { createSessionManager } from "./session.js";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface CookieSessionConfig extends SessionConfig {
 	/**
@@ -164,16 +162,12 @@ export interface CookieSessionManager {
 	raw: SessionManager;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_SESSION_NAME = "theauth_session";
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a cookie-aware session manager.
@@ -214,7 +208,7 @@ export function createCookieSessionManager(
 		return serializeCookieDeletion(sessionName, rest);
 	}
 
-	// ── public API ────────────────────────────────────────────────────────
+	// public API
 
 	async function createSession(
 		userId: string,

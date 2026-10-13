@@ -18,9 +18,7 @@ import { createTables } from "../../src/db/migrations.js";
 import { users } from "../../src/db/schema.js";
 import { AGENTIC_JWT_CLAIMS } from "../../src/standards/claims.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const TEST_SECRET = "super-secret-key-at-least-32-chars-long!!";
 
@@ -49,9 +47,7 @@ function decodePayload(token: string): Record<string, unknown> {
 	return decodeJwt(token) as Record<string, unknown>;
 }
 
-// ---------------------------------------------------------------------------
 // Constant stability
-// ---------------------------------------------------------------------------
 
 describe("AGENTIC_JWT_CLAIMS", () => {
 	it("snapshot: claim name strings are stable", () => {
@@ -70,9 +66,7 @@ describe("AGENTIC_JWT_CLAIMS", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // JwtSessionModule — flag off
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule — emitAgenticJwtClaims off (default)", () => {
 	let db: Database;
@@ -122,9 +116,7 @@ describe("JwtSessionModule — emitAgenticJwtClaims off (default)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // JwtSessionModule — flag on
-// ---------------------------------------------------------------------------
 
 describe("JwtSessionModule — emitAgenticJwtClaims on", () => {
 	let db: Database;

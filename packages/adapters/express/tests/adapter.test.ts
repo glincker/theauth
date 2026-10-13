@@ -7,7 +7,7 @@ import type { TheAuth } from "../../../core/src/theauth.js";
 import { createTheAuth } from "../../../core/src/theauth.js";
 import { theAuthExpress } from "../src/adapter.js";
 
-// ─── Test Setup ──────────────────────────────────────────────────────────────
+// Test Setup
 
 async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
 	const theauth = await createTheAuth({
@@ -41,7 +41,7 @@ async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
 	return { app, theauth };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
@@ -70,7 +70,7 @@ async function createTestAgent(
 	return { id: body.data.id, token: body.data.token };
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// Tests
 
 describe("Express adapter", () => {
 	let app: Express;
@@ -80,7 +80,7 @@ describe("Express adapter", () => {
 		({ app, theauth } = await createTestApp());
 	});
 
-	// ── Agent CRUD ─────────────────────────────────────────────────────────────
+	// Agent CRUD
 
 	describe("POST /agents", () => {
 		it("creates an agent and returns a token", async () => {
@@ -298,7 +298,7 @@ describe("Express adapter", () => {
 		});
 	});
 
-	// ── Authorization ──────────────────────────────────────────────────────────
+	// Authorization
 
 	describe("POST /authorize", () => {
 		it("allows an authorized action", async () => {
@@ -451,7 +451,7 @@ describe("Express adapter", () => {
 		});
 	});
 
-	// ── Delegation ─────────────────────────────────────────────────────────────
+	// Delegation
 
 	describe("POST /delegations", () => {
 		it("creates a delegation chain", async () => {
@@ -566,7 +566,7 @@ describe("Express adapter", () => {
 		});
 	});
 
-	// ── Audit ──────────────────────────────────────────────────────────────────
+	// Audit
 
 	describe("GET /audit", () => {
 		it("returns audit logs after an authorization check", async () => {
@@ -674,7 +674,7 @@ describe("Express adapter", () => {
 		});
 	});
 
-	// ── Dashboard ──────────────────────────────────────────────────────────────
+	// Dashboard
 
 	describe("GET /dashboard/stats", () => {
 		it("returns agent and audit stats", async () => {

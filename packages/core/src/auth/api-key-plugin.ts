@@ -5,9 +5,7 @@ import { createApiKeyManagerModule } from "./api-key-manager.js";
 
 export type { ApiKeyManagerConfig };
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 	return {

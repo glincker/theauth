@@ -102,10 +102,10 @@ export async function handleTokenExchange(
 	ctx: McpAuthContext,
 	request: Request,
 ): Promise<Result<McpTokenResponse>> {
-	// ── Parse body ──────────────────────────────────────────────────
+	// Parse body
 	const body = await parseRequestBody(request);
 
-	// ── private_key_jwt: the assertion names the client ─────────────
+	// private_key_jwt: the assertion names the client
 	let assertionVerified = false;
 	if (body.client_assertion !== undefined) {
 		if (extractBasicAuth(request) !== null || body.client_secret !== undefined) {
@@ -128,7 +128,7 @@ export async function handleTokenExchange(
 		assertionVerified = true;
 	}
 
-	// ── Resolve client credentials ──────────────────────────────────
+	// Resolve client credentials
 	const credentials = resolveClientCredentials(request, body);
 	if (!credentials) {
 		return {
@@ -146,7 +146,7 @@ export async function handleTokenExchange(
 		body.client_secret = credentials.clientSecret;
 	}
 
-	// ── Lenient clients: default a missing resource ─────────────────
+	// Lenient clients: default a missing resource
 	if (
 		body.grant_type === "authorization_code" &&
 		body.resource === undefined &&
@@ -157,7 +157,7 @@ export async function handleTokenExchange(
 		body.resource = defaulted.data;
 	}
 
-	// ── Validate request body against schema ────────────────────────
+	// Validate request body against schema
 	const parsed = McpTokenRequestSchema.safeParse(body);
 	if (!parsed.success) {
 		return {
@@ -200,11 +200,11 @@ async function handleAuthorizationCodeGrant(
 	auth: GrantClientAuth,
 	dpopJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
-	// ── Look up and authenticate the client ─────────────────────────
+	// Look up and authenticate the client
 	const resolved = await resolveAuthenticatedClient(ctx, data.client_id, auth);
 	if (!resolved.success) return resolved;
 
-	// ── Consume the authorization code (one-time use) ───────────────
+	// Consume the authorization code (one-time use)
 	const authCode = await ctx.consumeAuthorizationCode(data.code);
 	if (!authCode) {
 		return {
@@ -213,7 +213,7 @@ async function handleAuthorizationCodeGrant(
 		};
 	}
 
-	// ── Validate code is not expired ────────────────────────────────
+	// Validate code is not expired
 	if (authCode.expiresAt < new Date()) {
 		return {
 			success: false,
@@ -221,7 +221,7 @@ async function handleAuthorizationCodeGrant(
 		};
 	}
 
-	// ── Validate client_id matches the code ─────────────────────────
+	// Validate client_id matches the code
 	if (authCode.clientId !== data.client_id) {
 		return {
 			success: false,
@@ -229,7 +229,7 @@ async function handleAuthorizationCodeGrant(
 		};
 	}
 
-	// ── Validate redirect_uri matches the code ──────────────────────
+	// Validate redirect_uri matches the code
 	if (authCode.redirectUri !== data.redirect_uri) {
 		return {
 			success: false,
@@ -240,7 +240,7 @@ async function handleAuthorizationCodeGrant(
 		};
 	}
 
-	// ── PKCE: verify code_verifier against stored code_challenge ────
+	// PKCE: verify code_verifier against stored code_challenge
 	const pkceValid = await verifyS256(data.code_verifier, authCode.codeChallenge);
 	if (!pkceValid) {
 		return {
@@ -249,7 +249,7 @@ async function handleAuthorizationCodeGrant(
 		};
 	}
 
-	// ── Validate resource parameter (RFC 8707) ──────────────────────
+	// Validate resource parameter (RFC 8707)
 	// The token request must repeat the resource the code was bound to.
 	const requestedResource = resolveResource(ctx, data.resource);
 	if (
@@ -268,7 +268,7 @@ async function handleAuthorizationCodeGrant(
 
 	const resource = authCode.resource;
 
-	// ── Issue tokens ────────────────────────────────────────────────
+	// Issue tokens
 	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
 		ctx,
 		authCode.userId,
@@ -305,7 +305,7 @@ async function handleAuthorizationCodeGrant(
 
 	await ctx.storeToken(tokenRecord);
 
-	// ── Build response ──────────────────────────────────────────────
+	// Build response
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",

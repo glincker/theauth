@@ -48,15 +48,11 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { AgentType, TrustTier } from "../standards/claims.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 
-// ---------------------------------------------------------------------------
 // Re-export shared types
-// ---------------------------------------------------------------------------
 
 export type { AuthError, Result, TheAuthError };
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface JwtSessionConfig {
 	/** Signing key. A plain string uses HMAC-SHA256 (must be >= 32 chars).
@@ -162,9 +158,7 @@ export interface JwtSessionModule {
 	revokeSession(refreshToken: string): Promise<Result<void>>;
 }
 
-// ---------------------------------------------------------------------------
 // Validation
-// ---------------------------------------------------------------------------
 
 const configSchema = z.object({
 	secret: z.union([z.string().min(1), z.instanceof(Object)]),
@@ -176,17 +170,13 @@ const configSchema = z.object({
 	customClaims: z.function().optional(),
 });
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_ACCESS_TTL = 900; // 15 min
 const DEFAULT_REFRESH_TTL = 604_800; // 7 days
 const REFRESH_TOKEN_BYTES = 32;
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -247,9 +237,7 @@ function defaultAlgorithm(secret: string | CryptoKey | JsonWebKey): string {
 	return "HS256";
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a JWT session module backed by the provided database.
@@ -281,7 +269,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		return signingKeyPromise;
 	}
 
-	// ── createSession ────────────────────────────────────────────────────────
+	// createSession
 
 	async function createSession(user: SessionUser): Promise<Result<SessionTokens>> {
 		if (!user.id || typeof user.id !== "string" || user.id.trim() === "") {
@@ -364,7 +352,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		}
 	}
 
-	// ── verifySession ────────────────────────────────────────────────────────
+	// verifySession
 
 	async function verifySession(token: string): Promise<Result<VerifiedSession>> {
 		if (typeof token !== "string" || token.trim() === "") {
@@ -445,7 +433,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		}
 	}
 
-	// ── refreshSession ───────────────────────────────────────────────────────
+	// refreshSession
 
 	async function refreshSession(refreshToken: string): Promise<Result<SessionTokens>> {
 		if (typeof refreshToken !== "string" || refreshToken.trim() === "") {
@@ -506,7 +494,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		}
 	}
 
-	// ── revokeSession ────────────────────────────────────────────────────────
+	// revokeSession
 
 	async function revokeSession(refreshToken: string): Promise<Result<void>> {
 		if (typeof refreshToken !== "string" || refreshToken.trim() === "") {

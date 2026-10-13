@@ -1,6 +1,6 @@
 import type { McpAuthContext } from "./types.js";
 
-// ─── CORS headers (same as other MCP endpoints) ──────────────────────────────
+// CORS headers (same as other MCP endpoints)
 
 const CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",

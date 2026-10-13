@@ -19,7 +19,7 @@ import { PageHeader } from "../components/layout.js";
 import { Modal } from "../components/modal.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 const COMMON_ACTIONS = ["read", "write", "delete", "execute", "list", "create", "update"];
 
@@ -31,7 +31,7 @@ function formatDate(iso: string) {
 	});
 }
 
-// ─── Template Editor Modal ────────────────────────────────────────────────────
+// Template Editor Modal
 
 interface TemplateFormState {
 	name: string;
@@ -315,7 +315,7 @@ function TemplateEditor({
 	);
 }
 
-// ─── Permissions Page ─────────────────────────────────────────────────────────
+// Permissions Page
 
 interface PermissionsPageProps {
 	client: TheAuthApiClient;

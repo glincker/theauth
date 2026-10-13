@@ -27,9 +27,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface StripeConfig {
 	/** Stripe secret key (sk_live_... or sk_test_...) */
@@ -80,9 +78,7 @@ export interface StripeModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal Stripe REST types (minimal — only fields we use)
-// ---------------------------------------------------------------------------
 
 interface StripeCustomer {
 	id: string;
@@ -124,9 +120,7 @@ interface StripeEvent {
 	data: { object: Record<string, unknown> };
 }
 
-// ---------------------------------------------------------------------------
 // Stripe REST API client helpers
-// ---------------------------------------------------------------------------
 
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 const DEFAULT_API_VERSION = "2024-12-18.acacia";
@@ -190,9 +184,7 @@ async function stripeRequest<T>(
 	return json as T;
 }
 
-// ---------------------------------------------------------------------------
 // Webhook signature verification (constant-time HMAC-SHA256)
-// ---------------------------------------------------------------------------
 
 async function verifyWebhookSignature(
 	payload: string,
@@ -268,9 +260,7 @@ async function verifyWebhookSignature(
 	return JSON.parse(payload) as StripeEvent;
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createStripeModule(config: StripeConfig, db: Database): StripeModule {
 	const apiVersion = config.apiVersion ?? DEFAULT_API_VERSION;
@@ -283,9 +273,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		return stripeRequest<T>(config.secretKey, apiVersion, method, path, body);
 	}
 
-	// -------------------------------------------------------------------------
 	// Internal helpers
-	// -------------------------------------------------------------------------
 
 	async function getUserRow(userId: string) {
 		const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -350,9 +338,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 			.where(eq(users.id, userId));
 	}
 
-	// -------------------------------------------------------------------------
 	// Webhook event handlers
-	// -------------------------------------------------------------------------
 
 	async function handleCheckoutSessionCompleted(obj: Record<string, unknown>): Promise<void> {
 		const session = obj as {
@@ -437,9 +423,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		}
 	}
 
-	// -------------------------------------------------------------------------
 	// Public API
-	// -------------------------------------------------------------------------
 
 	async function createCustomer(userId: string, email: string, name?: string): Promise<string> {
 		const customer = await api<StripeCustomer>("POST", "/customers", {

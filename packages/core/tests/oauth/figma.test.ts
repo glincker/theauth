@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-figma-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USER_RAW = {
 	id: "1234567890",
@@ -25,9 +23,7 @@ const CANNED_USER_RAW = {
 	img_url: "https://s3-alpha.figma.com/profile/eve-profile.jpg",
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createFigmaProvider", () => {
 	it("creates a provider with id figma", () => {
@@ -60,9 +56,7 @@ describe("createFigmaProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createFigmaProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
@@ -94,9 +88,7 @@ describe("createFigmaProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeFigmaProfile", () => {
 	it("maps Figma user to OAuthUserInfo", () => {

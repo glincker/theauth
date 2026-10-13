@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-spotify-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USER_RAW = {
 	id: "spotify-user-abc123",
@@ -28,9 +26,7 @@ const CANNED_USER_RAW = {
 	],
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createSpotifyProvider", () => {
 	it("creates a provider with id spotify", () => {
@@ -73,9 +69,7 @@ describe("createSpotifyProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createSpotifyProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and correct scopes", async () => {
@@ -108,9 +102,7 @@ describe("createSpotifyProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeSpotifyProfile", () => {
 	it("maps Spotify user to OAuthUserInfo", () => {

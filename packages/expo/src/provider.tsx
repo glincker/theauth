@@ -12,7 +12,7 @@ import type {
 
 const SESSION_KEY = "theauth_session";
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// Context
 
 export const TheAuthExpoContext = createContext<TheAuthContextValue | null>(null);
 
@@ -30,7 +30,7 @@ export function useTheAuthContext(): TheAuthContextValue {
 /** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
 export const useAuthContext = useTheAuthContext;
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// Provider
 
 export interface TheAuthExpoProviderProps {
 	config: TheAuthExpoConfig;
@@ -55,7 +55,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		storageRef.current = config.storage ?? createMemoryStorage();
 	}, [config.storage]);
 
-	// ─── Fetch session from server (using stored token) ──────────────────────
+	// Fetch session from server (using stored token)
 
 	const fetchSession = useCallback(async (): Promise<void> => {
 		const token = await storageRef.current.getItem(SESSION_KEY);
@@ -95,7 +95,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		await fetchSession();
 	}, [fetchSession]);
 
-	// ─── Sign in ──────────────────────────────────────────────────────────────
+	// Sign in
 
 	const signIn = useCallback(
 		async (email: string, password: string): Promise<ActionResult> => {
@@ -132,7 +132,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		[base],
 	);
 
-	// ─── Sign up ──────────────────────────────────────────────────────────────
+	// Sign up
 
 	const signUp = useCallback(
 		async (email: string, password: string, name?: string): Promise<ActionResult> => {
@@ -169,7 +169,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		[base],
 	);
 
-	// ─── Sign out ─────────────────────────────────────────────────────────────
+	// Sign out
 
 	const signOut = useCallback(async (): Promise<void> => {
 		const token = await storageRef.current.getItem(SESSION_KEY);
@@ -202,7 +202,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	return <TheAuthExpoContext.Provider value={value}>{children}</TheAuthExpoContext.Provider>;
 }
 
-// ─── Deprecated aliases ─────────────────────────────────────────────────────
+// Deprecated aliases
 // Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
 // removed in a future major version.
 

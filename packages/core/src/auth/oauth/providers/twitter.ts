@@ -26,9 +26,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://twitter.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
@@ -36,9 +34,7 @@ const USER_INFO_URL = "https://api.twitter.com/2/users/me";
 const USER_FIELDS = "id,name,username,profile_image_url";
 const DEFAULT_SCOPES = ["users.read", "tweet.read"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface TwitterTokenResponse {
 	access_token: string;
@@ -60,9 +56,7 @@ interface TwitterUserResponse {
 	errors?: Array<{ message: string; title: string }>;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Twitter / X OAuth provider instance.
@@ -208,9 +202,7 @@ export function createTwitterProvider(config: OAuthProviderConfig): OAuthProvide
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

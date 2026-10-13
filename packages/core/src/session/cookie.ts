@@ -5,9 +5,7 @@
  * raw header strings. No framework dependencies.
  */
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export type SameSite = "strict" | "lax" | "none";
 
@@ -33,9 +31,7 @@ export interface CookieOptions {
 	partitioned?: boolean;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const IS_PRODUCTION = typeof process !== "undefined" && process.env.NODE_ENV === "production";
 
@@ -48,9 +44,7 @@ const DEFAULT_OPTIONS: Required<
 	path: "/",
 };
 
-// ---------------------------------------------------------------------------
 // Serialization
-// ---------------------------------------------------------------------------
 
 /**
  * Serialize a cookie name/value pair into a `Set-Cookie` header string.
@@ -106,9 +100,7 @@ export function serializeCookieDeletion(
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Parsing
-// ---------------------------------------------------------------------------
 
 /**
  * Parse a `Cookie` request header string into a name → value map.
@@ -158,9 +150,7 @@ export function parseCookiesFromRequest(request: Request): Record<string, string
 	return parseCookies(request.headers.get("cookie") ?? "");
 }
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);

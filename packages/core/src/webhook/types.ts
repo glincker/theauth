@@ -5,9 +5,7 @@
  * user, session, agent, permission, and organization lifecycle events.
  */
 
-// ---------------------------------------------------------------------------
 // Event types
-// ---------------------------------------------------------------------------
 
 export type WebhookEventType =
 	| "user.signIn"
@@ -29,15 +27,11 @@ export type WebhookEventType =
 	| "organization.created"
 	| "organization.memberAdded";
 
-// ---------------------------------------------------------------------------
 // Delivery status
-// ---------------------------------------------------------------------------
 
 export type DeliveryStatus = "pending" | "success" | "failed" | "exhausted";
 
-// ---------------------------------------------------------------------------
 // Delivery record (tracks each attempt)
-// ---------------------------------------------------------------------------
 
 export interface DeliveryAttempt {
 	/** Monotonically increasing attempt number (1-based) */
@@ -69,9 +63,7 @@ export interface DeliveryRecord {
 	updatedAt: number;
 }
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 export interface WebhookEndpointConfig {
 	/** Destination URL for the POST */
@@ -102,9 +94,7 @@ export interface WebhooksPluginConfig {
 	signing?: "hmac-sha256";
 }
 
-// ---------------------------------------------------------------------------
 // Delivery engine interface
-// ---------------------------------------------------------------------------
 
 export interface DeliveryEngine {
 	/**

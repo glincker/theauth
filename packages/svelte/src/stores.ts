@@ -8,7 +8,7 @@ import type {
 	TheAuthUser,
 } from "./types.js";
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// Internal helpers
 
 interface AgentApiResponse {
 	data: TheAuthAgent[];
@@ -40,7 +40,7 @@ function extractError(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-// ─── createTheAuthClient ──────────────────────────────────────────────────────
+// createTheAuthClient
 
 export interface TheAuthClientOptions {
 	basePath?: string;
@@ -181,7 +181,7 @@ export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClie
 	};
 }
 
-// ─── createAgentStore ─────────────────────────────────────────────────────────
+// createAgentStore
 
 export interface AgentStoreOptions {
 	basePath?: string;

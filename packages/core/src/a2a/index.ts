@@ -1,4 +1,4 @@
-// ─── A2A (Agent-to-Agent) Protocol Module ────────────────────────────────────
+// A2A (Agent-to-Agent) Protocol Module
 //
 // Implements Google's Agent2Agent protocol for agent interoperability.
 // Covers Agent Card creation/validation/signing, JSON-RPC server,

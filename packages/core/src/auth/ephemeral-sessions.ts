@@ -39,7 +39,7 @@ import { agents, ephemeralSessions, permissions } from "../db/schema.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 import type { Permission } from "../types.js";
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// Config
 
 export interface EphemeralSessionConfig {
 	db: Database;
@@ -53,7 +53,7 @@ export interface EphemeralSessionConfig {
 	auditGrouping?: boolean;
 }
 
-// ─── Public types ─────────────────────────────────────────────────────────────
+// Public types
 
 export interface CreateEphemeralSessionInput {
 	ownerId: string;
@@ -98,7 +98,7 @@ export interface EphemeralSessionModule {
 	cleanupExpired(): Promise<Result<{ count: number }>>;
 }
 
-// ─── Zod validation ──────────────────────────────────────────────────────────
+// Zod validation
 
 const CreateEphemeralSessionSchema = z.object({
 	ownerId: z.string().min(1),
@@ -117,7 +117,7 @@ const CreateEphemeralSessionSchema = z.object({
 	metadata: z.record(z.unknown()).optional(),
 });
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 async function generateSessionToken(): Promise<{ token: string; hash: string }> {
 	const hex = randomBytesHex(32);
@@ -138,7 +138,7 @@ function fail<T>(code: string, message: string, details?: Record<string, unknown
 	return { success: false, error: err(code, message, details) };
 }
 
-// ─── Module factory ───────────────────────────────────────────────────────────
+// Module factory
 
 export function createEphemeralSessionModule(
 	config: EphemeralSessionConfig,
@@ -151,7 +151,7 @@ export function createEphemeralSessionModule(
 		auditGrouping = true,
 	} = config;
 
-	// ── createSession ──────────────────────────────────────────────────────────
+	// createSession
 
 	async function createSession(
 		input: CreateEphemeralSessionInput,
@@ -258,7 +258,7 @@ export function createEphemeralSessionModule(
 		});
 	}
 
-	// ── validateSession ────────────────────────────────────────────────────────
+	// validateSession
 
 	async function validateSession(token: string): Promise<Result<EphemeralSessionValidateResult>> {
 		const hash = await sha256(token);
@@ -306,7 +306,7 @@ export function createEphemeralSessionModule(
 		});
 	}
 
-	// ── consumeAction ──────────────────────────────────────────────────────────
+	// consumeAction
 
 	async function consumeAction(
 		token: string,
@@ -377,7 +377,7 @@ export function createEphemeralSessionModule(
 		return ok({ actionsRemaining });
 	}
 
-	// ── revokeSession ──────────────────────────────────────────────────────────
+	// revokeSession
 
 	async function revokeSession(sessionId: string): Promise<Result<void>> {
 		const rows = await db
@@ -410,7 +410,7 @@ export function createEphemeralSessionModule(
 		return ok(undefined);
 	}
 
-	// ── listActiveSessions ─────────────────────────────────────────────────────
+	// listActiveSessions
 
 	async function listActiveSessions(ownerId: string): Promise<Result<EphemeralSession[]>> {
 		const now = new Date();
@@ -444,7 +444,7 @@ export function createEphemeralSessionModule(
 		return ok(live);
 	}
 
-	// ── cleanupExpired ─────────────────────────────────────────────────────────
+	// cleanupExpired
 
 	async function cleanupExpired(): Promise<Result<{ count: number }>> {
 		const now = new Date();
@@ -464,7 +464,7 @@ export function createEphemeralSessionModule(
 		return ok({ count });
 	}
 
-	// ── Internal helpers ───────────────────────────────────────────────────────
+	// Internal helpers
 
 	async function markExpired(sessionId: string, agentId: string): Promise<void> {
 		const now = new Date();
@@ -491,7 +491,7 @@ export function createEphemeralSessionModule(
 	};
 }
 
-// ─── Row mapper ───────────────────────────────────────────────────────────────
+// Row mapper
 
 function rowToSession(row: {
 	id: string;

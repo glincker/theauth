@@ -19,17 +19,13 @@ import { betterAuthAdapter } from "../src/auth/adapters/better-auth.js";
 import type { ClerkAdapterOptions, ClerkUser } from "../src/auth/adapters/clerk.js";
 import { clerkAdapter } from "../src/auth/adapters/clerk.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeRequest(headers: Record<string, string> = {}): Request {
 	return new Request("https://example.com/api", { headers });
 }
 
-// ---------------------------------------------------------------------------
 // betterAuthAdapter
-// ---------------------------------------------------------------------------
 
 describe("betterAuthAdapter", () => {
 	function makeBetterAuth(
@@ -118,9 +114,7 @@ describe("betterAuthAdapter", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // authJsAdapter
-// ---------------------------------------------------------------------------
 
 describe("authJsAdapter", () => {
 	function makeAuthJsOptions(
@@ -196,9 +190,7 @@ describe("authJsAdapter", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // clerkAdapter
-// ---------------------------------------------------------------------------
 
 describe("clerkAdapter", () => {
 	function makeClerkUser(overrides: Partial<ClerkUser> = {}): ClerkUser {

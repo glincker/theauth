@@ -8,9 +8,7 @@ const createTheAuthClient = createAuthClient;
 const TheAuthApiError = AuthApiError;
 type TheAuthApiError = AuthApiError;
 
-// ---------------------------------------------------------------------------
 // Mock helpers
-// ---------------------------------------------------------------------------
 
 function mockFetch(status: number, body: unknown): void {
 	vi.stubGlobal(
@@ -28,9 +26,7 @@ function capturedFetch(): ReturnType<typeof vi.fn> {
 	return globalThis.fetch as ReturnType<typeof vi.fn>;
 }
 
-// ---------------------------------------------------------------------------
 // Fixtures
-// ---------------------------------------------------------------------------
 
 const BASE_URL = "https://api.example.com";
 
@@ -47,9 +43,7 @@ const AGENT_FIXTURE: Agent = {
 	updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createTheAuthClient", () => {
 	afterEach(() => {

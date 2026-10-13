@@ -34,13 +34,13 @@ import { z } from "zod";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+// Constants
 
 const DEFAULT_TOKEN_TTL_SECONDS = 300;
 const WELL_KNOWN_PATH = "/.well-known/theauth-federation.json";
 const FEDERATION_TOKEN_TYPE = "theauth-federation+jwt";
 
-// ─── Zod Schemas ────────────────────────────────────────────────────────────
+// Zod Schemas
 
 export const TrustLevelSchema = z.enum(["full", "limited", "verify-only"]);
 
@@ -63,7 +63,7 @@ export const FederationConfigSchema = z.object({
 	tokenTtlSeconds: z.number().int().positive().optional(),
 });
 
-// ─── Public Types ───────────────────────────────────────────────────────────
+// Public Types
 
 export type TrustLevel = z.infer<typeof TrustLevelSchema>;
 
@@ -176,7 +176,7 @@ export interface FederationModule {
 	): Promise<Result<TrustedInstance>>;
 }
 
-// ─── JWT Claims ─────────────────────────────────────────────────────────────
+// JWT Claims
 
 interface FederationJwtPayload {
 	/** Source instance ID */
@@ -193,13 +193,13 @@ interface FederationJwtPayload {
 	credential?: string;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 
-// ─── Factory ────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Create a federation module for cross-instance agent identity.
@@ -245,7 +245,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		return publicJwkCache;
 	}
 
-	// ── issueFederationToken ──────────────────────────────────────────────
+	// issueFederationToken
 
 	async function issueFederationToken(
 		input: IssueFederationTokenInput,
@@ -324,7 +324,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		}
 	}
 
-	// ── verifyFederationToken ────────────────────────────────────────────
+	// verifyFederationToken
 
 	async function verifyFederationToken(token: string): Promise<Result<FederatedAgent>> {
 		if (!token || token.trim() === "") {
@@ -468,7 +468,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		}
 	}
 
-	// ── getInstanceIdentity ─────────────────────────────────────────────
+	// getInstanceIdentity
 
 	async function getInstanceIdentity(): Promise<InstanceIdentity> {
 		const publicKeyJwk = await getPublicJwk();
@@ -481,7 +481,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		};
 	}
 
-	// ── Trust management ────────────────────────────────────────────────
+	// Trust management
 
 	function addTrustedInstance(instance: TrustedInstance): Result<void> {
 		const validated = TrustedInstanceSchema.safeParse(instance);
@@ -517,7 +517,7 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		return [...trustedInstances.values()];
 	}
 
-	// ── Discovery ───────────────────────────────────────────────────────
+	// Discovery
 
 	async function discoverInstance(
 		url: string,

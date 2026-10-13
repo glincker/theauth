@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-twitch-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USER_RAW = {
 	data: [
@@ -30,9 +28,7 @@ const CANNED_USER_RAW = {
 	],
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createTwitchProvider", () => {
 	it("creates a provider with id twitch", () => {
@@ -64,9 +60,7 @@ describe("createTwitchProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createTwitchProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
@@ -98,9 +92,7 @@ describe("createTwitchProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeTwitchProfile", () => {
 	it("maps Twitch helix user to OAuthUserInfo", () => {

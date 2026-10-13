@@ -25,16 +25,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TheAuth } from "../src/theauth.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "integration-test-secret-at-least-32-chars-long!!";
 const TEST_EMAIL = "alice@example.com";
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 async function createIntegrationTheAuth(): Promise<{
 	theauth: TheAuth;
@@ -64,9 +60,7 @@ async function createIntegrationTheAuth(): Promise<{
 	return { theauth, capturedCodes };
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("Integration: full auth + agent flow", () => {
 	let theauth: TheAuth;
@@ -77,11 +71,11 @@ describe("Integration: full auth + agent flow", () => {
 	});
 
 	it("completes the full flow end-to-end", async () => {
-		// ── Step 1: instance is alive ────────────────────────────────────────
+		// Step 1: instance is alive
 		expect(theauth).toBeDefined();
 		expect(theauth.emailOtp).not.toBeNull();
 
-		// ── Step 2: sign up (send OTP) ───────────────────────────────────────
+		// Step 2: sign up (send OTP)
 		const sendResult = await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		expect(sendResult.sent).toBe(true);
 
@@ -90,7 +84,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(typeof signupCode).toBe("string");
 		expect((signupCode as string).length).toBeGreaterThan(0);
 
-		// ── Step 3: verify OTP — creates user + issues session ───────────────
+		// Step 3: verify OTP — creates user + issues session
 		const signupResult = await theauth.emailOtp?.verifyCode(TEST_EMAIL, signupCode as string);
 		expect(signupResult).not.toBeNull();
 
@@ -105,7 +99,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(session).not.toBeNull();
 		expect(session?.userId).toBe(userId);
 
-		// ── Step 4: sign in again (returning user re-verifies) ───────────────
+		// Step 4: sign in again (returning user re-verifies)
 		await theauth.emailOtp?.sendCode(TEST_EMAIL);
 		const signinCode = capturedCodes.get(TEST_EMAIL);
 		expect(signinCode).toBeDefined();
@@ -117,7 +111,7 @@ describe("Integration: full auth + agent flow", () => {
 		// Fresh session token
 		expect(signinResult?.session.token).toBeTruthy();
 
-		// ── Step 5: create an agent with permissions ─────────────────────────
+		// Step 5: create an agent with permissions
 		const agent = await theauth.agent.create({
 			ownerId: userId,
 			name: "data-reader",
@@ -134,7 +128,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(agent.token).toMatch(/^kv_/);
 		expect(agent.permissions).toHaveLength(2);
 
-		// ── Step 6: authorize an allowed action ──────────────────────────────
+		// Step 6: authorize an allowed action
 		const allowedResult = await theauth.authorize(agent.id, {
 			action: "read",
 			resource: "reports:monthly",
@@ -143,7 +137,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(allowedResult.allowed).toBe(true);
 		expect(allowedResult.auditId).toBeTruthy();
 
-		// ── Step 7: authorize a denied action ────────────────────────────────
+		// Step 7: authorize a denied action
 		const deniedResult = await theauth.authorize(agent.id, {
 			action: "delete",
 			resource: "reports:monthly",
@@ -152,7 +146,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(deniedResult.allowed).toBe(false);
 		expect(deniedResult.reason).toBeTruthy();
 
-		// ── Step 8: audit trail has both entries ─────────────────────────────
+		// Step 8: audit trail has both entries
 		const auditLogs = await theauth.audit.query({ agentId: agent.id });
 		expect(auditLogs.length).toBeGreaterThanOrEqual(2);
 
@@ -168,7 +162,7 @@ describe("Integration: full auth + agent flow", () => {
 			expect(entry.resource).toBeTruthy();
 		}
 
-		// ── Step 9: delegate permissions to a sub-agent ──────────────────────
+		// Step 9: delegate permissions to a sub-agent
 		const subAgent = await theauth.agent.create({
 			ownerId: userId,
 			name: "sub-reader",
@@ -195,7 +189,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(delegatedPerm).toBeDefined();
 		expect(delegatedPerm?.actions).toContain("read");
 
-		// ── Step 10: authorize via delegation ────────────────────────────────
+		// Step 10: authorize via delegation
 		const delegatedAllowed = await theauth.authorize(subAgent.id, {
 			action: "read",
 			resource: "reports:monthly",
@@ -211,14 +205,14 @@ describe("Integration: full auth + agent flow", () => {
 
 		expect(delegatedDenied.allowed).toBe(false);
 
-		// ── Step 11: revoke the primary agent ────────────────────────────────
+		// Step 11: revoke the primary agent
 		await theauth.agent.revoke(agent.id);
 
 		const revokedAgent = await theauth.agent.get(agent.id);
 		expect(revokedAgent).not.toBeNull();
 		expect(revokedAgent?.status).toBe("revoked");
 
-		// ── Step 12: revoked agent is denied on all actions ──────────────────
+		// Step 12: revoked agent is denied on all actions
 		const afterRevokeResult = await theauth.authorize(agent.id, {
 			action: "read",
 			resource: "reports:monthly",
@@ -231,7 +225,7 @@ describe("Integration: full auth + agent flow", () => {
 		const tokenResult = await theauth.agent.validateToken(agent.token);
 		expect(tokenResult).toBeNull();
 
-		// ── Step 13: export audit trail as CSV ───────────────────────────────
+		// Step 13: export audit trail as CSV
 		const csv = await theauth.audit.export({ format: "csv" });
 
 		// Header row

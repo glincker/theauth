@@ -1,4 +1,4 @@
-// ─── Prisma model types mirroring the TheAuth schema ────────────────────────
+// Prisma model types mirroring the TheAuth schema
 // These are the plain object shapes returned from the adapter. They match
 // the Prisma model fields defined in schema.prisma.
 
@@ -227,7 +227,7 @@ export interface PrismaApprovalRequest {
 	createdAt: Date;
 }
 
-// ─── Filter / create inputs ───────────────────────────────────────────────────
+// Filter / create inputs
 
 export interface AgentFilter {
 	ownerId?: string;
@@ -306,7 +306,7 @@ export interface CreateSessionInput {
 	createdAt: Date;
 }
 
-// ─── Main adapter interface ───────────────────────────────────────────────────
+// Main adapter interface
 
 export interface TheAuthPrismaAdapter {
 	// Users

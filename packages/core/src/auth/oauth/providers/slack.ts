@@ -24,9 +24,7 @@
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://slack.com/oauth/v2/authorize";
 const TOKEN_URL = "https://slack.com/api/oauth.v2.access";
@@ -35,9 +33,7 @@ const USER_INFO_URL = "https://slack.com/api/openid.connect.userInfo";
 export const DEFAULT_SLACK_SCOPES = ["openid", "profile", "email"];
 const DEFAULT_SCOPES = DEFAULT_SLACK_SCOPES;
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface SlackAuthedUser {
 	id: string;
@@ -64,9 +60,7 @@ interface SlackUserInfoResponse {
 	error?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Slack OAuth provider instance.
@@ -202,9 +196,7 @@ export function createSlackProvider(config: OAuthProviderConfig): OAuthProvider 
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as SlackUserInfoResponse;
@@ -231,9 +223,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

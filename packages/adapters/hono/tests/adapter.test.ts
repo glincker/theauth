@@ -5,7 +5,7 @@ import type { TheAuth } from "../../../core/src/theauth.js";
 import { createTheAuth } from "../../../core/src/theauth.js";
 import { theAuthHono } from "../src/adapter.js";
 
-// ─── Test Setup ──────────────────────────────────────────────────────────────
+// Test Setup
 
 async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
 	const theauth = await createTheAuth({
@@ -35,7 +35,7 @@ async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
 	return { app, theauth };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
@@ -65,7 +65,7 @@ async function createTestAgent(
 	return { id: body.data.id, token: body.data.token };
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// Tests
 
 describe("Hono adapter", () => {
 	let app: Hono;
@@ -75,7 +75,7 @@ describe("Hono adapter", () => {
 		({ app, theauth } = await createTestApp());
 	});
 
-	// ── Agent CRUD ─────────────────────────────────────────────────────────────
+	// Agent CRUD
 
 	describe("POST /agents", () => {
 		it("creates an agent and returns a token", async () => {
@@ -291,7 +291,7 @@ describe("Hono adapter", () => {
 		});
 	});
 
-	// ── Authorization ──────────────────────────────────────────────────────────
+	// Authorization
 
 	describe("POST /authorize", () => {
 		it("allows an authorized action", async () => {
@@ -430,7 +430,7 @@ describe("Hono adapter", () => {
 		});
 	});
 
-	// ── Delegation ─────────────────────────────────────────────────────────────
+	// Delegation
 
 	describe("POST /delegations", () => {
 		it("creates a delegation chain", async () => {
@@ -550,7 +550,7 @@ describe("Hono adapter", () => {
 		});
 	});
 
-	// ── Audit ──────────────────────────────────────────────────────────────────
+	// Audit
 
 	describe("GET /audit", () => {
 		it("returns audit logs after an authorization check", async () => {
@@ -647,7 +647,7 @@ describe("Hono adapter", () => {
 		});
 	});
 
-	// ── Dashboard ──────────────────────────────────────────────────────────────
+	// Dashboard
 
 	describe("GET /dashboard/stats", () => {
 		it("returns agent and audit stats", async () => {

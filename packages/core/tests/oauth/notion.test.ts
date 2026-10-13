@@ -17,9 +17,7 @@ const CLIENT_SECRET = "test-notion-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_TOKEN_RAW = {
 	access_token: "notion-access-token",
@@ -41,9 +39,7 @@ const CANNED_TOKEN_RAW = {
 	},
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createNotionProvider", () => {
 	it("creates a provider with id notion", () => {
@@ -73,9 +69,7 @@ describe("createNotionProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createNotionProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, state, and owner=user", async () => {
@@ -114,9 +108,7 @@ describe("createNotionProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeNotionProfile", () => {
 	it("maps owner.user to OAuthUserInfo", () => {

@@ -7,9 +7,7 @@ import { createReBACModule } from "../auth/rebac.js";
 import type { Database } from "../db/database.js";
 import type { PolicyDecisionSubject } from "./types.js";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Public interface
-// ─────────────────────────────────────────────────────────────────────────────
 
 export interface RebacBridgeInput {
 	subject: PolicyDecisionSubject;
@@ -27,9 +25,7 @@ export interface RebacBridge {
 	checkRelation(input: RebacBridgeInput): Promise<RebacBridgeResult>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 const WILDCARD_REASON = "rebac:wildcard-resource-not-supported";
 const INVALID_SUBJECT_REASON = "rebac:invalid-subject";
@@ -77,9 +73,7 @@ function parseSubject(
 	return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Factory
-// ─────────────────────────────────────────────────────────────────────────────
 
 export function createRebacBridge(deps: { db: Database }): RebacBridge {
 	const rebac = createReBACModule({}, deps.db);

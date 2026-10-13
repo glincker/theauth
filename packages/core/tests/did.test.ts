@@ -10,7 +10,7 @@ import { generateDidWeb, getDidWebUrl } from "../src/did/web-method.js";
 import type { TheAuth } from "../src/theauth.js";
 import { createTestTheAuth } from "./helpers.js";
 
-// ─── did:key ──────────────────────────────────────────────────────────────────
+// did:key
 
 describe("did:key – key generation", () => {
 	it("generates a DID starting with did:key:z", async () => {
@@ -92,7 +92,7 @@ describe("buildDidDocument", () => {
 	});
 });
 
-// ─── did:web ──────────────────────────────────────────────────────────────────
+// did:web
 
 describe("did:web – generation and URL construction", () => {
 	it("generates a DID starting with did:web:", async () => {
@@ -134,7 +134,7 @@ describe("did:web – generation and URL construction", () => {
 	});
 });
 
-// ─── Signing and verification ─────────────────────────────────────────────────
+// Signing and verification
 
 describe("signPayload / verifyPayload", () => {
 	it("signs and verifies a payload roundtrip", async () => {
@@ -176,7 +176,7 @@ describe("signPayload / verifyPayload", () => {
 	});
 });
 
-// ─── Presentations ────────────────────────────────────────────────────────────
+// Presentations
 
 describe("createPresentation / verifyPresentation", () => {
 	it("creates and verifies a presentation JWT roundtrip", async () => {
@@ -258,7 +258,7 @@ describe("createPresentation / verifyPresentation", () => {
 	});
 });
 
-// ─── Database integration (DID module) ───────────────────────────────────────
+// Database integration (DID module)
 
 describe("DID module – database storage", () => {
 	let theauth: TheAuth;

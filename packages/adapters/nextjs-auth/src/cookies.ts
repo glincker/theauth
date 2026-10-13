@@ -4,9 +4,7 @@ import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import type { ResolvedAuthConfig, SessionCacheEntry } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Cookie read helpers (server-only)
-// ---------------------------------------------------------------------------
 
 /** Returns the session access token, checking prefixed + unprefixed names. */
 export async function getSessionToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
@@ -31,9 +29,7 @@ export async function hasSessionCookie<TUser>(config: ResolvedAuthConfig<TUser>)
 	return token.length > 0;
 }
 
-// ---------------------------------------------------------------------------
 // Session cache cookie (better-auth-inspired cookie cache)
-// ---------------------------------------------------------------------------
 //
 // Instead of calling the backend on every RSC render, we store a lightweight
 // JSON blob {user, expiresAt, stampedAt} in a short-lived cookie. If the
@@ -95,9 +91,7 @@ export async function clearSessionCache<TUser>(config: ResolvedAuthConfig<TUser>
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Cookie write helpers (response-based, for Route Handlers + middleware)
-// ---------------------------------------------------------------------------
 
 interface SessionCookieValues {
 	accessToken: string;

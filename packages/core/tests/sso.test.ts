@@ -43,9 +43,7 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -196,9 +194,7 @@ function encodeSamlResponse(xml: string): string {
 	return btoa(xml);
 }
 
-// ---------------------------------------------------------------------------
 // XML Parser Tests
-// ---------------------------------------------------------------------------
 
 describe("XML Parser: parseXml", () => {
 	it("parses a simple element", () => {
@@ -293,9 +289,7 @@ describe("XML Parser: parseXml", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // XXE Prevention Tests
-// ---------------------------------------------------------------------------
 
 describe("XXE Prevention", () => {
 	it("rejects DOCTYPE declarations", () => {
@@ -318,9 +312,7 @@ describe("XXE Prevention", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // XML Query Helper Tests
-// ---------------------------------------------------------------------------
 
 describe("XML query helpers", () => {
 	const xml = `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
@@ -384,9 +376,7 @@ describe("XML query helpers", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SAML Namespace Variation Tests
-// ---------------------------------------------------------------------------
 
 describe("SAML namespace variations", () => {
 	it("handles saml: prefix", () => {
@@ -420,9 +410,7 @@ describe("SAML namespace variations", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SAML Signature Verification Tests
-// ---------------------------------------------------------------------------
 
 describe("SAML signature verification", () => {
 	it("verifies a valid RSA-SHA256 signature", async () => {
@@ -470,9 +458,7 @@ describe("SAML signature verification", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SAML Condition Validation Tests
-// ---------------------------------------------------------------------------
 
 describe("SAML condition validation", () => {
 	let db: Database;
@@ -609,9 +595,7 @@ describe("SAML condition validation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // InResponseTo Validation Tests
-// ---------------------------------------------------------------------------
 
 describe("SAML InResponseTo validation", () => {
 	let db: Database;
@@ -668,9 +652,7 @@ describe("SAML InResponseTo validation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Encrypted Assertion Detection Tests
-// ---------------------------------------------------------------------------
 
 describe("SAML encrypted assertion detection", () => {
 	let db: Database;
@@ -704,9 +686,7 @@ describe("SAML encrypted assertion detection", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Malformed XML Tests
-// ---------------------------------------------------------------------------
 
 describe("Malformed XML handling", () => {
 	let db: Database;
@@ -769,9 +749,7 @@ describe("Malformed XML handling", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // State Parameter Tests
-// ---------------------------------------------------------------------------
 
 describe("State parameter", () => {
 	it("generateState produces a valid state token", async () => {
@@ -821,9 +799,7 @@ describe("State parameter", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Rate Limiting Tests
-// ---------------------------------------------------------------------------
 
 describe("Rate limiting", () => {
 	it("blocks excessive SAML login attempts", async () => {
@@ -858,9 +834,7 @@ describe("Rate limiting", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Audit Trail Tests
-// ---------------------------------------------------------------------------
 
 describe("Audit trail", () => {
 	it("emits audit events for SAML login attempts", async () => {
@@ -930,9 +904,7 @@ describe("Audit trail", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Connection CRUD Tests
-// ---------------------------------------------------------------------------
 
 describe("SsoModule.createConnection", () => {
 	let db: Database;
@@ -1144,9 +1116,7 @@ describe("SsoModule.getOidcAuthUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SsoError Tests
-// ---------------------------------------------------------------------------
 
 describe("SsoError", () => {
 	it("has code and message properties", () => {
@@ -1158,9 +1128,7 @@ describe("SsoError", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // HTTP Handler Tests
-// ---------------------------------------------------------------------------
 
 describe("SsoModule.handleRequest", () => {
 	let db: Database;

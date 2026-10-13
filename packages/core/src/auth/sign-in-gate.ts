@@ -70,9 +70,7 @@ export type {
 } from "./sign-in-gate-types.js";
 export { SIGN_IN_METHODS } from "./sign-in-gate-types.js";
 
-// ---------------------------------------------------------------------------
 // Pure evaluation
-// ---------------------------------------------------------------------------
 
 export interface EvaluateSignInGateInput {
 	user: SignInGateUser;
@@ -108,9 +106,7 @@ export function evaluateSignInGate(input: EvaluateSignInGateInput): RawGateOutco
 	return "allow";
 }
 
-// ---------------------------------------------------------------------------
 // Challenge tokens
-// ---------------------------------------------------------------------------
 
 type ChallengePurpose = "password_change" | "two_factor";
 
@@ -154,9 +150,7 @@ function isMethod(value: unknown): value is SignInMethod {
 	return typeof value === "string" && (SIGN_IN_METHODS as readonly string[]).includes(value);
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export interface CreateSignInGateOptions {
 	db: Database;

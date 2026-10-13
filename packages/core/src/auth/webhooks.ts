@@ -27,9 +27,7 @@
 
 import { hmacSha256 } from "../crypto/web-crypto.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export type WebhookEvent =
 	| "user.created"
@@ -67,9 +65,7 @@ export interface WebhookModule {
 	listEndpoints: () => WebhookConfig[];
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function signPayload(secret: string, timestamp: string, body: string): Promise<string> {
 	const data = `${timestamp}.${body}`;
@@ -129,9 +125,7 @@ async function deliverWithRetry(
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createWebhookModule(configs: WebhookConfig[]): WebhookModule {
 	const endpoints: WebhookConfig[] = [...configs];
