@@ -21,9 +21,7 @@ import type { Database } from "../db/database.js";
 import { agents, sessions, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface AdminConfig {
 	/** User IDs that are global admins */
@@ -75,15 +73,11 @@ export interface AdminModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal row type (matches schema with ban columns)
-// ---------------------------------------------------------------------------
 
 type UserRow = typeof users.$inferSelect;
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 const DEFAULT_IMPERSONATION_TTL_SECONDS = 3600; // 1 hour
 
@@ -285,7 +279,7 @@ export function createAdminModule(
 		await logAdminAction("system", "force_password_reset", userId);
 	}
 
-	// ── HTTP handler ──────────────────────────────────────────────────────────
+	// HTTP handler
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

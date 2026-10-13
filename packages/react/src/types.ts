@@ -1,4 +1,4 @@
-// ─── Domain types ─────────────────────────────────────────────────────────────
+// Domain types
 
 export interface TheAuthUser {
 	id: string;
@@ -59,7 +59,7 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-// ─── Rotation (v0.5) ──────────────────────────────────────────────────────────
+// Rotation (v0.5)
 
 /**
  * Canonical error codes returned by `rotateSession()` and surfaced to
@@ -107,7 +107,7 @@ export interface RotateRetryConfig {
 /** Status of the in-flight rotation. */
 export type RotationStatus = "idle" | "rotating" | "error";
 
-// ─── External auth config ─────────────────────────────────────────────────────
+// External auth config
 
 /**
  * Configuration for external API auth mode.
@@ -133,7 +133,7 @@ export interface ExternalAuthConfig {
 	/** Callback after logout completes (e.g. redirect to login page). */
 	onLogout?: () => void;
 
-	// ── Rotation (v0.5) ────────────────────────────────────────────────────
+	// Rotation (v0.5)
 
 	/**
 	 * Path to the refresh endpoint. When set, rotation is enabled and
@@ -190,11 +190,11 @@ export interface ExternalAuthConfig {
 	errorCodeMap?: Partial<Record<string, RotateErrorCode>>;
 }
 
-// ─── Result type ──────────────────────────────────────────────────────────────
+// Result type
 
 export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
 
-// ─── Context value ────────────────────────────────────────────────────────────
+// Context value
 
 export interface TheAuthContextValue {
 	session: TheAuthSession | null;
@@ -206,7 +206,7 @@ export interface TheAuthContextValue {
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 
-	// ── Rotation (v0.5) ────────────────────────────────────────────────────
+	// Rotation (v0.5)
 
 	/**
 	 * Manually trigger an access-token rotation.

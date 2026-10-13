@@ -26,7 +26,7 @@ import {
 	A2AAgentCardSchema,
 } from "./types.js";
 
-// ─── Create A2A Client ──────────────────────────────────────────────────────
+// Create A2A Client
 
 /**
  * Create an A2A client that can discover and call remote A2A agents.

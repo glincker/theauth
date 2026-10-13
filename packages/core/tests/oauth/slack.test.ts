@@ -14,9 +14,7 @@ const CLIENT_SECRET = "test-slack-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// ---------------------------------------------------------------------------
 // Canned responses
-// ---------------------------------------------------------------------------
 
 const CANNED_USERINFO_RAW = {
 	ok: true,
@@ -27,9 +25,7 @@ const CANNED_USERINFO_RAW = {
 	"https://slack.com/user_id": "U01ABC123DE",
 };
 
-// ---------------------------------------------------------------------------
 // Provider construction
-// ---------------------------------------------------------------------------
 
 describe("createSlackProvider", () => {
 	it("creates a provider with id slack", () => {
@@ -61,9 +57,7 @@ describe("createSlackProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Authorization URL
-// ---------------------------------------------------------------------------
 
 describe("createSlackProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and openid scopes", async () => {
@@ -95,9 +89,7 @@ describe("createSlackProvider — getAuthorizationUrl", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 describe("normalizeSlackProfile", () => {
 	it("maps Slack OIDC userinfo to OAuthUserInfo", () => {

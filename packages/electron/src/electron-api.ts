@@ -1,4 +1,4 @@
-// ─── Electron API injection ───────────────────────────────────────────────────
+// Electron API injection
 //
 // Modules that need Electron APIs call getElectronApi() to retrieve the live
 // bindings. In a real Electron process this resolves to the real electron
@@ -6,7 +6,7 @@
 
 import type { SecureStorage } from "./storage.js";
 
-// ─── Surface interfaces ───────────────────────────────────────────────────────
+// Surface interfaces
 
 export interface ElectronSafeStorage {
 	isEncryptionAvailable(): boolean;
@@ -77,7 +77,7 @@ export interface ElectronApi {
 	ipcRenderer: ElectronIpcRenderer;
 }
 
-// ─── Singleton ────────────────────────────────────────────────────────────────
+// Singleton
 
 let _override: ElectronApi | null = null;
 

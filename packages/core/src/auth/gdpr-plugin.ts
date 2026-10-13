@@ -25,9 +25,7 @@ import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import { createGdprModule } from "./gdpr.js";
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function gdpr(): TheAuthPlugin {
 	return {

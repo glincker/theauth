@@ -43,9 +43,7 @@ import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"] as const;
@@ -61,9 +59,7 @@ function getJwks(): ReturnType<typeof createRemoteJWKSet> {
 	return cachedJwks;
 }
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface OneTapConfig {
 	/** Google OAuth client ID */
@@ -102,9 +98,7 @@ export interface OneTapModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Errors
-// ---------------------------------------------------------------------------
 
 export class OneTapVerifyError extends Error {
 	constructor(
@@ -116,9 +110,7 @@ export class OneTapVerifyError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Google JWT payload shape
-// ---------------------------------------------------------------------------
 
 interface GoogleIdTokenPayload {
 	sub: string;
@@ -134,9 +126,7 @@ interface GoogleIdTokenPayload {
 	iat: number;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createOneTapModule(
 	config: OneTapConfig,
@@ -149,7 +139,7 @@ export function createOneTapModule(
 	const csrfCookieName = config.csrfCookieName ?? DEFAULT_CSRF_COOKIE_NAME;
 	const callbackPath = "/auth/one-tap/callback";
 
-	// ── verify ────────────────────────────────────────────────────────────
+	// verify
 
 	async function verify(idToken: string): Promise<GoogleUser> {
 		let payload: GoogleIdTokenPayload;
@@ -188,7 +178,7 @@ export function createOneTapModule(
 		};
 	}
 
-	// ── findOrCreate user ─────────────────────────────────────────────────
+	// findOrCreate user
 
 	async function findOrCreateUser(googleUser: GoogleUser): Promise<{ id: string; email: string }> {
 		// Look up by email first.
@@ -221,7 +211,7 @@ export function createOneTapModule(
 		return { id, email: googleUser.email };
 	}
 
-	// ── CSRF helpers ──────────────────────────────────────────────────────
+	// CSRF helpers
 
 	function getCsrfCookie(request: Request): string | null {
 		const cookieHeader = request.headers.get("cookie") ?? "";
@@ -237,7 +227,7 @@ export function createOneTapModule(
 		return null;
 	}
 
-	// ── handleRequest ─────────────────────────────────────────────────────
+	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
@@ -312,9 +302,7 @@ export function createOneTapModule(
 	return { verify, handleRequest };
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {

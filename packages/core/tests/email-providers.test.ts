@@ -23,9 +23,7 @@ import { sendgrid } from "../src/email/sendgrid.js";
 import { smtp } from "../src/email/smtp.js";
 import { createEmailTemplates } from "../src/email/templates.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const VALID_RESEND_KEY = "re_test_abc123";
 const VALID_SENDGRID_KEY = "SG.test_abc123";
@@ -37,9 +35,7 @@ const SAMPLE_OPTIONS = {
 	text: "Hello",
 };
 
-// ---------------------------------------------------------------------------
 // Console provider
-// ---------------------------------------------------------------------------
 
 describe("consoleProvider", () => {
 	it("returns an id on send", async () => {
@@ -98,9 +94,7 @@ describe("consoleProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Resend provider
-// ---------------------------------------------------------------------------
 
 describe("resend provider — config validation", () => {
 	it("throws immediately when apiKey is empty string", () => {
@@ -196,9 +190,7 @@ describe("resend provider — send", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SendGrid provider
-// ---------------------------------------------------------------------------
 
 describe("sendgrid provider — config validation", () => {
 	it("throws immediately when apiKey is empty string", () => {
@@ -288,9 +280,7 @@ describe("sendgrid provider — send", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // SMTP provider
-// ---------------------------------------------------------------------------
 
 describe("smtp provider — config validation", () => {
 	it("throws immediately when host is empty string", () => {
@@ -342,9 +332,7 @@ describe("smtp provider — nodemailer peer dep missing", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Template override pattern (documented in spec)
-// ---------------------------------------------------------------------------
 
 describe("template overrides", () => {
 	it("custom template function is used when provided", () => {
@@ -386,9 +374,7 @@ describe("template overrides", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // XSS / HTML escaping
-// ---------------------------------------------------------------------------
 
 describe("HTML escaping in templates", () => {
 	/**

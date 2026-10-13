@@ -4,7 +4,7 @@ import type { ButtonSlotProps, ErrorSlotProps, TwoFactorVerifyProps } from "../t
 import { cx } from "../utils.js";
 import { AuthCard } from "./auth-card.js";
 
-// ─── Default slots ───────────────────────────────────────────────────────────
+// Default slots
 
 function DefaultButton({ loading, children, ...rest }: ButtonSlotProps): ReactNode {
 	return (
@@ -54,7 +54,7 @@ function Spinner(): ReactNode {
 	);
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Component
 
 export function TwoFactorVerify({
 	classNames,

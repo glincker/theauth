@@ -40,9 +40,7 @@ import {
 } from "../src/auth/oauth/providers/presets.js";
 import type { OAuthProvider } from "../src/auth/oauth/types.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const DUMMY_ID = "test-client-id";
 const DUMMY_SECRET = "test-client-secret";
@@ -69,9 +67,7 @@ function assertUrlShape(url: string): void {
 	expect(url.startsWith("https://")).toBe(true);
 }
 
-// ---------------------------------------------------------------------------
 // genericOIDC factory
-// ---------------------------------------------------------------------------
 
 describe("genericOIDC", () => {
 	it("creates a provider with explicit endpoint overrides (no discovery needed)", () => {
@@ -200,9 +196,7 @@ describe("genericOIDC", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Preset providers — structure tests (no network)
-// ---------------------------------------------------------------------------
 
 describe("facebookProvider", () => {
 	it("returns a valid provider config", () => {
@@ -452,9 +446,7 @@ describe("polarProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // OIDC-discovery presets
-// ---------------------------------------------------------------------------
 
 describe("auth0Provider", () => {
 	it("returns a valid provider config with issuer derived from domain", () => {
@@ -529,9 +521,7 @@ describe("cognitoProvider", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // All presets share required shape — table-driven sweep
-// ---------------------------------------------------------------------------
 
 describe("all presets have required fields", () => {
 	const providers: Array<[string, OAuthProvider]> = [

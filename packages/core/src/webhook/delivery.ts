@@ -22,9 +22,7 @@ import type {
 	WebhookEndpointConfig,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -36,9 +34,7 @@ function backoffDelay(attempt: number, baseMs: number): number {
 	return baseMs * BACKOFF_EXPONENT ** attempt;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a delivery engine with the given retry configuration.

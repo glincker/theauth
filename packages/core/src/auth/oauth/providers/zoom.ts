@@ -20,9 +20,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://zoom.us/oauth/authorize";
 const TOKEN_URL = "https://zoom.us/oauth/token";
@@ -30,9 +28,7 @@ const USER_INFO_URL = "https://api.zoom.us/v2/users/me";
 
 export const DEFAULT_ZOOM_SCOPES = ["user:read"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface ZoomTokenResponse {
 	access_token: string;
@@ -51,9 +47,7 @@ interface ZoomUserResponse {
 	pic_url?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as ZoomUserResponse;
@@ -78,9 +72,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Zoom OAuth provider instance.
@@ -189,9 +181,7 @@ export function createZoomProvider(config: OAuthProviderConfig): OAuthProvider {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

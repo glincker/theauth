@@ -38,9 +38,7 @@ import type { Database } from "../db/database.js";
 import { sessions, users } from "../db/schema.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface FieldDefinition {
 	type: "string" | "number" | "boolean" | "json";
@@ -95,9 +93,7 @@ export interface AdditionalFieldsModule {
 	validate(fields: Record<string, unknown>, schema: "user" | "session"): ValidationResult;
 }
 
-// ---------------------------------------------------------------------------
 // Validation
-// ---------------------------------------------------------------------------
 
 const TYPE_CHECKS: Record<FieldDefinition["type"], (v: unknown) => boolean> = {
 	string: (v) => typeof v === "string",
@@ -136,9 +132,7 @@ function validateFields(
 	return errors.length === 0 ? { valid: true } : { valid: false, errors };
 }
 
-// ---------------------------------------------------------------------------
 // Default value hydration
-// ---------------------------------------------------------------------------
 
 function applyDefaults(
 	stored: Record<string, unknown>,
@@ -155,9 +149,7 @@ function applyDefaults(
 	return result;
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createAdditionalFieldsModule(
 	config: AdditionalFieldsConfig,
@@ -170,7 +162,7 @@ export function createAdditionalFieldsModule(
 		return validateFields(fields, schemaKey === "user" ? config.user : config.session);
 	}
 
-	// ── User fields ────────────────────────────────────────────────────────
+	// User fields
 
 	async function getUserFields(userId: string): Promise<Record<string, unknown>> {
 		const rows = await db
@@ -231,7 +223,7 @@ export function createAdditionalFieldsModule(
 			.where(eq(users.id, userId));
 	}
 
-	// ── Session fields ─────────────────────────────────────────────────────
+	// Session fields
 
 	async function getSessionFields(sessionId: string): Promise<Record<string, unknown>> {
 		const rows = await db
@@ -295,9 +287,7 @@ export function createAdditionalFieldsModule(
 	return { getUserFields, setUserFields, getSessionFields, setSessionFields, validate };
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPlugin {
 	return {
@@ -428,9 +418,7 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {

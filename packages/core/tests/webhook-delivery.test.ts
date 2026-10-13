@@ -22,9 +22,7 @@ import {
 } from "../src/webhook/signing.js";
 import type { WebhookEndpointConfig } from "../src/webhook/types.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const TEST_ENDPOINT: WebhookEndpointConfig = {
 	url: "https://hooks.example.com/auth",
@@ -73,9 +71,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: basic dispatch
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: basic dispatch", () => {
 	it("sends a POST to the endpoint URL", async () => {
@@ -134,9 +130,7 @@ describe("createDeliveryEngine: basic dispatch", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: signature headers
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: signature headers", () => {
 	it("sets X-TheAuth-Event header", async () => {
@@ -218,9 +212,7 @@ describe("createDeliveryEngine: signature headers", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: retry on 5xx
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: retry on 5xx", () => {
 	// Real timers throughout. backoffBaseMs: 0 makes retries instant so the
@@ -263,9 +255,7 @@ describe("createDeliveryEngine: retry on 5xx", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: no retry on 4xx
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: no retry on 4xx", () => {
 	it("does not retry on 400", async () => {
@@ -302,9 +292,7 @@ describe("createDeliveryEngine: no retry on 4xx", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: exponential backoff timing
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: exponential backoff timing", () => {
 	it("waits with exponential backoff between attempts (base * 4^n)", async () => {
@@ -325,9 +313,7 @@ describe("createDeliveryEngine: exponential backoff timing", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: network errors
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: network errors", () => {
 	it("retries on network failure and records the error message", async () => {
@@ -341,9 +327,7 @@ describe("createDeliveryEngine: network errors", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: timeout kills hung requests
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: timeout", () => {
 	it("records an error when the request is aborted by the timeout signal", async () => {
@@ -372,9 +356,7 @@ describe("createDeliveryEngine: timeout", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Delivery engine: delivery ID uniqueness
-// ---------------------------------------------------------------------------
 
 describe("createDeliveryEngine: delivery ID uniqueness", () => {
 	it("generates a unique delivery ID for each deliver() call", async () => {
@@ -411,9 +393,7 @@ describe("createDeliveryEngine: delivery ID uniqueness", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Signing module: buildWebhookHeaders
-// ---------------------------------------------------------------------------
 
 describe("buildWebhookHeaders", () => {
 	it("returns all four required headers", async () => {
@@ -431,9 +411,7 @@ describe("buildWebhookHeaders", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Signing module: verify()
-// ---------------------------------------------------------------------------
 
 describe("verify()", () => {
 	it("returns true for a valid signature within the time window", async () => {
@@ -537,9 +515,7 @@ describe("verify()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // generateDeliveryId()
-// ---------------------------------------------------------------------------
 
 describe("generateDeliveryId()", () => {
 	it("returns a 32-character lowercase hex string", () => {
@@ -553,9 +529,7 @@ describe("generateDeliveryId()", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // webhooks() plugin factory
-// ---------------------------------------------------------------------------
 
 describe("webhooks() plugin: dispatch", () => {
 	it("fires events to matching endpoints only", async () => {

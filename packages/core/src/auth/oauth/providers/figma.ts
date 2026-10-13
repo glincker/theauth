@@ -19,9 +19,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://www.figma.com/oauth";
 const TOKEN_URL = "https://api.figma.com/v1/oauth/token";
@@ -29,9 +27,7 @@ const USER_INFO_URL = "https://api.figma.com/v1/me";
 
 export const DEFAULT_FIGMA_SCOPES = ["file_read"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface FigmaTokenResponse {
 	access_token: string;
@@ -47,9 +43,7 @@ interface FigmaUserResponse {
 	img_url?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as FigmaUserResponse;
@@ -71,9 +65,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Figma OAuth provider instance.
@@ -182,9 +174,7 @@ export function createFigmaProvider(config: OAuthProviderConfig): OAuthProvider 
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

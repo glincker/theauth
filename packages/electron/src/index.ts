@@ -1,19 +1,19 @@
-// ─── Electron API injection (for testing) ────────────────────────────────────
+// Electron API injection (for testing)
 
 export type { ElectronApi } from "./electron-api.js";
 export { setElectronApiForTesting } from "./electron-api.js";
 
-// ─── Storage ──────────────────────────────────────────────────────────────────
+// Storage
 
 export type { ElectronStorageConfig, SecureStorage } from "./storage.js";
 export { createElectronStorage, createMemoryStorage } from "./storage.js";
 
-// ─── OAuth window ─────────────────────────────────────────────────────────────
+// OAuth window
 
 export type { OAuthWindowConfig, OAuthWindowResult } from "./oauth-window.js";
 export { openOAuthWindow } from "./oauth-window.js";
 
-// ─── IPC bridge ───────────────────────────────────────────────────────────────
+// IPC bridge
 
 export {
 	createIpcStorage,
@@ -21,7 +21,7 @@ export {
 	THEAUTH_IPC_CHANNELS,
 } from "./ipc.js";
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// Provider
 
 export type { ElectronTheAuthProviderProps } from "./provider.js";
 export {

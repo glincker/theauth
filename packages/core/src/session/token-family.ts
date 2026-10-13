@@ -33,9 +33,7 @@ import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { refreshTokenFamilies, refreshTokens } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface TokenFamily {
 	id: string;
@@ -131,9 +129,7 @@ export interface TokenFamilyStore {
 	isFamilyActive(family: TokenFamily): boolean;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a `TokenFamilyStore` backed by the TheAuth database.
@@ -144,7 +140,7 @@ export function createTokenFamilyStore(
 ): TokenFamilyStore {
 	const defaultGraceMs = clampGrace(storeOptions.reuseGraceMs ?? 0);
 
-	// ── helpers ────────────────────────────────────────────────────────────
+	// helpers
 
 	function rowToFamily(row: {
 		id: string;
@@ -173,7 +169,7 @@ export function createTokenFamilyStore(
 		return nowMs - usedAtMs <= graceMs;
 	}
 
-	// ── public API ──────────────────────────────────────────────────────────
+	// public API
 
 	async function createFamily(userId: string, absoluteExpiresAt: Date): Promise<TokenFamily> {
 		const id = generateId();

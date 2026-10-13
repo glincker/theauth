@@ -9,9 +9,7 @@ const BASE_CONFIG: DeviceAuthConfig = {
 	pollIntervalSeconds: 5,
 };
 
-// ---------------------------------------------------------------------------
 // requestCode
-// ---------------------------------------------------------------------------
 
 describe("requestCode", () => {
 	it("returns all required RFC 8628 fields", async () => {
@@ -59,9 +57,7 @@ describe("requestCode", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // checkAuthorization — initial state
-// ---------------------------------------------------------------------------
 
 describe("checkAuthorization — initial state", () => {
 	it("returns pending for a newly issued code", async () => {
@@ -90,9 +86,7 @@ describe("checkAuthorization — initial state", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // authorize
-// ---------------------------------------------------------------------------
 
 describe("authorize", () => {
 	it("transitions state to authorized and stores the userId", async () => {
@@ -144,9 +138,7 @@ describe("authorize", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // deny
-// ---------------------------------------------------------------------------
 
 describe("deny", () => {
 	it("transitions state to denied", async () => {
@@ -172,9 +164,7 @@ describe("deny", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest — POST /auth/device/code
-// ---------------------------------------------------------------------------
 
 describe("handleRequest — POST /auth/device/code", () => {
 	it("returns RFC 8628 snake_case fields", async () => {
@@ -192,9 +182,7 @@ describe("handleRequest — POST /auth/device/code", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest — POST /auth/device/token
-// ---------------------------------------------------------------------------
 
 describe("handleRequest — POST /auth/device/token", () => {
 	it("returns authorization_pending while code is pending", async () => {
@@ -281,9 +269,7 @@ describe("handleRequest — POST /auth/device/token", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest — unrecognised paths
-// ---------------------------------------------------------------------------
 
 describe("handleRequest — unrecognised paths", () => {
 	it("returns null for unknown routes", async () => {

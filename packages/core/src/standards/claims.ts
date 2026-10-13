@@ -9,9 +9,7 @@
  * TheAuthConfig to include them in issued tokens.
  */
 
-// ---------------------------------------------------------------------------
 // Named types
-// ---------------------------------------------------------------------------
 
 /**
  * Operational mode of an agent within a delegation chain.
@@ -35,9 +33,7 @@ export type AgentType = "autonomous" | "delegated" | "supervised";
  */
 export type TrustTier = "unverified" | "low" | "standard" | "elevated" | "high";
 
-// ---------------------------------------------------------------------------
 // Claim name constants
-// ---------------------------------------------------------------------------
 
 /**
  * Registered claim names for agentic JWTs.
@@ -123,9 +119,7 @@ export const AGENTIC_JWT_CLAIMS = {
 	OPERATION: "operation",
 } as const;
 
-// ---------------------------------------------------------------------------
 // Payload shape
-// ---------------------------------------------------------------------------
 
 /**
  * Optional shape of agentic JWT claims within a token payload.

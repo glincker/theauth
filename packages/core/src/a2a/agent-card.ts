@@ -19,7 +19,7 @@ import type {
 } from "./types.js";
 import { A2A_PROTOCOL_VERSION, A2AAgentCardSchema } from "./types.js";
 
-// ─── Create Agent Card ───────────────────────────────────────────────────────
+// Create Agent Card
 
 export interface CreateAgentCardInput {
 	/** The TheAuth agent identity to build the card from */
@@ -79,7 +79,7 @@ export function createAgentCard(input: CreateAgentCardInput): A2AAgentCard {
 	return card;
 }
 
-// ─── Validate Agent Card ─────────────────────────────────────────────────────
+// Validate Agent Card
 
 /**
  * Validate an incoming Agent Card against the A2A schema.
@@ -102,7 +102,7 @@ export function validateAgentCard(card: unknown): Result<A2AAgentCard> {
 	return { success: true, data: parsed.data as A2AAgentCard };
 }
 
-// ─── Sign Agent Card ─────────────────────────────────────────────────────────
+// Sign Agent Card
 
 export interface SignAgentCardOptions {
 	/** The Agent Card to sign */
@@ -163,7 +163,7 @@ export async function signAgentCard(options: SignAgentCardOptions): Promise<Resu
 	}
 }
 
-// ─── Verify Agent Card ───────────────────────────────────────────────────────
+// Verify Agent Card
 
 export interface VerifyAgentCardOptions {
 	/** The signed Agent Card to verify */

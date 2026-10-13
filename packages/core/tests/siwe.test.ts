@@ -12,9 +12,7 @@ const BASE_CONFIG: SiweConfig = {
 
 const VALID_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function _buildAndSign(
 	config: SiweConfig,
@@ -26,9 +24,7 @@ async function _buildAndSign(
 	return { message, nonce };
 }
 
-// ---------------------------------------------------------------------------
 // generateNonce
-// ---------------------------------------------------------------------------
 
 describe("generateNonce", () => {
 	it("returns a hex string", async () => {
@@ -54,9 +50,7 @@ describe("generateNonce", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // buildMessage
-// ---------------------------------------------------------------------------
 
 describe("buildMessage", () => {
 	it("contains the domain header", () => {
@@ -114,9 +108,7 @@ describe("buildMessage", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // verify — nonce lifecycle
-// ---------------------------------------------------------------------------
 
 describe("verify — nonce lifecycle", () => {
 	it("succeeds with a valid nonce + message", async () => {
@@ -159,9 +151,7 @@ describe("verify — nonce lifecycle", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // verify — message format validation
-// ---------------------------------------------------------------------------
 
 describe("verify — message format validation", () => {
 	it("rejects a completely malformed message", async () => {
@@ -223,9 +213,7 @@ describe("verify — message format validation", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // handleRequest
-// ---------------------------------------------------------------------------
 
 describe("handleRequest", () => {
 	it("GET /auth/siwe/nonce returns a nonce", async () => {

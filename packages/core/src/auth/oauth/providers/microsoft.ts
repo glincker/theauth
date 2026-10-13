@@ -21,18 +21,14 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
 const TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const USER_INFO_URL = "https://graph.microsoft.com/v1.0/me";
 const DEFAULT_SCOPES = ["openid", "profile", "email", "User.Read"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface MicrosoftTokenResponse {
 	access_token: string;
@@ -52,9 +48,7 @@ interface MicrosoftUserResponse {
 	userPrincipalName?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Microsoft identity platform OAuth provider instance.
@@ -189,9 +183,7 @@ export function createMicrosoftProvider(config: OAuthProviderConfig): OAuthProvi
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

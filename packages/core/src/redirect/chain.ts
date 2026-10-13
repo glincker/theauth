@@ -1,8 +1,6 @@
 import { generateId } from "../crypto/web-crypto.js";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface RedirectConfig {
 	/** Cookie name for storing the redirect chain (default: "theauth_redirect") */
@@ -120,9 +118,7 @@ export interface RedirectChainManager {
 	createEntry(url: string | Request, label?: string): RedirectEntry;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_COOKIE_NAME = "theauth_redirect";
 const DEFAULT_MAX_AGE = 600; // 10 minutes
@@ -137,9 +133,7 @@ const DEFAULT_EXCLUDE_PATHS = [
 	"/api/",
 ];
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -226,9 +220,7 @@ function isExcluded(path: string, excludePaths: string[]): boolean {
 	return false;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /** Create a redirect chain manager with the given config. */
 export function createRedirectChain(config?: RedirectConfig): RedirectChainManager {

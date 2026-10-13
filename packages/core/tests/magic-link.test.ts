@@ -22,9 +22,7 @@ import { createTables } from "../src/db/migrations.js";
 import { magicLinks } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-chars!!";
 const APP_URL = "https://app.example.com";
@@ -41,9 +39,7 @@ function makeSendMagicLink() {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("MagicLinkModule.sendLink", () => {
 	let db: Database;

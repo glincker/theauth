@@ -18,7 +18,7 @@ import { TheAuthContext } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface MockTheAuthProviderProps {
 	children: ReactNode;
@@ -52,7 +52,7 @@ export interface MockTheAuthProviderProps {
 	refresh?: TheAuthContextValue["refresh"];
 }
 
-// ─── Default spies ────────────────────────────────────────────────────────────
+// Default spies
 
 function makeDefaultSignIn(): TheAuthContextValue["signIn"] {
 	const spy = vi.fn(
@@ -82,7 +82,7 @@ function makeDefaultRefresh(): TheAuthContextValue["refresh"] {
 	return vi.fn(async (): Promise<void> => undefined);
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// Component
 
 /**
  * Drop-in replacement for `<TheAuthProvider>` in component tests.

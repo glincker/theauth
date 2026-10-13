@@ -16,9 +16,7 @@ import { hmacSha1Raw, randomBytes, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { totpRecords } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface TotpConfig {
 	/** App name shown in authenticator apps (default: "TheAuth") */
@@ -57,18 +55,14 @@ export interface TotpModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Internal types
-// ---------------------------------------------------------------------------
 
 interface BackupCodeEntry {
 	hash: string;
 	used: boolean;
 }
 
-// ---------------------------------------------------------------------------
 // Base32 helpers (RFC 4648)
-// ---------------------------------------------------------------------------
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
@@ -118,9 +112,7 @@ function base32Decode(encoded: string): Uint8Array {
 	return new Uint8Array(output);
 }
 
-// ---------------------------------------------------------------------------
 // TOTP core (RFC 6238 / RFC 4226)
-// ---------------------------------------------------------------------------
 
 async function generateTotp(secret: Uint8Array, time: number, period: number): Promise<string> {
 	const counter = Math.floor(time / period);
@@ -164,18 +156,14 @@ async function verifyTotp(
 	return false;
 }
 
-// ---------------------------------------------------------------------------
 // Secret generation
-// ---------------------------------------------------------------------------
 
 function generateSecret(): string {
 	const bytes = randomBytes(20);
 	return base32Encode(bytes);
 }
 
-// ---------------------------------------------------------------------------
 // Backup codes
-// ---------------------------------------------------------------------------
 
 const BACKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I confusion
 
@@ -208,9 +196,7 @@ async function generateBackupCodes(
 	return { plain, hashed };
 }
 
-// ---------------------------------------------------------------------------
 // HTTP helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -227,9 +213,7 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 	const appName = config.appName ?? "TheAuth";
@@ -237,7 +221,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 	const backupCodeCount = config.backupCodeCount ?? 10;
 	const window = config.window ?? 1;
 
-	// ── setup ────────────────────────────────────────────────────────────────
+	// setup
 
 	async function setup(userId: string): Promise<TotpSetup> {
 		const secretStr = generateSecret();
@@ -274,7 +258,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { secret: secretStr, uri, backupCodes: plain };
 	}
 
-	// ── enable ───────────────────────────────────────────────────────────────
+	// enable
 
 	async function enable(userId: string, code: string): Promise<{ enabled: boolean }> {
 		const rows = await db.select().from(totpRecords).where(eq(totpRecords.userId, userId));
@@ -299,7 +283,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { enabled: true };
 	}
 
-	// ── verify ───────────────────────────────────────────────────────────────
+	// verify
 
 	async function verify(
 		userId: string,
@@ -338,7 +322,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { valid: true, usedBackupCode: true };
 	}
 
-	// ── disable ──────────────────────────────────────────────────────────────
+	// disable
 
 	async function disable(userId: string, code: string): Promise<{ disabled: boolean }> {
 		const result = await verify(userId, code);
@@ -350,7 +334,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { disabled: true };
 	}
 
-	// ── isEnabled ────────────────────────────────────────────────────────────
+	// isEnabled
 
 	async function isEnabled(userId: string): Promise<boolean> {
 		const rows = await db
@@ -361,7 +345,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return rows[0]?.enabled === true;
 	}
 
-	// ── regenerateBackupCodes ────────────────────────────────────────────────
+	// regenerateBackupCodes
 
 	async function regenerateBackupCodes(
 		userId: string,
@@ -382,7 +366,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { backupCodes: plain };
 	}
 
-	// ── handleRequest ────────────────────────────────────────────────────────
+	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

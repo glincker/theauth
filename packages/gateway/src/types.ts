@@ -1,6 +1,6 @@
 import type { TheAuth, TrustedProxyConfig } from "@glinr/theauth";
 
-// ─── Gateway Configuration ───────────────────────────────────────────────────
+// Gateway Configuration
 
 export interface CorsConfig {
 	/** Allowed origins. Use '*' to allow all. Default: '*' */
@@ -66,7 +66,7 @@ export interface GatewayConfig {
 	trustedProxy?: TrustedProxyConfig;
 }
 
-// ─── Gateway Public Interface ────────────────────────────────────────────────
+// Gateway Public Interface
 
 export interface Gateway {
 	/** Handle a Web API Request and return a Response */
@@ -77,7 +77,7 @@ export interface Gateway {
 	close(): Promise<void>;
 }
 
-// ─── Internal Types ──────────────────────────────────────────────────────────
+// Internal Types
 
 export interface ResolvedIdentity {
 	agentId: string;

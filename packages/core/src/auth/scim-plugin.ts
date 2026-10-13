@@ -4,9 +4,7 @@ import { createScimModule } from "./scim.js";
 
 export type { ScimConfig };
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 /**
  * SCIM 2.0 directory sync plugin for TheAuth.

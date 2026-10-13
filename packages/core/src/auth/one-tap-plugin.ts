@@ -5,9 +5,7 @@ import { createOneTapModule } from "./one-tap.js";
 
 export type { OneTapConfig };
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function oneTap(config: OneTapConfig): TheAuthPlugin {
 	return {

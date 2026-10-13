@@ -8,9 +8,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHibpModule, HibpApiError, HibpBreachedError } from "../src/auth/hibp.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function sha1Upper(input: string): string {
 	return createHash("sha1").update(input, "utf8").digest("hex").toUpperCase();
@@ -49,14 +47,12 @@ function mockFetchError(error: Error): void {
 	vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
 }
 
-// ---------------------------------------------------------------------------
-
 describe("createHibpModule", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
 
-	// ── check ─────────────────────────────────────────────────────────────
+	// check
 
 	describe("check()", () => {
 		it("returns breach count for a compromised password", async () => {
@@ -118,7 +114,7 @@ describe("createHibpModule", () => {
 		});
 	});
 
-	// ── enforce ───────────────────────────────────────────────────────────
+	// enforce
 
 	describe("enforce()", () => {
 		it("throws HibpBreachedError when password is breached (threshold=0)", async () => {
@@ -166,7 +162,7 @@ describe("createHibpModule", () => {
 		});
 	});
 
-	// ── error handling ────────────────────────────────────────────────────
+	// error handling
 
 	describe("API error handling", () => {
 		it("returns 0 on network error when onError is 'allow' (default)", async () => {
@@ -210,7 +206,7 @@ describe("createHibpModule", () => {
 		});
 	});
 
-	// ── SHA-1 prefix / suffix matching ────────────────────────────────────
+	// SHA-1 prefix / suffix matching
 
 	describe("SHA-1 prefix/suffix matching", () => {
 		it("correctly identifies the password in the range response", async () => {

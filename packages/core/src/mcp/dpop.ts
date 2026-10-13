@@ -53,7 +53,7 @@ export function normalizeHtu(value: string): string | null {
 	}
 }
 
-// ─── Nonces ──────────────────────────────────────────────────────────────────
+// Nonces
 
 const NONCE_CURRENT = "dpop:nonce:current";
 
@@ -80,7 +80,7 @@ async function isValidNonce(ctx: McpAuthContext, nonce: unknown): Promise<boolea
 	return (await getDpopStorage(ctx).get(`dpop:nonce:v:${nonce}`)) !== null;
 }
 
-// ─── Proof verification ──────────────────────────────────────────────────────
+// Proof verification
 
 export interface VerifyDpopProofInput {
 	/** The `DPoP` header value. */

@@ -30,7 +30,7 @@ const RESOURCE = "https://mcp.theauth.test";
 const RS_URL = `${RESOURCE}/tools?cursor=1`;
 const USER = "user_1";
 
-// ─── Harness ────────────────────────────────────────────────────────────────
+// Harness
 
 interface Store {
 	clients: Map<string, McpClient>;
@@ -216,7 +216,7 @@ async function jwtPayload(token: string): Promise<Record<string, unknown>> {
 const echo = (_req: Request, p: McpPrincipal) =>
 	Response.json({ user: p.userId, scheme: p.scheme, jkt: p.dpopJkt, scopes: p.scopes });
 
-// ─── Token endpoint ─────────────────────────────────────────────────────────
+// Token endpoint
 
 describe("token endpoint with DPoP", () => {
 	let mcp: McpAuthModule;
@@ -382,7 +382,7 @@ describe("token endpoint with DPoP", () => {
 	});
 });
 
-// ─── Resource server ────────────────────────────────────────────────────────
+// Resource server
 
 describe("requireMcpAuth with DPoP", () => {
 	let mcp: McpAuthModule;

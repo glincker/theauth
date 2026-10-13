@@ -21,9 +21,7 @@ import type { RateLimitStore } from "../src/auth/stores/types.js";
 const rateLimit = (config: RateLimitConfig = {}) =>
 	baseRateLimit({ trustedProxyCount: 1, ...config });
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeRequest(path: string, ip?: string, extraHeaders?: Record<string, string>): Request {
 	const headers: Record<string, string> = { ...extraHeaders };
@@ -39,9 +37,7 @@ async function runHook(
 	return plugin.hooks?.onRequest?.(request);
 }
 
-// ---------------------------------------------------------------------------
 // rateLimit() plugin — basic allow / deny
-// ---------------------------------------------------------------------------
 
 describe("rateLimit() plugin — allow and deny", () => {
 	it("returns undefined (pass-through) for paths outside /auth/", async () => {
@@ -119,9 +115,7 @@ describe("rateLimit() plugin — allow and deny", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // rateLimit() plugin — per-endpoint config
-// ---------------------------------------------------------------------------
 
 describe("rateLimit() plugin — per-endpoint config", () => {
 	it("uses signIn limit for /auth/sign-in", async () => {
@@ -204,9 +198,7 @@ describe("rateLimit() plugin — per-endpoint config", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // rateLimit() plugin — key extraction
-// ---------------------------------------------------------------------------
 
 describe("rateLimit() plugin — key extraction", () => {
 	it("isolates counters per IP", async () => {
@@ -254,9 +246,7 @@ describe("rateLimit() plugin — key extraction", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // rateLimit() plugin — custom onLimit
-// ---------------------------------------------------------------------------
 
 describe("rateLimit() plugin — custom onLimit", () => {
 	it("calls custom onLimit with retryAfter when limit exceeded", async () => {
@@ -278,9 +268,7 @@ describe("rateLimit() plugin — custom onLimit", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // rateLimit() plugin — window parsing
-// ---------------------------------------------------------------------------
 
 describe("rateLimit() plugin — window string parsing", () => {
 	it.each([
@@ -317,9 +305,7 @@ describe("rateLimit() plugin — window string parsing", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // rateLimit() plugin — store option
-// ---------------------------------------------------------------------------
 
 describe("rateLimit() plugin — pluggable store", () => {
 	it("accepts 'memory' string to use MemoryStore", async () => {
@@ -349,9 +335,7 @@ describe("rateLimit() plugin — pluggable store", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // MemoryStore
-// ---------------------------------------------------------------------------
 
 describe("MemoryStore", () => {
 	let store: MemoryStore;
@@ -416,9 +400,7 @@ describe("MemoryStore", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // KVStore
-// ---------------------------------------------------------------------------
 
 describe("KVStore", () => {
 	/** Simple in-memory mock of a Cloudflare KV namespace */
@@ -518,9 +500,7 @@ describe("KVStore", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Concurrent requests (no race condition in MemoryStore)
-// ---------------------------------------------------------------------------
 
 describe("concurrent requests", () => {
 	it("MemoryStore: parallel increments are serialised correctly", async () => {

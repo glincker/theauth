@@ -135,7 +135,7 @@ export async function handleTokenExchangeGrant(
 	if (!authenticated.success) return authenticated;
 	const client = authenticated.data;
 
-	// ── Token types: only access tokens we issued ───────────────────
+	// Token types: only access tokens we issued
 	if (data.subject_token_type !== TOKEN_TYPE_ACCESS_TOKEN) {
 		return {
 			success: false,
@@ -168,7 +168,7 @@ export async function handleTokenExchangeGrant(
 		};
 	}
 
-	// ── Subject and actor tokens ────────────────────────────────────
+	// Subject and actor tokens
 	const subject = await verifyOwnToken(ctx, data.subject_token, proofJkt, "subject_token");
 	if (!subject.success) return subject;
 	let actorSession: McpSession | null = null;
@@ -179,11 +179,11 @@ export async function handleTokenExchangeGrant(
 	}
 	const subjectSession = subject.data.session;
 
-	// ── Scope: narrowing only ───────────────────────────────────────
+	// Scope: narrowing only
 	const scopes = narrowScopes(ctx, data.scope, subjectSession.scopes);
 	if (!scopes.success) return scopes;
 
-	// ── Audience: unchanged, or another configured resource ─────────
+	// Audience: unchanged, or another configured resource
 	const requestedTarget = data.resource ?? data.audience;
 	let resource = subjectSession.resource;
 	if (requestedTarget !== undefined) {
@@ -200,7 +200,7 @@ export async function handleTokenExchangeGrant(
 		resource = canonical;
 	}
 
-	// ── Delegation chain (nested act) ───────────────────────────────
+	// Delegation chain (nested act)
 	const maxDepth = config.maxChainDepth ?? DEFAULT_MAX_CHAIN_DEPTH;
 	const actorSub = actorSession?.userId ?? client.clientId;
 	const actorClientId = actorSession?.clientId ?? client.clientId;
@@ -240,7 +240,7 @@ export async function handleTokenExchangeGrant(
 		}
 	}
 
-	// ── Lifetime never exceeds the subject token's ──────────────────
+	// Lifetime never exceeds the subject token's
 	const remaining = Math.floor((subjectSession.expiresAt.getTime() - Date.now()) / 1000);
 	if (remaining < 1) return grantError("subject_token is about to expire");
 

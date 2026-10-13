@@ -23,17 +23,13 @@ import { decodeJwt } from "jose";
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://appleid.apple.com/auth/authorize";
 const TOKEN_URL = "https://appleid.apple.com/auth/token";
 const DEFAULT_SCOPES = ["name", "email"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface AppleTokenResponse {
 	access_token: string;
@@ -50,9 +46,7 @@ interface AppleIdTokenClaims {
 	is_private_email?: boolean | string;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an Apple Sign In provider instance.
@@ -187,9 +181,7 @@ export function createAppleProvider(config: OAuthProviderConfig): OAuthProvider 
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

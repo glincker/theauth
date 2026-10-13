@@ -2,11 +2,9 @@ import type { MockInstance } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
-// ---------------------------------------------------------------------------
 // Tests for graphqlWithRefresh UNAUTHENTICATED error code detection + retry.
 // Covers the case where the backend returns HTTP 200 with GraphQL errors that
 // carry extensions.code === "UNAUTHENTICATED" or "UNAUTHORIZED".
-// ---------------------------------------------------------------------------
 
 vi.mock("server-only", () => ({}));
 

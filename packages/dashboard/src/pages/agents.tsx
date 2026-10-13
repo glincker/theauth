@@ -21,7 +21,7 @@ import { Modal } from "../components/modal.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 import { useToast } from "../components/toast.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function statusVariant(status: Agent["status"]) {
 	switch (status) {
@@ -57,7 +57,7 @@ function formatRelative(iso: string | null) {
 
 const AGENT_TYPES: AgentType[] = ["llm", "workflow", "tool", "human-in-loop", "system"];
 
-// ─── Create Agent Modal ───────────────────────────────────────────────────────
+// Create Agent Modal
 
 interface CreateAgentModalProps {
 	open: boolean;
@@ -190,7 +190,7 @@ function CreateAgentModal({ open, onClose, onSubmit, loading }: CreateAgentModal
 	);
 }
 
-// ─── Token Display Modal ──────────────────────────────────────────────────────
+// Token Display Modal
 
 interface TokenModalProps {
 	open: boolean;
@@ -255,7 +255,7 @@ function TokenModal({ open, onClose, token, agentName }: TokenModalProps) {
 	);
 }
 
-// ─── Agent Row Actions ────────────────────────────────────────────────────────
+// Agent Row Actions
 
 interface AgentActionsProps {
 	agent: Agent;
@@ -317,7 +317,7 @@ function AgentActions({ agent, onRevoke, onRotate, revoking, rotating }: AgentAc
 	);
 }
 
-// ─── Agent Detail Modal ───────────────────────────────────────────────────────
+// Agent Detail Modal
 
 function resultVariant(result: AuditResult): "green" | "red" | "yellow" {
 	switch (result) {
@@ -555,7 +555,7 @@ function AgentDetailModal({ open, onClose, agent, client }: AgentDetailModalProp
 	);
 }
 
-// ─── Agents Page ──────────────────────────────────────────────────────────────
+// Agents Page
 
 interface AgentsPageProps {
 	client: TheAuthApiClient;

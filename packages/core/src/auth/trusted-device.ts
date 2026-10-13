@@ -13,9 +13,7 @@ import { hmacSha256, randomBytesHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { trustedDevices } from "../db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface TrustedDeviceConfig {
 	/** How long to trust a device in seconds (default: 30 days). */
@@ -61,9 +59,7 @@ export interface TrustedDeviceModule {
 	generateFingerprint(request: Request): Promise<string>;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const DEFAULT_TRUST_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 const DEFAULT_MAX_DEVICES = 10;
@@ -92,9 +88,7 @@ function generateDeviceId(): string {
 	return randomBytesHex(16);
 }
 
-// ---------------------------------------------------------------------------
 // Module factory
-// ---------------------------------------------------------------------------
 
 export function createTrustedDeviceModule(
 	config: TrustedDeviceConfig,
@@ -106,7 +100,7 @@ export function createTrustedDeviceModule(
 	// but fingerprints will differ across restarts (safe degradation).
 	const hmacSecret = config.secret ?? randomBytesHex(32);
 
-	// ── generateFingerprint ────────────────────────────────────────────────
+	// generateFingerprint
 
 	async function generateFingerprint(request: Request): Promise<string> {
 		const ua = request.headers.get("user-agent") ?? "";
@@ -119,7 +113,7 @@ export function createTrustedDeviceModule(
 		return hmacSha256(hmacSecret, payload);
 	}
 
-	// ── trustDevice ───────────────────────────────────────────────────────
+	// trustDevice
 
 	async function trustDevice(userId: string, deviceFingerprint: string): Promise<string> {
 		const now = new Date();
@@ -168,7 +162,7 @@ export function createTrustedDeviceModule(
 		return id;
 	}
 
-	// ── isTrusted ─────────────────────────────────────────────────────────
+	// isTrusted
 
 	async function isTrusted(userId: string, deviceFingerprint: string): Promise<boolean> {
 		const now = new Date();
@@ -187,7 +181,7 @@ export function createTrustedDeviceModule(
 		return rows.length > 0;
 	}
 
-	// ── revokeDevice ──────────────────────────────────────────────────────
+	// revokeDevice
 
 	async function revokeDevice(userId: string, deviceFingerprint: string): Promise<void> {
 		await db
@@ -197,13 +191,13 @@ export function createTrustedDeviceModule(
 			);
 	}
 
-	// ── revokeAllDevices ──────────────────────────────────────────────────
+	// revokeAllDevices
 
 	async function revokeAllDevices(userId: string): Promise<void> {
 		await db.delete(trustedDevices).where(eq(trustedDevices.userId, userId));
 	}
 
-	// ── listDevices ───────────────────────────────────────────────────────
+	// listDevices
 
 	async function listDevices(userId: string): Promise<TrustedDevice[]> {
 		const now = new Date();
@@ -232,9 +226,7 @@ export function createTrustedDeviceModule(
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Label helper — exported so adapters can pass a request to produce a label
-// ---------------------------------------------------------------------------
 
 /**
  * Derive a human-readable device label from a request's User-Agent header.

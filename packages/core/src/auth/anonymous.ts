@@ -27,9 +27,7 @@ import type { Database } from "../db/database.js";
 import { sessions, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface AnonymousAuthConfig {
 	/** How long anonymous sessions last in seconds (default: 86400 = 24 hours) */
@@ -52,17 +50,13 @@ export interface AnonymousAuthModule {
 	cleanup(maxAgeMs?: number): Promise<number>;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 const DEFAULT_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
 const ANONYMOUS_EMAIL_DOMAIN = "theauth.anonymous";
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createAnonymousAuthModule(
 	config: AnonymousAuthConfig,

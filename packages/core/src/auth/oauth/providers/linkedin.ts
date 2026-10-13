@@ -22,18 +22,14 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 const USER_INFO_URL = "https://api.linkedin.com/v2/userinfo";
 const DEFAULT_SCOPES = ["openid", "profile", "email"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface LinkedInTokenResponse {
 	access_token: string;
@@ -54,9 +50,7 @@ interface LinkedInUserInfoResponse {
 	locale?: string | { country: string; language: string };
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a LinkedIn OAuth provider instance.
@@ -187,9 +181,7 @@ export function createLinkedInProvider(config: OAuthProviderConfig): OAuthProvid
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

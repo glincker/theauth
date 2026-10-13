@@ -30,15 +30,11 @@ import type {
 	OAuthUserInfo,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_STATE_TTL_SECONDS = 600; // 10 minutes
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an OAuth module bound to a database instance.
@@ -71,7 +67,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	const sealer = createTokenSealer(config.tokenEncryption);
 	const tokenApi = createTokenApi(db, config, sealer);
 
-	// ── helpers ──────────────────────────────────────────────────────────────
+	// helpers
 
 	function getProvider(providerId: string) {
 		const provider = config.providers[providerId];
@@ -108,7 +104,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		return null;
 	}
 
-	// ── module operations ─────────────────────────────────────────────────────
+	// module operations
 
 	async function getAuthorizationUrl(
 		providerId: string,
@@ -145,7 +141,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		const provider = getProvider(providerId);
 		const now = new Date(nowMs());
 
-		// ── 1. Validate and consume the state ──────────────────────────────────
+		// 1. Validate and consume the state
 		const stateRows = await db.select().from(oauthStates).where(eq(oauthStates.state, state));
 
 		const stateRow = stateRows[0];
@@ -176,13 +172,13 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			throw new Error("OAuth callback: unknown or already-used state value.");
 		}
 
-		// ── 2. Exchange authorization code for tokens ──────────────────────────
+		// 2. Exchange authorization code for tokens
 		const tokens = await provider.exchangeCode(code, stateRow.codeVerifier, redirectUri);
 
-		// ── 3. Fetch user profile ──────────────────────────────────────────────
+		// 3. Fetch user profile
 		const userInfo = await provider.getUserInfo(tokens.accessToken);
 
-		// ── 4. Create or update the linked account ─────────────────────────────
+		// 4. Create or update the linked account
 		const existingRows = await db
 			.select()
 			.from(oauthAccounts)

@@ -28,9 +28,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://www.reddit.com/api/v1/authorize";
 const TOKEN_URL = "https://www.reddit.com/api/v1/access_token";
@@ -40,9 +38,7 @@ const DEFAULT_USER_AGENT = "web:theauth-oauth:v1 (by /u/theauth)";
 export const DEFAULT_REDDIT_SCOPES = ["identity"];
 const DEFAULT_SCOPES = DEFAULT_REDDIT_SCOPES;
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface RedditTokenResponse {
 	access_token: string;
@@ -58,9 +54,7 @@ interface RedditUserResponse {
 	icon_img?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Reddit OAuth provider instance.
@@ -202,9 +196,7 @@ export function createRedditProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as RedditUserResponse;
@@ -230,9 +222,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function stripQueryParams(url: string): string {
 	try {

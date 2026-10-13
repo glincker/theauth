@@ -5,7 +5,7 @@ import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function formatTimestamp(iso: string): string {
 	return new Date(iso).toLocaleString("en-US", {
@@ -17,7 +17,7 @@ function formatTimestamp(iso: string): string {
 	});
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
+// Stat Card
 
 interface StatCardProps {
 	title: string;
@@ -61,7 +61,7 @@ function SkeletonCard() {
 	);
 }
 
-// ─── Security Page ────────────────────────────────────────────────────────────
+// Security Page
 
 interface SecurityPageProps {
 	client: TheAuthApiClient;

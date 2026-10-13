@@ -2,14 +2,14 @@ import type { App, InjectionKey, Ref } from "vue";
 import { inject, ref } from "vue";
 import type { ActionResult, TheAuthContextValue, TheAuthSession, TheAuthUser } from "./types.js";
 
-// ─── Injection key ────────────────────────────────────────────────────────────
+// Injection key
 
 export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
 
 /** @deprecated Use `THEAUTH_KEY` instead. Will be removed in a future major version. */
 export const AUTH_KEY = THEAUTH_KEY;
 
-// ─── useRequiredContext ───────────────────────────────────────────────────────
+// useRequiredContext
 
 export function useRequiredContext(composableName: string): TheAuthContextValue {
 	const ctx = inject(THEAUTH_KEY);
@@ -21,7 +21,7 @@ export function useRequiredContext(composableName: string): TheAuthContextValue 
 	return ctx;
 }
 
-// ─── Plugin ───────────────────────────────────────────────────────────────────
+// Plugin
 
 export interface TheAuthPluginOptions {
 	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */

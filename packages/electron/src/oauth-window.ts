@@ -1,7 +1,7 @@
 import type { BrowserWindowInstance } from "./electron-api.js";
 import { getElectronApi } from "./electron-api.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface OAuthWindowConfig {
 	/** Window width in pixels. Defaults to 500. */
@@ -17,7 +17,7 @@ export interface OAuthWindowResult {
 	error?: string;
 }
 
-// ─── Session cookie extraction ────────────────────────────────────────────────
+// Session cookie extraction
 
 const SESSION_COOKIE_NAMES = ["theauth-session", "better-auth.session_token", "__session"];
 
@@ -33,7 +33,7 @@ async function extractSessionCookie(
 	return null;
 }
 
-// ─── URL parsing helpers ──────────────────────────────────────────────────────
+// URL parsing helpers
 
 function isCallbackUrl(url: string, base: string): boolean {
 	const normalised = base.replace(/\/$/, "");
@@ -55,7 +55,7 @@ function extractOAuthError(url: string): string | null {
 	}
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+// Main export
 
 /**
  * Opens a BrowserWindow to the OAuth authorization URL for a given provider,

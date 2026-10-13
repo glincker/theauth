@@ -30,9 +30,7 @@ import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { SessionManager } from "./session.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface MultiSessionConfig {
 	/** Max concurrent sessions per user (default: 10) */
@@ -71,9 +69,7 @@ export interface MultiSessionModule {
 	enforceSessionLimit(userId: string): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
 // Errors
-// ---------------------------------------------------------------------------
 
 export class MultiSessionLimitError extends Error {
 	readonly code = "SESSION_LIMIT_REACHED";
@@ -82,9 +78,7 @@ export class MultiSessionLimitError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // User-Agent parsing
-// ---------------------------------------------------------------------------
 
 /**
  * Extract a short device description from a User-Agent string.
@@ -133,9 +127,7 @@ function parseUserAgent(ua: string | undefined | null): string | undefined {
 	return `${browser} on ${os}`;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function rowToSessionInfo(row: {
 	id: string;
@@ -168,9 +160,7 @@ function rowToSessionInfo(row: {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createMultiSessionModule(
 	config: MultiSessionConfig,
@@ -252,9 +242,7 @@ export function createMultiSessionModule(
 	return { listSessions, revokeSession, revokeOtherSessions, getSessionCount, enforceSessionLimit };
 }
 
-// ---------------------------------------------------------------------------
 // Utility: enrich session metadata with device info from a Request
-// ---------------------------------------------------------------------------
 
 /**
  * Build metadata to pass to `sessionManager.create()` that includes

@@ -38,7 +38,7 @@ const REDIRECT = "https://app.theauth.test/callback";
 const RESOURCE = "https://mcp.theauth.test";
 const USER = "user_1";
 
-// ─── Harness ────────────────────────────────────────────────────────────────
+// Harness
 
 interface Store {
 	clients: Map<string, McpClient>;
@@ -185,7 +185,7 @@ function refresh(
 	);
 }
 
-// ─── 1. SSRF-safe fetcher and Client ID Metadata Documents ──────────────────
+// 1. SSRF-safe fetcher and Client ID Metadata Documents
 
 describe("isBlockedIp", () => {
 	it.each([
@@ -432,7 +432,7 @@ describe("Client ID Metadata Documents", () => {
 	});
 });
 
-// ─── 2. Hashed secrets and tokens ───────────────────────────────────────────
+// 2. Hashed secrets and tokens
 
 describe("hashed secrets and tokens", () => {
 	it("timingSafeEqual compares correctly, including length mismatches", () => {
@@ -585,7 +585,7 @@ describe("hashed secrets and tokens", () => {
 	});
 });
 
-// ─── 3 + 4. Reuse detection and atomic consume ──────────────────────────────
+// 3 + 4. Reuse detection and atomic consume
 
 describe("refresh token reuse detection", () => {
 	it("rotates, then revokes the whole family when a rotated token is replayed", async () => {
@@ -676,7 +676,7 @@ describe("refresh token reuse detection", () => {
 	});
 });
 
-// ─── 5. Audience, resource and scope strictness ─────────────────────────────
+// 5. Audience, resource and scope strictness
 
 describe("audience, resource and scope enforcement", () => {
 	let store: Store;
@@ -821,7 +821,7 @@ describe("audience, resource and scope enforcement", () => {
 	});
 });
 
-// ─── 6. Asymmetric signing, JWKS, rotation, jti denylist ────────────────────
+// 6. Asymmetric signing, JWKS, rotation, jti denylist
 
 describe("asymmetric signing and JWKS", () => {
 	it.each([
@@ -966,7 +966,7 @@ describe("jti denylist", () => {
 	});
 });
 
-// ─── 7. RFC 7009 revocation and RFC 9207 iss ────────────────────────────────
+// 7. RFC 7009 revocation and RFC 9207 iss
 
 describe("revocation endpoint and issuer identification", () => {
 	it("adds iss to the authorization response and advertises it", async () => {

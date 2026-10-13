@@ -12,7 +12,7 @@ import {
 } from "../src/vc/types.js";
 import { createVCVerifier } from "../src/vc/verifier.js";
 
-// ─── Test Helpers ───────────────────────────────────────────────────────────
+// Test Helpers
 
 async function createTestIssuer() {
 	const keyPair = await generateDidKey();
@@ -24,7 +24,7 @@ async function createTestIssuer() {
 	return { issuer, keyPair };
 }
 
-// ─── Issuance ───────────────────────────────────────────────────────────────
+// Issuance
 
 describe("VC issuance – agent credential", () => {
 	it("issues a credential with all agent fields", async () => {
@@ -219,7 +219,7 @@ describe("VC issuance – delegation credential", () => {
 	});
 });
 
-// ─── Verification ───────────────────────────────────────────────────────────
+// Verification
 
 describe("VC verification – JWT format", () => {
 	it("verifies a valid JWT credential", async () => {
@@ -423,7 +423,7 @@ describe("VC verification – JSON-LD format", () => {
 	});
 });
 
-// ─── Presentation ───────────────────────────────────────────────────────────
+// Presentation
 
 describe("VC verification – presentations", () => {
 	it("verifies a presentation with multiple credentials", async () => {
@@ -502,7 +502,7 @@ describe("VC verification – presentations", () => {
 	});
 });
 
-// ─── Permission Extraction ──────────────────────────────────────────────────
+// Permission Extraction
 
 describe("VC permission extraction", () => {
 	it("extracts permissions from a verified agent credential", async () => {
@@ -581,7 +581,7 @@ describe("VC permission extraction", () => {
 	});
 });
 
-// ─── Credential Status / Revocation ─────────────────────────────────────────
+// Credential Status / Revocation
 
 describe("VC revocation", () => {
 	it("rejects a revoked JWT credential", async () => {
@@ -673,7 +673,7 @@ describe("VC revocation", () => {
 	});
 });
 
-// ─── Round-trip ─────────────────────────────────────────────────────────────
+// Round-trip
 
 describe("VC round-trip: issue -> verify -> extract", () => {
 	it("JWT round-trip: issue, verify, and extract permissions", async () => {
@@ -759,7 +759,7 @@ describe("VC round-trip: issue -> verify -> extract", () => {
 	});
 });
 
-// ─── Schema Validation ──────────────────────────────────────────────────────
+// Schema Validation
 
 describe("VC Zod schema validation", () => {
 	it("validates a well-formed credential", () => {

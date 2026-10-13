@@ -16,7 +16,7 @@ import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
-// ─── Zod Validation Schemas ──────────────────────────────────────────────────
+// Zod Validation Schemas
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -74,7 +74,7 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// ─── Response Helpers ────────────────────────────────────────────────────────
+// Response Helpers
 
 function sendOk<T>(res: Response, data: T, status = 200): void {
 	res.status(status).json({ data });
@@ -125,7 +125,7 @@ function sendValidationError(res: Response, issues: z.ZodIssue[]): void {
 	sendBadRequest(res, `Validation failed: ${message}`);
 }
 
-// ─── MCP CORS Helpers ────────────────────────────────────────────────────────
+// MCP CORS Helpers
 
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -163,7 +163,7 @@ function routeParam(req: Request, name: string): string {
 	return Array.isArray(val) ? (val[0] ?? "") : (val ?? "");
 }
 
-// ─── Web Request Builder ─────────────────────────────────────────────────────
+// Web Request Builder
 
 function buildWebRequest(req: Request): globalThis.Request {
 	const protocol = req.protocol ?? "http";
@@ -204,7 +204,7 @@ function buildWebRequest(req: Request): globalThis.Request {
 	});
 }
 
-// ─── TheAuth NestJS Options ─────────────────────────────────────────────────
+// TheAuth NestJS Options
 
 export interface TheAuthNestjsOptions extends AdapterSecurityOptions {
 	/** The TheAuth instance */
@@ -216,7 +216,7 @@ export interface TheAuthNestjsOptions extends AdapterSecurityOptions {
 /** @deprecated Use `TheAuthNestjsOptions` instead. Will be removed in a future major version. */
 export type AuthNestjsOptions = TheAuthNestjsOptions;
 
-// ─── Express Router Builder ──────────────────────────────────────────────────
+// Express Router Builder
 
 /**
  * Build the Express Router with all TheAuth routes.
@@ -305,7 +305,7 @@ export function buildTheAuthRouter(
 			.catch(next);
 	});
 
-	// ── Agent REST API ──────────────────────────────────────────────
+	// Agent REST API
 
 	router.post("/agents", (req: Request, res: Response) => {
 		const parsed = CreateAgentSchema.safeParse(req.body);
@@ -438,7 +438,7 @@ export function buildTheAuthRouter(
 		});
 	});
 
-	// ── Authorization ───────────────────────────────────────────────
+	// Authorization
 
 	router.post("/authorize", (req: Request, res: Response) => {
 		const parsed = AuthorizeSchema.safeParse(req.body);
@@ -515,7 +515,7 @@ export function buildTheAuthRouter(
 			});
 	});
 
-	// ── Delegation ──────────────────────────────────────────────────
+	// Delegation
 
 	router.post("/delegations", (req: Request, res: Response) => {
 		const parsed = DelegateSchema.safeParse(req.body);
@@ -577,7 +577,7 @@ export function buildTheAuthRouter(
 		});
 	});
 
-	// ── Audit ───────────────────────────────────────────────────────
+	// Audit
 
 	router.get("/audit", (req: Request, res: Response) => {
 		const filter: AuditFilter = {};
@@ -665,7 +665,7 @@ export function buildTheAuthRouter(
 			});
 	});
 
-	// ── Dashboard API ───────────────────────────────────────────────
+	// Dashboard API
 
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
 		const scope = requireScope(res);
@@ -778,7 +778,7 @@ export function buildTheAuthRouter(
 			});
 	});
 
-	// ── MCP OAuth 2.1 Endpoints ─────────────────────────────────────
+	// MCP OAuth 2.1 Endpoints
 
 	router.options("/.well-known/*path", (_req: Request, res: Response) => {
 		setMcpCors(res);
@@ -891,7 +891,7 @@ export function buildTheAuthRouter(
 			});
 	});
 
-	// ── Plugin Endpoints ────────────────────────────────────────────
+	// Plugin Endpoints
 
 	for (const endpoint of auth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
@@ -928,7 +928,7 @@ export function buildTheAuthRouter(
 	return router;
 }
 
-// ─── NestJS Middleware Factory ────────────────────────────────────────────────
+// NestJS Middleware Factory
 
 /**
  * Returns an Express-compatible middleware function that mounts all TheAuth

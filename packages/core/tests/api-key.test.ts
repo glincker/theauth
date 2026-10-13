@@ -26,9 +26,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -44,9 +42,7 @@ async function seedUser(db: Database, id: string, email: string): Promise<void> 
 const USER_ID = "user_key_test_001";
 const PERMISSIONS = ["agents:read", "agents:write"];
 
-// ---------------------------------------------------------------------------
 // Suite
-// ---------------------------------------------------------------------------
 
 describe("ApiKeyManagerModule.create", () => {
 	let db: Database;

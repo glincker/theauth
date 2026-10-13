@@ -21,7 +21,7 @@ import {
 	A2ATaskStateSchema,
 } from "../src/a2a/types.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 function makeAgentCard(overrides?: Partial<A2AAgentCard>): A2AAgentCard {
 	return {
@@ -63,7 +63,7 @@ function makeTask(overrides?: Partial<A2ATask>): A2ATask {
 	};
 }
 
-// ─── Agent Card Creation ─────────────────────────────────────────────────────
+// Agent Card Creation
 
 describe("A2A Agent Card", () => {
 	describe("createAgentCard", () => {
@@ -149,7 +149,7 @@ describe("A2A Agent Card", () => {
 		});
 	});
 
-	// ─── Agent Card Validation ───────────────────────────────────────────────
+	// Agent Card Validation
 
 	describe("validateAgentCard", () => {
 		it("validates a correct agent card", () => {
@@ -212,7 +212,7 @@ describe("A2A Agent Card", () => {
 		});
 	});
 
-	// ─── Agent Card Signing & Verification ───────────────────────────────────
+	// Agent Card Signing & Verification
 
 	describe("signAgentCard", () => {
 		it("signs a card with an EC key", async () => {
@@ -326,7 +326,7 @@ describe("A2A Agent Card", () => {
 	});
 });
 
-// ─── A2A Server ──────────────────────────────────────────────────────────────
+// A2A Server
 
 describe("A2A Server", () => {
 	function createTestServer(options?: {
@@ -708,7 +708,7 @@ describe("A2A Server", () => {
 	});
 });
 
-// ─── A2A Client ──────────────────────────────────────────────────────────────
+// A2A Client
 
 describe("A2A Client", () => {
 	// Create a mock fetch that delegates to a local A2A server
@@ -929,7 +929,7 @@ describe("A2A Client", () => {
 	});
 });
 
-// ─── Zod Schema Tests ────────────────────────────────────────────────────────
+// Zod Schema Tests
 
 describe("A2A Zod Schemas", () => {
 	it("validates text parts", () => {

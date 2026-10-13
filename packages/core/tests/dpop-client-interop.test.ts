@@ -26,7 +26,7 @@ const RESOURCE = "https://mcp.theauth.test";
 const RS_URL = `${RESOURCE}/tools?cursor=1`;
 const USER = "user_1";
 
-// ─── Harness ────────────────────────────────────────────────────────────────
+// Harness
 
 interface Store {
 	clients: Map<string, McpClient>;

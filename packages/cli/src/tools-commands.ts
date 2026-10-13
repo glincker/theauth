@@ -2,9 +2,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// ---------------------------------------------------------------------------
 // theauth secret
-// ---------------------------------------------------------------------------
 
 export const SECRET_HELP = `
 theauth secret
@@ -88,9 +86,7 @@ export function runSecret(options: SecretOptions): string {
 	return `${values.map((v) => (options.env ? `${options.env}=${v}` : v)).join("\n")}\n`;
 }
 
-// ---------------------------------------------------------------------------
 // theauth doctor
-// ---------------------------------------------------------------------------
 
 export const DOCTOR_HELP = `
 theauth doctor
@@ -337,9 +333,7 @@ export function formatDoctor(checks: DoctorCheck[], json: boolean): { text: stri
 	return { text: `${lines.join("\n")}\n`, ok };
 }
 
-// ---------------------------------------------------------------------------
 // theauth completions
-// ---------------------------------------------------------------------------
 
 export const COMPLETIONS_HELP = `
 theauth completions

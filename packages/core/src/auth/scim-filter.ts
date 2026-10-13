@@ -41,9 +41,7 @@ export class ScimFilterError extends Error {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Tokenizer
-// ---------------------------------------------------------------------------
 
 type TokenKind =
 	| "lparen"
@@ -189,9 +187,7 @@ function tokenize(input: string): Token[] {
 	return tokens;
 }
 
-// ---------------------------------------------------------------------------
 // Parser (recursive descent with precedence: not > and > or)
-// ---------------------------------------------------------------------------
 
 const COMP_OPS = new Set<string>(["eq", "ne", "co", "sw", "ew", "gt", "lt", "ge", "le"]);
 
@@ -329,9 +325,7 @@ export function parseFilter(input: string): FilterAst {
 	return ast;
 }
 
-// ---------------------------------------------------------------------------
 // Evaluator
-// ---------------------------------------------------------------------------
 
 type Resource = Record<string, unknown>;
 

@@ -7,7 +7,7 @@ import { Button } from "../components/button.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function formatRelativeTime(iso: string): string {
 	const now = Date.now();
@@ -43,7 +43,7 @@ function statusVariant(status: DelegationStatus): "green" | "yellow" | "red" {
 	}
 }
 
-// ─── Permissions Cell ─────────────────────────────────────────────────────────
+// Permissions Cell
 
 interface PermissionsCellProps {
 	permissions: DelegationChain["permissions"];
@@ -74,7 +74,7 @@ function PermissionsCell({ permissions }: PermissionsCellProps) {
 	);
 }
 
-// ─── Delegations Page ─────────────────────────────────────────────────────────
+// Delegations Page
 
 interface DelegationsPageProps {
 	client: TheAuthApiClient;

@@ -3,9 +3,7 @@ import type { TheAuthPlugin } from "../plugin/types.js";
 import type { AnonymousAuthConfig } from "./anonymous.js";
 import { createAnonymousAuthModule } from "./anonymous.js";
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function anonymousAuth(config?: AnonymousAuthConfig): TheAuthPlugin {
 	return {

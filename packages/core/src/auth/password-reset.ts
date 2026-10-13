@@ -52,15 +52,11 @@ import type { OtpService } from "./otp.js";
 import type { OtpChannel } from "./otp-senders.js";
 import type { SignInGate } from "./sign-in-gate.js";
 
-// ---------------------------------------------------------------------------
 // Re-export shared types
-// ---------------------------------------------------------------------------
 
 export type { AuthError, Result, TheAuthError };
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface PasswordResetConfig {
 	/**
@@ -170,18 +166,14 @@ export interface PasswordResetModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_TOKEN_TTL_SECONDS = 3600; // 1 hour
 const DEFAULT_MIN_PASSWORD = 8;
 const DEFAULT_MAX_PASSWORD = 128;
 const TOKEN_PURPOSE = "password-reset" as const;
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -194,9 +186,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createPasswordResetModule(
 	config: PasswordResetConfig,
@@ -220,7 +210,7 @@ export function createPasswordResetModule(
 		return null;
 	}
 
-	// ── requestReset ──────────────────────────────────────────────────────
+	// requestReset
 
 	async function requestReset(email: string): Promise<Result<{ sent: boolean }>> {
 		if (typeof email !== "string" || email.trim() === "") {
@@ -287,7 +277,7 @@ export function createPasswordResetModule(
 		return { success: true, data: { sent: true } };
 	}
 
-	// ── resetPassword ─────────────────────────────────────────────────────
+	// resetPassword
 
 	async function resetPassword(
 		token: string,
@@ -387,7 +377,7 @@ export function createPasswordResetModule(
 		return { success: true, data: { userId: accountUserId } };
 	}
 
-	// ── OTP variant (opt-in via config.otp) ───────────────────────────────
+	// OTP variant (opt-in via config.otp)
 
 	const otpConfig = config.otp;
 
@@ -465,7 +455,7 @@ export function createPasswordResetModule(
 		return result;
 	}
 
-	// ── handleRequest ─────────────────────────────────────────────────────
+	// handleRequest
 
 	const HANDLED_PATHS = new Set(["/auth/forgot-password", "/auth/reset-password"]);
 	if (otpConfig) {

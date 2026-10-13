@@ -9,9 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPolicyCache } from "../src/policy/cache.js";
 import type { PolicyDecision } from "../src/policy/types.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const decision = (allowed: boolean): PolicyDecision => ({
 	allowed,
@@ -21,9 +19,7 @@ const decision = (allowed: boolean): PolicyDecision => ({
 	durationMs: 0,
 });
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createPolicyCache", () => {
 	describe("miss / hit counters", () => {

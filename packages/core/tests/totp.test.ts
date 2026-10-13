@@ -19,9 +19,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 const TEST_USER_ID = "user-totp-test";
 const TEST_USER_ID_2 = "user-totp-test-2";
@@ -101,9 +99,7 @@ function generateTestTotp(secret: string, timeOffset = 0, period = 30): string {
 	return code.toString().padStart(6, "0");
 }
 
-// ---------------------------------------------------------------------------
 // Pure unit tests (no DB)
-// ---------------------------------------------------------------------------
 
 describe("TOTP internals", () => {
 	it("generates a 6-digit TOTP code", () => {
@@ -141,9 +137,7 @@ describe("TOTP internals", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Module integration tests (with DB)
-// ---------------------------------------------------------------------------
 
 describe("createTotpModule — setup", () => {
 	let db: Database;

@@ -29,18 +29,14 @@
  * ```
  */
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface CsrfValidationResult {
 	valid: boolean;
 	reason?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Token generation
-// ---------------------------------------------------------------------------
 
 const TOKEN_BYTE_LENGTH = 32;
 
@@ -58,9 +54,7 @@ export function generateCsrfToken(): string {
 	return uint8ArrayToBase64Url(bytes);
 }
 
-// ---------------------------------------------------------------------------
 // Token validation — double-submit cookie pattern
-// ---------------------------------------------------------------------------
 
 /**
  * Validate a CSRF token from the request against the value stored in the
@@ -84,9 +78,7 @@ export function validateCsrfToken(requestToken: string, cookieToken: string): Cs
 	return { valid: true };
 }
 
-// ---------------------------------------------------------------------------
 // Origin validation
-// ---------------------------------------------------------------------------
 
 /**
  * Validate the `Origin` (or `Referer` fallback) header of an incoming
@@ -153,9 +145,7 @@ export function validateOrigin(
 	return { valid: false, reason: "No Origin or Referer header present" };
 }
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Strip trailing slash and lowercase the scheme+host for stable comparison.

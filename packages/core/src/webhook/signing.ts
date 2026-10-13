@@ -10,9 +10,7 @@
  * point in time so consumers can reject replays outside their tolerance window.
  */
 
-// ---------------------------------------------------------------------------
 // Low-level helpers
-// ---------------------------------------------------------------------------
 
 function toHex(bytes: Uint8Array): string {
 	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -35,9 +33,7 @@ async function computeHmac(key: CryptoKey, message: string): Promise<string> {
 	return toHex(new Uint8Array(sig));
 }
 
-// ---------------------------------------------------------------------------
 // Signing headers
-// ---------------------------------------------------------------------------
 
 export interface WebhookHeaders {
 	"X-TheAuth-Signature": string;
@@ -73,9 +69,7 @@ export async function buildWebhookHeaders(
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Public helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Generate a cryptographically random delivery ID (32 hex chars / 128 bits).
@@ -94,9 +88,7 @@ export function currentTimestamp(): string {
 	return String(Math.floor(Date.now() / 1000));
 }
 
-// ---------------------------------------------------------------------------
 // Verification helper for consumers
-// ---------------------------------------------------------------------------
 
 /**
  * Verify a webhook signature received by your endpoint.

@@ -25,9 +25,7 @@ import {
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SESSION_SECRET = "test-session-secret-for-multi-session-tests-32chars!";
 const USER_A = "user-multi-a";
@@ -48,9 +46,7 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-// ---------------------------------------------------------------------------
 // listSessions
-// ---------------------------------------------------------------------------
 
 describe("MultiSessionModule.listSessions", () => {
 	let db: Database;
@@ -117,9 +113,7 @@ describe("MultiSessionModule.listSessions", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // revokeSession
-// ---------------------------------------------------------------------------
 
 describe("MultiSessionModule.revokeSession", () => {
 	let db: Database;
@@ -156,9 +150,7 @@ describe("MultiSessionModule.revokeSession", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // revokeOtherSessions
-// ---------------------------------------------------------------------------
 
 describe("MultiSessionModule.revokeOtherSessions", () => {
 	let db: Database;
@@ -202,9 +194,7 @@ describe("MultiSessionModule.revokeOtherSessions", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getSessionCount
-// ---------------------------------------------------------------------------
 
 describe("MultiSessionModule.getSessionCount", () => {
 	let db: Database;
@@ -239,9 +229,7 @@ describe("MultiSessionModule.getSessionCount", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // enforceSessionLimit — evict-oldest
-// ---------------------------------------------------------------------------
 
 describe("MultiSessionModule.enforceSessionLimit (evict-oldest)", () => {
 	let db: Database;
@@ -292,9 +280,7 @@ describe("MultiSessionModule.enforceSessionLimit (evict-oldest)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // enforceSessionLimit — reject
-// ---------------------------------------------------------------------------
 
 describe("MultiSessionModule.enforceSessionLimit (reject)", () => {
 	let db: Database;
@@ -351,9 +337,7 @@ describe("MultiSessionModule.enforceSessionLimit (reject)", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // buildSessionMetadata
-// ---------------------------------------------------------------------------
 
 describe("buildSessionMetadata", () => {
 	it("extracts Chrome on macOS from a typical Chrome UA", () => {

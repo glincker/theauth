@@ -32,7 +32,7 @@ export async function approveConsent(
 		resource,
 	} = params;
 
-	// ── Validate client still exists and is enabled ─────────────────
+	// Validate client still exists and is enabled
 	const client = await resolveClient(ctx, clientId);
 	if (!client) {
 		return {
@@ -54,7 +54,7 @@ export async function approveConsent(
 		};
 	}
 
-	// ── Validate redirect_uri ────────────────────────────────────────
+	// Validate redirect_uri
 	if (!redirectUriAllowed(ctx, client, redirectUri)) {
 		return {
 			success: false,
@@ -65,7 +65,7 @@ export async function approveConsent(
 		};
 	}
 
-	// ── Resource indicator is mandatory (RFC 8707) ───────────────────
+	// Resource indicator is mandatory (RFC 8707)
 	if (!resource) {
 		return {
 			success: false,
@@ -76,7 +76,7 @@ export async function approveConsent(
 	if (!resolved.success) return resolved;
 	const canonicalResource = resolved.data;
 
-	// ── Normalise scopes ─────────────────────────────────────────────
+	// Normalise scopes
 	const effectiveScopes =
 		typeof scope === "string" ? scope.split(" ").filter(Boolean) : scope.filter(Boolean);
 
@@ -90,7 +90,7 @@ export async function approveConsent(
 		};
 	}
 
-	// ── Generate and store authorization code ────────────────────────
+	// Generate and store authorization code
 	const code = generateAuthorizationCode();
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ctx.config.codeTtl * 1000);
@@ -110,7 +110,7 @@ export async function approveConsent(
 
 	await ctx.storeAuthorizationCode(authCode);
 
-	// ── Build redirect back to client ────────────────────────────────
+	// Build redirect back to client
 	const redirectUrl = new URL(redirectUri);
 	redirectUrl.searchParams.set("code", code);
 	if (state) {

@@ -5,11 +5,11 @@ import { matchPolicy } from "./policy-matcher.js";
 import { createGatewayRateLimiter } from "./rate-limiter.js";
 import type { Gateway, GatewayConfig, GatewayPolicy, ResolvedIdentity } from "./types.js";
 
-// ─── Health Check Path ───────────────────────────────────────────────────────
+// Health Check Path
 
 const HEALTH_PATH = "/_theauth/health";
 
-// ─── Response Helpers ────────────────────────────────────────────────────────
+// Response Helpers
 
 function jsonResponse(
 	body: unknown,
@@ -34,7 +34,7 @@ function errorResponse(
 	return jsonResponse({ error: { code, message } }, status, extraHeaders);
 }
 
-// ─── Token Extraction ────────────────────────────────────────────────────────
+// Token Extraction
 
 function extractBearerToken(request: Request): string | null {
 	const auth = request.headers.get("Authorization");
@@ -51,7 +51,7 @@ function extractClientIp(request: Request, trustedProxy?: TrustedProxyConfig): s
 	return resolveClientIp(request, trustedProxy) ?? undefined;
 }
 
-// ─── Rate Limit Key ──────────────────────────────────────────────────────────
+// Rate Limit Key
 
 /** Small non-cryptographic hash that keeps limiter keys bounded in size. */
 function fingerprint(value: string): string {
@@ -90,7 +90,7 @@ function rateLimitKey(
 	return `anon:${fingerprint(material)}`;
 }
 
-// ─── Proxy Request Builder ───────────────────────────────────────────────────
+// Proxy Request Builder
 
 function buildUpstreamRequest(
 	request: Request,
@@ -121,7 +121,7 @@ function buildUpstreamRequest(
 	});
 }
 
-// ─── Permission Check ────────────────────────────────────────────────────────
+// Permission Check
 
 async function checkPermissions(
 	theauth: TheAuth,
@@ -152,7 +152,7 @@ async function checkPermissions(
 	return { allowed: true };
 }
 
-// ─── Audit ───────────────────────────────────────────────────────────────────
+// Audit
 
 async function recordAuditEntry(
 	theauth: TheAuth,
@@ -186,7 +186,7 @@ async function recordAuditEntry(
 	void reason;
 }
 
-// ─── Gateway Factory ─────────────────────────────────────────────────────────
+// Gateway Factory
 
 /**
  * Create a TheAuth Gateway that enforces auth, authorization, and rate
@@ -245,7 +245,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 		const origin = request.headers.get("origin");
 		const corsHeaders = buildCorsHeaders(cors, origin);
 
-		// ── Health Check ────────────────────────────────────────────
+		// Health Check
 		if (pathname === HEALTH_PATH) {
 			return jsonResponse(
 				{ status: "ok", upstream, timestamp: new Date().toISOString() },
@@ -254,12 +254,12 @@ export function createGateway(config: GatewayConfig): Gateway {
 			);
 		}
 
-		// ── CORS Preflight ──────────────────────────────────────────
+		// CORS Preflight
 		if (isPreflight(request) && cors) {
 			return new Response(null, { status: 204, headers: corsHeaders });
 		}
 
-		// ── Policy Matching ─────────────────────────────────────────
+		// Policy Matching
 		const matchedPolicy = matchPolicy(policies, pathname, request.method);
 
 		// Determine if auth is required
@@ -267,7 +267,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			? matchedPolicy.public !== true && (matchedPolicy.requireAuth ?? true)
 			: true; // default: require auth when no policy matches
 
-		// ── Token Resolution ────────────────────────────────────────
+		// Token Resolution
 		const token = extractBearerToken(request);
 		let identity: ResolvedIdentity | null = null;
 
@@ -278,7 +278,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			}
 		}
 
-		// ── Auth Enforcement ────────────────────────────────────────
+		// Auth Enforcement
 		if (requireAuth && !identity) {
 			if (audit) {
 				await recordAuditEntry(
@@ -293,7 +293,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			return errorResponse("UNAUTHORIZED", "Missing or invalid Bearer token", 401, corsHeaders);
 		}
 
-		// ── Global Rate Limit ───────────────────────────────────────
+		// Global Rate Limit
 		if (globalLimiter) {
 			const key = rateLimitKey(identity, request, trustedProxy);
 			const rl = globalLimiter.check(key);
@@ -315,7 +315,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			}
 		}
 
-		// ── Policy Rate Limit ───────────────────────────────────────
+		// Policy Rate Limit
 		if (matchedPolicy) {
 			const policyLimiter = getPolicyLimiter(matchedPolicy);
 			if (policyLimiter) {
@@ -339,7 +339,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 				}
 			}
 
-			// ── Permission Check ────────────────────────────────────
+			// Permission Check
 			if (identity && matchedPolicy.requiredPermissions) {
 				const permCheck = await checkPermissions(
 					theauth,
@@ -369,7 +369,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			}
 		}
 
-		// ── Proxy ────────────────────────────────────────────────────
+		// Proxy
 		let upstreamResponse: Response;
 		try {
 			const upstreamRequest = buildUpstreamRequest(request, upstream, stripAuthHeader);
@@ -389,7 +389,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 			return errorResponse("BAD_GATEWAY", `Upstream error: ${message}`, 502, corsHeaders);
 		}
 
-		// ── Audit allowed ────────────────────────────────────────────
+		// Audit allowed
 		if (audit && identity) {
 			await recordAuditEntry(theauth, request, identity, "allowed", undefined, trustedProxy);
 		}
@@ -489,7 +489,7 @@ export function createGateway(config: GatewayConfig): Gateway {
 	return { handleRequest, listen, close };
 }
 
-// ─── Re-export config types for convenience ──────────────────────────────────
+// Re-export config types for convenience
 
 export type {
 	CorsConfig,

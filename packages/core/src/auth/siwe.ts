@@ -28,9 +28,7 @@
 import { randomBytesHex } from "../crypto/web-crypto.js";
 import type { SecondaryStorage } from "../storage/types.js";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface SiweConfig {
 	/** Your app's domain (e.g., "example.com") */
@@ -72,9 +70,7 @@ export interface SiweVerifyResult {
 	chainId: number;
 }
 
-// ---------------------------------------------------------------------------
 // Internal types
-// ---------------------------------------------------------------------------
 
 interface NonceEntry {
 	expiresAt: number;
@@ -91,16 +87,12 @@ interface ParsedSiweMessage {
 	statement?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_NONCE_TTL_SECONDS = 300;
 const SIWE_VERSION = "1";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -189,9 +181,7 @@ function parseSiweMessage(message: string): ParsedSiweMessage | null {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 export function createSiweModule(config: SiweConfig): SiweModule {
 	const nonceTtlMs = (config.nonceTtlSeconds ?? DEFAULT_NONCE_TTL_SECONDS) * 1000;
@@ -349,9 +339,7 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 	return { generateNonce, buildMessage, verify, handleRequest };
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 import type { TheAuthPlugin } from "../plugin/types.js";
 

@@ -5,7 +5,7 @@ import {
 	GRANT_TYPE_TOKEN_EXCHANGE,
 } from "./grant-types.js";
 
-// ─── Zod Schemas ────────────────────────────────────────────────────────────
+// Zod Schemas
 
 export const McpClientRegistrationSchema = z.object({
 	redirect_uris: z.array(z.string().url()),

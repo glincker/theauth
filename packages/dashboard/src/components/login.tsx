@@ -1,14 +1,14 @@
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface LoginProps {
 	apiUrl: string;
 	onAuthenticated: (secret: string) => void;
 }
 
-// ─── Login Screen ─────────────────────────────────────────────────────────────
+// Login Screen
 
 export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 	const [secret, setSecret] = useState("");

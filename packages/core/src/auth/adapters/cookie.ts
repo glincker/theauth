@@ -21,9 +21,7 @@ import { jwtVerify } from "jose";
 import { z } from "zod";
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
-// ---------------------------------------------------------------------------
 // Options schema
-// ---------------------------------------------------------------------------
 
 const CookieAuthOptionsSchema = z.object({
 	/** Secret used to verify HS256/HS384/HS512 tokens. */
@@ -50,9 +48,7 @@ const CookieAuthOptionsSchema = z.object({
 
 export type CookieAuthOptions = z.input<typeof CookieAuthOptionsSchema>;
 
-// ---------------------------------------------------------------------------
 // Cookie parser
-// ---------------------------------------------------------------------------
 
 function parseCookies(cookieHeader: string): Map<string, string> {
 	const cookies = new Map<string, string>();
@@ -66,9 +62,7 @@ function parseCookies(cookieHeader: string): Map<string, string> {
 	return cookies;
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create an `AuthAdapter` that validates a JWT from an httpOnly cookie

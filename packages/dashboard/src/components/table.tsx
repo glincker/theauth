@@ -83,7 +83,7 @@ export function Tr({ children, onClick }: TrProps) {
 	);
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
+// Empty State
 
 interface EmptyStateProps {
 	icon: ReactNode;

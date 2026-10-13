@@ -20,7 +20,7 @@ export async function handleAuthorize(
 	ctx: McpAuthContext,
 	request: Request,
 ): Promise<Result<McpAuthorizeResult>> {
-	// ── Parse query parameters ──────────────────────────────────────
+	// Parse query parameters
 	const url = new URL(request.url);
 	const params: Record<string, string> = {};
 	for (const [key, value] of url.searchParams.entries()) {
@@ -56,7 +56,7 @@ export async function handleAuthorize(
 		resource: requestedResource,
 	} = parsed.data;
 
-	// ── Validate client ─────────────────────────────────────────────
+	// Validate client
 	const client = await resolveClient(ctx, clientId);
 	if (!client) {
 		return {
@@ -78,7 +78,7 @@ export async function handleAuthorize(
 		};
 	}
 
-	// ── Validate redirect_uri ───────────────────────────────────────
+	// Validate redirect_uri
 	if (!redirectUriAllowed(ctx, client, redirectUri)) {
 		return {
 			success: false,
@@ -89,7 +89,7 @@ export async function handleAuthorize(
 		};
 	}
 
-	// ── PKCE validation: S256 only ──────────────────────────────────
+	// PKCE validation: S256 only
 	if (codeChallengeMethod !== "S256") {
 		return {
 			success: false,
@@ -100,19 +100,19 @@ export async function handleAuthorize(
 		};
 	}
 
-	// ── Validate resource parameter (RFC 8707) ──────────────────────
+	// Validate resource parameter (RFC 8707)
 	// `resource` is the canonical configured resource the token binds to.
 	const resolvedResource = resolveResource(ctx, requestedResource);
 	if (!resolvedResource.success) return resolvedResource;
 	const resource = resolvedResource.data;
 
-	// ── Validate scopes ─────────────────────────────────────────────
+	// Validate scopes
 	const requestedScopes = scopeParam ? scopeParam.split(" ").filter(Boolean) : [];
 	const filtered = filterRequestedScopes(ctx, requestedScopes);
 	if (!filtered.success) return filtered;
 	const effectiveScopes = filtered.data.length > 0 ? filtered.data : ["openid"];
 
-	// ── Resolve authenticated user ──────────────────────────────────
+	// Resolve authenticated user
 	const userId = await ctx.resolveUserId(request);
 	if (!userId) {
 		return {
@@ -129,7 +129,7 @@ export async function handleAuthorize(
 		};
 	}
 
-	// ── Consent page redirect ───────────────────────────────────────
+	// Consent page redirect
 	// When a consent page is configured, redirect the user to it instead
 	// of issuing an authorization code immediately.  The consent page
 	// collects explicit user approval and then calls approveConsent().
@@ -154,7 +154,7 @@ export async function handleAuthorize(
 		};
 	}
 
-	// ── Generate authorization code ─────────────────────────────────
+	// Generate authorization code
 	const code = generateAuthorizationCode();
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ctx.config.codeTtl * 1000);
@@ -174,7 +174,7 @@ export async function handleAuthorize(
 
 	await ctx.storeAuthorizationCode(authCode);
 
-	// ── Build redirect ──────────────────────────────────────────────
+	// Build redirect
 	const redirectUrl = new URL(redirectUri);
 	redirectUrl.searchParams.set("code", code);
 	if (state) {

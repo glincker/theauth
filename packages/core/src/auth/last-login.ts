@@ -33,15 +33,11 @@ import type { Database } from "../db/database.js";
 import { loginHistory } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
-// ---------------------------------------------------------------------------
 // Re-export shared types for callers that import from this module
-// ---------------------------------------------------------------------------
 
 export type { AuthError, Result, TheAuthError };
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 /**
  * All supported login methods.
@@ -114,9 +110,7 @@ export interface LastLoginModule {
 	getLoginHistory(userId: string, limit?: number): Promise<Result<LoginEvent[]>>;
 }
 
-// ---------------------------------------------------------------------------
 // Zod validation
-// ---------------------------------------------------------------------------
 
 const LOGIN_METHOD_BASE_VALUES = [
 	"email-password",
@@ -142,15 +136,11 @@ const recordLoginInputSchema = z.object({
 	userAgent: z.string().min(1).optional(),
 });
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_HISTORY = 10;
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -174,9 +164,7 @@ function rowToLoginEvent(row: {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a last-login tracking module backed by the provided database.
@@ -187,7 +175,7 @@ function rowToLoginEvent(row: {
 export function createLastLoginModule(config: LastLoginConfig, db: Database): LastLoginModule {
 	const maxHistory = config.maxHistoryPerUser ?? DEFAULT_MAX_HISTORY;
 
-	// ── recordLogin ──────────────────────────────────────────────────────────
+	// recordLogin
 
 	async function recordLogin(input: RecordLoginInput): Promise<Result<LoginEvent>> {
 		const parsed = recordLoginInputSchema.safeParse(input);
@@ -254,7 +242,7 @@ export function createLastLoginModule(config: LastLoginConfig, db: Database): La
 		}
 	}
 
-	// ── getLastLogin ─────────────────────────────────────────────────────────
+	// getLastLogin
 
 	async function getLastLogin(userId: string): Promise<Result<LoginEvent | null>> {
 		if (typeof userId !== "string" || userId.trim() === "") {
@@ -282,7 +270,7 @@ export function createLastLoginModule(config: LastLoginConfig, db: Database): La
 		}
 	}
 
-	// ── getLoginHistory ───────────────────────────────────────────────────────
+	// getLoginHistory
 
 	async function getLoginHistory(userId: string, limit?: number): Promise<Result<LoginEvent[]>> {
 		if (typeof userId !== "string" || userId.trim() === "") {

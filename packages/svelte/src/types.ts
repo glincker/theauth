@@ -1,4 +1,4 @@
-// ─── Domain types ─────────────────────────────────────────────────────────────
+// Domain types
 
 export interface TheAuthUser {
 	id: string;
@@ -59,6 +59,6 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-// ─── Result type ──────────────────────────────────────────────────────────────
+// Result type
 
 export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };

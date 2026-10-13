@@ -21,9 +21,7 @@ import { createPolicyEngine } from "../src/policy/engine.js";
 import { POLICY_ERROR_CODES } from "../src/policy/types.js";
 import type { PermissionConstraints } from "../src/types.js";
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ──────────────────────────────────────────────────────────────────────────────
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -96,9 +94,7 @@ async function seedMember(
 	await db.insert(orgMembers).values({ id, orgId, userId, role, joinedAt: new Date() });
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Suite
-// ──────────────────────────────────────────────────────────────────────────────
 
 describe("createPolicyEngine - direct permissions", () => {
 	let db: Database;

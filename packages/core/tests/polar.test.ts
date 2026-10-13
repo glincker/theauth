@@ -36,9 +36,7 @@ import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import type { PluginContext, TheAuthPlugin } from "../src/plugin/types.js";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -68,9 +66,7 @@ function makeConfig(overrides: Partial<PolarConfig> = {}): PolarConfig {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Webhook signature helpers
-// ---------------------------------------------------------------------------
 
 async function buildSignatureHeader(payload: string, secret: string): Promise<string> {
 	const encoder = new TextEncoder();
@@ -88,9 +84,7 @@ async function buildSignatureHeader(payload: string, secret: string): Promise<st
 	return `sha256=${sig}`;
 }
 
-// ---------------------------------------------------------------------------
 // Mock fetch setup
-// ---------------------------------------------------------------------------
 
 type FetchHandler = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
@@ -120,9 +114,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// ---------------------------------------------------------------------------
 // Webhook signature verification
-// ---------------------------------------------------------------------------
 
 describe("webhook signature verification", () => {
 	let db: Database;
@@ -192,9 +184,7 @@ describe("webhook signature verification", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createCheckout
-// ---------------------------------------------------------------------------
 
 describe("createCheckout", () => {
 	it("calls Polar API and returns url and id", async () => {
@@ -270,9 +260,7 @@ describe("createCheckout", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getSubscription
-// ---------------------------------------------------------------------------
 
 describe("getSubscription", () => {
 	it("returns null when user has no subscription data", async () => {
@@ -314,9 +302,7 @@ describe("getSubscription", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Webhook event handling
-// ---------------------------------------------------------------------------
 
 describe("handleWebhook event dispatch", () => {
 	const CUSTOMER_ID = "polar_cust_event_test";
@@ -496,9 +482,7 @@ describe("handleWebhook event dispatch", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Plugin: unauthenticated requests and validation
-// ---------------------------------------------------------------------------
 
 describe("polar plugin — endpoint access", () => {
 	let db: Database;
@@ -618,9 +602,7 @@ describe("polar plugin — endpoint access", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Sandbox mode
-// ---------------------------------------------------------------------------
 
 describe("sandbox mode", () => {
 	it("uses sandbox API base URL when sandbox: true", async () => {

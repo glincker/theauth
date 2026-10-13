@@ -39,9 +39,7 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const BEARER = "test-scim-token-secret";
 const BASE = "https://api.example.com";
@@ -81,9 +79,7 @@ async function json(res: Response): Promise<Record<string, unknown>> {
 	return res.json() as Promise<Record<string, unknown>>;
 }
 
-// ---------------------------------------------------------------------------
 // Auth guard
-// ---------------------------------------------------------------------------
 
 describe("SCIM bearer token auth", () => {
 	let db: Database;
@@ -112,9 +108,7 @@ describe("SCIM bearer token auth", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User provisioning
-// ---------------------------------------------------------------------------
 
 describe("SCIM POST /scim/v2/Users", () => {
 	let db: Database;
@@ -190,9 +184,7 @@ describe("SCIM POST /scim/v2/Users", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User listing and filtering
-// ---------------------------------------------------------------------------
 
 describe("SCIM GET /scim/v2/Users", () => {
 	let db: Database;
@@ -250,9 +242,7 @@ describe("SCIM GET /scim/v2/Users", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User get by ID
-// ---------------------------------------------------------------------------
 
 describe("SCIM GET /scim/v2/Users/:id", () => {
 	let db: Database;
@@ -280,9 +270,7 @@ describe("SCIM GET /scim/v2/Users/:id", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User replace (PUT)
-// ---------------------------------------------------------------------------
 
 describe("SCIM PUT /scim/v2/Users/:id", () => {
 	let db: Database;
@@ -321,9 +309,7 @@ describe("SCIM PUT /scim/v2/Users/:id", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User PATCH
-// ---------------------------------------------------------------------------
 
 describe("SCIM PATCH /scim/v2/Users/:id", () => {
 	let db: Database;
@@ -420,9 +406,7 @@ describe("SCIM PATCH /scim/v2/Users/:id", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // User deprovisioning (DELETE)
-// ---------------------------------------------------------------------------
 
 describe("SCIM DELETE /scim/v2/Users/:id", () => {
 	let db: Database;
@@ -467,9 +451,7 @@ describe("SCIM DELETE /scim/v2/Users/:id", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Group CRUD
-// ---------------------------------------------------------------------------
 
 describe("SCIM Groups", () => {
 	let db: Database;
@@ -640,9 +622,7 @@ describe("SCIM Groups", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Discovery endpoints
-// ---------------------------------------------------------------------------
 
 describe("SCIM ServiceProviderConfig", () => {
 	let db: Database;
@@ -706,9 +686,7 @@ describe("SCIM ResourceTypes", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Non-SCIM paths
-// ---------------------------------------------------------------------------
 
 describe("SCIM handleRequest routing", () => {
 	let db: Database;
@@ -730,9 +708,7 @@ describe("SCIM handleRequest routing", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Sort (RFC 7644 3.4.2.3)
-// ---------------------------------------------------------------------------
 
 describe("SCIM sort on /Users", () => {
 	let db: Database;
@@ -769,9 +745,7 @@ describe("SCIM sort on /Users", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Enterprise User extension (RFC 7643 4.3)
-// ---------------------------------------------------------------------------
 
 describe("SCIM Enterprise User extension", () => {
 	let db: Database;
@@ -823,9 +797,7 @@ describe("SCIM Enterprise User extension", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // /Bulk endpoint (RFC 7644 3.7)
-// ---------------------------------------------------------------------------
 
 describe("SCIM /Bulk endpoint", () => {
 	let db: Database;
@@ -875,9 +847,7 @@ describe("SCIM /Bulk endpoint", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // /Me endpoint (RFC 7644 3.11)
-// ---------------------------------------------------------------------------
 
 describe("SCIM /Me endpoint", () => {
 	let db: Database;

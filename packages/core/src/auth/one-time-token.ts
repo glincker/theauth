@@ -35,15 +35,11 @@ import type { Database } from "../db/database.js";
 import { oneTimeTokens } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
-// ---------------------------------------------------------------------------
 // Re-export shared types for callers that import from this module
-// ---------------------------------------------------------------------------
 
 export type { AuthError, Result, TheAuthError };
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 /** Token purpose discriminator. Use 'custom' for any application-specific flow. */
 export type OneTimeTokenPurpose = "email-verify" | "password-reset" | "invitation" | "custom";
@@ -99,9 +95,7 @@ export interface OneTimeTokenModule {
 	revokeTokens(identifier: string, purpose?: string): Promise<Result<RevokeTokensResult>>;
 }
 
-// ---------------------------------------------------------------------------
 // Zod validation schemas
-// ---------------------------------------------------------------------------
 
 const PURPOSE_VALUES = ["email-verify", "password-reset", "invitation", "custom"] as const;
 
@@ -112,16 +106,12 @@ const createTokenInputSchema = z.object({
 	ttlSeconds: z.number().int().positive().optional(),
 });
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const DEFAULT_TTL_SECONDS = 3600; // 1 hour
 const TOKEN_BYTE_LENGTH = 32; // 256-bit token — 64 hex chars when encoded
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 async function hashToken(raw: string): Promise<string> {
 	return sha256(raw);
@@ -135,9 +125,7 @@ function makeError(code: string, message: string, details?: Record<string, unkno
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a one-time token module backed by the provided database.
@@ -151,7 +139,7 @@ export function createOneTimeTokenModule(
 ): OneTimeTokenModule {
 	const defaultTtl = config.defaultTtlSeconds ?? DEFAULT_TTL_SECONDS;
 
-	// ── createToken ──────────────────────────────────────────────────────────
+	// createToken
 
 	async function createToken(
 		input: CreateTokenInput,
@@ -196,7 +184,7 @@ export function createOneTimeTokenModule(
 		}
 	}
 
-	// ── validateToken ────────────────────────────────────────────────────────
+	// validateToken
 
 	async function validateToken(
 		token: string,
@@ -279,7 +267,7 @@ export function createOneTimeTokenModule(
 		};
 	}
 
-	// ── revokeTokens ─────────────────────────────────────────────────────────
+	// revokeTokens
 
 	async function revokeTokens(
 		identifier: string,

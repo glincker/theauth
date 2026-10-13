@@ -3,9 +3,7 @@ import { withRateLimit } from "../src/auth/rate-limit-middleware.js";
 import { createRateLimiter } from "../src/auth/rate-limiter.js";
 import type { EndpointContext } from "../src/plugin/types.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function makeEndpointCtx(): EndpointContext {
 	return {
@@ -28,9 +26,7 @@ function makeRequest(ip?: string): Request {
 const TRUST_ONE = { trustedProxyCount: 1 };
 const OK_HANDLER = async () => new Response("ok", { status: 200 });
 
-// ---------------------------------------------------------------------------
 // createRateLimiter — core behaviour
-// ---------------------------------------------------------------------------
 
 describe("createRateLimiter", () => {
 	it("allows requests up to the configured max", () => {
@@ -123,9 +119,7 @@ describe("createRateLimiter", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // withRateLimit middleware
-// ---------------------------------------------------------------------------
 
 describe("withRateLimit", () => {
 	beforeEach(() => {

@@ -14,9 +14,7 @@ import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { cookieAuth } from "../src/auth/adapters/cookie.js";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 const SECRET = "test-secret-that-is-at-least-1-char";
 const KEY = new TextEncoder().encode(SECRET);
@@ -43,9 +41,7 @@ function makeRequest(cookies: Record<string, string> = {}): Request {
 	return new Request("https://example.com/api", { headers });
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("cookieAuth", () => {
 	const adapter = cookieAuth({

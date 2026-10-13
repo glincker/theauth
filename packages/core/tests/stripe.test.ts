@@ -35,9 +35,7 @@ import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import type { PluginContext, TheAuthPlugin } from "../src/plugin/types.js";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -67,9 +65,7 @@ function makeConfig(overrides: Partial<StripeConfig> = {}): StripeConfig {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Webhook signature test helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Build a valid Stripe-Signature header for testing.
@@ -97,9 +93,7 @@ async function buildSignatureHeader(
 	return `t=${timestamp},v1=${sig}`;
 }
 
-// ---------------------------------------------------------------------------
 // Mock fetch setup
-// ---------------------------------------------------------------------------
 
 type FetchHandler = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
@@ -129,9 +123,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// ---------------------------------------------------------------------------
 // Webhook signature verification
-// ---------------------------------------------------------------------------
 
 describe("webhook signature verification", () => {
 	let db: Database;
@@ -208,9 +200,7 @@ describe("webhook signature verification", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Customer management
-// ---------------------------------------------------------------------------
 
 describe("createCustomer", () => {
 	let db: Database;
@@ -264,9 +254,7 @@ describe("getCustomerId", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createCheckoutSession
-// ---------------------------------------------------------------------------
 
 describe("createCheckoutSession", () => {
 	let db: Database;
@@ -365,9 +353,7 @@ describe("createCheckoutSession", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // createPortalSession
-// ---------------------------------------------------------------------------
 
 describe("createPortalSession", () => {
 	it("returns a portal URL from Stripe", async () => {
@@ -397,9 +383,7 @@ describe("createPortalSession", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // getSubscription
-// ---------------------------------------------------------------------------
 
 describe("getSubscription", () => {
 	it("returns null when the user has no subscription data", async () => {
@@ -439,9 +423,7 @@ describe("getSubscription", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Webhook event handling
-// ---------------------------------------------------------------------------
 
 describe("handleWebhook event dispatch", () => {
 	let db: Database;
@@ -636,9 +618,7 @@ describe("handleWebhook event dispatch", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // Plugin: unauthenticated requests
-// ---------------------------------------------------------------------------
 
 describe("stripe plugin — unauthenticated endpoint access", () => {
 	let db: Database;
@@ -796,9 +776,7 @@ describe("stripe plugin — unauthenticated endpoint access", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
 // formEncode internal (tested via createCheckoutSession round-trip)
-// ---------------------------------------------------------------------------
 
 describe("form-encoded Stripe requests", () => {
 	it("sends Content-Type application/x-www-form-urlencoded for POST", async () => {

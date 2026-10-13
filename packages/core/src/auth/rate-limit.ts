@@ -96,9 +96,7 @@ export interface RateLimitConfig extends TrustedProxyConfig {
 	onLimit?: (request: Request, retryAfter: number) => Response;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Parse a window string like "15m", "1h", "30s", "1d" into milliseconds */
 function parseWindowMs(window: string): number {
@@ -219,9 +217,7 @@ function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit 
 	return pathname.includes("/auth/") ? config.default : undefined;
 }
 
-// ---------------------------------------------------------------------------
 // Plugin factory
-// ---------------------------------------------------------------------------
 
 export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 	let store: RateLimitStore | null = null;

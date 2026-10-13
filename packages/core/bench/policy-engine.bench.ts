@@ -33,15 +33,11 @@ import {
 import { createPolicyEngine } from "../src/policy/engine.js";
 import type { PolicyEngine } from "../src/policy/types.js";
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Targets
-// ──────────────────────────────────────────────────────────────────────────────
 
 const THROUGHPUT_TARGET_HZ = 50_000; // evals/sec, warm cache
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Setup
-// ──────────────────────────────────────────────────────────────────────────────
 
 async function buildEngineWithData(): Promise<{ engine: PolicyEngine; db: Database }> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -140,11 +136,9 @@ async function buildEngineWithData(): Promise<{ engine: PolicyEngine; db: Databa
 	return { engine, db };
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Benchmarks
 //
 // The engine is shared across all cases. Invalidation is manual for cold paths.
-// ──────────────────────────────────────────────────────────────────────────────
 
 const { engine: _engine } = await buildEngineWithData();
 const engine: PolicyEngine = _engine;

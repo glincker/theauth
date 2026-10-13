@@ -23,9 +23,7 @@ import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const AUTHORIZATION_URL = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -33,9 +31,7 @@ const USER_INFO_URL = "https://api.spotify.com/v1/me";
 
 export const DEFAULT_SPOTIFY_SCOPES = ["user-read-email", "user-read-private"];
 
-// ---------------------------------------------------------------------------
 // Raw response shapes
-// ---------------------------------------------------------------------------
 
 interface SpotifyTokenResponse {
 	access_token: string;
@@ -58,9 +54,7 @@ interface SpotifyUserResponse {
 	images?: SpotifyImage[];
 }
 
-// ---------------------------------------------------------------------------
 // Profile normalisation
-// ---------------------------------------------------------------------------
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as SpotifyUserResponse;
@@ -82,9 +76,7 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a Spotify OAuth provider instance.
@@ -193,9 +185,7 @@ export function createSpotifyProvider(config: OAuthProviderConfig): OAuthProvide
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

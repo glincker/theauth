@@ -1,10 +1,8 @@
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import * as schema from "./schema.js";
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Cloudflare D1 minimal interfaces
 // (avoids a hard dep on @cloudflare/workers-types)
-// ──────────────────────────────────────────────────────────────────────────────
 
 /** Minimal Cloudflare D1 interface for type compatibility */
 export interface D1DatabaseBinding {
@@ -29,9 +27,7 @@ interface D1ExecResult {
 	duration: number;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Type definitions
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * The fully-typed SQLite Drizzle database.
@@ -78,9 +74,7 @@ export type DatabaseConfig =
 			skipMigrations?: boolean;
 	  };
 
-// ──────────────────────────────────────────────────────────────────────────────
 // Factory
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * Create a database connection.
@@ -96,7 +90,7 @@ export type DatabaseConfig =
  * correct driver. Full pg-core / mysql-core schema typings are planned for v0.2.0.
  */
 export async function createDatabase(config: DatabaseConfig): Promise<Database> {
-	// ── SQLite (WASM, default) ────────────────────────────────────────
+	// SQLite (WASM, default)
 	// Uses sql.js (SQLite compiled to WebAssembly). Zero native deps.
 	// Works on Node.js, Bun, Deno, Vercel, Cloudflare, everywhere.
 	if (config.provider === "sqlite") {
@@ -169,7 +163,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		return drizzleDb as unknown as Database;
 	}
 
-	// ── SQLite (native, optional) ─────────────────────────────────────
+	// SQLite (native, optional)
 	// Uses better-sqlite3 for maximum performance. Requires C++ build tools.
 	// Use this when you need the fastest possible SQLite on Node.js.
 	if (config.provider === "sqlite-native") {

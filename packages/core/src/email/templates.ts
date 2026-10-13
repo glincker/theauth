@@ -19,9 +19,7 @@ export interface EmailTemplateConfig {
 	templates?: Partial<Record<EmailTemplateName, (vars: Record<string, string>) => EmailTemplate>>;
 }
 
-// ---------------------------------------------------------------------------
 // HTML helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Escape characters that have special meaning in HTML to prevent XSS when
@@ -81,9 +79,7 @@ function code(value: string): string {
 	return `<p style="margin:24px 0;"><span style="${CODE_STYLES}">${value}</span></p>`;
 }
 
-// ---------------------------------------------------------------------------
 // Built-in template factories
-// ---------------------------------------------------------------------------
 
 function verificationTemplate(
 	appName: string,
@@ -295,9 +291,7 @@ function welcomeTemplate(
 	};
 }
 
-// ---------------------------------------------------------------------------
 // Public factory
-// ---------------------------------------------------------------------------
 
 export interface EmailTemplates {
 	render(name: EmailTemplateName, vars: Record<string, string>): EmailTemplate;

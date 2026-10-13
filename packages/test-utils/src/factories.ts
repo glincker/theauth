@@ -12,7 +12,7 @@ import type {
 	TheAuthUser,
 } from "@glinr/theauth-react";
 
-// ─── ID generation ────────────────────────────────────────────────────────────
+// ID generation
 
 /** Generates a deterministic-looking UUID-style ID without crypto dependencies. */
 function makeId(prefix: string): string {
@@ -28,7 +28,7 @@ function nextCount(): number {
 	return ++_counter;
 }
 
-// ─── User factory ─────────────────────────────────────────────────────────────
+// User factory
 
 /**
  * Creates a mock `TheAuthUser` with realistic defaults.
@@ -47,7 +47,7 @@ export function createMockUser(overrides?: Partial<TheAuthUser>): TheAuthUser {
 	};
 }
 
-// ─── Session factory ──────────────────────────────────────────────────────────
+// Session factory
 
 /**
  * Creates a mock `TheAuthSession`. Generates a user automatically unless
@@ -66,7 +66,7 @@ export function createMockSession(overrides?: Partial<TheAuthSession>): TheAuthS
 	};
 }
 
-// ─── Permission factory ───────────────────────────────────────────────────────
+// Permission factory
 
 /**
  * Creates a mock `TheAuthPermission`.
@@ -82,7 +82,7 @@ export function createMockPermission(overrides?: Partial<TheAuthPermission>): Th
 	};
 }
 
-// ─── Agent factory ────────────────────────────────────────────────────────────
+// Agent factory
 
 /**
  * Creates a mock `TheAuthAgent` with sensible defaults.

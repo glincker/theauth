@@ -9,7 +9,7 @@ describe("edge cases", () => {
 		theauth = await createTestTheAuth();
 	});
 
-	// ── Agent edge cases ────────────────────────────────────────────────────────
+	// Agent edge cases
 
 	describe("agent edge cases", () => {
 		it("creates an agent with an empty permissions array", async () => {
@@ -96,7 +96,7 @@ describe("edge cases", () => {
 		});
 	});
 
-	// ── Permission / wildcard edge cases ────────────────────────────────────────
+	// Permission / wildcard edge cases
 
 	describe("permission and wildcard edge cases", () => {
 		it("bare wildcard * matches any resource and action", async () => {
@@ -198,7 +198,7 @@ describe("edge cases", () => {
 		});
 	});
 
-	// ── Delegation edge cases ────────────────────────────────────────────────────
+	// Delegation edge cases
 
 	describe("delegation edge cases", () => {
 		it("rejects delegation when parent does not hold the requested permissions", async () => {

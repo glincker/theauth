@@ -16,7 +16,7 @@ import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
-// ─── Zod Validation Schemas ──────────────────────────────────────────────────
+// Zod Validation Schemas
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -74,7 +74,7 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// ─── Response Helpers ────────────────────────────────────────────────────────
+// Response Helpers
 
 function sendOk<T>(res: Response, data: T, status = 200): void {
 	res.status(status).json({ data });
@@ -125,7 +125,7 @@ function sendValidationError(res: Response, issues: z.ZodIssue[]): void {
 	sendBadRequest(res, `Validation failed: ${message}`);
 }
 
-// ─── MCP CORS Headers ────────────────────────────────────────────────────────
+// MCP CORS Headers
 
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -164,7 +164,7 @@ function param(req: Request, name: string): string {
 	return Array.isArray(val) ? (val[0] ?? "") : (val ?? "");
 }
 
-// ─── Helpers for building a Web-compatible Request from Express ──────────────
+// Helpers for building a Web-compatible Request from Express
 
 function buildWebRequest(req: Request): globalThis.Request {
 	const protocol = req.protocol ?? "http";
@@ -206,7 +206,7 @@ function buildWebRequest(req: Request): globalThis.Request {
 	});
 }
 
-// ─── Adapter Factory ─────────────────────────────────────────────────────────
+// Adapter Factory
 
 /**
  * Create an Express Router with all TheAuth REST API routes mounted.
@@ -319,7 +319,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			.catch(next);
 	});
 
-	// ── Agent REST API ──────────────────────────────────────────────
+	// Agent REST API
 
 	// POST /agents - create agent
 	router.post("/agents", (req: Request, res: Response) => {
@@ -458,7 +458,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// ── Authorization ───────────────────────────────────────────────
+	// Authorization
 
 	// POST /authorize - authorize action by agentId
 	router.post("/authorize", (req: Request, res: Response) => {
@@ -537,7 +537,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// ── Delegation ──────────────────────────────────────────────────
+	// Delegation
 
 	// POST /delegations - create delegation
 	router.post("/delegations", (req: Request, res: Response) => {
@@ -602,7 +602,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// ── Audit ───────────────────────────────────────────────────────
+	// Audit
 
 	// GET /audit - query audit logs
 	router.get("/audit", (req: Request, res: Response) => {
@@ -690,7 +690,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// ── MCP OAuth 2.1 Endpoints ─────────────────────────────────────
+	// MCP OAuth 2.1 Endpoints
 
 	// OPTIONS preflight for MCP/well-known routes
 	router.options("/.well-known/*path", (_req: Request, res: Response) => {
@@ -811,7 +811,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// ── Dashboard API ───────────────────────────────────────────────
+	// Dashboard API
 
 	// GET /dashboard/stats
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
@@ -931,7 +931,7 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// ── Plugin Endpoints ────────────────────────────────────────────
+	// Plugin Endpoints
 
 	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";

@@ -6,14 +6,14 @@ import { createRequire } from "node:module";
 import { extname, join, resolve } from "node:path";
 import { env, stdout } from "node:process";
 
-// ─── Options ──────────────────────────────────────────────────────────────────
+// Options
 
 export interface DashboardServerOptions {
 	port: number;
 	apiUrl: string;
 }
 
-// ─── MIME Types ───────────────────────────────────────────────────────────────
+// MIME Types
 
 const MIME_TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",
@@ -37,7 +37,7 @@ function getMimeType(filePath: string): string {
 	return MIME_TYPES[ext] ?? "application/octet-stream";
 }
 
-// ─── Dist Dir Resolution ──────────────────────────────────────────────────────
+// Dist Dir Resolution
 
 function resolveDashboardDistDir(): string {
 	// Try resolving from the @glinr/theauth-dashboard package first
@@ -74,7 +74,7 @@ function resolveDashboardDistDir(): string {
 	);
 }
 
-// ─── HTML Injection ───────────────────────────────────────────────────────────
+// HTML Injection
 
 async function readIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const indexPath = join(distDir, "index.html");
@@ -90,7 +90,7 @@ async function readIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	return injection + html;
 }
 
-// ─── Static File Handler ──────────────────────────────────────────────────────
+// Static File Handler
 
 function send404(res: ServerResponse): void {
 	res.writeHead(404, { "Content-Type": "text/plain" });
@@ -107,7 +107,7 @@ function serveFile(filePath: string, res: ServerResponse): void {
 	createReadStream(filePath).pipe(res);
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+// Auth
 
 function sendJson(res: ServerResponse, status: number, body: Record<string, unknown>): void {
 	const payload = JSON.stringify(body);
@@ -149,7 +149,7 @@ function handleAuthRequest(
 	return true;
 }
 
-// ─── Server ───────────────────────────────────────────────────────────────────
+// Server
 
 export async function startDashboardServer(options: DashboardServerOptions): Promise<void> {
 	const { port, apiUrl } = options;

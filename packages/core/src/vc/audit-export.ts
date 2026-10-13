@@ -23,7 +23,7 @@ import type {
 } from "./types.js";
 import { VC_CONTEXT_V2, VC_TYPE_CREDENTIAL, VC_TYPE_PRESENTATION } from "./types.js";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// Constants
 
 export const THEAUTH_AUDIT_CREDENTIAL = "TheAuthAuditCredential";
 
@@ -36,7 +36,7 @@ export const THEAUTH_AUDIT_CONTEXT = "https://theauth.dev/contexts/audit/v1.json
 const THEAUTH_VERSION = "0.3.0";
 const DEFAULT_TTL_SECONDS = 86400;
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// Types
 
 /** AuditRecord is an alias for AuditEntry used in the VC export surface. */
 export type AuditRecord = AuditEntry;
@@ -100,7 +100,7 @@ export interface AuditCredentialSubject {
 	theauthVersion: string;
 }
 
-// ─── Decision mapping ────────────────────────────────────────────────────────
+// Decision mapping
 
 function toDecision(result: AuditEntry["result"]): "allow" | "deny" | "approval_required" {
 	if (result === "allowed") return "allow";
@@ -108,7 +108,7 @@ function toDecision(result: AuditEntry["result"]): "allow" | "deny" | "approval_
 	return "deny";
 }
 
-// ─── Credential builder ──────────────────────────────────────────────────────
+// Credential builder
 
 function buildAuditCredential(record: AuditRecord, issuerDid: string): VerifiableCredential {
 	const subject: AuditCredentialSubject = {
@@ -137,7 +137,7 @@ function buildAuditCredential(record: AuditRecord, issuerDid: string): Verifiabl
 	};
 }
 
-// ─── Signing ──────────────────────────────────────────────────────────────────
+// Signing
 
 async function signAsJsonLd(
 	credential: VerifiableCredential,
@@ -212,7 +212,7 @@ async function signPresentationAsJsonLd(
 	return { ...presentation, proof };
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// Public API
 
 /**
  * Export a set of audit records as Verifiable Credentials.

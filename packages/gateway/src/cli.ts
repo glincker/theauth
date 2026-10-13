@@ -6,7 +6,7 @@ import type { GatewayTheAuth } from "./init.js";
 import { initTheAuth } from "./init.js";
 import type { GatewayConfig } from "./types.js";
 
-// ─── CLI Entry Point ──────────────────────────────────────────────────────────
+// CLI Entry Point
 
 async function main(): Promise<void> {
 	const { values } = parseArgs({
