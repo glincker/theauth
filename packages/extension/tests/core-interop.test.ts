@@ -151,7 +151,7 @@ describe("extension auth against the MCP authorization server", () => {
 		const guarded = h.mcp.requireMcpAuth(echo);
 		const routed = (async (input: RequestInfo | URL, init?: RequestInit) => {
 			const req = new Request(input, init);
-			return req.url.startsWith(RESOURCE) ? guarded(req) : h.fetch(req);
+			return new URL(req.url).origin === new URL(RESOURCE).origin ? guarded(req) : h.fetch(req);
 		}) as typeof fetch;
 
 		const keyStore = createMemoryKeyStore();

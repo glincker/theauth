@@ -19,7 +19,7 @@ describe("DPoP", () => {
 		const base = server.fetch;
 		const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
 			const req = new Request(input, init);
-			if (req.url.startsWith("https://api.example.test")) {
+			if (new URL(req.url).origin === "https://api.example.test") {
 				seen.push(req);
 				return new Response("ok");
 			}
