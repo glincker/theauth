@@ -667,6 +667,12 @@ export async function dispatch(
 	const pathname = relative.startsWith("/") ? relative : `/${relative}`;
 	const method = request.method.toUpperCase();
 
+	// Rate limit and cross-site check run before authentication or any handler.
+	{
+		const refused = await guard.admit(request, pathname);
+		if (refused) return refused;
+	}
+
 	// Management routes (agents, delegations, audit, dashboard, authorize)
 	// require an authenticated caller.
 	// The resolved scope limits the default session resolver to the caller's
