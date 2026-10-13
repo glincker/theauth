@@ -74,6 +74,10 @@ The plugin registers these routes (relative to the adapter prefix):
 | `GET` | `/auth/oauth/accounts` | Lists the signed-in user's linked accounts, without token material. |
 | `DELETE` | `/auth/oauth/accounts/:provider` | Unlinks an account. Refused with 409 `last_credential` when it is the user's only sign-in method. |
 
+<Frame caption="Web sign-in: redirect out, code back, session cookie set.">
+  <img src="/images/diagrams/theauth-web-oauth-sign-in.svg" alt="A browser is redirected through the theAuth handler to an OAuth provider, comes back with a code, and theAuth sets a session cookie." />
+</Frame>
+
 ## The sign-in flow
 
 1. Your frontend navigates to `/auth/oauth/authorize/{provider}`. theAuth generates a random state and a PKCE verifier, stores both in the database (default lifetime 10 minutes, set with `stateTtlSeconds`), and redirects to the provider with the S256 challenge.
