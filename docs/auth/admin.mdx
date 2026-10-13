@@ -93,7 +93,7 @@ await theauth.admin!.stopImpersonation(session.token);
 await theauth.admin!.forcePasswordReset('user_xyz');
 ```
 
-This sets a `forcePasswordReset` flag on the user. The [username module](/auth/username) refuses sign-in for flagged users with a `403` `PASSWORD_RESET_REQUIRED` error. If you use another sign-in method, check the flag yourself.
+This sets a `forcePasswordReset` flag on the user. The [sign-in gate](/sign-in-gate) checks the flag on every path that issues a session. A flagged user gets a `403` `PASSWORD_RESET_REQUIRED` response with a signed challenge, and finishes with `POST /auth/sign-in/password-change`. See the gate page for the paths that are not covered yet.
 
 ## Deleting users
 

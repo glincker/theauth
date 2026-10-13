@@ -133,7 +133,6 @@ export type {
 	StreamEvent,
 } from "./event-stream.js";
 export { createEventStreamModule, EVENT_TYPES } from "./event-stream.js";
-// Federated logout: RP-initiated end_session and OIDC back-channel logout
 export type {
 	BackChannelLogoutReceiver,
 	BackChannelLogoutReceiverConfig,
@@ -153,6 +152,9 @@ export {
 	createEndSessionHandler,
 	sendBackChannelLogout,
 } from "./federated-logout.js";
+// Federated logout: RP-initiated end_session and OIDC back-channel logout
+export type { SessionRevoker, SessionRevokerOptions } from "./federated-logout-sessions.js";
+export { createSessionRevoker } from "./federated-logout-sessions.js";
 // Agent identity federation (cross-instance auth)
 export type {
 	FederatedAgent,
@@ -197,6 +199,13 @@ export type { MagicLinkConfig, MagicLinkModule } from "./magic-link.js";
 export { createMagicLinkModule } from "./magic-link.js";
 // Magic link plugin (TheAuthPlugin wrapper)
 export { magicLink } from "./magic-link-plugin.js";
+export type {
+	OAuthAccessToken,
+	OAuthLinkedAccount,
+	OAuthTokenEncryptionConfig,
+	OAuthTokenErrorCode,
+} from "./oauth/index.js";
+export { OAuthRefreshError, OAuthTokenError } from "./oauth/index.js";
 export { createOAuthModule } from "./oauth/module.js";
 // OAuth 2.0 / OIDC provider system
 export type { OAuthPluginConfig } from "./oauth/plugin.js";
@@ -218,6 +227,14 @@ export { createOAuthProxyModule, OAuthProxyError } from "./oauth-proxy.js";
 // OAuth proxy plugin (TheAuthPlugin wrapper)
 export type { OAuthProxyPluginConfig } from "./oauth-proxy-plugin.js";
 export { oauthProxy } from "./oauth-proxy-plugin.js";
+export type {
+	ClientLogoutConfig,
+	FanOutResult,
+	OidcLogoutConfig,
+	OidcLogoutModule,
+} from "./oidc-logout.js";
+export { deriveSid } from "./oidc-logout.js";
+export { oidcLogout } from "./oidc-logout-plugin.js";
 // OIDC Provider (TheAuth as an identity provider)
 export type {
 	AccessTokenClaims,
@@ -300,6 +317,8 @@ export type { PasskeyConfig, PasskeyCredential, PasskeyModule } from "./passkey.
 export { createPasskeyModule } from "./passkey.js";
 // Passkey plugin (TheAuthPlugin wrapper)
 export { passkey } from "./passkey-plugin.js";
+export type { PasskeyTwoFactorFactor, PasskeyTwoFactorOptions } from "./passkey-second-factor.js";
+export { createPasskeyTwoFactorFactor } from "./passkey-second-factor.js";
 // Password reset (forgot password + reset password flow)
 export type { PasswordResetConfig, PasswordResetModule } from "./password-reset.js";
 export { createPasswordResetModule } from "./password-reset.js";
@@ -342,6 +361,31 @@ export type { ScimConfig, ScimGroup, ScimModule, ScimUser } from "./scim.js";
 export { createScimModule } from "./scim.js";
 // SCIM plugin (TheAuthPlugin wrapper)
 export { scim } from "./scim-plugin.js";
+// TOTP two-factor authentication
+export type {
+	CreateSignInGateOptions,
+	EvaluateSignInGateInput,
+	PasswordChangeCompletion,
+	PasswordChanger,
+	SignInGate,
+	SignInGateConfig,
+	SignInGateContext,
+	SignInGateDecision,
+	SignInGateTrustedDeviceConfig,
+	SignInMethod,
+	TrustedDeviceCookie,
+	TwoFactorCompletion,
+	TwoFactorFactor,
+} from "./sign-in-gate.js";
+export {
+	createSignInGate,
+	evaluateSignInGate,
+	SIGN_IN_METHODS,
+	SignInGateError,
+	signInGateRedirect,
+	signInGateResponse,
+} from "./sign-in-gate.js";
+export { signInGatePlugin } from "./sign-in-gate-plugin.js";
 // Sign In With Ethereum (EIP-4361)
 export type { SiweConfig, SiweModule, SiweVerifyResult } from "./siwe.js";
 export { createSiweModule, siwe } from "./siwe.js";
@@ -369,7 +413,6 @@ export type {
 export { createStripeModule } from "./stripe.js";
 // Stripe plugin (TheAuthPlugin wrapper)
 export { stripe } from "./stripe-plugin.js";
-// TOTP two-factor authentication
 export type { TotpConfig, TotpModule, TotpSetup } from "./totp.js";
 export { createTotpModule } from "./totp.js";
 export type { TwoFactorConfig, TwoFactorOtpConfig } from "./totp-plugin.js";

@@ -22,7 +22,7 @@ export function oneTap(config: OneTapConfig): TheAuthPlugin {
 			}
 
 			const sessionManager = createSessionManager(sessionConfig, ctx.db);
-			const module = createOneTapModule(config, ctx.db, sessionManager);
+			const module = createOneTapModule(config, ctx.db, sessionManager, ctx.signInGate);
 
 			// POST /auth/one-tap/callback
 			// Accepts application/x-www-form-urlencoded from Google's JS library.

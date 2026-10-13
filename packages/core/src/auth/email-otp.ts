@@ -25,6 +25,8 @@ import type { Database } from "../db/database.js";
 import { emailOtps, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 import { normalizeEmail } from "./normalize-email.js";
+import type { SignInGate } from "./sign-in-gate.js";
+import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -52,10 +54,14 @@ export interface EmailOtpModule {
 	/**
 	 * Verify an OTP code for the given email.
 	 * Returns null when the code is wrong, expired, or max attempts exceeded.
+	 * Throws `SignInGateError` when the sign-in gate requires a forced password
+	 * change or a second factor first (gate method `email_otp`; the code is
+	 * consumed, finish with the challenge on the error).
 	 */
 	verifyCode: (
 		email: string,
 		code: string,
+		context?: { request?: Request },
 	) => Promise<{
 		user: { id: string; email: string };
 		session: { token: string; expiresAt: Date };
@@ -110,7 +116,9 @@ export function createEmailOtpModule(
 	config: EmailOtpConfig,
 	db: Database,
 	sessionManager: SessionManager,
+	signInGate?: SignInGate,
 ): EmailOtpModule {
+	const gate = signInGate ?? createSignInGate({ db });
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
 	const codeExpiry = config.codeExpiry ?? DEFAULT_CODE_EXPIRY_SECONDS;
 	const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -177,6 +185,7 @@ export function createEmailOtpModule(
 	async function verifyCode(
 		rawEmail: string,
 		code: string,
+		context?: { request?: Request },
 	): Promise<{
 		user: { id: string; email: string };
 		session: { token: string; expiresAt: Date };
@@ -213,6 +222,13 @@ export function createEmailOtpModule(
 		if (!consumed[0]) return null;
 
 		const user = await findOrCreateUser(email);
+		const decision = await gate.evaluate({
+			userId: user.id,
+			method: "email_otp",
+			...(context?.request && { request: context.request }),
+		});
+		if (decision.action !== "allow") throw new SignInGateError(decision);
+
 		const { token: sessionToken, session } = await sessionManager.create(user.id);
 
 		return {
@@ -282,7 +298,13 @@ export function createEmailOtpModule(
 			}
 
 			const email = normalizeEmail(b.email);
-			const result = await verifyCode(email, b.code.trim());
+			let result: Awaited<ReturnType<typeof verifyCode>>;
+			try {
+				result = await verifyCode(email, b.code.trim(), { request });
+			} catch (err) {
+				if (err instanceof SignInGateError) return signInGateResponse(err);
+				throw err;
+			}
 
 			if (!result) {
 				return new Response(JSON.stringify({ error: "Invalid or expired OTP code" }), {

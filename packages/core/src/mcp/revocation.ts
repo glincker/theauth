@@ -1,3 +1,4 @@
+import { verifyClientAssertion } from "./client-assertion.js";
 import { authenticateClient } from "./client-auth.js";
 import { resolveClient } from "./client-metadata.js";
 import { verifyAccessJwt } from "./keys.js";
@@ -39,6 +40,12 @@ export async function revokeFamilyAndTokens(
  * The caller must authenticate as a client and can only revoke tokens issued
  * to that client. Unknown or foreign tokens still return success (the RFC
  * forbids revealing whether a token exists), they just are not touched.
+ *
+ * Client authentication: `client_secret_basic`, `client_secret_post`, none for
+ * public clients, or `private_key_jwt` (`client_assertion` and
+ * `client_assertion_type`). An assertion must be addressed to the revocation
+ * endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted
+ * once across the token and revocation endpoints.
  */
 export async function handleRevocation(
 	ctx: McpAuthContext,
@@ -46,7 +53,32 @@ export async function handleRevocation(
 ): Promise<Result<Record<string, never>>> {
 	const body = await parseRequestBody(request);
 	const basic = extractBasicAuth(request);
-	const clientId = basic?.[0] ?? body.client_id;
+
+	// private_key_jwt: the signed assertion names the client.
+	let assertionVerified = false;
+	let assertedClientId: string | undefined;
+	if (body.client_assertion !== undefined) {
+		if (basic !== null || body.client_secret !== undefined) {
+			return {
+				success: false,
+				error: {
+					code: "INVALID_REQUEST",
+					message: "Only one client authentication method may be used",
+				},
+			};
+		}
+		const verified = await verifyClientAssertion(ctx, {
+			assertion: body.client_assertion,
+			assertionType: body.client_assertion_type,
+			...(body.client_id !== undefined ? { expectedClientId: body.client_id } : {}),
+			tokenEndpointUrl: `${ctx.config.baseUrl}/mcp/revoke`,
+		});
+		if (!verified.success) return verified;
+		assertedClientId = verified.data.clientId;
+		assertionVerified = true;
+	}
+
+	const clientId = assertedClientId ?? basic?.[0] ?? body.client_id;
 	const secret = basic?.[1] ?? body.client_secret ?? null;
 	const token = body.token;
 
@@ -61,7 +93,7 @@ export async function handleRevocation(
 	if (!client || client.disabled) {
 		return { success: false, error: { code: "INVALID_CLIENT", message: "Unknown client" } };
 	}
-	const auth = await authenticateClient(ctx, client, secret);
+	const auth = await authenticateClient(ctx, client, secret, assertionVerified);
 	if (!auth.success) return auth;
 
 	const ok: Result<Record<string, never>> = { success: true, data: {} };

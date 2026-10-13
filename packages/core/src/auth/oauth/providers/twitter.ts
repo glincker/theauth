@@ -24,6 +24,7 @@
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
+import { createRefresher } from "./refresh.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -196,6 +197,13 @@ export function createTwitterProvider(config: OAuthProviderConfig): OAuthProvide
 		scopes,
 		getAuthorizationUrl,
 		exchangeCode,
+		refreshTokens: createRefresher({
+			providerName: "Twitter",
+			tokenUrl: TOKEN_URL,
+			clientId: config.clientId,
+			clientSecret: config.clientSecret,
+			authStyle: "basic",
+		}),
 		getUserInfo,
 	};
 }

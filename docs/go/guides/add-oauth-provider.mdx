@@ -84,9 +84,38 @@ GET /auth/providers/{name}/callback -- consume code, issue session
 
 Where `{name}` is any registered provider's `Name()`, e.g. `github`, `google`, `microsoft`, `discord`, `apple`, `facebook`, `slack`, `gitlab`, `bitbucket`, `twitch`, `linkedin`, or `x`.
 
+## Enterprise OIDC presets
+
+`provider/oidc` ships ready-made configs for common identity providers. Each returns a `Config` you can adjust before passing to `oidc.New`.
+
+```go
+import "github.com/glincker/theauth-go/v2/provider/oidc"
+
+cfg := oidc.Entra("organizations", clientID, clientSecret)
+cfg.AllowedTenants = []string{"11111111-2222-3333-4444-555555555555"}
+
+p, err := oidc.New(ctx, cfg)
+```
+
+| Preset | Arguments |
+| --- | --- |
+| `oidc.Entra` | A tenant id or domain, or `common`, `organizations`, `consumers` |
+| `oidc.Okta` | A host such as `dev-123456.okta.com`, optionally with an authorization server path |
+| `oidc.Keycloak` | A base URL and a realm |
+| `oidc.Authentik` | A base URL and an application slug |
+| `oidc.Auth0` | A tenant domain |
+
+**Multi-tenant Entra.** The `common` and `organizations` issuers contain a `{tenantid}` placeholder, so the library rebuilds the expected issuer from the token's `tid` claim and checks it. `common` admits every Entra tenant, so set `AllowedTenants` when you only want specific ones. Only v2.0 tokens are supported. v1 `sts.windows.net` issuers are rejected.
+
+**Email trust.** The Entra preset reads `email` and treats the optional `xms_edov` claim as the verification signal, so an unverified Entra email is not used to link accounts. Entra often omits `email` unless you add it as an optional claim.
+
+**Extra audiences.** `AdditionalAudiences` accepts further `aud` values besides the client id. The `azp` check is unchanged.
+
+**Errors.** Failures are `*oidc.Error` with `Provider`, `Stage` (discovery, exchange, verify, userinfo or refresh), `Status` and the wrapped error. Messages carry no response bodies, secrets or request URLs, so they are safe to log.
+
 ## Provider tokens
 
-Provider access tokens are encrypted with AES-256-GCM before storage. The `Config.EncryptionKey` (32-byte) is required if you want provider token storage. Without it, the OAuth state is stored as-is and provider tokens are not persisted.
+Provider access tokens are encrypted with AES-256-GCM before storage. The `Config.EncryptionKey` (32-byte) is required if you want provider token storage. Without it, the OAuth state is stored as-is and provider tokens are not persisted. To read a user's token and have it refreshed when it expires, use `GetProviderToken`, described in [Account lifecycle](/go/guides/account-lifecycle#read-a-users-provider-token).
 
 ## Custom provider
 

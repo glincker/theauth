@@ -19,6 +19,8 @@ import { generateId } from "../../crypto/web-crypto.js";
 import type { Database } from "../../db/database.js";
 import { generateCodeVerifier } from "./pkce.js";
 import { oauthAccounts, oauthStates } from "./schema.js";
+import { createTokenApi } from "./token-api.js";
+import { createTokenSealer } from "./token-crypto.js";
 import type {
 	OAuthAccount,
 	OAuthCallbackResult,
@@ -64,6 +66,10 @@ const DEFAULT_STATE_TTL_SECONDS = 600; // 10 minutes
  */
 export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAuthModule {
 	const stateTtl = config.stateTtlSeconds ?? DEFAULT_STATE_TTL_SECONDS;
+	// Throws now (not on first login) when encryption is enabled without keys.
+	const nowMs = config.now ?? Date.now;
+	const sealer = createTokenSealer(config.tokenEncryption);
+	const tokenApi = createTokenApi(db, config, sealer);
 
 	// ── helpers ──────────────────────────────────────────────────────────────
 
@@ -75,18 +81,31 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		return provider;
 	}
 
-	function rowToAccount(row: typeof oauthAccounts.$inferSelect): OAuthAccount {
+	async function rowToAccount(row: typeof oauthAccounts.$inferSelect): Promise<OAuthAccount> {
 		return {
 			id: row.id,
 			userId: row.userId,
 			provider: row.provider,
 			providerAccountId: row.providerAccountId,
-			accessToken: row.accessToken,
-			refreshToken: row.refreshToken ?? null,
+			accessToken: await sealer.open(row.id, "access", row.accessToken),
+			refreshToken: row.refreshToken
+				? await sealer.open(row.id, "refresh", row.refreshToken)
+				: null,
 			expiresAt: row.expiresAt ?? null,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
 		};
+	}
+
+	/** Stored refresh token value: a new one wins, else the old one (re-encrypted when needed). */
+	async function sealedRefresh(
+		accountId: string,
+		next: string | undefined,
+		previous: string | null,
+	): Promise<string | null> {
+		if (next) return sealer.seal(accountId, "refresh", next);
+		if (previous) return sealer.reseal(accountId, "refresh", previous);
+		return null;
 	}
 
 	// ── module operations ─────────────────────────────────────────────────────
@@ -99,7 +118,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 		const state = generateId();
 		const codeVerifier = generateCodeVerifier();
-		const now = new Date();
+		const now = new Date(nowMs());
 		const expiresAt = new Date(now.getTime() + stateTtl * 1000);
 
 		// Persist state for CSRF validation on callback.
@@ -124,7 +143,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		redirectUri: string,
 	): Promise<OAuthCallbackResult> {
 		const provider = getProvider(providerId);
-		const now = new Date();
+		const now = new Date(nowMs());
 
 		// ── 1. Validate and consume the state ──────────────────────────────────
 		const stateRows = await db.select().from(oauthStates).where(eq(oauthStates.state, state));
@@ -181,8 +200,12 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			await db
 				.update(oauthAccounts)
 				.set({
-					accessToken: tokens.accessToken,
-					refreshToken: tokens.refreshToken ?? existing.refreshToken,
+					accessToken: await sealer.seal(existing.id, "access", tokens.accessToken),
+					refreshToken: await sealedRefresh(
+						existing.id,
+						tokens.refreshToken,
+						existing.refreshToken,
+					),
 					expiresAt: tokens.expiresIn
 						? new Date(now.getTime() + tokens.expiresIn * 1000)
 						: existing.expiresAt,
@@ -197,7 +220,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 			return {
 				isNewAccount: false,
-				account: rowToAccount(updated[0] as typeof oauthAccounts.$inferSelect),
+				account: await rowToAccount(updated[0] as typeof oauthAccounts.$inferSelect),
 				userInfo,
 				tokens,
 			};
@@ -217,8 +240,10 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			userId: "__pending__",
 			provider: providerId,
 			providerAccountId: userInfo.id,
-			accessToken: tokens.accessToken,
-			refreshToken: tokens.refreshToken ?? null,
+			accessToken: await sealer.seal(accountId, "access", tokens.accessToken),
+			refreshToken: tokens.refreshToken
+				? await sealer.seal(accountId, "refresh", tokens.refreshToken)
+				: null,
 			expiresAt,
 			createdAt: now,
 			updatedAt: now,
@@ -228,7 +253,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 		return {
 			isNewAccount: true,
-			account: rowToAccount(newRows[0] as typeof oauthAccounts.$inferSelect),
+			account: await rowToAccount(newRows[0] as typeof oauthAccounts.$inferSelect),
 			userInfo,
 			tokens,
 		};
@@ -240,7 +265,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		userInfo: OAuthUserInfo,
 		tokens: OAuthTokens,
 	): Promise<OAuthAccount> {
-		const now = new Date();
+		const now = new Date(nowMs());
 		const expiresAt = tokens.expiresIn ? new Date(now.getTime() + tokens.expiresIn * 1000) : null;
 
 		// Upsert — if a pending row exists (from handleCallback) update it;
@@ -268,8 +293,12 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 				.update(oauthAccounts)
 				.set({
 					userId,
-					accessToken: tokens.accessToken,
-					refreshToken: tokens.refreshToken ?? existing.refreshToken,
+					accessToken: await sealer.seal(existing.id, "access", tokens.accessToken),
+					refreshToken: await sealedRefresh(
+						existing.id,
+						tokens.refreshToken,
+						existing.refreshToken,
+					),
 					expiresAt,
 					updatedAt: now,
 				})
@@ -290,8 +319,10 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			userId,
 			provider: providerId,
 			providerAccountId: userInfo.id,
-			accessToken: tokens.accessToken,
-			refreshToken: tokens.refreshToken ?? null,
+			accessToken: await sealer.seal(accountId, "access", tokens.accessToken),
+			refreshToken: tokens.refreshToken
+				? await sealer.seal(accountId, "refresh", tokens.refreshToken)
+				: null,
 			expiresAt,
 			createdAt: now,
 			updatedAt: now,
@@ -328,7 +359,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	 * growth of the `theauth_oauth_states` table.
 	 */
 	async function pruneExpiredStates(): Promise<number> {
-		const now = new Date();
+		const now = new Date(nowMs());
 		const result = await db.delete(oauthStates).where(lt(oauthStates.expiresAt, now));
 
 		// Drizzle returns the raw driver result; rowsAffected is driver-specific.
@@ -341,6 +372,9 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		handleCallback,
 		linkAccount,
 		findLinkedUser,
+		getAccessToken: tokenApi.getAccessToken,
+		listAccounts: tokenApi.listAccounts,
+		unlinkAccount: tokenApi.unlinkAccount,
 		// Exposed as an extension beyond the OAuthModule interface for
 		// maintenance convenience — callers can destructure it directly.
 		pruneExpiredStates,

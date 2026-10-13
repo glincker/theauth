@@ -1,0 +1,57 @@
+---
+title: "Framework adapters"
+sidebarTitle: "Framework Adapters"
+description: "Native middleware for Gin, Echo and Fiber, plus Config.ErrorResponder to shape error responses in one place."
+---
+theauth-go serves plain `net/http` handlers, so it works with any framework through `Handler()`. The adapter modules give Gin, Echo and Fiber native middleware, context accessors and a mount helper instead of wrapping the handler yourself.
+
+Each adapter is its own Go module, so the framework dependency never enters your root module:
+
+```bash
+go get github.com/glincker/theauth-go/adapters/gin
+go get github.com/glincker/theauth-go/adapters/echo
+go get github.com/glincker/theauth-go/adapters/fiber
+```
+
+## Gin
+
+```go
+a, _ := theauth.New(theauth.Config{Storage: store, BaseURL: "https://app.example.com"})
+r := gin.Default()
+theauthgin.Mount(a, r, "/api")
+r.GET("/me", theauthgin.RequireAuth(a), func(c *gin.Context) {
+    u, _ := theauthgin.User(c)
+    c.JSON(200, gin.H{"email": u.Email})
+})
+```
+
+Echo (`theauthecho`) and Fiber (`theauthfiber`) expose the same functions with their own context types:
+
+| Function | Purpose |
+| --- | --- |
+| `Authn(a)` | Attach the user and session when a valid cookie is present. Never rejects. |
+| `RequireAuth(a)` | 401 unless the session is fully authenticated |
+| `RequireAbility(a, "deploy")` | A session or API bearer token holding the ability. Needs `Config.APITokens`. |
+| `User(c)`, `Session(c)`, `Principal(c)` | Accessors for the values the middleware attached |
+| `Mount(a, router, "/api")` | Serve every theauth route under a prefix. An empty prefix mounts `/auth`, `/oauth` and `/.well-known`. |
+
+## Shape errors in one place
+
+The adapters write no error bodies. 401 and 403 responses come from theauth and go through `Config.ErrorResponder` when you set it, so one function shapes errors for every framework:
+
+```go
+Config{
+    ErrorResponder: func(w http.ResponseWriter, r *http.Request, status int, code, message string) {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(status)
+        _ = json.NewEncoder(w).Encode(map[string]string{"error": code, "detail": message})
+    },
+}
+```
+
+With the field unset, the bytes are the default `application/problem+json` bodies, and a test pins that. The responder covers the root middleware and the API token paths. Error responses written inside the account and session route handlers do not go through it yet.
+
+## Limits
+
+- **Fiber buffers responses.** Server-sent events do not work through the Fiber middleware or `Mount`. Serve streaming routes outside the adapter.
+- **Release ordering.** The adapter modules require `theauth-go/v2 v2.9.0`, which predates `ErrorResponder`. They build through `go.work` in the repository until a root release is cut. Pin them to the release that contains `ErrorResponder` when you add them to your own module.

@@ -20,6 +20,7 @@
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
+import { createRefresher } from "./refresh.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -174,6 +175,12 @@ export function createAtlassianProvider(config: OAuthProviderConfig): OAuthProvi
 		scopes,
 		getAuthorizationUrl,
 		exchangeCode,
+		refreshTokens: createRefresher({
+			providerName: "Atlassian",
+			tokenUrl: TOKEN_URL,
+			clientId: config.clientId,
+			clientSecret: config.clientSecret,
+		}),
 		getUserInfo,
 	};
 }

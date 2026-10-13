@@ -1,3 +1,4 @@
+import type { SignInGate } from "../auth/sign-in-gate.js";
 import type { Database, DatabaseConfig } from "../db/database.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorageResolver } from "../storage/types.js";
@@ -93,6 +94,7 @@ export async function initializePlugins(
 	config: TheAuthConfig,
 	sessionManager: SessionManager | null,
 	secondaryStorage?: SecondaryStorageResolver,
+	signInGate?: SignInGate,
 ): Promise<PluginRegistry> {
 	const registry: PluginRegistry = {
 		endpoints: [],
@@ -114,6 +116,7 @@ export async function initializePlugins(
 			config,
 			sessionManager,
 			secondaryStorage,
+			...(signInGate && { signInGate }),
 			addEndpoint(endpoint: PluginEndpoint): void {
 				registry.endpoints.push(endpoint);
 			},

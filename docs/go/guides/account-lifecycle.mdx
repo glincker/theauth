@@ -1,0 +1,130 @@
+---
+title: "Account lifecycle"
+sidebarTitle: "Account Lifecycle"
+description: "Force a password change, disable or delete accounts, cap concurrent sessions, remember trusted devices for TOTP, and read refreshed provider tokens with theauth-go."
+---
+This guide covers the account state features added in theauth-go after v2.9.0: forced password change, disable and delete, a concurrent session cap, trusted devices for TOTP, and `GetProviderToken` for reading a user's upstream OAuth token.
+
+Everything here is opt in. Existing deployments behave as before until you set the config field for a feature.
+
+## Turn it on
+
+```go
+a, err := theauth.New(theauth.Config{
+    // ...your existing config
+    AccountState:    true,
+    AccountDeletion: &theauth.AccountDeletionConfig{RecentAuthMaxAge: 10 * time.Minute},
+    SessionPolicy:   &theauth.SessionPolicy{MaxConcurrentSessions: 5, Overflow: theauth.SessionEvictOldest},
+    TrustedDevices:  &theauth.TrustedDevicesConfig{TTL: 30 * 24 * time.Hour},
+})
+```
+
+| Field | Needs | Default when set |
+| --- | --- | --- |
+| `AccountState` | Migration `0022_account_lifecycle` (Postgres, MySQL) or `0010_account_lifecycle` (SQLite) | Enforces forced change and disable at every sign-in |
+| `AccountDeletion` | A storage that implements `AccountDeleteStorage` | Mounts `DELETE /account`, recent auth within 10 minutes |
+| `SessionPolicy` | A storage that implements `SessionManagementStorage` | Evict the oldest session |
+| `TrustedDevices` | `Config.TOTP` and a storage that implements `TrustedDeviceStorage` | 30 day window, cookie `theauth_trusted_device` |
+
+`AccountState` is a separate switch on purpose. The state lives in new tables, so a Postgres or MySQL deployment that upgrades the library without running the migration would otherwise fail every sign-in. Run the migration first, then set the field. The built-in memory and SQLite storages implement all four capabilities. Custom storage adapters are not affected until they opt in.
+
+## Force a password change
+
+```go
+// Flag an account so the next sign-in has to be preceded by a reset.
+err := a.SetMustChangePassword(ctx, userID, true)
+
+// Or reset the password as an admin and require the user to choose a new one.
+err = a.ResetPasswordAdmin(ctx, "ada@example.com", tempPassword, theauth.RequirePasswordChange())
+```
+
+A flagged user gets `CodePasswordChangeRequired` (HTTP 403) when they sign in with any method that issues a session: password, magic link, OAuth, passkey, SAML. Setting the flag also revokes their existing sessions. The flag clears when the user completes a password reset or changes their password.
+
+The user recovers through the existing password reset email. This library does not issue a limited, change-password-only session. If you need an in-place change flow, build it on top of the reset endpoint.
+
+Imported users can carry the flag as well: set `ImportedUser.MustChangePassword`, and `theauth-migrate` passes it through when a source reader marks the account as needing a reset.
+
+## Disable and delete accounts
+
+```go
+err := a.DisableUser(ctx, userID) // sign-in returns CodeAccountDisabled
+err = a.EnableUser(ctx, userID)   // lifts the block
+
+err = a.DeleteUser(ctx, userID)   // removes the user and everything that hangs off it
+```
+
+`DisableUser` also revokes the user's sessions, API tokens and trusted devices. `EnableUser` lifts the block but does not bring those back.
+
+`DeleteUser` removes sessions, tokens, linked identities, passkeys, TOTP, API tokens the user owns or delegated, and organization memberships. Audit rows keep their data but lose the actor id. It returns `ErrLastOwner` when the user is the only owner of an organization, so transfer or delete the organization first. `LifecycleHooks.OnAccountDeleted` runs after the deletion commits. It is observe only, like the other lifecycle hooks, and cannot veto it.
+
+HTTP routes:
+
+| Route | Who | Notes |
+| --- | --- | --- |
+| `DELETE /account` | The signed in user | Needs a recent authentication, otherwise `CodeReauthRequired`. Only mounted when `AccountDeletion` is set |
+| `PATCH` the admin users route with `mustChangePassword` or `disabled` | Organization admins | Disable is global, so it requires `super_admin` |
+| `DELETE` the admin `.../users/{userID}/account` route | `super_admin` | Same cascade as `DeleteUser` |
+
+On Postgres and MySQL the cascade relies on the existing foreign keys plus explicit deletes of API tokens and magic links. The memory and SQLite paths are covered by the contract suite. The Postgres and MySQL paths have not been exercised by the live contract suites yet, so run your own check before relying on them in production.
+
+## Cap concurrent sessions
+
+```go
+SessionPolicy: &theauth.SessionPolicy{
+    MaxConcurrentSessions: 3,
+    Overflow:              theauth.SessionReject, // or SessionEvictOldest (default)
+}
+```
+
+With `SessionEvictOldest`, a new sign-in revokes the user's oldest sessions to make room. With `SessionReject`, it fails with `CodeSessionLimit`. Sessions waiting on a second factor do not count, and session rotation is exempt. In reject mode the check runs before a recovery code is spent, so a refused sign-in does not burn one.
+
+The cap is best effort. Two sign-ins that start at the same moment can both pass the check.
+
+## Trusted devices for TOTP
+
+When `TrustedDevices` is set, the TOTP verify and recovery code endpoints accept `{"rememberDevice": true}`. The library then sets a cookie of the form `token.hmac`, keyed from `EncryptionKey`, and stores only the SHA-256 of the token. Later password sign-ins from that browser skip the TOTP prompt until the window ends.
+
+Trust is revoked when the password changes, when TOTP is removed, and on request:
+
+```go
+devices, err := a.ListTrustedDevices(ctx, userID)
+err = a.RevokeTrustedDevice(ctx, userID, devices[0].ID)
+n, err := a.RevokeTrustedDevices(ctx, userID) // returns how many it removed
+```
+
+The end-user routes are `GET /auth/trusted-devices`, `DELETE /auth/trusted-devices/{id}` and `DELETE /auth/trusted-devices`. Each device carries a label and an IP prefix taken from the same helper the session list uses.
+
+Passkey sign-in is not covered. In this library a passkey is a standalone login, so there is no second factor step to remember.
+
+## Read a user's provider token
+
+```go
+tok, err := a.GetProviderToken(ctx, userID, "google")
+if err != nil {
+    switch {
+    case errors.Is(err, theauth.ErrProviderNotLinked):
+        // the user never linked this provider
+    case errors.Is(err, theauth.ErrProviderGrantRevoked):
+        // the provider rejected the refresh token, send the user through consent again
+    case errors.Is(err, theauth.ErrProviderRefreshUnsupported):
+        // this provider cannot refresh, the stored token may simply be stale
+    }
+    return err
+}
+req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+```
+
+`GetProviderToken` decrypts the stored access token and, when it has expired, refreshes it with the stored refresh token. Concurrent calls for the same user and provider share one refresh. A rotated refresh token is persisted, and a refresh that does not return a new one keeps the old one.
+
+If the provider answers `invalid_grant`, the stored tokens are cleared and later calls fail immediately with `ErrProviderGrantRevoked` instead of hitting the provider again.
+
+Providers refresh through the optional `RefreshProvider` interface (`RefreshToken(ctx, refreshToken) (*ProviderToken, error)`). Implemented today for Google, Microsoft, GitHub, the generic OAuth provider and generic OIDC. For Google, set `google.Config.Offline` so the first consent returns a refresh token. The other built-in providers return `ErrProviderRefreshUnsupported`. The shared `provider/internal/refresh` helper is the intended place to add them.
+
+One thing to know: a provider that rotates refresh tokens can race when two processes refresh at once. One of them may see the grant as revoked. Run provider token reads through one place if that matters for your provider.
+
+## Limits
+
+- Forced change is an error and a password reset, not a limited session.
+- The session cap is best effort under concurrent sign-ins.
+- Trusted devices cover TOTP and recovery codes only.
+- Postgres and MySQL cascade deletion and the new storage methods compile and pass `go vet`, but their live contract suites are not part of this change.

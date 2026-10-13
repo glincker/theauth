@@ -33,7 +33,7 @@ export interface SafeFetchOptions {
 }
 
 export type SafeFetchResult =
-	| { ok: true; json: unknown }
+	| { ok: true; json: unknown; cacheControl?: string }
 	| { ok: false; reason: SafeFetchFailure; message: string };
 
 export type SafeFetchFailure =
@@ -317,7 +317,12 @@ export async function safeFetchJson(
 	if (text === null) return fail("too_large", `response exceeds ${maxBytes} bytes`);
 
 	try {
-		return { ok: true, json: JSON.parse(text) as unknown };
+		const cacheControl = response.headers.get("cache-control");
+		return {
+			ok: true,
+			json: JSON.parse(text) as unknown,
+			...(cacheControl !== null ? { cacheControl } : {}),
+		};
 	} catch {
 		return fail("invalid_json", "response is not valid JSON");
 	}

@@ -54,8 +54,8 @@ func main() {
 On every request the middleware:
 
 1. Extracts the bearer token from the `Authorization: Bearer ...` header.
-2. Verifies the JWT signature against a cached JWKS (refreshes on `kid` miss and at the configured cache TTL).
-3. Enforces the `aud` claim against the resource URI passed to `mcpresource.New`.
+2. Verifies the JWT signature against a cached JWKS (refreshes on `kid` miss and at the configured cache TTL). `EdDSA`, `ES256` and `RS256` are accepted; RSA keys must be at least 2048 bits and the key type must match the header `alg`.
+3. Enforces the `aud` claim against the resource URI passed to `mcpresource.New`. `aud` may be a string or an array.
 4. Checks `exp`, `nbf`, and `iat` with a 60-second clock skew tolerance (configurable).
 5. Walks the RFC 8693 `act` chain via AS introspection and returns `active: false` if any delegation grant in the chain is revoked.
 6. On any failure: emits HTTP 401 with `WWW-Authenticate: Bearer error="invalid_token", resource_metadata="..."` per RFC 6750 and RFC 9728.
@@ -71,10 +71,31 @@ type Principal struct {
     ClientID   string   // OAuth client that obtained the token
     IssuedAt   time.Time
     ExpiresAt  time.Time
+    Audiences  []string  // every aud value the token carried
+    ACR        string    // acr claim, empty when absent
+    AMR        []string  // amr claim
+    AuthTime   time.Time // auth_time claim, zero when absent
     // Issuer, Audience, JWTID, DelegationGrantID, and CnfJKT (DPoP jkt
     // thumbprint) are also populated; see mcpresource/principal.go.
 }
+
+// RFC 9396 authorization_details, returned as a copy.
+func (p *Principal) AuthorizationDetails() []AuthorizationDetail
 ```
+
+## Per-tool guards and tool metadata
+
+Mount these after `v.Middleware`:
+
+| API | Purpose |
+|---|---|
+| `v.RequireScope(scopes...)` | 403 `insufficient_scope` unless the token holds every listed scope (RFC 6750). |
+| `v.RequireStepUp(mcpresource.StepUp{ACRValues, MaxAge})` | 401 `insufficient_user_authentication` unless `acr` and `auth_time` satisfy the policy (RFC 9470). `StepUp.Satisfied` runs the same check. |
+| `mcpresource.WriteDenial(w, status, d)` | Writes a structured JSON `Denial` body for 401 and 403 responses. |
+| `mcpresource.ToolSecurity(scopes...)`, `PublicToolSecurity()` | Build `securitySchemes` metadata for `tools/list`; `Apply` writes it into a tool descriptor. Advisory only. |
+| `mcpresource.NewURLElicitation`, `URLElicitationRequiredError` | Build an MCP URL mode elicitation and the `-32042` JSON-RPC error. |
+
+See [Protect MCP tools](/go/guides/protect-mcp-tools) for examples and the limits of each.
 
 ## Options
 

@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { buildSetCookie } from "../../plugin/helpers.js";
-import type { TheAuthPlugin } from "../../plugin/types.js";
+import type { PluginInitResult, TheAuthPlugin } from "../../plugin/types.js";
 import { createBaseUrlResolver } from "../../session/base-url.js";
 import { normalizeEmail } from "../normalize-email.js";
 import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
+import { signInGateRedirect } from "../sign-in-gate.js";
+import { OAuthTokenError } from "./errors.js";
 import { createOAuthModule } from "./module.js";
 import type { OAuthModuleConfig, OAuthTokens, OAuthUserInfo } from "./types.js";
 
@@ -41,6 +43,22 @@ function redirectResponse(url: string): Response {
 	});
 }
 
+const TOKEN_ERROR_STATUS: Record<OAuthTokenError["code"], number> = {
+	no_account: 404,
+	no_refresh_token: 409,
+	refresh_failed: 502,
+	revoked: 409,
+	decrypt_failed: 500,
+	last_credential: 409,
+};
+
+function tokenErrorResponse(err: unknown, fallback: string): Response {
+	if (err instanceof OAuthTokenError) {
+		return jsonResponse({ error: err.message, code: err.code }, TOKEN_ERROR_STATUS[err.code]);
+	}
+	return jsonResponse({ error: fallback }, 500);
+}
+
 // ---------------------------------------------------------------------------
 // Plugin factory
 // ---------------------------------------------------------------------------
@@ -49,7 +67,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 	return {
 		id: "theauth-oauth",
 
-		async init(ctx): Promise<undefined> {
+		async init(ctx): Promise<PluginInitResult> {
 			const module = createOAuthModule(ctx.db, config);
 
 			const baseUrl = ctx.config.baseUrl ?? "";
@@ -184,6 +202,18 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 
 						// Create session and redirect
 						if (userId !== "__pending__") {
+							// A forced password change or a required second factor must be
+							// satisfied before a session exists. The challenge travels in the
+							// URL fragment, never in the query string.
+							const gateDecision = await ctx.signInGate?.evaluate({
+								userId,
+								method: "social",
+								request,
+							});
+							if (gateDecision && gateDecision.action !== "allow") {
+								return signInGateRedirect(`${baseUrl}/`, gateDecision);
+							}
+
 							const { session, token } = await sessionManager.create(userId);
 							const maxAge = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
 							const isSecure = baseUrl.startsWith("https://");
@@ -266,6 +296,47 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				},
 			});
 
+			// GET /auth/oauth/accounts
+			ctx.addEndpoint({
+				method: "GET",
+				path: "/auth/oauth/accounts",
+				metadata: {
+					requireAuth: true,
+					description: "List the provider accounts linked to the authenticated user",
+				},
+				async handler(request, endpointCtx) {
+					const user = await endpointCtx.getUser(request);
+					if (!user) return jsonResponse({ error: "Authentication required" }, 401);
+					try {
+						return jsonResponse({ accounts: await module.listAccounts(user.id) });
+					} catch (err) {
+						return tokenErrorResponse(err, "Failed to list accounts");
+					}
+				},
+			});
+
+			// DELETE /auth/oauth/accounts/:provider
+			ctx.addEndpoint({
+				method: "DELETE",
+				path: "/auth/oauth/accounts/:provider",
+				metadata: {
+					requireAuth: true,
+					description: "Unlink a provider account (refused for the last sign-in method)",
+				},
+				async handler(request, endpointCtx) {
+					const user = await endpointCtx.getUser(request);
+					if (!user) return jsonResponse({ error: "Authentication required" }, 401);
+					const provider = new URL(request.url).searchParams.get("_param_provider");
+					if (!provider) return jsonResponse({ error: "Missing provider parameter" }, 400);
+					try {
+						await module.unlinkAccount(user.id, provider);
+						return jsonResponse({ success: true });
+					} catch (err) {
+						return tokenErrorResponse(err, "Failed to unlink account");
+					}
+				},
+			});
+
 			// GET /auth/oauth/providers
 			ctx.addEndpoint({
 				method: "GET",
@@ -279,6 +350,9 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 					return jsonResponse({ providers });
 				},
 			});
+
+			// Server-side access: ctx.pluginContext.oauth.getAccessToken({ userId, provider }).
+			return { context: { oauth: module } };
 		},
 	};
 }

@@ -24,6 +24,8 @@ import { constantTimeEqual, fromHex, generateId, sha256 } from "../crypto/web-cr
 import type { Database } from "../db/database.js";
 import { phoneVerifications, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
+import type { SignInGate } from "./sign-in-gate.js";
+import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -51,10 +53,14 @@ export interface PhoneAuthModule {
 	/**
 	 * Verify the code for the given phone number.
 	 * Returns null when the code is wrong, expired, or attempts exceeded.
+	 * Throws `SignInGateError` when the sign-in gate requires a forced password
+	 * change or a second factor first (gate method `phone`; the code is
+	 * consumed, finish with the challenge on the error).
 	 */
 	verifyCode: (
 		phoneNumber: string,
 		code: string,
+		context?: { request?: Request },
 	) => Promise<{
 		user: { id: string; phone: string };
 		session: { token: string; expiresAt: Date };
@@ -126,7 +132,9 @@ export function createPhoneAuthModule(
 	config: PhoneAuthConfig,
 	db: Database,
 	sessionManager: SessionManager,
+	signInGate?: SignInGate,
 ): PhoneAuthModule {
+	const gate = signInGate ?? createSignInGate({ db });
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
 	const codeExpiry = config.codeExpiry ?? DEFAULT_CODE_EXPIRY_SECONDS;
 	const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -196,6 +204,7 @@ export function createPhoneAuthModule(
 	async function verifyCode(
 		phoneNumber: string,
 		code: string,
+		context?: { request?: Request },
 	): Promise<{
 		user: { id: string; phone: string };
 		session: { token: string; expiresAt: Date };
@@ -225,6 +234,13 @@ export function createPhoneAuthModule(
 		await db.delete(phoneVerifications).where(eq(phoneVerifications.id, record.id));
 
 		const user = await findOrCreateUser(phone);
+		const decision = await gate.evaluate({
+			userId: user.id,
+			method: "phone",
+			...(context?.request && { request: context.request }),
+		});
+		if (decision.action !== "allow") throw new SignInGateError(decision);
+
 		const { token, session } = await sessionManager.create(user.id);
 
 		return {
@@ -275,7 +291,13 @@ export function createPhoneAuthModule(
 			if (typeof b.phoneNumber !== "string" || typeof b.code !== "string") {
 				return jsonResponse({ error: "Missing required fields: phoneNumber, code" }, 400);
 			}
-			const result = await verifyCode(b.phoneNumber, b.code);
+			let result: Awaited<ReturnType<typeof verifyCode>>;
+			try {
+				result = await verifyCode(b.phoneNumber, b.code, { request });
+			} catch (err) {
+				if (err instanceof SignInGateError) return signInGateResponse(err);
+				throw err;
+			}
 			if (!result) {
 				return jsonResponse({ error: "Invalid or expired code" }, 401);
 			}

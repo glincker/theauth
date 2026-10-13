@@ -663,6 +663,31 @@ export const oidcRefreshTokens = sqliteTable("theauth_oidc_refresh_tokens", {
 });
 
 // ============================================================
+// OIDC Provider: logout configuration per client
+// ============================================================
+export const oidcLogoutClients = sqliteTable("theauth_oidc_logout_clients", {
+	clientId: text("client_id").primaryKey(),
+	postLogoutRedirectUris: text("post_logout_redirect_uris", { mode: "json" })
+		.notNull()
+		.$type<string[]>(),
+	backchannelLogoutUri: text("backchannel_logout_uri"),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+// ============================================================
+// OIDC Provider: sid index (which RPs hold which provider session)
+// ============================================================
+export const oidcSessions = sqliteTable("theauth_oidc_sessions", {
+	id: text("id").primaryKey(),
+	sid: text("sid").notNull(),
+	sessionId: text("session_id"), // provider session id, when known
+	userId: text("user_id").notNull(),
+	clientId: text("client_id").notNull(),
+	codeHash: text("code_hash"), // links the row to its authorization code until exchange
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+// ============================================================
 // Cost Events (per-agent cost attribution and observability)
 // ============================================================
 export const costEvents = sqliteTable("theauth_cost_events", {

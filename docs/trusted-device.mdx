@@ -6,6 +6,10 @@ icon: shield-halved
 
 The trusted device module lets you mark a device as trusted after a user completes two-factor authentication, then skip 2FA on subsequent sign-ins from that device. Trust is stored against an HMAC-signed fingerprint, not a plain device ID, so it cannot be guessed or forged. It is a standalone module, you call it yourself in your own sign-in flow, it does not wire into the `twoFactor` plugin automatically.
 
+<Note>
+  If you want trusted devices wired into sign-in for you, turn on `signInGate.trustedDevice` instead. The [sign-in gate](/sign-in-gate) issues the device cookie, skips the second factor and adds list and revoke routes. This page covers the standalone module.
+</Note>
+
 ## Setup
 
 ```typescript title="lib/theauth.ts"

@@ -214,6 +214,7 @@
             "icon": "plug",
             "pages": [
               "auth/oauth",
+              "auth/social-tokens",
               {
                 "group": "Popular",
                 "icon": "star",
@@ -304,7 +305,8 @@
               "auth/scim",
               "auth/scim-filter-reference",
               "auth/scim-patch-reference",
-              "auth/oidc-provider"
+              "auth/oidc-provider",
+              "auth/oidc-logout"
             ]
           }
         ]
@@ -369,6 +371,8 @@
             "icon": "network-wired",
             "pages": [
               "mcp",
+              "mcp-grants",
+              "mcp-client-compat",
               "dpop",
               "gateway"
             ]
@@ -438,6 +442,7 @@
               "compliance/verifiable-credentials",
               "gdpr",
               "hibp",
+              "sign-in-gate",
               "trusted-device",
               "multi-session"
             ]
@@ -581,6 +586,10 @@
               "go/guides/scim-provisioning",
               "go/guides/rbac",
               "go/guides/dpop",
+              "go/guides/protect-mcp-tools",
+              "go/guides/client-compat",
+              "go/guides/account-lifecycle",
+              "go/guides/framework-adapters",
               "go/guides/dynamic-client-registration",
               "go/guides/cli-login",
               "go/guides/path-prefix-and-dynamic-providers",

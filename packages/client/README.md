@@ -42,6 +42,26 @@ const agents = await theauth.listAgents();
 await theauth.delegate({ agentId: agent.id, permissions: ['read:data'], expiresIn: '1h' });
 ```
 
+## DPoP (RFC 9449)
+
+```typescript
+import { createDPoPClient } from "@glinr/theauth-client";
+
+const dpop = await createDPoPClient(); // generates an ES256 key pair via WebCrypto
+const tokenRes = await dpop.fetch("https://auth.example.com/api/auth/mcp/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({ grant_type: "authorization_code", code, code_verifier }),
+});
+const { access_token } = await tokenRes.json();
+
+// Resource request: sends `Authorization: DPoP <token>` and a proof with `ath`.
+await dpop.fetch("https://mcp.example.com/tools", undefined, { accessToken: access_token });
+```
+
+The helper caches the server `DPoP-Nonce` per origin and retries once on `use_dpop_nonce`.
+Pass `keyPair` to reuse a stored `CryptoKeyPair`; `dpop.thumbprint()` returns the `jkt` value.
+
 ## theauth-go client
 
 A typed client for servers built on `theauth-go` (default mount `/auth`). Every call returns `{ success, data }` or `{ success: false, error: { code, message, status, retryAfter? } }` and never throws.

@@ -1,0 +1,197 @@
+---
+title: Sign-in gate
+description: One gate decides whether a verified sign-in may get a session. Forced password change, required second factor, trusted devices and a per-user session limit.
+icon: shield-check
+---
+
+A password check, a magic link or a passkey assertion proves who someone is. It does not always mean they should get a session yet. The account might be flagged for a forced password change, or the user might have a second factor enabled that your policy requires for this sign-in method.
+
+The sign-in gate is the one place that decides. Each session-issuing path calls it after the primary credential is verified, and it answers one of three things:
+
+| Decision | Meaning |
+| --- | --- |
+| `allow` | Issue the session. |
+| `password_change_required` | Return a signed challenge. The user sets a new password before getting a session. |
+| `two_factor_required` | Return a signed challenge and the factors that can answer it. The user sends a code. |
+
+Without any `signInGate` config the gate still enforces a forced password change, and it requires no second factor. Everything else is opt in.
+
+## Turn it on
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  baseUrl: "https://app.example.com",
+  auth: {
+    session: {
+      secret: process.env.SESSION_SECRET!,
+      maxConcurrent: 5,       // optional, see Session limit
+      onLimit: "evict-oldest",
+    },
+  },
+  totp: {},                   // the built-in second factor
+  username: {},
+  signInGate: {
+    require2faFor: ["password", "social", "magic_link"], // the default once signInGate is set
+    trustedDevice: { enabled: true },
+  },
+});
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `require2faFor` | `["password", "social", "magic_link"]` | Methods that must pass a second factor when the user has one enabled. `passkey` is also accepted. With no `signInGate` block the default is none. |
+| `secret` | session secret | HMAC secret for challenges and device cookies. |
+| `challengeTtlSeconds` | 300 | How long a challenge stays valid. |
+| `maxChallengeAttempts` | 5 | Wrong codes allowed per challenge. |
+| `trustedDevice.enabled` | false | Let users skip 2FA on a device after one successful code. |
+| `trustedDevice.trustDurationSeconds` | 30 days | Trust window. |
+| `trustedDevice.maxDevices` | 10 | Trusted devices per user. |
+| `trustedDevice.cookieName` | `theauth_trusted_device` | Cookie that carries the device secret. |
+| `factors` | none | Extra `TwoFactorFactor` objects besides TOTP (`id`, `isEnabled`, `verify`). |
+
+A user is only challenged when they have a verifiable factor enabled. TOTP counts when you set `totp` or use the `theauth-2fa` plugin. With no enrolled factor the user signs in as before, so turning the gate on does not lock out anyone who never enrolled.
+
+<Info>
+  Challenges are signed with `signInGate.secret`, falling back to `auth.session.secret`. With neither, a random secret is generated per process, and challenges stop verifying across restarts and instances. Set one of them.
+</Info>
+
+## Forced password change
+
+Flag an account with the admin module:
+
+```ts
+await theauth.admin!.forcePasswordReset(userId);
+```
+
+The next sign-in with that account returns `password_change_required` instead of a session. The flag wins over 2FA, and after the change the gate is evaluated again, so a user with TOTP is still asked for a code.
+
+For a method other than `password`, the flag only blocks users who actually have a password credential. A social-only account is never locked out by it.
+
+The flag clears on a completed password change or reset. Any password change also revokes every trusted device of that user.
+
+## Where it applies
+
+| Path | Gated | How a challenge comes back |
+| --- | --- | --- |
+| `username.signIn` and `/auth/username/sign-in` | Yes | `SignInGateError` or the JSON responses below |
+| `magicLink.verify` and the magic link plugin | Yes | Same |
+| Passkey authentication | Yes | JSON response |
+| OAuth callback | Yes | Redirect with the challenge in the URL fragment |
+| `@glinr/theauth-email` email and password sign-in | Yes | JSON response |
+| Phone (SMS) code verification | Yes | Same, method `phone` |
+| Email OTP verification | Yes | Same, method `email_otp` |
+| Google One Tap | Yes | JSON response, method `one_tap` |
+| Device authorization (RFC 8628) | Yes | The poll returns the 200 challenge body, method `device` |
+| Stateless sessions (`createSession`) | Opt in | Pass `signInGate`, the method defaults to `social` |
+
+`username.signIn` and `magicLink.verify` throw `SignInGateError` (exported from `@glinr/theauth/auth`) when the gate does not allow a session. Pass the request as the second argument of `signIn` so the trusted-device cookie can be read. `signInGateResponse(err)` turns the error into the standard HTTP answer.
+
+## Response shapes
+
+A forced password change answers `403`:
+
+```json
+{
+  "error": { "code": "PASSWORD_RESET_REQUIRED", "message": "You must change your password before signing in" },
+  "passwordChangeRequired": true,
+  "challenge": "eyJ...",
+  "expiresAt": "2026-10-12T19:05:00.000Z"
+}
+```
+
+A required second factor answers `200`, with no session and no cookie:
+
+```json
+{
+  "twoFactorRequired": true,
+  "challenge": "eyJ...",
+  "methods": ["totp"],
+  "expiresAt": "2026-10-12T19:05:00.000Z"
+}
+```
+
+Check for `twoFactorRequired` in the body, not just the status. The existing "Password reset required" error message is unchanged.
+
+### OAuth redirects
+
+A browser redirect cannot carry a JSON body, and putting a challenge in the query string would send it to servers and referrers. The OAuth callback redirects to `{baseUrl}/` and puts the challenge in the URL fragment:
+
+```
+https://app.example.com/#gate=two_factor_required&challenge=eyJ...&methods=totp
+https://app.example.com/#gate=password_change_required&challenge=eyJ...
+```
+
+No session cookie is set on that redirect. Read `location.hash` in your page, then post the challenge to the routes below. The redirect target is fixed to the base URL root. Use `signInGateRedirect(location, decision)` if you build your own callback.
+
+## Routes
+
+The gate adds its routes when `auth.session` is configured. A plugin with id `theauth-sign-in-gate` of your own replaces the default one.
+
+| Method and path | Body | Notes |
+| --- | --- | --- |
+| `POST /auth/sign-in/two-factor` | `{ challenge, code, factor?, trustDevice? }` | Rate limited to 10 per minute. |
+| `POST /auth/sign-in/password-change` | `{ challenge, newPassword }` | Rate limited to 10 per minute. |
+| `GET /auth/trusted-devices` | none | Signed in. Lists `id`, `label`, `trustedAt`, `expiresAt`. |
+| `POST /auth/trusted-devices/revoke` | `{ id }` | Signed in. 404 for an unknown id. |
+| `POST /auth/trusted-devices/revoke-all` | none | Signed in. |
+
+Success on the first two returns `200` with `{ user: { id }, session: { token, expiresAt } }` and sets the session cookie. When `trustDevice: true` is sent and trusted devices are enabled, the device cookie is set as well. A password change that still needs a second factor returns the `twoFactorRequired` body with a new challenge instead.
+
+Failures:
+
+| Status | `error.code` | When |
+| --- | --- | --- |
+| 401 | `INVALID_CHALLENGE` | Bad signature, expired, wrong purpose or already used. |
+| 401 | `INVALID_CODE` | The code did not verify. |
+| 429 | `TOO_MANY_ATTEMPTS` | `maxChallengeAttempts` reached for that challenge. |
+| 400 | `NO_PASSWORD_ACCOUNT` | The user has no password credential to change. |
+| 400 | `REJECTED` | The new password failed the policy. `message` has the reason. |
+
+## Trusted devices
+
+After a successful second factor with `trustDevice: true`, the server issues a random secret in an `httpOnly` cookie and stores an HMAC fingerprint of it. Later sign-ins that present that cookie skip the 2FA step. Trust is tied to the cookie secret, not to the user agent or IP, so a spoofed header cannot skip the check.
+
+This is separate from the standalone [trusted device module](/trusted-device), which you wire into your own sign-in flow. The gate manages its own devices through the routes above.
+
+## Session limit
+
+`auth.session.maxConcurrent` caps non-expired sessions per user inside `sessionManager.create`, so every path that issues a session respects it, including the gate's routes.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `maxConcurrent` | no limit | Maximum concurrent sessions per user. |
+| `onLimit` | `evict-oldest` | `evict-oldest` revokes the oldest sessions to make room. `reject` makes `create` throw `MultiSessionLimitError`. |
+| `onRevoke` | none | Called with the revoked sessions after a revoke, `revokeAll` or an eviction. Errors are swallowed so revocation never fails. |
+
+Impersonation sessions are neither counted nor limited. The gate's routes answer `429` when `reject` fires. The [multi-session module](/multi-session) is a separate, standalone limiter.
+
+## Limits
+
+These are the places the gate is not yet as strong as it looks.
+
+- **Counters live in process memory.** Wrong-code attempts and used challenges are tracked per process. Behind several instances, the attempt limit is effectively multiplied by the instance count, and a used challenge can be presented once more to another instance until it expires (default five minutes). A restart resets the counters. The map is cleared when it grows past 10,000 entries.
+- **Not every sign-in path is gated.** SIWE has no session-issuing path in this library, so the `siwe` method name is reserved and has no call site. Anonymous sessions and admin impersonation are left ungated on purpose, because they do not check a user credential. SSO sign-in is not listed in the table above and is not gated.
+- **Stateless sessions are gated only when you pass `signInGate`.** `createStatelessSessions` and `createJwtSessionModule` do not go through `sessionManager.create`, so `maxConcurrent` and `onRevoke` do not apply to them. The gate uses `sub` as the user id, so it only has an effect when `sub` is a local user id.
+- **Forced password change reaches every gated method** for users who have a password credential, including phone, email OTP, one-tap and device sign-ins, even when `require2faFor` is not set. Social-only accounts that an admin flagged are not locked out.
+- **Passkey as a second factor** is available through `createPasskeyTwoFactorFactor(passkeyModule)` in `signInGate.factors`. Do not also list `passkey` in `require2faFor`, or the user is asked for a passkey twice.
+- **The OAuth redirect target is fixed** to `{baseUrl}/`.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Two-factor authentication" href="/auth/two-factor" icon="shield-halved">
+    Enroll TOTP and backup codes.
+  </Card>
+  <Card title="Admin" href="/auth/admin" icon="user-gear">
+    Flag an account for a forced password change.
+  </Card>
+  <Card title="Trusted devices" href="/trusted-device" icon="shield-halved">
+    The standalone fingerprint module.
+  </Card>
+  <Card title="OIDC provider logout" href="/auth/oidc-logout" icon="right-from-bracket">
+    Fan out onRevoke to relying parties.
+  </Card>
+</CardGroup>

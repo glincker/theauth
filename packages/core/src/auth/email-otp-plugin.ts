@@ -3,6 +3,7 @@ import type { TheAuthPlugin } from "../plugin/types.js";
 import type { EmailOtpConfig } from "./email-otp.js";
 import { createEmailOtpModule } from "./email-otp.js";
 import { normalizeEmail } from "./normalize-email.js";
+import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 export type { EmailOtpConfig };
 
@@ -21,7 +22,7 @@ export function emailOtp(config: EmailOtpConfig): TheAuthPlugin {
 				);
 			}
 
-			const module = createEmailOtpModule(config, ctx.db, ctx.sessionManager);
+			const module = createEmailOtpModule(config, ctx.db, ctx.sessionManager, ctx.signInGate);
 
 			// POST /auth/email-otp/send
 			// Accepts { email: string } and sends an OTP code to that address.
@@ -76,7 +77,13 @@ export function emailOtp(config: EmailOtpConfig): TheAuthPlugin {
 						return json({ error: "Missing required fields: email, code" }, 400);
 					}
 
-					const result = await module.verifyCode(rawEmail, code);
+					let result: Awaited<ReturnType<typeof module.verifyCode>>;
+					try {
+						result = await module.verifyCode(rawEmail, code, { request });
+					} catch (err) {
+						if (err instanceof SignInGateError) return signInGateResponse(err);
+						throw err;
+					}
 
 					if (!result) {
 						return json({ error: "Invalid or expired OTP code" }, 401);

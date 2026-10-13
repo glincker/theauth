@@ -12,9 +12,10 @@
  *   secret to kill everything, or plug `isRevoked` into a store you already
  *   have (a KV denylist fed by back-channel logout works well).
  * - The identity cookie is signed, not encrypted. Do not put secrets in it.
- * - Refresh tokens live in the browser, encrypted. If your IdP rotates refresh
- *   tokens, two parallel `getAccessToken` calls can race. Call it from one
- *   place per request.
+ * - Refresh tokens live in the browser, encrypted. Parallel `getAccessToken`
+ *   calls for the same refresh token share one `refreshAccessToken` call within
+ *   a process, so a rotating IdP sees a single use. Separate server instances
+ *   (or separate browser tabs hitting different instances) can still race.
  *
  * @example
  * ```typescript
@@ -29,6 +30,7 @@
  * ```
  */
 
+import type { SignInGate, SignInMethod } from "../auth/sign-in-gate-types.js";
 import {
 	constantTimeEqual,
 	fromBase64Url,
@@ -92,6 +94,34 @@ export interface StatelessSessionsConfig {
 	refreshAccessToken?: (refreshToken: string) => Promise<Result<StatelessTokens>>;
 	/** Optional revocation check, e.g. a denylist keyed by `sub` or `sid`. */
 	isRevoked?: (identity: StatelessIdentity) => Promise<boolean>;
+	/**
+	 * Read token cookies written before the AAD binding existed (default: true,
+	 * for one release). A legacy cookie is not bound to the identity cookie, so
+	 * a token cookie from another user sealed under the same secret would be
+	 * accepted. Set to false once old cookies have aged out (`maxAge`).
+	 */
+	acceptLegacyTokenCookies?: boolean;
+	/**
+	 * Called with a deprecation message each time a legacy token cookie is read
+	 * (and upgraded). Wire it to your logger; the SDK never writes to the console.
+	 */
+	onDeprecation?: (message: string) => void;
+	/**
+	 * Run the central sign-in gate before cookies are issued. The identity's
+	 * `sub` is used as the gate user id, so this only helps when `sub` is your
+	 * local user id. `createSession` then fails with `TWO_FACTOR_REQUIRED` or
+	 * `PASSWORD_RESET_REQUIRED` and puts the challenge in `error.details`.
+	 */
+	signInGate?: Pick<SignInGate, "evaluate">;
+	/** Gate method name used for `signInGate` (default: `social`). */
+	gateMethod?: SignInMethod;
+}
+
+export interface StatelessCreateContext {
+	/** Incoming request, so the gate can read a trusted-device cookie. */
+	request?: Request;
+	/** Overrides `gateMethod` for this call. */
+	method?: SignInMethod;
 }
 
 export interface StatelessSessions {
@@ -99,6 +129,7 @@ export interface StatelessSessions {
 		identity: StatelessIdentity,
 		tokens?: StatelessTokens,
 		requestCookieHeader?: string,
+		context?: StatelessCreateContext,
 	): Promise<Result<{ session: StatelessSession; headers: string[] }>>;
 	/** Verify the identity cookie. `null` when absent, forged, expired or revoked. */
 	getSession(cookieHeader: string): Promise<StatelessSession | null>;
@@ -112,6 +143,9 @@ export interface StatelessSessions {
 
 const SIGN_CONTEXT = "theauth-stateless-sign-v1";
 const ENC_CONTEXT = "theauth-stateless-enc-v1";
+/** Token cookie format marker. Legacy cookies are plain `iv.ciphertext`. */
+const TOKEN_FORMAT_V2 = "v2:";
+const TOKEN_AAD_CONTEXT = "theauth-stateless-tokens-v2";
 const DEFAULT_MAX_AGE = 86_400;
 const DEFAULT_SKEW_MS = 30_000;
 
@@ -137,6 +171,9 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		maxAge,
 	};
 	const { maxAge: _drop, ...deleteOpts } = cookieOpts;
+
+	/** In-flight refreshes by refresh token, so concurrent callers share one IdP call. */
+	const refreshing = new Map<string, Promise<Result<StatelessTokens>>>();
 
 	let encKey: Promise<CryptoKey> | null = null;
 	function getEncKey(): Promise<CryptoKey> {
@@ -166,27 +203,43 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		}
 	}
 
-	async function encrypt(payload: unknown): Promise<string> {
+	/** AAD tying a token cookie to one identity cookie (subject and issue time). */
+	function tokenAad(session: StatelessSession): BufferSource {
+		return encoder.encode(
+			`${TOKEN_AAD_CONTEXT}\n${session.identity.sub}\n${String(session.issuedAt)}`,
+		) as BufferSource;
+	}
+
+	async function encrypt(payload: unknown, session: StatelessSession): Promise<string> {
 		const iv = randomBytes(12);
 		const ct = await crypto.subtle.encrypt(
-			{ name: "AES-GCM", iv: iv as BufferSource },
+			{ name: "AES-GCM", iv: iv as BufferSource, additionalData: tokenAad(session) },
 			await getEncKey(),
 			encoder.encode(JSON.stringify(payload)),
 		);
-		return `${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ct))}`;
+		return `${TOKEN_FORMAT_V2}${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ct))}`;
 	}
 
-	async function decrypt<T>(value: string | undefined): Promise<T | null> {
+	async function decrypt<T>(
+		value: string | undefined,
+		session: StatelessSession,
+	): Promise<{ value: T; legacy: boolean } | null> {
 		if (!value) return null;
-		const parts = value.split(".");
+		const legacy = !value.startsWith(TOKEN_FORMAT_V2);
+		if (legacy && config.acceptLegacyTokenCookies === false) return null;
+		const parts = (legacy ? value : value.slice(TOKEN_FORMAT_V2.length)).split(".");
 		if (parts.length !== 2) return null;
 		try {
 			const pt = await crypto.subtle.decrypt(
-				{ name: "AES-GCM", iv: fromBase64Url(parts[0] as string) as BufferSource },
+				{
+					name: "AES-GCM",
+					iv: fromBase64Url(parts[0] as string) as BufferSource,
+					...(legacy ? {} : { additionalData: tokenAad(session) }),
+				},
 				await getEncKey(),
 				fromBase64Url(parts[1] as string) as BufferSource,
 			);
-			return JSON.parse(decoder.decode(pt)) as T;
+			return { value: JSON.parse(decoder.decode(pt)) as T, legacy };
 		} catch {
 			return null;
 		}
@@ -196,8 +249,40 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		identity: StatelessIdentity,
 		tokens?: StatelessTokens,
 		requestCookieHeader = "",
+		context?: StatelessCreateContext,
 	): Promise<Result<{ session: StatelessSession; headers: string[] }>> {
 		if (!identity.sub) return fail("INVALID_IDENTITY", "Identity requires a sub claim.");
+		if (config.signInGate) {
+			const decision = await config.signInGate.evaluate({
+				userId: identity.sub,
+				method: context?.method ?? config.gateMethod ?? "social",
+				...(context?.request && { request: context.request }),
+			});
+			if (decision.action === "password_change_required") {
+				return {
+					success: false,
+					error: {
+						code: "PASSWORD_RESET_REQUIRED",
+						message: "Password reset required",
+						details: { challenge: decision.challenge, expiresAt: decision.expiresAt },
+					},
+				};
+			}
+			if (decision.action === "two_factor_required") {
+				return {
+					success: false,
+					error: {
+						code: "TWO_FACTOR_REQUIRED",
+						message: "Two-factor authentication required",
+						details: {
+							challenge: decision.challenge,
+							methods: decision.methods,
+							expiresAt: decision.expiresAt,
+						},
+					},
+				};
+			}
+		}
 		const now = Date.now();
 		const session: StatelessSession = {
 			identity,
@@ -217,7 +302,7 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		if (tokens) {
 			const tokenCookie = serializeChunkedCookie(
 				tokensName,
-				await encrypt(tokens),
+				await encrypt(tokens, session),
 				cookieOpts,
 				config.chunking,
 				existing,
@@ -243,20 +328,44 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		const session = await getSession(cookieHeader);
 		if (!session) return fail("NO_SESSION", "No valid session.");
 		const cookies = parseCookies(cookieHeader);
-		const tokens = await decrypt<StatelessTokens>(readChunkedCookie(cookies, tokensName));
-		if (!tokens) return fail("NO_TOKENS", "No token cookie on this session.");
+		const opened = await decrypt<StatelessTokens>(readChunkedCookie(cookies, tokensName), session);
+		if (!opened) return fail("NO_TOKENS", "No token cookie on this session.");
+		const tokens = opened.value;
+		let upgrade: string[] = [];
+		if (opened.legacy) {
+			config.onDeprecation?.(
+				"StatelessSessions: read a legacy token cookie that is not bound to the identity cookie. It was re-sealed in the bound format; set acceptLegacyTokenCookies: false once old cookies have expired.",
+			);
+			const remainingLegacy = Math.max(Math.floor((session.expiresAt - Date.now()) / 1000), 1);
+			const rewritten = serializeChunkedCookie(
+				tokensName,
+				await encrypt(tokens, session),
+				{ ...cookieOpts, maxAge: remainingLegacy },
+				config.chunking,
+				cookies,
+			);
+			if (rewritten.success) upgrade = rewritten.data.headers;
+		}
 
 		const fresh = tokens.accessToken && (!tokens.expiresAt || tokens.expiresAt - skew > Date.now());
 		if (fresh && tokens.accessToken) {
 			return {
 				success: true,
-				data: { accessToken: tokens.accessToken, expiresAt: tokens.expiresAt, headers: [] },
+				data: { accessToken: tokens.accessToken, expiresAt: tokens.expiresAt, headers: upgrade },
 			};
 		}
 		if (!tokens.refreshToken || !config.refreshAccessToken) {
 			return fail("ACCESS_TOKEN_EXPIRED", "Access token expired and cannot be refreshed.");
 		}
-		const refreshed = await config.refreshAccessToken(tokens.refreshToken);
+		const refreshToken = tokens.refreshToken;
+		let pending = refreshing.get(refreshToken);
+		if (!pending) {
+			pending = config.refreshAccessToken(refreshToken).finally(() => {
+				refreshing.delete(refreshToken);
+			});
+			refreshing.set(refreshToken, pending);
+		}
+		const refreshed = await pending;
 		if (!refreshed.success) return refreshed;
 		const next: StatelessTokens = {
 			...tokens,
@@ -267,7 +376,7 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		const remaining = Math.max(Math.floor((session.expiresAt - Date.now()) / 1000), 1);
 		const written = serializeChunkedCookie(
 			tokensName,
-			await encrypt(next),
+			await encrypt(next, session),
 			{ ...cookieOpts, maxAge: remaining },
 			config.chunking,
 			cookies,

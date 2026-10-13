@@ -1,8 +1,8 @@
 import type { PluginContext, TheAuthPlugin } from "@glinr/theauth";
 import { createRateLimiter, withRateLimit } from "@glinr/theauth/auth";
 import { createEmailAuth } from "./email-auth.js";
-import { EmailAuthError, ErrorCodes } from "./errors.js";
-import type { EmailAuthConfig } from "./types.js";
+import { EmailAuthError, ErrorCodes, gateErrorResponse } from "./errors.js";
+import type { EmailAuthConfig, EmailSignInGate } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // HTTP helpers
@@ -32,6 +32,8 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 
 function errorToResponse(err: unknown): Response {
 	if (err instanceof EmailAuthError) {
+		const gated = gateErrorResponse(err);
+		if (gated) return gated;
 		const status =
 			err.code === ErrorCodes.INVALID_CREDENTIALS || err.code === ErrorCodes.EMAIL_NOT_VERIFIED
 				? 401
@@ -64,7 +66,24 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 		id: "theauth-email-password",
 
 		async init(ctx: PluginContext): Promise<undefined> {
-			const emailAuth = createEmailAuth(config, ctx.db);
+			// `signInGate` exists on newer cores only; read it structurally.
+			const coreGate = (ctx as PluginContext & { signInGate?: EmailSignInGate }).signInGate;
+			const sessionCfg = ctx.config.auth?.session as
+				| { maxConcurrent?: number; onLimit?: "evict-oldest" | "reject" }
+				| undefined;
+			const emailAuth = createEmailAuth(
+				{
+					...config,
+					signInGate: config.signInGate ?? coreGate,
+					sessionLimit: config.sessionLimit ?? {
+						...(sessionCfg?.maxConcurrent !== undefined && {
+							maxConcurrent: sessionCfg.maxConcurrent,
+						}),
+						...(sessionCfg?.onLimit !== undefined && { onLimit: sessionCfg.onLimit }),
+					},
+				},
+				ctx.db,
+			);
 
 			const signUpLimiter = createRateLimiter({ max: 5, window: 60 });
 			const signInLimiter = createRateLimiter({ max: 10, window: 60 });
@@ -104,10 +123,13 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 				handler: withRateLimit(async (request) => {
 					try {
 						const body = await parseBody(request);
-						const result = await emailAuth.signIn({
-							email: String(body.email ?? ""),
-							password: String(body.password ?? ""),
-						});
+						const result = await emailAuth.signIn(
+							{
+								email: String(body.email ?? ""),
+								password: String(body.password ?? ""),
+							},
+							{ request },
+						);
 						return jsonOk(result);
 					} catch (err) {
 						return errorToResponse(err);

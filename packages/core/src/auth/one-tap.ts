@@ -40,6 +40,8 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
+import type { SignInGate } from "./sign-in-gate.js";
+import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -140,7 +142,9 @@ export function createOneTapModule(
 	config: OneTapConfig,
 	db: Database,
 	sessionManager: SessionManager,
+	signInGate?: SignInGate,
 ): OneTapModule {
+	const gate = signInGate ?? createSignInGate({ db });
 	const autoCreateUser = config.autoCreateUser ?? true;
 	const csrfCookieName = config.csrfCookieName ?? DEFAULT_CSRF_COOKIE_NAME;
 	const callbackPath = "/auth/one-tap/callback";
@@ -288,6 +292,13 @@ export function createOneTapModule(
 				{ error: err instanceof Error ? err.message : "Failed to resolve user" },
 				500,
 			);
+		}
+
+		// Gate method `one_tap`: a forced password change or second factor is
+		// answered with a challenge and no session.
+		const decision = await gate.evaluate({ userId: user.id, method: "one_tap", request });
+		if (decision.action !== "allow") {
+			return signInGateResponse(new SignInGateError(decision));
 		}
 
 		const { token: sessionToken, session } = await sessionManager.create(user.id);

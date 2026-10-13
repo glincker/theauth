@@ -1,0 +1,99 @@
+---
+title: MCP client compatibility
+description: The lenientClients options that relax strict MCP request checks for real-world clients, what each one gives up, and a recommended profile.
+icon: plug
+---
+
+Some MCP clients do not follow the strict shape the authorization server enforces by default. They leave out `resource`, ask for vendor scopes the server has never heard of, redirect to a loopback address on a random port, or name a sub-path of your MCP server as the audience. By default every one of those is an error.
+
+`lenientClients` turns individual relaxations on, one at a time. Every option is off unless you set it, which is the strict behavior described in [MCP OAuth 2.1](/mcp).
+
+```ts
+import { createMcpModule } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  config: {
+    // ...issuer, baseUrl, signingSecret, resource
+    lenientClients: {
+      optionalResource: true,
+      pathAudience: true,
+      dropUnknownScopes: true,
+      loopbackAnyPort: true,
+    },
+  },
+  // ...your storage callbacks
+});
+```
+
+## Options
+
+| Option | Relaxes | Default |
+| --- | --- | --- |
+| `optionalResource` | A missing `resource` parameter | off |
+| `dropUnknownScopes` | Rejecting scopes the server does not support | off |
+| `loopbackAnyPort` | Exact match of loopback redirect URIs | off |
+| `loopbackAllowLocalhost` | Adds `http://localhost` to `loopbackAnyPort` | off |
+| `pathAudience` | Exact match of the `resource` value | off |
+
+### optionalResource
+
+When `resource` is missing at the authorize endpoint or in an authorization code exchange, it defaults to the one configured resource (`allowedResources` when set, otherwise `resource`). With zero or several configured resources, a missing value is still `invalid_target`. A `resource` that is present but not allowed is always `invalid_target`. It also lets the non-interactive grants (client credentials, jwt-bearer) fall back to the same single resource.
+
+Tradeoff: low. The audience can only ever be a resource you configured, and with a single one there is nothing to be ambiguous about.
+
+### dropUnknownScopes
+
+A requested scope the server does not support is dropped instead of failing the request. The supported set is the defaults (`openid`, `profile`, `email`, `offline_access`) plus `config.scopes`. The granted scope comes back in the token response, and the request only fails with `invalid_scope` when scopes were requested and none are left. On a refresh, scopes outside the original grant are dropped the same way, so a refresh cannot widen.
+
+Tradeoff: medium. A client no longer finds out from an error that it asked for something wrong, and it may receive less than it expected. It can never receive more than the server supports and its registration allows. Clients must read the returned `scope` instead of assuming.
+
+### loopbackAnyPort
+
+RFC 8252 section 7.3. When a registered redirect URI is `http://127.0.0.1` or `http://[::1]`, a request matches if scheme, host, path and query are identical and only the port differs. `127.0.0.1` and `[::1]` do not match each other, and URIs with a fragment or userinfo never match. `localhost` is excluded unless `loopbackAllowLocalhost` is also set.
+
+Tradeoff: higher. Any process on the user's machine can listen on a port and receive the redirect. PKCE S256 is what stops that process from redeeming the code, and this server requires PKCE for every client. Do not enable this for a client that cannot do S256. It only affects clients that registered a loopback URI.
+
+### pathAudience
+
+A requested `resource` matches a configured one when the two are equal apart from a trailing slash, or when the configured value is a path prefix of the request on a `/` boundary. `https://api.example.com/mcp/sse` matches `https://api.example.com/mcp`, and `https://api.example.com/mcp-admin` does not. Requests carrying a query or fragment never match. When several configured resources match, the longest wins. The issued token's `aud` is always the configured resource, never the sub-path.
+
+Tradeoff: low to medium. A client can get a token for the whole configured resource while naming one sub-path, so do not rely on the sub-path to narrow what the token allows.
+
+## Recommended profile
+
+For a single-resource MCP server that public clients (Client ID Metadata Documents or dynamic registration) connect to:
+
+```ts
+lenientClients: {
+  optionalResource: true,   // many clients omit resource
+  pathAudience: true,       // clients address /mcp/sse or /mcp/messages
+  dropUnknownScopes: true,  // vendor scopes the server does not list
+  loopbackAnyPort: true,    // native clients use ephemeral ports
+},
+clientIdMetadataDocuments: {
+  enabled: true,
+  allowedHosts: ["clients.example.com"], // hosts whose client metadata you accept
+},
+```
+
+Leave `loopbackAllowLocalhost` off unless a client you must support registers `http://localhost/...`. If you only serve clients that behave, enable none of these. The strict defaults are the safer ones, and each switch is easy to add later when a specific client needs it.
+
+## Differences from the Go library
+
+The Go library has the same five switches as `ClientCompat` (`OptionalResource`, `DropUnknownScopes`, `LoopbackAnyPort`, `LoopbackAllowLocalhost`, `PathAudience`). See [Client compatibility profile](/go/guides/client-compat) for its documentation. The meaning matches, with these differences:
+
+- **Scope source.** Go keeps a scope only if it is in the resource catalog and in the client's registered scope. The TypeScript server checks the server's supported set (defaults plus `config.scopes`) at the authorize endpoint. Grants that are bounded by a registered scope or principal still enforce that bound.
+- **Path audience strictness.** Go also refuses userinfo, dot segments and percent-encoded dots or slashes in the requested resource. The TypeScript check compares origin and path after URL parsing and refuses a query or fragment.
+- **jwt-bearer.** Go compares the raw `resource` of an ID-JAG assertion and does not accept sub-paths there. TypeScript canonicalizes both the claim and the request value.
+- **No PAR.** The TypeScript server has no pushed authorization requests, so `optionalResource` applies at authorize and token only.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MCP server grants" href="/mcp-grants" icon="key">
+    client_credentials, token exchange, jwt-bearer and private_key_jwt.
+  </Card>
+  <Card title="Go: client compatibility" href="/go/guides/client-compat" icon="plug">
+    The same switches on the Go authorization server.
+  </Card>
+</CardGroup>

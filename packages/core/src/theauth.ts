@@ -25,6 +25,9 @@ import type { PasswordResetModule } from "./auth/password-reset.js";
 import { createPasswordResetModule } from "./auth/password-reset.js";
 import type { PhoneAuthModule } from "./auth/phone.js";
 import { createPhoneAuthModule } from "./auth/phone.js";
+import type { SignInGate } from "./auth/sign-in-gate.js";
+import { createSignInGate } from "./auth/sign-in-gate.js";
+import { signInGatePlugin } from "./auth/sign-in-gate-plugin.js";
 import type { SsoModule } from "./auth/sso.js";
 import { createSsoModule } from "./auth/sso.js";
 import type { TotpModule } from "./auth/totp.js";
@@ -45,7 +48,7 @@ import { createPermissionEngine } from "./permission/engine.js";
 import { buildClearCookie, extractToken, json } from "./plugin/helpers.js";
 import { createPluginRouter } from "./plugin/router.js";
 import { initializePlugins } from "./plugin/runner.js";
-import type { EndpointContext } from "./plugin/types.js";
+import type { EndpointContext, TheAuthPlugin } from "./plugin/types.js";
 import { createPolicyModule } from "./policies/budget.js";
 import { createPolicyEngine } from "./policy/engine.js";
 import type { PolicyEngine } from "./policy/types.js";
@@ -118,6 +121,12 @@ function classifyViolation(reason: string | undefined): ViolationType {
  * });
  * ```
  */
+/** Append the sign-in gate routes unless the caller already registered them. */
+function withSignInGatePlugin(plugins: TheAuthPlugin[], hasSession: boolean): TheAuthPlugin[] {
+	if (!hasSession || plugins.some((p) => p.id === "theauth-sign-in-gate")) return plugins;
+	return [...plugins, signInGatePlugin()];
+}
+
 export async function createTheAuth(config: TheAuthConfig) {
 	const authAdapter = config.auth?.adapter ?? null;
 
@@ -160,6 +169,18 @@ export async function createTheAuth(config: TheAuthConfig) {
 		? createSessionManager(config.auth.session, db)
 		: null;
 
+	// Central sign-in gate: forced password change, 2FA policy, trusted devices.
+	// Always created; only the forced password change is active without config.
+	// The gate only reads tables whose feature is enabled, mirroring the
+	// feature detection used when the tables are created.
+	const signInGate: SignInGate = createSignInGate({
+		db,
+		config: config.signInGate,
+		sessionSecret: config.auth?.session?.secret,
+		totpAvailable: !!config.totp || (config.plugins?.some((p) => p.id === "theauth-2fa") ?? false),
+		usernameAccountsAvailable: !!config.username,
+	});
+
 	// Privilege analyzer — always available via theauth.analyzer.
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
 
@@ -183,14 +204,14 @@ export async function createTheAuth(config: TheAuthConfig) {
 	// Requires a session manager to issue sessions on verification.
 	const magicLinkModule: MagicLinkModule | null =
 		config.magicLink && sessionManager
-			? createMagicLinkModule(config.magicLink, db, sessionManager)
+			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate)
 			: null;
 
 	// Email OTP — only created when the caller provides config.emailOtp.
 	// Requires a session manager to issue sessions on verification.
 	const emailOtpModule: EmailOtpModule | null =
 		config.emailOtp && sessionManager
-			? createEmailOtpModule(config.emailOtp, db, sessionManager)
+			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
 			: null;
 
 	// TOTP — only created when the caller provides config.totp.
@@ -220,14 +241,20 @@ export async function createTheAuth(config: TheAuthConfig) {
 	// Username auth — only created when the caller provides config.username.
 	const usernameModule: UsernameAuthModule | null =
 		config.username && sessionManager
-			? createUsernameAuthModule(config.username, db, sessionManager)
+			? createUsernameAuthModule(config.username, db, sessionManager, signInGate)
 			: null;
 
 	// Password reset — only created when caller provides config.passwordReset + username + session.
 	const oneTimeTokenModule = createOneTimeTokenModule({}, db);
 	const passwordResetModule: PasswordResetModule | null =
 		config.passwordReset && sessionManager
-			? createPasswordResetModule(config.passwordReset, db, sessionManager, oneTimeTokenModule)
+			? createPasswordResetModule(
+					config.passwordReset,
+					db,
+					sessionManager,
+					oneTimeTokenModule,
+					signInGate,
+				)
 			: null;
 
 	// Email verification — only created when caller provides config.emailVerification.
@@ -237,7 +264,9 @@ export async function createTheAuth(config: TheAuthConfig) {
 
 	// Phone auth — only created when the caller provides config.phone.
 	const phoneModule: PhoneAuthModule | null =
-		config.phone && sessionManager ? createPhoneAuthModule(config.phone, db, sessionManager) : null;
+		config.phone && sessionManager
+			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate)
+			: null;
 
 	// Captcha — only created when the caller provides config.captcha.
 	const captchaModule: CaptchaModule | null = config.captcha
@@ -256,11 +285,12 @@ export async function createTheAuth(config: TheAuthConfig) {
 	assertSecondaryStorageConfig(config.secondaryStorage);
 	const secondaryStorage = createSecondaryStorageResolver(config.secondaryStorage, db);
 	const pluginRegistry = await initializePlugins(
-		config.plugins ?? [],
+		withSignInGatePlugin(config.plugins ?? [], sessionManager !== null),
 		db,
 		config,
 		sessionManager,
 		secondaryStorage,
+		signInGate,
 	);
 
 	// Build an EndpointContext that plugins can use inside their handlers.

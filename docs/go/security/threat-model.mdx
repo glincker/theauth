@@ -248,7 +248,7 @@ The following are explicitly **not** mitigated by this library. They are the dep
 
 | Threat | Mitigation | Residual Risk |
 |---|---|---|
-| JWT claim alteration | Ed25519 signature covers the full JWT header + payload; any modification invalidates it. | None. |
+| JWT claim alteration | The EdDSA, ES256 or RS256 signature covers the full JWT header + payload; any modification invalidates it. The key type must match the header `alg`, RSA keys under 2048 bits are rejected, and `none` and `HS*` are never accepted (`mcpresource/jwt.go`). | None. |
 
 **Information Disclosure**
 

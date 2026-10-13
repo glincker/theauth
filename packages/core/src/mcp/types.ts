@@ -1,6 +1,12 @@
 import type { JWK } from "jose";
-import { z } from "zod";
+import type { SecondaryStorage } from "../storage/types.js";
 import type { McpDpopConfig } from "./dpop-types.js";
+import type {
+	McpClientCredentialsConfig,
+	McpJwtBearerConfig,
+	McpLenientClientsConfig,
+	McpTokenExchangeConfig,
+} from "./grant-types.js";
 import type { McpProtectedHandler, RequireMcpAuthOptions } from "./require-mcp-auth.js";
 import type { DnsResolver } from "./safe-fetch.js";
 
@@ -82,7 +88,40 @@ export interface McpConfig {
 		fetchImpl?: typeof fetch;
 		/** Restrict to these hostnames when set. */
 		allowedHosts?: string[];
+		/**
+		 * Seconds a failed document fetch is remembered before the next attempt.
+		 * Default 30; 0 disables the negative cache.
+		 */
+		negativeCacheSeconds?: number;
 	};
+	/**
+	 * Compatibility switches for lenient MCP clients (optional resource, dropped
+	 * unknown scopes, loopback redirect ports, path-prefix audiences). Off by
+	 * default; see {@link McpLenientClientsConfig}.
+	 */
+	lenientClients?: McpLenientClientsConfig;
+	/**
+	 * Opt in to the `client_credentials` grant for confidential clients. Needs a
+	 * `resolvePrincipal` mapping. Tokens are scope-limited, carry no refresh
+	 * token and can be DPoP-bound.
+	 */
+	clientCredentials?: McpClientCredentialsConfig;
+	/**
+	 * Opt in to RFC 8693 token exchange. Requires `jtiDenylist` so revoked
+	 * subject tokens are refused.
+	 */
+	tokenExchange?: McpTokenExchangeConfig;
+	/**
+	 * Opt in to RFC 7523 `jwt-bearer` redemption of ID-JAG assertions
+	 * (`typ: oauth-id-jag+jwt`) from trusted issuers.
+	 */
+	jwtBearer?: McpJwtBearerConfig;
+	/**
+	 * Replay cache for `private_key_jwt` client assertions and jwt-bearer
+	 * assertions (`jti`). Defaults to an in-process store (single instance
+	 * only); pass shared storage in multi-instance deployments.
+	 */
+	assertionStorage?: SecondaryStorage;
 	/** Access token TTL in seconds (default: 3600) */
 	accessTokenTtl?: number;
 	/** Refresh token TTL in seconds (default: 604800 = 7 days) */
@@ -114,6 +153,12 @@ export interface McpConfig {
 		redirectUris: string[];
 		clientName?: string;
 		scope?: string;
+		/**
+		 * Grant types this client may use. Default: authorization_code and
+		 * refresh_token. List `client_credentials`, the token-exchange URN or
+		 * the jwt-bearer URN here to allow those grants for the client.
+		 */
+		grantTypes?: string[];
 	}>;
 	/** Custom token claims generator */
 	getAdditionalClaims?: (userId: string, scopes: string[]) => Promise<Record<string, unknown>>;
@@ -183,10 +228,13 @@ export interface McpServerMetadata {
 	response_modes_supported: string[];
 	grant_types_supported: string[];
 	token_endpoint_auth_methods_supported: string[];
+	/** RFC 8414: JWS algorithms accepted for `private_key_jwt` assertions. */
+	token_endpoint_auth_signing_alg_values_supported?: string[];
 	code_challenge_methods_supported: string[];
 	service_documentation?: string;
 	revocation_endpoint?: string;
 	revocation_endpoint_auth_methods_supported?: string[];
+	revocation_endpoint_auth_signing_alg_values_supported?: string[];
 	/** RFC 9207: the authorization response carries an `iss` parameter. */
 	authorization_response_iss_parameter_supported?: boolean;
 	client_id_metadata_document_supported?: boolean;
@@ -232,6 +280,10 @@ export interface McpClient {
 	userId: string | null;
 	/** Set to "cimd" for clients resolved from a Client ID Metadata Document. */
 	source?: "cimd";
+	/** Public keys for `private_key_jwt` client authentication. */
+	jwks?: { keys: JWK[] };
+	/** HTTPS URL of the client's JWKS, for `private_key_jwt`. */
+	jwksUri?: string;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -250,6 +302,8 @@ export interface McpClientRegistrationRequest {
 	policy_uri?: string;
 	software_id?: string;
 	software_version?: string;
+	jwks?: { keys: JWK[] };
+	jwks_uri?: string;
 }
 
 export interface McpClientRegistrationResponse {
@@ -270,6 +324,8 @@ export interface McpClientRegistrationResponse {
 	policy_uri?: string;
 	software_id?: string;
 	software_version?: string;
+	jwks?: { keys: JWK[] };
+	jwks_uri?: string;
 }
 
 // ─── Authorization Code ─────────────────────────────────────────────────────
@@ -358,6 +414,8 @@ export interface McpTokenResponse {
 	expires_in: number;
 	refresh_token?: string;
 	scope: string;
+	/** RFC 8693 section 2.2.1, set on token exchange responses. */
+	issued_token_type?: string;
 }
 
 // ─── Token Validation ───────────────────────────────────────────────────────
@@ -519,62 +577,11 @@ export interface McpAuthModule {
 }
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
+// Defined in schemas.ts, re-exported here so existing imports keep working.
 
-export const McpClientRegistrationSchema = z.object({
-	redirect_uris: z.array(z.string().url()),
-	token_endpoint_auth_method: z
-		.enum(["none", "client_secret_basic", "client_secret_post"])
-		.default("client_secret_basic")
-		.optional(),
-	grant_types: z
-		.array(z.enum(["authorization_code", "refresh_token"]))
-		.default(["authorization_code"])
-		.optional(),
-	response_types: z
-		.array(z.enum(["code"]))
-		.default(["code"])
-		.optional(),
-	client_name: z.string().optional(),
-	client_uri: z.string().url().optional(),
-	logo_uri: z.string().url().optional(),
-	scope: z.string().optional(),
-	contacts: z.array(z.string()).optional(),
-	tos_uri: z.string().url().optional(),
-	policy_uri: z.string().url().optional(),
-	software_id: z.string().optional(),
-	software_version: z.string().optional(),
-});
-
-export const McpAuthorizeRequestSchema = z.object({
-	response_type: z.literal("code"),
-	client_id: z.string().min(1),
-	redirect_uri: z.string().min(1),
-	scope: z.string().optional(),
-	state: z.string().optional(),
-	code_challenge: z.string().min(43).max(128),
-	code_challenge_method: z.literal("S256"),
-	/** RFC 8707 resource indicator. Required: tokens are always audience-bound. */
-	resource: z.string().url(),
-});
-
-export const McpTokenRequestSchema = z.discriminatedUnion("grant_type", [
-	z.object({
-		grant_type: z.literal("authorization_code"),
-		code: z.string().min(1),
-		redirect_uri: z.string().min(1),
-		client_id: z.string().min(1),
-		client_secret: z.string().optional(),
-		code_verifier: z.string().min(43).max(128),
-		resource: z.string().url(),
-	}),
-	z.object({
-		grant_type: z.literal("refresh_token"),
-		refresh_token: z.string().min(1),
-		client_id: z.string().min(1),
-		client_secret: z.string().optional(),
-		scope: z.string().optional(),
-		resource: z.string().url().optional(),
-	}),
-]);
-
-export type McpTokenRequestParsed = z.infer<typeof McpTokenRequestSchema>;
+export {
+	McpAuthorizeRequestSchema,
+	McpClientRegistrationSchema,
+	type McpTokenRequestParsed,
+	McpTokenRequestSchema,
+} from "./schemas.js";

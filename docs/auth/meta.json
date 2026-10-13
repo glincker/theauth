@@ -20,6 +20,7 @@
 		"oauth-proxy",
 		"---Providers---",
 		"oauth",
+		"social-tokens",
 		"google",
 		"github",
 		"apple",
@@ -68,6 +69,7 @@
 		"scim",
 		"scim-filter-reference",
 		"scim-patch-reference",
-		"oidc-provider"
+		"oidc-provider",
+		"oidc-logout"
 	]
 }

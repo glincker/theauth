@@ -22,6 +22,8 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { DnsResolver } from "../mcp/safe-fetch.js";
 import { checkFetchableUrl, defaultDnsResolver, isBlockedIp } from "../mcp/safe-fetch.js";
 import type { Result } from "../mcp/types.js";
+import type { SessionRevoker, SessionRevokerOptions } from "./federated-logout-sessions.js";
+import { createSessionRevoker } from "./federated-logout-sessions.js";
 
 export const BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
 
@@ -278,8 +280,21 @@ export interface BackChannelLogoutReceiverConfig {
 	clientId: string;
 	/** Verification key or JWKS resolver (`createRemoteJWKSet`). */
 	verificationKey: VerifyKey;
-	/** Sign the user out. Throw to make the endpoint answer 400. */
-	onLogout: (claims: LogoutTokenClaims) => Promise<void>;
+	/**
+	 * Sign the user out. Throw to make the endpoint answer 400. Runs after
+	 * session revocation when `sessionManager` or `revokeSessions` is set, and
+	 * is required when neither is.
+	 */
+	onLogout?: (claims: LogoutTokenClaims) => Promise<void>;
+	/**
+	 * Revoke local sessions for the claims. Defaults to a revoker built on
+	 * `sessionManager` (see `federated-logout-sessions.ts`) when that is set.
+	 */
+	revokeSessions?: SessionRevoker;
+	/** Session manager for the default revoker. */
+	sessionManager?: SessionRevokerOptions["sessionManager"];
+	/** Options for the default revoker (user mapping, sid lookup). */
+	sessionRevoker?: Omit<SessionRevokerOptions, "sessionManager">;
 	/** Accepted algorithms. Default `["RS256","ES256","EdDSA"]`. */
 	algorithms?: string[];
 	/** How old `iat` may be, in seconds. Default 120. */
@@ -313,6 +328,11 @@ export function createBackChannelLogoutReceiver(
 	const algorithms = config.algorithms ?? ["RS256", "ES256", "EdDSA"];
 	const maxAge = config.maxAgeSeconds ?? 120;
 	const replay = config.replayStore ?? createMemoryReplayStore();
+	const revokeSessions: SessionRevoker | undefined =
+		config.revokeSessions ??
+		(config.sessionManager
+			? createSessionRevoker({ ...config.sessionRevoker, sessionManager: config.sessionManager })
+			: undefined);
 
 	async function verifyLogoutToken(token: string): Promise<Result<LogoutTokenClaims>> {
 		let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
@@ -373,8 +393,11 @@ export function createBackChannelLogoutReceiver(
 		if (!token) return bad("logout_token is required");
 		const result = await verifyLogoutToken(token);
 		if (!result.success) return bad(result.error.message);
+		// Never answer 200 when nothing can sign the user out.
+		if (!revokeSessions && !config.onLogout) return bad("logout is not configured");
 		try {
-			await config.onLogout(result.data);
+			if (revokeSessions) await revokeSessions(result.data);
+			if (config.onLogout) await config.onLogout(result.data);
 		} catch {
 			return bad("logout could not be processed");
 		}

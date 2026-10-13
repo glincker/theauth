@@ -1,0 +1,181 @@
+---
+title: Social token API
+description: Read a refreshed provider access token with getAccessToken, list and unlink linked accounts, and encrypt stored provider tokens at rest.
+icon: key
+---
+
+When a user signs in with Google or GitHub, theAuth stores the provider's access token and refresh token against the linked account. The social token API is how your server code uses them later: call the provider's API on the user's behalf, show which accounts are linked, and let the user disconnect one.
+
+It lives on the OAuth module, which the `oauth()` plugin exposes through the plugin context.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { oauth, createGoogleProvider } from "@glinr/theauth/auth";
+import type { OAuthModule } from "@glinr/theauth/auth";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  baseUrl: "https://app.example.com",
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  plugins: [
+    oauth({
+      providers: {
+        google: createGoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          scopes: ["openid", "email", "https://www.googleapis.com/auth/calendar.readonly"],
+        }),
+      },
+    }),
+  ],
+});
+
+const social = theauth.plugins.getContext().oauth as OAuthModule;
+```
+
+If you build the module yourself, `createOAuthModule(db, config)` returns the same three methods.
+
+## getAccessToken
+
+```ts
+const token = await social.getAccessToken({ userId, provider: "google" });
+
+await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+  headers: { Authorization: `${token.tokenType} ${token.accessToken}` },
+});
+```
+
+The result is `{ accessToken, tokenType, expiresAt, refreshed }`. `expiresAt` is `null` when the provider never said, and such a token is returned as is. `refreshed` is `true` when this call had to refresh.
+
+If the stored token expires within `expirySkewSeconds` (default 60), the module exchanges the refresh token for a new one and saves the result before returning. Providers that do not rotate refresh tokens keep the old one. Concurrent calls for the same account in one process share a single refresh, so a provider that rotates refresh tokens sees one use, not several. If a refresh loses a race with another instance and fails, the module re-reads the row and returns the winner's token when it is fresh.
+
+### Errors
+
+Failures throw an error with a typed `code`:
+
+| Code | Meaning | HTTP status on the routes |
+| --- | --- | --- |
+| `no_account` | The user has no account linked for that provider. | 404 |
+| `no_refresh_token` | The access token expired and no refresh token was ever stored. Ask the user to sign in again. | 409 |
+| `revoked` | The provider rejected the refresh token (`invalid_grant`). The user must re-authorize. | 409 |
+| `refresh_failed` | The refresh failed for another reason, or the provider does not support refresh. May be transient. | 502 |
+| `decrypt_failed` | The stored token could not be decrypted, usually a missing key. | 500 |
+| `last_credential` | Unlinking would remove the only sign-in method. | 409 |
+
+`OAuthTokenError` and `OAuthRefreshError` are exported from `@glinr/theauth/auth`. The error carries a `code` from the table above and the `provider` id.
+
+```ts
+import { OAuthTokenError } from "@glinr/theauth/auth";
+
+try {
+  const token = await social.getAccessToken({ userId, provider: "github" });
+} catch (err) {
+  if (err instanceof OAuthTokenError && (err.code === "revoked" || err.code === "no_refresh_token")) {
+    // send the user back through /auth/oauth/authorize/github
+  } else {
+    throw err;
+  }
+}
+```
+
+### Which providers can refresh
+
+A provider can refresh when its definition has `refreshTokens`. All of these do:
+
+- Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Reddit, Spotify, Twitch, Twitter and Zoom
+- `genericOIDC` and the presets built on it, such as `facebookProvider`, `tiktokProvider`, `auth0Provider` and `oktaProvider`
+
+These do not: **`createAppleProvider`, `createSlackProvider` and `createNotionProvider`**. For them `getAccessToken` returns the stored token while it is fresh or has no expiry, and fails once an expiry has passed: `no_refresh_token` when none is stored, otherwise `refresh_failed`. The `notionProvider` preset is built on `genericOIDC` and does implement refresh.
+
+Having `refreshTokens` is not the same as holding a refresh token. Providers only issue one in some cases, for example Google returns it on the first consent, and a later sign-in may not include a new one. When none was ever stored, an expired token fails with `no_refresh_token`.
+
+A custom provider opts in by implementing `refreshTokens(refreshToken)` and throwing `OAuthRefreshError` with `reauth: true` on `invalid_grant`.
+
+## listAccounts
+
+```ts
+const accounts = await social.listAccounts(userId);
+// [{ id, provider, providerAccountId, hasRefreshToken, expiresAt, createdAt, updatedAt }]
+```
+
+No token material is ever included, only whether a refresh token exists.
+
+## unlinkAccount
+
+```ts
+await social.unlinkAccount(userId, "github");
+```
+
+This deletes the stored row. It throws `no_account` when nothing is linked.
+
+### The last-credential guard
+
+Unlinking is refused with `last_credential` when the account is the user's only way to sign in. These count as another way automatically:
+
+- another linked OAuth account
+- a username and password account
+- a passkey
+
+For anything else (magic link, email OTP, phone), tell the module with `hasOtherSignInMethod`:
+
+```ts
+oauth({
+  providers: { /* ... */ },
+  hasOtherSignInMethod: async (userId) => {
+    const user = await db.findUser(userId);
+    return user.email !== null && user.emailVerified; // can use a magic link
+  },
+}),
+```
+
+Without that callback the guard cannot see those methods and may block an unlink that would have been safe. It errs toward keeping the user signed in.
+
+Unlinking does not call the provider to revoke the grant. If you need that, revoke it at the provider before you unlink.
+
+## HTTP routes
+
+The `oauth()` plugin also adds two signed-in routes, relative to your adapter prefix:
+
+| Method and path | Result |
+| --- | --- |
+| `GET /auth/oauth/accounts` | `{ accounts: [...] }`, the same shape as `listAccounts` |
+| `DELETE /auth/oauth/accounts/:provider` | `{ success: true }`, or `{ error, code }` with the status in the table above |
+
+Both return 401 without a session. The access token itself is never exposed over HTTP. Read it server side with `getAccessToken`.
+
+## Encrypt tokens at rest
+
+By default provider tokens are stored as plain text. Add `tokenEncryption` to store them sealed with AES-256-GCM, the same envelope the [token vault](/token-vault) uses:
+
+```ts
+oauth({
+  providers: { /* ... */ },
+  tokenEncryption: {
+    // 32 random bytes each, base64url
+    keys: { k1: process.env.OAUTH_TOKEN_KEY_K1! },
+    activeKeyId: "k1",
+  },
+}),
+```
+
+Generate a key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+
+- Each value is bound to its account id and field, so a ciphertext copied to another row will not decrypt.
+- Sealed values carry an `enc:` prefix. Existing plaintext rows keep working and are re-encrypted the next time they are written (sign-in, linking or a refresh).
+- Startup throws if encryption is enabled without keys or with an `activeKeyId` that is not in `keys`.
+- To rotate, add a new key, point `activeKeyId` at it and keep the old key listed until every row has been rewritten. A row sealed with a key you removed fails with `decrypt_failed`.
+- Set `enabled: false` to stop encrypting without removing the keys. Existing sealed rows still need the keys to be read.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="OAuth overview" href="/auth/oauth" icon="lock">
+    Providers, the sign-in flow and account linking.
+  </Card>
+  <Card title="Token vault" href="/token-vault" icon="vault">
+    Give agents delegated access to provider tokens with consent and audit.
+  </Card>
+  <Card title="Sign-in gate" href="/sign-in-gate" icon="shield-check">
+    The OAuth callback now goes through the gate before a session is issued.
+  </Card>
+</CardGroup>

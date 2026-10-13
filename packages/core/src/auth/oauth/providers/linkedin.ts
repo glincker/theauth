@@ -20,6 +20,7 @@
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
+import { createRefresher } from "./refresh.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -176,6 +177,12 @@ export function createLinkedInProvider(config: OAuthProviderConfig): OAuthProvid
 		scopes,
 		getAuthorizationUrl,
 		exchangeCode,
+		refreshTokens: createRefresher({
+			providerName: "LinkedIn",
+			tokenUrl: TOKEN_URL,
+			clientId: config.clientId,
+			clientSecret: config.clientSecret,
+		}),
 		getUserInfo,
 	};
 }

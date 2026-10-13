@@ -1,0 +1,216 @@
+---
+title: OIDC provider logout
+description: Add an end_session_endpoint and back-channel logout to theAuth as an OpenID Connect provider, and receive logout tokens as a relying party.
+icon: right-from-bracket
+---
+
+When theAuth is the [OIDC provider](/auth/oidc-provider), a user who signs out should be signed out of the apps that used it too. Two mechanisms do that, and both are opt in:
+
+- **RP-initiated logout.** A relying party sends the browser to your `end_session_endpoint`. You end the provider session and redirect back.
+- **Back-channel logout.** When a provider session ends for any reason, theAuth posts a signed logout token to each relying party's `backchannel_logout_uri`, server to server.
+
+Front-channel logout is not implemented.
+
+## What turning it on changes
+
+Pass `logout` to `createOidcProviderModule`. Then:
+
+- Discovery gains `end_session_endpoint`, `backchannel_logout_supported` and `backchannel_logout_session_supported`.
+- ID tokens carry a `sid` claim.
+- `provider.logout` exists, and clients can be registered with `postLogoutRedirectUris` and `backchannelLogoutUri`.
+- Each authorization is recorded in a sid index (`theauth_oidc_sessions`) so a later logout knows which relying parties to notify. Client logout settings live in `theauth_oidc_logout_clients`.
+
+| `logout` option | Default | Meaning |
+| --- | --- | --- |
+| `endSessionPath` | `/logout` | Path under the issuer. Advertised as `${issuer}${endSessionPath}`. |
+| `defaultRedirectUri` | none | Where to send the user when no valid `post_logout_redirect_uri` applies. Without it the endpoint answers `200 {"status":"logged_out"}`. |
+| `sessionManager` | none | Session manager used to revoke the session named by the request cookie and the `sid` hint. |
+| `onEndSession` | none | Runs after sessions are revoked and before the redirect. Clear your own cookies here. |
+| `indexTtlSeconds` | 30 days | How long sid index rows are kept. |
+| `backchannelTimeoutMs` | 5000 | Delivery timeout per relying party. |
+| `allowInsecureBackchannel` | false | Allow http and private-address back-channel URIs. Development only. |
+| `fetchImpl`, `resolver` | global fetch, system DNS | Overrides for delivery and the private-address check. |
+
+## Wire it up
+
+There is a loop to untangle. The provider needs a session manager and database, and the session manager's `onRevoke` needs the provider. A late-bound reference breaks it:
+
+```ts
+import {
+  createDatabase,
+  createSessionManager,
+  createTables,
+  createTheAuth,
+} from "@glinr/theauth";
+import type { SessionConfig } from "@glinr/theauth";
+import {
+  createOidcProviderModule,
+  oidcLogout,
+} from "@glinr/theauth/auth";
+import type { OidcProviderModule } from "@glinr/theauth/auth";
+
+const database = { provider: "postgres", url: process.env.DATABASE_URL! } as const;
+const db = await createDatabase(database);
+await createTables(db, "postgres"); // see the warning below
+
+let provider: OidcProviderModule | undefined; // late-bound
+
+const sessionConfig: SessionConfig = {
+  secret: process.env.SESSION_SECRET!,
+  onRevoke: async (revoked) => {
+    await provider?.logout?.handleSessionsRevoked(revoked);
+  },
+};
+
+provider = createOidcProviderModule(
+  {
+    issuer: "https://auth.example.com",
+    signingKey: privateKey,
+    logout: {
+      sessionManager: createSessionManager(sessionConfig, db),
+      defaultRedirectUri: "https://auth.example.com/signed-out",
+    },
+  },
+  db,
+  async (userId) => ({ sub: userId }),
+);
+
+const theauth = await createTheAuth({
+  database,
+  baseUrl: "https://auth.example.com",
+  auth: { session: sessionConfig },
+  plugins: [oidcLogout(provider)],
+});
+```
+
+`oidcLogout(provider)` mounts GET and POST at `logout.endSessionPath` (rate limited to 30 per minute). It throws at startup if the provider was created without `logout`.
+
+Because `onRevoke` is on the session config, every revoke fans out: a user signing out, `revokeAll` after a password reset, or an eviction by `maxConcurrent`.
+
+<Warning>
+  The provider tables (`theauth_oidc_clients`, `theauth_oidc_logout_clients`, `theauth_oidc_sessions` and friends) are only created by `createTheAuth` when a plugin with the id `theauth-oidc-provider` is registered, and no built-in plugin has that id. Run `createTables` yourself, as above, or create the tables with your own migration. With sqlite, use one database handle instead of two, because `createDatabase` loads the file into memory per handle.
+</Warning>
+
+<Info>
+  The route is registered under your adapter prefix, but discovery advertises `${issuer}${endSessionPath}`. If you mount theAuth at `/api/auth`, either serve the endpoint at the issuer root with a rewrite or set `endSessionPath` to match, so the advertised URL resolves.
+</Info>
+
+### Link the session when you authorize
+
+Pass the provider session's id to `authorize` so the authorization is tied to it:
+
+```ts
+const result = await provider.authorize({
+  clientId,
+  redirectUri,
+  responseType: "code",
+  scope: "openid",
+  userId: session.userId,
+  sessionId: session.id, // indexed for logout
+});
+```
+
+The `sid` is derived from the session id (`deriveSid(issuer, sessionId)`), so revoking that session finds every relying party that holds it. Without `sessionId` the sid is random. Logout still works when the relying party supplies `id_token_hint` or you end all sessions for a user, but revoking a specific session cannot find the authorization.
+
+### Register a client
+
+```ts
+const reg = await provider.registerClient({
+  clientName: "Reports app",
+  redirectUris: ["https://reports.example.com/callback"],
+  postLogoutRedirectUris: ["https://reports.example.com/signed-out"],
+  backchannelLogoutUri: "https://reports.example.com/auth/backchannel-logout",
+});
+```
+
+Passing either logout field without `config.logout` fails with `LOGOUT_NOT_ENABLED`. Post-logout URIs are an exact-match allowlist. The back-channel URI must be https unless `allowInsecureBackchannel` is on. To change them later, call `provider.logout.setClientLogoutConfig(clientId, { postLogoutRedirectUris, backchannelLogoutUri })`.
+
+## The end session endpoint
+
+The relying party redirects the browser to `end_session_endpoint` with:
+
+| Parameter | Notes |
+| --- | --- |
+| `id_token_hint` | Verified against the provider's key and issuer. An expired hint is accepted, a forged one gets `400`. |
+| `post_logout_redirect_uri` | Honored only on exact match against the client's registered list. Needs `id_token_hint` or `client_id`. |
+| `state` | Echoed back on the redirect. |
+| `client_id` | Must match the hint's audience when both are present. |
+
+It revokes the session named by the request cookie (only if it belongs to the hinted user) and any session the `sid` maps to, notifies relying parties, runs `onEndSession`, then answers `302` to the post-logout URI, else `defaultRedirectUri`, else `200`.
+
+## Back-channel fan-out
+
+For each relying party with a back-channel URI, theAuth signs a logout token with the provider key and posts it as `application/x-www-form-urlencoded` (`logout_token=...`). The token has `iss`, `aud` (the client id), `sub`, `sid`, `jti`, `iat` and the back-channel logout event, and no `nonce`.
+
+Delivery refuses non-https URLs and hosts that resolve to private addresses, never follows redirects, and times out after `backchannelTimeoutMs`. One token goes to each client per sid and user, in parallel.
+
+You can also trigger it directly. Both return `{ attempted, delivered, failed }` and never throw:
+
+```ts
+await provider.logout!.fanOut({ userId });            // every session of a user
+await provider.logout!.fanOut({ sid });               // one sid
+await provider.logout!.handleSessionsRevoked(sessions);
+```
+
+### Limits
+
+- **There is no retry.** The sid index rows are claimed (deleted) before delivery. A relying party that is down, times out or returns an error does not get the token again. It shows up in `failed` and nowhere else, so log it if you care. The relying party's own session then lives until it expires. Pair back-channel logout with short relying-party sessions.
+- **Delivery runs inline.** `onRevoke` is awaited, so a slow relying party delays the revoke that triggered it by up to the timeout.
+- **Index rows expire.** After `indexTtlSeconds` an old authorization can no longer be found, and ending that session notifies nobody.
+- **Local logout always completes.** A fan-out failure is swallowed, never blocks revocation.
+
+## Receive logout tokens (relying party)
+
+An app that signs users in with an OIDC provider, including another theAuth, can accept back-channel logout with `createBackChannelLogoutReceiver`:
+
+```ts
+import { createRemoteJWKSet } from "jose";
+import { createBackChannelLogoutReceiver } from "@glinr/theauth/auth";
+
+const receiver = createBackChannelLogoutReceiver({
+  issuer: "https://auth.example.com",
+  clientId: process.env.OIDC_CLIENT_ID!,
+  verificationKey: createRemoteJWKSet(
+    new URL("https://auth.example.com/.well-known/jwks.json"),
+  ),
+  sessionManager: theauth.auth.session!, // revokes local sessions by sub and sid
+  // replayStore: shared store when you run several instances
+});
+
+// POST /auth/backchannel-logout
+app.post("/auth/backchannel-logout", (c) => receiver.handleRequest(c.req.raw));
+```
+
+Record the provider's `sid` on the local session when the user signs in, so a `sid` can be matched:
+
+```ts
+await theauth.auth.session!.create(userId, { sid: idTokenClaims.sid });
+```
+
+How a token maps to local sessions:
+
+| Token has | Sessions revoked |
+| --- | --- |
+| `sub` only | Every session of that user. |
+| `sub` and `sid` | Sessions of that user whose metadata `sid` matches. |
+| `sid` only | Needs `sessionRevoker.findSessionsBySid`. Without it the endpoint answers 400, so the provider knows it was not done. |
+
+Customize with `sessionRevoker: { resolveUserId, findSessionsBySid, sidMetadataKey }`, or pass your own `revokeSessions(claims)`. `onLogout(claims)` still runs after revocation if you set it. The endpoint never answers 200 when nothing is configured to sign the user out.
+
+The receiver checks issuer, audience, signature (RS256, ES256 or EdDSA by default), that the token is at most 120 seconds old (`maxAgeSeconds`), the back-channel event, no `nonce`, and a `jti` it has not seen. The default replay store is per process, so give every instance a shared `replayStore` (`markSeen(jti, ttlSeconds)`) if you run more than one.
+
+If you use stateless sessions instead, see [Session hardening](/session-hardening) for pairing the receiver with `isRevoked`.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="OIDC provider" href="/auth/oidc-provider" icon="key">
+    Run theAuth as an OpenID Connect provider.
+  </Card>
+  <Card title="Sign-in gate" href="/sign-in-gate" icon="shield-check">
+    Session limits and the onRevoke hook.
+  </Card>
+  <Card title="Session hardening" href="/session-hardening" icon="shield">
+    Stateless sessions and federated logout.
+  </Card>
+</CardGroup>

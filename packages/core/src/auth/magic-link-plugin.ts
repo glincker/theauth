@@ -5,6 +5,7 @@ import { createMagicLinkModule } from "./magic-link.js";
 import { normalizeEmail } from "./normalize-email.js";
 import { withRateLimit } from "./rate-limit-middleware.js";
 import { createRateLimiter } from "./rate-limiter.js";
+import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 // Re-export the config type so callers can import from this file.
 export type { MagicLinkConfig };
@@ -24,7 +25,7 @@ export function magicLink(config: MagicLinkConfig): TheAuthPlugin {
 				);
 			}
 
-			const module = createMagicLinkModule(config, ctx.db, ctx.sessionManager);
+			const module = createMagicLinkModule(config, ctx.db, ctx.sessionManager, ctx.signInGate);
 
 			const sendLimiter = createRateLimiter({ max: 5, window: 60 });
 
@@ -78,7 +79,13 @@ export function magicLink(config: MagicLinkConfig): TheAuthPlugin {
 						return json({ error: "Missing token query parameter" }, 400);
 					}
 
-					const result = await module.verify(token);
+					let result: Awaited<ReturnType<typeof module.verify>>;
+					try {
+						result = await module.verify(token, { request });
+					} catch (err) {
+						if (err instanceof SignInGateError) return signInGateResponse(err);
+						throw err;
+					}
 
 					if (!result) {
 						return json({ error: "Invalid or expired magic link" }, 401);
