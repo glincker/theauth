@@ -76,6 +76,11 @@ export interface PasskeyConfig {
 	userVerification?: "required" | "preferred" | "discouraged";
 	/** Challenge timeout in ms (default: 60000, max: 300000) */
 	challengeTimeout?: number;
+	/**
+	 * Called after a passkey is registered or removed. Used to emit a Shared
+	 * Signals credential-change event. Errors are swallowed.
+	 */
+	onCredentialChange?: (userId: string, change: "added" | "removed") => void | Promise<void>;
 }
 
 export interface PasskeyCredential {
@@ -532,6 +537,18 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 	const userVerification = config.userVerification ?? "preferred";
 	const attestation = config.attestation ?? "none";
 
+	async function notifyCredentialChange(
+		userId: string,
+		change: "added" | "removed",
+	): Promise<void> {
+		if (!config.onCredentialChange) return;
+		try {
+			await config.onCredentialChange(userId, change);
+		} catch {
+			// A notification failure must not undo the change.
+		}
+	}
+
 	// getRegistrationOptions
 
 	async function getRegistrationOptions(
@@ -750,6 +767,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			lastUsedAt: now,
 		};
 
+		await notifyCredentialChange(userId, "added");
 		return { credential };
 	}
 
@@ -990,6 +1008,7 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 					eq(passkeyCredentials.userId, userId),
 				),
 			);
+		await notifyCredentialChange(userId, "removed");
 	}
 
 	// handleRequest
