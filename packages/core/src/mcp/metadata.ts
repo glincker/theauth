@@ -57,8 +57,10 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 		revocation_endpoint_auth_methods_supported: [
 			"client_secret_basic",
 			"client_secret_post",
+			"private_key_jwt",
 			"none",
 		],
+		revocation_endpoint_auth_signing_alg_values_supported: CLIENT_ASSERTION_ALGS,
 		authorization_response_iss_parameter_supported: true,
 		client_id_metadata_document_supported: ctx.config.clientIdMetadataDocuments?.enabled === true,
 		...(ctx.config.dpop ? { dpop_signing_alg_values_supported: getDpopAlgs(ctx) } : {}),

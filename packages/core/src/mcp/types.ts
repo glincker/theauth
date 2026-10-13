@@ -234,6 +234,7 @@ export interface McpServerMetadata {
 	service_documentation?: string;
 	revocation_endpoint?: string;
 	revocation_endpoint_auth_methods_supported?: string[];
+	revocation_endpoint_auth_signing_alg_values_supported?: string[];
 	/** RFC 9207: the authorization response carries an `iss` parameter. */
 	authorization_response_iss_parameter_supported?: boolean;
 	client_id_metadata_document_supported?: boolean;
