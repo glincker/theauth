@@ -61,6 +61,23 @@ If you leave `authenticate` out and `auth.session` is configured on `createTheAu
 
 For a local demo you can opt out with `allowUnauthenticated: true`. A warning is logged on startup. Do not ship it.
 
+### Rate limiting and cross-site writes
+
+The Express, Fastify and NestJS adapters refuse abusive traffic before authentication runs.
+
+- **Rate limits** are per client, in three tiers: token, registration and authorize routes (30 per minute), other writes (120 per minute) and reads (300 per minute). Exceeding one returns `429` with `Retry-After`.
+- **Cookie sessions** cannot be used for cross-site writes. A `POST`, `PUT`, `PATCH` or `DELETE` that carries a cookie and no `Authorization` header must come from the adapter's own origin or one listed in `trustedOrigins`. Bearer callers are not affected.
+
+```typescript
+app.use("/api/theauth", theAuthExpress(theauth, {
+  trustedProxy: { trustedProxyCount: 1 },
+  trustedOrigins: ["https://app.example.com"],
+  rateLimit: { read: { max: 600, window: 60 } },
+}));
+```
+
+Set `trustedProxy` so limits apply per client IP. Without it the IP is unknown and callers are split by their credential instead. Counters are held in process memory, so with several instances each one enforces its own limit. Use `rateLimit: false` or `csrf: false` to switch either check off.
+
 ### Upgrading
 
 Earlier versions mounted these routes with no authentication. After upgrading, pass `authenticate` (or configure `auth.session`) to each adapter call, or add `allowUnauthenticated: true` while you work on it locally.

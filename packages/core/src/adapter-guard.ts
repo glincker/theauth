@@ -8,6 +8,8 @@
  * authenticate a caller.
  */
 
+import type { AdapterAdmitOptions } from "./adapter-admit.js";
+import { createAdapterAdmission } from "./adapter-admit.js";
 import type { AdapterScope } from "./adapter-scope.js";
 import { createOwnerScope, createUnrestrictedScope } from "./adapter-scope.js";
 import type { TrustedProxyConfig } from "./auth/client-ip.js";
@@ -30,7 +32,7 @@ export interface AdapterPrincipal {
 export type AdapterAuthResolver = (request: Request) => Promise<AdapterPrincipal | null>;
 
 /** Security options shared by every adapter. */
-export interface AdapterSecurityOptions {
+export interface AdapterSecurityOptions extends AdapterAdmitOptions {
 	/**
 	 * Resolver for the management routes (`/agents`, `/delegations`, `/audit`,
 	 * `/dashboard`, `/authorize`). When omitted, the guard accepts a valid
@@ -75,6 +77,11 @@ export interface AdapterGuard {
 	resolve(request: Request): Promise<AdapterGuardResolution>;
 	/** Client IP through the configured trusted proxy rules, or null when unknown. */
 	clientIp(request: Request): string | null;
+	/**
+	 * Rate limit and cross-site check. Returns a 429 or 403 Response to send, or
+	 * null. Call it for every request, before `isProtected` or `resolve`.
+	 */
+	admit(request: Request, relativePath: string): Response | null;
 }
 
 const PROTECTED_PREFIXES = ["/agents", "/delegations", "/audit", "/dashboard"];
@@ -138,6 +145,9 @@ export function createAdapterGuard(
 ): AdapterGuard {
 	const trustedProxy = options?.trustedProxy;
 	const clientIp = (request: Request): string | null => resolveClientIp(request, trustedProxy);
+	const admission = createAdapterAdmission(options, trustedProxy);
+	const admit = (request: Request, relativePath: string): Response | null =>
+		admission.admit(request, relativePath);
 
 	if (options?.allowUnauthenticated === true) {
 		// biome-ignore lint/suspicious/noConsole: deliberate startup warning for an unsafe opt-out
@@ -150,6 +160,7 @@ export function createAdapterGuard(
 			check: async () => null,
 			resolve: async () => ({ ok: true, scope: open }),
 			clientIp,
+			admit,
 		};
 	}
 
@@ -189,5 +200,6 @@ export function createAdapterGuard(
 		},
 		resolve,
 		clientIp,
+		admit,
 	};
 }

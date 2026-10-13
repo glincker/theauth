@@ -291,6 +291,20 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 				if (!res.headersSent) sendDenial(res, noScope);
 			});
 	};
+	// Rate limit and cross-site check run first, so a flood or a forged
+	// cookie-session write is refused before authentication or any handler.
+	router.use((req: Request, res: Response, next: NextFunction) => {
+		const refused = guard.admit(buildWebRequest(req), req.path);
+		if (!refused) {
+			next();
+			return;
+		}
+		for (const [name, value] of refused.headers) res.setHeader(name, value);
+		refused
+			.text()
+			.then((body) => res.status(refused.status).send(body))
+			.catch(next);
+	});
 	router.use((req: Request, res: Response, next: NextFunction) => {
 		// With `allowUnauthenticated` nothing is protected, but handlers still
 		// need a scope, so resolve it (this never authenticates in that mode).
