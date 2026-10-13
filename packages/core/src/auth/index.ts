@@ -310,6 +310,8 @@ export type { PasskeyConfig, PasskeyCredential, PasskeyModule } from "./passkey.
 export { createPasskeyModule } from "./passkey.js";
 // Passkey plugin (TheAuthPlugin wrapper)
 export { passkey } from "./passkey-plugin.js";
+export type { PasskeyTwoFactorFactor, PasskeyTwoFactorOptions } from "./passkey-second-factor.js";
+export { createPasskeyTwoFactorFactor } from "./passkey-second-factor.js";
 // Password reset (forgot password + reset password flow)
 export type { PasswordResetConfig, PasswordResetModule } from "./password-reset.js";
 export { createPasswordResetModule } from "./password-reset.js";
@@ -371,6 +373,7 @@ export type {
 export {
 	createSignInGate,
 	evaluateSignInGate,
+	SIGN_IN_METHODS,
 	SignInGateError,
 	signInGateRedirect,
 	signInGateResponse,

@@ -56,6 +56,7 @@ export { createSessionRefresher, RefreshTokenError } from "./refresh.js";
 export type { Session, SessionConfig, SessionManager } from "./session.js";
 export { createSessionManager } from "./session.js";
 export type {
+	StatelessCreateContext,
 	StatelessIdentity,
 	StatelessSession,
 	StatelessSessions,

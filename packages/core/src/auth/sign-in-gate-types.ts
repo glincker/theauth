@@ -6,7 +6,25 @@ import type { TrustedDevice } from "./trusted-device.js";
 // Public types
 // ---------------------------------------------------------------------------
 
-export type SignInMethod = "password" | "social" | "magic_link" | "passkey";
+/**
+ * Every sign-in method that goes through the gate. Which of them require a
+ * second factor is controlled by `require2faFor`; the default list is
+ * `password`, `social` and `magic_link` only, so the extra methods below are
+ * opt-in.
+ */
+export const SIGN_IN_METHODS = [
+	"password",
+	"social",
+	"magic_link",
+	"passkey",
+	"phone",
+	"email_otp",
+	"one_tap",
+	"siwe",
+	"device",
+] as const;
+
+export type SignInMethod = (typeof SIGN_IN_METHODS)[number];
 
 /** A second factor the gate can require and verify. */
 export interface TwoFactorFactor {

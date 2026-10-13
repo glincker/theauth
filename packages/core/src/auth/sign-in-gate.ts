@@ -2,7 +2,7 @@
  * Central sign-in gate.
  *
  * Every path that issues a session (username, email/password, magic link,
- * OAuth callback, passkey) calls the gate once the primary credential has been
+ * OAuth callback, passkey, phone, email OTP, one tap, device) calls the gate once the primary credential has been
  * verified. The gate answers one question: may a session be issued now?
  *
  * Outcomes:
@@ -47,6 +47,7 @@ import type {
 	TwoFactorCompletion,
 	TwoFactorFactor,
 } from "./sign-in-gate-types.js";
+import { SIGN_IN_METHODS } from "./sign-in-gate-types.js";
 import type { TotpModule } from "./totp.js";
 import { createTotpModule } from "./totp.js";
 import { createTrustedDeviceModule } from "./trusted-device.js";
@@ -67,6 +68,7 @@ export type {
 	TwoFactorCompletion,
 	TwoFactorFactor,
 } from "./sign-in-gate-types.js";
+export { SIGN_IN_METHODS } from "./sign-in-gate-types.js";
 
 // ---------------------------------------------------------------------------
 // Pure evaluation
@@ -149,9 +151,7 @@ function readCookie(request: Request | undefined, name: string): string | null {
 }
 
 function isMethod(value: unknown): value is SignInMethod {
-	return (
-		value === "password" || value === "social" || value === "magic_link" || value === "passkey"
-	);
+	return typeof value === "string" && (SIGN_IN_METHODS as readonly string[]).includes(value);
 }
 
 // ---------------------------------------------------------------------------

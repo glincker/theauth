@@ -211,7 +211,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 	// Requires a session manager to issue sessions on verification.
 	const emailOtpModule: EmailOtpModule | null =
 		config.emailOtp && sessionManager
-			? createEmailOtpModule(config.emailOtp, db, sessionManager)
+			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
 			: null;
 
 	// TOTP — only created when the caller provides config.totp.
@@ -264,7 +264,9 @@ export async function createTheAuth(config: TheAuthConfig) {
 
 	// Phone auth — only created when the caller provides config.phone.
 	const phoneModule: PhoneAuthModule | null =
-		config.phone && sessionManager ? createPhoneAuthModule(config.phone, db, sessionManager) : null;
+		config.phone && sessionManager
+			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate)
+			: null;
 
 	// Captcha — only created when the caller provides config.captcha.
 	const captchaModule: CaptchaModule | null = config.captcha

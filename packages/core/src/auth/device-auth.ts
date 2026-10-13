@@ -30,6 +30,7 @@ import { randomBytes, sha256, toHex } from "../crypto/web-crypto.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import { memoryStorage } from "../storage/memory.js";
 import type { SecondaryStorage } from "../storage/types.js";
+import { SignInGateError, signInGateResponse } from "./sign-in-gate-http.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -68,7 +69,10 @@ export interface DeviceAuthConfig {
 	 * The user id is never read from the request body.
 	 */
 	resolveUser?: (request: Request) => Promise<{ id: string } | null>;
-	/** Mint the credential returned to the device after approval. */
+	/**
+	 * Mint the credential returned to the device after approval. Throw a
+	 * `SignInGateError` to answer the poll with a gate challenge instead.
+	 */
 	issueToken?: (userId: string, context: DeviceGrantContext) => Promise<DeviceTokenGrant>;
 	/** Wrong user codes one approving user may try per window (default: 5). */
 	userCodeAttemptLimit?: number;
@@ -431,7 +435,15 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 		const base = { authorized: true, user_id: userId };
 		if (!config.issueToken) return json(base);
 
-		const token = await config.issueToken(userId, { clientId: grant.clientId, scope: grant.scope });
+		let token: DeviceTokenGrant;
+		try {
+			token = await config.issueToken(userId, { clientId: grant.clientId, scope: grant.scope });
+		} catch (err) {
+			// The sign-in gate wants a second factor or a password change first:
+			// hand the device the challenge instead of a token.
+			if (err instanceof SignInGateError) return signInGateResponse(err);
+			throw err;
+		}
 		await emit({ type: "device.token_issued", userId, clientId: grant.clientId });
 		return json({
 			...base,
@@ -531,6 +543,10 @@ export function deviceAuth(config: DeviceAuthPluginConfig): TheAuthPlugin {
 					config.issueToken ??
 					(sessionManager
 						? async (userId, grant) => {
+								if (ctx.signInGate) {
+									const decision = await ctx.signInGate.evaluate({ userId, method: "device" });
+									if (decision.action !== "allow") throw new SignInGateError(decision);
+								}
 								const { session, token } = await sessionManager.create(userId, {
 									source: "device",
 									clientId: grant.clientId ?? null,
