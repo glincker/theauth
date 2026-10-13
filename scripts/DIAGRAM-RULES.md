@@ -27,4 +27,4 @@ Rules for every branded diagram built by `scripts/build-diagrams.mjs`. Run `node
 - Every SVG carries `<title>`, `<desc>`, the title and the one line explanation, so it works on its own.
 - File names are descriptive: `theauth-<topic>.svg`. Put them in `docs/images/diagrams` or a topic folder.
 - Embed with a `<Frame caption>` and an `alt` that matches the `<desc>`.
-- The generator renders each scene with headless Chrome and ships JPEG at 2x (about 270 KB). SVG is only an intermediate and is not published, so every browser shows the same picture and the vector source is not copied. Set `CHROME` if Chrome is not at the default macOS path.
+- The generator renders each scene with headless Chrome and ships JPEG at 2x (about 270 KB). SVG is only an intermediate and is not published, so every browser shows the same picture and the vector source is not copied. Set `CHROME` if Chrome is not at the default macOS path. Set `SVG_OUT=/some/dir` to keep the vector sources; they live in the private theauth-site repo, not in this one.

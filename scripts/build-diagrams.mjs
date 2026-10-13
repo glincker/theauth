@@ -3,7 +3,7 @@
 // Each SVG carries its own title, one line explanation and theauth.dev, so it
 // still makes sense when it is found on its own (search, social, slides).
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -442,6 +442,12 @@ function exportAll() {
 			"4:4:4",
 			join(out, `${e.name}.jpg`),
 		]);
+	}
+	// Keep the vector sources outside the docs: SVG_OUT=/path node scripts/build-diagrams.mjs
+	if (process.env.SVG_OUT) {
+		mkdirSync(process.env.SVG_OUT, { recursive: true });
+		for (const e of exportsList)
+			copyFileSync(join(BUILD, `${e.name}.svg`), join(process.env.SVG_OUT, `${e.name}.svg`));
 	}
 	rmSync(BUILD, { recursive: true, force: true });
 }
