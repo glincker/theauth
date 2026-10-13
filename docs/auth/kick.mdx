@@ -22,7 +22,7 @@ https://your-app.com/api/theauth/auth/oauth/callback/kick
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth, kickProvider } from '@glinr/theauth/auth';
+import { oauth, createKickProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
@@ -32,10 +32,10 @@ const theauth = await createTheAuth({
   plugins: [
     oauth({
       providers: {
-        kick: kickProvider(
-          process.env.KICK_CLIENT_ID!,
-          process.env.KICK_CLIENT_SECRET!,
-        ),
+        kick: createKickProvider({
+          clientId: process.env.KICK_CLIENT_ID!,
+          clientSecret: process.env.KICK_CLIENT_SECRET!,
+        }),
       },
     }),
   ],
@@ -59,9 +59,18 @@ Default scopes: `user:read`
 | `channel:read` | Read channel information |
 | `chat:read` | Read chat messages |
 
+## How it works
+
+- PKCE with S256 is required by Kick and is always sent. Client credentials go in the form body.
+- The auth server is `id.kick.com`. The profile call goes to a different host, `GET https://api.kick.com/public/v1/users`, and returns `{ "data": [{ "user_id", "name", "email", "profile_picture" }] }`. `user_id` is a number and is stored as a string.
+- User tokens come with a refresh token.
+- Kick does not state whether the email is verified, so the OAuth plugin will not link a Kick login to an existing account by email.
+
 <Info>
-  Kick's OAuth implementation is relatively new. Check the [Kick API documentation](https://kick.com/api) for the latest scope definitions.
+  `kickProvider` (the older preset, which reads `id.kick.com/oauth/userinfo`) is still exported for existing code. Use `createKickProvider` for new setups.
 </Info>
+
+Vendor docs: [Kick OAuth 2.1 flow](https://docs.kick.com/getting-started/generating-tokens-oauth2-flow) and [Users API](https://docs.kick.com/apis/users).
 
 ## Endpoints
 

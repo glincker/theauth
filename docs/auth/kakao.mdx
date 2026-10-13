@@ -10,7 +10,7 @@ icon: "/brand-icons/kakaotalk.svg"
 <Step>
 ### Get credentials
 
-Go to the [Kakao Developers](https://developers.kakao.com) portal and create an application. Under **Kakao Login**, enable the feature and add your redirect URI:
+Go to the [Kakao Developers](https://developers.kakao.com) portal and create an application. Under **Kakao Login**, enable the feature and add your redirect URI. Use the app's **REST API key** as the client ID and the Kakao Login client secret as the client secret:
 
 ```
 https://your-app.com/api/theauth/auth/oauth/callback/kakao
@@ -22,7 +22,7 @@ https://your-app.com/api/theauth/auth/oauth/callback/kakao
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth, kakaoProvider } from '@glinr/theauth/auth';
+import { oauth, createKakaoProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
@@ -32,10 +32,10 @@ const theauth = await createTheAuth({
   plugins: [
     oauth({
       providers: {
-        kakao: kakaoProvider(
-          process.env.KAKAO_CLIENT_ID!,
-          process.env.KAKAO_CLIENT_SECRET!,
-        ),
+        kakao: createKakaoProvider({
+          clientId: process.env.KAKAO_CLIENT_ID!,
+          clientSecret: process.env.KAKAO_CLIENT_SECRET!,
+        }),
       },
     }),
   ],
@@ -51,7 +51,7 @@ KAKAO_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `profile_nickname`, `account_email`
+Default scopes: `account_email`, `profile_nickname`, `profile_image`
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -63,9 +63,20 @@ Default scopes: `profile_nickname`, `account_email`
   Email access requires business verification in the Kakao Developer Console. Without it, only `profile_nickname` and `profile_image` are available.
 </Warning>
 
-<Warning>
-  This is a preset built on the generic OIDC factory, which reads the user from `https://kapi.kakao.com/v2/user/me` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a numeric `id` field with the email nested under `kakao_account`, so sign-in is expected to fail with `Kakao userinfo response missing required "sub" field`. This preset has not been verified against the live service.
-</Warning>
+## How it works
+
+- Scopes are sent comma separated, as Kakao requires.
+- Kakao's REST guide does not describe PKCE, so no code challenge is sent.
+- The client secret is required at the token endpoint unless you turn it off for the app in the Kakao console.
+- The profile call is `https://kapi.kakao.com/v2/user/me`. The numeric `id` is stored as a string, and the email, nickname and image sit under `kakao_account`.
+- The email counts as verified only when both `is_email_verified` is true and `is_email_valid` is not false.
+- A refresh returns a new refresh token only when the old one expires within a month.
+
+<Info>
+  `kakaoProvider` (the older preset) reads only the OIDC `sub` claim and cannot read Kakao's profile shape. It is still exported for existing code. Use `createKakaoProvider` for new setups.
+</Info>
+
+Vendor docs: [Kakao Login REST API](https://developers.kakao.com/docs/en/kakaologin/rest-api).
 
 ## Endpoints
 

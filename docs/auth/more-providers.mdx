@@ -56,6 +56,8 @@ const acme = genericOIDC({
 });
 ```
 
-`mapProfile` returns `null` for an unusable response, which surfaces as an error instead of a half-built user. Providers that omit the email address (Strava, Pinterest) are not supported by the generic factory, because TheAuth links accounts by email.
+`mapProfile` returns `null` for an unusable response, which surfaces as an error instead of a half-built user. It may also return `emailVerified: true` when the provider states the address is verified; without it, logins are not linked to existing accounts by email.
+
+Other options cover common quirks: `scopeSeparator` (for example `","`), `defaultScopes` (replaces the `openid email profile` baseline), `authorizationParams` (extra authorize query parameters), `tokenAuth: 'basic'` (credentials in a Basic header, also on refresh), `pkce: false` (no code challenge), and `userinfoMethod: 'POST'` with `userinfoBody` (a JSON body, for GraphQL profile endpoints). Providers that omit the email address (Strava, Pinterest) are not supported by the generic factory, because TheAuth links accounts by email.
 
 Already shipped and not repeated here: Facebook, LinkedIn, Kakao, Naver, LINE, VK, TikTok, PayPal, Hugging Face, Salesforce, Cognito, Okta, Auth0, Zoom, Roblox, Dropbox, Kick, Vercel, Railway, Polar and Coinbase.
