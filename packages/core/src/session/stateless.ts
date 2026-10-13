@@ -95,10 +95,11 @@ export interface StatelessSessionsConfig {
 	/** Optional revocation check, e.g. a denylist keyed by `sub` or `sid`. */
 	isRevoked?: (identity: StatelessIdentity) => Promise<boolean>;
 	/**
-	 * Read token cookies written before the AAD binding existed (default: true,
-	 * for one release). A legacy cookie is not bound to the identity cookie, so
-	 * a token cookie from another user sealed under the same secret would be
-	 * accepted. Set to false once old cookies have aged out (`maxAge`).
+	 * Read token cookies written before the AAD binding existed (default: false).
+	 * A legacy cookie is not bound to the identity cookie, so a token cookie from
+	 * another user sealed under the same secret would be accepted. Turn this on
+	 * only while old cookies age out (`maxAge`); affected users otherwise sign in
+	 * again once.
 	 */
 	acceptLegacyTokenCookies?: boolean;
 	/**
@@ -226,7 +227,7 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 	): Promise<{ value: T; legacy: boolean } | null> {
 		if (!value) return null;
 		const legacy = !value.startsWith(TOKEN_FORMAT_V2);
-		if (legacy && config.acceptLegacyTokenCookies === false) return null;
+		if (legacy && config.acceptLegacyTokenCookies !== true) return null;
 		const parts = (legacy ? value : value.slice(TOKEN_FORMAT_V2.length)).split(".");
 		if (parts.length !== 2) return null;
 		try {
@@ -334,7 +335,7 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		let upgrade: string[] = [];
 		if (opened.legacy) {
 			config.onDeprecation?.(
-				"StatelessSessions: read a legacy token cookie that is not bound to the identity cookie. It was re-sealed in the bound format; set acceptLegacyTokenCookies: false once old cookies have expired.",
+				"StatelessSessions: read a legacy token cookie that is not bound to the identity cookie. It was re-sealed in the bound format; remove acceptLegacyTokenCookies once old cookies have expired.",
 			);
 			const remainingLegacy = Math.max(Math.floor((session.expiresAt - Date.now()) / 1000), 1);
 			const rewritten = serializeChunkedCookie(
