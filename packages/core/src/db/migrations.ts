@@ -31,6 +31,7 @@ interface EnabledFeatures {
 	federation: boolean;
 	secondaryStorage: boolean;
 	tokenVault: boolean;
+	sharedSignals: boolean;
 }
 
 const ALL_FEATURES_ENABLED: EnabledFeatures = {
@@ -61,6 +62,7 @@ const ALL_FEATURES_ENABLED: EnabledFeatures = {
 	federation: true,
 	secondaryStorage: true,
 	tokenVault: true,
+	sharedSignals: true,
 };
 
 function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
@@ -110,6 +112,7 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		// Tiny table, created always so `secondaryStorage: "database"` just works.
 		secondaryStorage: true,
 		tokenVault: hasPlugin("theauth-token-vault"),
+		sharedSignals: hasPlugin("theauth-shared-signals"),
 	};
 }
 
@@ -655,6 +658,54 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   expires_at          ${tsNull},
   revoked_at          ${tsNull},
   created_at          ${ts} NOT NULL
+)`,
+		},
+
+		// theauth_ssf_streams / subjects / outbox (Shared Signals transmitter)
+		{
+			feature: "sharedSignals",
+			sql: `CREATE TABLE ${ifne} theauth_ssf_streams (
+  id                        TEXT NOT NULL PRIMARY KEY,
+  owner                     TEXT NOT NULL,
+  aud                       ${json} NOT NULL,
+  events_requested          ${json} NOT NULL,
+  events_delivered          ${json} NOT NULL,
+  delivery_method           TEXT NOT NULL,
+  endpoint_url              TEXT,
+  authorization_header      TEXT,
+  status                    TEXT NOT NULL DEFAULT 'enabled',
+  status_reason             TEXT,
+  subject_mode              TEXT NOT NULL DEFAULT 'all',
+  description               TEXT,
+  min_verification_interval INTEGER,
+  last_verified_at          ${tsNull},
+  created_at                ${ts} NOT NULL,
+  updated_at                ${ts} NOT NULL
+)`,
+		},
+		{
+			feature: "sharedSignals",
+			sql: `CREATE TABLE ${ifne} theauth_ssf_subjects (
+  id               TEXT NOT NULL PRIMARY KEY,
+  stream_id        ${vc} NOT NULL,
+  subject_key_hash ${vc} NOT NULL,
+  subject          ${json} NOT NULL,
+  verified         INTEGER NOT NULL DEFAULT 1,
+  created_at       ${ts} NOT NULL,
+  UNIQUE (stream_id, subject_key_hash)
+)`,
+		},
+		{
+			feature: "sharedSignals",
+			sql: `CREATE TABLE ${ifne} theauth_ssf_outbox (
+  jti             ${vc} NOT NULL PRIMARY KEY,
+  stream_id       ${vc} NOT NULL,
+  jwt             TEXT NOT NULL,
+  status          VARCHAR(16) NOT NULL DEFAULT 'pending',
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at ${ts} NOT NULL,
+  last_error      TEXT,
+  created_at      ${ts} NOT NULL
 )`,
 		},
 

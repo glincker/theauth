@@ -14,6 +14,7 @@ export default defineConfig({
 		"crypto/index": "src/crypto/index.ts",
 		"redirect/index": "src/redirect/index.ts",
 		"standards/index": "src/standards/index.ts",
+		"signals/index": "src/signals/index.ts",
 	},
 	format: ["esm"],
 	dts: true,
