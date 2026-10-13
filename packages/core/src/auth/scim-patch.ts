@@ -80,6 +80,11 @@ const IMMUTABLE_PATHS = new Set<string>([
 // so none of them may be used to walk or assign through these.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
+/** Read an own property only, so walking a path can never reach a prototype. */
+function ownValue(target: MutableResource, key: string): unknown {
+	return Object.hasOwn(target, key) ? target[key] : undefined;
+}
+
 function isUnsafeKey(key: string): boolean {
 	return UNSAFE_KEYS.has(key);
 }
@@ -315,7 +320,7 @@ function applyToResource(
 		throw new ScimPatchError(`PATCH path contains a reserved name "${base}"`, "invalidPath");
 	}
 	const container = containerFor(resource, path.schemaUrn);
-	const currentBase = container[path.base];
+	const currentBase = ownValue(container, base);
 
 	if (path.valueFilter) {
 		if (!Array.isArray(currentBase)) {
@@ -326,9 +331,7 @@ function applyToResource(
 		}
 		const arr = currentBase as MutableResource[];
 		if (op === "remove") {
-			container[path.base] = arr.filter(
-				(item) => !evaluateFilter(path.valueFilter as FilterAst, item),
-			);
+			container[base] = arr.filter((item) => !evaluateFilter(path.valueFilter as FilterAst, item));
 			return;
 		}
 		// add / replace — apply `value` to each matching element.
@@ -353,30 +356,30 @@ function applyToResource(
 		if (path.subPath && path.subPath.length > 0) {
 			deleteDeep(currentBase, path.subPath);
 		} else {
-			container[path.base] = undefined;
+			container[base] = undefined;
 		}
 		return;
 	}
 
 	if (path.subPath && path.subPath.length > 0) {
-		const host = ensureObject(container, path.base);
+		const host = ensureObject(container, base);
 		setDeep(host, path.subPath, value);
 		return;
 	}
 
 	if (op === "add" && Array.isArray(currentBase) && Array.isArray(value)) {
-		container[path.base] = currentBase.concat(value);
+		container[base] = currentBase.concat(value);
 		return;
 	}
 
-	container[path.base] = value;
+	container[base] = value;
 }
 
 function ensureObject(container: MutableResource, key: string): MutableResource {
 	if (key === "__proto__" || key === "constructor" || key === "prototype") {
 		throw new ScimPatchError(`PATCH path contains a reserved name "${key}"`, "invalidPath");
 	}
-	const current = container[key];
+	const current = ownValue(container, key);
 	if (current && typeof current === "object" && !Array.isArray(current)) {
 		return current as MutableResource;
 	}
@@ -393,7 +396,7 @@ function setDeep(target: unknown, path: string[], value: unknown): void {
 		if (segment === "__proto__" || segment === "constructor" || segment === "prototype") {
 			throw new ScimPatchError(`PATCH path contains a reserved name "${segment}"`, "invalidPath");
 		}
-		const next = cursor[segment];
+		const next = ownValue(cursor, segment);
 		if (next && typeof next === "object" && !Array.isArray(next)) {
 			cursor = next as MutableResource;
 		} else {
@@ -415,7 +418,7 @@ function deleteDeep(target: unknown, path: string[]): void {
 	for (let i = 0; i < path.length - 1; i += 1) {
 		const segment = path[i] as string;
 		if (segment === "__proto__" || segment === "constructor" || segment === "prototype") return;
-		const next = cursor[segment];
+		const next = ownValue(cursor, segment);
 		if (!next || typeof next !== "object") return;
 		cursor = next as MutableResource;
 	}
