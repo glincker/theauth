@@ -76,6 +76,15 @@ app.use("/api/theauth", theAuthExpress(theauth, {
 }));
 ```
 
+Two hooks cover the cases the defaults miss. `skip` leaves a request out of rate limiting (health checks, your own network) and `key` replaces the client key, for example to count per tenant:
+
+```typescript
+rateLimit: {
+  skip: (request, path) => path === "/health",
+  key: (request) => request.headers.get("x-tenant"), // null falls back to the client IP
+}
+```
+
 Set `trustedProxy` so limits apply per client IP. Without it the IP is unknown and callers are split by their credential instead. Counts are kept in the `rateLimit` [secondary storage](/configuration). With the default in-process store each instance counts alone; configure `secondaryStorage: "database"` or a Redis style store and one limit holds across instances. If the store errors, the request is let through so an outage there does not take sign-in down. Use `rateLimit: false` or `csrf: false` to switch either check off.
 
 ### Upgrading
