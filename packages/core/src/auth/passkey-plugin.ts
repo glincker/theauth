@@ -2,6 +2,7 @@ import { buildSetCookie } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { PasskeyConfig } from "./passkey.js";
 import { createPasskeyModule } from "./passkey.js";
+import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 export type { PasskeyConfig };
 
@@ -157,6 +158,16 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 
 						// Issue a session if session manager is available
 						if (ctx.sessionManager) {
+							if (ctx.signInGate) {
+								const decision = await ctx.signInGate.evaluate({
+									userId: result.userId,
+									method: "passkey",
+									request,
+								});
+								if (decision.action !== "allow") {
+									return signInGateResponse(new SignInGateError(decision));
+								}
+							}
 							const { session, token } = await ctx.sessionManager.create(result.userId);
 							const maxAge = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
 

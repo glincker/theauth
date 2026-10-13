@@ -922,6 +922,45 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 		},
 
 		// ------------------------------------------------------------------
+		// theauth_oidc_logout_clients  (OIDC Provider: logout URIs per client)
+		// ------------------------------------------------------------------
+		{
+			feature: "oidcProvider",
+			sql: `CREATE TABLE ${ifne} theauth_oidc_logout_clients (
+  client_id                   ${vc} NOT NULL PRIMARY KEY,
+  post_logout_redirect_uris   ${json} NOT NULL,
+  backchannel_logout_uri      TEXT,
+  updated_at                  ${ts}   NOT NULL
+)`,
+		},
+
+		// ------------------------------------------------------------------
+		// theauth_oidc_sessions  (OIDC Provider: sid index for logout fan-out)
+		// ------------------------------------------------------------------
+		{
+			feature: "oidcProvider",
+			sql: `CREATE TABLE ${ifne} theauth_oidc_sessions (
+  id          ${vc} NOT NULL PRIMARY KEY,
+  sid         ${vc} NOT NULL,
+  session_id  ${vc},
+  user_id     ${vc} NOT NULL,
+  client_id   ${vc} NOT NULL,
+  code_hash   ${vc},
+  created_at  ${ts}   NOT NULL
+)`,
+		},
+		{
+			feature: "oidcProvider",
+			sql: `CREATE INDEX ${ifne} theauth_oidc_sessions_sid
+  ON theauth_oidc_sessions (sid)`,
+		},
+		{
+			feature: "oidcProvider",
+			sql: `CREATE INDEX ${ifne} theauth_oidc_sessions_session
+  ON theauth_oidc_sessions (session_id)`,
+		},
+
+		// ------------------------------------------------------------------
 		// theauth_cost_events  (per-agent cost attribution)
 		// ------------------------------------------------------------------
 		{

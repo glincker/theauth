@@ -1,4 +1,5 @@
 import type { TrustedProxyConfig } from "../auth/client-ip.js";
+import type { SignInGate } from "../auth/sign-in-gate.js";
 import type { ResolvedUser } from "../auth/types.js";
 import type { Database } from "../db/database.js";
 import type { Session, SessionManager } from "../session/session.js";
@@ -20,6 +21,12 @@ export interface PluginContext {
 	 * Optional so hand-built contexts in tests keep compiling; always set by createTheAuth.
 	 */
 	secondaryStorage?: SecondaryStorageResolver;
+	/**
+	 * Central sign-in gate (forced password change, 2FA policy, trusted
+	 * devices). Session-issuing plugins call `signInGate.evaluate(...)` before
+	 * creating a session. Optional so hand-built contexts keep compiling.
+	 */
+	signInGate?: SignInGate;
 }
 
 /** An API endpoint registered by a plugin */

@@ -18,6 +18,7 @@ import type { OrgConfig } from "./auth/organization.js";
 import type { PasskeyConfig } from "./auth/passkey.js";
 import type { PasswordResetConfig } from "./auth/password-reset.js";
 import type { PhoneAuthConfig } from "./auth/phone.js";
+import type { SignInGateConfig } from "./auth/sign-in-gate.js";
 import type { SsoConfig } from "./auth/sso.js";
 import type { TotpConfig } from "./auth/totp.js";
 import type { AuthAdapter } from "./auth/types.js";
@@ -163,6 +164,17 @@ export interface TheAuthConfig {
 	 * then `enable` after scanning their authenticator app.
 	 */
 	totp?: TotpConfig;
+
+	/**
+	 * Central sign-in gate policy.
+	 *
+	 * Every session-issuing path (username, magic link, passkey, OAuth, email
+	 * plugin) consults the gate. A forced password change is always enforced.
+	 * Second factor is enforced for `require2faFor` methods (default when this
+	 * block is present: password, social, magic_link) for users who enabled
+	 * TOTP. Trusted devices (`trustedDevice.enabled`) are off by default.
+	 */
+	signInGate?: SignInGateConfig;
 
 	/**
 	 * Passkey / WebAuthn authentication.

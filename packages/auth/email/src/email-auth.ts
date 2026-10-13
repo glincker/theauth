@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { Database } from "@glinr/theauth";
-import { EmailAuthError, ErrorCodes } from "./errors.js";
+import { EmailAuthError, ErrorCodes, gateErrorResponse } from "./errors.js";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "./password.js";
 import type {
 	EmailAuthConfig,
@@ -290,7 +290,34 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 	// ── createSession helper (simple bearer token stored in theauth_sessions) ─
 
+	function enforceSessionLimit(userId: string): void {
+		const max = config.sessionLimit?.maxConcurrent;
+		if (max === undefined || max < 1) return;
+		const rows = queryRaw(
+			db,
+			`SELECT id, expires_at FROM theauth_sessions WHERE user_id = ? ORDER BY created_at ASC`,
+			[userId],
+		) as Array<Record<string, unknown>>;
+		// Rows may carry seconds (core session manager) or ms (this module).
+		const nowMs = Date.now();
+		const active = rows.filter((r) => {
+			const exp = Number(r.expires_at);
+			return (exp < 1e11 ? exp * 1000 : exp) > nowMs;
+		});
+		if (active.length < max) return;
+		if (config.sessionLimit?.onLimit === "reject") {
+			throw new EmailAuthError(
+				ErrorCodes.SESSION_LIMIT_REACHED,
+				`Maximum of ${max} concurrent sessions reached.`,
+			);
+		}
+		for (const row of active.slice(0, active.length - max + 1)) {
+			runRaw(db, `DELETE FROM theauth_sessions WHERE id = ?`, [String(row.id)]);
+		}
+	}
+
 	function createSessionRecord(userId: string): { token: string; expiresAt: Date } {
+		enforceSessionLimit(userId);
 		const sessionId = randomUUID();
 		const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 7 * 1000); // 7 days
 		const now = new Date();
@@ -380,6 +407,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 	async function signIn(
 		input: SignInInput,
+		context?: { request?: Request },
 	): Promise<{ user: EmailUser; session: { token: string; expiresAt: Date } }> {
 		const result = findUserByEmail(input.email);
 
@@ -399,6 +427,32 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 				ErrorCodes.EMAIL_NOT_VERIFIED,
 				"Email address has not been verified. Check your inbox.",
 			);
+		}
+
+		if (config.signInGate) {
+			const decision = await config.signInGate.evaluate({
+				userId: user.id,
+				method: "password",
+				...(context?.request && { request: context.request }),
+			});
+			if (decision.action === "password_change_required") {
+				throw new EmailAuthError(
+					ErrorCodes.PASSWORD_RESET_REQUIRED,
+					"You must change your password before signing in.",
+					{ challenge: decision.challenge, expiresAt: decision.expiresAt },
+				);
+			}
+			if (decision.action === "two_factor_required") {
+				throw new EmailAuthError(
+					ErrorCodes.TWO_FACTOR_REQUIRED,
+					"Two-factor authentication required.",
+					{
+						challenge: decision.challenge,
+						methods: decision.methods,
+						expiresAt: decision.expiresAt,
+					},
+				);
+			}
 		}
 
 		const session = createSessionRecord(user.id);
@@ -508,6 +562,14 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			[passwordHash, now, row.id as string],
 		);
 
+		// A completed reset satisfies an admin-forced password change.
+		try {
+			runRaw(db, `UPDATE theauth_users SET force_password_reset = 0 WHERE id = ?`, [userId]);
+		} catch {
+			// Older schemas without the column have nothing to clear.
+		}
+		if (config.signInGate) await config.signInGate.onPasswordChanged(userId);
+
 		// Revoke all sessions as a security measure
 		revokeAllSessions(userId);
 
@@ -551,8 +613,28 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			 WHERE user_id = ?`,
 			[passwordHash, now, userId],
 		);
+		if (config.signInGate) await config.signInGate.onPasswordChanged(userId);
 
 		return { success: true };
+	}
+
+	// Let the gate finish an admin-forced password change for email accounts.
+	if (config.signInGate) {
+		config.signInGate.registerPasswordCredentialCheck(
+			async (userId) => findUserById(userId) !== null,
+		);
+		config.signInGate.registerPasswordChanger(async (userId, newPassword) => {
+			if (!findUserById(userId)) return "no_account";
+			const strength = validatePasswordStrength(newPassword, passwordConfig);
+			if (!strength.valid)
+				return { error: strength.reason ?? "Password does not meet requirements." };
+			runRaw(
+				db,
+				`UPDATE theauth_email_accounts SET password_hash = ?, updated_at = ? WHERE user_id = ?`,
+				[await hashPassword(newPassword), Date.now(), userId],
+			);
+			return "changed";
+		});
 	}
 
 	// ── getUser ───────────────────────────────────────────────────────────────
@@ -613,10 +695,10 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 			if (path === "/auth/sign-in") {
 				const body = await parseBody();
-				const result = await signIn({
-					email: String(body.email ?? ""),
-					password: String(body.password ?? ""),
-				});
+				const result = await signIn(
+					{ email: String(body.email ?? ""), password: String(body.password ?? "") },
+					{ request },
+				);
 				return jsonOk(result);
 			}
 
@@ -657,6 +739,8 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			}
 		} catch (err) {
 			if (err instanceof EmailAuthError) {
+				const gated = gateErrorResponse(err);
+				if (gated) return gated;
 				const status =
 					err.code === ErrorCodes.INVALID_CREDENTIALS || err.code === ErrorCodes.EMAIL_NOT_VERIFIED
 						? 401

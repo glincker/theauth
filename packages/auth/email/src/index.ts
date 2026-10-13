@@ -5,6 +5,9 @@ export { emailPassword } from "./plugin.js";
 export type {
 	EmailAuthConfig,
 	EmailAuthModule,
+	EmailGateDecision,
+	EmailSessionLimit,
+	EmailSignInGate,
 	EmailUser,
 	SignInInput,
 	SignUpInput,

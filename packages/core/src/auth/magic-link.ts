@@ -31,6 +31,8 @@ import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 import { normalizeEmail } from "./normalize-email.js";
+import type { SignInGate } from "./sign-in-gate.js";
+import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -53,8 +55,14 @@ export interface MagicLinkModule {
 	/**
 	 * Verify a magic link token and create a session.
 	 * Returns null when the token is invalid, expired, or already used.
+	 * Throws `SignInGateError` when the sign-in gate requires a forced password
+	 * change or a second factor first (the link is consumed; finish with the
+	 * challenge on the error).
 	 */
-	verify: (token: string) => Promise<{
+	verify: (
+		token: string,
+		context?: { request?: Request },
+	) => Promise<{
 		user: { id: string; email: string };
 		session: { token: string; expiresAt: Date };
 	} | null>;
@@ -85,7 +93,9 @@ export function createMagicLinkModule(
 	config: MagicLinkConfig,
 	db: Database,
 	sessionManager: SessionManager,
+	signInGate?: SignInGate,
 ): MagicLinkModule {
+	const gate = signInGate ?? createSignInGate({ db });
 	const tokenExpiry = config.tokenExpiry ?? DEFAULT_EXPIRY_SECONDS;
 	const callbackPath = config.callbackPath ?? DEFAULT_CALLBACK_PATH;
 
@@ -138,7 +148,10 @@ export function createMagicLinkModule(
 		return { sent: true };
 	}
 
-	async function verify(token: string): Promise<{
+	async function verify(
+		token: string,
+		context?: { request?: Request },
+	): Promise<{
 		user: { id: string; email: string };
 		session: { token: string; expiresAt: Date };
 	} | null> {
@@ -158,6 +171,13 @@ export function createMagicLinkModule(
 		if (!link) return null;
 
 		const user = await findOrCreateUser(link.email);
+		const decision = await gate.evaluate({
+			userId: user.id,
+			method: "magic_link",
+			...(context?.request && { request: context.request }),
+		});
+		if (decision.action !== "allow") throw new SignInGateError(decision);
+
 		const { token: sessionToken, session } = await sessionManager.create(user.id);
 
 		return {
@@ -211,7 +231,13 @@ export function createMagicLinkModule(
 				});
 			}
 
-			const result = await verify(token);
+			let result: Awaited<ReturnType<typeof verify>>;
+			try {
+				result = await verify(token, { request });
+			} catch (err) {
+				if (err instanceof SignInGateError) return signInGateResponse(err);
+				throw err;
+			}
 			if (!result) {
 				return new Response(JSON.stringify({ error: "Invalid or expired magic link" }), {
 					status: 401,

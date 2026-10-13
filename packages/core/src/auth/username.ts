@@ -25,6 +25,8 @@ import { generateId, pbkdf2Hash, pbkdf2Verify } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
+import type { SignInGate } from "./sign-in-gate.js";
+import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -52,7 +54,15 @@ export interface UsernameAuthModule {
 		user: { id: string; username: string; name: string | null };
 		session: { token: string; expiresAt: Date };
 	}>;
-	signIn: (input: { username: string; password: string }) => Promise<{
+	/**
+	 * Throws `SignInGateError` (message "Password reset required" or
+	 * "Two-factor authentication required") with a challenge when the sign-in
+	 * gate does not allow a session yet.
+	 */
+	signIn: (
+		input: { username: string; password: string },
+		context?: { request?: Request },
+	) => Promise<{
 		user: { id: string; username: string };
 		session: { token: string; expiresAt: Date };
 	}>;
@@ -101,7 +111,9 @@ export function createUsernameAuthModule(
 	config: UsernameAuthConfig,
 	db: Database,
 	sessionManager: SessionManager,
+	signInGate?: SignInGate,
 ): UsernameAuthModule {
+	const gate = signInGate ?? createSignInGate({ db });
 	const minUsernameLen = config.minUsernameLength ?? DEFAULT_MIN_USERNAME;
 	const maxUsernameLen = config.maxUsernameLength ?? DEFAULT_MAX_USERNAME;
 	const allowedPattern = config.allowedPattern ?? DEFAULT_ALLOWED_PATTERN;
@@ -187,7 +199,10 @@ export function createUsernameAuthModule(
 		};
 	}
 
-	async function signIn(input: { username: string; password: string }): Promise<{
+	async function signIn(
+		input: { username: string; password: string },
+		context?: { request?: Request },
+	): Promise<{
 		user: { id: string; username: string };
 		session: { token: string; expiresAt: Date };
 	}> {
@@ -204,14 +219,12 @@ export function createUsernameAuthModule(
 		const valid = await verifyPassword(account.passwordHash, input.password);
 		if (!valid) throw new Error("Invalid username or password");
 
-		const userRows = await db
-			.select({ forcePasswordReset: users.forcePasswordReset })
-			.from(users)
-			.where(eq(users.id, account.userId));
-
-		if (userRows[0]?.forcePasswordReset === 1) {
-			throw new Error("Password reset required");
-		}
+		const decision = await gate.evaluate({
+			userId: account.userId,
+			method: "password",
+			...(context?.request && { request: context.request }),
+		});
+		if (decision.action !== "allow") throw new SignInGateError(decision);
 
 		const { token, session } = await sessionManager.create(account.userId);
 
@@ -246,8 +259,33 @@ export function createUsernameAuthModule(
 			.set({ passwordHash: newHash, updatedAt: new Date() })
 			.where(eq(usernameAccounts.userId, userId));
 
+		await gate.onPasswordChanged(userId);
+
 		return { success: true };
 	}
+
+	// Lets the gate complete a forced password change for username accounts.
+	gate.registerPasswordCredentialCheck(async (userId) => {
+		const rows = await db
+			.select({ id: usernameAccounts.id })
+			.from(usernameAccounts)
+			.where(eq(usernameAccounts.userId, userId));
+		return rows.length > 0;
+	});
+	gate.registerPasswordChanger(async (userId, newPassword) => {
+		const rows = await db
+			.select({ id: usernameAccounts.id })
+			.from(usernameAccounts)
+			.where(eq(usernameAccounts.userId, userId));
+		if (!rows[0]) return "no_account";
+		const passwordError = validatePassword(newPassword);
+		if (passwordError) return { error: passwordError };
+		await db
+			.update(usernameAccounts)
+			.set({ passwordHash: await hashPassword(newPassword), updatedAt: new Date() })
+			.where(eq(usernameAccounts.userId, userId));
+		return "changed";
+	});
 
 	async function changeUsername(
 		userId: string,
@@ -320,19 +358,11 @@ export function createUsernameAuthModule(
 				return jsonResponse({ error: "Missing required fields: username, password" }, 400);
 			}
 			try {
-				const result = await signIn({ username: b.username, password: b.password });
+				const result = await signIn({ username: b.username, password: b.password }, { request });
 				return jsonResponse(result);
 			} catch (err) {
-				if (err instanceof Error && err.message === "Password reset required") {
-					return jsonResponse(
-						{
-							error: {
-								code: "PASSWORD_RESET_REQUIRED",
-								message: "You must reset your password before signing in",
-							},
-						},
-						403,
-					);
+				if (err instanceof SignInGateError) {
+					return signInGateResponse(err);
 				}
 				return jsonResponse({ error: "Invalid username or password" }, 401);
 			}

@@ -32,6 +32,7 @@ import { jwtVerify, SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
+import { MultiSessionLimitError } from "./multi-session.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -50,6 +51,23 @@ export interface SessionConfig {
 	 * Defaults to `theauth_session`.
 	 */
 	cookieName?: string;
+	/**
+	 * Maximum concurrent (non-expired) sessions per user. Unset means no limit.
+	 * Impersonation sessions are neither counted nor limited.
+	 */
+	maxConcurrent?: number;
+	/**
+	 * What to do when `maxConcurrent` is reached on a new session.
+	 * `evict-oldest` (default) revokes the oldest sessions, `reject` makes
+	 * `create()` throw a `MultiSessionLimitError`.
+	 */
+	onLimit?: "evict-oldest" | "reject";
+	/**
+	 * Called after sessions are revoked (explicit revoke, revokeAll or limit
+	 * eviction). Used to fan out back-channel logout. Failures are swallowed so
+	 * they never block revocation.
+	 */
+	onRevoke?: (revoked: Session[]) => Promise<void> | void;
 }
 
 export interface Session {
@@ -123,6 +141,11 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 
 	const maxAge = config.maxAge ?? DEFAULT_MAX_AGE_SECONDS;
 	const keyObject = new TextEncoder().encode(config.secret);
+	const maxConcurrent =
+		config.maxConcurrent !== undefined && config.maxConcurrent >= 1
+			? Math.floor(config.maxConcurrent)
+			: undefined;
+	const onLimit = config.onLimit ?? "evict-oldest";
 
 	// ── helpers ────────────────────────────────────────────────────────────
 
@@ -144,10 +167,60 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 
 	// ── public API ─────────────────────────────────────────────────────────
 
+	/**
+	 * Apply `maxConcurrent` before a new session is inserted. Evicts the oldest
+	 * active sessions (leaving room for the new one) or rejects.
+	 */
+	async function enforceLimit(userId: string, metadata?: Record<string, unknown>): Promise<void> {
+		if (maxConcurrent === undefined) return;
+		if (metadata?.sessionType === "impersonation") return;
+
+		const now = new Date();
+		const rows = await db
+			.select({
+				id: sessions.id,
+				expiresAt: sessions.expiresAt,
+				createdAt: sessions.createdAt,
+				metadata: sessions.metadata,
+			})
+			.from(sessions)
+			.where(eq(sessions.userId, userId));
+
+		const active = rows
+			.filter((r) => r.expiresAt > now && r.metadata?.sessionType !== "impersonation")
+			.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+		if (active.length < maxConcurrent) return;
+		if (onLimit === "reject") throw new MultiSessionLimitError(userId, maxConcurrent);
+
+		const evicted = active.slice(0, active.length - maxConcurrent + 1);
+		for (const old of evicted) {
+			await db.delete(sessions).where(eq(sessions.id, old.id));
+		}
+		await notifyRevoked(
+			evicted.map((r) => ({
+				id: r.id,
+				userId,
+				expiresAt: r.expiresAt,
+				createdAt: r.createdAt,
+			})),
+		);
+	}
+
+	async function notifyRevoked(revoked: Session[]): Promise<void> {
+		if (!config.onRevoke || revoked.length === 0) return;
+		try {
+			await config.onRevoke(revoked);
+		} catch {
+			// Fan-out is best effort and must not block revocation.
+		}
+	}
+
 	async function create(
 		userId: string,
 		metadata?: Record<string, unknown>,
 	): Promise<{ session: Session; token: string }> {
+		await enforceLimit(userId, metadata);
 		const id = generateId();
 		const now = new Date();
 		const expiresAt = new Date(now.getTime() + maxAge * 1000);
@@ -210,11 +283,19 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 	}
 
 	async function revoke(sessionId: string): Promise<void> {
+		const rows = config.onRevoke
+			? await db.select().from(sessions).where(eq(sessions.id, sessionId))
+			: [];
 		await db.delete(sessions).where(eq(sessions.id, sessionId));
+		await notifyRevoked(rows.map(rowToSession));
 	}
 
 	async function revokeAll(userId: string): Promise<void> {
+		const rows = config.onRevoke
+			? await db.select().from(sessions).where(eq(sessions.userId, userId))
+			: [];
 		await db.delete(sessions).where(eq(sessions.userId, userId));
+		await notifyRevoked(rows.map(rowToSession));
 	}
 
 	async function list(userId: string): Promise<Session[]> {

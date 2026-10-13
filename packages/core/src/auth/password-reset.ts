@@ -50,6 +50,7 @@ import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 import type { OtpService } from "./otp.js";
 import type { OtpChannel } from "./otp-senders.js";
+import type { SignInGate } from "./sign-in-gate.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
@@ -202,6 +203,7 @@ export function createPasswordResetModule(
 	db: Database,
 	sessionManager: SessionManager,
 	tokenModule: OneTimeTokenModule,
+	signInGate?: SignInGate,
 ): PasswordResetModule {
 	const tokenTtl = config.tokenTtlSeconds ?? DEFAULT_TOKEN_TTL_SECONDS;
 	const revokeOnReset = config.revokeSessionsOnReset ?? true;
@@ -370,6 +372,9 @@ export function createPasswordResetModule(
 			.update(users)
 			.set({ forcePasswordReset: 0, updatedAt: new Date() })
 			.where(eq(users.id, accountUserId));
+
+		// A new password invalidates every trusted-device 2FA bypass.
+		if (signInGate) await signInGate.onPasswordChanged(accountUserId);
 
 		// Revoke all sessions if configured (default: true)
 		if (revokeOnReset) {

@@ -39,6 +39,8 @@ import { generateId, randomBytesHex, sha256, sha256Raw } from "../crypto/web-cry
 import type { Database } from "../db/database.js";
 import { oidcAuthCodes, oidcClients, oidcRefreshTokens } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
+import type { OidcLogoutConfig, OidcLogoutModule, OidcSidIndex } from "./oidc-logout.js";
+import { createOidcLogoutModule, createOidcSidIndex } from "./oidc-logout.js";
 
 // ---------------------------------------------------------------------------
 // Re-export shared types
@@ -67,6 +69,12 @@ export interface OidcProviderConfig {
 	idTokenTtl?: number;
 	/** Scopes this provider supports. Default: ['openid', 'profile', 'email']. */
 	supportedScopes?: string[];
+	/**
+	 * Opt in to RP-initiated logout and back-channel logout fan-out. Adds
+	 * `end_session_endpoint` and `backchannel_logout_*` to discovery, a `sid`
+	 * claim to ID tokens, and `provider.logout`. Off by default.
+	 */
+	logout?: OidcLogoutConfig;
 }
 
 export interface RegisterClientInput {
@@ -76,6 +84,10 @@ export interface RegisterClientInput {
 	responseTypes?: string[];
 	scopes?: string[];
 	tokenEndpointAuthMethod?: string;
+	/** Allowlist for `post_logout_redirect_uri` (needs `config.logout`). */
+	postLogoutRedirectUris?: string[];
+	/** Client endpoint that receives back-channel logout tokens (needs `config.logout`). */
+	backchannelLogoutUri?: string;
 }
 
 export interface OidcClient {
@@ -101,6 +113,11 @@ export interface AuthorizeParams {
 	codeChallengeMethod?: string;
 	/** The authenticated user's ID. Must be resolved before calling authorize. */
 	userId: string;
+	/**
+	 * Provider session id of the signed-in user. With `config.logout` it is
+	 * indexed so session revoke and logout can notify this client.
+	 */
+	sessionId?: string;
 }
 
 export interface TokenParams {
@@ -158,6 +175,9 @@ export interface OidcDiscoveryDocument {
 	token_endpoint_auth_methods_supported: string[];
 	claims_supported: string[];
 	code_challenge_methods_supported: string[];
+	end_session_endpoint?: string;
+	backchannel_logout_supported?: boolean;
+	backchannel_logout_session_supported?: boolean;
 }
 
 export interface JsonWebKeySet {
@@ -177,6 +197,8 @@ export interface OidcProviderModule {
 	getDiscoveryDocument(): OidcDiscoveryDocument;
 	getJwks(): Promise<JsonWebKeySet>;
 	validateAccessToken(token: string): Promise<Result<AccessTokenClaims>>;
+	/** Present when `config.logout` was provided. */
+	logout?: OidcLogoutModule;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +221,8 @@ const registerClientSchema = z.object({
 		.enum(["client_secret_post", "client_secret_basic"])
 		.default("client_secret_post")
 		.optional(),
+	postLogoutRedirectUris: z.array(z.string().url()).optional(),
+	backchannelLogoutUri: z.string().url().optional(),
 });
 
 const authorizeSchema = z.object({
@@ -211,6 +235,7 @@ const authorizeSchema = z.object({
 	codeChallenge: z.string().optional(),
 	codeChallengeMethod: z.enum(["S256"]).optional(),
 	userId: z.string().min(1),
+	sessionId: z.string().min(1).optional(),
 });
 
 const tokenSchema = z.discriminatedUnion("grantType", [
@@ -328,6 +353,27 @@ export function createOidcProviderModule(
 		return publicJwkPromise;
 	}
 
+	// ── logout wiring (opt-in) ──────────────────────────────────────────────
+
+	const logout: OidcLogoutModule | undefined = config.logout
+		? createOidcLogoutModule({
+				db,
+				issuer,
+				signingAlg,
+				kid: "theauth-oidc-1",
+				getSigningKey,
+				getPublicJwk,
+				importPublicKey: async (jwk) => {
+					const key = await jose.importJWK(jwk, signingAlg);
+					return key;
+				},
+				config: config.logout,
+			})
+		: undefined;
+	const sidIndex: OidcSidIndex | undefined = config.logout
+		? createOidcSidIndex(db, issuer, config.logout.indexTtlSeconds)
+		: undefined;
+
 	// ── registerClient ──────────────────────────────────────────────────────
 
 	async function registerClient(input: RegisterClientInput): Promise<Result<OidcClient>> {
@@ -348,7 +394,19 @@ export function createOidcProviderModule(
 			responseTypes = ["code"],
 			scopes = supportedScopes,
 			tokenEndpointAuthMethod = "client_secret_post",
+			postLogoutRedirectUris,
+			backchannelLogoutUri,
 		} = parsed.data;
+
+		if ((postLogoutRedirectUris || backchannelLogoutUri) && !logout) {
+			return {
+				success: false,
+				error: makeError(
+					"LOGOUT_NOT_ENABLED",
+					"postLogoutRedirectUris and backchannelLogoutUri need config.logout",
+				),
+			};
+		}
 
 		const clientId = generateRandomHex(CLIENT_ID_BYTE_LENGTH);
 		const rawSecret = generateRandomHex(CLIENT_SECRET_BYTE_LENGTH);
@@ -369,6 +427,24 @@ export function createOidcProviderModule(
 				createdAt: now,
 				updatedAt: now,
 			});
+
+			if (logout && (postLogoutRedirectUris || backchannelLogoutUri)) {
+				try {
+					await logout.setClientLogoutConfig(clientId, {
+						postLogoutRedirectUris: postLogoutRedirectUris ?? [],
+						backchannelLogoutUri: backchannelLogoutUri ?? null,
+					});
+				} catch (err) {
+					await db.delete(oidcClients).where(eq(oidcClients.clientId, clientId));
+					return {
+						success: false,
+						error: makeError(
+							"INVALID_INPUT",
+							err instanceof Error ? err.message : "Invalid logout configuration",
+						),
+					};
+				}
+			}
 
 			return {
 				success: true,
@@ -443,6 +519,7 @@ export function createOidcProviderModule(
 
 		try {
 			await db.delete(oidcClients).where(eq(oidcClients.clientId, clientId));
+			if (logout) await logout.deleteClientLogoutConfig(clientId);
 			return { success: true, data: undefined };
 		} catch (err) {
 			return {
@@ -479,6 +556,7 @@ export function createOidcProviderModule(
 			codeChallenge,
 			codeChallengeMethod,
 			userId,
+			sessionId,
 		} = parsed.data;
 
 		// Validate client exists
@@ -534,6 +612,10 @@ export function createOidcProviderModule(
 				expiresAt,
 				createdAt: now,
 			});
+
+			if (sidIndex) {
+				await sidIndex.record({ userId, clientId, codeHash, ...(sessionId && { sessionId }) });
+			}
 
 			return {
 				success: true,
@@ -654,7 +736,8 @@ export function createOidcProviderModule(
 
 		// Generate tokens
 		const scopes = authCode.scopes.split(" ").filter(Boolean);
-		return generateTokenSet(authCode.userId, clientId, scopes, authCode.nonce);
+		const sid = sidIndex ? await sidIndex.forCode(codeHash) : null;
+		return generateTokenSet(authCode.userId, clientId, scopes, authCode.nonce, sid);
 	}
 
 	async function handleRefreshGrant(data: {
@@ -715,7 +798,8 @@ export function createOidcProviderModule(
 
 		// Issue new token set
 		const scopes = record.scopes.split(" ").filter(Boolean);
-		return generateTokenSet(record.userId, clientId, scopes, null);
+		const sid = sidIndex ? await sidIndex.latest(record.userId, clientId) : null;
+		return generateTokenSet(record.userId, clientId, scopes, null, sid);
 	}
 
 	async function authenticateClient(
@@ -752,6 +836,7 @@ export function createOidcProviderModule(
 		clientId: string,
 		scopes: string[],
 		nonce: string | null,
+		sid: string | null = null,
 	): Promise<Result<TokenResponse>> {
 		const key = await getSigningKey();
 		const now = Math.floor(Date.now() / 1000);
@@ -780,6 +865,9 @@ export function createOidcProviderModule(
 		};
 		if (nonce) {
 			idTokenPayload.nonce = nonce;
+		}
+		if (sid) {
+			idTokenPayload.sid = sid;
 		}
 		// Add at_hash (access token hash)
 		const atHashBuffer = await sha256Raw(accessToken);
@@ -887,6 +975,11 @@ export function createOidcProviderModule(
 				"email_verified",
 			],
 			code_challenge_methods_supported: ["S256"],
+			...(logout && {
+				end_session_endpoint: logout.endSessionEndpoint,
+				backchannel_logout_supported: true,
+				backchannel_logout_session_supported: true,
+			}),
 		};
 	}
 
@@ -948,5 +1041,6 @@ export function createOidcProviderModule(
 		getDiscoveryDocument,
 		getJwks,
 		validateAccessToken,
+		...(logout && { logout }),
 	};
 }

@@ -29,4 +29,32 @@ export const ErrorCodes = {
 	INVALID_PASSWORD: "INVALID_PASSWORD",
 	INVALID_EMAIL: "INVALID_EMAIL",
 	WRONG_PASSWORD: "WRONG_PASSWORD",
+	PASSWORD_RESET_REQUIRED: "PASSWORD_RESET_REQUIRED",
+	TWO_FACTOR_REQUIRED: "TWO_FACTOR_REQUIRED",
+	SESSION_LIMIT_REACHED: "SESSION_LIMIT_REACHED",
 } as const;
+
+/**
+ * HTTP answer for gate errors, matching core: 403 with a password-change
+ * challenge, or 200 `{ twoFactorRequired: true, challenge }`.
+ */
+export function gateErrorResponse(err: EmailAuthError): Response | null {
+	const headers = { "Content-Type": "application/json" };
+	if (err.code === ErrorCodes.PASSWORD_RESET_REQUIRED) {
+		return new Response(
+			JSON.stringify({
+				error: { code: err.code, message: err.message },
+				passwordChangeRequired: true,
+				...err.details,
+			}),
+			{ status: 403, headers },
+		);
+	}
+	if (err.code === ErrorCodes.TWO_FACTOR_REQUIRED) {
+		return new Response(JSON.stringify({ twoFactorRequired: true, ...err.details }), {
+			status: 200,
+			headers,
+		});
+	}
+	return null;
+}
