@@ -2,7 +2,8 @@
 // Builds the branded isometric docs diagrams. Run: node scripts/build-diagrams.mjs
 // Each SVG carries its own title, one line explanation and theauth.dev, so it
 // still makes sense when it is found on its own (search, social, slides).
-import { mkdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -102,8 +103,10 @@ function scene(X, Y, caption) {
 		const m = [w * 0.866 * u, w * 0.5 * u, -d * 0.866 * u, d * 0.5 * u, ex, ey].map(
 			(n) => f(n * 100) / 100,
 		);
+		// stroke width is set in unit space, so it renders the same in every browser
+		const sw = f((2.4 / ((Math.hypot(m[0], m[1]) + Math.hypot(m[2], m[3])) / 2)) * 1000) / 1000;
 		out.push(
-			`<g transform="matrix(${m.join(" ")})" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke">${ICONS[kind](accent).replace(/<(\w+) /g, '<$1 vector-effect="non-scaling-stroke" ')}</g>`,
+			`<g transform="matrix(${m.join(" ")})" fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind](accent)}</g>`,
 		);
 	}
 
@@ -394,9 +397,53 @@ ${lines.map((l, i) => `<text x="24" y="${H - BAND + 56 + i * 20}" font-size="14.
 	return { P, platform, group, cuboid, route, tag, callout, chip, step, blocked, svg };
 }
 
+const BUILD = join(dirname(fileURLToPath(import.meta.url)), ".diagram-build");
+const exportsList = [];
+// SVGs are only the source. The docs ship JPEGs rendered by Chrome, so the
+// vector files are not published and every browser shows the same picture.
 function save(dir, name, s) {
-	mkdirSync(join(ROOT, dir), { recursive: true });
-	writeFileSync(join(ROOT, dir, `${name}.svg`), s.svg());
+	const svg = s.svg();
+	mkdirSync(BUILD, { recursive: true });
+	writeFileSync(join(BUILD, `${name}.svg`), svg);
+	const vb = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
+	exportsList.push({ dir, name, w: Number(vb[1]), h: Number(vb[2]) });
+}
+
+function exportAll() {
+	const chrome =
+		process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+	for (const e of exportsList) {
+		const out = join(ROOT, e.dir);
+		mkdirSync(out, { recursive: true });
+		const html = join(BUILD, `${e.name}.html`);
+		writeFileSync(
+			html,
+			`<html><body style="margin:0;background:#06080a"><img src="${join(BUILD, `${e.name}.svg`)}" width="${e.w}" height="${e.h}" style="display:block"></body></html>`,
+		);
+		const png = join(BUILD, `${e.name}.png`);
+		execFileSync(
+			chrome,
+			[
+				"--headless=new",
+				"--disable-gpu",
+				"--hide-scrollbars",
+				"--force-device-scale-factor=2",
+				`--screenshot=${png}`,
+				`--window-size=${e.w},${e.h}`,
+				`file://${html}`,
+			],
+			{ stdio: "ignore" },
+		);
+		execFileSync("magick", [
+			png,
+			"-quality",
+			"86",
+			"-sampling-factor",
+			"4:4:4",
+			join(out, `${e.name}.jpg`),
+		]);
+	}
+	rmSync(BUILD, { recursive: true, force: true });
 }
 
 // Layout helpers: nodes sit on a 10 by 10 platform, chains run along the
@@ -927,3 +974,5 @@ const FOUR = [
 	);
 	save("diagrams", "theauth-cli-device-sign-in", s);
 }
+
+exportAll();

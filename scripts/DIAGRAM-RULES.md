@@ -1,6 +1,6 @@
 # Diagram rules
 
-Rules for every branded diagram built by `scripts/build-diagrams.mjs`. Run `node scripts/build-diagrams.mjs` after any change. It exits non-zero when a label or callout cannot be placed without overlap.
+Rules for every branded diagram built by `scripts/build-diagrams.mjs`. Run `node scripts/build-diagrams.mjs` after any change (needs Chrome and ImageMagick). It exits non-zero when a label or callout cannot be placed without overlap.
 
 ## Look
 
@@ -27,4 +27,4 @@ Rules for every branded diagram built by `scripts/build-diagrams.mjs`. Run `node
 - Every SVG carries `<title>`, `<desc>`, the title and the one line explanation, so it works on its own.
 - File names are descriptive: `theauth-<topic>.svg`. Put them in `docs/images/diagrams` or a topic folder.
 - Embed with a `<Frame caption>` and an `alt` that matches the `<desc>`.
-- Keep SVG as the source. Export PNG only for social cards, since the grain makes PNGs heavy.
+- The generator renders each scene with headless Chrome and ships JPEG at 2x (about 270 KB). SVG is only an intermediate and is not published, so every browser shows the same picture and the vector source is not copied. Set `CHROME` if Chrome is not at the default macOS path.
