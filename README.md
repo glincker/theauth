@@ -72,6 +72,8 @@ It runs on Node, Bun, Deno and Cloudflare Workers with three runtime dependencie
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Go"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/go-dark.svg"><img src="docs/brand-icons/works-with/go.svg" alt="Go" height="32" width="32"></picture></a>
 </p>
 
+<sub>Logos from <a href="https://thesvg.org">theSVG</a>. All trademarks belong to their respective owners; shown to identify compatibility, no affiliation implied.</sub>
+
 <p align="center"><a href="https://docs.theauth.dev/works-with">See everything theAuth works with</a>: 40 OAuth providers, ten framework adapters, four runtimes and the databases you already run.</p>
 
 > Names and logos belong to their owners and are shown only to indicate compatibility.
