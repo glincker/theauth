@@ -165,7 +165,8 @@ function routeParam(req: Request, name: string): string {
 
 // Web Request Builder
 
-function buildWebRequest(req: Request): globalThis.Request {
+/** `withBody: false` skips re-encoding the parsed body, for checks that only read headers. */
+function buildWebRequest(req: Request, withBody = true): globalThis.Request {
 	const protocol = req.protocol ?? "http";
 	const host = req.headers.host ?? "localhost";
 	const url = `${protocol}://${host}${req.originalUrl ?? req.url}`;
@@ -184,7 +185,7 @@ function buildWebRequest(req: Request): globalThis.Request {
 	}
 
 	let body: string | null = null;
-	if (req.method !== "GET" && req.method !== "HEAD" && req.body !== undefined) {
+	if (withBody && req.method !== "GET" && req.method !== "HEAD" && req.body !== undefined) {
 		const contentType = req.headers["content-type"] ?? "";
 		if (contentType.includes("application/x-www-form-urlencoded")) {
 			const params = new URLSearchParams();
@@ -281,7 +282,7 @@ export function buildTheAuthRouter(
 	// cookie-session write is refused before authentication or any handler.
 	router.use((req: Request, res: Response, next: NextFunction) => {
 		guard
-			.admit(buildWebRequest(req), req.path)
+			.admit(buildWebRequest(req, false), req.path)
 			.then((refused) => (refused ? writeRefusal(refused, res) : next()))
 			.catch(next);
 	});

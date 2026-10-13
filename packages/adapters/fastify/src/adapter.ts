@@ -182,7 +182,7 @@ function toWebRequest(request: FastifyRequest): Request {
 		}
 	}
 	return new Request(`${request.protocol}://${request.hostname}${request.url}`, {
-		method: "GET",
+		method: request.method,
 		headers,
 	});
 }
