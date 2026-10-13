@@ -165,6 +165,20 @@ function routeParam(req: Request, name: string): string {
 
 // Web Request Builder
 
+/** Re-encode the framework-parsed body as URL-encoded or JSON text. */
+function encodeParsedBody(req: Request): string | null {
+	if (req.method === "GET" || req.method === "HEAD" || req.body === undefined) return null;
+	const contentType = req.headers["content-type"] ?? "";
+	if (contentType.includes("application/x-www-form-urlencoded")) {
+		const params = new URLSearchParams();
+		for (const [k, v] of Object.entries(req.body as Record<string, string>)) {
+			params.set(k, v);
+		}
+		return params.toString();
+	}
+	return JSON.stringify(req.body);
+}
+
 /** `withBody: false` skips re-encoding the parsed body, for checks that only read headers. */
 function buildWebRequest(req: Request, withBody = true): globalThis.Request {
 	const protocol = req.protocol ?? "http";
@@ -184,19 +198,7 @@ function buildWebRequest(req: Request, withBody = true): globalThis.Request {
 		}
 	}
 
-	let body: string | null = null;
-	if (withBody && req.method !== "GET" && req.method !== "HEAD" && req.body !== undefined) {
-		const contentType = req.headers["content-type"] ?? "";
-		if (contentType.includes("application/x-www-form-urlencoded")) {
-			const params = new URLSearchParams();
-			for (const [k, v] of Object.entries(req.body as Record<string, string>)) {
-				params.set(k, v);
-			}
-			body = params.toString();
-		} else {
-			body = JSON.stringify(req.body);
-		}
-	}
+	const body = withBody ? encodeParsedBody(req) : null;
 
 	return new Request(url, {
 		method: req.method,
