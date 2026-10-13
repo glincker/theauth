@@ -71,7 +71,9 @@ function fillPath(path: string, params: Record<string, unknown> | undefined): st
 export function createEndpointClient<Api extends Record<string, RouteShape>>(
 	options: EndpointClientOptions,
 ): EndpointClient<Api> {
-	const base = options.baseUrl.replace(/\/+$/, "");
+	let end = options.baseUrl.length;
+	while (end > 0 && options.baseUrl.charCodeAt(end - 1) === 47) end--;
+	const base = options.baseUrl.slice(0, end);
 	const doFetch = options.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
 
 	return {
