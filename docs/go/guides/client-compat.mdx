@@ -36,6 +36,11 @@ resources an absent `resource` is still `invalid_target`. A `resource` that is
 present but unknown is always `invalid_target`. Client credentials, token
 exchange and the device flow are unchanged (device already defaulted).
 
+The client_credentials grant also honors it: an absent `resource` defaults to
+the sole configured resource and the token `aud` is the configured identifier.
+Token exchange (RFC 8693) already defaulted an absent `resource` to the
+subject token's `aud`; that is unchanged.
+
 Tradeoff: low. The audience can only be a resource you configured, and with a
 single resource there is no ambiguity about the audience.
 
@@ -83,10 +88,17 @@ are refused. When several configured resources match, the longest wins. The
 issued token `aud` is always the configured canonical identifier, never the
 requested sub-path.
 
+It applies at every grant that takes a `resource`: authorization code,
+refresh, client_credentials, token exchange (the resource is compared to the
+subject token `aud` by canonical identifier, and `audience` may name a
+sub-path) and ID-JAG redemption at the jwt-bearer grant (the `resource` claim
+in the ID-JAG and the presented `resource` match when both resolve to the same
+configured resource). ID-JAG issuance is unchanged: it accepts any absolute
+`resource` URL because the target need not be one of this server's resources.
+
 Tradeoff: low to medium. A client can obtain a token for the whole configured
 resource while naming a sub-path, so do not rely on the sub-path to narrow
-authorization. Limit: the ID-JAG redemption check at the jwt-bearer grant still
-compares the raw `resource` and does not accept sub-paths.
+authorization.
 
 ## Recommended MCP profile
 
@@ -123,13 +135,65 @@ seconds) and `CIMDConfig.CacheTTL`; a publisher can never extend caching past
 `CacheTTL`.
 
 A redirect URI with a bare custom scheme such as `cursor://` is refused by
-CIMD validation (RFC 8252 section 7.1 requires a reverse-DNS scheme).
+default (RFC 8252 section 7.1 requires a reverse-DNS scheme). List the scheme
+to accept it:
+
+```go
+CIMD: &theauth.CIMDConfig{
+    TrustPolicy:            theauth.AllowHTTPSHosts("cursor.com"),
+    AllowedRedirectSchemes: []string{"cursor"},
+},
+```
+
+Entries must be lowercase and may not be `http`, `https`, `javascript`,
+`data`, `file` (or `vbscript`, `blob`, `about`, `ftp`); `theauth.New` fails
+otherwise. Fragments and userinfo are still refused and matching stays exact.
+Tradeoff: medium. Any app on the user's device can register the same
+private-use scheme and receive the code; PKCE S256 (always required here) is
+what stops it redeeming the code. Prefer a narrow `TrustPolicy`, and note the
+listed scheme applies to every document the policy admits.
+
+## Authentication context and step-up
+
+Independent of `ClientCompat`: the authorization server records how and when
+the user authenticated and emits it, so a resource server using
+`mcpresource.RequireStepUp` (RFC 9470) can be satisfied by tokens from this
+server.
+
+- `auth_time` is the later of sign-in and the latest `POST /auth/step-up` of
+  the session that authorized. `amr` comes from
+  `AuthorizationServerConfig.SessionAMR`, which defaults to `["pwd"]` because
+  sessions do not record their sign-in method. Supply it (for example from
+  your own login records) to emit `otp`, `hwk` or `mfa`.
+- `acr` maps the method set through `AuthorizationServerConfig.ACRValues`
+  (keys are the distinct `amr` values sorted and joined with `+`, such as
+  `"otp+pwd"`). Unmapped sets use the default: `urn:theauth:acr:1fa` for one
+  method, `urn:theauth:acr:mfa` for `mfa` or two or more methods. Configured
+  values are advertised as `acr_values_supported`.
+- The claims appear in JWT and opaque access tokens and in introspection
+  responses. They are stored on the authorization code and the refresh token
+  family and copied on every refresh; a refresh never advances `auth_time`.
+  Grants without a user session (client_credentials, token exchange,
+  jwt-bearer) carry none of them.
+- `/oauth/authorize` honors `max_age` (seconds; `0` always re-authenticates),
+  `acr_values` (a session satisfies it when its `acr` equals one listed value)
+  and `prompt=none`, also through PAR and JAR. When a requirement is unmet the
+  user is redirected to `LoginURL` with `next`, `reauth=1` and the `max_age`
+  and `acr_values` hints; with `prompt=none` the client receives
+  `login_required` instead. A requirement with no authentication context fails
+  closed.
+
+Limit: there is no in-band step-up flow at `/authorize`. The login page you
+mount at `LoginURL` must create a fresh session or step the existing one up
+(`POST /auth/step-up`) and send the user back to `next`; if it returns without
+doing so the user is redirected again. A step-up with TOTP does not by itself
+change `amr` unless `SessionAMR` reports it.
 
 ## Test vectors
 
 `internal/as/compat_test.go` holds table-driven vectors for resource
-resolution, scope narrowing and redirect matching. They are plain data, so
-other implementations can reuse them. Client shapes under
+resolution, scope narrowing and redirect matching. They are plain data so
+the TypeScript library can reuse them. Client shapes under
 `internal/as/testdata/clientcompat` are representative of public client
 documentation, not captured traffic.
 

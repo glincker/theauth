@@ -589,6 +589,7 @@
               "go/guides/protect-mcp-tools",
               "go/guides/client-compat",
               "go/guides/account-lifecycle",
+              "go/guides/framework-adapters",
               "go/guides/dynamic-client-registration",
               "go/guides/cli-login",
               "go/guides/path-prefix-and-dynamic-providers",
