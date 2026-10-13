@@ -8,11 +8,12 @@
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
-<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#19d9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#eef35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#8b7cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="#19d9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="#eef35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="#8b7cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
 <style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
+<filter id="sb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
@@ -136,15 +137,30 @@
 <polyline points="570.9,219.3 623.5,249.7 676.2,219.3" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="570.9,264.9 623.5,295.3 676.2,264.9" fill="none" stroke="#8b7cf6" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(52.653 30.4 -52.653 30.4 623.5 188.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><path vector-effect="non-scaling-stroke" d="M.5 .16L.78 .27V.5C.78 .66 .66 .78 .5 .84C.34 .78 .22 .66 .22 .5V.27Z" fill="#8b7cf6" fill-opacity=".16" stroke="#8b7cf6"/><path vector-effect="non-scaling-stroke" d="M.37 .5L.47 .6L.64 .4" fill="none" stroke="#8b7cf6"/></g>
-<polyline points="202.3,264.9 235.2,264.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="202.3,264.9 235.2,264.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
-<circle cx="202.3" cy="264.9" r="4" fill="#eef35f"/>
-<polyline points="366.8,264.9 393.2,264.9" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="366.8,264.9 393.2,264.9" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
-<circle cx="366.8" cy="264.9" r="4" fill="#19d9b8"/>
-<polyline points="524.8,264.9 557.7,264.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="524.8,264.9 557.7,264.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
-<circle cx="524.8" cy="264.9" r="4" fill="#eef35f"/>
+<polyline points="202.3,274.8 235.2,274.8" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#sb)"/>
+<line x1="202.3" y1="245.9" x2="202.3" y2="268.7" stroke="#eef35f" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<line x1="235.2" y1="245.9" x2="235.2" y2="268.7" stroke="#eef35f" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<polyline points="202.3,245.9 235.2,245.9" fill="none" stroke="#04070a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="202.3,245.9 235.2,245.9" fill="none" stroke="#eef35f" stroke-opacity=".85" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="202.3,244.3 235.2,244.3" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="202.3,245.9 235.2,245.9" fill="none" stroke="#04070a" stroke-opacity=".55" stroke-width="2.6" stroke-dasharray="2 10" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="202.3" cy="245.9" r="6" fill="#eef35f" stroke="#04070a" stroke-width="2"/><circle cx="200.8" cy="244.4" r="2" fill="#fff" fill-opacity=".6"/>
+<polyline points="366.8,274.8 393.2,274.8" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#sb)"/>
+<line x1="366.8" y1="245.9" x2="366.8" y2="268.7" stroke="#19d9b8" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<line x1="393.2" y1="245.9" x2="393.2" y2="268.7" stroke="#19d9b8" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<polyline points="366.8,245.9 393.2,245.9" fill="none" stroke="#04070a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="366.8,245.9 393.2,245.9" fill="none" stroke="#19d9b8" stroke-opacity=".85" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="366.8,244.3 393.2,244.3" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="366.8,245.9 393.2,245.9" fill="none" stroke="#04070a" stroke-opacity=".55" stroke-width="2.6" stroke-dasharray="2 10" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="366.8" cy="245.9" r="6" fill="#19d9b8" stroke="#04070a" stroke-width="2"/><circle cx="365.3" cy="244.4" r="2" fill="#fff" fill-opacity=".6"/>
+<polyline points="524.8,274.8 557.7,274.8" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#sb)"/>
+<line x1="524.8" y1="245.9" x2="524.8" y2="268.7" stroke="#eef35f" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<line x1="557.7" y1="245.9" x2="557.7" y2="268.7" stroke="#eef35f" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<polyline points="524.8,245.9 557.7,245.9" fill="none" stroke="#04070a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="524.8,245.9 557.7,245.9" fill="none" stroke="#eef35f" stroke-opacity=".85" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="524.8,244.3 557.7,244.3" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="524.8,245.9 557.7,245.9" fill="none" stroke="#04070a" stroke-opacity=".55" stroke-width="2.6" stroke-dasharray="2 10" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="524.8" cy="245.9" r="6" fill="#eef35f" stroke="#04070a" stroke-width="2"/><circle cx="523.3" cy="244.4" r="2" fill="#fff" fill-opacity=".6"/>
 <polygon points="393.2,330.3 461,369.4 393.2,408.5 325.4,369.4" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="393.2,327.6 449.1,359.9 393.2,392.2 337.2,359.9" fill="#f87171" opacity=".16" filter="url(#bl)"/>
 <polygon points="343.8,359.9 393.2,388.4 393.2,361.8 343.8,333.3" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -153,9 +169,14 @@
 <polyline points="343.8,333.3 393.2,361.8 442.5,333.3" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="343.8,356.1 393.2,384.6 442.5,356.1" fill="none" stroke="#f87171" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(49.361999999999995 28.5 -49.361999999999995 28.5 393.2 304.8)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><circle vector-effect="non-scaling-stroke" cx=".5" cy=".36" r=".13" fill="#f87171" fill-opacity=".18" stroke="#f87171"/><path vector-effect="non-scaling-stroke" d="M.24 .78C.26 .58 .38 .54 .5 .54S.74 .58 .76 .78Z" fill="#f87171" fill-opacity=".18" stroke="#f87171"/></g>
-<polyline points="403,384.6 452.4,234.5" fill="none" stroke="#f87171" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline class="flow" points="403,384.6 452.4,234.5" fill="none" stroke="#f87171" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mr)"/>
-<circle cx="403" cy="384.6" r="4" fill="#f87171"/>
+<polyline points="403,394.5 452.4,244.4" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#sb)"/>
+<line x1="403" y1="365.6" x2="403" y2="388.4" stroke="#f87171" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<line x1="452.4" y1="215.5" x2="452.4" y2="238.3" stroke="#f87171" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>
+<polyline points="403,365.6 452.4,215.5" fill="none" stroke="#04070a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="403,365.6 452.4,215.5" fill="none" stroke="#f87171" stroke-opacity=".85" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="403,364 452.4,213.9" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="403,365.6 452.4,215.5" fill="none" stroke="#04070a" stroke-opacity=".55" stroke-width="2.6" stroke-dasharray="2 10" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mr)"/>
+<circle cx="403" cy="365.6" r="6" fill="#f87171" stroke="#04070a" stroke-width="2"/><circle cx="401.5" cy="364.1" r="2" fill="#fff" fill-opacity=".6"/>
 <circle cx="419.5" cy="314.3" r="12" fill="#f87171"/><path d="M415 309.8L424 318.8M424 309.8L415 318.8" stroke="#06080a" stroke-width="2.5" stroke-linecap="round"/>
 <rect x="506.8" y="270.4" width="70" height="24" rx="12" fill="#0a0f12" stroke="#8b7cf6" stroke-opacity=".7"/><text x="541.8" y="286.4" text-anchor="middle" font-size="12.5" fill="#8b7cf6" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Server</text>
 <line x1="136.5" y1="179.7" x2="136.5" y2="223.1" stroke="#19d9b8" stroke-width="1.5"/><circle cx="136.5" cy="223.1" r="3" fill="#19d9b8"/>
