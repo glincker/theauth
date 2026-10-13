@@ -878,6 +878,24 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/debug@4.1.13)(@types/node@25.9.9)(jiti@2.7.0)(jsdom@29.0.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1)
 
+  packages/extension:
+    devDependencies:
+      '@glinr/theauth-client':
+        specifier: workspace:*
+        version: link:../client
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.29)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.9.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.6.0)(jsdom@29.0.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(terser@5.51.2)
+
   packages/gateway:
     dependencies:
       micromatch:
@@ -14035,7 +14053,7 @@ snapshots:
 
   '@types/ws@8.18.2':
     dependencies:
-      '@types/node': 25.9.9
+      '@types/node': 25.6.0
 
   '@types/yargs-parser@21.0.3': {}
 
