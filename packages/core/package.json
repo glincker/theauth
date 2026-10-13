@@ -65,6 +65,11 @@
       "types": "./dist/standards/index.d.ts",
       "import": "./dist/standards/index.js",
       "default": "./dist/standards/index.js"
+    },
+    "./signals": {
+      "types": "./dist/signals/index.d.ts",
+      "import": "./dist/signals/index.js",
+      "default": "./dist/signals/index.js"
     }
   },
   "files": [
