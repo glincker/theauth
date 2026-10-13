@@ -130,7 +130,8 @@ function sendValidationError(res: Response, issues: z.ZodIssue[]): void {
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-	"Access-Control-Allow-Headers": "Content-Type, Authorization",
+	"Access-Control-Allow-Headers": "Content-Type, Authorization, DPoP",
+	"Access-Control-Expose-Headers": "DPoP-Nonce, WWW-Authenticate",
 	"Access-Control-Max-Age": "86400",
 };
 
@@ -870,6 +871,8 @@ export function buildTheAuthRouter(
 			.then((result) => {
 				if (!result.success) {
 					const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
+					const nonce = result.error.details?.dpopNonce;
+					if (typeof nonce === "string") res.setHeader("DPoP-Nonce", nonce);
 					sendMcpNoStore(
 						res,
 						{

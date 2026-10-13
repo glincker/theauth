@@ -151,7 +151,8 @@ function validationError(issues: z.ZodIssue[]): Response {
 const MCP_CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-	"Access-Control-Allow-Headers": "Content-Type, Authorization",
+	"Access-Control-Allow-Headers": "Content-Type, Authorization, DPoP",
+	"Access-Control-Expose-Headers": "DPoP-Nonce, WWW-Authenticate",
 	"Access-Control-Max-Age": "86400",
 };
 
@@ -750,13 +751,16 @@ export async function dispatch(
 			const result = await mcp.token(request);
 			if (!result.success) {
 				const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
-				return mcpNoStore(
+				const res = mcpNoStore(
 					{
 						error: result.error.code.toLowerCase(),
 						error_description: result.error.message,
 					},
 					status,
 				);
+				const nonce = result.error.details?.dpopNonce;
+				if (typeof nonce === "string") res.headers.set("DPoP-Nonce", nonce);
+				return res;
 			}
 			return mcpNoStore(result.data);
 		} catch (err) {

@@ -6,6 +6,16 @@ export type {
 	TheAuthClientOptions,
 } from "./client.js";
 export { createAuthClient, createTheAuthClient } from "./client.js";
+export type {
+	DPoPClient,
+	DPoPClientOptions,
+	DPoPFetchOptions,
+	DPoPProofInput,
+	DPoPProver,
+	DPoPProverOptions,
+	DPoPPublicJwk,
+} from "./dpop.js";
+export { createDPoPClient, createDPoPProver, normalizeHtu } from "./dpop.js";
 export { AuthApiError, TheAuthApiError } from "./error.js";
 export {
 	createTheAuthGoClient,
