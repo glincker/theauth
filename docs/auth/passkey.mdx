@@ -231,6 +231,46 @@ Returns `{ removed: true }`. Only the authenticated user's own credentials can b
 | `userVerification` | `string` | `'preferred'` | Whether biometric check is required: `'required'`, `'preferred'`, `'discouraged'` |
 | `challengeTimeout` | `number` | `60000` | Challenge timeout in milliseconds (maximum 300000) |
 
+## Browser client
+
+`createPasskeyClient` in `@glinr/theauth-client` runs the whole ceremony against the plugin's routes, so you do not hand-roll `navigator.credentials` or the base64url conversions.
+
+```typescript
+import { createPasskeyClient } from '@glinr/theauth-client';
+
+const passkeys = createPasskeyClient({ baseUrl: '/api/theauth' });
+
+// Add a passkey to the signed-in user.
+await passkeys.register('MacBook');
+
+// Modal prompt.
+const result = await passkeys.signIn();
+if (!result.ok && result.reason !== 'cancelled') console.error(result.message);
+```
+
+Results are `{ ok: true, data }` or `{ ok: false, reason, message }`, where `reason` is `cancelled` (the user dismissed the prompt), `unsupported` or `failed`.
+
+### Autofill (conditional UI)
+
+With `conditional: true` the browser lists saved passkeys in the username field's suggestions, and the promise resolves only if the user picks one. Give the field `autocomplete="username webauthn"` and abort the request when the page goes away:
+
+```typescript
+if (await passkeys.isConditionalAvailable()) {
+  const controller = new AbortController();
+  const result = await passkeys.signIn({ conditional: true, signal: controller.signal });
+}
+```
+
+### Drop-in UI
+
+The `SignIn` component from `@glinr/theauth-ui` does this for you:
+
+```tsx
+<SignIn passkeyClient={createPasskeyClient({ baseUrl: '/api/theauth' })} onSuccess={goHome} />
+```
+
+It adds a "Sign in with a passkey" button and, when the browser supports it, offers saved passkeys in the email field. Set `passkeyAutofill={false}` for the button only.
+
 ## Related
 
 <CardGroup cols={2}>

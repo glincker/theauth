@@ -500,3 +500,65 @@ describe("accessibility", () => {
 		expect(screen.getByRole("region", { name: "Welcome back" })).toBeTruthy();
 	});
 });
+
+// Passkeys
+
+describe("SignIn passkeys", () => {
+	function fakeClient(over: Partial<import("../src/types.js").PasskeyClientLike> = {}) {
+		return {
+			isSupported: () => true,
+			isConditionalAvailable: async () => true,
+			signIn: vi.fn(async () => ({ ok: true as const })),
+			...over,
+		};
+	}
+
+	it("starts conditional UI on mount and switches the email field to webauthn autofill", async () => {
+		const client = fakeClient({
+			signIn: vi.fn(() => new Promise<never>(() => undefined)),
+		});
+		render(<SignIn passkeyClient={client} />);
+		await waitFor(() => expect(client.signIn).toHaveBeenCalledOnce());
+		expect(client.signIn).toHaveBeenCalledWith(
+			expect.objectContaining({ conditional: true, signal: expect.any(AbortSignal) }),
+		);
+		await waitFor(() =>
+			expect(screen.getByPlaceholderText("you@example.com").getAttribute("autocomplete")).toBe(
+				"username webauthn",
+			),
+		);
+	});
+
+	it("signs in from the button and reports success", async () => {
+		const onSuccess = vi.fn();
+		const client = fakeClient({ isConditionalAvailable: async () => false });
+		render(<SignIn passkeyClient={client} onSuccess={onSuccess} />);
+		await userEvent.click(await screen.findByText("Sign in with a passkey"));
+		await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+		expect(client.signIn).toHaveBeenCalledWith();
+	});
+
+	it("shows a failure but stays quiet when the prompt is dismissed", async () => {
+		const client = fakeClient({
+			isConditionalAvailable: async () => false,
+			signIn: vi
+				.fn()
+				.mockResolvedValueOnce({ ok: false, reason: "cancelled", message: "dismissed" })
+				.mockResolvedValueOnce({ ok: false, reason: "failed", message: "No passkey found" }),
+		});
+		render(<SignIn passkeyClient={client} />);
+		const button = await screen.findByText("Sign in with a passkey");
+		await userEvent.click(button);
+		expect(screen.queryByText("dismissed")).toBeNull();
+		await userEvent.click(button);
+		expect((await screen.findByRole("alert")).textContent).toContain("No passkey found");
+	});
+
+	it("shows no passkey button without a client or support", async () => {
+		const { unmount } = render(<SignIn />);
+		expect(screen.queryByText("Sign in with a passkey")).toBeNull();
+		unmount();
+		render(<SignIn passkeyClient={fakeClient({ isSupported: () => false })} />);
+		await waitFor(() => expect(screen.queryByText("Sign in with a passkey")).toBeNull());
+	});
+});

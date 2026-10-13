@@ -77,6 +77,14 @@ export type {
 	TotpStatus,
 } from "./go-types.js";
 export type {
+	PasskeyClient,
+	PasskeyClientOptions,
+	PasskeyResult,
+	PasskeySession,
+	PasskeySignInOptions,
+} from "./passkey.js";
+export { createPasskeyClient } from "./passkey.js";
+export type {
 	Agent,
 	AgentFilters,
 	AuditEntry,
