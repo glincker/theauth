@@ -39,6 +39,9 @@ function printNextSteps(targetDir: string, pm: PackageManager, template: Templat
 		steps.push(`${runCmd} db:push`);
 	}
 	steps.push(`${runCmd} dev`);
+	if (template === "next-saas") {
+		steps.push("", "Optional: sign-in UI as source you own", "npx @glinr/theauth-cli add sign-in");
+	}
 	p.note(steps.join("\n"), "Next steps");
 	p.outro(`${bold(green("Done."))} Happy building.`);
 }

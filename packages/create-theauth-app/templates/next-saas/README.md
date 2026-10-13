@@ -43,6 +43,16 @@ src/
     theauth.ts                      : singleton TheAuth instance
 ```
 
+## Optional: sign-in UI
+
+The template ships without sign-in screens. If you want them, copy the components into `src/components/theauth` as source you own:
+
+```bash
+npx @glinr/theauth-cli add sign-in sign-up
+```
+
+Then render `SignIn` from `src/components/theauth/sign-in` inside the `TheAuthProvider` already in `layout.tsx`. Skip this if you bring your own UI.
+
 ## Deploying
 
 Any Node.js host works. For Vercel, add `THEAUTH_SECRET` and `DATABASE_URL` in project settings, then push.
