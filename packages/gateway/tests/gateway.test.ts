@@ -16,7 +16,7 @@ const UPSTREAM = "http://upstream.test";
 function mockFetch(responseFactory: () => Response) {
 	const spy = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
 		const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-		if (url.startsWith(UPSTREAM)) {
+		if (new URL(url).origin === new URL(UPSTREAM).origin) {
 			return Promise.resolve(responseFactory());
 		}
 		// Pass through anything else (shouldn't happen in tests)

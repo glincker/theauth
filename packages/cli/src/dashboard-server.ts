@@ -1,9 +1,10 @@
+import { timingSafeEqual } from "node:crypto";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { env, stdout } from "node:process";
 
 // Options
@@ -97,14 +98,46 @@ function send404(res: ServerResponse): void {
 	res.end("Not Found");
 }
 
-function serveFile(filePath: string, res: ServerResponse): void {
-	const stat = statSync(filePath);
+/**
+ * Decode a request path. Returns null for a malformed escape (which makes
+ * decodeURIComponent throw) or an embedded NUL byte, so the caller can answer
+ * 400 instead of crashing the process.
+ */
+export function decodePathname(raw: string): string | null {
+	try {
+		const decoded = decodeURIComponent(raw);
+		return decoded.includes("\0") ? null : decoded;
+	} catch {
+		return null;
+	}
+}
+
+/** Compare two secrets without leaking their common prefix through timing. */
+export function secretsMatch(provided: string, expected: string): boolean {
+	const a = Buffer.from(provided);
+	const b = Buffer.from(expected);
+	return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Serve a file only when it resolves inside `root` and is a regular file. */
+function serveFile(root: string, requested: string, res: ServerResponse): void {
+	const base = resolve(root);
+	const target = resolve(requested);
+	if (target !== base && !target.startsWith(base + sep)) {
+		send404(res);
+		return;
+	}
+	const stat = statSync(target);
+	if (!stat.isFile()) {
+		send404(res);
+		return;
+	}
 	res.writeHead(200, {
-		"Content-Type": getMimeType(filePath),
+		"Content-Type": getMimeType(target),
 		"Content-Length": stat.size,
 		"Cache-Control": "public, max-age=31536000, immutable",
 	});
-	createReadStream(filePath).pipe(res);
+	createReadStream(target).pipe(res);
 }
 
 // Auth
@@ -141,7 +174,7 @@ function handleAuthRequest(
 	const authHeader = req.headers.authorization ?? "";
 	const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
-	if (provided === secret) {
+	if (secretsMatch(provided, secret)) {
 		sendJson(res, 200, { ok: true });
 	} else {
 		sendJson(res, 401, { code: "UNAUTHORIZED", message: "Invalid dashboard secret." });
@@ -169,7 +202,11 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 	function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 		const rawUrl = req.url ?? "/";
 		// Strip query string and decode
-		const pathname = decodeURIComponent(rawUrl.split("?")[0] ?? "/");
+		const pathname = decodePathname(rawUrl.split("?")[0] ?? "/");
+		if (pathname === null) {
+			sendJson(res, 400, { code: "BAD_REQUEST", message: "Malformed request path." });
+			return;
+		}
 
 		// Auth endpoint — handled before static files
 		if (handleAuthRequest(req, res, dashboardSecret)) return;
@@ -189,14 +226,7 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 		// Static asset
 		const filePath = join(distDir, pathname);
 
-		// Security: ensure file is within distDir
 		const resolvedPath = resolve(filePath);
-		const resolvedDist = resolve(distDir);
-		if (!resolvedPath.startsWith(`${resolvedDist}/`) && resolvedPath !== resolvedDist) {
-			send404(res);
-			return;
-		}
-
 		if (!existsSync(resolvedPath)) {
 			// Fallback to index.html for unknown paths (SPA catch-all)
 			res.writeHead(200, {
@@ -208,7 +238,7 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 			return;
 		}
 
-		serveFile(resolvedPath, res);
+		serveFile(distDir, resolvedPath, res);
 	}
 
 	const server = createServer(handleRequest);
