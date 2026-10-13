@@ -267,6 +267,69 @@ await client.delegation.revoke(chain.id)
 
 ---
 
+## MCP servers
+
+```python
+from theauth.types import RegisterMcpServerInput
+
+server = await client.mcp.register(
+    RegisterMcpServerInput(
+        name="github-mcp",
+        endpoint="https://mcp.github.com",
+        tools=["read_file", "list_repos"],
+        rate_limit_rpm=60,
+    )
+)
+servers = await client.mcp.list()
+server = await client.mcp.get(server.id)  # None if not found
+```
+
+---
+
+## Plugin routes
+
+`request()` calls any route, including plugin endpoints declared with `defineEndpoint`.
+Query params with `None` values are dropped. A failed validation raises `ValidationError`.
+
+```python
+from theauth import ValidationError
+
+try:
+    out = await client.request(
+        "POST", "/auth/team/invite", json={"email": "a@b.c"}, params={"dry_run": True}
+    )
+except ValidationError as e:
+    for issue in e.issues or []:
+        print(issue["path"], issue["message"])
+```
+
+A 403 `CSRF_REJECTED` raises `PermissionError` and a 429 `RATE_LIMITED` raises
+`RateLimitError`; check `e.code` to tell them apart from other 403s.
+
+---
+
+## DPoP (RFC 9449)
+
+Install the optional extra: `pip install "theauth[dpop]"` (needs `cryptography`).
+
+```python
+from theauth import TheAuthSyncClient
+from theauth.dpop import DPoPAuth
+
+auth = DPoPAuth()            # generates an ES256 key pair
+print(auth.thumbprint())     # jkt to bind tokens to
+
+with TheAuthSyncClient(base_url="https://your-app.com/api/theauth", token="at_...", auth=auth) as client:
+    client.agents.list()
+```
+
+Each request carries a `DPoP` proof and `Authorization: DPoP <token>` with an `ath`
+claim. The server `DPoP-Nonce` is cached per origin and a `use_dpop_nonce` challenge
+is retried once. `DPoPAuth` is a plain `httpx.Auth`, so it also works with your own
+`httpx.Client` or `httpx.AsyncClient`. Use `DPoPProver` directly to build proofs by hand.
+
+---
+
 ## Error handling
 
 All exceptions inherit from `theauth.TheAuthError`.
@@ -280,6 +343,7 @@ from theauth.errors import (
     RateLimitError,        # 429, has .retry_after
     ServerError,           # 5xx
     NetworkError,          # Transport failure
+    ValidationError,       # 400/422 with .issues (plugin endpoint input)
 )
 
 try:
@@ -304,6 +368,7 @@ TheAuthClient(
     token="kv_...",                               # optional bearer token
     headers={"X-Tenant": "acme"},                # extra headers on every request
     timeout=30.0,                                 # seconds (default 30)
+    auth=None,                                    # optional httpx.Auth, e.g. DPoPAuth()
 )
 ```
 

@@ -1,0 +1,128 @@
+---
+title: Python SDK
+description: Use theAuth from Python with the theauth package. Sync and async httpx clients, MCP server registry, DPoP proofs and plugin route calls.
+icon: "python"
+---
+
+The `theauth` package is the Python client for the theAuth REST API. It is built on `httpx` and ships a sync client and an async client with the same surface. Python 3.9 or newer.
+
+## Installation
+
+```bash
+pip install theauth
+# with DPoP support
+pip install "theauth[dpop]"
+```
+
+## Create a client
+
+```python
+from theauth import TheAuthClient, TheAuthSyncClient
+
+# async
+async with TheAuthClient(base_url="https://api.myapp.com/api/theauth", token="kv_...") as client:
+    agents = await client.agents.list()
+
+# sync
+with TheAuthSyncClient(base_url="https://api.myapp.com/api/theauth", token="kv_...") as client:
+    agents = client.agents.list()
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `base_url` | `str` | Mount point of theAuth on your server |
+| `token` | `str?` | Bearer token sent on every request |
+| `headers` | `dict?` | Extra headers on every request |
+| `timeout` | `float` | Request timeout in seconds. Default 30 |
+| `auth` | `httpx.Auth?` | Custom auth flow, for example `DPoPAuth` |
+
+## Resources
+
+| Resource | Methods |
+|---|---|
+| `client.agents` | `create`, `list`, `get`, `update`, `revoke`, `rotate`, `authorize` |
+| `client.delegation` | `create`, `list`, `revoke`, `get_effective_permissions` |
+| `client.audit` | `query`, `query_paginated`, `export` |
+| `client.mcp` | `register`, `list`, `get` |
+| `client.auth` | `sign_up`, `sign_in`, `get_session`, `sign_out` |
+
+## MCP servers
+
+```python
+from theauth.types import RegisterMcpServerInput
+
+server = await client.mcp.register(
+    RegisterMcpServerInput(
+        name="github-mcp",
+        endpoint="https://mcp.github.com",
+        tools=["read_file", "list_repos"],
+        rate_limit_rpm=60,
+    )
+)
+found = await client.mcp.get(server.id)  # None when it does not exist
+```
+
+## Plugin routes
+
+Call routes declared with `defineEndpoint` through `request()`. It returns the parsed JSON body.
+
+```python
+from theauth import ValidationError
+
+try:
+    result = await client.request(
+        "POST", "/auth/team/invite", json={"email": "a@b.c"}
+    )
+except ValidationError as err:
+    print(err.issues)
+```
+
+Validation failures raise `ValidationError` with the server `issues`. A 403 `CSRF_REJECTED` raises `PermissionError`, and a 429 raises `RateLimitError` with `retry_after`.
+
+## DPoP
+
+`DPoPAuth` signs each request with an ES256 key pair, as described in RFC 9449.
+
+```python
+from theauth import TheAuthSyncClient
+from theauth.dpop import DPoPAuth
+
+auth = DPoPAuth()
+jkt = auth.thumbprint()  # bind your access token to this value
+
+with TheAuthSyncClient(base_url=BASE, token=access_token, auth=auth) as client:
+    client.agents.list()
+```
+
+- The `Authorization` header becomes `DPoP <token>` and the proof carries an `ath` claim.
+- `htu` drops the query and fragment.
+- The server `DPoP-Nonce` is cached per origin and a `use_dpop_nonce` response is retried once.
+
+<Note>
+`DPoPAuth` is a plain `httpx.Auth`, so you can also pass it to your own `httpx.Client` or `httpx.AsyncClient`. The `cryptography` package is imported lazily and a clear error is raised if it is missing.
+</Note>
+
+## Errors
+
+All exceptions inherit from `TheAuthError` and carry `code`, `message` and `status_code`.
+
+| Class | When |
+|---|---|
+| `AuthenticationError` | 401 |
+| `PermissionError` | 403 |
+| `NotFoundError` | 404 |
+| `ValidationError` | 400 or 422 with `issues` |
+| `RateLimitError` | 429, has `retry_after` |
+| `ServerError` | 5xx |
+| `NetworkError` | Transport failure |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Client SDK" href="/client-sdk" icon="code">
+    The TypeScript fetch client this package mirrors.
+  </Card>
+  <Card title="Expo" href="/expo" icon="code">
+    React Native and Expo integration.
+  </Card>
+</CardGroup>
