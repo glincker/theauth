@@ -13,10 +13,39 @@ import type {
 
 // Email validation
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+/**
+ * One "@", no whitespace, and a "." in the domain with at least one character
+ * on each side. A scan, not a regex: `[^\s@]+\.[^\s@]+` can match a dot in
+ * many positions, which is quadratic on a long run of dots.
+ */
 function isValidEmail(email: string): boolean {
-	return EMAIL_REGEX.test(email);
+	const at = email.indexOf("@");
+	if (at < 1 || at !== email.lastIndexOf("@")) return false;
+	for (let i = 0; i < email.length; i += 1) {
+		const c = email.charCodeAt(i);
+		// space, tab, newline, carriage return, vertical tab, form feed, NBSP and
+		// the other Unicode spaces that \s covers
+		if (
+			c <= 32 ||
+			c === 0xa0 ||
+			c === 0xfeff ||
+			(c >= 0x2000 && c <= 0x200a) ||
+			c === 0x2028 ||
+			c === 0x2029 ||
+			c === 0x202f ||
+			c === 0x205f ||
+			c === 0x3000 ||
+			c === 0x1680
+		) {
+			return false;
+		}
+	}
+	const domainStart = at + 1;
+	const domainEnd = email.length - 1;
+	for (let i = domainStart + 1; i < domainEnd; i += 1) {
+		if (email.charCodeAt(i) === 46) return true;
+	}
+	return false;
 }
 
 // ID generation
