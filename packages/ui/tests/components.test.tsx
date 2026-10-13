@@ -466,3 +466,37 @@ describe("ForgotPassword", () => {
 		await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
 	});
 });
+
+// Accessibility
+
+describe("accessibility", () => {
+	it("announces form errors with role=alert", async () => {
+		render(<SignUp />);
+		await userEvent.type(screen.getByPlaceholderText("you@example.com"), "user@example.com");
+		await userEvent.type(screen.getByPlaceholderText("At least 8 characters"), "password123");
+		await userEvent.type(screen.getByPlaceholderText("Repeat your password"), "different123");
+		fireEvent.submit(getForm("Create account"));
+
+		const alert = await screen.findByRole("alert");
+		expect(alert.textContent).toContain("Passwords don't match");
+	});
+
+	it("names the verification code group and each digit", () => {
+		render(<TwoFactorVerify digits={4} />);
+		const group = screen.getByRole("group", { name: "Verification code" });
+		expect(group).toBeTruthy();
+		expect(screen.getByLabelText("Digit 1 of 4")).toBeTruthy();
+		expect(screen.getByLabelText("Digit 4 of 4")).toBeTruthy();
+	});
+
+	it("labels the backup code input", async () => {
+		render(<TwoFactorVerify showBackupOption />);
+		await userEvent.click(screen.getByText("Use backup code"));
+		expect(screen.getByLabelText("Backup code")).toBeTruthy();
+	});
+
+	it("names the card by its title", () => {
+		render(<AuthCard title="Welcome back">content</AuthCard>);
+		expect(screen.getByRole("region", { name: "Welcome back" })).toBeTruthy();
+	});
+});
