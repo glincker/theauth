@@ -20,7 +20,7 @@ const C = {
 };
 const FONT = "Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const MONO = "ui-monospace,JetBrains Mono,Menlo,Consolas,monospace";
-const W = 760;
+let W = 760;
 const SCENE_H = 560;
 const PLATE_H = 480;
 const f = (n) => Math.round(n * 10) / 10;
@@ -69,12 +69,16 @@ const ICONS = {
 };
 
 function scene(X, Y, caption) {
-	const top = 92;
+	const og = caption.og;
+	const top = og ? 150 : 92;
 	const lines = wrapText(caption.line, 62);
 	const BAND = 66 + lines.length * 20;
-	const H = SCENE_H + BAND;
-	const u = Math.min((W - 48) / ((X + Y) * 0.866), (PLATE_H - top - 8) / ((X + Y) * 0.5));
-	const ox = W / 2 + ((Y - X) / 2) * 0.866 * u;
+	const H = og ? 640 : SCENE_H + BAND;
+	const limitH = og ? 640 : SCENE_H;
+	const u = og
+		? Math.min((W * 0.46) / ((X + Y) * 0.866), (H - top - 70) / ((X + Y) * 0.5))
+		: Math.min((W - 48) / ((X + Y) * 0.866), (PLATE_H - top - 8) / ((X + Y) * 0.5));
+	const ox = (og ? W * 0.7 : W / 2) + ((Y - X) / 2) * 0.866 * u;
 	const oy = top;
 	const P = (x, y, z = 0) => [f(ox + (x - y) * 0.866 * u), f(oy + (x + y) * 0.5 * u - z * u)];
 	const pts = (arr) => arr.map((p) => p.join(",")).join(" ");
@@ -222,7 +226,7 @@ function scene(X, Y, caption) {
 		const res = [];
 		const hit = (r) =>
 			boxes.some((o) => r.l < o.r + 6 && r.r > o.l - 6 && r.t < o.b + 6 && r.b > o.t - 6);
-		const inside = (r) => r.l >= 8 && r.r <= W - 8 && r.t >= 56 && r.b <= SCENE_H - 8;
+		const inside = (r) => r.l >= 8 && r.r <= W - 8 && r.t >= 56 && r.b <= limitH - 8;
 		const owner = (x, y) => boxes.find((o) => x >= o.l && x <= o.r && y >= o.t && y <= o.b);
 
 		for (const g of groupLabels) {
@@ -317,7 +321,7 @@ function scene(X, Y, caption) {
 			}
 			if (!best) {
 				const cx = Math.min(Math.max(c.x + c.dx, w / 2 + 8), W - w / 2 - 8);
-				const cy = Math.min(c.y + c.dy, SCENE_H - 30);
+				const cy = Math.min(c.y + c.dy, limitH - 30);
 				best = { cx, cy, r: { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 } };
 				console.warn(`overlap: callout "${c.text}"`);
 				process.exitCode = 1;
@@ -384,12 +388,19 @@ function scene(X, Y, caption) {
 <rect width="${W}" height="${H}" rx="16" fill="url(#g1)"/><rect width="${W}" height="${H}" rx="16" fill="url(#g2)"/><rect width="${W}" height="${H}" rx="16" fill="url(#g3)"/>
 <rect width="${W}" height="${H}" rx="16" filter="url(#n)" opacity=".10"/>
 ${[...out, ...placeTags()].join("\n")}
-<g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="${C.purple}" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="${C.purple}" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="${C.lime}"/><text x="38" y="20" font-size="17" font-weight="600" fill="${C.text}">theAuth</text></g>
-<rect x="0" y="${H - BAND}" width="${W}" height="${BAND}" fill="#000" opacity=".35"/>
-<line x1="0" y1="${H - BAND}" x2="${W}" y2="${H - BAND}" stroke="#26343b"/>
+<g transform="${og ? "translate(64 52) scale(1.7)" : "translate(24 22)"}"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="${C.purple}" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="${C.purple}" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="${C.lime}"/><text x="38" y="20" font-size="17" font-weight="600" fill="${C.text}">theAuth</text></g>
+${og ? "" : `<rect x="0" y="${H - BAND}" width="${W}" height="${BAND}" fill="#000" opacity=".35"/>`}
+${
+	og
+		? `<text x="64" y="320" font-size="68" font-weight="750" fill="${C.text}" letter-spacing="-1">${esc(og.headline[0])}</text>
+<text x="64" y="396" font-size="68" font-weight="750" fill="${C.teal}" letter-spacing="-1">${esc(og.headline[1])}</text>
+${og.sub.map((l, i) => `<text x="64" y="${462 + i * 34}" font-size="25" fill="${C.muted}">${esc(l)}</text>`).join("\n")}
+<text x="64" y="${H - 52}" font-size="21" fill="${C.lime}" font-family="${MONO}">${esc(og.url)}</text>`
+		: `<line x1="0" y1="${H - BAND}" x2="${W}" y2="${H - BAND}" stroke="#26343b"/>
 <text x="24" y="${H - BAND + 32}" font-size="20" font-weight="650" fill="${C.text}">${esc(title)}</text>
 ${lines.map((l, i) => `<text x="24" y="${H - BAND + 56 + i * 20}" font-size="14.5" fill="${C.muted}">${esc(l)}</text>`).join("\n")}
-<text x="${W - 24}" y="40" text-anchor="end" font-size="13" fill="${C.lime}" font-family="${MONO}">theauth.dev</text>
+<text x="${W - 24}" y="40" text-anchor="end" font-size="13" fill="${C.lime}" font-family="${MONO}">theauth.dev</text>`
+}
 </svg>
 `;
 	}
@@ -406,7 +417,13 @@ function save(dir, name, s) {
 	mkdirSync(BUILD, { recursive: true });
 	writeFileSync(join(BUILD, `${name}.svg`), svg);
 	const vb = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
-	exportsList.push({ dir, name, w: Number(vb[1]), h: Number(vb[2]) });
+	exportsList.push({
+		dir,
+		name,
+		w: Number(vb[1]),
+		h: Number(vb[2]),
+		scale: name.startsWith("og-") ? 1 : 2,
+	});
 }
 
 function exportAll() {
@@ -435,7 +452,7 @@ function exportAll() {
 				"--headless=new",
 				"--disable-gpu",
 				"--hide-scrollbars",
-				"--force-device-scale-factor=2",
+				`--force-device-scale-factor=${e.scale}`,
 				`--screenshot=${png}`,
 				`--window-size=${e.w},${e.h}`,
 				`file://${html}`,
@@ -987,6 +1004,43 @@ const FOUR = [
 		["Asks for a device code", "Issues code and URL", "User approves", "CLI polls, gets token"],
 	);
 	save("diagrams", "theauth-cli-device-sign-in", s);
+}
+
+// Social preview for the Go repo (1280 by 640). Same scene machinery as the docs diagrams, so it
+// keeps the grain, glows, shadows and lifted pipes.
+{
+	const prevW = W;
+	W = 1280;
+	const s = scene(10, 10, {
+		title: "theAuth for Go",
+		alt: "theAuth for Go: authentication for Go services with OAuth 2.1, MCP, passkeys, SAML and SCIM.",
+		line: "",
+		og: {
+			headline: ["Authentication", "for Go"],
+			sub: ["OAuth 2.1, MCP, passkeys, SAML, SCIM and DPoP.", "Self-hosted. MIT licensed."],
+			url: "github.com/glincker/theauth-go",
+		},
+	});
+	s.platform(0, 0, 10, 10);
+	const cs = [
+		[1.4, 8.6],
+		[3.8, 6.2],
+		[6.2, 3.8],
+		[8.6, 1.4],
+	];
+	const spec = [
+		{ accent: C.teal, kind: "term", h: 1.2 },
+		{ accent: C.purple, kind: "mark", h: 1.7 },
+		{ accent: C.lime, kind: "server", h: 1.3 },
+		{ accent: C.teal, kind: "shield", h: 1.2 },
+	];
+	const labels = ["Your Go service", "theAuth", "OAuth and MCP", "Verified identity"];
+	const boxes = cs.map((c, i) => s.cuboid(...box(...c, 1.7), spec[i].h, spec[i]));
+	for (let i = 0; i < cs.length - 1; i++)
+		s.route(along(cs[i], cs[i + 1], 1.05), i % 2 ? C.teal : C.lime);
+	for (const [i, b] of boxes.entries()) s.tag(b.top, labels[i], i % 2 ? 70 : 46);
+	save("og", "og-theauth-go", s);
+	W = prevW;
 }
 
 exportAll();
