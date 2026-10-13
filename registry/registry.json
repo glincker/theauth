@@ -1,0 +1,153 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "theauth",
+  "homepage": "https://docs.theauth.dev/ui-components",
+  "items": [
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "theauth-base",
+      "type": "registry:component",
+      "title": "theAuth base",
+      "description": "Shared types, class helper, default slots and the auth card used by every theAuth component.",
+      "dependencies": [],
+      "files": [
+        {
+          "path": "theauth/types.ts",
+          "type": "registry:lib",
+          "target": "components/theauth/types.ts"
+        },
+        {
+          "path": "theauth/utils.ts",
+          "type": "registry:lib",
+          "target": "components/theauth/utils.ts"
+        },
+        {
+          "path": "theauth/defaults.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/defaults.tsx"
+        },
+        {
+          "path": "theauth/auth-card.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/auth-card.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "oauth-buttons",
+      "type": "registry:component",
+      "title": "OAuth buttons",
+      "description": "Social provider buttons.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json"
+      ],
+      "files": [
+        {
+          "path": "theauth/oauth-buttons.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/oauth-buttons.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "sign-in",
+      "type": "registry:component",
+      "title": "Sign in",
+      "description": "Email and password sign in with optional OAuth, magic link and passkey.",
+      "dependencies": [
+        "@glinr/theauth-react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json",
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/oauth-buttons.json"
+      ],
+      "files": [
+        {
+          "path": "theauth/sign-in.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/sign-in.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "sign-up",
+      "type": "registry:component",
+      "title": "Sign up",
+      "description": "Account creation form with optional OAuth.",
+      "dependencies": [
+        "@glinr/theauth-react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json",
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/oauth-buttons.json"
+      ],
+      "files": [
+        {
+          "path": "theauth/sign-up.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/sign-up.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "forgot-password",
+      "type": "registry:component",
+      "title": "Forgot password",
+      "description": "Password reset request form.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json"
+      ],
+      "files": [
+        {
+          "path": "theauth/forgot-password.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/forgot-password.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "two-factor-verify",
+      "type": "registry:component",
+      "title": "Two-factor verify",
+      "description": "One-time code entry with backup code fallback.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json"
+      ],
+      "files": [
+        {
+          "path": "theauth/two-factor-verify.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/two-factor-verify.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "user-button",
+      "type": "registry:component",
+      "title": "User button",
+      "description": "Avatar menu with sign out.",
+      "dependencies": [
+        "@glinr/theauth-react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json"
+      ],
+      "files": [
+        {
+          "path": "theauth/user-button.tsx",
+          "type": "registry:component",
+          "target": "components/theauth/user-button.tsx"
+        }
+      ]
+    }
+  ]
+}

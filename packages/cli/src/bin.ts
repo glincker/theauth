@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { argv, exit, stdin, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
+import { ADD_HELP, formatAdd, listItems, parseAddArgs, runAdd } from "./add-command.js";
 import { INIT_AGENT_HELP, parseInitAgentArgs, runInitAgent } from "./agent/init-agent.js";
 import { serveStdio } from "./agent/mcp-server.js";
 import { AUDIT_HELP, openAuditModule, parseAuditArgs, runAudit } from "./audit-commands.js";
@@ -43,6 +44,7 @@ Usage:
 
 Commands:
   init          Initialize TheAuth in your project (--agent for coding assistants)
+  add           Copy UI components into your project as source (shadcn style)
   mcp           Start the stdio MCP server for coding assistants
   migrate       Move users from Auth0, Keycloak, Clerk and more (plan, import, verify, status)
   dashboard     Launch the admin dashboard
@@ -202,6 +204,31 @@ async function handleAuthCommand(command: "login" | "logout" | "whoami"): Promis
 	if (code !== 0) exit(code);
 }
 
+async function handleAdd(): Promise<void> {
+	const parsed = parseAddArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(ADD_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${ADD_HELP}`);
+		exit(1);
+		return;
+	}
+	if (parsed.list) {
+		stdout.write(`${listItems(parsed.registry).join("\n")}\n`);
+		return;
+	}
+	try {
+		const cwd = process.cwd();
+		const result = await runAdd(parsed, cwd);
+		stdout.write(formatAdd(result, cwd, parsed.dryRun));
+	} catch (err) {
+		stdout.write(`${err instanceof Error ? err.message : String(err)}\n`);
+		exit(1);
+	}
+}
+
 function handleSecret(): void {
 	const parsed = parseSecretArgs(argv.slice(3));
 	if (parsed.help) {
@@ -302,6 +329,9 @@ async function main(): Promise<void> {
 	switch (command) {
 		case "init":
 			await handleInit();
+			break;
+		case "add":
+			await handleAdd();
 			break;
 		case "mcp":
 			// stdout carries protocol messages only; diagnostics would corrupt the stream.
