@@ -48,19 +48,28 @@ export { createGitlabProvider } from "./gitlab.js";
 
 // Google
 export { createGoogleProvider } from "./google.js";
-
+// Kakao
+export { createKakaoProvider, DEFAULT_KAKAO_SCOPES } from "./kakao.js";
+// Kick
+export { createKickProvider, DEFAULT_KICK_SCOPES } from "./kick.js";
+// Linear
+export { createLinearProvider, DEFAULT_LINEAR_SCOPES } from "./linear.js";
 // LinkedIn
 export { createLinkedInProvider } from "./linkedin.js";
-
 // Microsoft
 export { createMicrosoftProvider } from "./microsoft.js";
-
 // Notion
 export {
 	createNotionProvider,
 	DEFAULT_NOTION_SCOPES,
 	normalizeProfile as normalizeNotionProfile,
 } from "./notion.js";
+// PayPal
+export {
+	createPaypalProvider,
+	DEFAULT_PAYPAL_SCOPES,
+	type PaypalProviderConfig,
+} from "./paypal.js";
 // Legacy preset providers — kept for backwards compatibility.
 // These use the genericOIDC factory directly and have a different signature
 // (clientId, clientSecret) vs. the first-class (OAuthProviderConfig) pattern.
@@ -131,6 +140,8 @@ export {
 } from "./twitch.js";
 // Twitter / X
 export { createTwitterProvider } from "./twitter.js";
+// Vercel
+export { createVercelProvider, DEFAULT_VERCEL_SCOPES } from "./vercel.js";
 // Zoom
 export {
 	createZoomProvider,

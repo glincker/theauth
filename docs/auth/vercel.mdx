@@ -10,7 +10,7 @@ icon: "/brand-icons/vercel.svg"
 <Step>
 ### Get credentials
 
-Go to [vercel.com/integrations](https://vercel.com/integrations) and click **Add New Integration**. Under **OAuth 2.0**, add your redirect URI:
+In your Vercel team, open **Settings**, then **Apps**, and click **Create**. Under **Authorization Callback URLs**, add your redirect URI, then generate a client secret and enable the `openid`, `email` and `profile` permissions:
 
 ```
 https://your-app.com/api/theauth/auth/oauth/callback/vercel
@@ -22,7 +22,7 @@ https://your-app.com/api/theauth/auth/oauth/callback/vercel
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth, vercelProvider } from '@glinr/theauth/auth';
+import { oauth, createVercelProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
@@ -32,10 +32,10 @@ const theauth = await createTheAuth({
   plugins: [
     oauth({
       providers: {
-        vercel: vercelProvider(
-          process.env.VERCEL_CLIENT_ID!,
-          process.env.VERCEL_CLIENT_SECRET!,
-        ),
+        vercel: createVercelProvider({
+          clientId: process.env.VERCEL_CLIENT_ID!,
+          clientSecret: process.env.VERCEL_CLIENT_SECRET!,
+        }),
       },
     }),
   ],
@@ -58,14 +58,22 @@ Default scopes: `openid`, `email`, `profile`
 | `openid` | OIDC identity |
 | `email` | Email address |
 | `profile` | Name and profile picture |
+| `offline_access` | A refresh token (needed for `getAccessToken` refreshes) |
+
+Scopes the app does not have enabled in its dashboard settings are dropped by Vercel.
+
+## How it works
+
+- This uses the Sign in with Vercel authorization server: `https://vercel.com/oauth/authorize`, `https://api.vercel.com/login/oauth/token` and `https://api.vercel.com/login/oauth/userinfo`.
+- PKCE with S256 is required and always sent. Client credentials go in the form body.
+- The userinfo call is a POST with the access token as a Bearer header. It returns `sub`, `email`, `email_verified`, `name`, `preferred_username` and `picture`. The email counts as verified only when `email_verified` is true.
+- Add `offline_access` to `scopes` to receive a refresh token.
 
 <Info>
-  Vercel OAuth apps are created as marketplace integrations. The access token grants access to the user's personal account and any teams they belong to.
+  `vercelProvider` (the older preset) targets Vercel's marketplace integration endpoints and cannot read the profile. It is still exported for existing code. Use `createVercelProvider` for new setups.
 </Info>
 
-<Warning>
-  This is a preset built on the generic OIDC factory, which reads the user from `https://api.vercel.com/v2/user` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a `user` object with an `id` field, so sign-in is expected to fail with `Vercel userinfo response missing required "sub" field`. This preset has not been verified against the live service.
-</Warning>
+Vendor docs: [Sign in with Vercel authorization server API](https://vercel.com/docs/sign-in-with-vercel/authorization-server-api).
 
 ## Endpoints
 

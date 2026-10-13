@@ -22,7 +22,7 @@ https://your-app.com/api/theauth/auth/oauth/callback/linear
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth, linearProvider } from '@glinr/theauth/auth';
+import { oauth, createLinearProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
@@ -32,10 +32,10 @@ const theauth = await createTheAuth({
   plugins: [
     oauth({
       providers: {
-        linear: linearProvider(
-          process.env.LINEAR_CLIENT_ID!,
-          process.env.LINEAR_CLIENT_SECRET!,
-        ),
+        linear: createLinearProvider({
+          clientId: process.env.LINEAR_CLIENT_ID!,
+          clientSecret: process.env.LINEAR_CLIENT_SECRET!,
+        }),
       },
     }),
   ],
@@ -60,13 +60,20 @@ Default scopes: `read`
 | `issues:create` | Create issues |
 | `app:assignIssues` | Assign issues to the app |
 
+Scopes are sent comma separated, as Linear requires.
+
+## How it works
+
+- Linear has no userinfo endpoint. The profile comes from a GraphQL `viewer { id name email }` query sent as a POST to `https://api.linear.app/graphql`.
+- PKCE (S256) is sent. Client credentials go in the form body.
+- The code exchange returns a refresh token, and `getAccessToken` refreshes through it. Access tokens last 24 hours.
+- Linear does not state whether the email is verified, so the OAuth plugin will not link a Linear login to an existing account by email.
+
 <Info>
-  Linear uses UUIDs as user identifiers. The user's email is always returned and is verified.
+  `linearProvider` (the older preset, which cannot read Linear's GraphQL profile) is still exported for existing code. Use `createLinearProvider` for new setups.
 </Info>
 
-<Warning>
-  This is a preset built on the generic OIDC factory, which reads the user from `https://api.linear.app/graphql` and requires the response to contain the OIDC `sub` and `email` fields. That endpoint returns a GraphQL `data.viewer` object, so sign-in is expected to fail with `Linear userinfo response missing required "sub" field`. This preset has not been verified against the live service.
-</Warning>
+Vendor docs: [Linear OAuth 2.0 authentication](https://linear.app/developers/oauth-2-0-authentication) and [GraphQL API](https://linear.app/developers/graphql).
 
 ## Endpoints
 

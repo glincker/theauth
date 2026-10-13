@@ -40,6 +40,12 @@ export interface GenericOIDCConfig {
 	 */
 	scopes?: string[];
 	/**
+	 * Replaces the built-in `['openid', 'email', 'profile']` baseline that
+	 * `scopes` is merged into. Use it for providers that reject or do not
+	 * define the OIDC scopes.
+	 */
+	defaultScopes?: string[];
+	/**
 	 * Override the redirect URI registered with the provider.
 	 * When omitted the URI passed at call time is used.
 	 */
@@ -61,9 +67,32 @@ export interface GenericOIDCConfig {
 		email: string;
 		name?: string;
 		avatar?: string;
+		/** Set only when the provider states the email is verified. */
+		emailVerified?: boolean;
 	} | null;
 	/** Authorization scheme for the userinfo request (default `Bearer`). */
 	userinfoAuthScheme?: string;
+	/** Separator used to join scopes in the authorize URL (default a space). */
+	scopeSeparator?: string;
+	/** HTTP method for the userinfo request (default `GET`). */
+	userinfoMethod?: "GET" | "POST";
+	/**
+	 * Request body for the userinfo call, sent as `application/json`. Use it
+	 * for GraphQL endpoints. Only meaningful with `userinfoMethod: "POST"`.
+	 */
+	userinfoBody?: string;
+	/** Extra query parameters appended to the authorization URL. */
+	authorizationParams?: Record<string, string>;
+	/**
+	 * How client credentials reach the token endpoint: in the form body
+	 * (default) or in an `Authorization: Basic` header. Applies to refresh too.
+	 */
+	tokenAuth?: "body" | "basic";
+	/**
+	 * Send the PKCE challenge and verifier (default `true`). Set `false` for
+	 * providers whose documentation does not describe PKCE.
+	 */
+	pkce?: boolean;
 }
 
 // Discovery cache — one entry per issuer, populated lazily at first use
@@ -152,7 +181,7 @@ interface OIDCUserInfoResponse {
  * ```
  */
 export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
-	const defaultScopes = ["openid", "email", "profile"];
+	const defaultScopes = config.defaultScopes ?? ["openid", "email", "profile"];
 	const scopes = mergeScopes(defaultScopes, config.scopes);
 
 	/** Resolve endpoints: use explicit overrides first, then discover. */
@@ -178,18 +207,22 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 		redirectUri: string,
 	): Promise<string> {
 		const endpoints = await resolveEndpoints();
-		const codeChallenge = await deriveCodeChallenge(codeVerifier);
 		const effectiveRedirectUri = config.redirectUri ?? redirectUri;
 
 		const params = new URLSearchParams({
 			client_id: config.clientId,
 			redirect_uri: effectiveRedirectUri,
 			response_type: "code",
-			scope: scopes.join(" "),
+			scope: scopes.join(config.scopeSeparator ?? " "),
 			state,
-			code_challenge: codeChallenge,
-			code_challenge_method: "S256",
 		});
+		if (config.pkce !== false) {
+			params.set("code_challenge", await deriveCodeChallenge(codeVerifier));
+			params.set("code_challenge_method", "S256");
+		}
+		for (const [key, value] of Object.entries(config.authorizationParams ?? {})) {
+			params.set(key, value);
+		}
 
 		return `${endpoints.authorizationUrl}?${params.toString()}`;
 	}
@@ -202,18 +235,26 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 		const endpoints = await resolveEndpoints();
 		const effectiveRedirectUri = config.redirectUri ?? redirectUri;
 
+		const basic = config.tokenAuth === "basic";
 		const body = new URLSearchParams({
 			grant_type: "authorization_code",
-			client_id: config.clientId,
-			client_secret: config.clientSecret,
 			code,
-			code_verifier: codeVerifier,
 			redirect_uri: effectiveRedirectUri,
 		});
+		if (config.pkce !== false) body.set("code_verifier", codeVerifier);
+		const headers: Record<string, string> = {
+			"Content-Type": "application/x-www-form-urlencoded",
+		};
+		if (basic) {
+			headers.Authorization = `Basic ${btoa(`${config.clientId}:${config.clientSecret}`)}`;
+		} else {
+			body.set("client_id", config.clientId);
+			body.set("client_secret", config.clientSecret);
+		}
 
 		const response = await fetch(endpoints.tokenUrl, {
 			method: "POST",
-			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			headers,
 			body: body.toString(),
 		});
 
@@ -237,9 +278,18 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 	async function getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
 		const endpoints = await resolveEndpoints();
 
-		const response = await fetch(endpoints.userinfoUrl, {
-			headers: { Authorization: `${config.userinfoAuthScheme ?? "Bearer"} ${accessToken}` },
-		});
+		const headers: Record<string, string> = {
+			Authorization: `${config.userinfoAuthScheme ?? "Bearer"} ${accessToken}`,
+		};
+		const init: RequestInit = { headers };
+		if (config.userinfoMethod === "POST") {
+			init.method = "POST";
+			if (config.userinfoBody !== undefined) {
+				headers["Content-Type"] = "application/json";
+				init.body = config.userinfoBody;
+			}
+		}
+		const response = await fetch(endpoints.userinfoUrl, init);
 
 		if (!response.ok) {
 			const text = await response.text();
@@ -252,7 +302,14 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 			if (!mapped?.id || !mapped.email) {
 				throw new Error(`${config.name} userinfo response missing a usable id or email.`);
 			}
-			return { id: mapped.id, email: mapped.email, name: mapped.name, avatar: mapped.avatar, raw };
+			return {
+				id: mapped.id,
+				email: mapped.email,
+				name: mapped.name,
+				avatar: mapped.avatar,
+				...(mapped.emailVerified === undefined ? {} : { emailVerified: mapped.emailVerified }),
+				raw,
+			};
 		}
 
 		const data = raw as unknown as OIDCUserInfoResponse;
@@ -301,6 +358,7 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 				tokenUrl: endpoints.tokenUrl,
 				clientId: config.clientId,
 				clientSecret: config.clientSecret,
+				authStyle: config.tokenAuth === "basic" ? "basic" : "body",
 			})(refreshToken);
 		},
 		getUserInfo,
