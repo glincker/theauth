@@ -1,21 +1,5 @@
 /**
  * Tests for API key management.
- *
- * Covers:
- * - create: returns full key string once (with prefix)
- * - create: key has the configured prefix
- * - create: stores a prefix (first chars) for display, not the full key
- * - create: default expiry is applied when not specified
- * - validate: returns user + permissions for a valid key
- * - validate: returns null for an incorrect key
- * - validate: returns null for a revoked key
- * - validate: returns null for an expired key
- * - list: returns all keys for a user without full key values
- * - list: returns empty array for unknown user
- * - revoke: deletes the key record
- * - rotate: creates a new key with the same permissions
- * - rotate: the old key is invalidated after rotation
- * - handleRequest: POST /auth/api-keys creates and returns 201
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

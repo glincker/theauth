@@ -1,28 +1,5 @@
 /**
  * Tests for the last-login tracking module.
- *
- * Covers:
- * - recordLogin: all built-in methods succeed
- * - recordLogin: oauth:{provider} variants succeed
- * - recordLogin: stores ip and userAgent
- * - recordLogin: works without optional fields
- * - recordLogin: returns the recorded event
- * - recordLogin: rejects empty userId
- * - recordLogin: rejects invalid oauth pattern
- * - recordLogin: rejects completely unknown method
- * - recordLogin: prunes history to maxHistoryPerUser
- * - recordLogin: custom maxHistoryPerUser config is respected
- * - recordLogin: keeps the most recent entries during pruning
- * - getLastLogin: returns the most recent event
- * - getLastLogin: returns null when no history exists
- * - getLastLogin: rejects empty userId
- * - getLoginHistory: returns events newest-first
- * - getLoginHistory: respects a caller-supplied limit
- * - getLoginHistory: returns empty array when no history
- * - getLoginHistory: returns all fields on each event
- * - getLoginHistory: rejects empty userId
- * - multiple users: histories are isolated from one another
- * - multiple users: pruning one user does not affect another
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

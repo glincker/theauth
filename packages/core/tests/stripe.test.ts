@@ -1,27 +1,5 @@
 /**
  * Tests for the Stripe payment integration module and plugin.
- *
- * Covers:
- * - Webhook signature verification: valid signature passes
- * - Webhook signature verification: tampered payload rejected
- * - Webhook signature verification: stale timestamp rejected
- * - Webhook signature verification: missing header rejected
- * - Subscription status parsing from DB row
- * - createCustomer: calls Stripe API and persists customer ID
- * - getCustomerId: returns null for unknown user
- * - getCustomerId: returns persisted ID after createCustomer
- * - createCheckoutSession: calls Stripe API with correct params
- * - createCheckoutSession: auto-creates customer when autoCreateCustomer=true
- * - createCheckoutSession: throws when no customer and autoCreateCustomer=false
- * - createPortalSession: calls Stripe API and returns URL
- * - handleWebhook: checkout.session.completed links customer to user
- * - handleWebhook: customer.subscription.updated persists subscription
- * - handleWebhook: customer.subscription.deleted clears subscription
- * - handleWebhook: invoice.payment_failed sets status to past_due
- * - handleWebhook: unknown event types return 200 without error
- * - Plugin endpoints: unauthenticated POST /auth/stripe/checkout returns 401
- * - Plugin endpoints: unauthenticated POST /auth/stripe/portal returns 401
- * - Plugin endpoints: unauthenticated GET /auth/stripe/subscription returns 401
  */
 
 import { eq } from "drizzle-orm";

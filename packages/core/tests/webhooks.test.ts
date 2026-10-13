@@ -1,16 +1,5 @@
 /**
  * Tests for the webhook system.
- *
- * Covers:
- * - emit: sends POST to the endpoint URL
- * - emit: sets X-TheAuth-Event header
- * - emit: sets X-TheAuth-Signature header with sha256= prefix
- * - emit: sets X-TheAuth-Timestamp header
- * - emit: only sends to endpoints subscribed to the event
- * - emit: does not send when event is not in subscription list
- * - addEndpoint: new endpoint receives subsequent events
- * - listEndpoints: returns all configured endpoints
- * - signature: can be verified with the HMAC secret
  */
 
 import { createHmac } from "node:crypto";

@@ -1,28 +1,5 @@
 /**
  * Tests for the Polar payment integration module and plugin.
- *
- * Covers:
- * - Webhook signature verification: valid signature passes
- * - Webhook signature verification: tampered payload rejected
- * - Webhook signature verification: missing header rejected
- * - Webhook signature verification: malformed header rejected
- * - createCheckout: calls Polar API with correct fields
- * - createCheckout: includes organizationId when configured
- * - createCheckout: throws when user not found
- * - getSubscription: returns null for user with no subscription data
- * - getSubscription: returns subscription info from stored columns
- * - handleWebhook: subscription.created persists subscription
- * - handleWebhook: subscription.updated updates stored data
- * - handleWebhook: subscription.revoked clears subscription
- * - handleWebhook: subscription.revoked fires onSubscriptionChange
- * - handleWebhook: unknown event types return 200 without error
- * - handleWebhook: internal errors return 500
- * - Plugin endpoints: unauthenticated POST /auth/polar/checkout returns 401
- * - Plugin endpoints: unauthenticated GET /auth/polar/subscription returns 401
- * - Plugin endpoints: POST /auth/polar/checkout returns 400 when productId missing
- * - Plugin endpoints: GET /auth/polar/subscription returns null for user with no data
- * - Plugin endpoints: POST /auth/polar/webhook is registered without requireAuth
- * - sandbox: uses sandbox API base URL
  */
 
 import { eq } from "drizzle-orm";

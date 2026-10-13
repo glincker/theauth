@@ -1,16 +1,5 @@
 /**
  * Tests for magic link authentication.
- *
- * Covers:
- * - sendLink: creates a token record, calls sendMagicLink with the right URL
- * - verify: returns user + session on valid token
- * - verify: returns null for an expired token
- * - verify: returns null for an already-used token
- * - verify: returns null for an unknown token
- * - handleRequest: POST /auth/magic-link/send responds 200
- * - handleRequest: GET  /auth/magic-link/verify?token=... responds 200
- * - handleRequest: GET  /auth/magic-link/verify?token=... responds 401 for bad token
- * - handleRequest: returns null for unmatched paths
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

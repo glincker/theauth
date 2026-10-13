@@ -1,15 +1,5 @@
 /**
  * Tests for anonymous authentication.
- *
- * Covers:
- * - createAnonymousUser: creates user + session, email uses placeholder domain
- * - isAnonymous: true before upgrade, false after
- * - upgradeUser: sets email, clears anonymous flag
- * - upgradeUser: throws for non-existent user
- * - upgradeUser: throws when user is not anonymous
- * - cleanup: removes expired anonymous users and their sessions
- * - cleanup: keeps non-anonymous users
- * - Plugin endpoints: POST /auth/anonymous, POST /auth/anonymous/upgrade, GET /auth/anonymous/status
  */
 
 import { eq } from "drizzle-orm";

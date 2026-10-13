@@ -1,34 +1,5 @@
 /**
  * Tests for the SCIM 2.0 module.
- *
- * Covers:
- * - Bearer token auth: reject requests without token
- * - Bearer token auth: reject requests with wrong token
- * - User provisioning (POST /scim/v2/Users)
- * - User provisioning: reject duplicate userName
- * - User listing with pagination (GET /scim/v2/Users)
- * - User filtering by userName eq
- * - User filtering by emails.value eq
- * - User get by ID (GET /scim/v2/Users/:id)
- * - User get by ID: 404 for unknown ID
- * - User replace (PUT /scim/v2/Users/:id)
- * - User PATCH: replace active (deactivate)
- * - User PATCH: replace active (reactivate)
- * - User PATCH: replace userName
- * - User PATCH: no-path value object
- * - User deprovisioning (DELETE /scim/v2/Users/:id): soft deactivate
- * - User deprovisioning: fires onDeprovision callback
- * - Group creation (POST /scim/v2/Groups)
- * - Group listing (GET /scim/v2/Groups)
- * - Group get by ID (GET /scim/v2/Groups/:id)
- * - Group replace (PUT /scim/v2/Groups/:id)
- * - Group PATCH: add member
- * - Group PATCH: remove member by value filter
- * - Group delete (DELETE /scim/v2/Groups/:id)
- * - ServiceProviderConfig response shape
- * - Schemas response lists User and Group
- * - ResourceTypes response lists User and Group
- * - Returns null for non-SCIM paths
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

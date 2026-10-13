@@ -1,13 +1,5 @@
 /**
  * Tests for TOTP two-factor authentication.
- *
- * Covers:
- * - Secret generation (valid base32, correct length)
- * - TOTP code generation (6-digit string)
- * - TOTP verification (correct code passes, wrong code fails)
- * - Window tolerance (adjacent time periods accepted)
- * - Database integration (setup, enable, disable)
- * - Backup codes (verification, single use, regeneration)
  */
 
 import { createHmac } from "node:crypto";

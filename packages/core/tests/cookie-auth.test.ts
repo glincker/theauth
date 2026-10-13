@@ -1,13 +1,5 @@
 /**
  * Tests for the cookieAuth adapter.
- *
- * Covers:
- * - Extracts JWT from named cookie and resolves user
- * - Returns null when no cookie header present
- * - Returns null when named cookie is missing
- * - Returns null for invalid/expired JWT
- * - Custom claim mapping
- * - Extra claims passed as metadata
  */
 
 import { SignJWT } from "jose";

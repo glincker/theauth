@@ -74,9 +74,6 @@ function existingChunkIndexes(name: string, cookies: Record<string, string>): nu
  * Build the `Set-Cookie` headers for a possibly chunked cookie.
  *
  * @param existing Cookies currently on the request. Stale chunks (a previous
- *                 longer value) are deleted so they cannot be stitched back in.
- *
- * Fails with `COOKIE_TOO_LARGE` when the value needs more than `maxChunks`.
  */
 export function serializeChunkedCookie(
 	name: string,

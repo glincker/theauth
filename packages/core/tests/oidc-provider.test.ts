@@ -1,19 +1,5 @@
 /**
  * Tests for the OIDC Provider module.
- *
- * Covers:
- * - Client registration, retrieval, and deletion
- * - Authorization code flow (with and without PKCE)
- * - Token exchange (authorization_code grant)
- * - Token refresh (refresh_token grant)
- * - Refresh token rotation
- * - ID token claims (sub, iss, aud, nonce, at_hash)
- * - UserInfo endpoint
- * - Discovery document
- * - JWKS
- * - Access token validation (valid, expired, malformed)
- * - Error cases: invalid client, expired code, code reuse, bad redirect_uri,
- *   bad PKCE, client mismatch, missing client secret
  */
 
 import { createHash } from "node:crypto";

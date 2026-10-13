@@ -1,12 +1,5 @@
 /**
  * Tests for the rateLimit() plugin, MemoryStore, and KVStore.
- *
- * Coverage:
- *  - rateLimit() plugin: allows under limit, blocks at/over limit, 429 headers,
- *    per-endpoint config, custom key extractor, custom onLimit, window parsing
- *  - MemoryStore: increment, window reset, isolation per key
- *  - KVStore: increment, window reset, reset()
- *  - Concurrent requests don't race (MemoryStore is sync under the hood)
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

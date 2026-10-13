@@ -1,23 +1,5 @@
 /**
  * Tests for the GDPR module.
- *
- * Covers:
- * - exportUserData: includes user record, agents, sessions, audit logs, delegations, orgs, API keys
- * - exportUserData: throws for unknown user
- * - deleteUser: removes agents (marks revoked), sessions, delegations, API keys
- * - deleteUser: with keepAuditLogs=true anonymizes audit log entries
- * - deleteUser: with keepAuditLogs=false hard-deletes audit log entries
- * - deleteUser: anonymized userId follows [deleted-{hash}] format
- * - deleteUser: different deleted users produce distinct hashes
- * - deleteUser: removes passwordless auth records (TOTP, passkeys)
- * - deleteUser: removes OAuth tokens and approval requests
- * - deleteUser: keeps org membership rows by default (deleteOrganizations=false)
- * - anonymizeUser: replaces email and name with anonymized values
- * - anonymizeUser: keeps the account (user row remains)
- * - anonymizeUser: removes TOTP and passkey credentials
- * - gdpr plugin: GET /auth/gdpr/export returns 401 without auth
- * - gdpr plugin: DELETE /auth/gdpr/delete requires confirmation body
- * - gdpr plugin: POST /auth/gdpr/anonymize returns 401 without auth
  */
 
 import { randomUUID } from "node:crypto";

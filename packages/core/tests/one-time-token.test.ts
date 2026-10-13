@@ -1,29 +1,5 @@
 /**
  * Tests for the one-time token module.
- *
- * Covers:
- * - createToken: all four purposes
- * - createToken: custom TTL override
- * - createToken: module-level defaultTtlSeconds
- * - createToken: metadata round-trip
- * - createToken: returns raw token (not hash) and correct expiresAt
- * - createToken: rejects invalid input
- * - createToken: each call produces a unique token
- * - validateToken: success path returns identifier and metadata
- * - validateToken: success path without metadata
- * - validateToken: marks token as used
- * - validateToken: fails on second use (exactly-once)
- * - validateToken: fails on unknown token
- * - validateToken: fails on expired token
- * - validateToken: fails on purpose mismatch
- * - validateToken: raw token is never stored in DB
- * - validateToken: fails for empty token or empty purpose
- * - revokeTokens: revokes all active tokens for identifier
- * - revokeTokens: returns count = 0 when nothing to revoke
- * - revokeTokens: scoped revocation by purpose
- * - revokeTokens: does not count already-used tokens
- * - revokeTokens: does not affect tokens for a different identifier
- * - revokeTokens: returns error for empty identifier
  */
 
 import { createHash } from "node:crypto";

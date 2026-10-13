@@ -1,15 +1,5 @@
 /**
  * Tests for @glinr/theauth-ui components.
- *
- * Covers:
- * - cx() utility: string, function, and undefined overrides
- * - AuthCard: title, description, children rendering
- * - OAuthButtons: provider buttons, grid vs list layout, empty providers
- * - SignIn: form fields, submit callback
- * - SignUp: name/email/password/confirm fields, submit callback
- * - UserButton: avatar rendering, dropdown toggle
- * - TwoFactorVerify: digit inputs, paste handling
- * - ForgotPassword: email input, success state
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";

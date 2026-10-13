@@ -1,12 +1,5 @@
 /**
  * Tests for IETF agentic JWT claim constants and JWT session integration.
- *
- * Covers:
- * - AGENTIC_JWT_CLAIMS constant values are stable (snapshot).
- * - Flag off: issued tokens contain none of the agentic claim keys.
- * - Flag on with delegated agent: token contains agent_id, agent_type,
- *   trust_tier.
- * - Partial context: only available claims are emitted; missing ones are absent.
  */
 
 import { decodeJwt } from "jose";

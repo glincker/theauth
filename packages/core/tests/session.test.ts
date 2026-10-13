@@ -1,12 +1,5 @@
 /**
  * Tests for the session manager.
- *
- * Covers:
- * - create: persists session, returns valid JWT and session record
- * - validate: accepts a valid token, rejects expired/invalid/revoked tokens
- * - revoke: deletes a session so subsequent validates return null
- * - revokeAll: deletes all sessions for a user
- * - list: returns only active sessions for a user, sorted newest first
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

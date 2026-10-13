@@ -1,20 +1,5 @@
 /**
  * Passkey / WebAuthn tests.
- *
- * Covers:
- *   - CBOR decoder (all major types, size limits, depth limits, invalid input)
- *   - Registration option generation (challenge, rpId, excludeCredentials)
- *   - Authentication option generation (challenge, allowCredentials)
- *   - Credential listing and removal
- *   - Challenge expiry rejection
- *   - Challenge replay rejection (one-time use)
- *   - Wrong origin rejection
- *   - Wrong RP ID hash rejection
- *   - signCount rollback detection
- *   - Invalid CBOR input handling
- *   - Route dispatch via handleRequest
- *   - Cross-origin iframe rejection
- *   - User verification enforcement
  */
 
 import Database from "better-sqlite3";

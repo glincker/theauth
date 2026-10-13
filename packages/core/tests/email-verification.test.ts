@@ -1,22 +1,5 @@
 /**
  * Tests for the email verification flow.
- *
- * Covers:
- * - sendVerification: creates token and calls email callback
- * - sendVerification: does not send when email is already verified
- * - sendVerification: returns USER_NOT_FOUND for missing user
- * - sendVerification: rejects empty userId/email
- * - sendVerification: normalizes email to lowercase
- * - verify: marks user as verified on valid token
- * - verify: rejects invalid/used tokens
- * - verify: rejects empty token
- * - isVerified: returns false before verification
- * - isVerified: returns true after verification
- * - handleRequest: POST /auth/verify-email/send returns 204
- * - handleRequest: POST /auth/verify-email/confirm returns 200 with userId and email
- * - handleRequest: POST /auth/verify-email/confirm returns 400 on bad token
- * - handleRequest: returns null for unmatched paths
- * - handleRequest: returns null for non-POST methods
  */
 
 import { eq } from "drizzle-orm";

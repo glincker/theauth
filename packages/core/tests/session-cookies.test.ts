@@ -1,16 +1,5 @@
 /**
  * Tests for cookie utilities, CSRF protection, and the cookie-aware session manager.
- *
- * Covers:
- * - Cookie serialization (all attributes, defaults, deletion)
- * - Cookie parsing (standard, edge cases, malformed input)
- * - CSRF token generation and double-submit validation
- * - Origin/Referer header validation
- * - Session create / validate / refresh / revoke lifecycle
- * - Session expiry
- * - Auto-refresh behaviour
- * - revokeAll scoping
- * - listSessions filters expired sessions
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

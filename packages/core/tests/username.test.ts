@@ -1,22 +1,5 @@
 /**
  * Tests for username + password authentication.
- *
- * Covers:
- * - signUp: creates user + session on valid credentials
- * - signUp: rejects username that is too short
- * - signUp: rejects username with invalid characters
- * - signUp: rejects duplicate username
- * - signUp: normalises username to lowercase by default
- * - signIn: returns user + session on correct credentials
- * - signIn: throws on wrong password
- * - signIn: throws on unknown username
- * - changePassword: succeeds with correct current password
- * - changePassword: throws on wrong current password
- * - changeUsername: succeeds and normalises to lowercase
- * - handleRequest: POST /auth/username/sign-up returns 201
- * - handleRequest: POST /auth/username/sign-in returns 200
- * - handleRequest: POST /auth/username/sign-in returns 401 on bad password
- * - handleRequest: returns null for unmatched paths
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

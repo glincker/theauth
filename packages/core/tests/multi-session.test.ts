@@ -1,14 +1,5 @@
 /**
  * Tests for multi-session support.
- *
- * Covers:
- * - listSessions: returns active sessions, excludes expired/revoked ones
- * - revokeSession: invalidates the specific session
- * - revokeOtherSessions: revokes all except the current one, returns count
- * - getSessionCount: counts only active (non-expired) sessions
- * - enforceSessionLimit (evict-oldest): removes oldest when cap is reached
- * - enforceSessionLimit (reject): throws MultiSessionLimitError at cap
- * - buildSessionMetadata: extracts device and ip from request headers
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

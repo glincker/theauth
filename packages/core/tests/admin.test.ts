@@ -1,22 +1,5 @@
 /**
  * Tests for the Admin module.
- *
- * Covers:
- * - isAdmin: returns true for configured admin user IDs
- * - isAdmin: returns false for non-admin users
- * - listUsers: returns all users with pagination
- * - listUsers: filters by search term
- * - listUsers: returns total count
- * - getUser: returns a user by ID
- * - getUser: returns null for unknown ID
- * - banUser: sets banned flag and clears sessions
- * - banUser: stores reason and expiry
- * - unbanUser: clears the banned flag
- * - deleteUser: removes the user record
- * - impersonate: creates a session with impersonation metadata
- * - impersonate: throws when impersonation is disabled
- * - impersonate: throws when non-admin tries to impersonate
- * - stopImpersonation: revokes the impersonation session
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

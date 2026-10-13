@@ -1,14 +1,5 @@
 /**
  * Tests for the OAuth 2.0 / OIDC provider module.
- *
- * Covers:
- * - PKCE: code verifier generation and S256 challenge derivation
- * - Google provider: authorization URL construction
- * - GitHub provider: authorization URL construction
- * - State storage: persist state on getAuthorizationUrl, reject unknown/expired states
- * - handleCallback: happy path with mocked token exchange and user info
- * - linkAccount: manual account linking
- * - findLinkedUser: look up linked user by provider + account ID
  */
 
 import { eq } from "drizzle-orm";
