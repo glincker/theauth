@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import type { Stats } from "node:fs";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -119,25 +120,32 @@ export function secretsMatch(provided: string, expected: string): boolean {
 	return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Serve a file only when it resolves inside `root` and is a regular file. */
-function serveFile(root: string, requested: string, res: ServerResponse): void {
-	const base = resolve(root);
-	const target = resolve(requested);
-	if (target !== base && !target.startsWith(base + sep)) {
+/**
+ * Serve a regular file from inside `root`. Answers 404 and returns true when
+ * the request escapes the root, and returns false when there is no such file
+ * so the caller can fall back to index.html.
+ */
+export function serveStatic(root: string, pathname: string, res: ServerResponse): boolean {
+	const rootPrefix = resolve(root) + sep;
+	const target = resolve(rootPrefix, `.${pathname}`);
+	if (!target.startsWith(rootPrefix)) {
 		send404(res);
-		return;
+		return true;
 	}
-	const stat = statSync(target);
-	if (!stat.isFile()) {
-		send404(res);
-		return;
+	let stat: Stats;
+	try {
+		stat = statSync(target);
+	} catch {
+		return false;
 	}
+	if (!stat.isFile()) return false;
 	res.writeHead(200, {
 		"Content-Type": getMimeType(target),
 		"Content-Length": stat.size,
 		"Cache-Control": "public, max-age=31536000, immutable",
 	});
 	createReadStream(target).pipe(res);
+	return true;
 }
 
 // Auth
@@ -223,22 +231,14 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 			return;
 		}
 
-		// Static asset
-		const filePath = join(distDir, pathname);
-
-		const resolvedPath = resolve(filePath);
-		if (!existsSync(resolvedPath)) {
-			// Fallback to index.html for unknown paths (SPA catch-all)
-			res.writeHead(200, {
-				"Content-Type": "text/html; charset=utf-8",
-				"Content-Length": indexHtmlBuffer.byteLength,
-				"Cache-Control": "no-cache",
-			});
-			res.end(indexHtmlBuffer);
-			return;
-		}
-
-		serveFile(distDir, resolvedPath, res);
+		// Static asset, falling back to index.html for unknown paths (SPA catch-all)
+		if (serveStatic(distDir, pathname, res)) return;
+		res.writeHead(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"Content-Length": indexHtmlBuffer.byteLength,
+			"Cache-Control": "no-cache",
+		});
+		res.end(indexHtmlBuffer);
 	}
 
 	const server = createServer(handleRequest);
