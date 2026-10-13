@@ -416,6 +416,8 @@
               "vue",
               "svelte",
               "expo",
+              "sdk-go",
+              "sdk-python",
               "electron",
               "browser-extension",
               "ui-components",
