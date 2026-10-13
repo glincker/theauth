@@ -163,15 +163,33 @@ function scene(X, Y, caption) {
 		return { top: P(x + w / 2, y + d / 2, z1), front: P(x + w, y + d, z0), rect: r };
 	}
 
-	function route(path, color = C.teal, z = 0.45) {
-		const s = path.map(([x, y]) => P(x, y, z));
+	// Routes are lifted pipes: a soft shadow on the plate, thin stems at the
+	// ends, a rounded pipe with a highlight, and a flowing dash on top.
+	function route(path, color = C.teal, z = 0.95) {
+		const lift = path.map(([x, y]) => P(x, y, z));
+		const flat = path.map(([x, y]) => P(x + 0.18, y + 0.18, base + 0.02));
 		const id = { [C.teal]: "mt", [C.lime]: "ml", [C.purple]: "mp", [C.red]: "mr" }[color] ?? "mt";
+		const line = (arr) => pts(arr);
 		out.push(
-			`<polyline points="${pts(s)}" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`,
-			`<polyline class="flow" points="${pts(s)}" fill="none" stroke="${color}" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#${id})"/>`,
+			`<polyline points="${line(flat)}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#sb)"/>`,
 		);
-		const [sx, sy] = s[0];
-		out.push(`<circle cx="${sx}" cy="${sy}" r="4" fill="${color}"/>`);
+		for (const i of [0, path.length - 1]) {
+			const [px, py] = lift[i];
+			const [fx, fy] = P(path[i][0], path[i][1], base);
+			out.push(
+				`<line x1="${px}" y1="${py}" x2="${fx}" y2="${fy}" stroke="${color}" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="2 3"/>`,
+			);
+		}
+		out.push(
+			`<polyline points="${line(lift)}" fill="none" stroke="#04070a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`,
+			`<polyline points="${line(lift)}" fill="none" stroke="${color}" stroke-opacity=".85" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`,
+			`<polyline points="${line(lift.map(([x, y]) => [x, y - 1.6]))}" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+			`<polyline class="flow" points="${line(lift)}" fill="none" stroke="#04070a" stroke-opacity=".55" stroke-width="2.6" stroke-dasharray="2 10" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#${id})"/>`,
+		);
+		const [sx, sy] = lift[0];
+		out.push(
+			`<circle cx="${sx}" cy="${sy}" r="6" fill="${color}" stroke="#04070a" stroke-width="2"/><circle cx="${sx - 1.5}" cy="${sy - 1.5}" r="2" fill="#fff" fill-opacity=".6"/>`,
+		);
 	}
 
 	// A dashed bubble on the platform that groups related nodes.
@@ -261,6 +279,7 @@ function scene(X, Y, caption) {
 					bad: true,
 				};
 				console.warn(`overlap: tag "${t.label}"`);
+				process.exitCode = 1;
 			}
 			boxes.push(best.r);
 			const { px, cy } = best;
@@ -279,7 +298,7 @@ function scene(X, Y, caption) {
 			const w = Math.max(...ls.map((l) => l.length)) * 7.4 + 54;
 			const h = ls.length > 1 ? 46 : 36;
 			const cands = [];
-			for (const dx of [0, -120, 120, -240, 240, -330, 330])
+			for (const dx of [0, -120, 120, -240, 240, -330, 330, -400, 400])
 				for (const dy of [0, 30, 60, 90, 120, -30, -60])
 					cands.push({ dx, dy, c: Math.abs(dx) * 0.6 + Math.abs(dy) });
 			cands.sort((a, b) => a.c - b.c);
@@ -298,6 +317,7 @@ function scene(X, Y, caption) {
 				const cy = Math.min(c.y + c.dy, SCENE_H - 30);
 				best = { cx, cy, r: { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 } };
 				console.warn(`overlap: callout "${c.text}"`);
+				process.exitCode = 1;
 			}
 			boxes.push(best.r);
 			const { cx, cy } = best;
@@ -348,11 +368,12 @@ function scene(X, Y, caption) {
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
-<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.teal}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.lime}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.purple}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.red}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="${C.teal}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="${C.lime}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="${C.purple}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#04070a" stroke="${C.red}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
 <style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
+<filter id="sb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
@@ -508,7 +529,7 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	s.tag(b.top, "Receiver", 44);
 	s.tag(c.front, "Transmitter", -28);
 	s.tag(d.front, "Receiver", -28);
-	s.callout(s.P(3, 3, 0.45), 1, "POST, retries with backoff", 58);
+	s.callout(s.P(3, 3, 0.95), 1, "POST, retries", 58);
 	s.callout(s.P(7, 7, 0.45), 2, "Asks for events, then acks", 58);
 	save("shared-signals", "theauth-shared-signals-push-poll", s);
 }
