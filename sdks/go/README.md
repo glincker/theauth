@@ -195,6 +195,56 @@ err = client.Delegation.Revoke(ctx, "delegation-id")
 perms, err := client.Delegation.GetEffectivePermissions(ctx, "agent-worker")
 ```
 
+## MCP servers
+
+```go
+srv, err := client.MCP.Register(ctx, theauth.RegisterMcpServerInput{
+    Name:         "github",
+    Endpoint:     "https://mcp.example.com",
+    Tools:        []string{"read_repo"},
+    AuthRequired: true,
+    RateLimitRPM: ptr(60),
+})
+
+servers, err := client.MCP.List(ctx)
+
+// Get returns nil, nil when not found
+srv, err = client.MCP.Get(ctx, "server-id")
+```
+
+## Plugin endpoints
+
+Call routes declared with `defineEndpoint` on the TypeScript server. `:name` path segments are filled from `Params`.
+
+```go
+var out struct{ ID string `json:"id"` }
+err := client.Request(ctx, theauth.RequestOptions{
+    Method: "POST",
+    Path:   "/auth/team/:teamId/invite",
+    Params: map[string]string{"teamId": "t1"},
+    Body:   map[string]string{"email": "a@b.c"},
+}, &out)
+
+// Shorthand without path params
+err = client.Do(ctx, "GET", "/auth/team/list", map[string]string{"limit": "10"}, nil, &out)
+```
+
+Validation failures return a `*theauth.TheAuthError` with the server's `Issues`. Use `theauth.ValidationIssues(err)` to read them from any error type.
+
+## DPoP (RFC 9449)
+
+```go
+prover, err := theauth.NewDPoPProver() // generates an ES256 (P-256) key
+client.UseDPoP(prover)                 // wraps the client's HTTP transport
+
+// Or on your own http.Client (copied, not mutated)
+hc := theauth.DPoPHTTPClient(http.DefaultClient, prover, theauth.WithDPoPAccessToken("tok"))
+
+jkt := prover.Thumbprint() // cnf.jkt value
+```
+
+Each request carries a `DPoP` proof (`htm`, `htu` without query or fragment, `iat`, `jti`, and `ath` when a token is sent). A Bearer token becomes `Authorization: DPoP <token>`. The server `DPoP-Nonce` is cached per origin and a `use_dpop_nonce` challenge is retried once. Reuse a key with `WithDPoPKey`.
+
 ## Error handling
 
 All API errors implement the `error` interface and can be type-checked:
@@ -214,6 +264,8 @@ if err != nil {
         if rl.RetryAfter != nil {
             time.Sleep(time.Duration(*rl.RetryAfter) * time.Second)
         }
+    case theauth.IsCSRFRejected(err):
+        // 403 with code CSRF_REJECTED
     case theauth.IsServer(err):
         // 5xx - server-side error
     default:
@@ -222,7 +274,7 @@ if err != nil {
 }
 ```
 
-All error types embed `TheAuthError` which exposes `.Code`, `.Message`, `.StatusCode`, and `.Details`.
+All error types embed `TheAuthError` which exposes `.Code`, `.Message`, `.StatusCode`, `.Details`, and `.Issues` (validation issues from plugin endpoints). `theauth.IsRateLimited(err)` returns the `Retry-After` seconds.
 
 ## Types reference
 
@@ -238,6 +290,8 @@ All error types embed `TheAuthError` which exposes `.Code`, `.Message`, `.Status
 | `User` | Human user account |
 | `Session` | Active session token |
 | `AuthorizeResult` | `Allowed bool` + `AuditID string` |
+| `McpServer` | Registered MCP server |
+| `DPoPProver` | ES256 key holder that builds DPoP proofs |
 
 ## License
 

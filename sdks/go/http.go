@@ -146,6 +146,7 @@ func parseErrorResponse(resp *http.Response) error {
 			Code    string                 `json:"code"`
 			Message string                 `json:"message"`
 			Details map[string]interface{} `json:"details"`
+			Issues  interface{}            `json:"issues"`
 		} `json:"error"`
 	}
 
@@ -155,6 +156,7 @@ func parseErrorResponse(resp *http.Response) error {
 	code := apiErr.Code
 	message := apiErr.Message
 	details := apiErr.Details
+	var issues interface{}
 
 	// Support { error: { code, message } } envelope
 	if apiErr.Error != nil {
@@ -167,6 +169,7 @@ func parseErrorResponse(resp *http.Response) error {
 		if apiErr.Error.Details != nil {
 			details = apiErr.Error.Details
 		}
+		issues = apiErr.Error.Issues
 	}
 
 	if code == "" {
@@ -181,6 +184,7 @@ func parseErrorResponse(resp *http.Response) error {
 		Message:    message,
 		StatusCode: resp.StatusCode,
 		Details:    details,
+		Issues:     issues,
 	}
 
 	switch resp.StatusCode {

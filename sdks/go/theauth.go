@@ -36,6 +36,8 @@ type Client struct {
 	Audit *AuditResource
 	// Delegation manages delegation chains between agents.
 	Delegation *DelegationResource
+	// MCP manages MCP server registrations.
+	MCP *MCPResource
 
 	tp *transport
 }
@@ -112,6 +114,7 @@ func NewClient(baseURL string, opts ...Option) *Client {
 		Auth:       &AuthResource{tp: tp},
 		Audit:      &AuditResource{tp: tp},
 		Delegation: &DelegationResource{tp: tp},
+		MCP:        &MCPResource{tp: tp},
 		tp:         tp,
 	}
 }
@@ -120,4 +123,11 @@ func NewClient(baseURL string, opts ...Option) *Client {
 // This is a convenience method that delegates to client.Agents.Authorize.
 func (c *Client) Authorize(ctx context.Context, agentID string, req AuthorizeRequest) (*AuthorizeResult, error) {
 	return c.Agents.Authorize(ctx, agentID, req)
+}
+
+// UseDPoP routes every request of this client through a DPoP (RFC 9449)
+// transport. The caller's http.Client is copied, not mutated. A Bearer token
+// set with WithToken is sent with the DPoP scheme and an ath claim.
+func (c *Client) UseDPoP(prover *DPoPProver, opts ...DPoPOption) {
+	c.tp.httpClient = DPoPHTTPClient(c.tp.httpClient, prover, opts...)
 }
