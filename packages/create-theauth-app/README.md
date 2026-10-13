@@ -1,5 +1,7 @@
 # @glinr/create-theauth-app
 
+[![npm](https://img.shields.io/npm/v/@glinr/create-theauth-app?style=flat&colorA=000000&colorB=000000&label=npm)](https://www.npmjs.com/package/@glinr/create-theauth-app) [![downloads](https://img.shields.io/npm/dm/@glinr/create-theauth-app?style=flat&colorA=000000&colorB=000000&label=downloads)](https://www.npmjs.com/package/@glinr/create-theauth-app) [![docs](https://img.shields.io/badge/docs-docs.theauth.dev-000000?style=flat)](https://docs.theauth.dev/quickstart) [![license](https://img.shields.io/badge/license-MIT-000000?style=flat)](https://github.com/glincker/theauth/blob/main/LICENSE)
+
 [npm](https://www.npmjs.com/package/@glinr/create-theauth-app) · [Source](https://github.com/glincker/theauth/tree/main/packages/create-theauth-app) · [Docs](https://docs.theauth.dev/quickstart) · [All packages](https://github.com/glincker/theauth#packages)
 
 Scaffold a theAuth app in one command.
@@ -64,3 +66,12 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Quickstart](https://docs.theauth.dev/quickstart)
+- [CLI tools](https://docs.theauth.dev/cli-tools)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

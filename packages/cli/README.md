@@ -88,3 +88,12 @@ npx @glinr/theauth-cli mcp              # stdio MCP server (docs search, add_plu
 ```
 
 See https://docs.theauth.dev/ai-assistants.
+
+<!-- theauth:links -->
+## Learn more
+
+- [CLI tools](https://docs.theauth.dev/cli-tools)
+- [Quickstart](https://docs.theauth.dev/quickstart)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

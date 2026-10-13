@@ -42,3 +42,12 @@ const emailAuthModule = await createEmailAuth({
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Email and password](https://docs.theauth.dev/auth/email-password)
+- [Quickstart](https://docs.theauth.dev/quickstart)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

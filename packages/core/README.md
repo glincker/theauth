@@ -239,3 +239,18 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 [MIT](https://github.com/glincker/theauth/blob/main/LICENSE)
+
+<!-- theauth:links -->
+## Learn more
+
+- [Quickstart](https://docs.theauth.dev/quickstart)
+- [Agent identity](https://docs.theauth.dev/agents)
+- [MCP OAuth 2.1](https://docs.theauth.dev/mcp)
+- [Permissions](https://docs.theauth.dev/permissions)
+- [Human sign-in](https://docs.theauth.dev/auth)
+- [API reference](https://docs.theauth.dev/api)
+- [DPoP](https://docs.theauth.dev/dpop)
+- [Session hardening](https://docs.theauth.dev/session-hardening)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

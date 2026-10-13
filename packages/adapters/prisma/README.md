@@ -39,3 +39,12 @@ Use this adapter if your app already uses Prisma and you want theAuth to share t
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Prisma](https://docs.theauth.dev/prisma)
+- [Databases](https://docs.theauth.dev/database)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

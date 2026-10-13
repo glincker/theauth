@@ -208,3 +208,12 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [React guide](https://docs.theauth.dev/react)
+- [UI components](https://docs.theauth.dev/ui-components)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

@@ -14,7 +14,7 @@ The tradeoff is real too. You don't own the code, self-hosting is not an option,
 
 **Self-hosted vs. vendor.** Running theAuth means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure but own the logs too.
 
-**Agent-native vs. bolted on.** Neither Clerk nor Auth0 was designed with AI agents in mind. Both can issue tokens that an agent can use, but there's no concept of `AgentIdentity`, delegation chains, ephemeral sessions, or cost attribution. You build that layer yourself on top of their APIs. theAuth ships it.
+**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. With a general purpose identity platform you issue tokens an agent can use and build that layer on top of the provider's APIs.
 
 ## When managed platforms make sense
 

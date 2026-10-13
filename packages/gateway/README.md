@@ -1,5 +1,7 @@
 # @glinr/theauth-gateway
 
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat&colorA=000000&colorB=000000&label=npm)](https://www.npmjs.com/package/@glinr/theauth-gateway) [![downloads](https://img.shields.io/npm/dm/@glinr/theauth-gateway?style=flat&colorA=000000&colorB=000000&label=downloads)](https://www.npmjs.com/package/@glinr/theauth-gateway) [![docs](https://img.shields.io/badge/docs-docs.theauth.dev-000000?style=flat)](https://docs.theauth.dev/gateway) [![license](https://img.shields.io/badge/license-MIT-000000?style=flat)](https://github.com/glincker/theauth/blob/main/LICENSE)
+
 [npm](https://www.npmjs.com/package/@glinr/theauth-gateway) · [Source](https://github.com/glincker/theauth/tree/main/packages/gateway) · [Docs](https://docs.theauth.dev/gateway) · [All packages](https://github.com/glincker/theauth#packages)
 
 Standalone auth proxy that enforces theAuth policies in front of any HTTP service.
@@ -142,3 +144,11 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 ## License
 
 MIT
+
+<!-- theauth:links -->
+## Learn more
+
+- [Gateway](https://docs.theauth.dev/gateway)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)

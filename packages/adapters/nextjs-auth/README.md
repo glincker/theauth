@@ -1,5 +1,7 @@
 # @glinr/theauth-nextjs-auth
 
+[![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs-auth?style=flat&colorA=000000&colorB=000000&label=npm)](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) [![downloads](https://img.shields.io/npm/dm/@glinr/theauth-nextjs-auth?style=flat&colorA=000000&colorB=000000&label=downloads)](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) [![docs](https://img.shields.io/badge/docs-docs.theauth.dev-000000?style=flat)](https://docs.theauth.dev/adapters/nextjs) [![license](https://img.shields.io/badge/license-MIT-000000?style=flat)](https://github.com/glincker/theauth/blob/main/LICENSE)
+
 [npm](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth) · [All packages](https://github.com/glincker/theauth#packages)
 
 Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware — all typed end-to-end.
@@ -232,3 +234,12 @@ Uses the double-submit cookie pattern:
   - Browsers reject `__Host-` without `Secure`; plain names are used instead
 - **Refresh token**: never `__Host-` prefixed (longer-lived, `sameSite=lax`)
 - Auto-detected from `isProd` / `NODE_ENV`
+
+<!-- theauth:links -->
+## Learn more
+
+- [Next.js adapter](https://docs.theauth.dev/adapters/nextjs)
+- [Quickstart](https://docs.theauth.dev/quickstart)
+- [All packages](https://github.com/glincker/theauth#packages)
+- [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
+- [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)
