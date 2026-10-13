@@ -1,0 +1,210 @@
+---
+title: Shared Signals (SSF, CAEP, RISC)
+description: Send and receive security events between identity systems with the OpenID Shared Signals Framework 1.0, CAEP and RISC.
+icon: tower-broadcast
+---
+
+Shared signals let identity systems tell each other that something security relevant happened: a session was revoked, an account was disabled, a credential changed. theAuth implements the OpenID [Shared Signals Framework 1.0](https://openid.net/specs/openid-sharedsignals-framework-1_0.html) with the CAEP and RISC event types.
+
+One plugin, `sharedSignals()`, can run either or both roles:
+
+- **Transmitter.** Receivers create a stream, choose events and a delivery method, and theAuth sends them signed Security Event Tokens (SETs, RFC 8417).
+- **Receiver.** theAuth verifies SETs from a transmitter you trust and runs handlers. By default it revokes local sessions when the transmitter says a session, all sessions, or an account is gone.
+
+Nothing is emitted from your existing sign-in paths unless you wire it in (see [Emit from existing paths](#emit-from-existing-paths)).
+
+## Install
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { sharedSignals } from "@glinr/theauth/signals";
+
+const signals = sharedSignals({
+  transmitter: {
+    issuer: "https://auth.example.com",
+    endpointBaseUrl: "https://auth.example.com/api/auth/ssf",
+    signingKey: privateKey, // CryptoKey, JWK or Uint8Array
+    signingAlgorithm: "ES256",
+    keyId: "ssf-1",
+    jwksUri: "https://auth.example.com/.well-known/jwks.json",
+    authenticate: async (request) => {
+      const receiver = await lookupReceiverByBearer(request.headers.get("authorization"));
+      return receiver ? { id: receiver.audience } : null;
+    },
+  },
+});
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  plugins: [signals],
+});
+```
+
+The plugin id is `theauth-shared-signals`. When it is present theAuth creates three tables: `theauth_ssf_streams`, `theauth_ssf_subjects` and `theauth_ssf_outbox`.
+
+Publish the public key at `jwksUri` yourself. If you use the [OIDC provider](/auth/oidc-provider) with the same key, its JWKS endpoint already does.
+
+## Transmitter
+
+### Endpoints
+
+Paths are relative to your mount path. `endpointBaseUrl` must be the absolute URL these are served at, because it is advertised in discovery.
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /.well-known/ssf-configuration` | Discovery metadata. Needs your adapter to route the well-known path, as with OIDC discovery. |
+| `POST /ssf/stream` | Create a stream. Returns 201. |
+| `GET /ssf/stream` | Read one stream (`?stream_id=`) or list the caller's streams. |
+| `PATCH /ssf/stream`, `PUT /ssf/stream` | Update or replace a stream. |
+| `DELETE /ssf/stream?stream_id=` | Delete a stream. Returns 204. |
+| `GET /ssf/status?stream_id=` | Read stream status. |
+| `POST /ssf/status` | Set `enabled`, `paused` or `disabled`. |
+| `POST /ssf/subjects/add`, `POST /ssf/subjects/remove` | Change the stream's subject list. |
+| `POST /ssf/verify` | Ask for a verification event. Returns 204. |
+| `POST /ssf/poll/:stream_id` | Poll a stream (RFC 8936). |
+
+Every management and poll endpoint calls your `authenticate` function. A receiver only sees its own streams. Each endpoint declares a rate limit in its metadata.
+
+### Streams
+
+```json
+{
+  "events_requested": [
+    "https://schemas.openid.net/secevent/risc/event-type/sessions-revoked",
+    "https://schemas.openid.net/secevent/risc/event-type/account-disabled"
+  ],
+  "delivery": {
+    "method": "urn:ietf:rfc:8935",
+    "endpoint_url": "https://rp.example/ssf/receive",
+    "authorization_header": "Bearer shared-secret"
+  }
+}
+```
+
+`events_delivered` is the intersection of `events_requested` and the events the transmitter supports. Delivery is `urn:ietf:rfc:8935` (push) or `urn:ietf:rfc:8936` (poll). For poll streams the response carries the poll URL in `delivery.endpoint_url`.
+
+`authorization_header` is stored as given and is never returned.
+
+### Subjects
+
+Subject identifiers follow RFC 9493: `iss_sub`, `email`, `opaque` and `complex` (with `user`, `device`, `session`, `application`, `tenant`, `org_unit` and `group` members).
+
+`defaultSubjects` sets the mode of new streams. With `ALL` (the default) every subject is delivered and `subjects/remove` excludes one. With `NONE` nothing is delivered until `subjects/add` includes a subject. A stream that follows a user also receives events whose complex subject has that user as its `user` member.
+
+### Emitting events
+
+```ts
+import { events } from "@glinr/theauth/signals";
+
+await signals.emit({
+  ...events.accountDisabled({ reason: "hijacking" }),
+  subject: { format: "iss_sub", iss: "https://auth.example.com", sub: userId },
+});
+```
+
+`emit` signs one SET per matching stream, stores it, and delivers it. Builders exist for every supported event:
+
+| Builder | Event |
+| --- | --- |
+| `events.sessionRevoked` | CAEP session-revoked |
+| `events.credentialChange` | CAEP credential-change |
+| `events.tokenClaimsChange` | CAEP token-claims-change |
+| `events.assuranceLevelChange` | CAEP assurance-level-change |
+| `events.deviceComplianceChange` | CAEP device-compliance-change |
+| `events.accountDisabled` | RISC account-disabled |
+| `events.accountEnabled` | RISC account-enabled |
+| `events.credentialCompromise` | RISC credential-compromise |
+| `events.sessionsRevoked` | RISC sessions-revoked |
+
+### Push delivery
+
+SETs are POSTed as `application/secevent+jwt` with the stream's `Authorization` header. A `2xx` marks the SET delivered. `408`, `429`, `5xx` and network errors are retried with exponential backoff (default 1 s doubling to 5 min, up to 5 attempts). Other statuses, including an RFC 8935 `400` error, and redirects fail the SET without retry.
+
+Push URLs go through the same checks as other outbound fetches in theAuth: https only, no credentials, default port, no `localhost` or metadata hostnames, and every resolved address must be public. The check runs when the stream is configured and again before each attempt. Redirects are never followed.
+
+`delivery` options:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `mode` | `background` | `inline` awaits delivery and retries inside `emit`. |
+| `maxAttempts` | 5 | Attempts before a SET is marked failed. |
+| `baseBackoffMs`, `maxBackoffMs` | 1000, 300000 | Backoff bounds. |
+| `timeoutMs` | 5000 | Per request timeout. |
+| `fetchImpl`, `resolver` | global fetch, system DNS | Overrides, for example to pin the connection to the validated address. |
+| `allowInsecure` | false | Allow http and private hosts. Development only. |
+
+Retries in `background` mode run on in-process timers. If the process exits, pending SETs stay in `theauth_ssf_outbox`; call `signals.transmitter.processDue()` from a scheduled job to resume them. Serverless runtimes that freeze after the response should use `inline` or run `processDue()` on a schedule.
+
+### Poll delivery
+
+`POST /ssf/poll/:stream_id` accepts `maxEvents`, `returnImmediately`, `ack` and `setErrs` and answers `{ "sets": { "<jti>": "<jwt>" }, "moreAvailable": false }`. Unacknowledged SETs are returned again. `returnImmediately: false` waits up to `longPollMs` (default 0, so it answers at once).
+
+## Receiver
+
+```ts
+const signals = sharedSignals({
+  receiver: {
+    issuer: "https://idp.example",
+    audience: "https://app.example",
+    // keys: discovered from the issuer's ssf-configuration by default
+    authorizationHeader: "Bearer shared-secret",
+    handlers: {
+      "https://schemas.openid.net/secevent/caep/event-type/credential-change": async (event) => {
+        await flagForReauth(event.subject);
+      },
+    },
+  },
+});
+```
+
+The push endpoint is `POST /ssf/receive` (configurable with `path`). Keys come from, in order: `verificationKey`, a static `jwks`, or discovery. Discovery fetches `${issuer}/.well-known/ssf-configuration` (or `configurationUrl`), requires its `issuer` to equal the configured issuer, then fetches `jwks_uri`, all through the SSRF-safe fetcher. An unknown `kid` triggers at most one refetch every 30 seconds.
+
+Checks on every SET: signature, `typ` of `secevent+jwt`, `iss`, `aud`, an `events` object, no `exp`, an `iat` no older than `maxAgeSeconds` (default 3600), and a `jti` not seen before. Replays are acknowledged with `202` and not dispatched again. Failures answer `400` with an RFC 8935 `err` such as `invalid_key`, `invalid_issuer` or `invalid_audience`.
+
+The replay cache is per process memory by default. Pass `replayStorage` (any `SecondaryStorage`) when you run several instances.
+
+### Default session revocation
+
+When the app has a session manager, these events revoke local sessions unless you set `revokeSessions: false`:
+
+| Event | Effect |
+| --- | --- |
+| session-revoked | Revokes the session when the subject is a `complex` subject with an opaque `session`. Otherwise revokes the user's sessions. |
+| sessions-revoked | Revokes all sessions of the user. |
+| account-disabled | Revokes all sessions of the user. It does not ban the account. Add a handler for that. |
+
+User mapping: an `iss_sub` from the configured issuer maps `sub` to the local user id, an `email` is looked up in the user table, and an `opaque` id is taken as the user id. Pass `resolveUserId` to replace this. Handlers you supply take precedence over the defaults for the same event type.
+
+## Emit from existing paths
+
+The bridge turns existing callbacks into events. It is opt in: nothing is emitted until you pass the callback.
+
+```ts
+const signals = sharedSignals({ transmitter: { /* ... */ } });
+const { bridge } = signals;
+
+const theauth = await createTheAuth({
+  // session.onRevoke: session-revoked per revoked session
+  auth: { session: { onRevoke: bridge.onSessionsRevoked } },
+  // admin.onAdminAction: ban_user is account-disabled + sessions-revoked, unban_user is account-enabled
+  admin: { onAdminAction: bridge.onAdminAction },
+  // password reset: credential-change (password, update)
+  passwordReset: { /* ... */ onPasswordChanged: bridge.onPasswordChanged },
+  // 2FA and passkeys: credential-change create or delete
+  totp: { onChange: bridge.onTotpChange },
+  passkey: { /* ... */ onCredentialChange: bridge.onPasskeyChange },
+  plugins: [signals],
+});
+```
+
+The callbacks are no-ops until the plugin has initialized, and they swallow errors so a receiver outage never blocks a sign-out or password change. The default subject is `iss_sub` with the transmitter issuer and the user id; pass `subjectForUser` to `sharedSignals` to change it.
+
+## Limits
+
+- Subject formats beyond `iss_sub`, `email`, `opaque` and `complex` (`account`, `phone_number`, `did`, `uri`, and so on) are rejected.
+- Per-subject stream status is not supported (`501`). Subject `verified` is stored but not enforced.
+- The stream-updated event is not sent.
+- Streams are authorized by your `authenticate` function only. There is no built-in OAuth scope model for management calls.
+- Delivery is at least once. Receivers should treat `jti` as an idempotency key.
+- The platform `fetch` resolves the push hostname again when connecting, so a DNS rebinding attacker with a very short TTL can race the address check. Pass a `fetchImpl` that pins the validated address to close this.
+- Database support follows the rest of the SDK: tables use the shared SQLite-style schema definitions.
