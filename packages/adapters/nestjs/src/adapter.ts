@@ -280,9 +280,10 @@ export function buildTheAuthRouter(
 	// Rate limit and cross-site check run first, so a flood or a forged
 	// cookie-session write is refused before authentication or any handler.
 	router.use((req: Request, res: Response, next: NextFunction) => {
-		const refused = guard.admit(buildWebRequest(req), req.path);
-		if (!refused) return next();
-		writeRefusal(refused, res).catch(next);
+		guard
+			.admit(buildWebRequest(req), req.path)
+			.then((refused) => (refused ? writeRefusal(refused, res) : next()))
+			.catch(next);
 	});
 	router.use((req: Request, res: Response, next: NextFunction) => {
 		// With `allowUnauthenticated` nothing is protected, but handlers still

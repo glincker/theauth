@@ -295,7 +295,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			const prefix = fastify.prefix === "/" ? "" : fastify.prefix;
 			const relative =
 				prefix && pathname.startsWith(prefix) ? pathname.slice(prefix.length) : pathname;
-			const refused = guard.admit(toWebRequest(request), relative);
+			const refused = await guard.admit(toWebRequest(request), relative);
 			if (refused) {
 				return reply
 					.status(refused.status)

@@ -76,7 +76,7 @@ app.use("/api/theauth", theAuthExpress(theauth, {
 }));
 ```
 
-Set `trustedProxy` so limits apply per client IP. Without it the IP is unknown and callers are split by their credential instead. Counters are held in process memory, so with several instances each one enforces its own limit. Use `rateLimit: false` or `csrf: false` to switch either check off.
+Set `trustedProxy` so limits apply per client IP. Without it the IP is unknown and callers are split by their credential instead. Counts are kept in the `rateLimit` [secondary storage](/configuration). With the default in-process store each instance counts alone; configure `secondaryStorage: "database"` or a Redis style store and one limit holds across instances. If the store errors, the request is let through so an outage there does not take sign-in down. Use `rateLimit: false` or `csrf: false` to switch either check off.
 
 ### Upgrading
 
