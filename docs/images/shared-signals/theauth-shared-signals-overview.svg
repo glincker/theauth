@@ -1,19 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 470" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 608" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">Shared signals with theAuth</title><desc id="d">A theAuth transmitter sends a signed security event to two receivers, which revoke sessions or run a custom handler.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 376)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 282)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 376)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 486.40000000000003)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 364.8)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 486.40000000000003)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#19d9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#eef35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#8b7cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="470" rx="16" fill="#06080a"/>
-<rect width="640" height="470" rx="16" fill="url(#g1)"/><rect width="640" height="470" rx="16" fill="url(#g2)"/><rect width="640" height="470" rx="16" fill="url(#g3)"/>
-<rect width="640" height="470" rx="16" filter="url(#n)" opacity=".10"/>
+<rect width="640" height="608" rx="16" fill="#06080a"/>
+<rect width="640" height="608" rx="16" fill="url(#g1)"/><rect width="640" height="608" rx="16" fill="url(#g2)"/><rect width="640" height="608" rx="16" fill="url(#g3)"/>
+<rect width="640" height="608" rx="16" filter="url(#n)" opacity=".10"/>
 <polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -98,6 +103,8 @@
 <circle cx="366.8" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
 <circle cx="343.4" cy="312.1" r="1" fill="#46585f" opacity=".6"/>
 <circle cx="320" cy="325.6" r="1" fill="#46585f" opacity=".6"/>
+<polygon points="450.9,174.4 537.5,224.3 345.7,335 259.2,285.1" fill="#19d9b8" fill-opacity=".05" stroke="#19d9b8" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>
+<rect x="194.2" y="281.1" width="94" height="24" rx="12" fill="#19d9b8" fill-opacity=".14" stroke="#19d9b8" stroke-opacity=".6"/><text x="241.2" y="297.1" text-anchor="middle" font-size="12.5" fill="#19d9b8" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Receivers</text>
 <polygon points="165.7,189.7 225.5,224.3 165.7,258.9 105.8,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="165.7,187.9 217.1,217.6 165.7,247.3 114.2,217.6" fill="#8b7cf6" opacity=".16" filter="url(#bl)"/>
 <polygon points="118.9,217.6 165.7,244.6 165.7,204.1 118.9,177.1" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -130,12 +137,15 @@
 <polyline points="310.6,266.2 352.7,290.5 394.8,266.2" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="310.6,293.2 352.7,317.5 394.8,293.2" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(42.088 24.3 -42.088 24.3 352.7 241.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".2" y="0.2" width=".6" height=".15" rx=".04" fill="#19d9b8" fill-opacity=".16" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".7" cy="0.275" r=".03" fill="#19d9b8" stroke="none"/><rect vector-effect="non-scaling-stroke" x=".2" y="0.42000000000000004" width=".6" height=".15" rx=".04" fill="#19d9b8" fill-opacity=".16" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".7" cy="0.495" r=".03" fill="#19d9b8" stroke="none"/><rect vector-effect="non-scaling-stroke" x=".2" y="0.64" width=".6" height=".15" rx=".04" fill="#19d9b8" fill-opacity=".16" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".7" cy="0.7150000000000001" r=".03" fill="#19d9b8" stroke="none"/></g>
-<polyline points="231.1,214.9 235.8,214.9" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="235.8" cy="214.9" r="4" fill="#eef35f"/><circle cx="231.1" cy="214.9" r="3" fill="#eef35f" opacity=".7"/>
-<polyline points="357.4,214.9 385.5,209.5" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="385.5" cy="209.5" r="4" fill="#19d9b8"/><circle cx="357.4" cy="214.9" r="3" fill="#19d9b8" opacity=".7"/>
-<polyline points="313,232.4 324.7,277" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="324.7" cy="277" r="4" fill="#19d9b8"/><circle cx="313" cy="232.4" r="3" fill="#19d9b8" opacity=".7"/>
+<polyline points="231.1,214.9 235.8,214.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="231.1,214.9 235.8,214.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="231.1" cy="214.9" r="4" fill="#eef35f"/>
+<polyline points="357.4,214.9 385.5,209.5" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="357.4,214.9 385.5,209.5" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="357.4" cy="214.9" r="4" fill="#19d9b8"/>
+<polyline points="313,232.4 324.7,277" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="313,232.4 324.7,277" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="313" cy="232.4" r="4" fill="#19d9b8"/>
 <polygon points="212.4,235.6 262.9,264.8 212.4,294 161.9,264.8" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="212.4,233.8 254.5,258.1 212.4,282.3 170.4,258.1" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
 <polygon points="175,258.1 212.4,279.7 212.4,258.1 175,236.5" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -144,8 +154,9 @@
 <polyline points="175,236.5 212.4,258.1 249.9,236.5" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="175,255.4 212.4,277 249.9,255.4" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(37.411 21.6 -37.411 21.6 212.4 214.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><ellipse vector-effect="non-scaling-stroke" cx=".5" cy=".28" rx=".26" ry=".1" fill="#eef35f" fill-opacity=".2" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.24 .28V.7C.24 .76 .36 .82 .5 .82S.76 .76 .76 .7V.28M.24 .49C.24 .55 .36 .6 .5 .6S.76 .55 .76 .49" stroke="#eef35f"/></g>
-<polyline points="282.6,233.7 233.5,237.8" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="233.5" cy="237.8" r="4" fill="#eef35f"/><circle cx="282.6" cy="233.7" r="3" fill="#eef35f" opacity=".7"/>
+<polyline points="282.6,233.7 233.5,237.8" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="282.6,233.7 233.5,237.8" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="282.6" cy="233.7" r="4" fill="#eef35f"/>
 <line x1="165.7" y1="142.1" x2="165.7" y2="177.1" stroke="#19d9b8" stroke-width="1.5"/><circle cx="165.7" cy="177.1" r="3" fill="#19d9b8"/>
 <rect x="104.4" y="112.1" width="122.6" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="165.7" y="132.1" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Transmitter</text>
@@ -162,10 +173,13 @@
 <rect x="146.8" y="294.7" width="131.2" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="212.4" y="314.7" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Stream store</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="370" width="640" height="100" fill="#000" opacity=".35"/>
+<rect x="0" y="370" width="640" height="238" fill="#000" opacity=".35"/>
 <line x1="0" y1="370" x2="640" y2="370" stroke="#26343b"/>
 <text x="24" y="402" font-size="20" font-weight="650" fill="#f4f4f5">Shared signals with theAuth</text>
 <text x="24" y="426" font-size="14.5" fill="#a1a1aa">A transmitter sends signed security events, and every receiver</text>
 <text x="24" y="446" font-size="14.5" fill="#a1a1aa">acts on them within seconds.</text>
+<rect x="24" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="494" r="12" fill="#eef35f"/><text x="48" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">1</text><text x="70" y="490" font-size="13.5" fill="#f4f4f5">An event happens, such as a</text><text x="70" y="508" font-size="13.5" fill="#f4f4f5">ban or a password change.</text>
+<rect x="325" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="494" r="12" fill="#eef35f"/><text x="349" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">2</text><text x="371" y="490" font-size="13.5" fill="#f4f4f5">theAuth signs it and queues it</text><text x="371" y="508" font-size="13.5" fill="#f4f4f5">per stream.</text>
+<rect x="24" y="528" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="554" r="12" fill="#eef35f"/><text x="48" y="559" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">3</text><text x="70" y="550" font-size="13.5" fill="#f4f4f5">Every receiver verifies it and</text><text x="70" y="568" font-size="13.5" fill="#f4f4f5">acts on it.</text>
 <text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>

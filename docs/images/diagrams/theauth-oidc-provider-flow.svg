@@ -1,19 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 470" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 608" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">theAuth as an OpenID Connect provider</title><desc id="d">A client app redirects a user to theAuth, receives an ID token and userinfo, and a second app is notified by back-channel logout.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 376)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 282)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 376)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 486.40000000000003)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 364.8)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 486.40000000000003)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#19d9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#eef35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#8b7cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="470" rx="16" fill="#06080a"/>
-<rect width="640" height="470" rx="16" fill="url(#g1)"/><rect width="640" height="470" rx="16" fill="url(#g2)"/><rect width="640" height="470" rx="16" fill="url(#g3)"/>
-<rect width="640" height="470" rx="16" filter="url(#n)" opacity=".10"/>
+<rect width="640" height="608" rx="16" fill="#06080a"/>
+<rect width="640" height="608" rx="16" fill="url(#g1)"/><rect width="640" height="608" rx="16" fill="url(#g2)"/><rect width="640" height="608" rx="16" fill="url(#g3)"/>
+<rect width="640" height="608" rx="16" filter="url(#n)" opacity=".10"/>
 <polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -98,6 +103,8 @@
 <circle cx="366.8" cy="298.6" r="1" fill="#46585f" opacity=".6"/>
 <circle cx="343.4" cy="312.1" r="1" fill="#46585f" opacity=".6"/>
 <circle cx="320" cy="325.6" r="1" fill="#46585f" opacity=".6"/>
+<polygon points="320,185.2 408.9,236.5 270.9,316.1 182,264.8" fill="#8b7cf6" fill-opacity=".05" stroke="#8b7cf6" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>
+<rect x="125" y="260.8" width="78" height="24" rx="12" fill="#8b7cf6" fill-opacity=".14" stroke="#8b7cf6" stroke-opacity=".6"/><text x="164" y="276.8" text-anchor="middle" font-size="12.5" fill="#8b7cf6" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theAuth</text>
 <polygon points="165.7,192.4 220.9,224.3 165.7,256.2 110.5,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="165.7,190.6 212.4,217.6 165.7,244.6 118.9,217.6" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
 <polygon points="123.6,217.6 165.7,241.9 165.7,209.5 123.6,185.2" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -130,12 +137,15 @@
 <polyline points="217.1,252.7 254.5,274.3 291.9,252.7" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="217.1,274.3 254.5,295.9 291.9,274.3" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(37.411 21.6 -37.411 21.6 254.5 231.1)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><ellipse vector-effect="non-scaling-stroke" cx=".5" cy=".28" rx=".26" ry=".1" fill="#eef35f" fill-opacity=".2" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.24 .28V.7C.24 .76 .36 .82 .5 .82S.76 .76 .76 .7V.28M.24 .49C.24 .55 .36 .6 .5 .6S.76 .55 .76 .49" stroke="#eef35f"/></g>
-<polyline points="226.5,214.9 259.2,214.9" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="259.2" cy="214.9" r="4" fill="#eef35f"/><circle cx="226.5" cy="214.9" r="3" fill="#eef35f" opacity=".7"/>
-<polyline points="380.8,214.9 413.5,214.9" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="413.5" cy="214.9" r="4" fill="#19d9b8"/><circle cx="380.8" cy="214.9" r="3" fill="#19d9b8" opacity=".7"/>
-<polyline points="294.3,235.1 275.6,256.7" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="275.6" cy="256.7" r="4" fill="#eef35f"/><circle cx="294.3" cy="235.1" r="3" fill="#eef35f" opacity=".7"/>
+<polyline points="226.5,214.9 259.2,214.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="226.5,214.9 259.2,214.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="226.5" cy="214.9" r="4" fill="#eef35f"/>
+<polyline points="380.8,214.9 413.5,214.9" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="380.8,214.9 413.5,214.9" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="380.8" cy="214.9" r="4" fill="#19d9b8"/>
+<polyline points="294.3,235.1 275.6,256.7" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="294.3,235.1 275.6,256.7" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="294.3" cy="235.1" r="4" fill="#eef35f"/>
 <circle cx="235.8" cy="214.9" r="14" fill="#eef35f"/><text x="235.8" y="220.4" text-anchor="middle" font-size="15" font-weight="700" fill="#06080a">1</text>
 <circle cx="404.2" cy="214.9" r="14" fill="#eef35f"/><text x="404.2" y="220.4" text-anchor="middle" font-size="15" font-weight="700" fill="#06080a">2</text>
 <line x1="165.7" y1="156.2" x2="165.7" y2="185.2" stroke="#19d9b8" stroke-width="1.5"/><circle cx="165.7" cy="185.2" r="3" fill="#19d9b8"/>
@@ -151,10 +161,13 @@
 <rect x="163.1" y="313.6" width="182.8" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="254.5" y="333.6" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Users and sessions</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="370" width="640" height="100" fill="#000" opacity=".35"/>
+<rect x="0" y="370" width="640" height="238" fill="#000" opacity=".35"/>
 <line x1="0" y1="370" x2="640" y2="370" stroke="#26343b"/>
 <text x="24" y="402" font-size="20" font-weight="650" fill="#f4f4f5">theAuth as an OpenID Connect provider</text>
 <text x="24" y="426" font-size="14.5" fill="#a1a1aa">Apps send users to theAuth, get an ID token and userinfo back,</text>
 <text x="24" y="446" font-size="14.5" fill="#a1a1aa">and are told when the user signs out.</text>
+<rect x="24" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="494" r="12" fill="#eef35f"/><text x="48" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">1</text><text x="70" y="490" font-size="13.5" fill="#f4f4f5">The app redirects the user to</text><text x="70" y="508" font-size="13.5" fill="#f4f4f5">theAuth.</text>
+<rect x="325" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="494" r="12" fill="#eef35f"/><text x="349" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">2</text><text x="371" y="490" font-size="13.5" fill="#f4f4f5">theAuth returns an ID token</text><text x="371" y="508" font-size="13.5" fill="#f4f4f5">and userinfo.</text>
+<rect x="24" y="528" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="554" r="12" fill="#eef35f"/><text x="48" y="559" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">3</text><text x="70" y="550" font-size="13.5" fill="#f4f4f5">Other apps hear about sign-out</text><text x="70" y="568" font-size="13.5" fill="#f4f4f5">through back-channel logout.</text>
 <text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>

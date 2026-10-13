@@ -1,19 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 470" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 608" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">theauth add copies components into your app</title><desc id="d">The theauth add command fetches a component from the theAuth registry and writes its source files into your application.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 376)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 282)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 376)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 486.40000000000003)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 364.8)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 486.40000000000003)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#19d9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#eef35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#8b7cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="470" rx="16" fill="#06080a"/>
-<rect width="640" height="470" rx="16" fill="url(#g1)"/><rect width="640" height="470" rx="16" fill="url(#g2)"/><rect width="640" height="470" rx="16" fill="url(#g3)"/>
-<rect width="640" height="470" rx="16" filter="url(#n)" opacity=".10"/>
+<rect width="640" height="608" rx="16" fill="#06080a"/>
+<rect width="640" height="608" rx="16" fill="url(#g1)"/><rect width="640" height="608" rx="16" fill="url(#g2)"/><rect width="640" height="608" rx="16" fill="url(#g3)"/>
+<rect width="640" height="608" rx="16" filter="url(#n)" opacity=".10"/>
 <polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -122,10 +127,12 @@
 <polyline points="441.6,177.1 483.7,201.4 525.8,177.1" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="441.6,214.9 483.7,239.2 525.8,214.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(42.088 24.3 -42.088 24.3 483.7 152.8)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="217.1,214.9 259.2,214.9" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="259.2" cy="214.9" r="4" fill="#eef35f"/><circle cx="217.1" cy="214.9" r="3" fill="#eef35f" opacity=".7"/>
-<polyline points="380.8,214.9 422.9,214.9" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="422.9" cy="214.9" r="4" fill="#19d9b8"/><circle cx="380.8" cy="214.9" r="3" fill="#19d9b8" opacity=".7"/>
+<polyline points="217.1,214.9 259.2,214.9" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="217.1,214.9 259.2,214.9" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="217.1" cy="214.9" r="4" fill="#eef35f"/>
+<polyline points="380.8,214.9 422.9,214.9" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="380.8,214.9 422.9,214.9" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="380.8" cy="214.9" r="4" fill="#19d9b8"/>
 <polygon points="254.5,250.5 302.7,278.3 254.5,306.1 206.4,278.3" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="254.5,248.6 294.3,271.6 254.5,294.5 214.8,271.6" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
 <polygon points="219.5,271.6 254.5,291.8 254.5,270.2 219.5,250" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -134,8 +141,9 @@
 <polyline points="219.5,250 254.5,270.2 289.6,250" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="219.5,268.9 254.5,289.1 289.6,268.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(35.073 20.25 -35.073 20.25 254.5 229.7)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><path vector-effect="non-scaling-stroke" d="M.5 .16L.78 .27V.5C.78 .66 .66 .78 .5 .84C.34 .78 .22 .66 .22 .5V.27Z" fill="#19d9b8" fill-opacity=".16" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.37 .5L.47 .6L.64 .4" fill="none" stroke="#19d9b8"/></g>
-<polyline points="441.6,217.6 301.3,268.9" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="301.3" cy="268.9" r="4" fill="#19d9b8"/><circle cx="441.6" cy="217.6" r="3" fill="#19d9b8" opacity=".7"/>
+<polyline points="441.6,217.6 301.3,268.9" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="441.6,217.6 301.3,268.9" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="441.6" cy="217.6" r="4" fill="#19d9b8"/>
 <line x1="156.3" y1="160.9" x2="156.3" y2="187.9" stroke="#19d9b8" stroke-width="1.5"/><circle cx="156.3" cy="187.9" r="3" fill="#19d9b8"/>
 <rect x="73.5" y="130.9" width="165.6" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="156.3" y="150.9" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth registry</text>
@@ -149,10 +157,13 @@
 <rect x="171.7" y="306.8" width="165.6" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="254.5" y="326.8" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">You own the code</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="370" width="640" height="100" fill="#000" opacity=".35"/>
+<rect x="0" y="370" width="640" height="238" fill="#000" opacity=".35"/>
 <line x1="0" y1="370" x2="640" y2="370" stroke="#26343b"/>
 <text x="24" y="402" font-size="20" font-weight="650" fill="#f4f4f5">theauth add copies components into your app</text>
 <text x="24" y="426" font-size="14.5" fill="#a1a1aa">The CLI pulls a component from the registry and writes the</text>
 <text x="24" y="446" font-size="14.5" fill="#a1a1aa">source into your repo, so you own it.</text>
+<rect x="24" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="494" r="12" fill="#eef35f"/><text x="48" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">1</text><text x="70" y="490" font-size="13.5" fill="#f4f4f5">The CLI reads a component from</text><text x="70" y="508" font-size="13.5" fill="#f4f4f5">the registry.</text>
+<rect x="325" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="494" r="12" fill="#eef35f"/><text x="349" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">2</text><text x="371" y="490" font-size="13.5" fill="#f4f4f5">It writes the source files</text><text x="371" y="508" font-size="13.5" fill="#f4f4f5">into your repo.</text>
+<rect x="24" y="528" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="554" r="12" fill="#eef35f"/><text x="48" y="559" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">3</text><text x="70" y="559" font-size="13.5" fill="#f4f4f5">You own and can edit the code.</text>
 <text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>
