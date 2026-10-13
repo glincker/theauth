@@ -31,7 +31,8 @@
     "prepare": "simple-git-hooks",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "turbo build && changeset publish"
+    "release": "turbo build && changeset publish",
+    "audit:gate": "node scripts/audit-gate.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
@@ -47,7 +48,7 @@
   "simple-git-hooks": {
     "pre-commit": "pnpm lint && pnpm --filter @glinr/theauth typecheck",
     "commit-msg": "node scripts/check-commit-title.mjs $1",
-    "pre-push": "pnpm typecheck && pnpm test"
+    "pre-push": "pnpm audit:gate && pnpm typecheck && pnpm test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
