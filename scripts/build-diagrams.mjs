@@ -19,9 +19,9 @@ const C = {
 };
 const FONT = "Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const MONO = "ui-monospace,JetBrains Mono,Menlo,Consolas,monospace";
-const W = 640;
-const SCENE_H = 480;
-const PLATE_H = 370;
+const W = 760;
+const SCENE_H = 560;
+const PLATE_H = 480;
 const f = (n) => Math.round(n * 10) / 10;
 const wrapText = (t, max) => {
 	const out = [];
@@ -78,6 +78,8 @@ function scene(X, Y, caption) {
 	const P = (x, y, z = 0) => [f(ox + (x - y) * 0.866 * u), f(oy + (x + y) * 0.5 * u - z * u)];
 	const pts = (arr) => arr.map((p) => p.join(",")).join(" ");
 	const out = [];
+	const obstacles = [];
+	const groupLabels = [];
 	const poly = (arr, fill, stroke = C.edge, extra = "") =>
 		`<polygon points="${pts(arr)}" fill="${fill}" stroke="${stroke}" stroke-width="1" stroke-linejoin="round" ${extra}/>`;
 	const base = 0.35;
@@ -148,7 +150,17 @@ function scene(X, Y, caption) {
 			`<polyline points="${pts([P(x, y + d, z0 + 0.1), P(x + w, y + d, z0 + 0.1), P(x + w, y, z0 + 0.1)])}" fill="none" stroke="${accent}" stroke-width="1.8" opacity=".95"/>`,
 		);
 		if (kind) icon(kind, x, y, w, d, z1, accent);
-		return { top: P(x + w / 2, y + d / 2, z1), front: P(x + w, y + d, z0) };
+		const cs = [x, x + w].flatMap((px) =>
+			[y, y + d].flatMap((py) => [z0, z1].map((pz) => P(px, py, pz))),
+		);
+		const r = {
+			l: Math.min(...cs.map((c) => c[0])) - 4,
+			r: Math.max(...cs.map((c) => c[0])) + 4,
+			t: Math.min(...cs.map((c) => c[1])) - 4,
+			b: Math.max(...cs.map((c) => c[1])) + 4,
+		};
+		obstacles.push(r);
+		return { top: P(x + w / 2, y + d / 2, z1), front: P(x + w, y + d, z0), rect: r };
 	}
 
 	function route(path, color = C.teal, z = 0.45) {
@@ -169,10 +181,7 @@ function scene(X, Y, caption) {
 			`<polygon points="${pts(q)}" fill="${color}" fill-opacity=".05" stroke="${color}" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>`,
 		);
 		const [lx, ly] = P(x1, y2, base);
-		const w = label.length * 8 + 22;
-		out.push(
-			`<rect x="${f(lx - w / 2 - 18)}" y="${f(ly - 4)}" width="${f(w)}" height="24" rx="12" fill="${color}" fill-opacity=".14" stroke="${color}" stroke-opacity=".6"/><text x="${f(lx - 18)}" y="${f(ly + 12)}" text-anchor="middle" font-size="12.5" fill="${color}" font-family="${MONO}">${esc(label)}</text>`,
-		);
+		groupLabels.push({ lx, ly, label, color });
 	}
 
 	const tags = [];
@@ -185,52 +194,120 @@ function scene(X, Y, caption) {
 		callouts.push({ x, y, n, text, dy, dx });
 	}
 
-	// Place pills after everything is known and push colliding ones apart.
+	// Place pills and callouts after everything is known. Each one tries
+	// candidate spots until it clears every node, bubble and label.
 	function placeTags() {
-		const placed = [];
+		const boxes = obstacles.map((o) => ({ ...o }));
 		const res = [];
+		const hit = (r) =>
+			boxes.some((o) => r.l < o.r + 6 && r.r > o.l - 6 && r.t < o.b + 6 && r.b > o.t - 6);
+		const inside = (r) => r.l >= 8 && r.r <= W - 8 && r.t >= 56 && r.b <= SCENE_H - 8;
+		const owner = (x, y) => boxes.find((o) => x >= o.l && x <= o.r && y >= o.t && y <= o.b);
+
+		for (const g of groupLabels) {
+			const w = g.label.length * 8 + 22;
+			const spots = [
+				[0, 0],
+				[0, 28],
+				[-50, 14],
+				[50, 14],
+				[-90, 0],
+				[90, 0],
+				[0, -28],
+				[-60, 44],
+			];
+			let chosen = spots[0];
+			for (const sp of spots) {
+				const cx = Math.min(Math.max(g.lx - 6 + sp[0], w / 2 + 8), W - w / 2 - 8);
+				const r = { l: cx - w / 2, r: cx + w / 2, t: g.ly + sp[1] - 4, b: g.ly + sp[1] + 20 };
+				if (inside(r) && !hit(r)) {
+					chosen = sp;
+					break;
+				}
+			}
+			const cx = Math.min(Math.max(g.lx - 6 + chosen[0], w / 2 + 8), W - w / 2 - 8);
+			const cy = g.ly + chosen[1];
+			boxes.push({ l: cx - w / 2, r: cx + w / 2, t: cy - 4, b: cy + 20 });
+			res.push(
+				`<rect x="${f(cx - w / 2)}" y="${f(cy - 4)}" width="${f(w)}" height="24" rx="12" fill="#0a0f12" stroke="${g.color}" stroke-opacity=".7"/><text x="${f(cx)}" y="${f(cy + 12)}" text-anchor="middle" font-size="12.5" fill="${g.color}" font-family="${MONO}">${esc(g.label)}</text>`,
+			);
+		}
+
 		for (const t of tags) {
 			const w = Math.max(72, t.label.length * 8.6 + 28);
 			const below = t.lift < 0;
+			const own = owner(t.x, below ? t.y - 6 : t.y + 6);
+			const dir = below ? 1 : -1;
 			let ty = t.y - t.lift;
-			const px = Math.min(Math.max(t.x, w / 2 + 8), W - w / 2 - 8);
-			for (let i = 0; i < 8; i++) {
-				const hit = placed.some(
-					(r) => Math.abs(r.x - px) < (r.w + w) / 2 + 8 && Math.abs(r.y - ty) < 36,
-				);
-				if (!hit) break;
-				ty += below ? 36 : -36;
+			if (own) ty = below ? Math.max(ty, own.b + 24) : Math.min(ty, own.t - 24);
+			let best = null;
+			for (let k = 0; k < 10 && !best; k++) {
+				for (const sgn of [1, -1]) {
+					const cy = ty + dir * sgn * k * 18;
+					const px = Math.min(Math.max(t.x, w / 2 + 10), W - w / 2 - 10);
+					const r = { l: px - w / 2, r: px + w / 2, t: cy - 15, b: cy + 15 };
+					if (inside(r) && !hit(r)) {
+						best = { px, cy, r };
+						break;
+					}
+				}
 			}
-			placed.push({ x: px, y: ty, w, h: 30 });
-			const l1 = below ? t.y : ty + 15;
-			const l2 = below ? ty - 15 : t.y;
+			if (!best) {
+				const px = Math.min(Math.max(t.x, w / 2 + 10), W - w / 2 - 10);
+				best = {
+					px,
+					cy: ty,
+					r: { l: px - w / 2, r: px + w / 2, t: ty - 15, b: ty + 15 },
+					bad: true,
+				};
+				console.warn(`overlap: tag "${t.label}"`);
+			}
+			boxes.push(best.r);
+			const { px, cy } = best;
+			const goesDown = cy > t.y;
+			const l1 = goesDown ? t.y : cy + 15;
+			const l2 = goesDown ? cy - 15 : t.y;
 			res.push(
 				`<line x1="${t.x}" y1="${l1}" x2="${t.x}" y2="${l2}" stroke="${C.teal}" stroke-width="1.5"/><circle cx="${t.x}" cy="${t.y}" r="3" fill="${C.teal}"/>`,
-				`<rect x="${f(px - w / 2)}" y="${ty - 15}" width="${f(w)}" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>`,
-				`<text x="${px}" y="${ty + 5}" text-anchor="middle" font-size="14.5" fill="${C.text}" font-family="${MONO}">${esc(t.label)}</text>`,
+				`<rect x="${f(px - w / 2)}" y="${cy - 15}" width="${f(w)}" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>`,
+				`<text x="${px}" y="${cy + 5}" text-anchor="middle" font-size="14.5" fill="${C.text}" font-family="${MONO}">${esc(t.label)}</text>`,
 			);
 		}
+
 		for (const c of callouts) {
-			const lines2 = wrapText(c.text, 22).slice(0, 2);
-			const w = Math.max(...lines2.map((l) => l.length)) * 7.4 + 52;
-			const h = lines2.length > 1 ? 46 : 36;
-			let cy = c.y + c.dy;
-			const cx = Math.min(Math.max(c.x + c.dx, w / 2 + 8), W - w / 2 - 8);
-			for (let i = 0; i < 8; i++) {
-				const hit = placed.some(
-					(r) => Math.abs(r.x - cx) < (r.w + w) / 2 + 6 && Math.abs(r.y - cy) < (r.h + h) / 2 + 6,
-				);
-				if (!hit) break;
-				cy += cy + 24 > SCENE_H - 22 ? -24 : 24;
+			const ls = wrapText(c.text, 24).slice(0, 2);
+			const w = Math.max(...ls.map((l) => l.length)) * 7.4 + 54;
+			const h = ls.length > 1 ? 46 : 36;
+			const cands = [];
+			for (const dx of [0, -120, 120, -240, 240, -330, 330])
+				for (const dy of [0, 30, 60, 90, 120, -30, -60])
+					cands.push({ dx, dy, c: Math.abs(dx) * 0.6 + Math.abs(dy) });
+			cands.sort((a, b) => a.c - b.c);
+			let best = null;
+			for (const k of cands) {
+				const cx = Math.min(Math.max(c.x + c.dx + k.dx, w / 2 + 8), W - w / 2 - 8);
+				const cy = c.y + c.dy + k.dy;
+				const r = { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 };
+				if (inside(r) && !hit(r)) {
+					best = { cx, cy, r };
+					break;
+				}
 			}
-			placed.push({ x: cx, y: cy, w, h });
+			if (!best) {
+				const cx = Math.min(Math.max(c.x + c.dx, w / 2 + 8), W - w / 2 - 8);
+				const cy = Math.min(c.y + c.dy, SCENE_H - 30);
+				best = { cx, cy, r: { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 } };
+				console.warn(`overlap: callout "${c.text}"`);
+			}
+			boxes.push(best.r);
+			const { cx, cy } = best;
 			res.push(
-				`<path d="M${c.x} ${c.y}L${f(cx)} ${f(cy - h / 2)}" stroke="${C.lime}" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="${c.x}" cy="${c.y}" r="3" fill="${C.lime}"/>`,
+				`<path d="M${c.x} ${c.y}L${f(cx)} ${f(cy + (cy > c.y ? -h / 2 : h / 2))}" stroke="${C.lime}" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="${c.x}" cy="${c.y}" r="3" fill="${C.lime}"/>`,
 				`<rect x="${f(cx - w / 2)}" y="${f(cy - h / 2)}" width="${f(w)}" height="${h}" rx="${h / 2}" fill="#0d1519" stroke="${C.lime}" stroke-opacity=".5"/>`,
 				`<circle cx="${f(cx - w / 2 + 19)}" cy="${cy}" r="10" fill="${C.lime}"/><text x="${f(cx - w / 2 + 19)}" y="${cy + 4.5}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${C.bg}">${c.n}</text>`,
-				...lines2.map(
+				...ls.map(
 					(l, k) =>
-						`<text x="${f(cx - w / 2 + 36)}" y="${f(cy + (lines2.length > 1 ? -2 + k * 15 : 4.5))}" font-size="12.5" fill="${C.text}">${esc(l)}</text>`,
+						`<text x="${f(cx - w / 2 + 36)}" y="${f(cy + (ls.length > 1 ? -2 + k * 15 : 4.5))}" font-size="12.5" fill="${C.text}">${esc(l)}</text>`,
 				),
 			);
 		}
@@ -239,12 +316,14 @@ function scene(X, Y, caption) {
 
 	function chip([x, y], label) {
 		const w = label.length * 8.6 + 24;
+		obstacles.push({ l: x - w / 2 - 2, r: x + w / 2 + 2, t: y - 15, b: y + 15 });
 		out.push(
 			`<rect x="${f(x - w / 2)}" y="${y - 13}" width="${f(w)}" height="26" rx="13" fill="#0b1013" stroke="${C.teal}" stroke-opacity=".6"/><text x="${x}" y="${y + 5}" text-anchor="middle" font-size="13.5" fill="${C.text}" font-family="${MONO}">${esc(label)}</text>`,
 		);
 	}
 
 	function step([x, y], n) {
+		obstacles.push({ l: x - 16, r: x + 16, t: y - 16, b: y + 16 });
 		out.push(
 			`<circle cx="${x}" cy="${y}" r="14" fill="${C.lime}"/><text x="${x}" y="${y + 5.5}" text-anchor="middle" font-size="15" font-weight="700" fill="${C.bg}">${n}</text>`,
 		);
@@ -666,7 +745,7 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		return { label, b, below: pos[1] > 6 };
 	});
 	const cb = s.cuboid(...box(...core, 2.2), 1.6, { accent: C.purple, kind: "mark" });
-	s.tag(cb.top, "theAuth core", 74);
+	s.tag(cb.front, "theAuth core", -34);
 	for (const n of nodes) {
 		if (n.below) s.tag(n.b.front, n.label, -28);
 		else s.tag(n.b.top, n.label, 36);
