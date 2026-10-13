@@ -1,5 +1,37 @@
 # @glinr/theauth-cli
 
+## 0.4.0
+
+### Minor Changes
+
+- 7683e4c: `theauth add <component>` copies the sign-in UI components into your project as source you own, in the shadcn style. The same items are committed under `registry/` in the shadcn registry format, so `npx shadcn add <url>` works as well.
+- 4f33ad2: The dashboard no longer keeps its secret in `sessionStorage`. `POST /api/dashboard/auth` with the secret sets an HttpOnly, SameSite=Strict session cookie that lasts eight hours, `GET` reports whether it is valid and `DELETE` signs out.
+
+### Patch Changes
+
+- f54c346: Trim trailing slashes with a scan instead of `replace(/\/+$/, "")`, which is quadratic on a long run of slashes (federation discovery URL, self-hosted provider presets, CLI token cache key). Match whitespace before the `>` in the codemod's closing script tag. Repeat the reserved attribute name check inline at each SCIM PATCH property write.
+- Updated dependencies [2c6f86d]
+- Updated dependencies [3941782]
+- Updated dependencies [292ec38]
+- Updated dependencies [d303a84]
+- Updated dependencies [606693b]
+- Updated dependencies [988b17d]
+- Updated dependencies [f54c346]
+- Updated dependencies [6b0eb03]
+- Updated dependencies [292ec38]
+- Updated dependencies [292ec38]
+- Updated dependencies [bf91c2f]
+- Updated dependencies [87e24ea]
+- Updated dependencies [292ec38]
+- Updated dependencies [fdb0d52]
+- Updated dependencies [292ec38]
+- Updated dependencies [292ec38]
+- Updated dependencies [842e1ec]
+- Updated dependencies [292ec38]
+- Updated dependencies [20d865b]
+  - @glinr/theauth@0.8.0
+  - @glinr/theauth-hono@5.1.0
+
 ## 0.3.3
 
 ### Patch Changes

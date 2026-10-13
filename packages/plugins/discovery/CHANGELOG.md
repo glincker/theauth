@@ -1,5 +1,11 @@
 # @glinr/theauth-plugin-discovery
 
+## 4.0.1
+
+### Patch Changes
+
+- 6b0eb03: Require `drizzle-orm` 0.45.2 or newer. Earlier versions do not escape SQL identifiers correctly, which allows SQL injection when an identifier is built from untrusted input (GHSA advisory for drizzle-orm below 0.45.2). The ranges in the create-theauth-app template and the examples are bumped too.
+
 ## 4.0.0
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # @glinr/theauth-nestjs
 
+## 5.1.0
+
+### Minor Changes
+
+- 2c6f86d: Express, Fastify and NestJS adapters now rate limit requests in three tiers and reject cross-site writes made with a cookie session. New options on every adapter: `rateLimit`, `trustedOrigins` and `csrf`. Both checks are on by default; set `rateLimit: false` or `csrf: false` to opt out.
+
+### Patch Changes
+
+- 292ec38: Forward the `DPoP-Nonce` header on `/mcp/token` error responses so DPoP clients can complete the `use_dpop_nonce` retry, and allow the `DPoP` request header and expose `DPoP-Nonce` and `WWW-Authenticate` in the MCP CORS headers.
+- d303a84: Share the rate limit and cross-site refusal writer between the Express and NestJS adapters.
+- 43e6252: Fastify now passes the real request method to the rate limit and cross-site checks (it was always GET, so writes were counted as reads and the cross-site check never ran). Express and NestJS skip re-encoding the parsed body for those checks.
+
 ## 5.0.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-solidstart",
-  "version": "5.0.1",
+  "version": "5.1.0",
   "description": "SolidStart adapter for TheAuth",
   "type": "module",
   "main": "dist/index.js",

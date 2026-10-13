@@ -1,5 +1,15 @@
 # @glinr/theauth-hono
 
+## 5.1.0
+
+### Minor Changes
+
+- 988b17d: The remaining adapters now apply the same rate limits and cross-site write check as Express, Fastify and NestJS (`rateLimit`, `trustedOrigins`, `csrf`). The strict tier also matches when the adapter is mounted under a path prefix.
+
+### Patch Changes
+
+- 292ec38: Forward the `DPoP-Nonce` header on `/mcp/token` error responses so DPoP clients can complete the `use_dpop_nonce` retry, and allow the `DPoP` request header and expose `DPoP-Nonce` and `WWW-Authenticate` in the MCP CORS headers.
+
 ## 5.0.1
 
 ### Patch Changes

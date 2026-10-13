@@ -1,5 +1,14 @@
 # @glinr/theauth-react
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [292ec38]
+- Updated dependencies [640cd9f]
+- Updated dependencies [20d865b]
+  - @glinr/theauth-client@0.4.0
+
 ## 0.7.0
 
 ### Minor Changes

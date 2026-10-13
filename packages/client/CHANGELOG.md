@@ -1,5 +1,13 @@
 # @glinr/theauth-client
 
+## 0.4.0
+
+### Minor Changes
+
+- 292ec38: Add `createDPoPProver` and `createDPoPClient`: an edge safe RFC 9449 helper that builds ES256 DPoP proofs (htm, normalized htu, iat, jti, ath), caches the server nonce per origin, retries once on `use_dpop_nonce`, and exposes a `fetch` wrapper and the JWK thumbprint.
+- 640cd9f: Browser passkey client for the TypeScript server. `createPasskeyClient` runs registration and sign-in against the passkey plugin routes, with conditional UI (autofill) support, and `SignIn` takes a `passkeyClient` prop for a passkey button and autofill suggestions.
+- 20d865b: Typed plugin endpoints. `defineEndpoint` validates params, query and body with zod and exposes the shapes through `ApiOf`; `createEndpointClient` in the client package calls routes by `"METHOD /path"` key with inferred input and result types.
+
 ## 0.3.0
 
 ### Minor Changes
