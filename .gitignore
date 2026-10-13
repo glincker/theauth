@@ -63,3 +63,4 @@ packages/create-theauth-app/template-versions.json
 
 # Local SQLite files created by examples/hono-server
 examples/hono-server/kavach.db*
+scripts/.diagram-build/

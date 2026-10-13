@@ -75,7 +75,7 @@ The plugin registers these routes (relative to the adapter prefix):
 | `DELETE` | `/auth/oauth/accounts/:provider` | Unlinks an account. Refused with 409 `last_credential` when it is the user's only sign-in method. |
 
 <Frame caption="Web sign-in: redirect out, code back, session cookie set.">
-  <img src="/images/diagrams/theauth-web-oauth-sign-in.svg" alt="A browser is redirected through the theAuth handler to an OAuth provider, comes back with a code, and theAuth sets a session cookie." />
+  <img src="/images/diagrams/theauth-web-oauth-sign-in.jpg" alt="A browser is redirected through the theAuth handler to an OAuth provider, comes back with a code, and theAuth sets a session cookie." />
 </Frame>
 
 ## The sign-in flow

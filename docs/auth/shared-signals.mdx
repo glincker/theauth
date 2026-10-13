@@ -14,7 +14,7 @@ One plugin, `sharedSignals()`, can run either or both roles:
 Nothing is emitted from your existing sign-in paths unless you wire it in (see [Emit from existing paths](#emit-from-existing-paths)).
 
 <Frame caption="One transmitter, many receivers. Each stream picks its events and delivery.">
-  <img src="/images/shared-signals/theauth-shared-signals-overview.svg" alt="A theAuth transmitter sends signed security events to two receivers" />
+  <img src="/images/shared-signals/theauth-shared-signals-overview.jpg" alt="A theAuth transmitter sends signed security events to two receivers" />
 </Frame>
 
 ## Why you would use it
@@ -39,7 +39,7 @@ Without shared signals, a disabled account in one system stays signed in everywh
 ## How it works
 
 <Frame caption="From an admin action to a revoked session on the other side.">
-  <img src="/images/shared-signals/theauth-shared-signals-lifecycle.svg" alt="Four steps: something happens, theAuth signs an event, it is delivered, the receiver acts" />
+  <img src="/images/shared-signals/theauth-shared-signals-lifecycle.jpg" alt="Four steps: something happens, theAuth signs an event, it is delivered, the receiver acts" />
 </Frame>
 
 ## Try it in two steps
@@ -159,7 +159,7 @@ await signals.emit({
 ### Push delivery
 
 <Frame caption="Pick push for latency, poll when the receiver cannot expose a public URL.">
-  <img src="/images/shared-signals/theauth-shared-signals-push-poll.svg" alt="Push: the transmitter posts to the receiver. Poll: the receiver asks and acknowledges." />
+  <img src="/images/shared-signals/theauth-shared-signals-push-poll.jpg" alt="Push: the transmitter posts to the receiver. Poll: the receiver asks and acknowledges." />
 </Frame>
 
 SETs are POSTed as `application/secevent+jwt` with the stream's `Authorization` header. A `2xx` marks the SET delivered. `408`, `429`, `5xx` and network errors are retried with exponential backoff (default 1 s doubling to 5 min, up to 5 attempts). Other statuses, including an RFC 8935 `400` error, and redirects fail the SET without retry.
