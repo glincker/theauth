@@ -14,6 +14,7 @@ from theauth.errors import (
     RateLimitError,
     ServerError,
     TheAuthError,
+    ValidationError,
 )
 
 T = TypeVar("T")
@@ -40,13 +41,24 @@ def _parse_error(response: httpx.Response) -> TheAuthError:
         code: str = inner.get("code", "API_ERROR")
         message: str = inner.get("message", f"HTTP {response.status_code}")
         details: Dict[str, Any] = inner.get("details", {})
+        # defineEndpoint validation failures: { error: { code, message, issues } }
+        issues: Any = inner.get("issues")
+        if issues is None and isinstance(details, dict):
+            issues = details.get("issues")
     else:
         code = "API_ERROR"
         message = f"HTTP {response.status_code}"
         details = {}
+        issues = None
 
     status = response.status_code
 
+    if status in (400, 422) and (
+        issues is not None or code in ("INVALID_INPUT", "VALIDATION_ERROR")
+    ):
+        return ValidationError(
+            message, code=code, status_code=status, issues=issues, details=details
+        )
     if status == 401:
         return AuthenticationError(message, code=code, details=details)
     if status == 403:
@@ -81,7 +93,9 @@ class AsyncTransport:
         token: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: float = 30.0,
+        auth: Optional[httpx.Auth] = None,
     ) -> None:
+        self._auth = auth
         self._base = base_url.rstrip("/")
         self._token = token
         self._extra_headers = headers or {}
@@ -102,7 +116,7 @@ class AsyncTransport:
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
+            self._client = httpx.AsyncClient(timeout=self._timeout, auth=self._auth)
         return self._client
 
     async def request(
@@ -195,7 +209,9 @@ class SyncTransport:
         token: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: float = 30.0,
+        auth: Optional[httpx.Auth] = None,
     ) -> None:
+        self._auth = auth
         self._base = base_url.rstrip("/")
         self._token = token
         self._extra_headers = headers or {}
@@ -216,7 +232,7 @@ class SyncTransport:
 
     def _get_client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.Client(timeout=self._timeout)
+            self._client = httpx.Client(timeout=self._timeout, auth=self._auth)
         return self._client
 
     def request(

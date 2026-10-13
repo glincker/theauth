@@ -112,6 +112,30 @@ class ServerError(TheAuthError):
         super().__init__(message, code=code, status_code=status_code, details=details)
 
 
+class ValidationError(TheAuthError):
+    """Raised when the server rejects request input (HTTP 400 or 422).
+
+    Plugin routes declared with ``defineEndpoint`` answer
+    ``{"error": {"code": "INVALID_INPUT", "message": ..., "issues": [...]}}``.
+
+    Attributes:
+        issues: The server's ``issues`` payload (usually a list of
+            ``{"where", "path", "message"}`` dicts), or ``None``.
+    """
+
+    def __init__(
+        self,
+        message: str = "Request validation failed",
+        *,
+        code: str = "INVALID_INPUT",
+        status_code: int = 400,
+        issues: Optional[Any] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(message, code=code, status_code=status_code, details=details)
+        self.issues = issues
+
+
 class NetworkError(TheAuthError):
     """Raised when the HTTP request fails at the transport layer."""
 
