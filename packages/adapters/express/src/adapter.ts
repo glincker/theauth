@@ -10,7 +10,7 @@ import type {
 	TheAuth,
 	UpdateAgentInput,
 } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
+import { createAdapterGuard, writeRefusal } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
@@ -295,15 +295,8 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 	// cookie-session write is refused before authentication or any handler.
 	router.use((req: Request, res: Response, next: NextFunction) => {
 		const refused = guard.admit(buildWebRequest(req), req.path);
-		if (!refused) {
-			next();
-			return;
-		}
-		for (const [name, value] of refused.headers) res.setHeader(name, value);
-		refused
-			.text()
-			.then((body) => res.status(refused.status).send(body))
-			.catch(next);
+		if (!refused) return next();
+		writeRefusal(refused, res).catch(next);
 	});
 	router.use((req: Request, res: Response, next: NextFunction) => {
 		// With `allowUnauthenticated` nothing is protected, but handlers still
