@@ -167,7 +167,7 @@ export const DASHBOARD_COOKIE = "theauth_dashboard";
 const SESSION_SECONDS = 8 * 60 * 60;
 
 function cookieKey(secret: string): Uint8Array {
-	return createHmac("sha256", "theauth-dashboard-cookie").update(secret).digest();
+	return createHmac("sha256", secret).update("theauth-dashboard-cookie").digest();
 }
 
 /** Signed `expiry.signature` value. The signing key is derived from the secret. */

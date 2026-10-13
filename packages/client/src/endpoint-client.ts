@@ -87,11 +87,12 @@ export function createEndpointClient<Api extends Record<string, RouteShape>>(
 				body?: unknown;
 			};
 
-			const url = new URL(`${base}${fillPath(path, input.params)}`, "http://placeholder.invalid");
+			const search = new URLSearchParams();
 			for (const [k, v] of Object.entries(input.query ?? {})) {
-				if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+				if (v !== undefined && v !== null) search.set(k, String(v));
 			}
-			const target = base.startsWith("http") ? url.toString() : `${url.pathname}${url.search}`;
+			const qs = search.toString();
+			const target = `${base}${fillPath(path, input.params)}${qs ? `?${qs}` : ""}`;
 
 			const extra =
 				typeof options.headers === "function" ? await options.headers() : options.headers;
