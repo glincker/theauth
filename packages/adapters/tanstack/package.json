@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-tanstack",
-  "version": "5.0.1",
+  "version": "5.1.0",
   "description": "TanStack Start adapter for TheAuth",
   "type": "module",
   "main": "dist/index.js",

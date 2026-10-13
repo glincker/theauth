@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-extension",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "OAuth 2.1 authentication for Manifest V3 browser extensions (PKCE, refresh, optional DPoP)",
   "type": "module",
   "main": "dist/index.js",
