@@ -81,7 +81,7 @@ export interface AdapterGuard {
 	 * Rate limit and cross-site check. Returns a 429 or 403 Response to send, or
 	 * null. Call it for every request, before `isProtected` or `resolve`.
 	 */
-	admit(request: Request, relativePath: string): Response | null;
+	admit(request: Request, relativePath: string): Promise<Response | null>;
 }
 
 const PROTECTED_PREFIXES = ["/agents", "/delegations", "/audit", "/dashboard"];
@@ -145,8 +145,14 @@ export function createAdapterGuard(
 ): AdapterGuard {
 	const trustedProxy = options?.trustedProxy;
 	const clientIp = (request: Request): string | null => resolveClientIp(request, trustedProxy);
-	const admission = createAdapterAdmission(options, trustedProxy);
-	const admit = (request: Request, relativePath: string): Response | null =>
+	// Counts live in the `rateLimit` secondary storage, so a shared store
+	// (database, Redis) enforces the limit across instances.
+	const admission = createAdapterAdmission(
+		options,
+		trustedProxy,
+		theauth.secondaryStorage?.for("rateLimit"),
+	);
+	const admit = (request: Request, relativePath: string): Promise<Response | null> =>
 		admission.admit(request, relativePath);
 
 	if (options?.allowUnauthenticated === true) {
