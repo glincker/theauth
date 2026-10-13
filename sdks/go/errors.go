@@ -8,12 +8,14 @@ type TheAuthError struct {
 	Message    string                 `json:"message"`
 	StatusCode int                    `json:"statusCode,omitempty"`
 	Details    map[string]interface{} `json:"details,omitempty"`
+	// Issues holds validation issues from the { error: { issues } } envelope
+	// returned by plugin endpoints. Nil when the server sent none.
+	Issues interface{} `json:"issues,omitempty"`
 }
 
 func (e *TheAuthError) Error() string {
 	return fmt.Sprintf("theauth: [%s] %s", e.Code, e.Message)
 }
-
 
 // ErrAuthentication is returned when the request lacks valid credentials (HTTP 401).
 type ErrAuthentication struct {
@@ -75,4 +77,42 @@ func IsRateLimit(err error) bool {
 func IsServer(err error) bool {
 	_, ok := err.(*ErrServer)
 	return ok
+}
+
+// IsCSRFRejected reports whether err is a 403 with code CSRF_REJECTED.
+func IsCSRFRejected(err error) bool {
+	e, ok := err.(*ErrPermission)
+	return ok && e.Code == "CSRF_REJECTED"
+}
+
+// IsRateLimited reports whether err is a 429 rate limit error and returns the
+// Retry-After value in seconds (0 when the server did not send one).
+func IsRateLimited(err error) (retryAfterSeconds int, ok bool) {
+	e, isRL := err.(*ErrRateLimit)
+	if !isRL {
+		return 0, false
+	}
+	if e.RetryAfter != nil {
+		return *e.RetryAfter, true
+	}
+	return 0, true
+}
+
+// ValidationIssues returns the issues attached to err, or nil.
+func ValidationIssues(err error) interface{} {
+	switch e := err.(type) {
+	case *TheAuthError:
+		return e.Issues
+	case *ErrPermission:
+		return e.Issues
+	case *ErrAuthentication:
+		return e.Issues
+	case *ErrNotFound:
+		return e.Issues
+	case *ErrRateLimit:
+		return e.Issues
+	case *ErrServer:
+		return e.Issues
+	}
+	return nil
 }

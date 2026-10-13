@@ -1,5 +1,7 @@
 package theauth
 
+import "encoding/json"
+
 // AgentType represents the kind of agent identity.
 type AgentType string
 
@@ -59,17 +61,17 @@ type Permission struct {
 
 // Agent is an agent identity returned by the TheAuth API.
 type Agent struct {
-	ID          string      `json:"id"`
-	OwnerID     string      `json:"ownerId"`
-	Name        string      `json:"name"`
-	Type        AgentType   `json:"type"`
-	Token       string      `json:"token"`
+	ID          string       `json:"id"`
+	OwnerID     string       `json:"ownerId"`
+	Name        string       `json:"name"`
+	Type        AgentType    `json:"type"`
+	Token       string       `json:"token"`
 	Permissions []Permission `json:"permissions"`
-	Status      AgentStatus `json:"status"`
-	ExpiresAt   *string     `json:"expiresAt,omitempty"`
-	CreatedAt   string      `json:"createdAt"`
-	UpdatedAt   string      `json:"updatedAt"`
-	TenantID    *string     `json:"tenantId,omitempty"`
+	Status      AgentStatus  `json:"status"`
+	ExpiresAt   *string      `json:"expiresAt,omitempty"`
+	CreatedAt   string       `json:"createdAt"`
+	UpdatedAt   string       `json:"updatedAt"`
+	TenantID    *string      `json:"tenantId,omitempty"`
 }
 
 // CreateAgentInput is the input for creating a new agent identity.
@@ -217,4 +219,24 @@ type RegisterMcpServerInput struct {
 	Tools        []string `json:"tools"`
 	AuthRequired bool     `json:"authRequired"`
 	RateLimitRPM *int     `json:"rateLimit,omitempty"`
+}
+
+// MarshalJSON encodes RateLimitRPM as the { "rpm": n } object the server expects.
+func (in RegisterMcpServerInput) MarshalJSON() ([]byte, error) {
+	type out struct {
+		Name         string   `json:"name"`
+		Endpoint     string   `json:"endpoint"`
+		Tools        []string `json:"tools"`
+		AuthRequired bool     `json:"authRequired"`
+		RateLimit    *struct {
+			RPM int `json:"rpm"`
+		} `json:"rateLimit,omitempty"`
+	}
+	o := out{Name: in.Name, Endpoint: in.Endpoint, Tools: in.Tools, AuthRequired: in.AuthRequired}
+	if in.RateLimitRPM != nil {
+		o.RateLimit = &struct {
+			RPM int `json:"rpm"`
+		}{RPM: *in.RateLimitRPM}
+	}
+	return json.Marshal(o)
 }

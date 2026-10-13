@@ -1,0 +1,102 @@
+---
+title: Go SDK
+description: Call a theAuth TypeScript server from Go with theauth-go. Agents, delegation, audit, MCP servers, DPoP proofs and typed plugin endpoint calls with no third party dependencies.
+icon: code
+---
+
+`github.com/glincker/theauth-go` is the Go client for a theAuth server. It talks to the same REST API as `@glinr/theauth-client`. This is a client, not the Go server library.
+
+## Installation
+
+```bash
+go get github.com/glincker/theauth-go
+```
+
+Requires Go 1.21 or newer. No external dependencies.
+
+## Create a client
+
+```go
+client := theauth.NewClient("https://your-app.com/api/theauth",
+    theauth.WithToken("kv_..."),
+    theauth.WithTimeout(10*time.Second),
+)
+```
+
+Every method takes a `context.Context` first and returns typed errors.
+
+## Agents and authorization
+
+```go
+agent, err := client.Agents.Create(ctx, theauth.CreateAgentInput{
+    OwnerID: "user-123",
+    Name:    "github-reader",
+    Type:    theauth.AgentTypeAutonomous,
+})
+
+result, err := client.Authorize(ctx, agent.ID, theauth.AuthorizeRequest{
+    Action:   "read",
+    Resource: "mcp:github:repos",
+})
+```
+
+Delegation, audit and human auth live on `client.Delegation`, `client.Audit` and `client.Auth`.
+
+## MCP servers
+
+```go
+srv, err := client.MCP.Register(ctx, theauth.RegisterMcpServerInput{
+    Name:     "github",
+    Endpoint: "https://mcp.example.com",
+    Tools:    []string{"read_repo"},
+})
+servers, err := client.MCP.List(ctx)
+found, err := client.MCP.Get(ctx, srv.ID) // nil, nil when missing
+```
+
+## Plugin endpoints
+
+Call routes declared with `defineEndpoint` on the server.
+
+```go
+var out struct{ ID string `json:"id"` }
+err := client.Request(ctx, theauth.RequestOptions{
+    Method: "POST",
+    Path:   "/auth/team/:teamId/invite",
+    Params: map[string]string{"teamId": "t1"},
+    Body:   map[string]string{"email": "a@b.c"},
+}, &out)
+```
+
+`client.Do(ctx, method, path, query, body, &out)` is the short form without path parameters.
+
+## Errors
+
+| Check | Meaning |
+| --- | --- |
+| `theauth.IsNotFound(err)` | 404 |
+| `theauth.IsAuthentication(err)` | 401 |
+| `theauth.IsPermission(err)` | 403 |
+| `theauth.IsCSRFRejected(err)` | 403 with code `CSRF_REJECTED` |
+| `theauth.IsRateLimited(err)` | 429, returns `Retry-After` seconds |
+| `theauth.ValidationIssues(err)` | `issues` from a plugin endpoint validation failure |
+
+All error types embed `TheAuthError` with `Code`, `Message`, `StatusCode`, `Details` and `Issues`.
+
+## DPoP
+
+Bind tokens to a key with RFC 9449 proofs. The prover uses the standard library only (ECDSA P-256, ES256).
+
+```go
+prover, err := theauth.NewDPoPProver()
+client.UseDPoP(prover)
+```
+
+Each request carries a `DPoP` proof with `htm`, `htu` (no query or fragment), `iat`, `jti` and `ath` when a token is sent. A Bearer token is sent as `Authorization: DPoP <token>`. The `DPoP-Nonce` header is cached per origin and a `use_dpop_nonce` challenge is retried once.
+
+To wrap your own `http.Client`:
+
+```go
+hc := theauth.DPoPHTTPClient(http.DefaultClient, prover)
+thumbprint := prover.Thumbprint() // jkt
+```
