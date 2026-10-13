@@ -1,0 +1,204 @@
+---
+title: Browser extensions
+description: Sign users into a Manifest V3 extension with OAuth 2.1 and PKCE, keep tokens out of content scripts, and optionally bind them with DPoP.
+icon: puzzle-piece
+---
+
+`@glinr/theauth-extension` signs a user into your extension against a TheAuth authorization server, using the authorization code flow with PKCE (S256). It keeps the access token fresh across service worker restarts and gives content scripts and popups a way to ask the background for a token without ever seeing the refresh token.
+
+It has no runtime dependencies. DPoP support uses `@glinr/theauth-client`, which is an optional peer.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth-extension
+# only for DPoP
+pnpm add @glinr/theauth-client
+```
+
+The package ships ES modules. Bundle it into your background script with whatever bundler you already use (esbuild, Vite, webpack). Extensions cannot load code from a CDN under Manifest V3.
+
+## Manifest permissions
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My extension",
+  "version": "1.0.0",
+  "permissions": ["identity", "storage"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html" }
+}
+```
+
+- `identity` is needed for `identity.launchWebAuthFlow` and `identity.getRedirectURL`.
+- `storage` is needed for `storage.local` and `storage.session`.
+
+No host permission is required for the sign in itself. Calls from the background to your authorization server and API are subject to that server's CORS policy unless you add `host_permissions` for it.
+
+## Register the redirect URI
+
+`identity.getRedirectURL()` returns a URL on a browser-controlled domain. On Chrome it looks like `https://<extension-id>.chromiumapp.org/`. Register exactly that value as a redirect URI for your OAuth client:
+
+```ts
+// Evaluate this in the background console, then register the value.
+chrome.identity.getRedirectURL();
+```
+
+The extension id changes between an unpacked build and the Web Store build unless you pin it with a `key` in the manifest. Register each redirect URI you use, or pin the key.
+
+Register the client as a public client (`token_endpoint_auth_method: "none"`) with the `authorization_code` and `refresh_token` grants. An extension cannot keep a client secret.
+
+## Background script
+
+```ts
+import {
+  createExtensionAuth,
+  exposeAuthToBackground,
+} from "@glinr/theauth-extension";
+
+const auth = createExtensionAuth({
+  issuer: "https://auth.example.com",
+  clientId: "YOUR_CLIENT_ID",
+  scopes: ["openid", "profile", "offline_access", "mcp:read"],
+  resource: "https://mcp.example.com",
+  encryptRefreshToken: true,
+});
+
+// Answer popups and content scripts. Register at the top level of the
+// worker so the listener exists when the worker wakes for a message.
+exposeAuthToBackground(auth);
+
+auth.onChange((session) => {
+  chrome.action.setBadgeText({ text: session ? "on" : "" });
+});
+```
+
+Create the auth object at the top level of the service worker, not inside an event handler. Every wakeup runs the script again, builds a new object and reads its state from storage.
+
+`createExtensionAuth` options:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `issuer` | none | Discovery at `/.well-known/oauth-authorization-server` (RFC 8414). The metadata `issuer` must match. |
+| `endpoints` | none | `{ authorization, token, revocation?, endSession?, issuer?, issuerParameterSupported? }`. Skips discovery. |
+| `clientId`, `scopes` | required | |
+| `resource` | none | RFC 8707 indicator, sent on authorize, token and refresh requests. |
+| `redirectUri` | `identity.getRedirectURL()` | |
+| `storage`, `identity`, `fetch`, `clock` | `browser` or `chrome`, `Date.now` | Injectable, mostly for tests. |
+| `encryptRefreshToken` | `false` | AES-GCM with a non-extractable key in IndexedDB. |
+| `dpop` | `false` | `true`, or `{ module }`. See below. |
+| `refreshSkewSeconds` | `60` | Refresh this long before expiry. |
+| `endSession` | `false` | Navigate `end_session_endpoint` on sign out when advertised. |
+
+Returned object: `signIn()`, `getAccessToken()`, `getSession()`, `signOut()`, `onChange(cb)` and `fetch(url, init)`. `fetch` attaches the right `Authorization` scheme, refreshes first when needed and handles DPoP nonce challenges.
+
+## Popup and content script
+
+```ts
+import { createAuthClient } from "@glinr/theauth-extension";
+
+const auth = createAuthClient();
+
+// popup.ts
+document.querySelector("#sign-in")?.addEventListener("click", async () => {
+  await auth.signIn();
+});
+
+// content-script.ts
+const token = await auth.getAccessToken();
+const res = await fetch("https://mcp.example.com/tools", {
+  headers: { Authorization: `Bearer ${token}` },
+});
+```
+
+Content scripts can call `getAccessToken` and `getSession`. `signIn` and `signOut` are accepted only from extension pages such as the popup and options page, because a content script runs next to untrusted page content. If you enabled DPoP, do not call the resource from a content script with the token alone: do the request in the background with `auth.fetch`, since the key never leaves it.
+
+Sender checks:
+
+- A message must carry `sender.id` equal to the extension's own id. Anything else is answered with a `message_rejected` error.
+- Messages from other extensions arrive on `runtime.onMessageExternal`. That listener is registered only when you pass `allowedExtensionIds`, and only those ids are served.
+- `senderFilter(sender, method)` lets you add your own rule, for example to restrict content scripts to specific origins.
+
+## Errors
+
+Every method throws `ExtensionAuthError` with a `code`:
+
+| Code | Meaning |
+| --- | --- |
+| `user_cancelled` | The user closed the window or denied access. |
+| `state_mismatch` | The `state` on the redirect was missing or wrong. |
+| `discovery_failed` | Metadata was unreachable, malformed or named another issuer. |
+| `authorization_failed` | The server returned an error, or `iss` was wrong or missing. |
+| `token_exchange_failed` | The code exchange was rejected, or the ID token nonce was wrong. |
+| `refresh_failed` | Refresh was rejected or the stored refresh token failed its integrity check. |
+| `not_signed_in` | There is no session. |
+| `invalid_config` | Missing storage or identity API, or DPoP could not load. |
+| `message_rejected` | A message sender or method was not allowed. |
+
+On `invalid_grant` from the token endpoint the package clears all stored state, calls `onChange(null)` and throws `refresh_failed`. Transient failures (network, 5xx) keep the state so the next call can retry.
+
+## Storage and the refresh token
+
+| Item | Where | Lifetime |
+| --- | --- | --- |
+| Access token, expiry, ID token | `storage.session` | Until the browser session ends |
+| Refresh token | `storage.local` | Until sign out or `invalid_grant` |
+| Refresh lock | `storage.local` | Expires after 30 seconds |
+| DPoP key pair, seal key | IndexedDB, non-extractable | Until site data is cleared |
+
+If `storage.session` does not exist in the browser, the access token is held in memory only and the worker refreshes after each restart.
+
+With `encryptRefreshToken: true` the refresh token is sealed with AES-GCM before it is written. The key is a non-extractable `CryptoKey` kept in IndexedDB, and the ciphertext is bound to its storage slot, so a value copied to another key fails to open and a modified value is rejected before any request is sent.
+
+This is defence in depth, not a vault. Extension storage and IndexedDB are readable by your extension's own code, and so by anything that compromises it, including a supply chain attack on one of your dependencies. A non-extractable key stops that code from copying the key bytes, but it can still ask the browser to decrypt. What the sealing does protect against is disk-level reads of the profile, backup and sync tools that copy `storage.local`, and bugs that leak the storage object. Keep refresh token lifetimes short, rotate them on use and turn on revocation on the server.
+
+## Refresh in a service worker
+
+The worker can be stopped at any time and two copies of your code can briefly overlap (a popup page importing the same module, or a wakeup racing a shutdown). The package handles this in two layers:
+
+1. An in-memory promise, so concurrent callers in one worker share one refresh.
+2. A lock record in `storage.local` with an expiry, so a second instance waits for the first and then reads the new tokens instead of spending the refresh token again.
+
+The extension storage API has no compare-and-set, so the lock is write then read back. Two contexts that write in the same instant can both believe they hold it. With refresh token rotation the loser gets `invalid_grant` and the user is signed out. Servers that allow a short grace period for a just-rotated token avoid this. The expiry means a worker killed mid-refresh does not block sign in for more than `lockTtlMs`.
+
+A worker killed during the interactive sign in window loses the pending sign in. The user sees `user_cancelled` or nothing, and starts again.
+
+## DPoP
+
+```ts
+import * as client from "@glinr/theauth-client";
+
+const auth = createExtensionAuth({
+  issuer: "https://auth.example.com",
+  clientId: "YOUR_CLIENT_ID",
+  scopes: ["mcp:read", "offline_access"],
+  dpop: { module: client },
+});
+
+const res = await auth.fetch("https://mcp.example.com/tools");
+```
+
+An ES256 key pair is generated with a non-extractable private key and stored in IndexedDB, so the same key is used after a restart. Token and refresh requests carry a `DPoP` proof, resource requests made through `auth.fetch` get `Authorization: DPoP <token>` with a proof bound to the token (`ath`), and a `use_dpop_nonce` challenge is retried once.
+
+Pass the module yourself when you bundle the worker. With `dpop: true` the package falls back to a dynamic `import()` of `@glinr/theauth-client`, which service workers do not allow. See [DPoP and requireMcpAuth](/dpop) for the server side.
+
+## Sign out
+
+`signOut()` posts the refresh token to the revocation endpoint when the server advertises one (RFC 7009), clears storage, emits `null` and returns `{ revoked }`. A failed revocation does not stop the local sign out. With `endSession: true` it also loads `end_session_endpoint` with `id_token_hint` and `post_logout_redirect_uri` set to the extension redirect URL, without showing a window.
+
+## Browser support
+
+Tested here: the package against fake `identity` and `storage` objects in Node, and against the in-process MCP authorization server from `@glinr/theauth`. It has not been run inside a real browser yet.
+
+- Chrome and other Chromium browsers (Edge, Brave): the API shape comes from the Chrome documentation. UNVERIFIED in a live browser.
+- Firefox: `identity.launchWebAuthFlow` and `storage.session` exist (the latter from Firefox 115), and its redirect URL is on `extensions.allizom.org` with a value derived from `browser_specific_settings.gecko.id`, so set that id. Firefox runs Manifest V3 background code as an event page rather than a service worker. UNVERIFIED.
+- Safari: We believe Safari web extensions do not provide `identity.launchWebAuthFlow`. If that holds, pass your own `identity` object (the `identity` option takes any object with `launchWebAuthFlow` and `getRedirectURL`) backed by a tab or a native bridge. UNVERIFIED.
+- Chrome returns a rejected promise with the text "The user did not approve access." when the window is closed. The package treats messages matching cancel, closed, dismiss, denied or "did not approve" as `user_cancelled`. Other browsers word this differently and may surface as `authorization_failed`.
+
+## Limits
+
+- The access token is readable by any code in the extension background. There is no hardware backing for the refresh token.
+- `onChange` fires inside the context that made the change. Other contexts learn about a sign out on their next call, which will fail with `not_signed_in`.
+- ID token claims are decoded without verifying the signature. The token is received directly from the token endpoint over TLS and its `nonce` is checked, which is what OpenID Connect Core allows. Do not forward the ID token to another service as proof of identity.
+- Sign in needs `identity.launchWebAuthFlow`, which opens a browser-managed window. It does not work in a headless profile.

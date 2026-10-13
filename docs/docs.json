@@ -416,6 +416,7 @@
               "svelte",
               "expo",
               "electron",
+              "browser-extension",
               "ui-components",
               "dashboard"
             ]
