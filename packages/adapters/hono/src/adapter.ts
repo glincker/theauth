@@ -222,6 +222,14 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// require an authenticated caller. The guard is registered per route
 	// pattern, so it keeps working when a parent app mounts this one with
 	// `app.route("/x", ...)`.
+	// Rate limit and cross-site check run first, on every route.
+	app.use("*", async (c, next): Promise<Response | undefined> => {
+		const refused = await guard.admit(c.req.raw, c.req.path);
+		if (refused) return c.newResponse(refused.body, refused);
+		await next();
+		return undefined;
+	});
+
 	const scopes = new WeakMap<Request, AdapterScope>();
 	const requireCaller = async (
 		c: Context,

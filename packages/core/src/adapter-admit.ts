@@ -50,7 +50,8 @@ function json(status: number, code: string, message: string, headers?: HeadersIn
 
 function tierOf(method: string, path: string): Tier {
 	const p = path.split("?")[0]?.toLowerCase() ?? "";
-	if (STRICT_PATHS.some((s) => p === s || p.startsWith(`${s}/`))) return "strict";
+	// `endsWith` covers adapters that pass the full path including the mount prefix.
+	if (STRICT_PATHS.some((s) => p === s || p.startsWith(`${s}/`) || p.endsWith(s))) return "strict";
 	return SAFE_METHODS.has(method) ? "read" : "mutation";
 }
 
