@@ -28,11 +28,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dpop = [
+    "cryptography>=42",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "respx>=0.21",
     "mypy>=1.9",
+    "cryptography>=42",
 ]
 
 [project.urls]

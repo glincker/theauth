@@ -4,12 +4,29 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+import httpx
+
 from theauth._http import AsyncTransport, SyncTransport
 from theauth.agents import AsyncAgentsResource, SyncAgentsResource
 from theauth.audit import AsyncAuditResource, SyncAuditResource
 from theauth.auth import AsyncAuthResource, SyncAuthResource
 from theauth.delegation import AsyncDelegationResource, SyncDelegationResource
+from theauth.mcp import AsyncMcpResource, SyncMcpResource
 from theauth.types import AuthorizeRequest, AuthorizeResult
+
+
+def _clean_params(params: Optional[Dict[str, Any]]) -> Optional[Dict[str, str]]:
+    if not params:
+        return None
+    out: Dict[str, str] = {}
+    for key, value in params.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            out[key] = "true" if value else "false"
+        else:
+            out[key] = str(value)
+    return out or None
 
 
 class TheAuthClient:
@@ -26,6 +43,8 @@ class TheAuthClient:
             ``token`` argument override this value for that call only.
         headers: Additional HTTP headers merged into every request.
         timeout: HTTP request timeout in seconds. Defaults to 30.
+        auth: Optional :class:`httpx.Auth`, e.g. :class:`theauth.dpop.DPoPAuth`
+            for DPoP (RFC 9449) sender-constrained tokens.
 
     Example::
 
@@ -58,17 +77,20 @@ class TheAuthClient:
         token: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: float = 30.0,
+        auth: Optional[httpx.Auth] = None,
     ) -> None:
         self._transport = AsyncTransport(
             base_url=base_url,
             token=token,
             headers=headers,
             timeout=timeout,
+            auth=auth,
         )
         self.agents = AsyncAgentsResource(self._transport)
         self.auth = AsyncAuthResource(self._transport)
         self.audit = AsyncAuditResource(self._transport)
         self.delegation = AsyncDelegationResource(self._transport)
+        self.mcp = AsyncMcpResource(self._transport)
 
     async def authorize(
         self,
@@ -87,6 +109,33 @@ class TheAuthClient:
             :class:`~theauth.types.AuthorizeResult`.
         """
         return await self.agents.authorize(agent_id, request)
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json: Optional[Any] = None,
+    ) -> Any:
+        """Call any route, e.g. a plugin endpoint declared with ``defineEndpoint``.
+
+        Args:
+            method: HTTP method.
+            path: Path relative to ``base_url``, e.g. ``"/auth/team/invite"``.
+            params: Query string parameters. ``None`` values are dropped.
+            json: JSON request body.
+
+        Returns:
+            The parsed JSON body, or ``None`` for 204 responses.
+
+        Raises:
+            ValidationError: Input rejected (``error.issues`` available).
+            TheAuthError: Any other non-2xx response, mapped by status.
+        """
+        return await self._transport.request(
+            method.upper(), path, json=json, params=_clean_params(params)
+        )
 
     async def close(self) -> None:
         """Close the underlying HTTP connections."""
@@ -111,6 +160,8 @@ class TheAuthSyncClient:
         token: Optional bearer token sent with every request.
         headers: Additional HTTP headers merged into every request.
         timeout: HTTP request timeout in seconds. Defaults to 30.
+        auth: Optional :class:`httpx.Auth`, e.g. :class:`theauth.dpop.DPoPAuth`
+            for DPoP (RFC 9449) sender-constrained tokens.
 
     Example::
 
@@ -139,17 +190,20 @@ class TheAuthSyncClient:
         token: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: float = 30.0,
+        auth: Optional[httpx.Auth] = None,
     ) -> None:
         self._transport = SyncTransport(
             base_url=base_url,
             token=token,
             headers=headers,
             timeout=timeout,
+            auth=auth,
         )
         self.agents = SyncAgentsResource(self._transport)
         self.auth = SyncAuthResource(self._transport)
         self.audit = SyncAuditResource(self._transport)
         self.delegation = SyncDelegationResource(self._transport)
+        self.mcp = SyncMcpResource(self._transport)
 
     def authorize(
         self,
@@ -158,6 +212,33 @@ class TheAuthSyncClient:
     ) -> AuthorizeResult:
         """Check whether an agent may perform an action."""
         return self.agents.authorize(agent_id, request)
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json: Optional[Any] = None,
+    ) -> Any:
+        """Call any route, e.g. a plugin endpoint declared with ``defineEndpoint``.
+
+        Args:
+            method: HTTP method.
+            path: Path relative to ``base_url``, e.g. ``"/auth/team/invite"``.
+            params: Query string parameters. ``None`` values are dropped.
+            json: JSON request body.
+
+        Returns:
+            The parsed JSON body, or ``None`` for 204 responses.
+
+        Raises:
+            ValidationError: Input rejected (``error.issues`` available).
+            TheAuthError: Any other non-2xx response, mapped by status.
+        """
+        return self._transport.request(
+            method.upper(), path, json=json, params=_clean_params(params)
+        )
 
     def close(self) -> None:
         """Close the underlying HTTP connections."""

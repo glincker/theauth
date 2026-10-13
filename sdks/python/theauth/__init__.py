@@ -54,6 +54,7 @@ from theauth.client import (
     TheAuthClient,
     TheAuthSyncClient,
 )
+from theauth.dpop import DPoPAuth, DPoPProver, normalize_htu
 from theauth.errors import (
     AuthenticationError,
     TheAuthError,
@@ -63,6 +64,7 @@ from theauth.errors import (
     RateLimitError,
     ServerError,
     TheAuthError,
+    ValidationError,
 )
 from theauth.types import (
     Agent,
@@ -92,6 +94,10 @@ __all__ = [
     # Clients (deprecated aliases, use TheAuthClient / TheAuthSyncClient instead)
     "TheAuthClient",
     "TheAuthSyncClient",
+    # DPoP (requires theauth[dpop])
+    "DPoPAuth",
+    "DPoPProver",
+    "normalize_htu",
     # Errors
     "TheAuthError",
     # Errors (deprecated alias, use TheAuthError instead)
@@ -102,6 +108,7 @@ __all__ = [
     "RateLimitError",
     "ServerError",
     "NetworkError",
+    "ValidationError",
     # Types
     "Agent",
     "AgentFilters",
