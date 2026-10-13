@@ -199,6 +199,13 @@ export type { MagicLinkConfig, MagicLinkModule } from "./magic-link.js";
 export { createMagicLinkModule } from "./magic-link.js";
 // Magic link plugin (TheAuthPlugin wrapper)
 export { magicLink } from "./magic-link-plugin.js";
+export type {
+	OAuthAccessToken,
+	OAuthLinkedAccount,
+	OAuthTokenEncryptionConfig,
+	OAuthTokenErrorCode,
+} from "./oauth/index.js";
+export { OAuthRefreshError, OAuthTokenError } from "./oauth/index.js";
 export { createOAuthModule } from "./oauth/module.js";
 // OAuth 2.0 / OIDC provider system
 export type { OAuthPluginConfig } from "./oauth/plugin.js";
