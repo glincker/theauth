@@ -119,3 +119,43 @@ describe("adapter admission: shared counter store", () => {
 		for (let i = 0; i < 5; i++) expect(await a.admit(r(), "/mcp/token")).toBeNull();
 	});
 });
+
+describe("adapter admission: customization", () => {
+	it("skips rate limiting for requests the host excludes", async () => {
+		const a = createAdapterAdmission(
+			{
+				rateLimit: {
+					read: { max: 1, window: 60 },
+					skip: (_r, path) => path === "/health",
+				},
+			},
+			proxy,
+		);
+		const r = () => req("GET", "/health", { "x-real-ip": "1.1.1.1" });
+		for (let i = 0; i < 5; i++) expect(await a.admit(r(), "/health")).toBeNull();
+		const other = () => req("GET", "/agents", { "x-real-ip": "1.1.1.1" });
+		expect(await a.admit(other(), "/agents")).toBeNull();
+		expect((await a.admit(other(), "/agents"))?.status).toBe(429);
+	});
+
+	it("counts by a host supplied key and falls back when it returns null", async () => {
+		const a = createAdapterAdmission(
+			{
+				rateLimit: {
+					read: { max: 1, window: 60 },
+					key: (r) => r.headers.get("x-tenant"),
+				},
+			},
+			proxy,
+		);
+		const as = (tenant: string, ip: string) =>
+			req("GET", "/agents", { "x-tenant": tenant, "x-real-ip": ip });
+		expect(await a.admit(as("acme", "1.1.1.1"), "/agents")).toBeNull();
+		// Same tenant from another IP shares the bucket.
+		expect((await a.admit(as("acme", "2.2.2.2"), "/agents"))?.status).toBe(429);
+		expect(await a.admit(as("globex", "1.1.1.1"), "/agents")).toBeNull();
+		const noTenant = () => req("GET", "/agents", { "x-real-ip": "3.3.3.3" });
+		expect(await a.admit(noTenant(), "/agents")).toBeNull();
+		expect((await a.admit(noTenant(), "/agents"))?.status).toBe(429);
+	});
+});
