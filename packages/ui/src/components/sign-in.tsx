@@ -1,6 +1,6 @@
 import { useSignIn } from "@glinr/theauth-react";
 import type { FormEvent, ReactNode } from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { LinkSlotProps, SignInProps } from "../types.js";
 import { cx } from "../utils.js";
 import { AuthCard } from "./auth-card.js";
@@ -35,6 +35,8 @@ function DefaultLink({ href, children, className, onClick }: LinkSlotProps): Rea
 
 export function SignIn({
 	classNames,
+	passkeyClient,
+	passkeyAutofill = true,
 	components,
 	providers = [],
 	basePath = "/api/theauth",
@@ -50,6 +52,46 @@ export function SignIn({
 	className,
 }: SignInProps): ReactNode {
 	const { signIn, isLoading, error } = useSignIn();
+	const [passkeyError, setPasskeyError] = useState<string | null>(null);
+	const [autofillActive, setAutofillActive] = useState(false);
+	// Decided after mount so server and client markup agree.
+	const [passkeyReady, setPasskeyReady] = useState(false);
+
+	const finishPasskey = useCallback(
+		(result: Awaited<ReturnType<NonNullable<typeof passkeyClient>["signIn"]>>) => {
+			if (result.ok) onSuccess?.();
+			else if (result.reason !== "cancelled") setPasskeyError(result.message);
+		},
+		[onSuccess],
+	);
+
+	// Conditional UI: the browser lists saved passkeys in the email field.
+	useEffect(() => {
+		setPasskeyReady(passkeyClient?.isSupported() === true);
+	}, [passkeyClient]);
+
+	useEffect(() => {
+		if (!passkeyClient || !passkeyAutofill || !passkeyClient.isSupported()) return;
+		const controller = new AbortController();
+		let alive = true;
+		void passkeyClient.isConditionalAvailable().then((available) => {
+			if (!alive || !available) return;
+			setAutofillActive(true);
+			void passkeyClient.signIn({ conditional: true, signal: controller.signal }).then((r) => {
+				if (alive) finishPasskey(r);
+			});
+		});
+		return () => {
+			alive = false;
+			controller.abort();
+		};
+	}, [passkeyClient, passkeyAutofill, finishPasskey]);
+
+	const handlePasskeyClick = useCallback(async () => {
+		if (!passkeyClient) return;
+		setPasskeyError(null);
+		finishPasskey(await passkeyClient.signIn());
+	}, [passkeyClient, finishPasskey]);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [mode, setMode] = useState<"password" | "magic-link">("password");
@@ -177,7 +219,7 @@ export function SignIn({
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
 							required
-							autoComplete="email"
+							autoComplete={autofillActive ? "username webauthn" : "email"}
 							disabled={disabled ?? isLoading}
 						/>
 
@@ -205,6 +247,17 @@ export function SignIn({
 							Sign in
 						</Btn>
 					</form>
+				)}
+
+				{/* Passkey */}
+				{passkeyClient && passkeyReady && (
+					<>
+						{passkeyError && <Err message={passkeyError} className={cx("", classNames?.error)} />}
+						<Divider label="or" />
+						<Btn type="button" onClick={handlePasskeyClick} disabled={disabled}>
+							Sign in with a passkey
+						</Btn>
+					</>
 				)}
 
 				{/* Magic link mode */}

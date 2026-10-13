@@ -45,6 +45,7 @@ export type {
 	OAuthButtonsProps,
 	// OAuth
 	OAuthProviderMeta,
+	PasskeyClientLike,
 	SharedSlots,
 	SignInClassNames,
 	SignInProps,

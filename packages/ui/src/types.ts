@@ -78,8 +78,28 @@ export interface SignInClassNames {
 	link?: ClassNameOverride;
 }
 
+/**
+ * What `SignIn` needs from a passkey client. `createPasskeyClient` from
+ * `@glinr/theauth-client` satisfies it.
+ */
+export interface PasskeyClientLike {
+	isSupported(): boolean;
+	isConditionalAvailable(): Promise<boolean>;
+	signIn(options?: {
+		conditional?: boolean;
+		signal?: AbortSignal;
+	}): Promise<{ ok: true } | { ok: false; reason: string; message: string }>;
+}
+
 export interface SignInProps {
 	classNames?: SignInClassNames;
+	/**
+	 * Enables passkey sign-in: a button, and autofill suggestions in the email
+	 * field when the browser supports conditional UI.
+	 */
+	passkeyClient?: PasskeyClientLike;
+	/** Offer saved passkeys in the email field's autofill. Default true. */
+	passkeyAutofill?: boolean;
 	components?: SharedSlots;
 	providers?: OAuthProviderMeta[];
 	basePath?: string;
