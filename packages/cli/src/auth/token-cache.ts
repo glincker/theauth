@@ -45,7 +45,10 @@ export function credentialsPath(opts: TokenCacheOptions = {}): string {
 
 /** Normalise so `https://x.com/` and `https://x.com` share one entry. */
 export function serverKey(serverUrl: string): string {
-	return serverUrl.trim().replace(/\/+$/, "");
+	const trimmed = serverUrl.trim();
+	let end = trimmed.length;
+	while (end > 0 && trimmed.charCodeAt(end - 1) === 47) end -= 1;
+	return trimmed.slice(0, end);
 }
 
 async function readFileSafe(path: string): Promise<CacheFile> {

@@ -12,6 +12,7 @@
  * explicit endpoints so they work without any network discovery call.
  */
 
+import { trimTrailingSlashes } from "../../../trim-slashes.js";
 import type { OAuthProvider } from "../types.js";
 import type { GenericOIDCConfig } from "./generic.js";
 import { genericOIDC } from "./generic.js";
@@ -753,7 +754,7 @@ export function cognitoProvider(
 // Self-hosted and identity-platform providers (discovery)
 
 function trimUrl(url: string): string {
-	return url.replace(/\/+$/, "");
+	return trimTrailingSlashes(url);
 }
 
 function str(value: unknown): string | undefined {
@@ -820,7 +821,7 @@ export function zitadelProvider(
 	return genericOIDC({
 		id: "zitadel",
 		name: "ZITADEL",
-		issuer: `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`,
+		issuer: `https://${trimTrailingSlashes(domain.replace(/^https?:\/\//, ""))}`,
 		clientId,
 		clientSecret,
 		scopes,
