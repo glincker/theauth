@@ -137,3 +137,18 @@ export function createAdapterAdmission(
 		},
 	};
 }
+
+/** The slice of an Express-style response `writeRefusal` needs. */
+export interface RefusalTarget {
+	status(code: number): unknown;
+	setHeader(name: string, value: string): unknown;
+	send(body: string): unknown;
+}
+
+/** Write a Response returned by `admit` onto an Express-style response. */
+export async function writeRefusal(refused: Response, res: RefusalTarget): Promise<void> {
+	for (const [name, value] of refused.headers) res.setHeader(name, value);
+	const body = await refused.text();
+	res.status(refused.status);
+	res.send(body);
+}
