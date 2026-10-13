@@ -96,9 +96,13 @@ describe("legacy token cookies", () => {
 		return jar;
 	}
 
-	it("are read, upgraded to v2 and reported once per read", async () => {
+	it("are read, upgraded to v2 and reported once per read when opted in", async () => {
 		const onDeprecation = vi.fn();
-		const s = createStatelessSessions({ secret: SECRET, onDeprecation });
+		const s = createStatelessSessions({
+			secret: SECRET,
+			onDeprecation,
+			acceptLegacyTokenCookies: true,
+		});
 		const r = await s.getAccessToken(toHeader(await legacyJar()));
 		expect(r.success).toBe(true);
 		if (!r.success) return;
@@ -108,8 +112,8 @@ describe("legacy token cookies", () => {
 		expect(decodeURIComponent(upgraded ?? "").startsWith("v2:")).toBe(true);
 	});
 
-	it("are refused when acceptLegacyTokenCookies is false", async () => {
-		const s = createStatelessSessions({ secret: SECRET, acceptLegacyTokenCookies: false });
+	it("are refused by default", async () => {
+		const s = createStatelessSessions({ secret: SECRET });
 		const r = await s.getAccessToken(toHeader(await legacyJar()));
 		expect(r.success).toBe(false);
 		if (!r.success) expect(r.error.code).toBe("NO_TOKENS");

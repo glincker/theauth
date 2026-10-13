@@ -41,3 +41,7 @@ createTheAuth({ baseUrl: "https://app.example.com", allowedHosts: ["app.example.
 ## Stateless sessions and federated logout
 
 `createStatelessSessions` keeps an IdP identity in signed cookies and the IdP tokens in an encrypted cookie, with no database. Sessions cannot be revoked server side, so pair it with `isRevoked` and `createBackChannelLogoutReceiver`, which verifies OIDC logout tokens (issuer, audience, `jti` replay) and calls your `onLogout`. `createEndSessionHandler` and `buildEndSessionUrl` cover RP-initiated logout.
+
+### Token cookie binding
+
+The encrypted token cookie is bound to the identity cookie, so one user's token cookie cannot be swapped into another user's session. Cookies written before the binding existed (no `v2:` prefix) are refused by default. If you upgrade with live sessions and want to keep them, set `acceptLegacyTokenCookies: true` for one cookie lifetime (`maxAge`). Legacy cookies are re-sealed in the bound format as they are read, and `onDeprecation` reports each one. Users whose cookie is refused sign in again once.
