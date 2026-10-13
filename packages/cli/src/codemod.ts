@@ -220,7 +220,7 @@ function transformScript(src: string, counts: Map<string, number>): string {
 	return out;
 }
 
-const SCRIPT_BLOCK = /(<script\b[^>]*>)([\s\S]*?)(<\/script>)/gi;
+const SCRIPT_BLOCK = /(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)/gi;
 
 function transformSfc(src: string, counts: Map<string, number>): string {
 	let out = "";
