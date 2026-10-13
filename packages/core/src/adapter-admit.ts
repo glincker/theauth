@@ -18,6 +18,16 @@ export interface AdapterRateLimitOptions {
 	mutation?: RateLimitConfig;
 	/** GET routes, including the dashboard. Default 300 per 60s. */
 	read?: RateLimitConfig;
+	/**
+	 * Return true to leave a request out of rate limiting, e.g. a health check
+	 * or traffic from your own network. The cross-site check still applies.
+	 */
+	skip?: (request: Request, relativePath: string) => boolean;
+	/**
+	 * Replace the default client key (the client IP, or a credential digest when
+	 * the IP is unknown). Return null to fall back to the default for a request.
+	 */
+	key?: (request: Request) => string | null;
 }
 
 export interface AdapterAdmitOptions {
@@ -142,6 +152,9 @@ export function createAdapterAdmission(
 				}
 			: null;
 
+	const customKey = limits?.key;
+	const skip = limits?.skip;
+
 	const tooMany = (retrySeconds: number): Response =>
 		json(429, "RATE_LIMITED", "Too many requests", {
 			"Retry-After": String(Math.max(1, Math.ceil(retrySeconds))),
@@ -170,7 +183,9 @@ export function createAdapterAdmission(
 	return {
 		async admit(request, relativePath) {
 			const tier = tierOf(request.method.toUpperCase(), relativePath);
-			const limited = await overLimit(tier, bucketKey(request, proxy));
+			const skipped = skip?.(request, relativePath) === true;
+			const key = customKey?.(request) ?? bucketKey(request, proxy);
+			const limited = skipped ? null : await overLimit(tier, key);
 			if (limited) return limited;
 			return csrf ? crossSiteDenial(request, trusted) : null;
 		},
