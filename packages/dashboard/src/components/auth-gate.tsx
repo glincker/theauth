@@ -11,16 +11,16 @@ interface AuthGateProps {
 
 type AuthState = "checking" | "authenticated" | "unauthenticated";
 
-const SESSION_KEY = "theauth_dashboard_secret";
-
 // Helpers
 
-async function validateSecret(apiUrl: string, secret: string): Promise<boolean> {
+function authUrl(apiUrl: string): string {
+	return `${apiUrl.replace(/\/$/, "")}/api/dashboard/auth`;
+}
+
+/** Whether the HttpOnly session cookie is still accepted. */
+async function hasSession(apiUrl: string): Promise<boolean> {
 	try {
-		const url = `${apiUrl.replace(/\/$/, "")}/api/dashboard/auth`;
-		const res = await fetch(url, {
-			headers: { Authorization: `Bearer ${secret}` },
-		});
+		const res = await fetch(authUrl(apiUrl), { credentials: "include" });
 		return res.ok;
 	} catch {
 		return false;
@@ -53,21 +53,14 @@ export function AuthGate({ apiUrl, children }: AuthGateProps) {
 	const [state, setState] = useState<AuthState>("checking");
 
 	const logout = useCallback(() => {
-		sessionStorage.removeItem(SESSION_KEY);
-		setState("unauthenticated");
-	}, []);
+		void fetch(authUrl(apiUrl), { method: "DELETE", credentials: "include" })
+			.catch(() => undefined)
+			.finally(() => setState("unauthenticated"));
+	}, [apiUrl]);
 
 	useEffect(() => {
-		const stored = sessionStorage.getItem(SESSION_KEY);
-		if (!stored) {
-			setState("unauthenticated");
-			return;
-		}
-
-		// Validate the stored secret against the API
-		void validateSecret(apiUrl, stored).then((valid) => {
+		void hasSession(apiUrl).then((valid) => {
 			setState(valid ? "authenticated" : "unauthenticated");
-			if (!valid) sessionStorage.removeItem(SESSION_KEY);
 		});
 	}, [apiUrl]);
 

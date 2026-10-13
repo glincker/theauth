@@ -5,7 +5,7 @@ import { useState } from "react";
 
 interface LoginProps {
 	apiUrl: string;
-	onAuthenticated: (secret: string) => void;
+	onAuthenticated: () => void;
 }
 
 // Login Screen
@@ -25,13 +25,16 @@ export function LoginScreen({ apiUrl, onAuthenticated }: LoginProps) {
 
 		try {
 			const url = `${apiUrl.replace(/\/$/, "")}/api/dashboard/auth`;
+			// The server answers with an HttpOnly cookie, so the secret is not kept
+			// anywhere page script can read it.
 			const res = await fetch(url, {
+				method: "POST",
+				credentials: "include",
 				headers: { Authorization: `Bearer ${secret}` },
 			});
 
 			if (res.ok) {
-				sessionStorage.setItem("theauth_dashboard_secret", secret);
-				onAuthenticated(secret);
+				onAuthenticated();
 			} else {
 				setError("Invalid secret. Check your THEAUTH_DASHBOARD_SECRET.");
 			}

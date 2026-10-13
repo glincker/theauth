@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Stats } from "node:fs";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -163,7 +163,62 @@ function resolveDashboardSecret(): string | null {
 	return env.THEAUTH_DASHBOARD_SECRET ?? null;
 }
 
-function handleAuthRequest(
+export const DASHBOARD_COOKIE = "theauth_dashboard";
+const SESSION_SECONDS = 8 * 60 * 60;
+
+function cookieKey(secret: string): Uint8Array {
+	return createHmac("sha256", "theauth-dashboard-cookie").update(secret).digest();
+}
+
+/** Signed `expiry.signature` value. The signing key is derived from the secret. */
+export function signDashboardCookie(secret: string, now = Date.now()): string {
+	const expires = String(Math.floor(now / 1000) + SESSION_SECONDS);
+	const mac = createHmac("sha256", cookieKey(secret)).update(expires).digest("base64url");
+	return `${expires}.${mac}`;
+}
+
+export function verifyDashboardCookie(secret: string, value: string, now = Date.now()): boolean {
+	const dot = value.indexOf(".");
+	if (dot < 1) return false;
+	const expires = value.slice(0, dot);
+	if (!/^\d{1,12}$/.test(expires) || Number(expires) * 1000 <= now) return false;
+	const expected = createHmac("sha256", cookieKey(secret)).update(expires).digest("base64url");
+	return secretsMatch(value.slice(dot + 1), expected);
+}
+
+function readCookie(req: IncomingMessage, name: string): string {
+	for (const part of (req.headers.cookie ?? "").split(";")) {
+		const eq = part.indexOf("=");
+		if (eq > 0 && part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
+	}
+	return "";
+}
+
+function isHttps(req: IncomingMessage): boolean {
+	const forwarded = req.headers["x-forwarded-proto"];
+	const proto = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+	return proto?.split(",")[0]?.trim() === "https" || "encrypted" in req.socket;
+}
+
+function sessionCookie(value: string, maxAge: number, secure: boolean): string {
+	return [
+		`${DASHBOARD_COOKIE}=${value}`,
+		"HttpOnly",
+		"SameSite=Strict",
+		"Path=/",
+		`Max-Age=${maxAge}`,
+		...(secure ? ["Secure"] : []),
+	].join("; ");
+}
+
+/**
+ * `/api/dashboard/auth`
+ * - POST with `Authorization: Bearer <secret>` signs in and sets an HttpOnly,
+ *   SameSite=Strict cookie, so the secret never reaches page script or storage.
+ * - GET reports whether the cookie (or a bearer secret) is valid.
+ * - DELETE signs out.
+ */
+export function handleAuthRequest(
 	req: IncomingMessage,
 	res: ServerResponse,
 	secret: string | null,
@@ -173,16 +228,38 @@ function handleAuthRequest(
 
 	if (pathname !== "/api/dashboard/auth") return false;
 
-	// No secret configured — open dev mode
+	// No secret configured: open dev mode
 	if (secret === null) {
 		sendJson(res, 200, { ok: true, mode: "dev" });
 		return true;
 	}
 
+	const secure = isHttps(req);
+	if (req.method === "DELETE") {
+		res.setHeader("Set-Cookie", sessionCookie("", 0, secure));
+		sendJson(res, 200, { ok: true });
+		return true;
+	}
+
 	const authHeader = req.headers.authorization ?? "";
 	const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+	const bearerOk = provided !== "" && secretsMatch(provided, secret);
 
-	if (secretsMatch(provided, secret)) {
+	if (req.method === "POST") {
+		if (!bearerOk) {
+			sendJson(res, 401, { code: "UNAUTHORIZED", message: "Invalid dashboard secret." });
+			return true;
+		}
+		res.setHeader(
+			"Set-Cookie",
+			sessionCookie(signDashboardCookie(secret), SESSION_SECONDS, secure),
+		);
+		sendJson(res, 200, { ok: true });
+		return true;
+	}
+
+	const cookieOk = verifyDashboardCookie(secret, readCookie(req, DASHBOARD_COOKIE));
+	if (bearerOk || cookieOk) {
 		sendJson(res, 200, { ok: true });
 	} else {
 		sendJson(res, 401, { code: "UNAUTHORIZED", message: "Invalid dashboard secret." });
