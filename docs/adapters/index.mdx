@@ -63,7 +63,7 @@ For a local demo you can opt out with `allowUnauthenticated: true`. A warning is
 
 ### Rate limiting and cross-site writes
 
-The Express, Fastify and NestJS adapters refuse abusive traffic before authentication runs.
+Every adapter refuses abusive traffic before authentication runs.
 
 - **Rate limits** are per client, in three tiers: token, registration and authorize routes (30 per minute), other writes (120 per minute) and reads (300 per minute). Exceeding one returns `429` with `Retry-After`.
 - **Cookie sessions** cannot be used for cross-site writes. A `POST`, `PUT`, `PATCH` or `DELETE` that carries a cookie and no `Authorization` header must come from the adapter's own origin or one listed in `trustedOrigins`. Bearer callers are not affected.
