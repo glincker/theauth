@@ -307,7 +307,8 @@
               "auth/scim-filter-reference",
               "auth/scim-patch-reference",
               "auth/oidc-provider",
-              "auth/oidc-logout"
+              "auth/oidc-logout",
+              "auth/shared-signals"
             ]
           }
         ]
