@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 608" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 586" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">Stateless sessions bound to the user</title><desc id="d">A browser holds an identity cookie and a token cookie. The server checks that the token cookie is bound to the identity cookie and refuses a token cookie taken from another user.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 486.40000000000003)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 364.8)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 486.40000000000003)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 468.8)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 351.59999999999997)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 468.8)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
@@ -16,9 +16,9 @@
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="608" rx="16" fill="#06080a"/>
-<rect width="640" height="608" rx="16" fill="url(#g1)"/><rect width="640" height="608" rx="16" fill="url(#g2)"/><rect width="640" height="608" rx="16" fill="url(#g3)"/>
-<rect width="640" height="608" rx="16" filter="url(#n)" opacity=".10"/>
+<rect width="640" height="586" rx="16" fill="#06080a"/>
+<rect width="640" height="586" rx="16" fill="url(#g1)"/><rect width="640" height="586" rx="16" fill="url(#g2)"/><rect width="640" height="586" rx="16" fill="url(#g3)"/>
+<rect width="640" height="586" rx="16" filter="url(#n)" opacity=".10"/>
 <polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -173,14 +173,28 @@
 <line x1="329.4" y1="302.6" x2="329.4" y2="317.6" stroke="#19d9b8" stroke-width="1.5"/><circle cx="329.4" cy="302.6" r="3" fill="#19d9b8"/>
 <rect x="212.2" y="317.6" width="234.4" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="329.4" y="337.6" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">Cookie from another user</text>
+<path d="M147 239.2L147 265.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="147" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="80.3" y="265.2" width="133.4" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="99.3" cy="283.2" r="10" fill="#eef35f"/><text x="99.3" y="287.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">1</text>
+<text x="116.3" y="287.7" font-size="12.5" fill="#f4f4f5">Two cookies</text>
+<path d="M263.9 239.2L263.9 360.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="263.9" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="182.4" y="360.2" width="163" height="46" rx="23" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="201.4" cy="383.2" r="10" fill="#eef35f"/><text x="201.4" y="387.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">2</text>
+<text x="218.4" y="381.2" font-size="12.5" fill="#f4f4f5">Token sealed to</text>
+<text x="218.4" y="396.2" font-size="12.5" fill="#f4f4f5">identity</text>
+<path d="M376.1 239.2L376.1 265.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="376.1" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="294.6" y="265.2" width="163" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="313.6" cy="283.2" r="10" fill="#eef35f"/><text x="313.6" y="287.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">3</text>
+<text x="330.6" y="287.7" font-size="12.5" fill="#f4f4f5">Binding checked</text>
+<path d="M493 239.2L493 365.2" stroke="#eef35f" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="493" cy="239.2" r="3" fill="#eef35f"/>
+<rect x="385.6" y="365.2" width="214.8" height="36" rx="18" fill="#0d1519" stroke="#eef35f" stroke-opacity=".5"/>
+<circle cx="404.6" cy="383.2" r="10" fill="#eef35f"/><text x="404.6" y="387.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#06080a">4</text>
+<text x="421.6" y="387.7" font-size="12.5" fill="#f4f4f5">Foreign cookie refused</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="370" width="640" height="238" fill="#000" opacity=".35"/>
-<line x1="0" y1="370" x2="640" y2="370" stroke="#26343b"/>
-<text x="24" y="402" font-size="20" font-weight="650" fill="#f4f4f5">Stateless sessions bound to the user</text>
-<text x="24" y="426" font-size="14.5" fill="#a1a1aa">The token cookie is sealed against the identity cookie, so a</text>
-<text x="24" y="446" font-size="14.5" fill="#a1a1aa">copy from another user is refused.</text>
-<rect x="24" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="494" r="12" fill="#eef35f"/><text x="48" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">1</text><text x="70" y="490" font-size="13.5" fill="#f4f4f5">The browser holds an identity</text><text x="70" y="508" font-size="13.5" fill="#f4f4f5">cookie and a token cookie.</text>
-<rect x="325" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="494" r="12" fill="#eef35f"/><text x="349" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">2</text><text x="371" y="490" font-size="13.5" fill="#f4f4f5">The token cookie is sealed</text><text x="371" y="508" font-size="13.5" fill="#f4f4f5">against the identity cookie.</text>
-<rect x="24" y="528" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="554" r="12" fill="#eef35f"/><text x="48" y="559" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">3</text><text x="70" y="550" font-size="13.5" fill="#f4f4f5">A token cookie from another</text><text x="70" y="568" font-size="13.5" fill="#f4f4f5">user fails the check.</text>
+<rect x="0" y="480" width="640" height="106" fill="#000" opacity=".35"/>
+<line x1="0" y1="480" x2="640" y2="480" stroke="#26343b"/>
+<text x="24" y="512" font-size="20" font-weight="650" fill="#f4f4f5">Stateless sessions bound to the user</text>
+<text x="24" y="536" font-size="14.5" fill="#a1a1aa">The token cookie is sealed against the identity cookie, so a</text>
+<text x="24" y="556" font-size="14.5" fill="#a1a1aa">copy from another user is refused.</text>
 <text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>

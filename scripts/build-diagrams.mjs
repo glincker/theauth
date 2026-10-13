@@ -20,7 +20,8 @@ const C = {
 const FONT = "Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const MONO = "ui-monospace,JetBrains Mono,Menlo,Consolas,monospace";
 const W = 640;
-const SCENE_H = 370;
+const SCENE_H = 480;
+const PLATE_H = 370;
 const f = (n) => Math.round(n * 10) / 10;
 const wrapText = (t, max) => {
 	const out = [];
@@ -69,11 +70,9 @@ const ICONS = {
 function scene(X, Y, caption) {
 	const top = 92;
 	const lines = wrapText(caption.line, 62);
-	const notes = caption.notes ?? [];
-	const noteRows = Math.ceil(notes.length / 2);
-	const BAND = 70 + lines.length * 20 + (noteRows ? noteRows * 60 + 8 : 0);
+	const BAND = 66 + lines.length * 20;
 	const H = SCENE_H + BAND;
-	const u = Math.min((W - 48) / ((X + Y) * 0.866), (SCENE_H - top - 8) / ((X + Y) * 0.5));
+	const u = Math.min((W - 48) / ((X + Y) * 0.866), (PLATE_H - top - 8) / ((X + Y) * 0.5));
 	const ox = W / 2 + ((Y - X) / 2) * 0.866 * u;
 	const oy = top;
 	const P = (x, y, z = 0) => [f(ox + (x - y) * 0.866 * u), f(oy + (x + y) * 0.5 * u - z * u)];
@@ -177,8 +176,13 @@ function scene(X, Y, caption) {
 	}
 
 	const tags = [];
+	const callouts = [];
 	function tag([x, y], label, lift = 40) {
 		tags.push({ x, y, label, lift });
+	}
+
+	function callout([x, y], n, text, dy = 46, dx = 0) {
+		callouts.push({ x, y, n, text, dy, dx });
 	}
 
 	// Place pills after everything is known and push colliding ones apart.
@@ -197,13 +201,37 @@ function scene(X, Y, caption) {
 				if (!hit) break;
 				ty += below ? 36 : -36;
 			}
-			placed.push({ x: px, y: ty, w });
+			placed.push({ x: px, y: ty, w, h: 30 });
 			const l1 = below ? t.y : ty + 15;
 			const l2 = below ? ty - 15 : t.y;
 			res.push(
 				`<line x1="${t.x}" y1="${l1}" x2="${t.x}" y2="${l2}" stroke="${C.teal}" stroke-width="1.5"/><circle cx="${t.x}" cy="${t.y}" r="3" fill="${C.teal}"/>`,
 				`<rect x="${f(px - w / 2)}" y="${ty - 15}" width="${f(w)}" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>`,
 				`<text x="${px}" y="${ty + 5}" text-anchor="middle" font-size="14.5" fill="${C.text}" font-family="${MONO}">${esc(t.label)}</text>`,
+			);
+		}
+		for (const c of callouts) {
+			const lines2 = wrapText(c.text, 22).slice(0, 2);
+			const w = Math.max(...lines2.map((l) => l.length)) * 7.4 + 52;
+			const h = lines2.length > 1 ? 46 : 36;
+			let cy = c.y + c.dy;
+			const cx = Math.min(Math.max(c.x + c.dx, w / 2 + 8), W - w / 2 - 8);
+			for (let i = 0; i < 8; i++) {
+				const hit = placed.some(
+					(r) => Math.abs(r.x - cx) < (r.w + w) / 2 + 6 && Math.abs(r.y - cy) < (r.h + h) / 2 + 6,
+				);
+				if (!hit) break;
+				cy += cy + 24 > SCENE_H - 22 ? -24 : 24;
+			}
+			placed.push({ x: cx, y: cy, w, h });
+			res.push(
+				`<path d="M${c.x} ${c.y}L${f(cx)} ${f(cy - h / 2)}" stroke="${C.lime}" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/><circle cx="${c.x}" cy="${c.y}" r="3" fill="${C.lime}"/>`,
+				`<rect x="${f(cx - w / 2)}" y="${f(cy - h / 2)}" width="${f(w)}" height="${h}" rx="${h / 2}" fill="#0d1519" stroke="${C.lime}" stroke-opacity=".5"/>`,
+				`<circle cx="${f(cx - w / 2 + 19)}" cy="${cy}" r="10" fill="${C.lime}"/><text x="${f(cx - w / 2 + 19)}" y="${cy + 4.5}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${C.bg}">${c.n}</text>`,
+				...lines2.map(
+					(l, k) =>
+						`<text x="${f(cx - w / 2 + 36)}" y="${f(cy + (lines2.length > 1 ? -2 + k * 15 : 4.5))}" font-size="12.5" fill="${C.text}">${esc(l)}</text>`,
+				),
 			);
 		}
 		return res;
@@ -258,26 +286,12 @@ ${[...out, ...placeTags()].join("\n")}
 <line x1="0" y1="${H - BAND}" x2="${W}" y2="${H - BAND}" stroke="#26343b"/>
 <text x="24" y="${H - BAND + 32}" font-size="20" font-weight="650" fill="${C.text}">${esc(title)}</text>
 ${lines.map((l, i) => `<text x="24" y="${H - BAND + 56 + i * 20}" font-size="14.5" fill="${C.muted}">${esc(l)}</text>`).join("\n")}
-${notes
-	.map((n, i) => {
-		const bx = 24 + (i % 2) * 301;
-		const by = H - BAND + 70 + lines.length * 20 - 12 + Math.floor(i / 2) * 60;
-		const nl = wrapText(n, 30);
-		return `<rect x="${bx}" y="${by}" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="${bx + 24}" cy="${by + 26}" r="12" fill="${C.lime}"/><text x="${bx + 24}" y="${by + 31}" text-anchor="middle" font-size="14" font-weight="700" fill="${C.bg}">${i + 1}</text>${nl
-			.slice(0, 2)
-			.map(
-				(l, k) =>
-					`<text x="${bx + 46}" y="${by + (nl.length > 1 ? 22 : 31) + k * 18}" font-size="13.5" fill="${C.text}">${esc(l)}</text>`,
-			)
-			.join("")}`;
-	})
-	.join("\n")}
 <text x="${W - 24}" y="40" text-anchor="end" font-size="13" fill="${C.lime}" font-family="${MONO}">theauth.dev</text>
 </svg>
 `;
 	}
 
-	return { P, platform, group, cuboid, route, tag, chip, step, blocked, svg };
+	return { P, platform, group, cuboid, route, tag, callout, chip, step, blocked, svg };
 }
 
 function save(dir, name, s) {
@@ -342,6 +356,9 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		C.lime,
 	);
 	s.tag(sd.front, "Stream store", -30);
+	s.callout(s.P(3.8, 4.2, 0.45), 1, "Event is signed and queued", 70, -20);
+	s.callout(c.front, 2, "Receiver verifies it", 40, 30);
+	s.callout(d.front, 3, "Sessions revoked", 76, -10);
 	save("shared-signals", "theauth-shared-signals-overview", s);
 }
 
@@ -376,6 +393,13 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	const boxes = cs.map((c, i) => s.cuboid(...box(...c, 1.6), spec[i].h, spec[i]));
 	for (let i = 0; i < 3; i++) s.route(along(cs[i], cs[i + 1], 1.0), i === 1 ? C.teal : C.lime);
 	for (const [i, b] of boxes.entries()) s.tag(b.top, labels[i], i % 2 ? 66 : 42);
+	const cl = [
+		"Ban or revoke",
+		"SET signed and stored",
+		"Pushed or polled",
+		"Verified, session revoked",
+	];
+	for (const [i, b] of boxes.entries()) s.callout(b.front, i + 1, cl[i], 40 + (i % 2) * 54);
 	save("shared-signals", "theauth-shared-signals-lifecycle", s);
 }
 
@@ -405,8 +429,8 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	s.tag(b.top, "Receiver", 44);
 	s.tag(c.front, "Transmitter", -28);
 	s.tag(d.front, "Receiver", -28);
-	s.chip(s.P(3, 3, 0.45), "push: POST");
-	s.chip(s.P(7, 7, 0.45), "poll + ack");
+	s.callout(s.P(3, 3, 0.45), 1, "POST, retries with backoff", 58);
+	s.callout(s.P(7, 7, 0.45), 2, "Asks for events, then acks", 58);
 	save("shared-signals", "theauth-shared-signals-push-poll", s);
 }
 
@@ -451,6 +475,13 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		C.lime,
 	);
 	s.tag(dd.front, "Your database", -30);
+	const cl = [
+		"Mount one handler",
+		"Sign in sets a cookie",
+		"Read the session",
+		"Data stays in your DB",
+	];
+	for (const [i, b] of boxes.entries()) s.callout(b.front, i + 1, cl[i], 44 + (i % 2) * 52);
 	save("diagrams", "theauth-add-to-existing-app", s);
 }
 
@@ -497,6 +528,9 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		C.purple,
 	);
 	s.tag(tsb.front, "theAuth issues a bound token", -30);
+	s.callout(tsb.front, 1, "Token bound to the key", 70, 60);
+	s.callout(a.front, 2, "Proof signed per request", 46);
+	s.callout(c.front, 3, "Stolen token refused", 40, -30);
 	save("diagrams", "theauth-dpop-token-binding", s);
 }
 
@@ -541,6 +575,13 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	);
 	s.blocked([6.9, 5.7]);
 	s.tag(t.front, "Cookie from another user", -30);
+	const cl = [
+		"Two cookies",
+		"Token sealed to identity",
+		"Binding checked",
+		"Foreign cookie refused",
+	];
+	for (const [i, b] of boxes.entries()) s.callout(b.front, i + 1, cl[i], 44 + (i % 2) * 52);
 	save("diagrams", "theauth-stateless-session-binding", s);
 }
 
@@ -581,6 +622,9 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	s.tag(d.front, "Users and sessions", -30);
 	s.step(s.P(3.2, 6.8, 0.45), 1);
 	s.step(s.P(6.8, 3.2, 0.45), 2);
+	s.callout(a.front, 1, "Redirect to sign in", 44);
+	s.callout(b.front, 2, "ID token and userinfo", 56, 40);
+	s.callout(c.front, 3, "Back-channel logout", 44);
 	save("diagrams", "theauth-oidc-provider-flow", s);
 }
 
@@ -667,5 +711,7 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		C.teal,
 	);
 	s.tag(own.front, "You own the code", -30);
+	s.callout(boxes[0].front, 1, "Reads from the registry", 44);
+	s.callout(boxes[1].front, 2, "Writes source files", 44);
 	save("diagrams", "theauth-add-components-cli", s);
 }
