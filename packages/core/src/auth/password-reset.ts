@@ -96,6 +96,12 @@ export interface PasswordResetConfig {
 	revokeSessionsOnReset?: boolean;
 
 	/**
+	 * Called after a password was changed by a reset. Used to emit a Shared
+	 * Signals credential-change event. Errors are swallowed.
+	 */
+	onPasswordChanged?: (userId: string) => void | Promise<void>;
+
+	/**
 	 * Minimum password length for the new password.
 	 * Default: 8 (matches username module default).
 	 */
@@ -373,6 +379,14 @@ export function createPasswordResetModule(
 
 		// Revoke any remaining reset tokens for this email
 		await tokenModule.revokeTokens(email, TOKEN_PURPOSE);
+
+		if (config.onPasswordChanged) {
+			try {
+				await config.onPasswordChanged(accountUserId);
+			} catch {
+				// A notification failure must not undo a completed reset.
+			}
+		}
 
 		return { success: true, data: { userId: accountUserId } };
 	}

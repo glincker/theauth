@@ -170,7 +170,7 @@ export function isBlockedIp(address: string): boolean {
 	return true;
 }
 
-function isIpLiteral(host: string): boolean {
+export function isIpLiteral(host: string): boolean {
 	const h = host.replace(/^\[|\]$/g, "");
 	return parseIPv4(h) !== null || h.includes(":");
 }

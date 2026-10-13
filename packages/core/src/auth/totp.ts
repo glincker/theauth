@@ -27,6 +27,11 @@ export interface TotpConfig {
 	backupCodeCount?: number;
 	/** Accept codes from adjacent time periods for clock drift (default: 1) */
 	window?: number;
+	/**
+	 * Called after 2FA is enabled or disabled. Used to emit a Shared Signals
+	 * credential-change event. Errors are swallowed.
+	 */
+	onChange?: (userId: string, change: "enabled" | "disabled") => void | Promise<void>;
 }
 
 export interface TotpSetup {
@@ -258,6 +263,15 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { secret: secretStr, uri, backupCodes: plain };
 	}
 
+	async function notifyChange(userId: string, change: "enabled" | "disabled"): Promise<void> {
+		if (!config.onChange) return;
+		try {
+			await config.onChange(userId, change);
+		} catch {
+			// A notification failure must not undo the change.
+		}
+	}
+
 	// enable
 
 	async function enable(userId: string, code: string): Promise<{ enabled: boolean }> {
@@ -280,6 +294,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 			.set({ enabled: true, updatedAt: new Date() })
 			.where(eq(totpRecords.userId, userId));
 
+		await notifyChange(userId, "enabled");
 		return { enabled: true };
 	}
 
@@ -331,6 +346,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		}
 
 		await db.delete(totpRecords).where(eq(totpRecords.userId, userId));
+		await notifyChange(userId, "disabled");
 		return { disabled: true };
 	}
 
