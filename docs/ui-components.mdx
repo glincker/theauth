@@ -29,6 +29,37 @@ export default {
 };
 ```
 
+## Copy the source into your project
+
+If you want to own and edit the components rather than depend on the package, copy them in, the way shadcn/ui works. This is optional: the packaged components keep working and you can mix both.
+
+```bash
+npx @glinr/theauth-cli add sign-in
+```
+
+The command writes plain TSX into `src/components/theauth` (or `components/theauth` when there is no `src` folder), prints the one dependency to install, and never overwrites a file you changed unless you pass `--overwrite`. Each component pulls in `theauth-base` (types, class helper, default slots and the auth card) once.
+
+```bash
+theauth add --list                       # sign-in, sign-up, forgot-password, ...
+theauth add sign-in sign-up              # several at once
+theauth add sign-in --dir app/ui/auth    # choose the folder
+theauth add sign-in --dry-run            # show what would be written
+```
+
+The same items are published in the shadcn registry format, so the shadcn CLI works too:
+
+```bash
+npx shadcn@latest add https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json
+```
+
+Then import from the copied folder and keep wiring through `TheAuthProvider` as above:
+
+```tsx
+import { SignIn } from "@/components/theauth/sign-in";
+```
+
+Copied files import `@glinr/theauth-react` for the hooks and nothing else beyond React. Re-run `theauth add <name> --overwrite` after upgrading if you want the newer upstream version, and review the diff first.
+
 ## Available components
 
 | Component | Description |

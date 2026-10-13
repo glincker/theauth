@@ -349,6 +349,7 @@ Install:
 
 export const COMMAND_NAMES = [
 	"init",
+	"add",
 	"mcp",
 	"migrate",
 	"dashboard",

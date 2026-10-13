@@ -114,6 +114,7 @@
       "!packages/create-theauth-app/templates",
       "!**/.next",
       "!sdks/python",
+      "!registry",
       "!examples/nextjs-demo"
     ]
   }
