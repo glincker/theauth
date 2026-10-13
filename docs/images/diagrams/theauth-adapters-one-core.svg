@@ -1,19 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 470" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 548" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <title id="t">One core, every framework</title><desc id="d">A single theAuth core connected to five framework adapters: Next.js, Express, Hono, Fastify and SvelteKit.</desc>
 <defs>
-<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 376)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
-<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 282)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
-<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 376)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 0) scale(320 438.40000000000003)"><stop stop-color="#19d9b8" stop-opacity=".30"/><stop offset="1" stop-color="#19d9b8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 0) scale(224 328.8)"><stop stop-color="#8b7cf6" stop-opacity=".24"/><stop offset="1" stop-color="#8b7cf6" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 0) scale(288 438.40000000000003)"><stop stop-color="#eef35f" stop-opacity=".22"/><stop offset="1" stop-color="#eef35f" stop-opacity="0"/></radialGradient>
 <linearGradient id="tf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27333a"/><stop offset="1" stop-color="#182025"/></linearGradient>
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#19d9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#eef35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#8b7cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
-<rect width="640" height="470" rx="16" fill="#06080a"/>
-<rect width="640" height="470" rx="16" fill="url(#g1)"/><rect width="640" height="470" rx="16" fill="url(#g2)"/><rect width="640" height="470" rx="16" fill="url(#g3)"/>
-<rect width="640" height="470" rx="16" filter="url(#n)" opacity=".10"/>
+<rect width="640" height="548" rx="16" fill="#06080a"/>
+<rect width="640" height="548" rx="16" fill="url(#g1)"/><rect width="640" height="548" rx="16" fill="url(#g2)"/><rect width="640" height="548" rx="16" fill="url(#g3)"/>
+<rect width="640" height="548" rx="16" filter="url(#n)" opacity=".10"/>
 <polygon points="86.2,227 320,362 320,352.6 86.2,217.6" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="553.8,227 320,362 320,352.6 553.8,217.6" fill="url(#rf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
 <polygon points="320,82.6 553.8,217.6 320,352.6 86.2,217.6" fill="url(#pf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -106,8 +111,9 @@
 <polyline points="205.4,151.4 238.2,170.3 270.9,151.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="205.4,167.6 238.2,186.5 270.9,167.6" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(32.735 18.9 -32.735 18.9 238.2 132.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="261.5,181.1 284.9,194.6" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="284.9" cy="194.6" r="4" fill="#19d9b8"/><circle cx="261.5" cy="181.1" r="3" fill="#19d9b8" opacity=".7"/>
+<polyline points="261.5,181.1 284.9,194.6" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="261.5,181.1 284.9,194.6" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="261.5" cy="181.1" r="4" fill="#19d9b8"/>
 <polygon points="401.8,150.6 447.7,177.1 401.8,203.5 356,177.1" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="401.8,148.7 439.2,170.3 401.8,191.9 364.4,170.3" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
 <polygon points="369.1,170.3 401.8,189.2 401.8,170.3 369.1,151.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -116,8 +122,9 @@
 <polyline points="369.1,151.4 401.8,170.3 434.6,151.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="369.1,167.6 401.8,186.5 434.6,167.6" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(32.735 18.9 -32.735 18.9 401.8 132.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#eef35f" fill-opacity=".1" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#eef35f" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#eef35f" stroke-opacity=".6"/></g>
-<polyline points="378.5,181.1 355.1,194.6" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="355.1" cy="194.6" r="4" fill="#eef35f"/><circle cx="378.5" cy="181.1" r="3" fill="#eef35f" opacity=".7"/>
+<polyline points="378.5,181.1 355.1,194.6" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="378.5,181.1 355.1,194.6" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="378.5" cy="181.1" r="4" fill="#eef35f"/>
 <polygon points="467.3,201.9 513.1,228.4 467.3,254.8 421.5,228.4" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="467.3,200 504.7,221.6 467.3,243.2 429.9,221.6" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
 <polygon points="434.6,221.6 467.3,240.5 467.3,221.6 434.6,202.7" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -126,8 +133,9 @@
 <polyline points="434.6,202.7 467.3,221.6 500,202.7" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="434.6,218.9 467.3,237.8 500,218.9" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(32.735 18.9 -32.735 18.9 467.3 183.8)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="434.3,218 369.5,216.2" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="369.5" cy="216.2" r="4" fill="#19d9b8"/><circle cx="434.3" cy="218" r="3" fill="#19d9b8" opacity=".7"/>
+<polyline points="434.3,218 369.5,216.2" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="434.3,218 369.5,216.2" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="434.3" cy="218" r="4" fill="#19d9b8"/>
 <polygon points="320,259.9 365.8,286.4 320,312.9 274.2,286.4" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="320,258.1 357.4,279.7 320,301.3 282.6,279.7" fill="#eef35f" opacity=".16" filter="url(#bl)"/>
 <polygon points="287.3,279.7 320,298.6 320,279.7 287.3,260.8" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -136,8 +144,9 @@
 <polyline points="287.3,260.8 320,279.7 352.7,260.8" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="287.3,277 320,295.9 352.7,277" fill="none" stroke="#eef35f" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(32.735 18.9 -32.735 18.9 320 241.9)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#eef35f" fill-opacity=".1" stroke="#eef35f"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#eef35f"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#eef35f" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#eef35f" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#eef35f" stroke-opacity=".6"/></g>
-<polyline points="320,257.9 320,243.5" fill="none" stroke="#eef35f" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="320" cy="243.5" r="4" fill="#eef35f"/><circle cx="320" cy="257.9" r="3" fill="#eef35f" opacity=".7"/>
+<polyline points="320,257.9 320,243.5" fill="none" stroke="#eef35f" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="320,257.9 320,243.5" fill="none" stroke="#eef35f" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ml)"/>
+<circle cx="320" cy="257.9" r="4" fill="#eef35f"/>
 <polygon points="175,200.5 220.9,227 175,253.5 129.2,227" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="175,198.7 212.4,220.3 175,241.9 137.6,220.2" fill="#19d9b8" opacity=".16" filter="url(#bl)"/>
 <polygon points="142.3,220.3 175,239.2 175,220.2 142.3,201.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -146,8 +155,9 @@
 <polyline points="142.3,201.4 175,220.2 207.8,201.4" fill="none" stroke="#52666f" stroke-width="1.2"/>
 <polyline points="142.3,217.6 175,236.4 207.8,217.6" fill="none" stroke="#19d9b8" stroke-width="1.8" opacity=".95"/>
 <g transform="matrix(32.735 18.9 -32.735 18.9 175 182.5)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vector-effect:non-scaling-stroke"><rect vector-effect="non-scaling-stroke" x=".16" y=".2" width=".68" height=".6" rx=".06" fill="#19d9b8" fill-opacity=".1" stroke="#19d9b8"/><path vector-effect="non-scaling-stroke" d="M.16 .36H.84" stroke="#19d9b8"/><circle vector-effect="non-scaling-stroke" cx=".25" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><circle vector-effect="non-scaling-stroke" cx=".32" cy=".28" r=".02" fill="#19d9b8" stroke="none"/><path vector-effect="non-scaling-stroke" d="M.26 .5H.6M.26 .62H.72" stroke="#19d9b8" stroke-opacity=".6"/></g>
-<polyline points="208.1,216.9 270.4,215.8" fill="none" stroke="#19d9b8" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="270.4" cy="215.8" r="4" fill="#19d9b8"/><circle cx="208.1" cy="216.9" r="3" fill="#19d9b8" opacity=".7"/>
+<polyline points="208.1,216.9 270.4,215.8" fill="none" stroke="#19d9b8" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline class="flow" points="208.1,216.9 270.4,215.8" fill="none" stroke="#19d9b8" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#mt)"/>
+<circle cx="208.1" cy="216.9" r="4" fill="#19d9b8"/>
 <polygon points="320,187 384.5,224.3 320,261.6 255.5,224.3" fill="#000" opacity=".6" filter="url(#bl)"/>
 <polygon points="320,185.2 376.1,217.6 320,250 263.9,217.6" fill="#8b7cf6" opacity=".16" filter="url(#bl)"/>
 <polygon points="268.6,217.6 320,247.3 320,204 268.6,174.4" fill="url(#lf)" stroke="#2f3f47" stroke-width="1" stroke-linejoin="round" />
@@ -175,10 +185,12 @@
 <rect x="122.3" y="252.2" width="105.4" height="30" rx="15" fill="#0b1013" stroke="#3a4d56"/>
 <text x="175" y="272.2" text-anchor="middle" font-size="14.5" fill="#f4f4f5" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">SvelteKit</text>
 <g transform="translate(24 22)"><rect x=".75" y=".75" width="26.5" height="26.5" rx="7.5" fill="none" stroke="#8b7cf6" stroke-width="2"/><rect x="7" y="7" width="14" height="14" rx="4" fill="none" stroke="#8b7cf6" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.8" fill="#eef35f"/><text x="38" y="20" font-size="17" font-weight="600" fill="#f4f4f5">theAuth</text></g>
-<rect x="0" y="370" width="640" height="100" fill="#000" opacity=".35"/>
+<rect x="0" y="370" width="640" height="178" fill="#000" opacity=".35"/>
 <line x1="0" y1="370" x2="640" y2="370" stroke="#26343b"/>
 <text x="24" y="402" font-size="20" font-weight="650" fill="#f4f4f5">One core, every framework</text>
 <text x="24" y="426" font-size="14.5" fill="#a1a1aa">The core speaks Web Request and Response, and a thin adapter</text>
 <text x="24" y="446" font-size="14.5" fill="#a1a1aa">mounts it in your framework.</text>
+<rect x="24" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="48" cy="494" r="12" fill="#eef35f"/><text x="48" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">1</text><text x="70" y="490" font-size="13.5" fill="#f4f4f5">The core only speaks Web</text><text x="70" y="508" font-size="13.5" fill="#f4f4f5">Request and Response.</text>
+<rect x="325" y="468" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="349" cy="494" r="12" fill="#eef35f"/><text x="349" y="499" text-anchor="middle" font-size="14" font-weight="700" fill="#06080a">2</text><text x="371" y="490" font-size="13.5" fill="#f4f4f5">A thin adapter wires it into</text><text x="371" y="508" font-size="13.5" fill="#f4f4f5">each framework.</text>
 <text x="616" y="40" text-anchor="end" font-size="13" fill="#eef35f" font-family="ui-monospace,JetBrains Mono,Menlo,Consolas,monospace">theauth.dev</text>
 </svg>

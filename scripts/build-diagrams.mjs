@@ -20,8 +20,7 @@ const C = {
 const FONT = "Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const MONO = "ui-monospace,JetBrains Mono,Menlo,Consolas,monospace";
 const W = 640;
-const H = 470;
-const BAND = 100;
+const SCENE_H = 370;
 const f = (n) => Math.round(n * 10) / 10;
 const wrapText = (t, max) => {
 	const out = [];
@@ -69,7 +68,12 @@ const ICONS = {
 
 function scene(X, Y, caption) {
 	const top = 92;
-	const u = Math.min((W - 48) / ((X + Y) * 0.866), (H - top - BAND - 8) / ((X + Y) * 0.5));
+	const lines = wrapText(caption.line, 62);
+	const notes = caption.notes ?? [];
+	const noteRows = Math.ceil(notes.length / 2);
+	const BAND = 70 + lines.length * 20 + (noteRows ? noteRows * 60 + 8 : 0);
+	const H = SCENE_H + BAND;
+	const u = Math.min((W - 48) / ((X + Y) * 0.866), (SCENE_H - top - 8) / ((X + Y) * 0.5));
 	const ox = W / 2 + ((Y - X) / 2) * 0.866 * u;
 	const oy = top;
 	const P = (x, y, z = 0) => [f(ox + (x - y) * 0.866 * u), f(oy + (x + y) * 0.5 * u - z * u)];
@@ -150,13 +154,25 @@ function scene(X, Y, caption) {
 
 	function route(path, color = C.teal, z = 0.45) {
 		const s = path.map(([x, y]) => P(x, y, z));
+		const id = { [C.teal]: "mt", [C.lime]: "ml", [C.purple]: "mp", [C.red]: "mr" }[color] ?? "mt";
 		out.push(
-			`<polyline points="${pts(s)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" stroke-linejoin="round"/>`,
+			`<polyline points="${pts(s)}" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`,
+			`<polyline class="flow" points="${pts(s)}" fill="none" stroke="${color}" stroke-width="2.4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#${id})"/>`,
 		);
-		const [ex, ey] = s[s.length - 1];
 		const [sx, sy] = s[0];
+		out.push(`<circle cx="${sx}" cy="${sy}" r="4" fill="${color}"/>`);
+	}
+
+	// A dashed bubble on the platform that groups related nodes.
+	function group(x1, y1, x2, y2, label, color = C.teal) {
+		const q = [P(x1, y1, base), P(x2, y1, base), P(x2, y2, base), P(x1, y2, base)];
 		out.push(
-			`<circle cx="${ex}" cy="${ey}" r="4" fill="${color}"/><circle cx="${sx}" cy="${sy}" r="3" fill="${color}" opacity=".7"/>`,
+			`<polygon points="${pts(q)}" fill="${color}" fill-opacity=".05" stroke="${color}" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>`,
+		);
+		const [lx, ly] = P(x1, y2, base);
+		const w = label.length * 8 + 22;
+		out.push(
+			`<rect x="${f(lx - w / 2 - 18)}" y="${f(ly - 4)}" width="${f(w)}" height="24" rx="12" fill="${color}" fill-opacity=".14" stroke="${color}" stroke-opacity=".6"/><text x="${f(lx - 18)}" y="${f(ly + 12)}" text-anchor="middle" font-size="12.5" fill="${color}" font-family="${MONO}">${esc(label)}</text>`,
 		);
 	}
 
@@ -214,8 +230,7 @@ function scene(X, Y, caption) {
 	}
 
 	function svg() {
-		const { title, line, alt } = caption;
-		const lines = wrapText(line, 62);
+		const { title, alt } = caption;
 		return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d" font-family="${FONT}">
 <title id="t">${esc(title)}</title><desc id="d">${esc(alt)}</desc>
 <defs>
@@ -226,6 +241,11 @@ function scene(X, Y, caption) {
 <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#172025"/><stop offset="1" stop-color="#0a0f12"/></linearGradient>
 <linearGradient id="rf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f171b"/><stop offset="1" stop-color="#070b0d"/></linearGradient>
 <linearGradient id="pf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162026"/><stop offset="1" stop-color="#0f171b"/></linearGradient>
+<marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.teal}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="ml" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.lime}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.purple}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="${C.red}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<style>.flow{animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-20}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
 <filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 <filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .7 0"/></filter>
 </defs>
@@ -238,12 +258,26 @@ ${[...out, ...placeTags()].join("\n")}
 <line x1="0" y1="${H - BAND}" x2="${W}" y2="${H - BAND}" stroke="#26343b"/>
 <text x="24" y="${H - BAND + 32}" font-size="20" font-weight="650" fill="${C.text}">${esc(title)}</text>
 ${lines.map((l, i) => `<text x="24" y="${H - BAND + 56 + i * 20}" font-size="14.5" fill="${C.muted}">${esc(l)}</text>`).join("\n")}
+${notes
+	.map((n, i) => {
+		const bx = 24 + (i % 2) * 301;
+		const by = H - BAND + 70 + lines.length * 20 - 12 + Math.floor(i / 2) * 60;
+		const nl = wrapText(n, 30);
+		return `<rect x="${bx}" y="${by}" width="291" height="52" rx="14" fill="#0b1013" stroke="#2a3a42"/><circle cx="${bx + 24}" cy="${by + 26}" r="12" fill="${C.lime}"/><text x="${bx + 24}" y="${by + 31}" text-anchor="middle" font-size="14" font-weight="700" fill="${C.bg}">${i + 1}</text>${nl
+			.slice(0, 2)
+			.map(
+				(l, k) =>
+					`<text x="${bx + 46}" y="${by + (nl.length > 1 ? 22 : 31) + k * 18}" font-size="13.5" fill="${C.text}">${esc(l)}</text>`,
+			)
+			.join("")}`;
+	})
+	.join("\n")}
 <text x="${W - 24}" y="40" text-anchor="end" font-size="13" fill="${C.lime}" font-family="${MONO}">theauth.dev</text>
 </svg>
 `;
 	}
 
-	return { P, platform, cuboid, route, tag, chip, step, blocked, svg };
+	return { P, platform, group, cuboid, route, tag, chip, step, blocked, svg };
 }
 
 function save(dir, name, s) {
@@ -269,8 +303,14 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "Shared signals with theAuth",
 		line: "A transmitter sends signed security events, and every receiver acts on them within seconds.",
 		alt: "A theAuth transmitter sends a signed security event to two receivers, which revoke sessions or run a custom handler.",
+		notes: [
+			"An event happens, such as a ban or a password change.",
+			"theAuth signs it and queues it per stream.",
+			"Every receiver verifies it and acts on it.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
+	s.group(6.2, 0.6, 9.9, 8.8, "Receivers", C.teal);
 	const tx = [1.7, 8.3];
 	const ev = [4.6, 5.4];
 	const ra = [7.4, 2.2];
@@ -311,8 +351,15 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "Shared signals event lifecycle",
 		line: "An admin action becomes a signed event, is pushed or polled, and the receiver revokes the session.",
 		alt: "Four steps: an admin action happens, theAuth signs an event, it is delivered by push or poll, and the receiver revokes the session.",
+		notes: [
+			"An admin bans a user or revokes a session.",
+			"theAuth signs a SET and stores it for the stream.",
+			"It is pushed to the receiver or fetched by poll.",
+			"The receiver verifies it and revokes the session.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
+	s.group(5.2, 0.2, 9.9, 4.9, "Receiver", C.teal);
 	const cs = [
 		[1.3, 8.7],
 		[3.8, 6.2],
@@ -338,6 +385,10 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "Push and poll delivery",
 		line: "Push posts events to the receiver. Poll lets the receiver fetch and acknowledge on its own schedule.",
 		alt: "Push: the transmitter posts a signed event to the receiver. Poll: the receiver asks the transmitter for events and acknowledges them.",
+		notes: [
+			"Push: the transmitter POSTs each event and retries with backoff.",
+			"Poll: the receiver asks for events and acknowledges them.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
 	const t1 = [0.9, 5.1];
@@ -365,8 +416,15 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "Add theAuth to an existing app",
 		line: "Mount one handler, sign users in, and read the session in any protected route.",
 		alt: "Your app mounts the theAuth handler, theAuth issues a session cookie, and protected routes read that session.",
+		notes: [
+			"Create theAuth and mount one handler.",
+			"Users sign in and get a session cookie.",
+			"Read the session in any protected route.",
+			"Sessions and users live in your own database.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
+	s.group(0.2, 2.6, 7.4, 9.9, "Your server", C.purple);
 	const cs = [
 		[1.3, 8.7],
 		[3.8, 6.2],
@@ -402,8 +460,14 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "DPoP sender-constrained tokens",
 		line: "The token is bound to the client's key, so a copy stolen from logs fails without the matching proof.",
 		alt: "A client sends a token and a DPoP proof signed with its key to the resource server, which accepts it. A thief with only the token is refused.",
+		notes: [
+			"theAuth issues a token bound to the client key.",
+			"The client sends the token with a signed proof.",
+			"A thief with only the token is refused.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
+	s.group(7.2, 0.5, 9.9, 3.2, "Your API", C.teal);
 	const cl = [1.7, 8.3];
 	const rs = [8.3, 1.7];
 	const th = [2.6, 2.4];
@@ -442,8 +506,14 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "Stateless sessions bound to the user",
 		line: "The token cookie is sealed against the identity cookie, so a copy from another user is refused.",
 		alt: "A browser holds an identity cookie and a token cookie. The server checks that the token cookie is bound to the identity cookie and refuses a token cookie taken from another user.",
+		notes: [
+			"The browser holds an identity cookie and a token cookie.",
+			"The token cookie is sealed against the identity cookie.",
+			"A token cookie from another user fails the check.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
+	s.group(7.7, 0.2, 9.9, 2.6, "Server", C.purple);
 	const cs = [
 		[1.3, 8.7],
 		[3.8, 6.2],
@@ -480,8 +550,14 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "theAuth as an OpenID Connect provider",
 		line: "Apps send users to theAuth, get an ID token and userinfo back, and are told when the user signs out.",
 		alt: "A client app redirects a user to theAuth, receives an ID token and userinfo, and a second app is notified by back-channel logout.",
+		notes: [
+			"The app redirects the user to theAuth.",
+			"theAuth returns an ID token and userinfo.",
+			"Other apps hear about sign-out through back-channel logout.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
+	s.group(3.8, 3.8, 7.6, 9.7, "theAuth", C.purple);
 	const ca = [1.7, 8.3];
 	const op = [5, 5];
 	const cb = [8.3, 1.7];
@@ -514,6 +590,10 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "One core, every framework",
 		line: "The core speaks Web Request and Response, and a thin adapter mounts it in your framework.",
 		alt: "A single theAuth core connected to five framework adapters: Next.js, Express, Hono, Fastify and SvelteKit.",
+		notes: [
+			"The core only speaks Web Request and Response.",
+			"A thin adapter wires it into each framework.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
 	const core = [5, 5];
@@ -556,6 +636,11 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 		title: "theauth add copies components into your app",
 		line: "The CLI pulls a component from the registry and writes the source into your repo, so you own it.",
 		alt: "The theauth add command fetches a component from the theAuth registry and writes its source files into your application.",
+		notes: [
+			"The CLI reads a component from the registry.",
+			"It writes the source files into your repo.",
+			"You own and can edit the code.",
+		],
 	});
 	s.platform(0, 0, 10, 10);
 	const cs = [
