@@ -11,6 +11,8 @@ const BASE = "https://app.example.com";
 const APP = "myapp://auth/callback";
 const EMAIL = "member@example.com";
 
+type Send = (p: string, i?: RequestInit) => Promise<Response>;
+
 const userInfo: OAuthUserInfo = {
 	id: "provider-1",
 	email: EMAIL,
@@ -72,7 +74,7 @@ async function setup(opts: { mobile?: boolean; gate?: boolean } = {}) {
 	return { theauth, send };
 }
 
-async function start(send: (p: string, i?: RequestInit) => Promise<Response>, challenge: string) {
+async function start(send: Send, challenge: string) {
 	const q = new URLSearchParams({
 		mobile_redirect: APP,
 		code_challenge: challenge,
@@ -84,11 +86,7 @@ async function start(send: (p: string, i?: RequestInit) => Promise<Response>, ch
 	return { res, cookie, state };
 }
 
-async function exchange(
-	send: (p: string, i?: RequestInit) => Promise<Response>,
-	code: string,
-	verifier: string,
-) {
+async function exchange(send: Send, code: string, verifier: string) {
 	return send("/auth/oauth/mobile/exchange", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -96,24 +94,29 @@ async function exchange(
 	});
 }
 
+/** Start in the browser, finish the provider callback, and return the callback response. */
+async function browserFlow(send: Send, challenge: string, state?: string) {
+	const started = await start(send, challenge);
+	const cb = await send(`/auth/oauth/callback/mock?code=c&state=${state ?? started.state}`, {
+		headers: { cookie: started.cookie },
+	});
+	const code = new URL(cb.headers.get("location") ?? BASE).searchParams.get("code") ?? "";
+	return { ...started, cb, code };
+}
+
 describe("native app OAuth sign-in", () => {
 	it("hands the app a code, then trades it with the PKCE verifier for a session", async () => {
 		const { theauth, send } = await setup();
 		const verifier = generateCodeVerifier();
-		const { res, cookie, state } = await start(send, await deriveCodeChallenge(verifier));
+		const { res, cookie, cb, code } = await browserFlow(send, await deriveCodeChallenge(verifier));
 		expect(res.status).toBe(302);
 		expect(cookie).toContain("theauth_mobile_oauth=");
-
-		const cb = await send(`/auth/oauth/callback/mock?code=c&state=${state}`, {
-			headers: { cookie },
-		});
 		expect(cb.status).toBe(302);
 		const location = new URL(cb.headers.get("location") ?? "");
 		expect(`${location.protocol}//${location.host}${location.pathname}`).toBe(
 			"myapp://auth/callback",
 		);
 		expect(cb.headers.get("set-cookie") ?? "").not.toContain("theauth_session=");
-		const code = location.searchParams.get("code") ?? "";
 		expect(code).not.toBe("");
 
 		const done = await exchange(send, code, verifier);
@@ -130,11 +133,7 @@ describe("native app OAuth sign-in", () => {
 	it("refuses a wrong verifier and burns the code", async () => {
 		const { send } = await setup();
 		const verifier = generateCodeVerifier();
-		const { cookie, state } = await start(send, await deriveCodeChallenge(verifier));
-		const cb = await send(`/auth/oauth/callback/mock?code=c&state=${state}`, {
-			headers: { cookie },
-		});
-		const code = new URL(cb.headers.get("location") ?? "").searchParams.get("code") ?? "";
+		const { code } = await browserFlow(send, await deriveCodeChallenge(verifier));
 
 		const wrong = await exchange(send, code, generateCodeVerifier());
 		expect(wrong.status).toBe(400);
@@ -175,10 +174,7 @@ describe("native app OAuth sign-in", () => {
 
 	it("sends a gate challenge to the app instead of a code", async () => {
 		const { send } = await setup({ gate: true });
-		const { cookie, state } = await start(send, await deriveCodeChallenge(generateCodeVerifier()));
-		const cb = await send(`/auth/oauth/callback/mock?code=c&state=${state}`, {
-			headers: { cookie },
-		});
+		const { cb } = await browserFlow(send, await deriveCodeChallenge(generateCodeVerifier()));
 		const location = cb.headers.get("location") ?? "";
 		expect(location.startsWith("myapp://auth/callback#")).toBe(true);
 		expect(location).toContain("gate=two_factor_required");
@@ -187,10 +183,8 @@ describe("native app OAuth sign-in", () => {
 
 	it("returns provider errors to the app, not as JSON in the browser", async () => {
 		const { send } = await setup();
-		const { cookie } = await start(send, await deriveCodeChallenge(generateCodeVerifier()));
-		const cb = await send("/auth/oauth/callback/mock?code=c&state=unknown", {
-			headers: { cookie },
-		});
+		const challenge = await deriveCodeChallenge(generateCodeVerifier());
+		const { cb } = await browserFlow(send, challenge, "unknown");
 		expect(cb.status).toBe(302);
 		expect(cb.headers.get("location") ?? "").toContain("myapp://auth/callback?error=");
 	});
