@@ -73,6 +73,16 @@ export interface OAuthProvider {
 	 * @param accessToken A valid access token issued by the provider.
 	 */
 	getUserInfo(accessToken: string): Promise<OAuthUserInfo>;
+
+	/**
+	 * Exchange a refresh token for fresh tokens (RFC 6749 section 6).
+	 *
+	 * Optional: providers that cannot refresh omit it, and `getAccessToken`
+	 * then reports `refresh_failed` once the stored access token expires.
+	 * Implementations throw `OAuthRefreshError`, with `reauth: true` when the
+	 * provider answered `invalid_grant`.
+	 */
+	refreshTokens?(refreshToken: string): Promise<OAuthTokens>;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +150,52 @@ export interface OAuthModuleConfig {
 	 * Defaults to 600 seconds (10 minutes).
 	 */
 	stateTtlSeconds?: number;
+	/**
+	 * Encrypt provider tokens at rest (AES-256-GCM, same envelope as the token
+	 * vault). Off unless this object is present. New writes are encrypted;
+	 * legacy plaintext rows stay readable and are re-encrypted on their next
+	 * write. Keys are base64url, 32 bytes each; keep retired keys until every
+	 * row was rewritten.
+	 */
+	tokenEncryption?: OAuthTokenEncryptionConfig;
+	/**
+	 * Extra check for `unlinkAccount`: return true when the user can still sign
+	 * in without the account being unlinked (e.g. magic link or email OTP).
+	 * Linked OAuth accounts, passkeys and username/password are always counted.
+	 */
+	hasOtherSignInMethod?: (userId: string) => Promise<boolean>;
+	/** Refresh when the access token expires within this many seconds. Default 60. */
+	expirySkewSeconds?: number;
+	/** Injectable clock for tests (milliseconds). */
+	now?: () => number;
+}
+
+export interface OAuthTokenEncryptionConfig {
+	/** Set false to switch encryption off without removing the keys. Default true. */
+	enabled?: boolean;
+	keys?: Record<string, string>;
+	activeKeyId?: string;
+}
+
+/** Result of `getAccessToken`. */
+export interface OAuthAccessToken {
+	accessToken: string;
+	tokenType: string;
+	/** When the access token expires; null when the provider did not say. */
+	expiresAt: Date | null;
+	/** True when this call refreshed the token. */
+	refreshed: boolean;
+}
+
+/** Linked account as exposed to users: never contains token material. */
+export interface OAuthLinkedAccount {
+	id: string;
+	provider: string;
+	providerAccountId: string;
+	hasRefreshToken: boolean;
+	expiresAt: Date | null;
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +253,24 @@ export interface OAuthModule {
 	 * Returns `null` when no link exists yet.
 	 */
 	findLinkedUser(providerId: string, providerAccountId: string): Promise<{ userId: string } | null>;
+
+	/**
+	 * Return a usable provider access token for the user, refreshing it first
+	 * when it is expired (single flight per account) and persisting rotated
+	 * tokens. Throws `OAuthTokenError` with code `no_account`,
+	 * `no_refresh_token`, `refresh_failed`, `revoked` or `decrypt_failed`.
+	 */
+	getAccessToken(input: { userId: string; provider: string }): Promise<OAuthAccessToken>;
+
+	/** List the user's linked provider accounts without token material. */
+	listAccounts(userId: string): Promise<OAuthLinkedAccount[]>;
+
+	/**
+	 * Remove the user's link to a provider. Throws `OAuthTokenError` with code
+	 * `no_account` when nothing is linked and `last_credential` when it is the
+	 * user's only sign-in method.
+	 */
+	unlinkAccount(userId: string, provider: string): Promise<void>;
 }
 
 export interface OAuthCallbackResult {

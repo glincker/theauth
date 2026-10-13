@@ -12,9 +12,10 @@
  *   secret to kill everything, or plug `isRevoked` into a store you already
  *   have (a KV denylist fed by back-channel logout works well).
  * - The identity cookie is signed, not encrypted. Do not put secrets in it.
- * - Refresh tokens live in the browser, encrypted. If your IdP rotates refresh
- *   tokens, two parallel `getAccessToken` calls can race. Call it from one
- *   place per request.
+ * - Refresh tokens live in the browser, encrypted. Parallel `getAccessToken`
+ *   calls for the same refresh token share one `refreshAccessToken` call within
+ *   a process, so a rotating IdP sees a single use. Separate server instances
+ *   (or separate browser tabs hitting different instances) can still race.
  *
  * @example
  * ```typescript
@@ -138,6 +139,9 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 	};
 	const { maxAge: _drop, ...deleteOpts } = cookieOpts;
 
+	/** In-flight refreshes by refresh token, so concurrent callers share one IdP call. */
+	const refreshing = new Map<string, Promise<Result<StatelessTokens>>>();
+
 	let encKey: Promise<CryptoKey> | null = null;
 	function getEncKey(): Promise<CryptoKey> {
 		encKey ??= hmacSha256Raw(config.secret, ENC_CONTEXT).then((raw) =>
@@ -256,7 +260,15 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		if (!tokens.refreshToken || !config.refreshAccessToken) {
 			return fail("ACCESS_TOKEN_EXPIRED", "Access token expired and cannot be refreshed.");
 		}
-		const refreshed = await config.refreshAccessToken(tokens.refreshToken);
+		const refreshToken = tokens.refreshToken;
+		let pending = refreshing.get(refreshToken);
+		if (!pending) {
+			pending = config.refreshAccessToken(refreshToken).finally(() => {
+				refreshing.delete(refreshToken);
+			});
+			refreshing.set(refreshToken, pending);
+		}
+		const refreshed = await pending;
 		if (!refreshed.success) return refreshed;
 		const next: StatelessTokens = {
 			...tokens,

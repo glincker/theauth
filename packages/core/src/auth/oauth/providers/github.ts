@@ -21,6 +21,7 @@
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
+import { createRefresher } from "./refresh.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -205,6 +206,12 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 		scopes,
 		getAuthorizationUrl,
 		exchangeCode,
+		refreshTokens: createRefresher({
+			providerName: "GitHub",
+			tokenUrl: TOKEN_URL,
+			clientId: config.clientId,
+			clientSecret: config.clientSecret,
+		}),
 		getUserInfo,
 	};
 }

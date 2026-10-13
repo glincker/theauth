@@ -20,6 +20,7 @@
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
+import { createRefresher } from "./refresh.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -178,6 +179,12 @@ export function createDiscordProvider(config: OAuthProviderConfig): OAuthProvide
 		scopes,
 		getAuthorizationUrl,
 		exchangeCode,
+		refreshTokens: createRefresher({
+			providerName: "Discord",
+			tokenUrl: TOKEN_URL,
+			clientId: config.clientId,
+			clientSecret: config.clientSecret,
+		}),
 		getUserInfo,
 	};
 }

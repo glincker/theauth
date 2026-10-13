@@ -14,6 +14,7 @@
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthTokens, OAuthUserInfo } from "../types.js";
+import { createRefresher } from "./refresh.js";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -301,6 +302,15 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 		scopes,
 		getAuthorizationUrl,
 		exchangeCode,
+		refreshTokens: async (refreshToken) => {
+			const endpoints = await resolveEndpoints();
+			return createRefresher({
+				providerName: config.name,
+				tokenUrl: endpoints.tokenUrl,
+				clientId: config.clientId,
+				clientSecret: config.clientSecret,
+			})(refreshToken);
+		},
 		getUserInfo,
 	};
 }

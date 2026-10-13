@@ -28,6 +28,9 @@
  * ```
  */
 
+// Typed errors for getAccessToken / unlinkAccount
+export type { OAuthTokenErrorCode } from "./errors.js";
+export { OAuthRefreshError, OAuthTokenError } from "./errors.js";
 // Module factory
 export { createOAuthModule } from "./module.js";
 // PKCE utilities (useful for testing or custom providers)
@@ -54,12 +57,15 @@ export { oauthAccounts, oauthStates } from "./schema.js";
 
 // Types
 export type {
+	OAuthAccessToken,
 	OAuthAccount,
 	OAuthCallbackResult,
+	OAuthLinkedAccount,
 	OAuthModule,
 	OAuthModuleConfig,
 	OAuthProvider,
 	OAuthProviderConfig,
+	OAuthTokenEncryptionConfig,
 	OAuthTokens,
 	OAuthUserInfo,
 } from "./types.js";
