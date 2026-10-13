@@ -75,12 +75,37 @@ const IMMUTABLE_PATHS = new Set<string>([
 
 // Path parser
 
+// Keys that reach a prototype when used as a property name on a plain object.
+// The path and the value of a PATCH operation are supplied by the SCIM client,
+// so none of them may be used to walk or assign through these.
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+function isUnsafeKey(key: string): boolean {
+	return UNSAFE_KEYS.has(key);
+}
+
+function assertSafePath(path: PatchPath): void {
+	const segments = [path.base, ...(path.subPath ?? [])];
+	if (path.schemaUrn) segments.push(...path.schemaUrn.split(":"));
+	for (const segment of segments) {
+		if (isUnsafeKey(segment)) {
+			throw new ScimPatchError(`PATCH path contains a reserved name "${segment}"`, "invalidPath");
+		}
+	}
+}
+
 /**
  * Parse a PATCH path expression into the structured form.
  *
- * @throws ScimPatchError on malformed input.
+ * @throws ScimPatchError on malformed input or a reserved attribute name.
  */
 export function parsePatchPath(raw: string): PatchPath {
+	const parsed = parseUnchecked(raw);
+	assertSafePath(parsed);
+	return parsed;
+}
+
+function parseUnchecked(raw: string): PatchPath {
 	if (raw.length === 0) {
 		throw new ScimPatchError("Empty PATCH path", "invalidPath");
 	}
@@ -264,6 +289,9 @@ function mergeInto(
 	readonlyPaths: Set<string>,
 ): void {
 	for (const [key, value] of Object.entries(source)) {
+		if (isUnsafeKey(key)) {
+			throw new ScimPatchError(`PATCH value contains a reserved name "${key}"`, "invalidValue");
+		}
 		const lower = key.toLowerCase();
 		if (IMMUTABLE_PATHS.has(lower) || readonlyPaths.has(lower)) {
 			throw new ScimPatchError(`Attribute "${key}" is immutable`, "mutability");
