@@ -23,7 +23,7 @@ const mcp = createMcpModule({
     dpop: {
       // required: true,        // refuse unbound tokens everywhere
       // requireNonce: true,    // server nonces (RFC 9449 section 8 and 9)
-      storage: theauth.storage.for("nonces"), // shared replay cache
+      storage: theauth.secondaryStorage.for("nonces"), // shared replay cache
     },
   },
   // ...your storage callbacks
@@ -45,21 +45,19 @@ Both metadata documents then list `dpop_signing_alg_values_supported`. The prote
 
 ## What the token endpoint does
 
-When a request carries a `DPoP` header, the endpoint verifies the proof (`typ`, algorithm, public `jwk`, signature, `htm`, `htu`, `iat`, `jti` replay) and issues an access token with `cnf: { jkt }` and `token_type: "DPoP"`. Without a header you get a normal bearer token, unless `required` is set.
+When a request carries a `DPoP` header, the endpoint verifies the proof (`typ`, algorithm, public `jwk`, signature, `htm`, `htu`, `iat`, `jti` replay) and issues an access token with `cnf: { jkt }` and `token_type: "DPoP"`. Without a header you get a normal bearer token, unless `required` is set. The non-interactive grants (client credentials, token exchange, jwt-bearer) honor the proof the same way. See [MCP server grants](/mcp-grants).
 
 The proof is checked before the authorization code is consumed. When `requireNonce` is on and the proof has no valid nonce, the endpoint answers `400 use_dpop_nonce` with a `DPoP-Nonce` header and leaves the code alone, so the client retries with the same code and a fresh proof.
 
 Refresh tokens inherit the binding. A refresh request signed by a different key is refused before the token rotates, so a thief cannot burn the real client's token. Your `storeToken` callback should persist `dpopJkt` from the stored record, otherwise the binding is lost on refresh.
 
-The built-in `createMcpResponseHelpers(...).tokenResponse` and the Hono and Express adapters copy the nonce into the `DPoP-Nonce` header. If you write your own token route, read `result.error.details?.dpopNonce`.
+The built-in `createMcpResponseHelpers(...).tokenResponse` and every framework adapter copy the nonce into the `DPoP-Nonce` header. If you write your own token route, read `result.error.details?.dpopNonce`.
 
 ## Protect a handler
 
 `requireMcpAuth` wraps any `(Request) => Response` function. It accepts `Authorization: Bearer` and, with DPoP enabled, `Authorization: DPoP`.
 
 ```ts
-import { SignJWT, exportJWK, generateKeyPair } from "jose";
-
 // Resource server
 const tools = mcp.requireMcpAuth(
   async (request, principal) => {
@@ -75,25 +73,9 @@ const tools = mcp.requireMcpAuth(
 
 // Works anywhere that speaks Web Request/Response, for example Hono:
 // app.all("/tools", (c) => tools(c.req.raw));
-
-// Client side: sign a proof for one request.
-async function dpopProof(
-  keys: Awaited<ReturnType<typeof generateKeyPair>>,
-  method: string,
-  url: string,
-  accessToken?: string,
-) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(accessToken ?? ""));
-  const ath = btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  return new SignJWT({ htm: method, htu: url, jti: crypto.randomUUID(), ...(accessToken ? { ath } : {}) })
-    .setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk: await exportJWK(keys.publicKey) })
-    .setIssuedAt()
-    .sign(keys.privateKey);
-}
 ```
 
-The client sends `Authorization: DPoP <token>` plus `DPoP: <proof>` where the proof is signed for the exact method and URL and includes `ath`, the base64url SHA-256 of the token. Use a new `jti` every time.
+The client sends `Authorization: DPoP <token>` plus `DPoP: <proof>` where the proof is signed for the exact method and URL and includes `ath`, the base64url SHA-256 of the token. Use a new `jti` every time. The [client helper](#client-helper) below does all of that for you.
 
 ### What gets checked
 
@@ -117,6 +99,73 @@ With no credentials the response is 401 with `Bearer resource_metadata="..."` an
 | `agent` | `agent_id`, `agent_type`, `trust_tier` (needs `emitAgenticJwtClaims`) |
 | `delegationChain` | Nested RFC 8693 `act` claims, current actor first |
 | `scheme`, `dpopJkt` | How the caller authenticated |
+
+## Client helper
+
+`@glinr/theauth-client` ships `createDPoPClient` and `createDPoPProver`. They use WebCrypto only, so they run in browsers, Node, Bun, Deno and edge runtimes. Both sign with ES256.
+
+```ts
+import { createDPoPClient } from "@glinr/theauth-client";
+
+const dpop = await createDPoPClient(); // generates a P-256 key pair
+
+// 1. Token endpoint. The helper adds the DPoP header and handles the nonce challenge.
+const tokenRes = await dpop.fetch("https://auth.example.com/api/auth/mcp/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    code_verifier: verifier,
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    resource: "https://mcp.example.com",
+  }),
+});
+const { access_token } = await tokenRes.json();
+
+// 2. Resource request. Sends `Authorization: DPoP <token>` and a proof with `ath`.
+const res = await dpop.fetch(
+  "https://mcp.example.com/tools",
+  { method: "POST", body: JSON.stringify({ tool: "list_repos" }) },
+  { accessToken: access_token },
+);
+```
+
+What it does on each call:
+
+- Builds a proof with `htm`, a normalized `htu` (scheme, host and path, query and fragment dropped), `iat`, a fresh `jti`, `ath` when there is an access token, and `nonce` when one is cached for the origin.
+- Sets `Authorization: DPoP <token>` when an access token is given, per request through the third argument or as the `accessToken` option (a string or a function).
+- Reads `DPoP-Nonce` from every response and caches it per origin.
+- On a `use_dpop_nonce` challenge (a 400 or 401 with a `DPoP-Nonce` header) it retries once with the new nonce and a new proof.
+
+### Nonce flow
+
+With `dpop.requireNonce` on the server, the first request has no nonce:
+
+1. The client sends a proof without a nonce.
+2. The server answers `400 use_dpop_nonce` (token endpoint) or `401` with `WWW-Authenticate: DPoP error="use_dpop_nonce"` (resource), plus a `DPoP-Nonce` header. The authorization code is not consumed.
+3. The helper stores the nonce, signs a new proof that carries it, and retries once.
+4. Later requests to the same origin send the cached nonce. When the server rotates it, the same challenge repeats.
+
+The retry happens once per call. If the second attempt is also a challenge, the response is returned to you.
+
+### Keys
+
+The generated private key is non-extractable and lives only as long as the object. A token is bound to that key, so keep using the same one for refresh. To persist it, pass your own key pair, for example one you store in IndexedDB:
+
+```ts
+const dpop = await createDPoPClient({ keyPair: storedKeyPair }); // ECDSA P-256 CryptoKeyPair
+const jkt = await dpop.thumbprint(); // the cnf.jkt value the server binds to
+```
+
+Use `createDPoPProver` when you only need proofs and want to send the request yourself. It exposes `createProof({ method, url, accessToken?, nonce? })`, `thumbprint()`, `publicJwk`, `getNonce(url)` and `setNonce(url, nonce)`. Share one prover between a token client and a resource client with `createDPoPClient({ prover })` so both use the same key and nonce cache.
+
+## Adapters and CORS
+
+The token endpoint returns the nonce in `error.details.dpopNonce`. All ten framework adapters (Express, Fastify, Hono, NestJS, Next.js, Nuxt, SvelteKit, SolidStart, TanStack and Astro) copy it into the `DPoP-Nonce` response header on `/mcp/token` errors, so the retry works through any of them. Before this, only the Hono and Express adapters did.
+
+The adapters' MCP CORS headers also allow the `DPoP` request header and expose `DPoP-Nonce` and `WWW-Authenticate`, which a browser client needs to read the challenge. If you serve the token endpoint some other way, set the same headers yourself.
 
 ## Limits
 

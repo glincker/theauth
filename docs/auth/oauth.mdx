@@ -71,13 +71,15 @@ The plugin registers these routes (relative to the adapter prefix):
 | `GET` | `/auth/oauth/callback/:provider` | Handles the provider callback, creates a session, and redirects. |
 | `GET` | `/auth/oauth/providers` | Lists configured providers as `{ providers: [{ id, name }] }`. |
 | `POST` | `/auth/oauth/link` | Links a provider account to the signed-in user. Requires authentication. Body: `{ provider, userInfo, tokens }`. |
+| `GET` | `/auth/oauth/accounts` | Lists the signed-in user's linked accounts, without token material. |
+| `DELETE` | `/auth/oauth/accounts/:provider` | Unlinks an account. Refused with 409 `last_credential` when it is the user's only sign-in method. |
 
 ## The sign-in flow
 
 1. Your frontend navigates to `/auth/oauth/authorize/{provider}`. theAuth generates a random state and a PKCE verifier, stores both in the database (default lifetime 10 minutes, set with `stateTtlSeconds`), and redirects to the provider with the S256 challenge.
 2. The provider redirects back to `/auth/oauth/callback/{provider}` with an authorization code and the state.
 3. theAuth validates and consumes the state, exchanges the code for tokens, and fetches the user profile.
-4. theAuth finds the user by email or creates one, links the provider account, sets the `theauth_session` cookie, and redirects to `{baseUrl}/?auth_user=<url-encoded JSON with id and email>`.
+4. theAuth finds the user by email or creates one and links the provider account. It then asks the [sign-in gate](/sign-in-gate) whether a session may be issued. If so it sets the `theauth_session` cookie and redirects to `{baseUrl}/?auth_user=<url-encoded JSON with id and email>`. If the user must change their password or pass a second factor, it redirects to `{baseUrl}/` with the challenge in the URL fragment and sets no cookie.
 
 The provider account is identified by the provider's own user ID, so the same provider account always resolves to the same linked row.
 
@@ -95,7 +97,7 @@ If a provider returns no email (Reddit, for example), the callback cannot match 
   Auto-linking trusts the email reported by the provider and cannot be turned off. If your threat model requires stronger guarantees, only enable providers that verify email addresses.
 </Warning>
 
-The `oauth()` plugin does not expose a way to list or disconnect linked providers on the `createTheAuth` instance. To work with linked accounts directly, build the module yourself with `createOAuthModule(db, { providers })`, which offers `getAuthorizationUrl`, `handleCallback`, `linkAccount`, and `findLinkedUser`.
+The plugin adds `GET /auth/oauth/accounts` and `DELETE /auth/oauth/accounts/:provider`, and exposes the OAuth module as `theauth.plugins.getContext().oauth`. From it you get `getAccessToken` (with refresh), `listAccounts` and `unlinkAccount`. See [Social token API](/auth/social-tokens). To work with the module without the plugin, build it with `createOAuthModule(db, { providers })`.
 
 ## Custom providers
 

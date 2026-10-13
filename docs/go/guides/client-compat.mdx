@@ -1,0 +1,136 @@
+---
+title: "Client compatibility profile"
+sidebarTitle: "Client Compatibility"
+description: "Opt-in switches that relax strict authorization server checks for real-world MCP clients, with the security tradeoff of each one."
+---
+Real MCP clients (Claude Desktop, Cursor, ChatGPT connectors and similar) do not
+always follow the strict shape the authorization server enforces by default.
+`AuthorizationServerConfig.ClientCompat` relaxes individual checks, one switch
+at a time. Every switch defaults to `false`, which is today's strict behavior.
+
+```go
+cfg.AuthorizationServer.ClientCompat = theauth.ClientCompatConfig{
+    OptionalResource:  true,
+    PathAudience:      true,
+    DropUnknownScopes: true,
+    LoopbackAnyPort:   true,
+}
+```
+
+## Flags
+
+| Field | Relaxes | Default |
+| --- | --- | --- |
+| `OptionalResource` | A missing `resource` parameter | false |
+| `DropUnknownScopes` | Rejecting unknown scopes | false |
+| `LoopbackAnyPort` | Exact-string redirect URI match for loopback URIs | false |
+| `LoopbackAllowLocalhost` | Adds the host name `localhost` to `LoopbackAnyPort` | false |
+| `PathAudience` | Exact match of the `resource` value | false |
+
+### OptionalResource
+
+When `resource` is absent at `/oauth/authorize`, `/oauth/par`, the token
+endpoint (authorization code and refresh) or the jwt-bearer grant, the
+request defaults to the sole configured resource. With two or more configured
+resources an absent `resource` is still `invalid_target`. A `resource` that is
+present but unknown is always `invalid_target`. Client credentials, token
+exchange and the device flow are unchanged (device already defaulted).
+
+Tradeoff: low. The audience can only be a resource you configured, and with a
+single resource there is no ambiguity about the audience.
+
+### DropUnknownScopes
+
+A requested scope is kept only if it is in the resource catalog (when the
+catalog is non-empty) and in the client's registered `scope` set (when the
+client registered one). Everything else is dropped, and the granted scope is
+returned in the token response `scope` field and the `scope` claim. If scopes
+were requested and none remain, the request fails with `invalid_scope`. An
+entirely empty scope request is rejected exactly as before. On the refresh
+grant, scopes outside the original grant are dropped the same way, so a
+refresh can never widen.
+
+Tradeoff: medium. A client can no longer learn it asked for something wrong
+from an error, and it may receive fewer scopes than it expected. It can never
+receive more than the catalog and its registration allow. Clients must read
+the returned `scope` rather than assume what they asked for.
+
+### LoopbackAnyPort
+
+RFC 8252 section 7.3: when a registered redirect URI is `http` on `127.0.0.1`
+or `[::1]`, the requested URI matches if scheme, host, path and query are
+identical and only the port differs. Applied at `/authorize`, PAR and
+`/token` (the token request may carry a different port than the code was
+issued for, as long as both are the same loopback URI up to the port).
+`127.0.0.1` and `[::1]` do not match each other. Userinfo, fragments and
+invalid ports never match. `localhost` is excluded unless
+`LoopbackAllowLocalhost` is also set.
+
+Tradeoff: higher. Any process on the user's machine can listen on a port and
+receive the redirect. PKCE (always required) is what prevents that process
+from redeeming the code, so do not enable this for clients that cannot use
+PKCE S256 (this server requires it for everyone). Only affects clients that
+registered a loopback URI.
+
+### PathAudience
+
+A requested `resource` matches a configured resource if it is equal modulo a
+trailing slash, or if the configured identifier is a path prefix of the
+request on a `/` boundary (`https://api.example.com/mcp/sse` matches
+`https://api.example.com/mcp`; `https://api.example.com/mcp-admin` does not).
+Queries, fragments, userinfo, dot segments and percent-encoded dots or slashes
+are refused. When several configured resources match, the longest wins. The
+issued token `aud` is always the configured canonical identifier, never the
+requested sub-path.
+
+Tradeoff: low to medium. A client can obtain a token for the whole configured
+resource while naming a sub-path, so do not rely on the sub-path to narrow
+authorization. Limit: the ID-JAG redemption check at the jwt-bearer grant still
+compares the raw `resource` and does not accept sub-paths.
+
+## Recommended MCP profile
+
+For a single-resource MCP server with public (CIMD or DCR) clients:
+
+```go
+ClientCompat: theauth.ClientCompatConfig{
+    OptionalResource:  true,  // clients commonly omit resource
+    PathAudience:      true,  // clients address /mcp/sse or /mcp/messages
+    DropUnknownScopes: true,  // vendor scopes such as claudeai, offline_access
+    LoopbackAnyPort:   true,  // native clients use ephemeral ports
+},
+```
+
+Leave `LoopbackAllowLocalhost` off unless a client you must support registers
+`http://localhost/...`. Pair this with `RequireState: true` and CIMD
+`TrustPolicy: AllowHTTPSHosts(...)` for the clients you intend to serve. If you
+only serve clients that behave, enable none of these.
+
+## CIMD client metadata
+
+`token_endpoint_auth_method` in a client metadata document is checked against
+an allowlist: `none` (the default when omitted) and `private_key_jwt`.
+`client_secret_basic`, `client_secret_post`, `client_secret_jwt` and any other
+value are rejected because a published document has no place for a secret.
+`private_key_jwt` requires exactly one of `jwks` (a key set with at least one
+key) or `jwks_uri` (an absolute https URL). Unknown top-level fields are
+ignored, so vendor extensions do not break resolution.
+
+`CIMDConfig.HonorCacheControl` (default false) lets the publisher shorten how
+long a fetched document is cached with `Cache-Control: max-age`, `no-cache` or
+`no-store`. The effective freshness is always between `cimd.MinCacheTTL` (10
+seconds) and `CIMDConfig.CacheTTL`; a publisher can never extend caching past
+`CacheTTL`.
+
+A redirect URI with a bare custom scheme such as `cursor://` is refused by
+CIMD validation (RFC 8252 section 7.1 requires a reverse-DNS scheme).
+
+## Test vectors
+
+`internal/as/compat_test.go` holds table-driven vectors for resource
+resolution, scope narrowing and redirect matching. They are plain data, so
+other implementations can reuse them. Client shapes under
+`internal/as/testdata/clientcompat` are representative of public client
+documentation, not captured traffic.
+
+The TypeScript package has the same switches under `lenientClients`. See [MCP client compatibility](/mcp-client-compat) for the TypeScript names and the few places the two differ.

@@ -1,0 +1,240 @@
+---
+title: MCP server grants
+description: Enable client_credentials, RFC 8693 token exchange, jwt-bearer (ID-JAG) and private_key_jwt client authentication on the MCP authorization server.
+icon: key
+---
+
+The MCP authorization server issues tokens for the authorization code flow by default. Four more ways to get a token are available, and all four are off until you configure them:
+
+- `client_credentials`: a confidential client gets a token for itself, with no user involved.
+- Token exchange (RFC 8693): trade an access token this server issued for a narrower one, optionally for another resource.
+- `jwt-bearer` (RFC 7523): redeem an Identity Assertion JWT Authorization Grant (ID-JAG) signed by an identity provider you trust.
+- `private_key_jwt`: authenticate a client with a signed assertion instead of a shared secret.
+
+Everything here goes in the `config` object you pass to `createMcpModule`. See [MCP OAuth 2.1](/mcp) for the base setup.
+
+## What changes in the metadata
+
+Each enabled grant is added to `grant_types_supported` in the authorization server metadata. `private_key_jwt` and its algorithm list (`token_endpoint_auth_signing_alg_values_supported`) are always advertised. A grant that is not enabled answers `unsupported_grant_type`.
+
+## Register the client for the grant
+
+A client can only use a grant it is registered for. Through dynamic registration, list the grant type in `grant_types`:
+
+| Grant | `grant_types` value |
+| --- | --- |
+| Client credentials | `client_credentials` |
+| Token exchange | `urn:ietf:params:oauth:grant-type:token-exchange` |
+| jwt-bearer | `urn:ietf:params:oauth:grant-type:jwt-bearer` |
+
+Registration refuses a grant type that is not enabled on the server, and refuses `client_credentials` for a client with `token_endpoint_auth_method: "none"`. For clients you pre-register in config, set `grantTypes` on the entry in `preRegisteredClients`. The default there is `authorization_code` and `refresh_token` only.
+
+<Warning>
+  Open dynamic registration lets any caller create a client that lists these grants. The grants still need a `resolvePrincipal` mapping (client credentials), a trusted issuer (jwt-bearer) or a valid subject token (exchange), so registration alone gets nobody a token. If you do not want self-registered clients to be eligible at all, restrict `/mcp/register` or use pre-registered clients.
+</Warning>
+
+All three grants require a `resource` (RFC 8707) unless [`lenientClients.optionalResource`](/mcp-client-compat) is on and exactly one resource is configured. None of them issues a refresh token, and `offline_access` is never granted.
+
+## client_credentials
+
+```ts
+import { createMcpModule } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  config: {
+    // ...issuer, baseUrl, signingSecret, resource
+    clientCredentials: {
+      enabled: true,
+      resolvePrincipal: async (client) => {
+        const service = await db.findServiceByClientId(client.clientId);
+        if (!service) return null; // refuse
+        return {
+          subject: `svc:${service.id}`, // becomes the token sub
+          agentId: service.agentId,     // emitted as agent_id when set
+          agentType: "autonomous",
+          trustTier: "standard",
+          scopes: ["mcp:read"],         // upper bound for this principal
+        };
+      },
+    },
+  },
+  // ...your storage callbacks
+});
+```
+
+`resolvePrincipal` is required. Without it no client can obtain a token, so a client created through open registration is not enough on its own.
+
+The token request:
+
+```http
+POST /api/auth/mcp/token
+Authorization: Basic base64(client_id:client_secret)
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&scope=mcp:read&resource=https://mcp.example.com
+```
+
+Rules:
+
+- The client must be confidential: a secret (`client_secret_basic` or `client_secret_post`) or `private_key_jwt`.
+- The token `sub` is the principal's `subject`, never a user.
+- Scopes are bounded by `principal.scopes`, falling back to the client's registered `scope`. With neither, the request fails with `invalid_scope`. A request can narrow within that bound, never widen.
+- No refresh token is issued. Send a DPoP proof and the token is bound to that key (`token_type: "DPoP"`).
+
+## Token exchange (RFC 8693)
+
+```ts
+import { createInMemoryJtiDenylist } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  config: {
+    // ...
+    jtiDenylist: createInMemoryJtiDenylist(), // required with tokenExchange
+    tokenExchange: {
+      enabled: true,
+      maxChainDepth: 3, // default
+      authorize: async ({ client, subject, scopes, resource }) => {
+        return client.clientId === "orchestrator" && scopes.every((s) => s.startsWith("mcp:"));
+      },
+    },
+  },
+  // ...
+});
+```
+
+Clients that authenticate with `private_key_jwt` can also revoke tokens at `/mcp/revoke`. The assertion audience must be the revoke endpoint URL or the issuer, an assertion addressed to the token endpoint is refused there, and the `jti` store is shared with the token endpoint. An assertion combined with basic auth or `client_secret` is rejected.
+
+`createMcpModule` throws at startup if `tokenExchange.enabled` is set without `jtiDenylist`. The denylist is what makes a revoked subject token fail the exchange. See the multi-instance note below.
+
+The request carries a `subject_token` (and optionally an `actor_token`), both with `..._token_type=urn:ietf:params:oauth:token-type:access_token`. Only access tokens issued by this server are accepted. Other token types are rejected with `invalid_request`.
+
+```http
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange
+&subject_token=eyJ...
+&subject_token_type=urn:ietf:params:oauth:token-type:access_token
+&scope=mcp:read
+&resource=https://tools.example.com
+```
+
+What the server enforces:
+
+| Rule | Behavior |
+| --- | --- |
+| Subject and actor tokens | Must verify, be unexpired and not be on the denylist. |
+| Scope | Narrow only. Anything outside the subject token's scopes is `invalid_scope`. |
+| Audience | Unchanged, or another configured resource (`resource` or `audience`). Otherwise `invalid_target`. |
+| Lifetime | The new token never outlives the subject token. |
+| DPoP | A bound subject token needs a proof from the same key, and the new token carries that binding. |
+| Delegation chain | The new token gets a nested `act` claim, capped at `maxChainDepth` hops (default 3). |
+| Policy | `authorize` returning `false` refuses with `access_denied`. |
+
+The `act` claim names the actor: the actor token's user and client when you send one, otherwise the exchanging client. Earlier hops are nested inside it, and resource servers see them as `principal.delegationChain` (see [DPoP and requireMcpAuth](/dpop)). The response includes `issued_token_type`.
+
+## jwt-bearer and ID-JAG (RFC 7523)
+
+An enterprise identity provider signs an assertion that says "this user may use this client at this resource". The client redeems it at the token endpoint.
+
+```ts
+const mcp = createMcpModule({
+  config: {
+    // ...
+    jwtBearer: {
+      enabled: true,
+      trustedIssuers: [
+        {
+          issuer: "https://idp.corp.example",
+          jwksUri: "https://idp.corp.example/.well-known/jwks.json",
+        },
+      ],
+      mapSubject: async ({ issuer, subject, clientId, scopes }) => {
+        const user = await db.findUserByEmail(subject);
+        return user?.id ?? null; // null refuses the grant
+      },
+      // algs: ["ES256", "ES384", "EdDSA", "PS256", "RS256"], // default
+      // maxLifetimeSeconds: 300,                              // default
+      // clockSkewSeconds: 30,                                 // default
+    },
+  },
+  // ...
+});
+```
+
+`trustedIssuers` must have at least one entry and `mapSubject` is required, or startup throws. Each issuer takes `jwksUri` (HTTPS, fetched through the SSRF-safe fetcher), static `jwks`, or both. Static keys are tried first, and a `jwksUri` is consulted when no static key matches. Fetched key sets are cached in process for five minutes, and an unknown `kid` triggers at most one refetch every 30 seconds. If a refetch fails, the stale copy is used for up to 30 minutes.
+
+The assertion must have JOSE header `typ: oauth-id-jag+jwt` and claims `iss`, `sub`, `aud`, `exp`, `iat`, `jti` and `client_id`. The checks:
+
+- `iss` is one of the trusted issuers, and the signature verifies against its keys.
+- `aud` equals this server's `issuer`.
+- `client_id` equals the authenticated client.
+- `exp - iat` is at most `maxLifetimeSeconds`.
+- `jti` has not been seen from that issuer. Replays are tracked in `assertionStorage`.
+- An optional `scope` claim bounds the scopes (default `openid`), and an optional `resource` claim must agree with the request.
+
+```http
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+&assertion=eyJ...
+&resource=https://mcp.example.com
+```
+
+## private_key_jwt client authentication
+
+Register the client with public keys instead of a secret:
+
+```json
+{
+  "redirect_uris": [],
+  "grant_types": ["client_credentials"],
+  "token_endpoint_auth_method": "private_key_jwt",
+  "jwks_uri": "https://agent.example.com/.well-known/jwks.json"
+}
+```
+
+Give exactly one of `jwks` (public keys only, private members are refused) or `jwks_uri` (public HTTPS). Client ID Metadata Documents can declare `private_key_jwt` too. No secret is generated for these clients.
+
+At the token endpoint the client sends `client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer` and a `client_assertion`. The assertion must have:
+
+- `iss` and `sub` both equal to the `client_id`.
+- `aud` equal to the token endpoint URL (`dpop.tokenEndpointUrl`, else `<baseUrl>/mcp/token`) or the issuer.
+- `exp` no more than 300 seconds out (30 seconds of skew allowed), and a `jti`.
+- A signature in ES256, ES384, EdDSA, PS256 or RS256. HMAC and `none` are never accepted.
+
+Each `jti` works once per client. Do not send a `client_secret` or Basic header alongside an assertion: the request is refused.
+
+## Multi-instance deployments
+
+Two stores default to process memory and break down behind a load balancer.
+
+**`jtiDenylist`.** `createInMemoryJtiDenylist()` is per process. A token revoked at `/mcp/revoke` on one instance still exchanges on another. Pass your own `McpJtiDenylist` (`revoke(jti, expiresAt)` and `isRevoked(jti)`) backed by Redis or your database.
+
+**`assertionStorage`.** The replay cache for `private_key_jwt` assertions and jwt-bearer `jti` values defaults to an in-process store. With several instances an assertion can be replayed once per instance. Give every instance the same shared store:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  secondaryStorage: "database", // or a Redis storage
+});
+
+const mcp = createMcpModule({
+  config: {
+    // ...
+    assertionStorage: theauth.secondaryStorage.for("nonces"),
+  },
+  // ...
+});
+```
+
+Replay protection is only as strict as the store's `incr`. Cloudflare KV is not atomic (`atomicIncr` is `false`), so two simultaneous replays can both pass there.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MCP client compatibility" href="/mcp-client-compat" icon="plug">
+    Relax strict request checks for real-world MCP clients.
+  </Card>
+  <Card title="DPoP and requireMcpAuth" href="/dpop" icon="key">
+    Bind these tokens to a client key and read the delegation chain.
+  </Card>
+  <Card title="Delegation" href="/delegation" icon="link">
+    Agent delegation chains, separate from RFC 8693 exchange.
+  </Card>
+</CardGroup>

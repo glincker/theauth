@@ -172,6 +172,21 @@ Built-in adapters exported from `@glinr/theauth/auth` include `betterAuthAdapter
 <ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds.</ParamField>
 <ParamField path="cookieName" type="string" default="'theauth_session'">Declared on the type but not read: plugins that set the session cookie (OAuth, passkey) and the default token lookup always use `theauth_session`. To rename the cookie, use `sessionName` on `createCookieSessionManager` (see [Cookie options](/cookies)).</ParamField>
 
+<ParamField path="maxConcurrent" type="number" default="no limit">Maximum non-expired sessions per user. Enforced inside `sessionManager.create`. Impersonation sessions are not counted.</ParamField>
+<ParamField path="onLimit" type={`'evict-oldest' | 'reject'`} default="'evict-oldest'">What to do when `maxConcurrent` is reached. `reject` makes `create` throw `MultiSessionLimitError`.</ParamField>
+<ParamField path="onRevoke" type="(revoked: Session[]) => Promise<void> | void">Called after sessions are revoked by `revoke`, `revokeAll` or limit eviction. Errors are swallowed. Used to fan out [OIDC back-channel logout](/auth/oidc-logout).</ParamField>
+
+## Sign-in gate config
+
+A top-level `signInGate` option. It controls forced password changes, required second factors and trusted devices on every session-issuing path. Without it only the forced password change is enforced. See [Sign-in gate](/sign-in-gate) for the response shapes and routes.
+
+<ParamField path="require2faFor" type={`Array<'password' | 'social' | 'magic_link' | 'passkey'>`} default="['password', 'social', 'magic_link']">Methods that must pass a second factor when the user has one enabled. The default applies once the `signInGate` block is present. With no block, no method requires one.</ParamField>
+<ParamField path="secret" type="string">HMAC secret for challenges and device cookies. Falls back to `auth.session.secret`.</ParamField>
+<ParamField path="challengeTtlSeconds" type="number" default="300">Challenge lifetime.</ParamField>
+<ParamField path="maxChallengeAttempts" type="number" default="5">Wrong codes allowed per challenge.</ParamField>
+<ParamField path="trustedDevice" type="object">`{ enabled, trustDurationSeconds, maxDevices, cookieName }`. Off unless `enabled` is true. Defaults are 30 days, 10 devices and `theauth_trusted_device`.</ParamField>
+<ParamField path="factors" type="TwoFactorFactor[]">Extra second factors besides TOTP.</ParamField>
+
 ## Password reset config
 
 A top-level `passwordReset` option (not nested under `auth`). It requires `auth.session`, and its flow relies on the `username` module, so configure `username` too. If `auth.session` is missing, `theauth.passwordReset` is `null`. The caller provides an email-sending callback.

@@ -84,6 +84,7 @@ The `clientSecret` is only returned on registration. It is stored hashed. If you
 | `authCodeTtl` | `number` | `600` | Authorization code lifetime in seconds |
 | `idTokenTtl` | `number` | `3600` | ID token lifetime in seconds |
 | `supportedScopes` | `string[]` | `['openid', 'profile', 'email']` | Scopes this provider accepts |
+| `logout` | `OidcLogoutConfig` | off | Adds `end_session_endpoint` and back-channel logout. See [OIDC provider logout](/auth/oidc-logout). |
 
 ## Authorization code flow
 
@@ -116,6 +117,9 @@ Other module methods: `getClient`, `deleteClient`, and `validateAccessToken`.
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="OIDC provider logout" href="/auth/oidc-logout" icon="right-from-bracket">
+    end_session_endpoint and back-channel logout.
+  </Card>
   <Card title="OAuth overview" href="/auth/oauth" icon="lock">
     Using theAuth as an OAuth client to sign in via other providers.
   </Card>

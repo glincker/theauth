@@ -12,18 +12,144 @@ adheres to [Semantic Versioning](https://semver.org/) from v1.0 forward.
 
 ## [Unreleased]
 
+### Added
+
+- `AuthorizationServer.ClientCompat` (`ClientCompatConfig`): opt-in switches for real-world MCP clients. `OptionalResource` defaults an absent `resource` to the sole configured resource (authorize, PAR, code and refresh token, jwt-bearer). `PathAudience` matches a requested sub-path to a configured resource and always issues the canonical `aud`. `DropUnknownScopes` drops scopes outside the catalog and client registration and returns the granted scope. `LoopbackAnyPort` (with `LoopbackAllowLocalhost`) matches loopback redirect URIs ignoring the port. All default to false. See `docs/client-compat.md`.
+- `CIMDConfig.HonorCacheControl`: opt-in `Cache-Control` max-age handling for CIMD documents, bounded by `cimd.MinCacheTTL` and `CIMDConfig.CacheTTL`.
+- CIMD documents accept `jwks` and `jwks_uri`, which are copied onto the resolved client for `private_key_jwt` authentication.
+- Client metadata fixtures and end-to-end tests shaped like Claude Desktop, Cursor and ChatGPT under `internal/as/testdata/clientcompat`.
+- `mcpresource`: `Validator.RequireScope` (RFC 6750 `insufficient_scope`) and `Validator.RequireStepUp` with `StepUp{ACRValues, MaxAge}` and `StepUp.Satisfied` (RFC 9470 `insufficient_user_authentication`). A zero `MaxAge` means no age requirement.
+- `mcpresource` now verifies ES256 and RS256 access tokens besides EdDSA (RSA keys under 2048 bits rejected, key type must match `alg`) and accepts `aud` as a string or an array.
+- `mcpresource`: `Denial`, `StepUpHint` and `WriteDenial` for structured 401 and 403 JSON bodies.
+- `mcpresource`: `SecuritySchemes`, `ToolSecurity`, `PublicToolSecurity` and `ToolSecurityInfo.Apply` for advisory `securitySchemes` metadata in MCP `tools/list`.
+- `mcpresource`: `NewURLElicitation` and `URLElicitationRequiredError` (JSON-RPC code -32042) for MCP URL mode elicitation.
+- `mcpresource`: `Principal.AuthorizationDetails()` (RFC 9396), `Principal.Audiences`, `ACR`, `AMR` and `AuthTime`.
+- Guide: [Protect MCP tools](/go/guides/protect-mcp-tools).
+
+### Security
+
+- CIMD `token_endpoint_auth_method` is now validated against an allowlist (`none`, `private_key_jwt`). `client_secret_*` and unknown methods are rejected, and `private_key_jwt` requires exactly one of `jwks` or `jwks_uri`. Previously the value was copied through unchecked. Unknown document fields are still ignored.
+
+## [2.9.0] - 2026-10-10
+
+### Added
+
+- `LifecycleHooks.OnHookError(ctx, hook, err)`: called when an observe-only hook returns an error or panics, in addition to the existing slog line, so hosts can alert instead of only logging. Nil keeps today's behavior.
+- `examples/hooks` and `docs/hooks.md`: a runnable demo and a reference for every lifecycle hook, including the observe-only contract.
+
 ### Fixed
 
-- `PasswordPolicy.OnLegacyHashAccepted` is now invoked (in a goroutine, after the new Argon2id hash is persisted) on signin and step-up; it was declared but never called.
+- `OnSignin` now fires for passkey login, SAML login, and the TOTP or recovery-code step that completes a password sign-in held at pending_2fa. Previously it fired only for password, magic link and OAuth callback, and its documentation claimed the TOTP step already fired it.
+
+### Changed
+
+- Documentation: `OnSignup`, `OnSignin`, `OnPasswordChange`, `OnMFAEnabled` and `OnOrgSwitch` are documented as observe-only. They run after the action committed, so they cannot veto it.
+
+### Security
+
+- `golang.org/x/text` v0.40.0 to v0.41.0 in the root module (GO-2026-6629, reported as reachable by `govulncheck`).
+- `golang.org/x/net` v0.59.0 to v0.60.0 in `audit/sinks/otlp` (GO-2026-6617, 6612, 6611, 6610 and 6603).
+- `govulncheck` and dependency review now run in CI, and every example module builds standalone under `GOWORK=off`.
+
+## [2.8.0] - 2026-10-09
+
+### Added
+
+- `crypto.SetHashConcurrency` and `crypto.DefaultHashConcurrency`: Argon2id hashing and verification now run behind a bound (default NumCPU divided by the Argon2id thread count) so a burst of sign-ins no longer multiplies memory. Measured before the bound: 128 concurrent sign-ins used 7.5 GB RSS. See `docs/SCALE.md`.
+- `cmd/theauth-migrate` with a Keycloak reader and applier: users, PBKDF2 credentials and federated identities move over, and the first login upgrades the hash to Argon2id. See `docs/MIGRATING-FROM-KEYCLOAK.md`.
+- `cmd/theauth-loadtest`, a load-test harness, and `docs/BENCHMARKS.md` with the method for reproducing numbers.
+- Per-client access token policy: `access_token_signed_response_alg` (EdDSA, ES256, RS256) and `access_token_format` (`jwt` or `opaque`), enabled with `AuthorizationServer.TokenPolicy`. See `docs/access-token-policy.md`.
+- Rich Authorization Requests (RFC 9396): `AuthorizationServer.RAR`, `authorization_details` on authorize, PAR, JAR and the token endpoint, token and introspection claims, narrowing on refresh, `authorization_details_types` client metadata. See `docs/rich-authorization-requests.md`.
+- ID-JAG: `AuthorizationServer.IDJAG` issues assertions through token exchange and redeems them at the jwt-bearer grant. See `docs/id-jag.md`.
+- `theauth.OpaqueTokenStorage` (memory, Postgres, MySQL) and `storagetest.RunOpaqueTokens`.
+
+### Changed
+
+- Session lookup resolves the session and its user in one query instead of two.
+
+### Upgrade notes
+
+- **Run migration `0021_token_policy_rar`** on Postgres and MySQL. It adds three columns to `oauth_clients`, one `authorization_details` column each to `oauth_authorization_codes` and `oauth_refresh_tokens`, and the `oauth_opaque_access_tokens` table. Custom adapters should persist `OAuthClient.AccessTokenFormat`, `AccessTokenSignedResponseAlg`, `AuthorizationDetailsTypes`, and `AuthorizationDetails` on codes and refresh tokens.
+- `AuthorizationServer.SigningAlg` now accepts `ES256` and `RS256` besides `EdDSA`. `Service.CurrentSigningKey` returns a `crypto.Signer` instead of `ed25519.PrivateKey` (internal package).
+
+- **Authorization codes are hashed at rest.** Migration `0019_as_security_hardening` deletes any plaintext code still stored (codes live 60 seconds, so in-flight authorizations must be restarted). Custom storage adapters are unaffected: the service hashes before calling storage.
+- **Run the new migration.** `0019` adds `dpop_jkt` and `auth_code_hash` to `oauth_refresh_tokens` and creates `oauth_revoked_jtis` (postgres and mysql). Custom adapters should persist `RefreshToken.DPoPJKT` and `RefreshToken.AuthCodeHash`, and may implement `RevokeRefreshTokensByAuthCode`, `DenyAccessToken` and `IsAccessTokenDenied`.
+- **DPoP `htu` comes from the issuer.** The token endpoint no longer reads `X-Forwarded-Proto` or `X-Forwarded-Host`; clients must sign proofs for `<issuer>/oauth/token`.
+- **Refresh tokens issued with a DPoP proof now require a matching proof on refresh.**
+- **`mcpresource` and `internal/jwt` require `typ: at+jwt`.** Use `mcpresource.WithAllowMissingTyp()` for an authorization server that omits it.
+- **Webhook audit signatures changed.** The MAC now covers `"<timestamp>." + body` and a new `X-CloudEvents-Timestamp` header is sent. Receivers should call `webhook.Verify`.
+- **`registration_endpoint` is advertised only when DCR is enabled** (`RegistrationTokens` or `AllowAnonymousRegistration`).
+- **CIMD default body cap is 5 KiB** (was 64 KiB) and `client_id` URLs must have a path.
+- **`SecureCookie` defaults to true when `BaseURL` is https.**
+- `PasswordPolicy.OnLegacyHashAccepted` also fires when an Argon2id hash with weaker parameters is upgraded on login.
+
+### Security
+
+- Refresh tokens are sender-constrained for DPoP-bound grants (RFC 9449 section 8); no downgrade to Bearer, and a failed proof does not consume the token.
+- Token exchange propagates `cnf` and requires a matching proof for DPoP-bound subject tokens, and rejects revoked subject tokens when the denylist is on.
+- `/oauth/revoke` enforces client ownership (RFC 7009). New opt-in `AccessTokenRevocation` adds a store-backed `jti` denylist for access tokens.
+- Replaying an authorization code revokes the tokens already issued from it (RFC 6749 section 4.1.2).
+- Redirect URI allowlist (https, loopback http, reverse-DNS native schemes) for DCR and CIMD; `javascript:` and `data:` are refused. Server faults on OAuth endpoints no longer echo internal error text.
+- CIMD: 5 KiB default cap, single-flight fetches, negative cache (`NegativeCacheTTL`). Metadata advertises `client_id_metadata_document_supported`; authorization responses carry `iss` (RFC 9207). DCR is documented as legacy.
+- In-memory `RevokeRefreshToken` is conditional like the SQL backends; concurrent rotation of one token is treated as reuse.
+- Webhook audit sink: timestamped signature plus `webhook.Verify` with a replay window.
+- `mcpresource`: JWKS max-stale bound (`WithJWKSMaxStale`, default 1 hour).
+- Argon2id hashes below the current cost are rehashed on login.
+- `docs/THREAT-MODEL.md` restored for the authorization server and corrected: codes were not hashed before this release.
+
+- **`X-Forwarded-For` is now read from the right.** For a request from a `TrustedProxies` peer, the client address is the first entry, walking right to left, that is not itself a trusted proxy. Before, the leftmost entry was used, which a client could forge. If your chain has more than one proxy hop, list every hop in `TrustedProxies`.
+- **OAuth endpoints are rate limited by default** when `AuthorizationServer` is set: 120 requests per IP per minute across `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/oauth/par`, `/oauth/bc-authorize` and `/oauth/device_authorization`, 300 secret-bearing requests per client per minute, and at most 8 concurrent Argon2id client-secret verifications (over the cap: `503 temporarily_unavailable`). Tune or disable with `AuthorizationServerConfig.RateLimits`.
+- Postgres and MySQL gain migration `0020` (device authorizations, registration tokens). `Migrate` applies it.
+
+### Added
+
+- `Config.Stores` and the `kv` package: `RateLimiter`, `ReplayCache` and `Cache` interfaces with memory (default), SQL (`kv/sqlkv`, Postgres, MySQL, SQLite) and Redis (`kv/redis`, driver-free) adapters, and the `kv/kvtest` contract suite. Wired into `RateLimitByIP`, `RateLimitByEmail`, the OAuth endpoint limits, DPoP `jti` replay and the CIMD cache.
+- RFC 8628 device authorization grant on the authorization server: `POST /oauth/device_authorization`, the `device_code` grant, a themable user-code page with a JSON API at `/oauth/device`, `slow_down`, expiry, attempt limits, HMAC-hashed codes at rest, metadata advertisement. `AuthorizationServerConfig.DeviceAuthorization`, `DeviceAuthorizationStorage`, `storagetest.RunDeviceAuthorizations`. Memory, Postgres and MySQL.
+- Registration tokens (initial access tokens) for `POST /oauth/register`: one-time or limited use, scoped, expiring, hashed at rest, `CreateRegistrationToken`/`ListRegistrationTokens`/`RevokeRegistrationToken`, an org-scoped admin API, audit events. `RegistrationTokenStorage`, `storagetest.RunRegistrationTokens`.
+- `AuthorizationServerConfig.RateLimits` (`ASRateLimits`).
+- `examples/cli-device-login`: a stdlib-only CLI and a demo server.
+- `otp` package: email and SMS one-time codes with a pluggable `Sender` (`EmailSender`, `TwilioSender`, `SenderFunc`), resend cooldown, attempt limit, lockout, HMAC-at-rest codes and constant-time comparison. State lives in a `kv.Cache`.
+- `provider/generic`: table-driven OAuth provider factory with 10 built-in providers (Spotify, Dropbox, Zoom, Kakao, Naver, Patreon, Box, Salesforce, Figma, Codeberg) and custom `Spec` support.
+- `provider/oidc`: `Config.DiscoveryURL`, `Config.Endpoints` and `Config.DisableDiscovery` for IdPs with non-standard discovery.
+- `openapi` package (`openapi.Generate`) and the `cmd/theauth-go` CLI with `secret` and `openapi` commands.
+
+### Fixed
+
+- A malformed form body on the rate-limited OAuth endpoints still returns `invalid_request`.
+
+## [2.7.1] - 2026-10-07
+
+### Upgrade notes
+
+Read these before upgrading from v2.7.0. They only affect JWKS fetching for `private_key_jwt` client authentication and trusted JWT issuers.
+
+- **JWKS URLs must use `https`.** Plain `http` is refused unless `JWTBearerConfig.AllowPrivateJWKSNetworks` is set.
+- **JWKS hosts that resolve to loopback, private, link-local, CGNAT or cloud metadata addresses are refused.** Local development and tests that serve a JWKS from `localhost` need `AllowPrivateJWKSNetworks: true`, or an injected `JWKSHTTPClient`.
+- **Redirects are not followed.** A JWKS URL must serve the document directly.
+- **Rotated keys are picked up after the cache TTL** (`JWKSCacheTTL`, default 5 minutes) instead of never.
+- **CIMD fetch errors now start with `safehttp:` instead of `cimd:`.** The error value is unchanged, so `errors.Is` still works.
+
+### Security
+
+- JWKS fetching for `private_key_jwt` client `jwks_uri` and `TrustedJWTIssuer.JWKSURL` is now SSRF-guarded. The fetch refuses loopback, private, link-local, cloud metadata and other non-public addresses at dial time (rebinding-safe), does not follow redirects, uses no proxy, times out (default 5s), requires a 200 status and caps the body at 512 KiB. Behavior change: JWKS URLs must be `https`, and a JWKS host that resolves to a non-public address is now refused. For local development only, set `JWTBearerConfig.AllowPrivateJWKSNetworks` to permit both `http` and private addresses.
+- The in-process JWKS cache now expires entries (`JWTBearerConfig.JWKSCacheTTL`, default 5 minutes) so rotated keys are picked up, is bounded (`JWKSCacheMaxEntries`, default 256) and never caches failed fetches. New optional `JWKSFetchTimeout` and `JWKSHTTPClient` (test injection) options.
+- The address guard now lives in a shared `internal/safehttp` package used by both CIMD and JWKS fetching.
+
+## [2.7.0] - 2026-10-05
+
 ### Added
 
 - `OAuthConfig.RedirectURI`, `RedirectURIAllowedHosts` and `AllowInsecureRedirectURI` to override and validate the OAuth redirect URI, plus `(*TheAuth).OAuthStart` and `OAuthCallback` for apps hosting their own routes.
-- Default logs no longer contain email addresses (password signin/signup/reset, magic link, `email.Noop`); lines carry `user_id` or a 12-hex `email_ref` hash instead.
-- `ResetPasswordAdmin` now also clears the email's per-IP login backoff entries (new optional `LoginThrottleEntryDeleter` store capability; implemented by the memory, sqlite, postgres and mysql stores).
-
-### Added
-
 - `WebAuthnConfig.UserHandleResolver`: lets imported passkeys whose authenticator holds a foreign user handle sign in; the credential's stored owner stays authoritative and the resolver must agree with it.
+
+### Changed
+
+- Default logs no longer contain email addresses (password signin/signup/reset, magic link, `email.Noop`); lines carry `user_id` or a 12-hex `email_ref` hash instead.
+
+### Fixed
+
+- `PasswordPolicy.OnLegacyHashAccepted` is now invoked (in a goroutine, after the new Argon2id hash is persisted) on signin and step-up; it was declared but never called.
+- `ResetPasswordAdmin` now also clears the email's per-IP login backoff entries (new optional `LoginThrottleEntryDeleter` store capability; implemented by the memory, sqlite, postgres and mysql stores).
 
 ## [2.6.0] - 2026-10-05
 
@@ -1413,6 +1539,11 @@ Initial release: magic-link email auth, opaque session tokens with
 revocation, chi-friendly middleware, in-memory and Postgres storage
 adapters.
 
-[Unreleased]: https://github.com/glincker/theauth-go/compare/v2.6.0...HEAD
+
+[Unreleased]: https://github.com/glincker/theauth-go/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/glincker/theauth-go/compare/v2.8.0...v2.9.0
+[2.8.0]: https://github.com/glincker/theauth-go/compare/v2.7.1...v2.8.0
+[2.7.1]: https://github.com/glincker/theauth-go/compare/v2.7.0...v2.7.1
+[2.7.0]: https://github.com/glincker/theauth-go/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/glincker/theauth-go/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/glincker/theauth-go/compare/v2.5.0-rc.1...v2.5.0
