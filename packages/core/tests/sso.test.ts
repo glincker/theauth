@@ -1,24 +1,5 @@
 /**
  * Tests for SSO module (SAML 2.0 + OIDC).
- *
- * Covers:
- * - Connection CRUD operations
- * - SAML auth URL generation
- * - SAML response parsing with proper XML parser
- * - SAML namespace handling (saml:, saml2:, no prefix)
- * - SAML condition validation (NotBefore, NotOnOrAfter, Audience)
- * - SAML signature verification with RSA keys
- * - SAML InResponseTo validation
- * - SAML destination validation
- * - SAML issuer validation
- * - XXE prevention
- * - Malformed XML handling
- * - State parameter generation and expiry
- * - OIDC nonce validation
- * - Rate limiting
- * - Audit trail
- * - Encrypted assertion detection
- * - HTTP request handler
  */
 
 import { createHash, createSign, generateKeyPairSync } from "node:crypto";

@@ -1,38 +1,5 @@
 /**
  * Tests for the OpenAPI spec generation plugin.
- *
- * Covers:
- * - generateSpec: uses sensible defaults when called with no config
- * - generateSpec: custom title is reflected in spec info
- * - generateSpec: custom version is reflected in spec info
- * - generateSpec: custom description is included in spec info
- * - generateSpec: custom serverUrl is set on the first server entry
- * - generateSpec: custom basePath prefixes all endpoint paths
- * - generateSpec: include filter limits paths to specified groups only
- * - generateSpec: include filter with a single group
- * - generateSpec: include with all groups matches the default
- * - generateSpec: agents group endpoints are present by default
- * - generateSpec: auth group endpoints are present by default
- * - generateSpec: oauth group endpoints are present by default
- * - generateSpec: mcp group endpoints are present by default
- * - generateSpec: admin group endpoints are present by default
- * - generateSpec: organizations group endpoints are present by default
- * - generateSpec: sessions group endpoints are present by default
- * - generateSpec: api-keys group endpoints are present by default
- * - generateSpec: webhooks group endpoints are present by default
- * - generateSpec: openapi field is always "3.1.0"
- * - generateSpec: BearerAuth security scheme is always defined
- * - generateSpec: every secured endpoint references BearerAuth
- * - generateSpec: request body schemas have required fields defined
- * - generateSpec: each operation has a unique operationId
- * - generateSpec: tags list only includes selected groups
- * - generateSpec: error response schemas have code and message properties
- * - handleRequest: returns Response with JSON for /openapi.json path
- * - handleRequest: Content-Type header is application/json
- * - handleRequest: returns null for unrelated paths
- * - handleRequest: returns null for partial path match without suffix
- * - handleRequest: response body is valid JSON and parses to a document
- * - handleRequest: forwards config to generateSpec
  */
 
 import { describe, expect, it } from "vitest";

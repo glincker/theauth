@@ -1,18 +1,5 @@
 /**
  * Tests for the ReBAC (Relationship-Based Access Control) engine.
- *
- * Covers:
- * - Resource hierarchy creation and deletion
- * - Direct relationship CRUD
- * - Permission checks: direct, implied, inherited through parents
- * - Denial when no relationship exists
- * - listObjects / listSubjects queries
- * - expand
- * - Max depth enforcement
- * - Complex multi-level hierarchy (org > workspace > project > doc)
- * - Agent-specific checks
- * - Duplicate resource / relationship handling
- * - Custom permission rules
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

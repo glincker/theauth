@@ -1,19 +1,5 @@
 /**
  * Tests for email providers.
- *
- * Covers:
- * - ConsoleProvider: logs to stdout and returns an id
- * - ConsoleProvider: custom logger function is called with email details
- * - ResendProvider: validates apiKey at creation time
- * - ResendProvider: sends correct fetch payload to Resend API
- * - ResendProvider: throws on non-ok API response
- * - SendGridProvider: validates apiKey at creation time
- * - SendGridProvider: sends correct fetch payload to SendGrid API
- * - SendGridProvider: throws on non-ok API response
- * - SmtpProvider: validates host at creation time
- * - SmtpProvider: validates auth credentials at creation time
- * - Template override: per-provider template function works
- * - HTML escaping: XSS characters in template vars are escaped
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

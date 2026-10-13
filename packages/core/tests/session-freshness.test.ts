@@ -1,14 +1,5 @@
 /**
  * Tests for session freshness enforcement.
- *
- * Covers:
- * - isFresh: returns true for recently created session
- * - isFresh: returns false for stale session
- * - requireFresh: returns success result for fresh session
- * - requireFresh: returns error result for stale session
- * - guard: returns null for fresh session
- * - guard: returns 403 Response for stale session
- * - custom freshAge configuration
  */
 
 import { describe, expect, it } from "vitest";

@@ -1,19 +1,5 @@
 /**
  * Tests for Google One Tap authentication.
- *
- * Covers:
- * - verify: decodes valid ID token and returns GoogleUser
- * - verify: rejects token with wrong audience
- * - verify: rejects token with wrong issuer
- * - verify: rejects expired token
- * - verify: rejects token missing email claim
- * - handleRequest: returns null for non-POST or wrong path
- * - handleRequest: returns 403 on CSRF mismatch
- * - handleRequest: returns 400 when credential field is missing
- * - handleRequest: returns 401 on invalid token
- * - handleRequest: returns 200 with user + session for new user (auto-create)
- * - handleRequest: returns 200 with user + session for existing user
- * - handleRequest: returns 403 when autoCreateUser is false and user not found
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -52,7 +52,6 @@ const DEFAULT_OPTIONS: Required<
  * @param name    Cookie name. Must be a valid cookie-name token.
  * @param value   Cookie value. Will be percent-encoded.
  * @param options Cookie attributes. Defaults to `httpOnly=true`, `secure`
- *                based on `NODE_ENV`, `sameSite=lax`, `path=/`.
  */
 export function serializeCookie(name: string, value: string, options?: CookieOptions): string {
 	validateCookieName(name);

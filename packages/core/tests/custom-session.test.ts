@@ -1,20 +1,5 @@
 /**
  * Tests for the custom session fields plugin.
- *
- * Covers:
- * - getSessionFields: returns null when session has no custom data
- * - getSessionFields: returns null for unknown session id
- * - getSessionFields: returns stored custom fields
- * - updateSessionFields: writes fields to a session
- * - updateSessionFields: merges with existing fields (non-destructive)
- * - updateSessionFields: throws for unknown session id
- * - onSessionCreate hook: defaultFields are stored when a session is created
- * - onSessionCreate hook: onSessionCreate callback is called and merged
- * - onSessionCreate hook: callback wins over defaultFields on key collision
- * - Plugin endpoints: GET /auth/session/fields returns fields
- * - Plugin endpoints: PATCH /auth/session/fields updates fields
- * - Plugin endpoints: PATCH returns 404 for unknown session
- * - Plugin context: customSession module is exposed via theauth.plugins.getContext()
  */
 
 import { randomUUID } from "node:crypto";

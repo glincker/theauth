@@ -1,14 +1,5 @@
 /**
  * Tests for the webhook delivery engine and signing module.
- *
- * Covers:
- * - Webhook fires on auth events
- * - Retry on 5xx, no retry on 4xx
- * - Exponential backoff timing (mocked timers)
- * - HMAC-SHA256 signature is correct and verifiable
- * - Delivery ID is unique per delivery
- * - Timeout kills hung requests
- * - Delivery records track status correctly
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";

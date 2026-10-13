@@ -1,36 +1,5 @@
 /**
  * Tests for the JWT session module.
- *
- * Covers:
- * - createSession: HS256 with string secret
- * - createSession: RS256 with CryptoKey
- * - createSession: returns accessToken, refreshToken, expiresIn
- * - createSession: rejects empty user id
- * - createSession: access token contains sub claim
- * - createSession: access token contains email and name when provided
- * - createSession: custom claims appear in access token
- * - createSession: issuer and audience appear in access token
- * - createSession: refresh token is a 64-char hex string
- * - createSession: each call produces a unique refresh token
- * - createSession: expiresIn matches accessTokenTtl config
- * - verifySession: valid token succeeds
- * - verifySession: returns userId, email, name from token
- * - verifySession: custom claims survive round-trip
- * - verifySession: rejects expired token
- * - verifySession: rejects token signed with wrong key
- * - verifySession: rejects empty token string
- * - verifySession: rejects token with wrong issuer
- * - verifySession: rejects token with wrong audience
- * - refreshSession: returns new token pair on valid refresh token
- * - refreshSession: old refresh token is marked used after refresh
- * - refreshSession: rejects unknown refresh token
- * - refreshSession: rejects already-used refresh token
- * - refreshSession: rejects expired refresh token
- * - refreshSession: rejects empty string
- * - revokeSession: marks refresh token as used
- * - revokeSession: subsequent refresh fails after revocation
- * - revokeSession: is idempotent on unknown token
- * - revokeSession: rejects empty string
  */
 
 import { eq } from "drizzle-orm";

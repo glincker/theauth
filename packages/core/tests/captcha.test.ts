@@ -2,17 +2,6 @@
  * Tests for captcha integration.
  *
  * All external HTTP calls are mocked via vi.stubGlobal on fetch.
- *
- * Covers:
- * - verify: returns success true when provider responds with { success: true }
- * - verify: returns success false when provider responds with { success: false }
- * - verify: returns success false when token is empty
- * - verify: returns success false on network error
- * - verify: passes remoteip when ip argument is provided
- * - verify: rejects reCAPTCHA v3 score below minScore
- * - verify: accepts reCAPTCHA v3 score above minScore with score in result
- * - middleware: returns valid true when token header present and verify succeeds
- * - middleware: returns valid false when X-Captcha-Token header is missing
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

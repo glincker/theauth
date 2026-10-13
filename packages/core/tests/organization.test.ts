@@ -1,17 +1,5 @@
 /**
  * Tests for the Organizations + RBAC module.
- *
- * Covers:
- * - Create org with owner auto-added as member
- * - Slug uniqueness enforced
- * - Add/remove members
- * - Role assignment and update
- * - hasPermission checks (owner has all, member has subset, viewer has none)
- * - Invite flow (create → accept)
- * - Expired invitation rejected
- * - Custom role creation
- * - Max members enforcement
- * - List orgs for a user
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

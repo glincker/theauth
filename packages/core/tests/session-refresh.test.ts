@@ -1,15 +1,5 @@
 /**
  * Tests for session refresh and token rotation.
- *
- * Covers:
- * - Successful refresh returns new access + refresh tokens
- * - Old refresh token is invalidated after use
- * - Expired refresh tokens are rejected
- * - Reuse detection revokes the entire token family
- * - Absolute timeout is enforced even with refresh
- * - Concurrent refresh requests are handled safely
- * - Audit log entries (via handleRequest HTTP layer)
- * - issueInitial wires up a usable family
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

@@ -1,24 +1,5 @@
 /**
  * Tests for the additional user/session fields plugin.
- *
- * Covers:
- * - validate: accepts valid fields
- * - validate: rejects missing required fields
- * - validate: rejects unknown fields
- * - validate: rejects wrong type
- * - getUserFields: returns defaults when user has no stored fields
- * - getUserFields: returns stored fields merged with defaults
- * - setUserFields: writes fields and reads them back
- * - setUserFields: throws for unknown userId
- * - setUserFields: throws when validation fails
- * - setUserFields: merges with existing fields (non-destructive)
- * - getSessionFields: returns defaults when session has no stored fields
- * - setSessionFields: writes and reads back
- * - setSessionFields: throws for unknown sessionId
- * - Plugin endpoints: GET /auth/users/fields
- * - Plugin endpoints: PUT /auth/users/fields
- * - Plugin endpoints: POST /auth/fields/validate returns 422 on failure
- * - Plugin context exposes the additionalFields module
  */
 
 import { randomUUID } from "node:crypto";

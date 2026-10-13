@@ -1,20 +1,5 @@
 /**
  * Tests for phone number (SMS OTP) authentication.
- *
- * Covers:
- * - sendCode: calls sendSms with the phone number and a numeric code
- * - sendCode: stores a hashed code (not plaintext)
- * - sendCode: replaces existing record for the same phone number
- * - verifyCode: returns user and session on correct code
- * - verifyCode: returns null for wrong code
- * - verifyCode: returns null for expired code
- * - verifyCode: returns null after max attempts
- * - verifyCode: deletes record on successful verification
- * - verifyCode: creates new user on first verification
- * - handleRequest: POST /auth/phone/send-code returns 200
- * - handleRequest: POST /auth/phone/verify returns 200 on correct code
- * - handleRequest: POST /auth/phone/verify returns 401 on wrong code
- * - handleRequest: returns null for unmatched paths
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,19 +1,5 @@
 /**
  * Tests for email OTP authentication.
- *
- * Covers:
- * - sendCode: creates a hashed code record, calls sendOtp
- * - verifyCode: returns user + session on correct code
- * - verifyCode: returns null for wrong code
- * - verifyCode: returns null for expired code
- * - verifyCode: returns null after max attempts
- * - verifyCode: increments attempts on each wrong guess
- * - verifyCode: deletes record on successful verification (prevents re-use)
- * - handleRequest: POST /auth/otp/send responds 200
- * - handleRequest: POST /auth/otp/verify responds 200 on correct code
- * - handleRequest: POST /auth/otp/verify responds 401 on wrong code
- * - handleRequest: POST /auth/otp/send returns 400 when email is missing
- * - handleRequest: returns null for unmatched paths
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

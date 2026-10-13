@@ -1,19 +1,5 @@
 /**
  * Tests for password reset (forgot password) flow.
- *
- * Covers:
- * - requestReset: sends email for existing user with password account
- * - requestReset: returns success (no enumeration) for unknown email
- * - requestReset: returns success for user without password account
- * - requestReset: revokes previous tokens before issuing new one
- * - resetPassword: resets password with valid token
- * - resetPassword: revokes all sessions after reset
- * - resetPassword: clears forcePasswordReset flag
- * - resetPassword: rejects expired/used/invalid tokens
- * - resetPassword: validates password length
- * - handleRequest: POST /auth/forgot-password returns 204
- * - handleRequest: POST /auth/reset-password returns 204 on success
- * - handleRequest: POST /auth/reset-password returns 400 on bad token
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

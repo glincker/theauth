@@ -211,7 +211,6 @@ type MutableResource = Record<string, unknown>;
  * Mutates `resource`. Return value is the same reference, for chaining.
  *
  * @throws ScimPatchError on unknown ops, invalid paths, mutability violations,
- *         or operation-count overrun.
  */
 export function applyPatchOps(
 	resource: MutableResource,

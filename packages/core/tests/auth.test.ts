@@ -1,14 +1,5 @@
 /**
  * Tests for the human auth adapter system.
- *
- * Covers:
- * - headerAuth: extracts X-User-Id, falls back to custom header, returns null
- *   when header is absent or empty
- * - bearerAuth: validates HS256 JWT, extracts claims, rejects expired/invalid
- *   tokens, returns null when header is missing or not Bearer scheme
- * - customAuth: delegates to the provided resolver
- * - createTheAuth.resolveUser: returns null when no adapter is configured,
- *   delegates when an adapter is configured
  */
 
 import { createSecretKey } from "node:crypto";
