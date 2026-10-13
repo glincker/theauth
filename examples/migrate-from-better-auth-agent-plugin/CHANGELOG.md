@@ -1,5 +1,29 @@
 # @glinr/theauth-example-migrate-from-better-auth-agent-plugin
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [2c6f86d]
+- Updated dependencies [3941782]
+- Updated dependencies [d303a84]
+- Updated dependencies [606693b]
+- Updated dependencies [988b17d]
+- Updated dependencies [f54c346]
+- Updated dependencies [6b0eb03]
+- Updated dependencies [292ec38]
+- Updated dependencies [292ec38]
+- Updated dependencies [bf91c2f]
+- Updated dependencies [87e24ea]
+- Updated dependencies [292ec38]
+- Updated dependencies [fdb0d52]
+- Updated dependencies [292ec38]
+- Updated dependencies [292ec38]
+- Updated dependencies [842e1ec]
+- Updated dependencies [292ec38]
+- Updated dependencies [20d865b]
+  - @glinr/theauth@0.8.0
+
 ## 0.0.6
 
 ### Patch Changes

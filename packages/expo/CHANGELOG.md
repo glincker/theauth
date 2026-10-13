@@ -1,5 +1,12 @@
 # @glinr/theauth-expo
 
+## 0.4.0
+
+### Minor Changes
+
+- 0cb1726: Passkeys for the Expo client. `signInWithPasskey`, `registerPasskey` and the `usePasskeys` hook take a platform authenticator (`react-native-passkey` works as is) through `config.passkeys`. A new `config.fetch` routes every request through your own fetch, for DPoP proofs or certificate pinning.
+- bf91c2f: Native app social sign-in. The oauth plugin takes `mobile: { redirectUris }` and adds a PKCE code exchange at `POST /auth/oauth/mobile/exchange`, so a session token is never placed in a redirect URL. `@glinr/theauth-expo` gains `signInWithProvider` and `useSocialSignIn`, `createSecureStoreStorage`, and an `appState` option that refreshes the session when the app returns to the foreground. The oauth plugin now also creates the `theauth_one_time_tokens` table.
+
 ## 0.3.0
 
 ### Minor Changes
