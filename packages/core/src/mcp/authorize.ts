@@ -1,4 +1,5 @@
 import { resolveClient } from "./client-metadata.js";
+import { filterRequestedScopes, redirectUriAllowed, resolveResource } from "./lenient.js";
 import type { McpAuthContext, McpAuthorizationCode, McpAuthorizeResult, Result } from "./types.js";
 import { McpAuthorizeRequestSchema } from "./types.js";
 import { generateAuthorizationCode } from "./utils.js";
@@ -26,6 +27,13 @@ export async function handleAuthorize(
 		params[key] = value;
 	}
 
+	// Lenient clients may omit `resource`; default it before schema validation.
+	if (params.resource === undefined && ctx.config.lenientClients?.optionalResource === true) {
+		const defaulted = resolveResource(ctx, undefined);
+		if (!defaulted.success) return defaulted;
+		params.resource = defaulted.data;
+	}
+
 	const parsed = McpAuthorizeRequestSchema.safeParse(params);
 	if (!parsed.success) {
 		return {
@@ -45,7 +53,7 @@ export async function handleAuthorize(
 		state,
 		code_challenge: codeChallenge,
 		code_challenge_method: codeChallengeMethod,
-		resource,
+		resource: requestedResource,
 	} = parsed.data;
 
 	// ── Validate client ─────────────────────────────────────────────
@@ -71,7 +79,7 @@ export async function handleAuthorize(
 	}
 
 	// ── Validate redirect_uri ───────────────────────────────────────
-	if (!client.redirectUris.includes(redirectUri)) {
+	if (!redirectUriAllowed(ctx, client, redirectUri)) {
 		return {
 			success: false,
 			error: {
@@ -93,40 +101,16 @@ export async function handleAuthorize(
 	}
 
 	// ── Validate resource parameter (RFC 8707) ──────────────────────
-	{
-		const allowedResources = ctx.config.allowedResources;
-		if (allowedResources && allowedResources.length > 0) {
-			if (!allowedResources.includes(resource)) {
-				return {
-					success: false,
-					error: {
-						code: "INVALID_TARGET",
-						message: `Resource '${resource}' is not a recognized MCP server`,
-					},
-				};
-			}
-		}
-	}
+	// `resource` is the canonical configured resource the token binds to.
+	const resolvedResource = resolveResource(ctx, requestedResource);
+	if (!resolvedResource.success) return resolvedResource;
+	const resource = resolvedResource.data;
 
 	// ── Validate scopes ─────────────────────────────────────────────
 	const requestedScopes = scopeParam ? scopeParam.split(" ").filter(Boolean) : [];
-	const supportedScopes = new Set(ctx.config.scopes ?? []);
-	const defaultScopes = new Set(["openid", "profile", "email", "offline_access"]);
-	const allSupported = new Set([...supportedScopes, ...defaultScopes]);
-
-	for (const scope of requestedScopes) {
-		if (!allSupported.has(scope)) {
-			return {
-				success: false,
-				error: {
-					code: "INVALID_SCOPE",
-					message: `Unsupported scope: ${scope}`,
-				},
-			};
-		}
-	}
-
-	const effectiveScopes = requestedScopes.length > 0 ? requestedScopes : ["openid"];
+	const filtered = filterRequestedScopes(ctx, requestedScopes);
+	if (!filtered.success) return filtered;
+	const effectiveScopes = filtered.data.length > 0 ? filtered.data : ["openid"];
 
 	// ── Resolve authenticated user ──────────────────────────────────
 	const userId = await ctx.resolveUserId(request);

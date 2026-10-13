@@ -1,4 +1,5 @@
 import { resolveClient } from "./client-metadata.js";
+import { redirectUriAllowed, resolveResource } from "./lenient.js";
 import type {
 	ApproveConsentParams,
 	McpAuthContext,
@@ -54,7 +55,7 @@ export async function approveConsent(
 	}
 
 	// ── Validate redirect_uri ────────────────────────────────────────
-	if (!client.redirectUris.includes(redirectUri)) {
+	if (!redirectUriAllowed(ctx, client, redirectUri)) {
 		return {
 			success: false,
 			error: {
@@ -71,16 +72,9 @@ export async function approveConsent(
 			error: { code: "INVALID_TARGET", message: "resource is required" },
 		};
 	}
-	const allowedResources = ctx.config.allowedResources;
-	if (allowedResources && allowedResources.length > 0 && !allowedResources.includes(resource)) {
-		return {
-			success: false,
-			error: {
-				code: "INVALID_TARGET",
-				message: `Resource '${resource}' is not a recognized MCP server`,
-			},
-		};
-	}
+	const resolved = resolveResource(ctx, resource);
+	if (!resolved.success) return resolved;
+	const canonicalResource = resolved.data;
 
 	// ── Normalise scopes ─────────────────────────────────────────────
 	const effectiveScopes =
@@ -109,7 +103,7 @@ export async function approveConsent(
 		scope: effectiveScopes,
 		codeChallenge,
 		codeChallengeMethod,
-		resource,
+		resource: canonicalResource,
 		expiresAt,
 		createdAt: now,
 	};

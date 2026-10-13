@@ -1,7 +1,33 @@
 import { generateId } from "../crypto/web-crypto.js";
+import {
+	GRANT_TYPE_CLIENT_CREDENTIALS,
+	GRANT_TYPE_JWT_BEARER,
+	GRANT_TYPE_TOKEN_EXCHANGE,
+} from "./grant-types.js";
+import { checkFetchableUrl } from "./safe-fetch.js";
 import type { McpAuthContext, McpClient, McpClientRegistrationResponse, Result } from "./types.js";
 import { McpClientRegistrationSchema } from "./types.js";
 import { generateSecureToken, hashClientSecret } from "./utils.js";
+
+/** Private members that must never appear in a registered public JWKS. */
+const PRIVATE_JWK_MEMBERS = ["d", "p", "q", "dp", "dq", "qi", "oth", "k"];
+
+/** Grant types that exist only when the matching feature is configured. */
+function disabledGrant(ctx: McpAuthContext, grantTypes: string[]): string | null {
+	const gates: Array<[string, boolean]> = [
+		[GRANT_TYPE_CLIENT_CREDENTIALS, ctx.config.clientCredentials?.enabled === true],
+		[GRANT_TYPE_TOKEN_EXCHANGE, ctx.config.tokenExchange?.enabled === true],
+		[GRANT_TYPE_JWT_BEARER, ctx.config.jwtBearer?.enabled === true],
+	];
+	for (const [grant, enabled] of gates) {
+		if (grantTypes.includes(grant) && !enabled) return grant;
+	}
+	return null;
+}
+
+function metadataError(message: string): Result<McpClientRegistrationResponse> {
+	return { success: false, error: { code: "INVALID_CLIENT_METADATA", message } };
+}
 
 /**
  * Dynamic Client Registration (RFC 7591).
@@ -59,6 +85,30 @@ export async function registerClient(
 		};
 	}
 
+	// ── Grant types gated by configuration ───────────────────────────
+	const gated = disabledGrant(ctx, grantTypes);
+	if (gated !== null) return metadataError(`grant_type is not enabled on this server: ${gated}`);
+	if (grantTypes.includes(GRANT_TYPE_CLIENT_CREDENTIALS) && authMethod === "none") {
+		return metadataError("client_credentials requires a confidential client");
+	}
+
+	// ── private_key_jwt needs exactly one key source ────────────────
+	if (authMethod === "private_key_jwt") {
+		if ((data.jwks === undefined) === (data.jwks_uri === undefined)) {
+			return metadataError("private_key_jwt requires exactly one of jwks or jwks_uri");
+		}
+		if (data.jwks_uri !== undefined && !checkFetchableUrl(data.jwks_uri).ok) {
+			return metadataError("jwks_uri must be a public https URL");
+		}
+		for (const key of data.jwks?.keys ?? []) {
+			if (PRIVATE_JWK_MEMBERS.some((member) => member in key)) {
+				return metadataError("jwks must contain public keys only");
+			}
+		}
+	} else if (data.jwks !== undefined || data.jwks_uri !== undefined) {
+		return metadataError("jwks and jwks_uri are only valid with private_key_jwt");
+	}
+
 	// ── Validate redirect URIs ──────────────────────────────────────
 	for (const uri of redirectUris) {
 		try {
@@ -102,7 +152,8 @@ export async function registerClient(
 	// ── Generate credentials ────────────────────────────────────────
 	const clientId = generateId();
 	const isPublic = authMethod === "none";
-	const clientSecret = isPublic ? null : generateSecureToken(48);
+	const clientSecret =
+		isPublic || authMethod === "private_key_jwt" ? null : generateSecureToken(48);
 
 	// ── Persist ─────────────────────────────────────────────────────
 	const now = new Date();
@@ -126,6 +177,8 @@ export async function registerClient(
 		clientType: isPublic ? "public" : "confidential",
 		disabled: false,
 		userId: null,
+		...(data.jwks ? { jwks: data.jwks as McpClient["jwks"] } : {}),
+		...(data.jwks_uri ? { jwksUri: data.jwks_uri } : {}),
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -149,6 +202,8 @@ export async function registerClient(
 		...(data.policy_uri ? { policy_uri: data.policy_uri } : {}),
 		...(data.software_id ? { software_id: data.software_id } : {}),
 		...(data.software_version ? { software_version: data.software_version } : {}),
+		...(data.jwks ? { jwks: data.jwks as McpClient["jwks"] } : {}),
+		...(data.jwks_uri ? { jwks_uri: data.jwks_uri } : {}),
 		...(clientSecret !== null ? { client_secret: clientSecret, client_secret_expires_at: 0 } : {}),
 	};
 

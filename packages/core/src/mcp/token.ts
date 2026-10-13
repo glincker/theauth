@@ -1,11 +1,14 @@
-import { SignJWT } from "jose";
-import { generateId } from "../crypto/web-crypto.js";
-import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
+import { verifyClientAssertion } from "./client-assertion.js";
 import { authenticateClient } from "./client-auth.js";
 import { resolveClient } from "./client-metadata.js";
 import { readDpopHeader, verifyDpopProof } from "./dpop.js";
-import { getAsymmetricSigner } from "./keys.js";
-import { revokeFamilyAndTokens, revokeStoredAccessToken } from "./revocation.js";
+import { handleClientCredentialsGrant } from "./grant-client-credentials.js";
+import type { GrantClientAuth } from "./grant-common.js";
+import { handleJwtBearerGrant } from "./grant-jwt-bearer.js";
+import { handleRefreshTokenGrant } from "./grant-refresh-token.js";
+import { handleTokenExchangeGrant } from "./grant-token-exchange.js";
+import { resolveResource } from "./lenient.js";
+import { issueAccessTokenJwt, issueRefreshToken } from "./token-issue.js";
 import type {
 	McpAccessToken,
 	McpAuthContext,
@@ -14,90 +17,7 @@ import type {
 	Result,
 } from "./types.js";
 import { McpTokenRequestSchema } from "./types.js";
-import {
-	extractBasicAuth,
-	generateSecureToken,
-	hashToken,
-	parseRequestBody,
-	verifyS256,
-} from "./utils.js";
-
-/**
- * Derive the HMAC signing key from the config's signing secret.
- *
- * Uses the Web Crypto API so this works in Node, Deno, Bun, CF Workers.
- */
-async function getSigningKey(secret: string): Promise<CryptoKey> {
-	const encoder = new TextEncoder();
-	return globalThis.crypto.subtle.importKey(
-		"raw",
-		encoder.encode(secret),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign", "verify"],
-	);
-}
-
-/**
- * Issue a signed JWT access token.
- */
-async function issueAccessTokenJwt(
-	ctx: McpAuthContext,
-	userId: string,
-	clientId: string,
-	scopes: string[],
-	resource: string | null,
-	dpopJkt: string | null = null,
-): Promise<{ jwt: string; jti: string; expiresAt: Date }> {
-	const asymmetric = await getAsymmetricSigner(ctx);
-	const secret = ctx.config.signingSecret;
-	if (!asymmetric && !secret) {
-		throw new Error("MCP signingSecret or signing key is required to issue tokens");
-	}
-	const jti = generateId();
-	const now = Math.floor(Date.now() / 1000);
-	const exp = now + ctx.config.accessTokenTtl;
-	const expiresAt = new Date(exp * 1000);
-
-	// Audience: either the specific resource (RFC 8707) or the issuer
-	const audience = resource ?? ctx.config.issuer;
-
-	// Agentic JWT claims (draft-goswami-agentic-jwt-00)
-	const agenticClaims: Record<string, unknown> = {};
-	if (ctx.config.emitAgenticJwtClaims === true && ctx.config.getAgenticContext !== undefined) {
-		const ac = await ctx.config.getAgenticContext(userId);
-		if (ac.agentId !== undefined) {
-			agenticClaims[AGENTIC_JWT_CLAIMS.AGENT_ID] = ac.agentId;
-		}
-		if (ac.agentType !== undefined) {
-			agenticClaims[AGENTIC_JWT_CLAIMS.AGENT_TYPE] = ac.agentType;
-		}
-		if (ac.trustTier !== undefined) {
-			agenticClaims[AGENTIC_JWT_CLAIMS.TRUST_TIER] = ac.trustTier;
-		}
-	}
-
-	const builder = new SignJWT({
-		sub: userId,
-		client_id: clientId,
-		scope: scopes.join(" "),
-		jti,
-		...(dpopJkt ? { cnf: { jkt: dpopJkt } } : {}),
-		...agenticClaims,
-	})
-		.setProtectedHeader(
-			asymmetric
-				? { alg: asymmetric.alg, typ: "at+jwt", kid: asymmetric.kid }
-				: { alg: "HS256", typ: "at+jwt" },
-		)
-		.setIssuer(ctx.config.issuer)
-		.setAudience(audience)
-		.setIssuedAt(now)
-		.setExpirationTime(exp);
-	const jwt = await builder.sign(asymmetric ? asymmetric.key : await getSigningKey(secret ?? ""));
-
-	return { jwt, jti, expiresAt };
-}
+import { extractBasicAuth, hashToken, parseRequestBody, verifyS256 } from "./utils.js";
 
 /**
  * Resolve client credentials from the request.
@@ -160,14 +80,24 @@ async function resolveTokenDpop(
 	return { success: true, data: verified.data.jkt };
 }
 
+function tokenEndpointUrl(ctx: McpAuthContext): string {
+	return ctx.config.dpop?.tokenEndpointUrl ?? `${ctx.config.baseUrl}/mcp/token`;
+}
+
 /**
  * Handle the OAuth 2.1 token endpoint.
  *
  * POST /mcp/token
  *
- * Supports two grant types:
+ * Grant types:
  * 1. authorization_code - Exchange auth code + PKCE verifier for tokens
  * 2. refresh_token - Refresh an expired access token
+ * 3. client_credentials - opt in via `McpConfig.clientCredentials`
+ * 4. urn:ietf:params:oauth:grant-type:token-exchange - opt in via `McpConfig.tokenExchange`
+ * 5. urn:ietf:params:oauth:grant-type:jwt-bearer - opt in via `McpConfig.jwtBearer`
+ *
+ * Clients authenticate with client_secret_basic, client_secret_post,
+ * private_key_jwt (`client_assertion`), or not at all when public.
  */
 export async function handleTokenExchange(
 	ctx: McpAuthContext,
@@ -175,6 +105,29 @@ export async function handleTokenExchange(
 ): Promise<Result<McpTokenResponse>> {
 	// ── Parse body ──────────────────────────────────────────────────
 	const body = await parseRequestBody(request);
+
+	// ── private_key_jwt: the assertion names the client ─────────────
+	let assertionVerified = false;
+	if (body.client_assertion !== undefined) {
+		if (extractBasicAuth(request) !== null || body.client_secret !== undefined) {
+			return {
+				success: false,
+				error: {
+					code: "INVALID_REQUEST",
+					message: "Only one client authentication method may be used",
+				},
+			};
+		}
+		const verified = await verifyClientAssertion(ctx, {
+			assertion: body.client_assertion,
+			assertionType: body.client_assertion_type,
+			...(body.client_id !== undefined ? { expectedClientId: body.client_id } : {}),
+			tokenEndpointUrl: tokenEndpointUrl(ctx),
+		});
+		if (!verified.success) return verified;
+		body.client_id = verified.data.clientId;
+		assertionVerified = true;
+	}
 
 	// ── Resolve client credentials ──────────────────────────────────
 	const credentials = resolveClientCredentials(request, body);
@@ -192,6 +145,17 @@ export async function handleTokenExchange(
 	body.client_id = credentials.clientId;
 	if (credentials.clientSecret) {
 		body.client_secret = credentials.clientSecret;
+	}
+
+	// ── Lenient clients: default a missing resource ─────────────────
+	if (
+		body.grant_type === "authorization_code" &&
+		body.resource === undefined &&
+		ctx.config.lenientClients?.optionalResource === true
+	) {
+		const defaulted = resolveResource(ctx, undefined);
+		if (!defaulted.success) return defaulted;
+		body.resource = defaulted.data;
 	}
 
 	// ── Validate request body against schema ────────────────────────
@@ -212,11 +176,20 @@ export async function handleTokenExchange(
 	const dpop = await resolveTokenDpop(ctx, request);
 	if (!dpop.success) return dpop;
 
-	if (data.grant_type === "authorization_code") {
-		return handleAuthorizationCodeGrant(ctx, data, credentials.clientSecret, dpop.data);
-	}
+	const auth: GrantClientAuth = { clientSecret: credentials.clientSecret, assertionVerified };
 
-	return handleRefreshTokenGrant(ctx, data, credentials.clientSecret, dpop.data);
+	switch (data.grant_type) {
+		case "authorization_code":
+			return handleAuthorizationCodeGrant(ctx, data, auth, dpop.data);
+		case "refresh_token":
+			return handleRefreshTokenGrant(ctx, data, auth, dpop.data);
+		case "client_credentials":
+			return handleClientCredentialsGrant(ctx, data, auth, dpop.data);
+		case "urn:ietf:params:oauth:grant-type:token-exchange":
+			return handleTokenExchangeGrant(ctx, data, auth, dpop.data);
+		case "urn:ietf:params:oauth:grant-type:jwt-bearer":
+			return handleJwtBearerGrant(ctx, data, auth, dpop.data);
+	}
 }
 
 /**
@@ -225,7 +198,7 @@ export async function handleTokenExchange(
 async function handleAuthorizationCodeGrant(
 	ctx: McpAuthContext,
 	data: Extract<McpTokenRequestParsed, { grant_type: "authorization_code" }>,
-	clientSecret: string | null,
+	auth: GrantClientAuth,
 	dpopJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
 	// ── Look up the client ──────────────────────────────────────────
@@ -245,7 +218,12 @@ async function handleAuthorizationCodeGrant(
 	}
 
 	// ── Validate client secret for confidential clients ─────────────
-	const clientAuth = await authenticateClient(ctx, client, clientSecret);
+	const clientAuth = await authenticateClient(
+		ctx,
+		client,
+		auth.clientSecret,
+		auth.assertionVerified,
+	);
 	if (!clientAuth.success) {
 		return clientAuth;
 	}
@@ -297,7 +275,12 @@ async function handleAuthorizationCodeGrant(
 
 	// ── Validate resource parameter (RFC 8707) ──────────────────────
 	// The token request must repeat the resource the code was bound to.
-	if (authCode.resource === null || data.resource !== authCode.resource) {
+	const requestedResource = resolveResource(ctx, data.resource);
+	if (
+		authCode.resource === null ||
+		!requestedResource.success ||
+		requestedResource.data !== authCode.resource
+	) {
 		return {
 			success: false,
 			error: {
@@ -356,220 +339,4 @@ async function handleAuthorizationCodeGrant(
 	};
 
 	return { success: true, data: response };
-}
-
-/**
- * refresh_token grant: rotate tokens.
- */
-async function handleRefreshTokenGrant(
-	ctx: McpAuthContext,
-	data: Extract<McpTokenRequestParsed, { grant_type: "refresh_token" }>,
-	clientSecret: string | null,
-	presentedJkt: string | null,
-): Promise<Result<McpTokenResponse>> {
-	// ── Look up the client ──────────────────────────────────────────
-	const client = await resolveClient(ctx, data.client_id);
-	if (!client) {
-		return {
-			success: false,
-			error: { code: "INVALID_CLIENT", message: "Unknown client_id" },
-		};
-	}
-
-	if (client.disabled) {
-		return {
-			success: false,
-			error: { code: "INVALID_CLIENT", message: "Client is disabled" },
-		};
-	}
-
-	// ── Validate client secret for confidential clients ─────────────
-	const clientAuth = await authenticateClient(ctx, client, clientSecret);
-	if (!clientAuth.success) {
-		return clientAuth;
-	}
-
-	// ── Find the stored token (hash first, legacy plaintext second) ─
-	const presented = data.refresh_token;
-	const presentedHash = await hashToken(presented);
-	const existingToken =
-		(await ctx.findTokenByRefreshToken(presentedHash)) ??
-		(await ctx.findTokenByRefreshToken(presented));
-
-	// Bind to the client before anything is consumed, so a different client
-	// cannot burn a victim's token.
-	if (existingToken && existingToken.clientId !== data.client_id) {
-		return {
-			success: false,
-			error: { code: "INVALID_GRANT", message: "client_id does not match refresh token" },
-		};
-	}
-
-	// ── DPoP binding (RFC 9449 section 5): a bound grant only refreshes ─
-	// with a proof from the same key. Checked before rotation so a thief
-	// without the key cannot burn the legitimate client's token.
-	if (existingToken?.dpopJkt && existingToken.dpopJkt !== presentedJkt) {
-		return {
-			success: false,
-			error: {
-				code: "INVALID_DPOP_PROOF",
-				message: "Refresh token is bound to a different DPoP key",
-			},
-		};
-	}
-	const dpopJkt = existingToken?.dpopJkt ?? presentedJkt;
-
-	// ── Rotation and reuse detection (RFC 9700 section 4.14) ────────
-	const families = ctx.tokenFamilies;
-	let familyId = existingToken?.familyId;
-	if (families) {
-		const consumed = await families.consumeToken(presented);
-		if (consumed.status === "reuse" || consumed.status === "revoked") {
-			// A rotated token came back: assume theft and kill the whole family.
-			if (consumed.family) {
-				await revokeFamilyAndTokens(ctx, consumed.family.id, existingToken);
-			}
-			return {
-				success: false,
-				error: {
-					code: "INVALID_GRANT",
-					message:
-						consumed.status === "reuse"
-							? "Refresh token reuse detected; the grant has been revoked"
-							: "Refresh token family has been revoked",
-				},
-			};
-		}
-		if (consumed.status === "expired") {
-			return {
-				success: false,
-				error: { code: "INVALID_GRANT", message: "Refresh token has expired" },
-			};
-		}
-		if (consumed.status === "ok") {
-			familyId = consumed.family?.id ?? familyId;
-		}
-		// "not_found": a token minted before families existed. It is accepted once
-		// below and moved into a family so the next rotation is protected.
-	}
-
-	if (!existingToken) {
-		return {
-			success: false,
-			error: { code: "INVALID_GRANT", message: "Invalid refresh token" },
-		};
-	}
-
-	// ── Check refresh token expiry ──────────────────────────────────
-	const refreshExpiry = new Date(
-		existingToken.createdAt.getTime() + ctx.config.refreshTokenTtl * 1000,
-	);
-	if (refreshExpiry < new Date()) {
-		return {
-			success: false,
-			error: { code: "INVALID_GRANT", message: "Refresh token has expired" },
-		};
-	}
-
-	// ── Scopes: may be narrowed, never widened or unknown ───────────
-	let scopes = existingToken.scope;
-	if (data.scope) {
-		const requested = data.scope.split(" ").filter(Boolean);
-		const unauthorized = requested.filter((s) => !existingToken.scope.includes(s));
-		if (unauthorized.length > 0) {
-			return {
-				success: false,
-				error: {
-					code: "INVALID_SCOPE",
-					message: `Scope not granted by the original authorization: ${unauthorized.join(" ")}`,
-				},
-			};
-		}
-		if (requested.length > 0) {
-			scopes = requested;
-		}
-	}
-
-	// ── Resource: equal to (or a subset of) the original grant ──────
-	// A grant is bound to one resource, so the only valid subset is that
-	// resource itself. Omitting the parameter keeps the original binding.
-	const originalResource = existingToken.resource;
-	if (data.resource !== undefined && data.resource !== (originalResource ?? ctx.config.issuer)) {
-		return {
-			success: false,
-			error: {
-				code: "INVALID_TARGET",
-				message: "resource must match the resource of the original grant",
-			},
-		};
-	}
-	const resource = originalResource;
-
-	// ── Revoke the old access token ─────────────────────────────────
-	await revokeStoredAccessToken(ctx, existingToken);
-
-	// ── Issue new tokens (rotation) ─────────────────────────────────
-	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
-		ctx,
-		existingToken.userId,
-		data.client_id,
-		scopes,
-		resource,
-		dpopJkt,
-	);
-
-	const rotated = await issueRefreshToken(ctx, existingToken.userId, familyId);
-	const newRefreshToken = rotated.rawToken;
-
-	const tokenRecord: McpAccessToken = {
-		accessToken: await hashToken(jwt),
-		refreshToken: await hashToken(newRefreshToken),
-		jti,
-		...(rotated.familyId ? { familyId: rotated.familyId } : {}),
-		tokenType: dpopJkt ? "DPoP" : "Bearer",
-		...(dpopJkt ? { dpopJkt } : {}),
-		expiresIn: ctx.config.accessTokenTtl,
-		scope: scopes,
-		clientId: data.client_id,
-		userId: existingToken.userId,
-		resource,
-		expiresAt,
-		createdAt: new Date(),
-	};
-
-	await ctx.storeToken(tokenRecord);
-
-	// ── Build response ──────────────────────────────────────────────
-	const response: McpTokenResponse = {
-		access_token: jwt,
-		token_type: dpopJkt ? "DPoP" : "Bearer",
-		expires_in: ctx.config.accessTokenTtl,
-		refresh_token: newRefreshToken,
-		scope: scopes.join(" "),
-	};
-
-	return { success: true, data: response };
-}
-
-/**
- * Issue a refresh token inside a family. A new family is created when
- * `familyId` is not given (first grant, or a legacy token being migrated).
- * Falls back to a bare random token when no family store is configured.
- */
-async function issueRefreshToken(
-	ctx: McpAuthContext,
-	userId: string,
-	familyId?: string,
-): Promise<{ rawToken: string; familyId?: string }> {
-	const families = ctx.tokenFamilies;
-	if (!families) {
-		return { rawToken: generateSecureToken(48) };
-	}
-	let id = familyId;
-	if (!id) {
-		const absoluteMs = ctx.config.refreshTokenAbsoluteTtl * 1000;
-		id = (await families.createFamily(userId, new Date(Date.now() + absoluteMs))).id;
-	}
-	const issued = await families.issueToken(id, ctx.config.refreshTokenTtl * 1000);
-	return { rawToken: issued.rawToken, familyId: id };
 }

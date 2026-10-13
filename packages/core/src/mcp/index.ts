@@ -14,8 +14,14 @@
 
 // Authorization endpoint
 export { handleAuthorize } from "./authorize.js";
+// private_key_jwt client authentication
+export { CLIENT_ASSERTION_ALGS, verifyClientAssertion } from "./client-assertion.js";
 // Client ID Metadata Documents and SSRF-safe fetching
-export { fetchClientMetadataDocument, resolveClient } from "./client-metadata.js";
+export {
+	cimdCacheSeconds,
+	fetchClientMetadataDocument,
+	resolveClient,
+} from "./client-metadata.js";
 // Consent approval
 export { approveConsent } from "./consent.js";
 // DPoP (RFC 9449)
@@ -29,6 +35,24 @@ export {
 	verifyDpopProof,
 } from "./dpop.js";
 export type { DpopAlg, McpDpopConfig } from "./dpop-types.js";
+// Non-interactive grants and lenient client options
+export {
+	CLIENT_ASSERTION_TYPE_JWT_BEARER,
+	DEFAULT_MAX_CHAIN_DEPTH,
+	GRANT_TYPE_CLIENT_CREDENTIALS,
+	GRANT_TYPE_JWT_BEARER,
+	GRANT_TYPE_TOKEN_EXCHANGE,
+	ID_JAG_TYP,
+	type McpClientCredentialsConfig,
+	type McpClientPrincipal,
+	type McpJwtBearerConfig,
+	type McpJwtBearerSubjectInput,
+	type McpLenientClientsConfig,
+	type McpTokenExchangeConfig,
+	type McpTokenExchangeInput,
+	type McpTrustedIssuer,
+	TOKEN_TYPE_ACCESS_TOKEN,
+} from "./grant-types.js";
 // Signing keys and JWKS
 export {
 	generateMcpSigningKey,

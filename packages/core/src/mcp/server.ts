@@ -98,6 +98,26 @@ export function createMcpModule(params: {
 		throw new Error("McpConfig.signingSecret must be at least 32 characters");
 	}
 
+	if (config.tokenExchange?.enabled && !config.jtiDenylist) {
+		throw new Error(
+			"McpConfig.jtiDenylist is required when tokenExchange is enabled, so revoked subject tokens are refused",
+		);
+	}
+	if (
+		config.clientCredentials?.enabled &&
+		typeof config.clientCredentials.resolvePrincipal !== "function"
+	) {
+		throw new Error("McpConfig.clientCredentials.resolvePrincipal is required");
+	}
+	if (config.jwtBearer?.enabled) {
+		if (config.jwtBearer.trustedIssuers.length === 0) {
+			throw new Error("McpConfig.jwtBearer.trustedIssuers must list at least one issuer");
+		}
+		if (typeof config.jwtBearer.mapSubject !== "function") {
+			throw new Error("McpConfig.jwtBearer.mapSubject is required");
+		}
+	}
+
 	// ── Build resolved config with defaults ─────────────────────────
 	const resolvedConfig = {
 		...config,
@@ -140,7 +160,7 @@ export function createMcpModule(params: {
 				clientUri: null,
 				logoUri: null,
 				redirectUris: preClient.redirectUris,
-				grantTypes: ["authorization_code", "refresh_token"],
+				grantTypes: preClient.grantTypes ?? ["authorization_code", "refresh_token"],
 				responseTypes: ["code"],
 				tokenEndpointAuthMethod: isPublic ? "none" : "client_secret_basic",
 				scope: preClient.scope ?? null,

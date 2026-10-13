@@ -30,7 +30,7 @@ export function buildStepUpResponse(
 	const { currentScopes, requiredScopes, resource } = options;
 
 	// Build upgrade URL pointing at the authorization endpoint
-	const authorizationEndpoint = `${ctx.config.baseUrl}/authorize`;
+	const authorizationEndpoint = `${ctx.config.baseUrl}/mcp/authorize`;
 	const upgradeUrl = new URL(authorizationEndpoint);
 	upgradeUrl.searchParams.set("scope", requiredScopes.join(" "));
 	if (resource) {

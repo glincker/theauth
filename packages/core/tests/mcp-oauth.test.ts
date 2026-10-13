@@ -196,12 +196,20 @@ describe("MCP OAuth 2.1", () => {
 			expect(valid.success).toBe(true);
 		});
 
-		it("rejects unsupported grant type", () => {
+		it("rejects unknown grant types", () => {
+			const result = McpTokenRequestSchema.safeParse({
+				grant_type: "password",
+				client_id: "client-123",
+			});
+			expect(result.success).toBe(false);
+		});
+
+		it("parses client_credentials (the grant itself is opt in at the endpoint)", () => {
 			const result = McpTokenRequestSchema.safeParse({
 				grant_type: "client_credentials",
 				client_id: "client-123",
 			});
-			expect(result.success).toBe(false);
+			expect(result.success).toBe(true);
 		});
 	});
 });
