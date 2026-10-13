@@ -25,7 +25,7 @@ Make sure to enable **Log In with PayPal** for the app.
 
 ```ts title="lib/theauth.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { oauth, paypalProvider } from '@glinr/theauth/auth';
+import { oauth, createPaypalProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: 'theauth.db' },
@@ -35,10 +35,11 @@ const theauth = await createTheAuth({
   plugins: [
     oauth({
       providers: {
-        paypal: paypalProvider(
-          process.env.PAYPAL_CLIENT_ID!,
-          process.env.PAYPAL_CLIENT_SECRET!,
-        ),
+        paypal: createPaypalProvider({
+          clientId: process.env.PAYPAL_CLIENT_ID!,
+          clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
+          // sandbox: true,  // use the sandbox hosts with sandbox credentials
+        }),
       },
     }),
   ],
@@ -54,7 +55,7 @@ PAYPAL_CLIENT_SECRET=...
 
 ## Scopes
 
-Default scopes: `openid`, `email`
+Default scopes: `openid`, `email`, `profile`
 
 | Scope | What it unlocks |
 |-------|----------------|
@@ -63,9 +64,25 @@ Default scopes: `openid`, `email`
 | `profile` | Name and locale |
 | `address` | Billing address |
 
+## How it works
+
+- Set `sandbox: true` to use `www.sandbox.paypal.com` and `api-m.sandbox.paypal.com` with sandbox credentials. The default is live.
+- The login redirect goes to `https://www.paypal.com/connect` with `flowEntry=static`.
+- Client credentials are sent in an `Authorization: Basic` header at the token endpoint, for the code exchange and for refresh.
+- PayPal's guides do not describe PKCE, so no code challenge is sent.
+- Token responses include a refresh token and `expires_in` of 28800 (8 hours).
+- The profile is read from `/v1/identity/openidconnect/userinfo?schema=openid`. The id is `user_id` (falling back to `sub`) and the email is `email` (falling back to the primary entry of `emails`).
+- PayPal emails are never treated as verified, so a PayPal login is not linked to an existing account by email.
+
+<Warning>
+  PayPal's public guides list the userinfo field names but not the exact response for each `schema` value. Check a live sandbox response once before you rely on the `emails` fallback.
+</Warning>
+
 <Info>
-  PayPal supports both sandbox and live environments. Use sandbox credentials during development and switch to live credentials before going to production.
+  `paypalProvider` (the older preset) uses a different authorize URL and reads only the OIDC `sub` claim. It is still exported for existing code. Use `createPaypalProvider` for new setups.
 </Info>
+
+Vendor docs: [Log In with PayPal](https://developer.paypal.com/docs/log-in-with-paypal/integrate/) and the [Identity API](https://developer.paypal.com/docs/api/identity/v1).
 
 ## Endpoints
 

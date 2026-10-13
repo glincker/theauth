@@ -1,8 +1,8 @@
 ---
 title: "Add an OAuth Provider"
-description: "theauth-go ships 12 built-in OAuth/OIDC providers."
+description: "theauth-go ships 12 dedicated OAuth/OIDC providers, a table-driven catalog of 16 more, and OIDC presets."
 ---
-theauth-go ships 12 built-in OAuth/OIDC providers. Each provider is a separate subpackage under `provider/`, so a consumer only pulls in the HTTP surface for the providers it actually wires.
+theauth-go ships 12 dedicated OAuth/OIDC providers, a table-driven catalog of 16 more (below) and OIDC presets for enterprise identity providers. Each dedicated provider is a separate subpackage under `provider/`, so a consumer only pulls in the HTTP surface for the providers it actually wires.
 
 ## Install a provider
 
@@ -50,7 +50,36 @@ a, _ := theauth.New(theauth.Config{
 | LinkedIn | `github.com/glincker/theauth-go/v2/provider/linkedin` |
 | X (Twitter) | `github.com/glincker/theauth-go/v2/provider/x` |
 
-Each exposes a `Config` struct and a `New(Config) theauth.Provider` constructor. Each also ships its own runnable example under `examples/oauth-<provider>/` (see [Example Apps](/go/getting-started/example-apps)).
+### Catalog providers
+
+These need no package of their own. Build one by name with `generic.NewByName`:
+
+```go
+import "github.com/glincker/theauth-go/v2/provider/generic"
+
+p, err := generic.NewByName("linear", generic.Config{
+    ClientID:     os.Getenv("LINEAR_CLIENT_ID"),
+    ClientSecret: os.Getenv("LINEAR_CLIENT_SECRET"),
+})
+```
+
+| Name | Notes |
+|---|---|
+| `spotify`, `dropbox`, `zoom`, `figma`, `codeberg` | One userinfo call each |
+| `kakao`, `naver` | Nested profile, REST API key as client id for Kakao |
+| `patreon`, `box`, `salesforce` | Profile nested under `data` for Patreon |
+| `linear` | Comma separated scopes, GraphQL `viewer` profile, refresh tokens |
+| `paypal` | Basic credentials, no PKCE, `flowEntry=static` |
+| `kick` | PKCE required, profile call on `api.kick.com` |
+| `huggingface` | Standard OIDC claims, PKCE S256 |
+| `vercel` | Sign in with Vercel app flow, POST userinfo, `offline_access` for refresh tokens |
+| `yandex` | Comma separated scopes, `OAuth` userinfo scheme |
+
+### OIDC presets
+
+`provider/oidc` has ready configs for `Entra`, `Okta`, `Keycloak`, `Authentik`, `Auth0` and `Cognito`. Cognito takes the region and user pool id: `oidc.Cognito("us-east-1", "us-east-1_AbCdEfGhI", clientID, secret)`.
+
+Each dedicated provider exposes a `Config` struct and a `New(Config) theauth.Provider` constructor. Each also ships its own runnable example under `examples/oauth-<provider>/` (see [Example Apps](/go/getting-started/example-apps)).
 
 ## Multiple providers at once
 
