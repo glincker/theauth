@@ -10,6 +10,10 @@ You already have users. You just added agents. This is the ten-minute recipe.
 theAuth does not replace your human auth. It runs alongside it. This guide assumes you already have a way to get a stable `userId` for every request.
 </Info>
 
+<Frame caption="What you are adding: one handler, one session, one protected route.">
+  <img src="/images/diagrams/theauth-add-to-existing-app.svg" alt="Your app mounts the theAuth handler, theAuth issues a session cookie, and protected routes read that session." />
+</Frame>
+
 ## What you need before you start
 
 <CardGroup cols={2}>
