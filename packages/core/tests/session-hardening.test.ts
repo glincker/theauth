@@ -130,6 +130,19 @@ describe("base url resolver", () => {
 		expect(resolver.isAllowedHost("evil.com.example.com.attacker.io")).toBe(false);
 		expect(resolver.isAllowedHost("example.com")).toBe(false);
 	});
+
+	it("compiles a host pattern with a very long run of slashes in linear time", () => {
+		const hostile = `${"/".repeat(60_000)}x`;
+		const started = performance.now();
+		const probe = createBaseUrlResolver({
+			baseUrl: "https://app.example.com",
+			allowedHosts: [hostile, "tenant.example.com/"],
+		});
+		const elapsed = performance.now() - started;
+		expect(elapsed).toBeLessThan(250);
+		expect(probe.isAllowedHost("tenant.example.com")).toBe(true);
+		expect(probe.isAllowedHost("x")).toBe(false);
+	});
 });
 
 describe("back-channel logout receiver", () => {

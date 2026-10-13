@@ -81,6 +81,15 @@ function escapeRegex(s: string): string {
 	return s.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Remove trailing (and optionally leading) slashes with a scan, not a regex. */
+function trimSlashes(value: string, leading = false): string {
+	let start = 0;
+	let end = value.length;
+	if (leading) while (start < end && value.charCodeAt(start) === 47) start++;
+	while (end > start && value.charCodeAt(end - 1) === 47) end--;
+	return value.slice(start, end);
+}
+
 function compilePattern(raw: string): CompiledPattern | null {
 	let rest = raw.trim().toLowerCase();
 	if (!rest) return null;
@@ -92,7 +101,7 @@ function compilePattern(raw: string): CompiledPattern | null {
 		scheme = "http";
 		rest = rest.slice(7);
 	}
-	rest = rest.replace(/\/+$/, "");
+	rest = trimSlashes(rest);
 	if (!rest || rest.includes("/") || rest.includes("@") || rest === "*" || rest === "**") {
 		return null;
 	}
@@ -160,7 +169,7 @@ function normalizeStatic(baseUrl: string): string | null {
 	try {
 		const u = new URL(baseUrl);
 		if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-		return `${u.origin}${u.pathname.replace(/\/+$/, "")}`;
+		return `${u.origin}${trimSlashes(u.pathname)}`;
 	} catch {
 		return null;
 	}
@@ -171,7 +180,7 @@ export function createBaseUrlResolver(config: BaseUrlConfig = {}): BaseUrlResolv
 		.map(compilePattern)
 		.filter((p): p is CompiledPattern => p !== null);
 	const fallback = config.baseUrl ? normalizeStatic(config.baseUrl) : null;
-	const basePath = config.basePath ? `/${config.basePath.replace(/^\/+|\/+$/g, "")}` : "";
+	const basePath = config.basePath ? `/${trimSlashes(config.basePath, true)}` : "";
 
 	function isAllowedHost(host: string, protocol: "http" | "https" = "https"): boolean {
 		return matches(patterns, host, protocol);
@@ -181,7 +190,7 @@ export function createBaseUrlResolver(config: BaseUrlConfig = {}): BaseUrlResolv
 		try {
 			const u = new URL(origin);
 			if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-			if (u.origin !== origin.replace(/\/+$/, "")) return false;
+			if (u.origin !== trimSlashes(origin)) return false;
 			return matches(patterns, u.host, u.protocol === "https:" ? "https" : "http");
 		} catch {
 			return false;
