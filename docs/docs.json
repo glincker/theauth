@@ -581,6 +581,7 @@
               "go/guides/scim-provisioning",
               "go/guides/rbac",
               "go/guides/dpop",
+              "go/guides/protect-mcp-tools",
               "go/guides/dynamic-client-registration",
               "go/guides/cli-login",
               "go/guides/path-prefix-and-dynamic-providers",

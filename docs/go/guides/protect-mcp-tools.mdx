@@ -1,0 +1,308 @@
+---
+title: "Protect MCP tools"
+sidebarTitle: "Protect MCP Tools"
+description: "Guard MCP tools with scope checks, RFC 9470 step-up, structured denials, tools/list security metadata and URL elicitation using the mcpresource module."
+---
+This guide adds per-tool authorization on top of a working `mcpresource` validator. It covers which signing algorithms the validator accepts, scope guards, step-up authentication, structured denial bodies, `securitySchemes` metadata for `tools/list`, and URL mode elicitation. For the validator itself, see [Resource Server](/go/concepts/resource-server).
+
+All code on this page uses the `github.com/glincker/theauth-go/mcpresource` module and the standard library only.
+
+## Signing algorithms and audience
+
+The validator accepts access tokens signed with `EdDSA`, `ES256` or `RS256`. The list is fixed. `none` and `HS*` are always rejected, and there is no option to widen it.
+
+| Alg | Key in the JWKS | Constraint |
+|---|---|---|
+| `EdDSA` | OKP, Ed25519 | None. |
+| `ES256` | EC, P-256 | Signature must be the 64 byte raw (r, s) form. |
+| `RS256` | RSA | Modulus must be at least 2048 bits. Keys below that are dropped from the key set. |
+
+The key type must match the header `alg`. A token that claims `RS256` but resolves to an Ed25519 key is rejected, as is a JWK that pins a different `alg`.
+
+The `aud` claim may be a string or an array. The token is accepted when the array contains the resource URI passed to `mcpresource.New`. After validation, `Principal.Audience` holds that resource URI and `Principal.Audiences` holds every value the token carried.
+
+## Wire the validator
+
+```go
+package main
+
+import (
+    "log"
+    "net/http"
+    "time"
+
+    "github.com/glincker/theauth-go/mcpresource"
+)
+
+func main() {
+    v := mcpresource.New(
+        "https://mcp.example.com",
+        mcpresource.WithJWKS("https://as.example.com/oauth/jwks"),
+        mcpresource.WithIntrospection(
+            "https://as.example.com/oauth/introspect",
+            "mcp-client-id",
+            "mcp-client-secret",
+        ),
+    )
+
+    transferPolicy := mcpresource.StepUp{
+        ACRValues: []string{"urn:mfa"},
+        MaxAge:    5 * time.Minute,
+    }
+
+    mux := http.NewServeMux()
+    mux.Handle("POST /tools/read_file",
+        v.RequireScope("files:read")(http.HandlerFunc(readFile)))
+    mux.Handle("POST /tools/transfer",
+        v.RequireScope("payments:write")(
+            v.RequireStepUp(transferPolicy)(http.HandlerFunc(transfer))))
+
+    log.Fatal(http.ListenAndServe(":8090", v.Middleware(mux)))
+}
+
+func readFile(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
+func transfer(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
+```
+
+`v.Middleware` authenticates the token and attaches the `Principal`. `RequireScope` and `RequireStepUp` read that principal, so they must run after `Middleware`. A request that reaches either guard with no principal is answered 401 `invalid_token`.
+
+## Scope guards
+
+`RequireScope(scopes...)` admits a request only when the token carries every listed scope. Scopes are compared as exact strings.
+
+A principal that lacks a scope gets 403:
+
+```http
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope", error_description="the access token lacks a required scope", scope="files:read", resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"
+Content-Type: application/json
+Cache-Control: no-store
+
+{"error":"insufficient_scope","error_description":"the access token lacks a required scope","required_scopes":["files:read"],"resource_metadata":"https://mcp.example.com/.well-known/oauth-protected-resource"}
+```
+
+The `scope` parameter lists the scopes the route needs, so a client can request exactly those on re-authorization. A token bound with DPoP is answered with the `DPoP` scheme instead of `Bearer`.
+
+When all tools share one JSON-RPC endpoint, wrap each tool handler and dispatch by tool name. Authentication still runs once, in `v.Middleware`, in front of the dispatcher.
+
+```go
+tools := map[string]http.Handler{
+    "read_file": v.RequireScope("files:read")(http.HandlerFunc(readFile)),
+    "transfer":  v.RequireScope("payments:write")(http.HandlerFunc(transfer)),
+}
+
+func dispatch(w http.ResponseWriter, r *http.Request, name string) {
+    h, ok := tools[name]
+    if !ok {
+        http.Error(w, "unknown tool", http.StatusNotFound)
+        return
+    }
+    h.ServeHTTP(w, r)
+}
+```
+
+## Step-up authentication
+
+Some tools need a stronger or fresher authentication than the one the user did to get the token. `RequireStepUp` implements the resource server side of RFC 9470.
+
+```go
+policy := mcpresource.StepUp{
+    ACRValues: []string{"urn:mfa"},
+    MaxAge:    5 * time.Minute,
+}
+mux.Handle("POST /tools/transfer", v.RequireStepUp(policy)(http.HandlerFunc(transfer)))
+```
+
+| Field | Meaning |
+|---|---|
+| `ACRValues` | Acceptable authentication context class references. The token `acr` must equal one of them. Empty means no `acr` requirement. |
+| `MaxAge` | Oldest acceptable user authentication. The token `auth_time` must be no older than this. Zero means no age requirement. |
+
+When the token does not satisfy the policy, the response is 401:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer error="insufficient_user_authentication", error_description="a higher authentication level or a fresher authentication is required", acr_values="urn:mfa", max_age="300", resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"
+Content-Type: application/json
+
+{"error":"insufficient_user_authentication","error_description":"a higher authentication level or a fresher authentication is required","resource_metadata":"https://mcp.example.com/.well-known/oauth-protected-resource","step_up":{"acr_values":["urn:mfa"],"max_age":300}}
+```
+
+The client is expected to send the user through a new authorization request with the same `acr_values` and `max_age`, then retry with the new token.
+
+A missing `acr` or `auth_time` claim fails a requirement that depends on it. The resource server only reads these claims. The authorization server has to put them in the access token.
+
+### Check the policy yourself
+
+`StepUp.Satisfied(p, now)` is the same check as a plain method. Use it when the decision depends on the request body, for example only transfers above a threshold need MFA:
+
+```go
+func transferHandler(v *mcpresource.Validator, policy mcpresource.StepUp) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        p, ok := v.Principal(r.Context())
+        if !ok || !policy.Satisfied(p, time.Now()) {
+            w.Header().Set("WWW-Authenticate",
+                `Bearer error="insufficient_user_authentication", acr_values="urn:mfa", max_age="300"`)
+            mcpresource.WriteDenial(w, http.StatusUnauthorized, mcpresource.Denial{
+                Error:            "insufficient_user_authentication",
+                ErrorDescription: "re-authenticate with MFA",
+                StepUp: &mcpresource.StepUpHint{
+                    ACRValues: policy.ACRValues,
+                    MaxAge:    int64(policy.MaxAge / time.Second),
+                },
+            })
+            return
+        }
+        // proceed with the transfer
+    }
+}
+```
+
+## Structured denials
+
+Every 401 and 403 that the validator and the guards write carries a JSON body next to the `WWW-Authenticate` header. The header is the normative signal. The body lets a client or an agent branch on the same facts without parsing it.
+
+```go
+type Denial struct {
+    Error            string        `json:"error"`
+    ErrorDescription string        `json:"error_description,omitempty"`
+    RequiredScopes   []string      `json:"required_scopes,omitempty"`
+    ResourceMetadata string        `json:"resource_metadata,omitempty"`
+    StepUp           *StepUpHint   `json:"step_up,omitempty"`
+}
+
+type StepUpHint struct {
+    ACRValues []string `json:"acr_values,omitempty"`
+    MaxAge    int64    `json:"max_age,omitempty"` // seconds
+}
+```
+
+`WriteDenial(w, status, d)` writes the body with `Content-Type: application/json` and `Cache-Control: no-store`. It does not set `WWW-Authenticate`. Set that header before you call it, as in the example above.
+
+| Situation | Status | `error` |
+|---|---|---|
+| Missing, malformed, expired or wrong audience token | 401 | `invalid_token` |
+| Token lacks a scope | 403 | `insufficient_scope` |
+| Token does not meet the `acr` or `max_age` policy | 401 | `insufficient_user_authentication` |
+
+## Tool security metadata in tools/list
+
+MCP clients that follow the OpenAI Apps SDK convention read a `securitySchemes` list on each tool to decide whether to start authorization before calling it. `ToolSecurity` and `PublicToolSecurity` build that metadata, and `Apply` writes it into a tool descriptor map.
+
+```go
+func listTools(w http.ResponseWriter, r *http.Request) {
+    readFile := map[string]any{
+        "name":        "read_file",
+        "inputSchema": map[string]any{"type": "object"},
+    }
+    mcpresource.ToolSecurity("files:read").Apply(readFile)
+
+    ping := map[string]any{
+        "name":        "ping",
+        "inputSchema": map[string]any{"type": "object"},
+    }
+    mcpresource.PublicToolSecurity().Apply(ping)
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(map[string]any{
+        "jsonrpc": "2.0",
+        "id":      1,
+        "result":  map[string]any{"tools": []map[string]any{readFile, ping}},
+    })
+}
+```
+
+For `read_file` the descriptor gains the list at the top level and again under `_meta`. Other `_meta` members already on the tool are kept.
+
+```json
+{
+  "name": "read_file",
+  "inputSchema": {"type": "object"},
+  "securitySchemes": [{"type": "oauth2", "scopes": ["files:read"]}],
+  "_meta": {"securitySchemes": [{"type": "oauth2", "scopes": ["files:read"]}]}
+}
+```
+
+`ping` gets `[{"type": "noauth"}]`. `ToolSecurity()` with no scopes declares `oauth2` with no scopes, meaning any valid token. `SecuritySchemes(scopes...)` returns just the list, with duplicates and empty strings dropped, if you build the descriptor by another route.
+
+This metadata is advisory. It describes what the tool expects. Enforcement stays in `RequireScope` and `RequireStepUp`, so keep the two in step.
+
+## URL elicitation
+
+When a tool cannot proceed until the user does something in a browser, for example authorizing a downstream service, the server can ask the client to open a URL. `NewURLElicitation` builds the request and `URLElicitationRequiredError` wraps it in the JSON-RPC error with code `-32042`.
+
+```go
+func connect(w http.ResponseWriter, r *http.Request) {
+    el, err := mcpresource.NewURLElicitation(
+        "", // empty id: a random 128 bit hex id is generated
+        "https://mcp.example.com/connect/github",
+        "Connect your GitHub account to continue.",
+    )
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(map[string]any{
+        "jsonrpc": "2.0",
+        "id":      7,
+        "error":   mcpresource.URLElicitationRequiredError(el),
+    })
+}
+```
+
+The error object on the wire:
+
+```json
+{
+  "code": -32042,
+  "message": "URL elicitation required",
+  "data": {
+    "elicitations": [
+      {
+        "mode": "url",
+        "elicitationId": "3f1c0e0c5a7b4b4f8d62c9e0a1b2c3d4",
+        "url": "https://mcp.example.com/connect/github",
+        "message": "Connect your GitHub account to continue."
+      }
+    ]
+  }
+}
+```
+
+`NewURLElicitation` returns an error when the message is empty, the URL is not absolute, the URL embeds credentials, or the scheme is not `https`. `http` is accepted only for a loopback host such as `localhost`. Do not put tokens or other secrets in the URL: clients show it to the user and may log it.
+
+## Read authorization details and authentication context
+
+After `Middleware`, the principal carries the authentication context claims and any RFC 9396 `authorization_details`:
+
+```go
+p, _ := v.Principal(r.Context())
+
+log.Printf("acr=%s amr=%v auth_time=%s aud=%v", p.ACR, p.AMR, p.AuthTime, p.Audiences)
+
+for _, d := range p.AuthorizationDetails() {
+    if d.Type == "payment_initiation" {
+        log.Printf("actions=%v locations=%v", d.Actions, d.Locations)
+        // d.Raw holds the full JSON object for type-specific members.
+    }
+}
+```
+
+`AuthorizationDetails()` returns a copy. A nil result means the token carries none. For tokens that trigger introspection (an `act` chain or a delegation grant), details missing from the JWT are taken from the introspection response. A malformed value, or an element without `type`, fails the request with 401 `invalid_token`.
+
+## Limits
+
+- **`max_age=0` cannot be expressed.** A zero `MaxAge` means no age requirement, not "always re-authenticate". Use a small positive value such as `time.Second`.
+- **Only three algorithms.** `EdDSA`, `ES256` (P-256) and `RS256` are accepted. `PS256`, `ES384`, `RS384` and `RS512` tokens are rejected, and the allowlist is not configurable.
+- **Opaque tokens are not authenticated.** The validator verifies JWT access tokens (RFC 9068). A token that is not a three segment JWT is rejected. Introspection is used to walk delegation chains, not to accept opaque tokens.
+- **`securitySchemes` is advisory.** Clients may ignore it, and nothing checks that it matches your guards.
+- **The authorization server decides `acr` and `auth_time`.** The resource server cannot raise authentication strength. If your issuer does not put these claims in access tokens, a step-up policy that depends on them can never be satisfied.
+- **No certification claims.** These controls implement the named RFC behaviors. They are not a statement of conformance or compliance with any program.
+
+## Next steps
+
+- [Resource Server (mcpresource)](/go/concepts/resource-server) - Validator options and the `Principal` type.
+- [Sender-Constrained Tokens (DPoP)](/go/guides/dpop) - Bind tokens to a client key.
+- [Agent delegation](/go/guides/agent-delegation) - Produce tokens with an actor chain.
+- [MCP Authorization](/go/concepts/mcp-authorization) - How the pieces fit together.
