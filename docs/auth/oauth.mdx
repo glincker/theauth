@@ -139,3 +139,22 @@ oauth({
     Turn theAuth itself into an OpenID Connect identity provider.
   </Card>
 </CardGroup>
+
+## Native app sign-in
+
+Set `mobile.redirectUris` to let a native app finish the flow in the system browser (RFC 8252 with PKCE):
+
+```typescript
+oauth({
+  providers: { github: github({ clientId, clientSecret }) },
+  mobile: { redirectUris: ['myapp://auth/callback'] },
+})
+```
+
+| Step | Request |
+|---|---|
+| 1 | App opens `GET /auth/oauth/authorize/:provider?mobile_redirect=<uri>&code_challenge=<S256>&code_challenge_method=S256` in the browser |
+| 2 | After the provider callback, the browser is redirected to `<uri>?code=<one-time code>` (60 seconds, single use) |
+| 3 | App calls `POST /auth/oauth/mobile/exchange` with `{ code, code_verifier }` and receives `{ data: { token, user, expiresAt } }` |
+
+`mobile_redirect` must match an entry in `redirectUris` exactly, and the challenge is required. A wrong verifier burns the code. Failures are returned to the app as `?error=`, and a required second factor arrives as the usual `#gate=...` fragment on the app URI. The code is stored in `theauth_one_time_tokens`, which `createTheAuth` now creates whenever the oauth plugin is registered. The [Expo guide](/expo#social-sign-in) shows the client side.

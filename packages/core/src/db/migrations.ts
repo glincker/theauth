@@ -100,7 +100,8 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 		username: !!config.username,
 		phone: !!config.phone,
 		device: hasSession,
-		oneTimeToken: hasMagicLink || hasEmailOtp || !!config.passwordReset,
+		// OAuth plugins hold the native app sign-in codes here.
+		oneTimeToken: hasMagicLink || hasEmailOtp || !!config.passwordReset || hasOAuth,
 		loginHistory: hasSession,
 		oidcProvider: hasOidc,
 		jwt: hasSession,

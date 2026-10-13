@@ -59,6 +59,32 @@ export function useSignIn() {
 	return { signIn: execute, isLoading, error };
 }
 
+// useSocialSignIn
+
+/**
+ * Returns a signInWithProvider function plus local loading and error state.
+ * Needs `social` in the provider config.
+ */
+export function useSocialSignIn() {
+	const { signInWithProvider } = useRequiredContext("useSocialSignIn");
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const execute = useCallback(
+		async (provider: string): Promise<ActionResult> => {
+			setIsLoading(true);
+			setError(null);
+			const result = await signInWithProvider(provider);
+			if (!result.success) setError(result.error);
+			setIsLoading(false);
+			return result;
+		},
+		[signInWithProvider],
+	);
+
+	return { signInWithProvider: execute, isLoading, error };
+}
+
 // useSignUp
 
 /**

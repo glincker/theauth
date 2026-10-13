@@ -7,6 +7,7 @@ export {
 	useSignIn,
 	useSignOut,
 	useSignUp,
+	useSocialSignIn,
 	useUser,
 } from "./hooks.js";
 export type {
@@ -21,10 +22,14 @@ export {
 	useAuthContext,
 	useTheAuthContext,
 } from "./provider.js";
+export { runSocialSignIn } from "./social.js";
+export type { SecureStoreLike } from "./storage.js";
+export { createMemoryStorage, createSecureStoreStorage } from "./storage.js";
 
 // Types
 export type {
 	ActionResult,
+	AppStateLike,
 	AuthAgent,
 	AuthContextValue,
 	AuthExpoConfig,
@@ -33,6 +38,7 @@ export type {
 	AuthStorage,
 	AuthUser,
 	CreateAgentInput,
+	SocialSignInConfig,
 	TheAuthAgent,
 	TheAuthContextValue,
 	TheAuthExpoConfig,
