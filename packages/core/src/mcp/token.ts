@@ -1,9 +1,8 @@
 import { verifyClientAssertion } from "./client-assertion.js";
-import { authenticateClient } from "./client-auth.js";
-import { resolveClient } from "./client-metadata.js";
 import { readDpopHeader, verifyDpopProof } from "./dpop.js";
 import { handleClientCredentialsGrant } from "./grant-client-credentials.js";
 import type { GrantClientAuth } from "./grant-common.js";
+import { resolveAuthenticatedClient } from "./grant-common.js";
 import { handleJwtBearerGrant } from "./grant-jwt-bearer.js";
 import { handleRefreshTokenGrant } from "./grant-refresh-token.js";
 import { handleTokenExchangeGrant } from "./grant-token-exchange.js";
@@ -201,32 +200,9 @@ async function handleAuthorizationCodeGrant(
 	auth: GrantClientAuth,
 	dpopJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
-	// ── Look up the client ──────────────────────────────────────────
-	const client = await resolveClient(ctx, data.client_id);
-	if (!client) {
-		return {
-			success: false,
-			error: { code: "INVALID_CLIENT", message: "Unknown client_id" },
-		};
-	}
-
-	if (client.disabled) {
-		return {
-			success: false,
-			error: { code: "INVALID_CLIENT", message: "Client is disabled" },
-		};
-	}
-
-	// ── Validate client secret for confidential clients ─────────────
-	const clientAuth = await authenticateClient(
-		ctx,
-		client,
-		auth.clientSecret,
-		auth.assertionVerified,
-	);
-	if (!clientAuth.success) {
-		return clientAuth;
-	}
+	// ── Look up and authenticate the client ─────────────────────────
+	const resolved = await resolveAuthenticatedClient(ctx, data.client_id, auth);
+	if (!resolved.success) return resolved;
 
 	// ── Consume the authorization code (one-time use) ───────────────
 	const authCode = await ctx.consumeAuthorizationCode(data.code);

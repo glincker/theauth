@@ -1,6 +1,5 @@
-import { authenticateClient } from "./client-auth.js";
-import { resolveClient } from "./client-metadata.js";
 import type { GrantClientAuth } from "./grant-common.js";
+import { resolveAuthenticatedClient } from "./grant-common.js";
 import { canonicalizeResource, supportedScopes } from "./lenient.js";
 import { revokeFamilyAndTokens, revokeStoredAccessToken } from "./revocation.js";
 import { issueAccessTokenJwt, issueRefreshToken } from "./token-issue.js";
@@ -22,32 +21,9 @@ export async function handleRefreshTokenGrant(
 	auth: GrantClientAuth,
 	presentedJkt: string | null,
 ): Promise<Result<McpTokenResponse>> {
-	// ── Look up the client ──────────────────────────────────────────
-	const client = await resolveClient(ctx, data.client_id);
-	if (!client) {
-		return {
-			success: false,
-			error: { code: "INVALID_CLIENT", message: "Unknown client_id" },
-		};
-	}
-
-	if (client.disabled) {
-		return {
-			success: false,
-			error: { code: "INVALID_CLIENT", message: "Client is disabled" },
-		};
-	}
-
-	// ── Validate client secret for confidential clients ─────────────
-	const clientAuth = await authenticateClient(
-		ctx,
-		client,
-		auth.clientSecret,
-		auth.assertionVerified,
-	);
-	if (!clientAuth.success) {
-		return clientAuth;
-	}
+	// ── Look up and authenticate the client ─────────────────────────
+	const resolved = await resolveAuthenticatedClient(ctx, data.client_id, auth);
+	if (!resolved.success) return resolved;
 
 	// ── Find the stored token (hash first, legacy plaintext second) ─
 	const presented = data.refresh_token;

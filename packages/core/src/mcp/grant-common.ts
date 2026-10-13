@@ -11,14 +11,12 @@ export interface GrantClientAuth {
 }
 
 /**
- * Resolve and authenticate the client of a non-interactive grant, then check
- * it is registered for `grantType`. Authentication comes first so a probe
- * cannot learn which grants an unauthenticated client holds.
+ * Look up the client, refuse a disabled one, and authenticate it (secret or an
+ * already verified `private_key_jwt` assertion). Shared by every grant.
  */
-export async function authenticateGrantClient(
+export async function resolveAuthenticatedClient(
 	ctx: McpAuthContext,
 	clientId: string,
-	grantType: string,
 	auth: GrantClientAuth,
 ): Promise<Result<McpClient>> {
 	const client = await resolveClient(ctx, clientId);
@@ -35,7 +33,23 @@ export async function authenticateGrantClient(
 		auth.assertionVerified,
 	);
 	if (!authenticated.success) return authenticated;
-	if (!client.grantTypes.includes(grantType)) {
+	return { success: true, data: client };
+}
+
+/**
+ * Resolve and authenticate the client of a non-interactive grant, then check
+ * it is registered for `grantType`. Authentication comes first so a probe
+ * cannot learn which grants an unauthenticated client holds.
+ */
+export async function authenticateGrantClient(
+	ctx: McpAuthContext,
+	clientId: string,
+	grantType: string,
+	auth: GrantClientAuth,
+): Promise<Result<McpClient>> {
+	const resolved = await resolveAuthenticatedClient(ctx, clientId, auth);
+	if (!resolved.success) return resolved;
+	if (!resolved.data.grantTypes.includes(grantType)) {
 		return {
 			success: false,
 			error: {
@@ -44,7 +58,7 @@ export async function authenticateGrantClient(
 			},
 		};
 	}
-	return { success: true, data: client };
+	return resolved;
 }
 
 /**
