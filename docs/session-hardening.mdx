@@ -6,6 +6,10 @@ icon: shield
 
 Everything on this page is opt-in. Nothing changes until you pass the option.
 
+<Frame caption="Stateless sessions bind the token cookie to the user.">
+  <img src="/images/diagrams/theauth-stateless-session-binding.svg" alt="A browser holds an identity cookie and a token cookie. The server checks that the token cookie is bound to the identity cookie and refuses a token cookie taken from another user." />
+</Frame>
+
 ## Cookie cache
 
 A signed cookie that answers `validateSession` without a database read. A revoked session keeps working until the cache expires (5 minutes by default), so keep `maxAge` short.
