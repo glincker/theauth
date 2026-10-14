@@ -847,7 +847,10 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.update(users)
 			.set({ email, name, username, banned, externalId, metadata: updatedMeta, updatedAt: now })
 			.where(eq(users.id, userId));
-		if (banned === 1) await db.delete(sessions).where(eq(sessions.userId, userId));
+		// SCIM active=false ends sessions even when autoDeactivateUsers leaves the ban flag off.
+		if (scimActive === false || banned === 1) {
+			await db.delete(sessions).where(eq(sessions.userId, userId));
+		}
 
 		const updatedRows = (await db
 			.select()

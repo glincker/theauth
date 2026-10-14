@@ -950,6 +950,18 @@ describe("SCIM deactivation revokes sessions", () => {
 		expect(await sessionCount("u_rev_1")).toBe(1);
 	});
 
+	it("PATCH active=false removes sessions even with autoDeactivateUsers off", async () => {
+		const lenient = createScimModule({ bearerToken: BEARER, autoDeactivateUsers: false }, db);
+		const res = await lenient.handleRequest(
+			req("PATCH", "/scim/v2/Users/u_rev_1", {
+				schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+				Operations: [{ op: "replace", path: "active", value: false }],
+			}),
+		);
+		expect(res?.status).toBe(200);
+		expect(await sessionCount("u_rev_1")).toBe(0);
+	});
+
 	it("PUT active=false removes sessions", async () => {
 		const res = await mod.handleRequest(
 			req("PUT", "/scim/v2/Users/u_rev_1", { userName: "rev1@example.com", active: false }),
