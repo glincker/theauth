@@ -1,5 +1,12 @@
 # @glinr/theauth-example-basic-agent
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [7383072]
+  - @glinr/theauth@1.1.2
+
 ## 0.0.12
 
 ### Patch Changes

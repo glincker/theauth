@@ -1,5 +1,11 @@
 # theauth
 
+## 1.1.2
+
+### Patch Changes
+
+- 7383072: SCIM user deactivation (PUT or PATCH with `active=false`) and DELETE now delete the user's sessions. Previously the user was banned but kept live sessions.
+
 ## 1.1.1
 
 ### Patch Changes
