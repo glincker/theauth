@@ -115,8 +115,35 @@ const heading = {
 	"Minor Changes": "Features and changes",
 	"Patch Changes": "Fixes",
 };
+const RAW = "https://raw.githubusercontent.com/glincker/theauth/main";
 const out = [];
+// Theme aware header, same layout as the thesvg and levelrail releases.
+out.push(
+	`<p align="center">
+  <a href="https://theauth.dev">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="${RAW}/docs/logo/wordmark-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="${RAW}/docs/logo/wordmark-light.svg" />
+      <img src="${RAW}/docs/logo/wordmark-light.svg" alt="theAuth" height="48" />
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://docs.theauth.dev/quickstart">Quickstart</a> &middot;
+  <a href="https://docs.theauth.dev">Docs</a> &middot;
+  <a href="https://www.npmjs.com/package/@glinr/theauth">npm</a> &middot;
+  <a href="https://github.com/glincker/theauth-go">Go</a> &middot;
+  <a href="https://github.com/glincker/theauth/discussions">Discussions</a>
+</p>
+
+---
+`,
+);
 out.push(`## theAuth ${version}`);
+out.push(
+	"\nOpen-source authentication and authorization for AI agents, MCP servers and apps. Agent identity, delegation, an OAuth 2.1 authorization server for MCP, DPoP, passkeys, SSO and SCIM in TypeScript. Self-hosted and MIT licensed.",
+);
 if (!coreSection)
 	out.push("\nRelease notes for this version were not found in the core changelog.");
 
@@ -141,16 +168,27 @@ if (majors.length) breaking = true;
 
 if (breaking) {
 	out.push("\n### Upgrading\n");
-	out.push(
-		`${
-			majors.length
-				? `${majors.length} packages move to a new major version in this release (${majors
-						.map((p) => `\`${p.name}\` ${p.version}`)
-						.slice(0, 4)
-						.join(", ")}${majors.length > 4 ? ", and more" : ""}). `
-				: ""
-		}Upgrade \`@glinr/theauth\` and every adapter together. Migration guide: https://docs.theauth.dev/migrate`,
-	);
+	if (coreSection && !(coreSection["Major Changes"] || []).length) {
+		out.push(
+			`${majors.length} packages move to the ${version.split(".")[0]}.x line in this release (${majors
+				.map((p) => `\`${p.name}\``)
+				.slice(0, 4)
+				.join(
+					", ",
+				)}${majors.length > 4 ? ", and more" : ""}). This is a versioning change with no API change, and framework adapters keep working because their peer ranges accept it. Details: https://github.com/glincker/theauth/blob/main/STABILITY.md`,
+		);
+	} else {
+		out.push(
+			`${
+				majors.length
+					? `${majors.length} packages move to a new major version in this release (${majors
+							.map((p) => `\`${p.name}\` ${p.version}`)
+							.slice(0, 4)
+							.join(", ")}${majors.length > 4 ? ", and more" : ""}). `
+					: ""
+			}Upgrade \`@glinr/theauth\` and every adapter together. Migration guide: https://docs.theauth.dev/migrate`,
+		);
+	}
 }
 
 out.push("\n### Packages in this release\n");
@@ -162,9 +200,23 @@ for (const p of changed) {
 }
 
 out.push("\n### Install\n");
-out.push("```bash", `npm install @glinr/theauth@${version}`, "```");
 out.push(
-	"\nGo: `go get github.com/glincker/theauth-go/v2` (releases: https://github.com/glincker/theauth-go/releases). Docs: https://docs.theauth.dev",
+	"```bash",
+	`npm install @glinr/theauth@${version}`,
+	`pnpm add @glinr/theauth@${version}`,
+	`yarn add @glinr/theauth@${version}`,
+	`bun add @glinr/theauth@${version}`,
+	"```",
+);
+out.push("\n### Resources\n");
+out.push(
+	"- [Quickstart](https://docs.theauth.dev/quickstart) and [agent identity](https://docs.theauth.dev/agents)",
+	"- [MCP OAuth 2.1](https://docs.theauth.dev/mcp) and [DPoP](https://docs.theauth.dev/dpop)",
+	"- [Stability and versioning](https://github.com/glincker/theauth/blob/main/STABILITY.md)",
+	"- [Migration guides](https://docs.theauth.dev/migrate)",
+	"- [Go library](https://github.com/glincker/theauth-go) ([releases](https://github.com/glincker/theauth-go/releases))",
+	"- Questions and ideas: [GitHub Discussions](https://github.com/glincker/theauth/discussions)",
+	"- Security reports: [SECURITY.md](https://github.com/glincker/theauth/blob/main/SECURITY.md)",
 );
 if (prev)
 	out.push(`\n**Full changelog**: https://github.com/glincker/theauth/compare/${prev}...${tag}`);
