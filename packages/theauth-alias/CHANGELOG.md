@@ -1,5 +1,11 @@
 # theauth
 
+## 0.2.4
+
+### Patch Changes
+
+- @glinr/theauth-cli@1.1.2
+
 ## 0.2.3
 
 ### Patch Changes
