@@ -40,6 +40,8 @@ Most auth libraries stop at human sign-in. Once an AI agent needs its own identi
 
 It runs on Node, Bun, Deno and Cloudflare Workers with three runtime dependencies (`drizzle-orm`, `jose`, `zod`). MIT licensed. No hosted service required.
 
+theAuth implements OAuth 2.1 with PKCE, DPoP, MCP authorization and OpenID Connect, with about 3,900 test cases and CodeQL on every pull request. Versions below 1.0 can still change between minor releases, and the changelog lists every breaking change. The project was called kavachOS until 2026: see the [rename map](RENAME-MAP.md) if you have older code.
+
 ## Works with
 
 <p align="center">
