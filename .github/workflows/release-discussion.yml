@@ -77,10 +77,38 @@ jobs:
               end: `<!-- repo:${key}:end -->`,
             });
             const empty = '_No releases yet._';
+            const RAW = 'https://raw.githubusercontent.com/glincker/theauth/main';
+            const header = [
+              '<!-- theauth:header -->',
+              '<p align="center">',
+              '  <a href="https://theauth.dev">',
+              '    <picture>',
+              `      <source media="(prefers-color-scheme: dark)" srcset="${RAW}/docs/logo/wordmark-dark.svg" />`,
+              `      <source media="(prefers-color-scheme: light)" srcset="${RAW}/docs/logo/wordmark-light.svg" />`,
+              `      <img src="${RAW}/docs/logo/wordmark-light.svg" alt="theAuth" height="44" />`,
+              '    </picture>',
+              '  </a>',
+              '</p>',
+              '',
+              '<p align="center">',
+              '  <a href="https://docs.theauth.dev/quickstart">Quickstart</a> &middot;',
+              '  <a href="https://docs.theauth.dev">Docs</a> &middot;',
+              '  <a href="https://www.npmjs.com/package/@glinr/theauth">npm</a> &middot;',
+              '  <a href="https://pkg.go.dev/github.com/glincker/theauth-go/v2">Go</a> &middot;',
+              '  <a href="https://github.com/glincker/theauth/blob/main/STABILITY.md">Stability</a>',
+              '</p>',
+              '',
+              'Release notes for theAuth, the open-source authentication and authorization library for AI agents, MCP servers and apps, in TypeScript and Go. This thread is kept up to date by the release workflows, and every release also has its own announcement with the full notes.',
+              '',
+              '**Upgrade:** `npm install @glinr/theauth@latest` or `go get github.com/glincker/theauth-go/v2@latest`. Breaking changes only ship in a major version, see [STABILITY.md](https://github.com/glincker/theauth/blob/main/STABILITY.md).',
+              '',
+              'Questions, bug reports and ideas are welcome: reply here, or start a new [discussion](https://github.com/glincker/theauth/discussions).',
+              '<!-- /theauth:header -->',
+            ].join('\n');
             const skeleton = (title) =>
               [
                 `# ${title}`,
-                'Release notes for the TheAuth family this month. Updated automatically by the release workflows.',
+                header,
                 ...sections.map(([key, heading]) => {
                   const m = markers(key);
                   return `## ${heading}\n${m.start}\n${empty}\n${m.end}`;
@@ -106,6 +134,9 @@ jobs:
             const existing = meta.repository.discussions.nodes.find((d) => d.title === title);
 
             let body = existing ? existing.body : skeleton(title);
+            if (existing && !body.includes('<!-- theauth:header -->')) {
+              body = body.replace(/Release notes for the TheAuth family this month\.[^\n]*/, header);
+            }
             const m = markers(REPO_KEY);
             if (!body.includes(m.start)) {
               body += `\n\n## ${REPO_TITLE}\n${m.start}\n${empty}\n${m.end}`;
@@ -114,7 +145,36 @@ jobs:
             let inner = body.match(re)[1].replace(empty, '').trim();
             if (!inner.includes(RELEASE_URL)) {
               const date = new Date().toISOString().slice(0, 10);
-              inner = (inner ? inner + '\n' : '') + `- [${TAG}](${RELEASE_URL}) (${date})`;
+              // Pull a one line summary from the release notes (first bullet under the highest heading).
+              let summary = '';
+              try {
+                const rm = RELEASE_URL.match(/github\.com\/([^/]+)\/([^/]+)\/releases\/tag\/(.+)$/);
+                if (rm) {
+                  const rel = await github.rest.repos.getReleaseByTag({ owner: rm[1], repo: rm[2], tag: decodeURIComponent(rm[3]) });
+                  const text = rel.data.body || '';
+                  for (const head of ['### Breaking changes', '### Features and changes', '### Fixes', '### Features', '### Bug Fixes']) {
+                    const at = text.indexOf(head);
+                    if (at < 0) continue;
+                    const line = text.slice(at + head.length).split('\n').find((l) => /^[-*] /.test(l.trim()));
+                    if (line) {
+                      summary = line.trim().replace(/^[-*] /, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ');
+                      if (summary.length > 220) summary = summary.slice(0, 217).trimEnd() + '...';
+                      break;
+                    }
+                  }
+                }
+              } catch (e) {
+                core.warning(`Could not read release notes for ${TAG}: ${e.message}`);
+              }
+              const install = REPO_KEY === 'theauth-go'
+                ? `go get github.com/glincker/theauth-go/v2@${TAG}`
+                : `npm install @glinr/theauth@${TAG.replace(/^v/, '')}`;
+              const entry = [
+                `### [${TAG}](${RELEASE_URL}) (${date})`,
+                summary ? `${summary}` : '',
+                `\`${install}\``,
+              ].filter(Boolean).join('\n\n');
+              inner = (inner ? entry + '\n\n' + inner : entry);
             }
             body = body.replace(re, () => `${m.start}\n${inner}\n${m.end}`);
 
