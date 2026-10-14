@@ -68,12 +68,18 @@ jobs:
           SHA: ${{ steps.meta.outputs.sha }}
           PRE: ${{ steps.meta.outputs.pre }}
         run: |
+          # Every release also gets its own Announcements discussion (GitHub creates it from the notes and links
+          # it on the release page). The monthly "Releases YYYY-MM" thread below stays as the index.
+          CATEGORY="${RELEASE_DISCUSSION_CATEGORY:-Announcements}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "theAuth ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md"
+            if [ -z "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.discussion_url // ""')" ]; then
+              gh release edit "$TAG" --discussion-category "$CATEGORY" || echo "::warning::could not link a discussion to $TAG"
+            fi
           else
             FLAGS="--latest"
             [ "$PRE" = "true" ] && FLAGS="--prerelease"
-            gh release create "$TAG" --target "$SHA" --title "theAuth ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" $FLAGS
+            gh release create "$TAG" --target "$SHA" --title "theAuth ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" --discussion-category "$CATEGORY" $FLAGS
           fi
 
       # Releases and tags made with the default token do not start other workflows, so start the monthly
