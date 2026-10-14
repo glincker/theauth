@@ -26,7 +26,7 @@
 import { and, eq, like, sql } from "drizzle-orm";
 import { insertAuditRow } from "../audit/chain.js";
 import type { Database } from "../db/database.js";
-import { organizations, orgMembers, users } from "../db/schema.js";
+import { organizations, orgMembers, sessions, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
@@ -734,6 +734,8 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 				updatedAt: now,
 			})
 			.where(eq(users.id, userId));
+		// A deactivated user must not keep a live session.
+		if (!active) await db.delete(sessions).where(eq(sessions.userId, userId));
 
 		const updatedRows = (await db
 			.select()
@@ -845,6 +847,10 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.update(users)
 			.set({ email, name, username, banned, externalId, metadata: updatedMeta, updatedAt: now })
 			.where(eq(users.id, userId));
+		// SCIM active=false ends sessions even when autoDeactivateUsers leaves the ban flag off.
+		if (scimActive === false || banned === 1) {
+			await db.delete(sessions).where(eq(sessions.userId, userId));
+		}
 
 		const updatedRows = (await db
 			.select()
@@ -866,6 +872,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const row = rows[0];
 		if (!row) return scimError("User not found", 404, "noTarget");
 
+		await db.delete(sessions).where(eq(sessions.userId, userId));
 		if (autoDeactivateUsers) {
 			// Soft delete: deactivate rather than destroy
 			const now = new Date();

@@ -8,7 +8,7 @@ import { createScimModule } from "../src/auth/scim.js";
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
-import { users } from "../src/db/schema.js";
+import { sessions, users } from "../src/db/schema.js";
 
 // Helpers
 
@@ -897,5 +897,83 @@ describe("SCIM /Me endpoint", () => {
 		);
 		const res = await mod.handleRequest(req("GET", "/scim/v2/Me"));
 		expect(res?.status).toBe(500);
+	});
+});
+
+describe("SCIM deactivation revokes sessions", () => {
+	let db: Database;
+	let mod: ScimModule;
+
+	async function seedSession(userId: string): Promise<void> {
+		const now = new Date();
+		await db.insert(sessions).values({
+			id: `s_${userId}`,
+			userId,
+			expiresAt: new Date(now.getTime() + 3_600_000),
+			createdAt: now,
+		});
+	}
+
+	async function sessionCount(userId: string): Promise<number> {
+		const rows = await db.select().from(sessions);
+		return rows.filter((r) => r.userId === userId).length;
+	}
+
+	beforeEach(async () => {
+		db = await createTestDb();
+		mod = createScimModule({ bearerToken: BEARER }, db);
+		await seedUser(db, "u_rev_1", "rev1@example.com", "rev1@example.com");
+		await seedUser(db, "u_rev_2", "rev2@example.com", "rev2@example.com");
+		await seedSession("u_rev_1");
+		await seedSession("u_rev_2");
+	});
+
+	it("PATCH active=false removes only that user's sessions", async () => {
+		const res = await mod.handleRequest(
+			req("PATCH", "/scim/v2/Users/u_rev_1", {
+				schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+				Operations: [{ op: "replace", path: "active", value: false }],
+			}),
+		);
+		expect(res?.status).toBe(200);
+		expect(await sessionCount("u_rev_1")).toBe(0);
+		expect(await sessionCount("u_rev_2")).toBe(1);
+	});
+
+	it("PATCH that keeps the user active leaves sessions alone", async () => {
+		await mod.handleRequest(
+			req("PATCH", "/scim/v2/Users/u_rev_1", {
+				schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+				Operations: [{ op: "replace", path: "active", value: true }],
+			}),
+		);
+		expect(await sessionCount("u_rev_1")).toBe(1);
+	});
+
+	it("PATCH active=false removes sessions even with autoDeactivateUsers off", async () => {
+		const lenient = createScimModule({ bearerToken: BEARER, autoDeactivateUsers: false }, db);
+		const res = await lenient.handleRequest(
+			req("PATCH", "/scim/v2/Users/u_rev_1", {
+				schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+				Operations: [{ op: "replace", path: "active", value: false }],
+			}),
+		);
+		expect(res?.status).toBe(200);
+		expect(await sessionCount("u_rev_1")).toBe(0);
+	});
+
+	it("PUT active=false removes sessions", async () => {
+		const res = await mod.handleRequest(
+			req("PUT", "/scim/v2/Users/u_rev_1", { userName: "rev1@example.com", active: false }),
+		);
+		expect(res?.status).toBe(200);
+		expect(await sessionCount("u_rev_1")).toBe(0);
+	});
+
+	it("DELETE removes sessions", async () => {
+		const res = await mod.handleRequest(req("DELETE", "/scim/v2/Users/u_rev_1"));
+		expect(res?.status).toBe(204);
+		expect(await sessionCount("u_rev_1")).toBe(0);
+		expect(await sessionCount("u_rev_2")).toBe(1);
 	});
 });
