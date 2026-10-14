@@ -1,5 +1,11 @@
 # @glinr/theauth-client
 
+## 1.1.1
+
+### Patch Changes
+
+- First release on the 1.x line. The public API is the one documented in [STABILITY.md](https://github.com/glincker/theauth/blob/main/STABILITY.md) and there are no API changes from the previous 0.x release. From here breaking changes only ship in a major.
+
 ## 0.4.0
 
 ### Minor Changes

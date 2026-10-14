@@ -37,7 +37,7 @@
     "directory": "packages/plugins/telemetry"
   },
   "peerDependencies": {
-    "@glinr/theauth": ">=0.6.0 <1.0.0"
+    "@glinr/theauth": ">=0.6.0 <2.0.0"
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
