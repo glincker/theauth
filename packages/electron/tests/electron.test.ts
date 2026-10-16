@@ -265,6 +265,15 @@ describe("createElectronStorage (encryption unavailable)", () => {
 
 // OAuth window
 
+// Constructor mock for `new BrowserWindow(...)`. Vitest 4 rejects arrow
+// implementations under `new`, so the spy wraps a regular function.
+function constructorMock<T extends object>(impl: (opts: unknown) => T) {
+	// biome-ignore lint/complexity/useArrowFunction: `new` requires a regular function, not an arrow
+	return vi.fn(function (opts: unknown) {
+		return impl(opts);
+	});
+}
+
 describe("openOAuthWindow", () => {
 	afterEach(() => {
 		setElectronApiForTesting(null);
@@ -289,7 +298,7 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn(() => mockWin);
+		const MockBrowserWindow = constructorMock(() => mockWin);
 		setElectronApiForTesting(
 			makeElectronApi({
 				BrowserWindow: MockBrowserWindow as unknown as ElectronApi["BrowserWindow"],
@@ -325,7 +334,7 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn((opts: unknown) => {
+		const MockBrowserWindow = constructorMock((opts) => {
 			capturedOptions = opts as Record<string, unknown>;
 			return mockWin;
 		});
@@ -363,7 +372,7 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn(() => mockWin);
+		const MockBrowserWindow = constructorMock(() => mockWin);
 		setElectronApiForTesting(
 			makeElectronApi({
 				BrowserWindow: MockBrowserWindow as unknown as ElectronApi["BrowserWindow"],
@@ -396,7 +405,7 @@ describe("openOAuthWindow", () => {
 			show: vi.fn(),
 		};
 
-		const MockBrowserWindow = vi.fn(() => mockWin);
+		const MockBrowserWindow = constructorMock(() => mockWin);
 		setElectronApiForTesting(
 			makeElectronApi({
 				BrowserWindow: MockBrowserWindow as unknown as ElectronApi["BrowserWindow"],
