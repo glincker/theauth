@@ -1,0 +1,109 @@
+---
+title: Audit checkpoints and receipts
+description: Sign the state of the audit log, then hand a counterparty a receipt they can verify offline.
+icon: stamp
+---
+
+## Overview
+
+The [hash chain](/audit-trail) lets you check your own log. It does not let someone else check it without database access, and it does not show that the log was left alone after a given date. Checkpoints add that.
+
+A checkpoint is a signed tree head, the same idea Certificate Transparency uses ([RFC 6962](https://www.rfc-editor.org/rfc/rfc6962), since obsoleted by [RFC 9162](https://www.rfc-editor.org/rfc/rfc9162)). TheAuth builds a Merkle tree over every chained audit row and signs `{size, rootHash, timestamp, keyId}` with Ed25519. From there:
+
+- An **inclusion proof** shows one row is a leaf of the tree the checkpoint committed to.
+- A **consistency proof** shows a newer checkpoint extends an older one, with no earlier row changed.
+- A **receipt** bundles a decision, an inclusion proof and the checkpoint into one JSON object.
+
+All verification functions run offline and need only the public key.
+
+## Sign a checkpoint
+
+```ts
+import {
+  createCheckpoint,
+  generateCheckpointKeyPair,
+  createMemoryCheckpointStore,
+} from "@glinr/theauth";
+
+const keys = await generateCheckpointKeyPair("audit-2026-10");
+// Keep keys.privateKeyJwk in your secret store. Publish keys.publicKey.
+
+const store = createMemoryCheckpointStore();
+const result = await createCheckpoint(db, { signer: keys.signer, store });
+if (!result.success) throw new Error(result.error.message);
+const checkpoint = result.data; // { size, rootHash, timestamp, keyId, signature, ... }
+```
+
+`signer` is any object with a `keyId` and an async `sign(bytes)`, so the private key can live in a KMS. `createEd25519Signer(privateKeyJwk, keyId)` covers the in-process case. Pass `since` or `until` to cover only a time range; both bounds are signed into the checkpoint.
+
+An empty log gives a size 0 checkpoint.
+
+## Mint and verify a receipt
+
+```ts
+import { createReceipt, verifyReceipt } from "@glinr/theauth";
+
+const made = await createReceipt(db, rowId, checkpoint, {
+  reveal: ["action", "resource", "result", "timestamp"],
+});
+if (!made.success) throw new Error(made.error.message);
+const json = JSON.stringify(made.data); // send this
+
+// Counterparty, no database:
+const verdict = await verifyReceipt(JSON.parse(json), publicKey);
+// { valid: true } or { valid: false, reason: "bad_signature" | "leaf_mismatch" | ... }
+```
+
+Consistency between two checkpoints:
+
+```ts
+const proof = await createConsistencyProof(db, older, newer);
+if (proof.success) {
+  const ok = await verifyConsistencyProof(proof.data, older, newer, publicKey);
+}
+```
+
+`createConsistencyProof` takes the database because a checkpoint holds only the root, not the tree.
+
+## What a receipt proves
+
+- The operator signed a log head with that key at that time.
+- A row with the revealed values was a leaf of that log, bound to the row's chain hash.
+- If you hold two checkpoints and a consistency proof, the newer log kept every row of the older one unchanged and in place.
+
+## What it does not prove
+
+- **That the log is complete.** A row that was never written, or was left out of a checkpoint, is invisible. Checkpoints cover rows that exist at signing time.
+- **That the operator showed everyone the same log.** A signer could sign two different heads for two parties. Catching that needs the checkpoint published somewhere many parties read, and someone comparing what they saw.
+- **That a hidden field is what the operator says.** A hidden field is only a commitment. Reveal it with its salt to prove it.
+- **That the decision was right.** It proves the record, not the judgment behind it.
+- **Time precision.** The checkpoint timestamp is the signer's clock. It is not an independent time stamp.
+- **Who a pseudonym is.** Version 2 rows commit to keyed pseudonyms of user, agent and approver ids, not raw ids. Revealing `idPseudonyms` shows the pseudonyms. Someone holding the audit key can confirm an id matches one; a counterparty without it cannot.
+
+## Redaction and its limits
+
+Each hashed field of a row gets a commitment: SHA-256 over the field name, a per-field salt and the canonical JSON value. The salt is derived from the audit key and the row hash, so the operator can rebuild it any time and stores nothing extra. A receipt includes the salt only for fields you reveal, plus the commitments for the rest.
+
+- Hidden fields stay hidden as long as the audit key stays secret. Anyone with the key can recompute salts and test guesses.
+- Revealing a field reveals exactly that value. There is no partial reveal inside `parameters`; reveal it whole or not at all.
+- The set of field names, the row id, the row's chain hash and its position in the log are visible in every receipt.
+
+## Keep checkpoints where a counterparty trusts them
+
+A checkpoint you alone hold is a claim you can quietly replace. Publish each one somewhere the counterparty already trusts and that keeps history, such as a public repository, a transparency feed, an append-only bucket, or a message to the counterparty's own system. Verifiers should keep the checkpoints they have seen and ask for a consistency proof when a new one arrives.
+
+## Key rotation
+
+Every checkpoint names its `keyId`. Verification functions accept one public key or an array, and pick the key by `keyId`; a checkpoint whose `keyId` is not in the set, or whose `alg` is anything other than `Ed25519`, is rejected.
+
+To rotate: create a new key pair under a new id, publish the new public key next to the old ones, and sign new checkpoints with the new key. Keep the old public keys published so older receipts still verify. A consistency proof can join checkpoints signed by different keys if you pass both public keys.
+
+If a private key leaks, checkpoints signed after the leak cannot be trusted from that key. Publish a revocation note with the last good checkpoint, and move on to a new key.
+
+## Operating notes
+
+- **Log order.** Leaves are ordered by row timestamp (whole seconds), then row id, across all agents. Rows written later with an earlier or equal timestamp can sort before rows an older checkpoint already covered; then proofs against that checkpoint fail with `LOG_MISMATCH`, an alarm and not a missed tamper. Use `until` to checkpoint only rows old enough to be settled.
+- **Unchained rows** (written before `tamperEvident` was on) are not in the tree.
+- **Cleanup and key changes.** Deleting old rows with retention cleanup changes the tree, so older checkpoints can no longer be proved against the live database; keep the receipts you issued. Changing `audit.hmacKey` changes every salt, which changes the tree the same way.
+- **Cost.** Building a checkpoint or proof reads and hashes every row in range. Run it on a schedule, not per request.
+- **Storage.** `CheckpointStore` is an interface with an in-memory implementation. There is no database-backed store yet.
