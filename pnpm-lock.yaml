@@ -95,6 +95,28 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  examples/agent-accountability:
+    dependencies:
+      '@glinr/theauth':
+        specifier: workspace:*
+        version: link:../../packages/core
+      better-sqlite3:
+        specifier: ^12.9.0
+        version: 12.9.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.4(@cloudflare/workers-types@4.20260418.1)(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@prisma/client@7.5.0(typescript@6.0.3))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(@types/sql.js@1.4.11)(better-sqlite3@12.9.0)(mysql2@3.24.5(@types/node@25.6.0))(pg@8.20.0)(sql.js@1.14.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   examples/basic-agent:
     dependencies:
       '@glinr/theauth':
@@ -13371,7 +13393,7 @@ snapshots:
 
   '@types/ws@8.18.2':
     dependencies:
-      '@types/node': 25.9.9
+      '@types/node': 25.6.0
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -13481,22 +13503,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 6.4.1(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1)
-
-  '@vitest/mocker@3.2.7(vite@7.3.7(@types/node@22.19.17)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))':
-    dependencies:
-      '@vitest/spy': 3.2.7
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.3.7(@types/node@22.19.17)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1)
-
-  '@vitest/mocker@3.2.7(vite@7.3.7(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))':
-    dependencies:
-      '@vitest/spy': 3.2.7
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.3.7(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1)
 
   '@vitest/mocker@3.2.7(vite@7.3.7(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))':
     dependencies:
@@ -19783,7 +19789,7 @@ snapshots:
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
-      '@vitest/mocker': 3.2.7(vite@7.3.7(@types/node@22.19.17)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
+      '@vitest/mocker': 3.2.7(vite@7.3.7(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       '@vitest/pretty-format': 3.2.7
       '@vitest/runner': 3.2.7
       '@vitest/snapshot': 3.2.7
@@ -19826,7 +19832,7 @@ snapshots:
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
-      '@vitest/mocker': 3.2.7(vite@7.3.7(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
+      '@vitest/mocker': 3.2.7(vite@7.3.7(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       '@vitest/pretty-format': 3.2.7
       '@vitest/runner': 3.2.7
       '@vitest/snapshot': 3.2.7
