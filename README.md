@@ -195,7 +195,7 @@ Every adapter has the same shape. Per-framework docs: [docs.theauth.dev/adapters
 
 ### Authentication and authorization for AI agents
 
-Give each agent its own identity, scoped permissions, a delegation chain back to the user who allowed it, budget limits and an audit trail. Start with the [agents guide](https://docs.theauth.dev/agents) and [delegation chains](https://docs.theauth.dev/delegation).
+Give each agent its own identity, scoped permissions, a delegation chain back to the user who allowed it, budget limits and an audit trail. Start with the [agents guide](https://docs.theauth.dev/agents) and [delegation chains](https://docs.theauth.dev/delegation). To put the policy engine in front of the tools an agent calls, see [guarding agent tools](https://docs.theauth.dev/agent-tools), with walkthroughs for the [Vercel AI SDK](https://docs.theauth.dev/vercel-ai-sdk) ([example](examples/vercel-ai-sdk-guard)) and the [OpenAI Agents SDK](https://docs.theauth.dev/openai-agents-sdk) ([example](examples/openai-agents-guard)).
 
 ### OAuth 2.1 authorization server for MCP
 

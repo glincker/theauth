@@ -356,6 +356,8 @@
             "pages": [
               "approval",
               "agent-tools",
+              "vercel-ai-sdk",
+              "openai-agents-sdk",
               "simulator",
               "rate-limiting",
               "cli-auth",

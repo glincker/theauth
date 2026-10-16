@@ -93,6 +93,8 @@ try {
 
 ### Vercel AI SDK
 
+A full walkthrough with approvals and the decision record is on [Vercel AI SDK](/vercel-ai-sdk).
+
 Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
 
 The AI SDK documents a tool as an object with `description`, `inputSchema` and `execute`, and you pass tools to `generateText` or `streamText` in a record keyed by name. `guardTools` takes that record and uses the keys as tool names. The second argument to `execute` is the framework's call options, so use a fixed `agentId` or read it from your own closure.
@@ -112,6 +114,8 @@ const tools = guardTools(theauth, { agentId: agent.id }, {
 ```
 
 ### OpenAI Agents SDK
+
+A full walkthrough with approvals and the decision record is on [OpenAI Agents SDK](/openai-agents-sdk).
 
 Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
 
@@ -159,6 +163,8 @@ const pay = tool(guarded.execute, {
 
 ## Related
 
+- [Vercel AI SDK](/vercel-ai-sdk)
+- [OpenAI Agents SDK](/openai-agents-sdk)
 - [Approval flows](/approval)
 - [Policy engine](/policy-engine)
 - [Agent accountability](/accountability)

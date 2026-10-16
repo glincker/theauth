@@ -1,0 +1,155 @@
+---
+title: OpenAI Agents SDK
+description: Guard OpenAI Agents SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
+icon: shield-check
+---
+
+The OpenAI Agents SDK (`@openai/agents`, TypeScript) runs a function tool when the model asks for it. `guardTool` wraps the tool's `execute` so `theauth.policy.evaluate` runs first. If the policy says no, or says a human must decide, the tool does not run.
+
+This page covers wrapping tools, handling an escalate decision with a single use approval, and reading the record afterwards. The general guard options are on [Guard agent tools](/agent-tools).
+
+## Wrap your tool
+
+`tool()` returns an object that exposes `invoke`, not `execute`, so guard the plain definition first and pass the result to `tool()`. Put `errorFunction` in the same object so the model sees a refusal as text instead of the run failing.
+
+```ts
+import { tool } from "@openai/agents";
+import { z } from "zod";
+import { createTheAuth, guardTool, ToolGuardError } from "@glinr/theauth";
+
+const HMAC_KEY = process.env.AUDIT_HMAC_KEY!;
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  audit: { tamperEvident: true, hmacKey: HMAC_KEY },
+  policy: {
+    risk: { tiers: [{ tier: "large", when: { minAmount: 1000 }, require: "approval" }] },
+  },
+});
+
+const agent = await auth.agent.create({
+  ownerId: "user-alice",
+  name: "billing-agent",
+  type: "autonomous",
+  permissions: [
+    { resource: "tool:lookupInvoice", actions: ["execute"] },
+    { resource: "tool:refund", actions: ["execute"] },
+  ],
+});
+
+// Set after a human approves. The guard hands it to policy.evaluate once.
+let approvedId: string | undefined;
+// Filled by onEscalate when the policy holds a call for approval.
+let pendingId: string | undefined;
+
+const refund = tool({
+  ...guardTool(
+    auth,
+    {
+      agentId: agent.id,
+      risk: (args: { amount: number }) => ({ amount: args.amount, currency: "USD" }),
+      approvalId: () => approvedId,
+      onEscalate: (info) => {
+        pendingId = info.approvalRequestId;
+      },
+    },
+    {
+      name: "refund",
+      description: "Refund an invoice",
+      parameters: z.object({ invoiceId: z.string(), amount: z.number() }),
+      execute: async ({ invoiceId, amount }: { invoiceId: string; amount: number }) => ({
+        refunded: amount,
+        invoiceId,
+      }),
+    },
+  ),
+  errorFunction: (_context, error) =>
+    error instanceof ToolGuardError ? error.message : "The tool failed.",
+});
+
+// const agentUnderTest = new Agent({ name: "billing", instructions, tools: [refund] });
+```
+
+The tool name is the policy resource, `tool:refund`, so the agent needs a permission on it. `ToolGuardError` is the parent of `ToolDeniedError`, `ToolApprovalRequiredError` and `ToolGuardFailedError`. Their messages are written for the model and say not to retry.
+
+Without `errorFunction`, check what your version of the SDK does with an error thrown by a tool before you rely on the default.
+
+## Escalate and approve once
+
+The `large` tier above requires approval from 1000 USD. For a refund of 5000 the tool does not run. The guard opens an approval request, calls `onEscalate` with its id, and the model receives:
+
+```
+Tool "refund" needs human approval (tier large). Approval request apr_... was opened. Do not retry until it is granted; tell the user it is waiting.
+```
+
+When a person decides, approve the request and set the id the guard should spend:
+
+```ts
+await auth.approval.approve(pendingId, "user-alice");
+approvedId = pendingId;
+```
+
+The next call with the same agent, action and resource runs and spends the approval. A third call gets this instead:
+
+```
+Tool "refund" was denied by policy (APPROVAL_ALREADY_USED). Do not retry this call.
+```
+
+The approval is single use. Return the id from `approvalId` only for the call that was approved, then clear it. In a real app, look it up from the request that belongs to this run instead of a module variable.
+
+To drive the tool by hand, as the example does, call `invoke` with a run context and the arguments as a JSON string:
+
+```ts
+import { RunContext } from "@openai/agents";
+
+await refund.invoke(new RunContext(), JSON.stringify({ invoiceId: "inv_1", amount: 5000 }));
+```
+
+## Read the decision record
+
+Every decision lands in the agent's audit log. With `audit.tamperEvident` on, each row joins a per agent hash chain. `replayAgent` returns the timeline and verifies the chain in the same call.
+
+```ts
+import { replayAgent } from "@glinr/theauth";
+
+const replay = await replayAgent(auth.db, agent.id, {}, HMAC_KEY);
+if (replay.success) {
+  for (const event of replay.data.events) {
+    if (event.chained) console.log(event.detail.chainSeq, event.summary, event.detail.approverId);
+  }
+  console.log(replay.data.verification.status); // "verified" | "broken" | "unchained"
+}
+```
+
+For the run above it prints:
+
+```
+#1 allowed execute tool:refund (matched)
+#2 escalated execute tool:refund (POLICY_ESCALATION_REQUIRED)
+#3 allowed approval.request approval:apr_...
+#4 allowed approval.approve approval:apr_... approver=user-alice
+#5 allowed execute tool:refund (APPROVAL_CONSUMED) approver=user-alice
+#6 denied execute tool:refund (APPROVAL_ALREADY_USED)
+chain verified, 6 rows checked
+```
+
+The refund that ran (#5) records the approver and the reason `APPROVAL_CONSUMED`. The replay (#6) is a separate denied row, so the record shows both what was allowed and what was refused. Approval requests and answers also appear in the timeline as events that are not chained.
+
+Two things to know:
+
+- Audit rows are written in the background. A replay read in the same tick as the call can miss the last rows, so the example waits a moment.
+- Pass the same `hmacKey` you configured. It is needed to verify an HMAC chain.
+
+See [Audit trail](/audit-trail) for the chain format, break reasons and export.
+
+## Run the example
+
+The repo has a runnable version at `examples/openai-agents-guard`. It needs no model and no API key. It is a plain folder, not a workspace package, so install the dependencies listed in its README in a scratch project.
+
+## Related
+
+- [Guard agent tools](/agent-tools)
+- [Approval flows](/approval)
+- [Audit trail](/audit-trail)
+- [Agent accountability](/accountability)
