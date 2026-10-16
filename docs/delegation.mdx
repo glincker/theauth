@@ -238,7 +238,10 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
   <Card title="Agent identity" href="/agents">
   Create the agents that participate in delegation chains.
 </Card>
+  <Card title="Remove unused permissions" href="/policy-shrink">
+  Delegated permissions count as granted when you compare them with what an agent used.
+</Card>
   <Card title="MCP OAuth 2.1" href="/mcp">
-  Use delegation with MCP-authenticated agents.
+  Use delegation with MCP-authenticated agents. The optional `delegationStore` re-checks a token's delegation chain on each validation.
 </Card>
 </CardGroup>

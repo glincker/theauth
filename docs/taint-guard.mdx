@@ -119,3 +119,11 @@ The column is part of the hash chain, so `verifyAuditChain` covers it. Labels ar
 - A fetched page can steer the model toward arguments you labeled `user`, if your code labels them that way. Label by origin of the bytes, not by who called the tool.
 - An approver who approves without reading the arguments defeats the control.
 - This reduces one class of prompt injection harm. It is not a model level guarantee, and it does not replace sandboxing or least privilege permissions.
+
+## Related
+
+- [Guard agent tools](/agent-tools): `guardTool` and `guardTools`, which this page builds on.
+- [Approval flows](/approval): the single use approval that an escalated call spends.
+- [Tutorial: stop prompt injection from making an agent send email](/tutorials/prompt-injection-tool-guard)
+- [Find and remove unused permissions](/policy-shrink): shrink what the agent may call in the first place.
+- [Agent accountability](/accountability)

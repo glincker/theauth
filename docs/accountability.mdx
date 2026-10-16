@@ -213,14 +213,14 @@ await theauth.delegation.revoke(chain.id); // also revokes links downstream of i
 
 In the TypeScript package, `agent.revoke()` also revokes every active delegation chain where the agent is the source or the target, plus the chains downstream of them, and returns their ids as `revokedDelegations`. It writes one `agent.cascade.revoked` audit row for the agent, with those ids in `delegation_chain`, and it fires `onAgentRevoke`. Calling it again revokes nothing new and writes no second row. Revoking an agent does not terminate an operation that already passed authorization. See [Agent identity](/agents#lifecycle) and [Cascading revocation](/delegation#cascading-revocation).
 
-## What is not shipped yet?
+## What is not covered yet?
 
 <Warning>
-  These are planned and are not available in the SDK today.
+  One item is planned and one is only partly there.
 </Warning>
 
 - **Planned:** the approver on the same row as every decision. The decision that spends an approval carries `approver_id` and the approval id today. Other decisions keep the approver on the approval's own audit row.
-- **Partly available:** `input_provenance` is filled from the labels you give the tool guard. The SDK does not work out where an input came from by itself.
+- **Partly available:** `input_provenance` is filled from the labels you give the [tool guard](/taint-guard). The SDK does not work out where an input came from by itself.
 
 ## FAQ
 
@@ -251,6 +251,15 @@ Yes. Agents that call MCP servers authenticate through [MCP OAuth 2.1](/mcp) and
 ## Next steps
 
 <CardGroup cols={2}>
+  <Card title="Guard agent tools" icon="shield-check" href="/agent-tools">
+    Put this policy check in front of the tools an agent calls.
+  </Card>
+  <Card title="Remove unused permissions" icon="scissors" href="/policy-shrink">
+    Compare what an agent may do with what it did.
+  </Card>
+  <Card title="Audit checkpoints" icon="stamp" href="/audit-checkpoints">
+    Signed checkpoints and receipts for the audit log.
+  </Card>
   <Card title="RACI template" icon="table" href="/accountability-raci-template">
     A RACI table for agent action classes, with the enforcement for each cell.
   </Card>

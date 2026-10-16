@@ -34,7 +34,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 ## Why theauth?
 
-Every auth library handles human login. None of them handle **AI agent identity**. theAuth gives every agent its own bearer token, scoped permissions, delegation chains, and an immutable audit trail. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
+Many auth libraries stop at human login. theAuth also covers **AI agent identity**: it gives every agent its own bearer token, scoped permissions, delegation chains, and an audit trail you can make tamper evident. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
 npm install @glinr/theauth
@@ -86,10 +86,12 @@ const result = await theauth.authorize(agent.id, {
 - Cryptographic bearer tokens (`kv_...`)
 - Wildcard permission matching (`mcp:github:*`)
 - Delegation chains with depth limits
-- Immutable audit trail
+- Audit trail with an optional tamper evident hash chain
 - Trust scoring
 - Budget policies and cost attribution
 - CIBA-style human approval flows
+- Tool guard for Vercel AI SDK and OpenAI Agents SDK tools, with [single use approvals](https://docs.theauth.dev/approval)
+- [Taint aware guard](https://docs.theauth.dev/taint-guard), [policy shrink](https://docs.theauth.dev/policy-shrink) and [signed audit receipts](https://docs.theauth.dev/audit-checkpoints)
 
 </td>
 <td width="50%">

@@ -111,3 +111,11 @@ Delegated permissions are part of the agent's effective set. When a call is attr
 - Reading is bounded by the audit retention you configured. Rows already deleted are not evidence.
 - Overlapping grants are attributed the way `authorize()` picks them, first match wins. A broad grant listed before a narrow one gets the credit, and the narrow one shows as unused.
 - Audit rows only exist for decisions that were recorded. Check that `auditAll` was on for the window.
+
+## Related
+
+- [Tutorial: find and remove unused agent permissions](/tutorials/remove-unused-agent-permissions)
+- [Agent accountability](/accountability): where permissions, approvals and audit fit together.
+- [Tamper evident audit trail](/audit-trail): the decision rows that `analyzeUsage` reads.
+- [Delegation](/delegation): delegated permissions count as granted.
+- [Taint aware tool guard](/taint-guard): limit what a call can do once the permission is kept.

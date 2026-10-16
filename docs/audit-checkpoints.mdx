@@ -111,3 +111,10 @@ If a private key leaks, checkpoints signed after the leak cannot be trusted from
 - **Cleanup and key changes.** Deleting old rows with retention cleanup changes the tree, so older checkpoints can no longer be proved against the live database; keep the receipts you issued. Changing `audit.hmacKey` changes every salt, which changes the tree the same way.
 - **Cost.** Building a checkpoint or proof reads and hashes every row in range. Run it on a schedule, not per request. Leaf hashes are cached in process per database and reused for rows whose content has not changed (a row is re-hashed whenever any covered field differs), so repeated proofs and receipts cost a read of the range, not a full re-hash. `createCheckpoint` returns `INVALID_RANGE` for a `since` or `until` that is not a valid date.
 - **Storage.** `CheckpointStore` is an interface with an in-memory implementation. There is no database-backed store yet.
+
+## Related
+
+- [Tutorial: give a counterparty a receipt they can verify offline](/tutorials/verifiable-agent-receipts)
+- [Tamper evident audit trail](/audit-trail): the hash chain that checkpoints sign.
+- [Agent accountability](/accountability)
+- [Find and remove unused permissions](/policy-shrink)
