@@ -1,0 +1,169 @@
+---
+title: Find and remove unused permissions from an AI agent
+description: Replay recorded decisions to see which agent grants were never used, propose a smaller set, and preview what it would deny. Runnable TypeScript.
+icon: scissors
+---
+
+Agents collect permissions because widening a grant is easier than working out the narrow one, and nobody comes back to trim them. The audit log already knows what each agent used, so you can ask it.
+
+This tutorial gives one agent ten grants, sends it 498 calls, then reports which grants were never touched, proposes a smaller set, and checks the proposal against the recorded decisions. Nothing is changed for you. It runs in memory with no model and no API key.
+
+![Terminal output of the policy shrink example listing used and unused permissions](https://raw.githubusercontent.com/glincker/theauth/main/docs/images/terminal/policy-shrink.jpg)
+
+## Prerequisites
+
+- Node 20 or newer and TypeScript
+- A scratch project with `"type": "module"` in `package.json`
+
+```bash
+npm i @glinr/theauth
+npm i better-sqlite3 drizzle-orm
+npm i -D tsx typescript @types/node
+```
+
+Everything below goes in one `index.ts`, copied from the [policy shrink example](https://github.com/glincker/theauth/tree/main/examples/policy-shrink). Audit rows only exist if decisions are recorded, so `auditAll` must be on.
+
+## Step 1: Create an over-permissioned agent
+
+```ts
+import {
+	analyzeUsage,
+	createTheAuth,
+	previewPolicyChange,
+	suggestShrink,
+	users,
+} from "@glinr/theauth";
+
+const auth = await createTheAuth({
+	database: { provider: "sqlite", url: ":memory:" },
+	agents: { auditAll: true },
+});
+
+const now = new Date();
+await auth.db.insert(users).values({
+	id: "owner-1",
+	email: "owner@example.com",
+	name: "Owner",
+	createdAt: now,
+	updatedAt: now,
+});
+
+const agent = await auth.agent.create({
+	ownerId: "owner-1",
+	name: "support-bot",
+	type: "service",
+	permissions: [
+		{ resource: "mcp:github:repos", actions: ["read", "write"] },
+		{ resource: "mcp:github:issues", actions: ["read", "write"] },
+		{ resource: "mcp:github:pulls", actions: ["read"] },
+		{ resource: "tool:db:orders", actions: ["query"] },
+		{ resource: "tool:db:users", actions: ["query", "delete"] },
+		{ resource: "tool:mail", actions: ["send"] },
+		{ resource: "tool:billing", actions: ["*"] },
+	],
+});
+```
+
+## Step 2: Generate real decision rows
+
+In production this step is just your agent running for a few weeks. Here we replay a fixed call log through `authorize()` so the rows are real.
+
+```ts
+const traffic: Array<[string, string, number]> = [
+	["read", "mcp:github:repos", 212],
+	["read", "mcp:github:issues", 148],
+	["write", "mcp:github:issues", 37],
+	["query", "tool:db:orders", 96],
+	["query", "tool:db:users", 3],
+	["delete", "mcp:github:repos", 2], // never granted, denied
+];
+for (const [action, resource, times] of traffic) {
+	for (let i = 0; i < times; i++) await auth.authorize(agent.id, { action, resource });
+}
+```
+
+## Step 3: See what was used
+
+```ts
+const analysis = await analyzeUsage(auth.db, agent.id, {});
+console.log("granted (one entry per action):", analysis.granted.length);
+console.log("used:");
+for (const u of analysis.used) {
+	console.log(`  ${u.permission.resource} ${u.permission.actions[0]}  x${u.count}`);
+}
+console.log("never used:");
+for (const p of analysis.unused) console.log(`  ${p.resource} ${p.actions.join(",")}`);
+```
+
+In a real system, pass a `since` date to bound the window, for example 30 days.
+
+## Step 4: Propose a smaller set
+
+```ts
+const plan = suggestShrink(analysis, { minObservations: 5 });
+console.log("\nkeep:", JSON.stringify(plan.keep));
+console.log("remove:", JSON.stringify(plan.remove));
+```
+
+`minObservations: 5` means a grant needs at least five allowed calls to stay.
+
+## Step 5: Replay the decisions against the proposal
+
+```ts
+const report = await previewPolicyChange(auth.db, agent.id, plan.keep, {});
+console.log("\nreplayed allows:", report.replayedAllows);
+console.log("still allowed:  ", report.stillAllowed);
+console.log("newly denied:   ", report.newlyDeniedCount);
+for (const r of report.newlyDenied.slice(0, 5)) console.log(`  ${r.action} ${r.resource}`);
+console.log("newly allowed (was denied for lack of a grant):", report.wouldAlsoAllowCount);
+```
+
+Run it with `npx tsx index.ts`.
+
+## What the output means
+
+Real output from the example:
+
+```text
+granted (one entry per action): 10
+used:
+  mcp:github:repos read  x212
+  mcp:github:issues read  x148
+  mcp:github:issues write  x37
+  tool:db:orders query  x96
+  tool:db:users query  x3
+never used:
+  mcp:github:repos write
+  mcp:github:pulls read
+  tool:db:users delete
+  tool:mail send
+  tool:billing *
+
+keep: [{"resource":"mcp:github:repos","actions":["read"]},{"resource":"mcp:github:issues","actions":["read","write"]},{"resource":"tool:db:orders","actions":["query"]}]
+remove: [{"resource":"mcp:github:repos","actions":["write"]},{"resource":"mcp:github:pulls","actions":["read"]},{"resource":"tool:db:users","actions":["query","delete"]},{"resource":"tool:mail","actions":["send"]},{"resource":"tool:billing","actions":["*"]}]
+
+replayed allows: 496
+still allowed:   493
+newly denied:    3
+  query tool:db:users
+  query tool:db:users
+  query tool:db:users
+newly allowed (was denied for lack of a grant): 0
+```
+
+Five of ten grants were never used, including the dangerous ones: `tool:billing *`, `tool:db:users delete` and `tool:mail send`. The two denied `delete` calls on repos do not count as use, which is why `mcp:github:repos write` stays in the unused list.
+
+The part to read carefully is `newly denied: 3`. The agent called `query` on `tool:db:users` three times, below the threshold of five, so the proposal drops it. You see that cost before you apply anything. If those calls are legitimate, lower `minObservations` (the default is `1`, which keeps every grant that was ever used).
+
+## Limits
+
+- It proves past behavior only. A quarterly job or an incident runbook may fall outside your window and get proposed for removal. Widen `since` for agents with long cycles.
+- Matching covers action and resource. Rate limits, time windows and approvals depend on live state and are not re-evaluated in the replay.
+- Evidence is bounded by your audit retention, and by whether `auditAll` was on.
+- Overlapping grants follow `authorize()` order, first match wins, so a broad grant listed first takes the credit.
+
+## Where to go next
+
+- Reference: [Policy shrink](https://docs.theauth.dev/policy-shrink) covers `generalize`, delegated permissions and `verifyShrink`.
+- Code: [examples/policy-shrink](https://github.com/glincker/theauth/tree/main/examples/policy-shrink)
+- Next, make risky calls need a person: [Stop prompt injection from making an AI agent send email](https://docs.theauth.dev/tutorials/prompt-injection-tool-guard).

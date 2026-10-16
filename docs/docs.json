@@ -369,6 +369,15 @@
               "budget-policies",
               "cost-attribution"
             ]
+          },
+          {
+            "group": "Tutorials",
+            "icon": "graduation-cap",
+            "pages": [
+              "tutorials/prompt-injection-tool-guard",
+              "tutorials/remove-unused-agent-permissions",
+              "tutorials/verifiable-agent-receipts"
+            ]
           }
         ]
       },
