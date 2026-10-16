@@ -57,6 +57,9 @@ function flip(b: Uint8Array): Uint8Array {
 	return c;
 }
 
+// Exhaustive proofs over every tree size hash a lot through WebCrypto. Shared CI runners need more than the 5s default.
+const SLOW_TEST_TIMEOUT_MS = 60_000;
+
 describe("merkle tree (RFC 6962)", () => {
 	it("hashes the empty tree and a single empty leaf to the published values", async () => {
 		expect(toHex(await merkleRoot([]))).toBe(
@@ -81,55 +84,65 @@ describe("merkle tree (RFC 6962)", () => {
 		}
 	});
 
-	it("proves inclusion for every index of every size, and rejects tampering", async () => {
-		for (let n = 1; n <= MAX; n++) {
-			const leaves = await leafHashes(n);
-			const root = await merkleRoot(leaves);
-			for (let i = 0; i < n; i++) {
-				const path = await inclusionPath(leaves, i);
-				const leaf = leaves[i] as Uint8Array;
-				expect(await verifyInclusionPath(leaf, i, n, path, root)).toBe(true);
-				expect(await verifyInclusionPath(flip(leaf), i, n, path, root)).toBe(false);
-				expect(await verifyInclusionPath(leaf, i, n, path, flip(root))).toBe(false);
-				if (n > 1) {
-					expect(await verifyInclusionPath(leaf, (i + 1) % n, n, path, root)).toBe(false);
+	it(
+		"proves inclusion for every index of every size, and rejects tampering",
+		async () => {
+			for (let n = 1; n <= MAX; n++) {
+				const leaves = await leafHashes(n);
+				const root = await merkleRoot(leaves);
+				for (let i = 0; i < n; i++) {
+					const path = await inclusionPath(leaves, i);
+					const leaf = leaves[i] as Uint8Array;
+					expect(await verifyInclusionPath(leaf, i, n, path, root)).toBe(true);
+					expect(await verifyInclusionPath(flip(leaf), i, n, path, root)).toBe(false);
+					expect(await verifyInclusionPath(leaf, i, n, path, flip(root))).toBe(false);
+					if (n > 1) {
+						expect(await verifyInclusionPath(leaf, (i + 1) % n, n, path, root)).toBe(false);
+					}
+					for (let j = 0; j < path.length; j++) {
+						const bad = path.map((p, k) => (k === j ? flip(p) : p));
+						expect(await verifyInclusionPath(leaf, i, n, bad, root)).toBe(false);
+					}
+					if (path.length > 0) {
+						expect(await verifyInclusionPath(leaf, i, n, path.slice(1), root)).toBe(false);
+					}
+					expect(await verifyInclusionPath(leaf, i, n, [...path, root], root)).toBe(false);
 				}
-				for (let j = 0; j < path.length; j++) {
-					const bad = path.map((p, k) => (k === j ? flip(p) : p));
-					expect(await verifyInclusionPath(leaf, i, n, bad, root)).toBe(false);
-				}
-				if (path.length > 0) {
-					expect(await verifyInclusionPath(leaf, i, n, path.slice(1), root)).toBe(false);
-				}
-				expect(await verifyInclusionPath(leaf, i, n, [...path, root], root)).toBe(false);
 			}
-		}
-	});
+		},
+		SLOW_TEST_TIMEOUT_MS,
+	);
 
-	it("proves consistency for every old size of every size, and rejects tampering", async () => {
-		for (let n = 1; n <= MAX; n++) {
-			const leaves = await leafHashes(n);
-			const newRoot = await merkleRoot(leaves);
-			for (let m = 1; m <= n; m++) {
-				const oldRoot = await merkleRoot(leaves.slice(0, m));
-				const path = await consistencyPath(leaves, m);
-				expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, path)).toBe(true);
-				expect(await verifyConsistencyPath(m, n, flip(oldRoot), newRoot, path)).toBe(false);
-				expect(await verifyConsistencyPath(m, n, oldRoot, flip(newRoot), path)).toBe(false);
-				for (let j = 0; j < path.length; j++) {
-					const bad = path.map((p, k) => (k === j ? flip(p) : p));
-					expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, bad)).toBe(false);
-				}
-				if (path.length > 0) {
-					expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, path.slice(1))).toBe(false);
-					expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, path.slice(0, -1))).toBe(
+	it(
+		"proves consistency for every old size of every size, and rejects tampering",
+		async () => {
+			for (let n = 1; n <= MAX; n++) {
+				const leaves = await leafHashes(n);
+				const newRoot = await merkleRoot(leaves);
+				for (let m = 1; m <= n; m++) {
+					const oldRoot = await merkleRoot(leaves.slice(0, m));
+					const path = await consistencyPath(leaves, m);
+					expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, path)).toBe(true);
+					expect(await verifyConsistencyPath(m, n, flip(oldRoot), newRoot, path)).toBe(false);
+					expect(await verifyConsistencyPath(m, n, oldRoot, flip(newRoot), path)).toBe(false);
+					for (let j = 0; j < path.length; j++) {
+						const bad = path.map((p, k) => (k === j ? flip(p) : p));
+						expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, bad)).toBe(false);
+					}
+					if (path.length > 0) {
+						expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, path.slice(1))).toBe(false);
+						expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, path.slice(0, -1))).toBe(
+							false,
+						);
+					}
+					expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, [...path, newRoot])).toBe(
 						false,
 					);
 				}
-				expect(await verifyConsistencyPath(m, n, oldRoot, newRoot, [...path, newRoot])).toBe(false);
 			}
-		}
-	});
+		},
+		SLOW_TEST_TIMEOUT_MS,
+	);
 
 	it("rejects a rewritten history: same size, different early leaf", async () => {
 		const leaves = await leafHashes(13);
