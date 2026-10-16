@@ -7,6 +7,32 @@ export {
 	enableAuditChain,
 	insertAuditRow,
 } from "./chain.js";
+export type { CreateCheckpointOptions, ProofOptions } from "./checkpoint.js";
+export {
+	createCheckpoint,
+	createConsistencyProof,
+	createEd25519Signer,
+	createInclusionProof,
+	generateCheckpointKeyPair,
+	verifyCheckpoint,
+	verifyConsistencyProof,
+	verifyInclusionProof,
+} from "./checkpoint.js";
+export type { CreateReceiptOptions } from "./checkpoint-receipt.js";
+export { createReceipt, verifyReceipt } from "./checkpoint-receipt.js";
+export { createMemoryCheckpointStore } from "./checkpoint-store.js";
+export type {
+	Checkpoint,
+	CheckpointPublicKey,
+	CheckpointSigner,
+	CheckpointStore,
+	ConsistencyProof,
+	InclusionProof,
+	Receipt,
+	ReceiptDecision,
+	VerifyFailureReason,
+	VerifyOutcome,
+} from "./checkpoint-types.js";
 export type { AuditWriteError, AuditWriteErrorHandler, RecordedEvent } from "./record.js";
 export {
 	getAuditWriteFailures,

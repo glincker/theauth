@@ -81,11 +81,38 @@ export * from "./permission/index.js";
 export * from "./plugin/index.js";
 export * from "./policies/index.js";
 export type { PolicyEngineConfig } from "./policy/types.js";
+export type {
+	AnalyzeOptions,
+	BlastRadiusReport,
+	DecisionResult,
+	DecisionRow,
+	Grant,
+	GrantMatchCount,
+	GrantSource,
+	PreviewOptions,
+	PreviewReport,
+	RowRef,
+	ShrinkOptions,
+	ShrinkRewrite,
+	ShrinkSuggestion,
+	UncoveredAllow,
+	UsageAnalysis,
+	UsageEvidence,
+	UsedPermission,
+	VerifyOptions,
+} from "./policy-shrink/index.js";
+export {
+	analyzeUsage,
+	previewPolicyChange,
+	suggestShrink,
+	verifyShrink,
+} from "./policy-shrink/index.js";
 export * from "./redirect/index.js";
 export * from "./session/index.js";
 export type { SharedSignalsConfig, SharedSignalsPlugin } from "./signals/index.js";
 export { sharedSignals } from "./signals/index.js";
 export * from "./simulator/index.js";
+export * from "./taint/index.js";
 export * from "./tenant/index.js";
 export type { Auth, TheAuth } from "./theauth.js";
 export { createAuth, createTheAuth } from "./theauth.js";
