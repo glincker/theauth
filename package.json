@@ -21,7 +21,9 @@
     "format": "biome format . --write",
     "format:check": "biome format .",
     "typecheck": "turbo typecheck",
-    "test": "turbo test",
+    "test": "node scripts/run-tests.mjs",
+    "test:all": "node scripts/run-tests.mjs",
+    "test:affected": "node scripts/run-tests.mjs --affected",
     "test:watch": "turbo test:watch",
     "coverage": "turbo coverage",
     "bench": "pnpm --filter @glinr/theauth bench",
@@ -48,7 +50,7 @@
   "simple-git-hooks": {
     "pre-commit": "pnpm lint && pnpm --filter @glinr/theauth typecheck",
     "commit-msg": "node scripts/check-commit-title.mjs $1",
-    "pre-push": "pnpm audit:gate && pnpm typecheck && pnpm test"
+    "pre-push": "node scripts/pre-push.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
