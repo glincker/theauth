@@ -144,6 +144,10 @@ Revocation takes effect on the next `authorize()` call. It does not terminate an
 In the TypeScript package, `agent.revoke()` also revokes every active chain where the agent is the source or the target, and the chains downstream of them. It returns their ids as `revokedDelegations` and writes one `agent.cascade.revoked` audit row for the agent. Use `delegation.revoke()` when you want to cut one chain and keep the agent.
 </Note>
 
+<Note>
+Tokens minted through MCP token exchange carry their chain in the `act` claim. Set `delegationStore` in the MCP config to have the resource server re-check that chain against live records, so revoking a parent chain rejects tokens issued down it before they expire. See [MCP auth](/mcp).
+</Note>
+
 ### Effective permissions
 
 To see the full set of permissions an agent has at a given moment, including those received through active chains:

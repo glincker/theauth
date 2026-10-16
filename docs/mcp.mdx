@@ -119,6 +119,7 @@ These go in the `config` object passed to `createMcpModule`.
 <ParamField path="preRegisteredClients" type="Array">Clients stored at startup through `storeClient`. Each entry can set `grantTypes` to allow the non-interactive grants.</ParamField>
 <ParamField path="clientCredentials" type="object">Opt in to the `client_credentials` grant. See [MCP server grants](/mcp-grants).</ParamField>
 <ParamField path="tokenExchange" type="object">Opt in to RFC 8693 token exchange. Requires `jtiDenylist`. See [MCP server grants](/mcp-grants).</ParamField>
+<ParamField path="delegationStore" type="McpDelegationStore">Opt in to a live check of the token `act` chain. See [Live delegation check](#security-hardening).</ParamField>
 <ParamField path="jwtBearer" type="object">Opt in to RFC 7523 redemption of ID-JAG assertions from trusted issuers. See [MCP server grants](/mcp-grants).</ParamField>
 <ParamField path="assertionStorage" type="SecondaryStorage">Replay cache for `private_key_jwt` and jwt-bearer assertions. In-process by default. Use a shared store with more than one instance.</ParamField>
 <ParamField path="lenientClients" type="object">Per-option compatibility relaxations for real-world MCP clients, all off by default. See [MCP client compatibility](/mcp-client-compat).</ParamField>
@@ -361,6 +362,19 @@ createMcpModule({
 On refresh, a `scope` that was not part of the original grant returns `invalid_scope`, and a `resource` that differs from the original grant returns `invalid_target`.
 
 **Revocation and the jti denylist.** `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only). Access tokens are JWTs, so revoking one only takes effect immediately if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for a single process, or your own shared store). Without it a revoked access token stays valid until `exp`.
+
+**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token with `INVALID_TOKEN`. Tokens without an `act` claim skip the check, and without a store nothing changes.
+
+```typescript
+import { createDbDelegationStore } from "@glinr/theauth/mcp";
+
+const mcpConfig = {
+  // ...
+  delegationStore: createDbDelegationStore(db), // or { findLink(from, to) } over your own store
+};
+```
+
+`createDbDelegationStore` reads the delegation chain table, so `act.sub` values must be the agent ids used in `delegation.create()`. See [Delegation](/delegation) for revoking a chain.
 
 **Asymmetric signing (opt in).** HS256 with `signingSecret` stays the default. To publish keys and sign with ES256 or EdDSA:
 

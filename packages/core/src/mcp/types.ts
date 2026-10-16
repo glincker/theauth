@@ -63,6 +63,13 @@ export interface McpConfig {
 	 */
 	jtiDenylist?: McpJtiDenylist;
 	/**
+	 * Opt in to a live delegation check. When set, `validateAccessToken` walks the
+	 * token's `act` chain (subject, then each actor) against live link records and
+	 * rejects the token if any link is missing, revoked or expired. Off by default,
+	 * so a token minted down a chain stays valid until `exp` unless this is set.
+	 */
+	delegationStore?: McpDelegationStore;
+	/**
 	 * Opt in to DPoP (RFC 9449). When set, the token endpoint accepts a `DPoP`
 	 * proof and issues `cnf.jkt`-bound tokens, `requireMcpAuth` accepts the
 	 * `DPoP` scheme, and metadata advertises the supported algorithms. Off by
@@ -202,6 +209,18 @@ export interface McpJtiDenylist {
 	/** Deny a token id until `expiresAt`, after which the entry may be dropped. */
 	revoke: (jti: string, expiresAt: Date) => Promise<void>;
 	isRevoked: (jti: string) => Promise<boolean>;
+}
+
+/** A live delegation link between two actors. */
+export interface McpDelegationLink {
+	status: "active" | "revoked" | "expired";
+	expiresAt: Date;
+}
+
+/** Lookup of live delegation links, keyed by the `sub` values used in `act` claims. */
+export interface McpDelegationStore {
+	/** Return the link granting `to` authority from `from`, or null when none exists. */
+	findLink: (from: string, to: string) => Promise<McpDelegationLink | null>;
 }
 
 /** Subset of the session `TokenFamilyStore` that the MCP token endpoint uses. */
