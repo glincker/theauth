@@ -8,7 +8,7 @@
  * it, while a receipt reveals it only for the fields the caller chooses.
  */
 
-import { and, asc, gte, isNotNull, lte } from "drizzle-orm";
+import { and, asc, eq, gt, gte, isNotNull, lte, or } from "drizzle-orm";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
@@ -22,6 +22,37 @@ const ENCODER = new TextEncoder();
 const SALT_DOMAIN = "theauth.audit.receipt.salt.v1";
 const COMMIT_DOMAIN = "theauth.audit.receipt.field.v1";
 const LEAF_VERSION = 1;
+const FINGERPRINT_DOMAIN = "theauth.audit.receipt.fp.v1";
+/** Rows read per query when building a tree, so memory stays bounded by ids and hashes. */
+const LOAD_PAGE = 2000;
+/** Most leaf hashes remembered per database. Oldest dropped first. */
+const CACHE_MAX_ENTRIES = 100_000;
+
+/** The audit columns a leaf commits to. Everything else on the row is left unread. */
+const LEAF_COLUMNS = {
+	id: auditLogs.id,
+	agentId: auditLogs.agentId,
+	userId: auditLogs.userId,
+	action: auditLogs.action,
+	resource: auditLogs.resource,
+	parameters: auditLogs.parameters,
+	result: auditLogs.result,
+	reason: auditLogs.reason,
+	durationMs: auditLogs.durationMs,
+	tokensCost: auditLogs.tokensCost,
+	ip: auditLogs.ip,
+	userAgent: auditLogs.userAgent,
+	cacheHit: auditLogs.cacheHit,
+	timestamp: auditLogs.timestamp,
+	hash: auditLogs.hash,
+	hashVersion: auditLogs.hashVersion,
+	policyVersion: auditLogs.policyVersion,
+	delegationChain: auditLogs.delegationChain,
+	inputProvenance: auditLogs.inputProvenance,
+	idPseudonyms: auditLogs.idPseudonyms,
+};
+
+export type LeafRow = Pick<AuditRow, keyof typeof LEAF_COLUMNS>;
 
 export interface LeafRange {
 	since: number | null;
@@ -29,7 +60,7 @@ export interface LeafRange {
 }
 
 export interface LogLeaf {
-	row: AuditRow;
+	row: LeafRow;
 	rowHash: string;
 	fieldValues: Record<string, unknown>;
 	/** Hex salt per field. Never leaves the operator except for revealed fields. */
@@ -43,8 +74,12 @@ export function receiptFieldsFor(hashVersion: number): readonly string[] {
 }
 
 /** Field values covered by the row hash, normalized the same way the chain does. */
-export function fieldValuesOf(row: AuditRow): Record<string, unknown> {
+export function fieldValuesOf(row: LeafRow): Record<string, unknown> {
 	const version = row.hashVersion ?? 1;
+	const timestamp = row.timestamp instanceof Date ? row.timestamp.getTime() : Number(row.timestamp);
+	for (const n of [timestamp, row.durationMs, row.tokensCost ?? 0]) {
+		if (!Number.isFinite(n)) throw new Error(`audit row ${row.id} has a non-finite number`);
+	}
 	const values: Record<string, unknown> = {
 		id: row.id,
 		action: row.action,
@@ -57,7 +92,7 @@ export function fieldValuesOf(row: AuditRow): Record<string, unknown> {
 		ip: row.ip ?? null,
 		userAgent: row.userAgent ?? null,
 		cacheHit: Boolean(row.cacheHit ?? false),
-		timestamp: row.timestamp instanceof Date ? row.timestamp.getTime() : Number(row.timestamp),
+		timestamp,
 	};
 	if (version >= 2) {
 		values.policyVersion = row.policyVersion ?? null;
@@ -97,7 +132,7 @@ export async function resolveReceiptKey(db: Database, hmacKey?: string): Promise
 	return key;
 }
 
-async function buildLeaf(row: AuditRow, key: string): Promise<LogLeaf> {
+async function buildLeaf(row: LeafRow, key: string): Promise<LogLeaf> {
 	const rowHash = row.hash as string;
 	const hashVersion = row.hashVersion ?? 1;
 	const fieldValues = fieldValuesOf(row);
@@ -112,24 +147,113 @@ async function buildLeaf(row: AuditRow, key: string): Promise<LogLeaf> {
 	return { row, rowHash, fieldValues, salts, commitments, leafHash };
 }
 
-/** Load the leaves of the log in order, optionally bounded by row timestamp. */
-export async function loadLeaves(
+/** Build the full leaf (values, salts, commitments) for one row, read by id. Undefined when absent or unchained. */
+export async function loadLeaf(
+	db: Database,
+	rowId: string,
+	hmacKey?: string,
+): Promise<LogLeaf | undefined> {
+	const key = await resolveReceiptKey(db, hmacKey);
+	const rows = await db
+		.select(LEAF_COLUMNS)
+		.from(auditLogs)
+		.where(and(eq(auditLogs.id, rowId), isNotNull(auditLogs.hash)))
+		.limit(1);
+	const row = rows[0];
+	return row ? buildLeaf(row, key) : undefined;
+}
+
+interface CachedLeaf {
+	/** Digest of everything the leaf is computed from, so an edited row never reuses a stale hash. */
+	fingerprint: string;
+	leafHash: Uint8Array;
+}
+
+interface LeafCache {
+	key: string;
+	entries: Map<string, CachedLeaf>;
+}
+
+const caches = new WeakMap<Database, LeafCache>();
+
+function cacheFor(db: Database, key: string): LeafCache {
+	let cache = caches.get(db);
+	if (!cache || cache.key !== key) {
+		cache = { key, entries: new Map() };
+		caches.set(db, cache);
+	}
+	return cache;
+}
+
+/**
+ * Leaf hash of a row, reused when the row's content is unchanged since the last time it was
+ * hashed. The fingerprint costs one digest where a fresh leaf costs about two per field, and
+ * it covers every input of the leaf, so a rewritten row is always rehashed and detected.
+ */
+async function leafHashOf(row: LeafRow, key: string, cache: LeafCache): Promise<Uint8Array> {
+	const rowHash = row.hash as string;
+	const fingerprint = await sha256(
+		`${FINGERPRINT_DOMAIN}\0${row.id}\0${rowHash}\0${row.hashVersion ?? 1}\0${canonicalJson(fieldValuesOf(row))}`,
+	);
+	const hit = cache.entries.get(row.id);
+	if (hit && hit.fingerprint === fingerprint) return hit.leafHash;
+	const leaf = await buildLeaf(row, key);
+	cache.entries.delete(row.id);
+	cache.entries.set(row.id, { fingerprint, leafHash: leaf.leafHash });
+	while (cache.entries.size > CACHE_MAX_ENTRIES) {
+		const oldest = cache.entries.keys().next().value;
+		if (oldest === undefined) break;
+		cache.entries.delete(oldest);
+	}
+	return leaf.leafHash;
+}
+
+/** Row ids and leaf hashes of the log, in log order. */
+export interface LeafSet {
+	ids: string[];
+	hashes: Uint8Array[];
+}
+
+/**
+ * Load the leaf hashes of the log in order, optionally bounded by row timestamp and by a
+ * leaf count. Reads only the columns a leaf commits to, a page at a time, with the range,
+ * order and limit applied in SQL.
+ */
+export async function loadLeafSet(
 	db: Database,
 	range: LeafRange,
 	hmacKey?: string,
 	limit?: number,
-): Promise<LogLeaf[]> {
+): Promise<LeafSet> {
 	const key = await resolveReceiptKey(db, hmacKey);
-	const conds = [isNotNull(auditLogs.hash)];
-	if (range.since !== null) conds.push(gte(auditLogs.timestamp, new Date(range.since)));
-	if (range.until !== null) conds.push(lte(auditLogs.timestamp, new Date(range.until)));
-	const rows = await db
-		.select()
-		.from(auditLogs)
-		.where(and(...conds))
-		.orderBy(asc(auditLogs.timestamp), asc(auditLogs.id));
-	const slice = limit === undefined ? rows : rows.slice(0, limit);
-	const leaves: LogLeaf[] = [];
-	for (const row of slice) leaves.push(await buildLeaf(row, key));
-	return leaves;
+	const cache = cacheFor(db, key);
+	const set: LeafSet = { ids: [], hashes: [] };
+	let cursor: { at: Date; id: string } | null = null;
+	for (;;) {
+		const want = limit === undefined ? LOAD_PAGE : Math.min(LOAD_PAGE, limit - set.ids.length);
+		if (want <= 0) return set;
+		const conds = [isNotNull(auditLogs.hash)];
+		if (range.since !== null) conds.push(gte(auditLogs.timestamp, new Date(range.since)));
+		if (range.until !== null) conds.push(lte(auditLogs.timestamp, new Date(range.until)));
+		if (cursor) {
+			const after = or(
+				gt(auditLogs.timestamp, cursor.at),
+				and(eq(auditLogs.timestamp, cursor.at), gt(auditLogs.id, cursor.id)),
+			);
+			if (after) conds.push(after);
+		}
+		const page: LeafRow[] = await db
+			.select(LEAF_COLUMNS)
+			.from(auditLogs)
+			.where(and(...conds))
+			.orderBy(asc(auditLogs.timestamp), asc(auditLogs.id))
+			.limit(want);
+		for (const row of page) {
+			set.ids.push(row.id);
+			set.hashes.push(await leafHashOf(row, key, cache));
+		}
+		const last = page[page.length - 1];
+		if (!last || page.length < want) return set;
+		cursor = { at: last.timestamp, id: last.id };
+	}
 }

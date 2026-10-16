@@ -45,7 +45,7 @@ export function extrasKey(p: Permission): string {
 
 /** Identity of a single-action permission. */
 export function atomKey(p: Permission): string {
-	return `${p.resource}\u0000${p.actions.join(",")}\u0000${extrasKey(p)}`;
+	return JSON.stringify([p.resource, p.actions, extrasKey(p)]);
 }
 
 function withExtras(resource: string, actions: string[], from: Permission): Permission {
@@ -68,7 +68,7 @@ export function compactPermissions(atoms: Permission[]): Permission[] {
 	const out: Permission[] = [];
 	const at = new Map<string, number>();
 	for (const a of atoms) {
-		const key = `${a.resource}\u0000${extrasKey(a)}`;
+		const key = JSON.stringify([a.resource, extrasKey(a)]);
 		const i = at.get(key);
 		const existing = i === undefined ? undefined : out[i];
 		if (existing) {
@@ -91,4 +91,95 @@ export function covers(outer: Permission, inner: Permission): boolean {
 		matchResource(outer.resource, inner.resource) &&
 		inner.actions.every((a) => matchAction(outer.actions, a))
 	);
+}
+
+/** Finite number at or above `min`, whole, else the fallback. NaN, Infinity and non-numbers use the fallback. */
+export function wholeOr(value: unknown, fallback: number, min = 0): number {
+	return typeof value === "number" && Number.isFinite(value)
+		? Math.max(min, Math.floor(value))
+		: fallback;
+}
+
+export interface GrantMatch {
+	permission: Permission;
+	index: number;
+}
+
+/** Most distinct (action, resource) answers remembered by a matcher. */
+const MATCH_MEMO_MAX = 10_000;
+
+function firstSegment(resource: string): string {
+	const i = resource.indexOf(":");
+	return i === -1 ? resource : resource.slice(0, i);
+}
+
+/**
+ * First-match lookup over a fixed permission list, equal to `findMatchingPermission` but
+ * without a scan of every permission per row. A pattern whose first segment is not `*` can
+ * only match resources with that same first segment, so permissions are bucketed by it;
+ * patterns that start with `*` (or are not strings) go in a shared list. Each candidate is
+ * still decided by the engine's own `matchResource` and `matchAction`, and the lowest index
+ * wins, so results are identical to the linear scan. Answers are memoized per pair.
+ */
+export function createGrantMatcher(
+	permissions: readonly Permission[],
+): (action: string, resource: string) => GrantMatch | null {
+	const buckets = new Map<string, number[]>();
+	const open: number[] = [];
+	permissions.forEach((p, index) => {
+		const pattern: unknown = p.resource;
+		if (typeof pattern !== "string" || pattern === "*" || pattern.startsWith("*:")) {
+			open.push(index);
+			return;
+		}
+		const seg = firstSegment(pattern);
+		if (seg === "*") {
+			open.push(index);
+			return;
+		}
+		const list = buckets.get(seg);
+		if (list) list.push(index);
+		else buckets.set(seg, [index]);
+	});
+
+	const memo = new Map<string, GrantMatch | null>();
+
+	function firstIn(
+		list: readonly number[] | undefined,
+		action: string,
+		resource: string,
+		below: number,
+	) {
+		if (!list) return -1;
+		for (const i of list) {
+			if (i >= below) return -1;
+			const p = permissions[i] as Permission;
+			if (matchResource(p.resource, resource) && matchAction(p.actions, action)) return i;
+		}
+		return -1;
+	}
+
+	return (action, resource) => {
+		const memoKey = JSON.stringify([action, resource]);
+		const cached = memo.get(memoKey);
+		if (cached !== undefined) return cached;
+		const fromBucket = firstIn(
+			buckets.get(firstSegment(resource)),
+			action,
+			resource,
+			permissions.length,
+		);
+		const fromOpen = firstIn(
+			open,
+			action,
+			resource,
+			fromBucket === -1 ? permissions.length : fromBucket,
+		);
+		const index = fromOpen === -1 ? fromBucket : fromOpen;
+		const permission = index === -1 ? undefined : permissions[index];
+		const result = permission ? { permission, index } : null;
+		if (memo.size >= MATCH_MEMO_MAX) memo.clear();
+		memo.set(memoKey, result);
+		return result;
+	};
 }

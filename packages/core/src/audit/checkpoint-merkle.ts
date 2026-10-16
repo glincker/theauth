@@ -36,6 +36,53 @@ export function merkleNodeHash(left: Uint8Array, right: Uint8Array): Promise<Uin
 	return sha256Raw(prefixed(NODE_PREFIX, left, right));
 }
 
+function isPowerOfTwo(n: number): boolean {
+	if (!Number.isSafeInteger(n) || n <= 0) return false;
+	const big = BigInt(n);
+	return (big & (big - 1n)) === 0n;
+}
+
+/** Hashes per Promise.all batch when building a level, so a large level does not queue millions of digests. */
+const LEVEL_BATCH = 512;
+
+/**
+ * Every level of the tree, bottom up. Level 0 is the leaf array itself (not copied) and the
+ * last level holds the root. An odd node at the end of a level is promoted unchanged, which
+ * gives exactly the RFC 6962 tree (split at the largest power of two below n).
+ */
+async function buildLevels(leafHashes: readonly Uint8Array[]): Promise<Uint8Array[][]> {
+	const levels: Uint8Array[][] = [leafHashes as Uint8Array[]];
+	let current = leafHashes;
+	while (current.length > 1) {
+		const below = current;
+		const pairs = Math.floor(below.length / 2);
+		const next: Uint8Array[] = new Array(Math.ceil(below.length / 2));
+		for (let from = 0; from < pairs; from += LEVEL_BATCH) {
+			const to = Math.min(pairs, from + LEVEL_BATCH);
+			const batch: Promise<Uint8Array>[] = [];
+			for (let i = from; i < to; i++) {
+				batch.push(merkleNodeHash(below[2 * i] as Uint8Array, below[2 * i + 1] as Uint8Array));
+			}
+			const done = await Promise.all(batch);
+			for (let i = from; i < to; i++) next[i] = done[i - from] as Uint8Array;
+		}
+		if (below.length % 2 === 1) next[pairs] = below[below.length - 1] as Uint8Array;
+		levels.push(next);
+		current = next;
+	}
+	return levels;
+}
+
+function ceilLog2(n: number): number {
+	let h = 0;
+	let span = 1;
+	while (span < n) {
+		span *= 2;
+		h++;
+	}
+	return h;
+}
+
 /** Largest power of two strictly less than n (n >= 2). */
 function splitPoint(n: number): number {
 	let k = 1;
@@ -43,20 +90,86 @@ function splitPoint(n: number): number {
 	return k;
 }
 
-function isPowerOfTwo(n: number): boolean {
-	return n > 0 && (n & (n - 1)) === 0;
+/** A tree whose levels are built once and reused for the root and every proof. */
+export interface MerkleTree {
+	readonly size: number;
+	root(): Promise<Uint8Array>;
+	/** Root of the tree over the first `count` leaves. */
+	prefixRoot(count: number): Promise<Uint8Array>;
+	inclusionPath(index: number): Promise<Uint8Array[]>;
+	consistencyPath(oldSize: number): Promise<Uint8Array[]>;
+}
+
+/** Build the tree over already-hashed leaves (O(n) hashes, once). */
+export async function buildMerkleTree(leafHashes: readonly Uint8Array[]): Promise<MerkleTree> {
+	const n = leafHashes.length;
+	const levels = n === 0 ? [] : await buildLevels(leafHashes);
+
+	// Root of leaves [start, end). A stored node when the range is a full aligned subtree or
+	// runs to the end of the tree, otherwise the RFC split.
+	async function rangeRoot(start: number, end: number): Promise<Uint8Array> {
+		const len = end - start;
+		if (len <= 0) return sha256Raw(new Uint8Array(0));
+		const h = ceilLog2(len);
+		const aligned = start % 2 ** h === 0;
+		if (aligned && (len === 2 ** h || end === n)) {
+			const node = levels[h]?.[start / 2 ** h];
+			if (node) return node;
+		}
+		const k = splitPoint(len);
+		return merkleNodeHash(await rangeRoot(start, start + k), await rangeRoot(start + k, end));
+	}
+
+	async function subProof(
+		m: number,
+		start: number,
+		end: number,
+		complete: boolean,
+	): Promise<Uint8Array[]> {
+		const len = end - start;
+		if (m === len) return complete ? [] : [await rangeRoot(start, end)];
+		const k = splitPoint(len);
+		if (m <= k) {
+			const sub = await subProof(m, start, start + k, complete);
+			sub.push(await rangeRoot(start + k, end));
+			return sub;
+		}
+		const sub = await subProof(m - k, start + k, end, false);
+		sub.push(await rangeRoot(start, start + k));
+		return sub;
+	}
+
+	return {
+		size: n,
+		root: () => rangeRoot(0, n),
+		prefixRoot: (count) => rangeRoot(0, count),
+		async inclusionPath(index) {
+			if (!Number.isInteger(index) || index < 0 || index >= n) {
+				throw new RangeError("inclusionPath: index out of range");
+			}
+			const path: Uint8Array[] = [];
+			let at = index;
+			for (let level = 0; level < levels.length - 1; level++) {
+				const row = levels[level] as Uint8Array[];
+				const sibling = row[at ^ 1];
+				if (sibling) path.push(sibling);
+				at = Math.floor(at / 2);
+			}
+			return path;
+		},
+		async consistencyPath(oldSize) {
+			if (!Number.isInteger(oldSize) || oldSize < 0 || oldSize > n) {
+				throw new RangeError("consistencyPath: oldSize out of range");
+			}
+			if (oldSize === 0 || oldSize === n) return [];
+			return subProof(oldSize, 0, n, true);
+		},
+	};
 }
 
 /** Merkle tree hash over already-hashed leaves. The empty tree is SHA-256 of the empty string. */
 export async function merkleRoot(leafHashes: readonly Uint8Array[]): Promise<Uint8Array> {
-	const n = leafHashes.length;
-	if (n === 0) return sha256Raw(new Uint8Array(0));
-	const first = leafHashes[0];
-	if (n === 1 && first) return first;
-	const k = splitPoint(n);
-	const left = await merkleRoot(leafHashes.slice(0, k));
-	const right = await merkleRoot(leafHashes.slice(k));
-	return merkleNodeHash(left, right);
+	return (await buildMerkleTree(leafHashes)).root();
 }
 
 /** Audit path for the leaf at `index` in a tree of `leafHashes` (RFC 6962 PATH). */
@@ -68,34 +181,7 @@ export async function inclusionPath(
 	if (!Number.isInteger(index) || index < 0 || index >= n) {
 		throw new RangeError("inclusionPath: index out of range");
 	}
-	if (n === 1) return [];
-	const k = splitPoint(n);
-	if (index < k) {
-		const sub = await inclusionPath(leafHashes.slice(0, k), index);
-		sub.push(await merkleRoot(leafHashes.slice(k)));
-		return sub;
-	}
-	const sub = await inclusionPath(leafHashes.slice(k), index - k);
-	sub.push(await merkleRoot(leafHashes.slice(0, k)));
-	return sub;
-}
-
-async function subProof(
-	m: number,
-	leafHashes: readonly Uint8Array[],
-	complete: boolean,
-): Promise<Uint8Array[]> {
-	const n = leafHashes.length;
-	if (m === n) return complete ? [] : [await merkleRoot(leafHashes)];
-	const k = splitPoint(n);
-	if (m <= k) {
-		const sub = await subProof(m, leafHashes.slice(0, k), complete);
-		sub.push(await merkleRoot(leafHashes.slice(k)));
-		return sub;
-	}
-	const sub = await subProof(m - k, leafHashes.slice(k), false);
-	sub.push(await merkleRoot(leafHashes.slice(0, k)));
-	return sub;
+	return (await buildMerkleTree(leafHashes)).inclusionPath(index);
 }
 
 /**
@@ -112,7 +198,7 @@ export async function consistencyPath(
 		throw new RangeError("consistencyPath: oldSize out of range");
 	}
 	if (oldSize === 0 || oldSize === n) return [];
-	return subProof(oldSize, leafHashes, true);
+	return (await buildMerkleTree(leafHashes)).consistencyPath(oldSize);
 }
 
 /** Recompute the root from a leaf hash and its audit path. Returns undefined when the path shape is wrong. */
@@ -177,7 +263,10 @@ export async function verifyConsistencyPath(
 	if (oldRoot.length !== HASH_BYTES || newRoot.length !== HASH_BYTES) return false;
 	if (path.some((p) => p.length !== HASH_BYTES)) return false;
 	if (oldSize === newSize) return path.length === 0 && constantTimeEqual(oldRoot, newRoot);
-	if (oldSize === 0) return path.length === 0;
+	if (oldSize === 0) {
+		// The empty prefix has exactly one root: SHA-256 of the empty string.
+		return path.length === 0 && constantTimeEqual(oldRoot, await sha256Raw(new Uint8Array(0)));
+	}
 
 	const nodes: Uint8Array[] = isPowerOfTwo(oldSize) ? [oldRoot, ...path] : [...path];
 	const seed = nodes[0];

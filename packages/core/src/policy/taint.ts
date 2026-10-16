@@ -2,7 +2,7 @@
 // Applied after permission matching and risk tiers, before an approval is spent,
 // so a tainted call that was permitted becomes an escalate (or a deny).
 
-import { matchLabel } from "../taint/labels.js";
+import { matchLabel, setOwn } from "../taint/labels.js";
 import type {
 	ProvenanceMap,
 	TaintConfig,
@@ -27,14 +27,24 @@ export function normalizeProvenance(raw: unknown): ProvenanceMap | undefined {
 		const clean = [
 			...new Set(labels.filter((l): l is string => typeof l === "string" && l !== "")),
 		];
-		if (clean.length > 0) out[arg] = clean.sort();
+		if (clean.length > 0) setOwn(out, arg, clean.sort());
 	}
 	return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
+ * Record which rule produced a match. The index is non-enumerable so the verdict that is
+ * stored in the audit row (and hashed into it) keeps its exact shape.
+ */
+function match(m: TaintMatch, ruleIndex: number): TaintMatch {
+	Object.defineProperty(m, "ruleIndex", { value: ruleIndex, enumerable: false });
+	return m;
 }
 
 function check(
 	rule: TaintRule,
 	ruleId: string,
+	ruleIndex: number,
 	effect: TaintEffect,
 	arg: string,
 	labels: string[],
@@ -43,13 +53,14 @@ function check(
 ): void {
 	if (spec.forbid) {
 		const bad = labels.filter((l) => spec.forbid?.some((p) => matchLabel(p, l)));
-		if (bad.length > 0) out.push({ rule: ruleId, kind: "forbid", arg, labels: bad, effect });
+		if (bad.length > 0)
+			out.push(match({ rule: ruleId, kind: "forbid", arg, labels: bad, effect }, ruleIndex));
 	}
 	if (spec.require && spec.require.length > 0) {
 		if (labels.length === 0 && rule.unlabeled !== "violate") return;
 		const missing = spec.require.filter((p) => !labels.some((l) => matchLabel(p, l)));
 		if (missing.length > 0)
-			out.push({ rule: ruleId, kind: "require", arg, labels: missing, effect });
+			out.push(match({ rule: ruleId, kind: "require", arg, labels: missing, effect }, ruleIndex));
 	}
 }
 
@@ -63,7 +74,10 @@ export function evaluateTaint(
 ): TaintVerdict | undefined {
 	const provenance = call.provenance;
 	const matches: TaintMatch[] = [];
-	const callLabels = provenance?.[CALL_LABELS_KEY] ?? [];
+	const callLabels =
+		provenance && Object.hasOwn(provenance, CALL_LABELS_KEY)
+			? (provenance[CALL_LABELS_KEY] ?? [])
+			: [];
 	const all = provenance ? [...new Set(Object.values(provenance).flat())] : [];
 
 	for (const [index, rule] of (config?.rules ?? []).entries()) {
@@ -72,10 +86,11 @@ export function evaluateTaint(
 		if (!provenance && rule.unlabeled !== "violate") continue;
 		const ruleId = rule.id ?? String(index);
 		const effect = rule.effect ?? "escalate";
-		check(rule, ruleId, effect, CALL_LABELS_KEY, all, rule, matches);
+		check(rule, ruleId, index, effect, CALL_LABELS_KEY, all, rule, matches);
 		for (const [arg, spec] of Object.entries(rule.args ?? {})) {
-			const labels = [...new Set([...(provenance?.[arg] ?? []), ...callLabels])];
-			check(rule, ruleId, effect, arg, labels, spec, matches);
+			const own = provenance && Object.hasOwn(provenance, arg) ? provenance[arg] : undefined;
+			const labels = [...new Set([...(Array.isArray(own) ? own : []), ...callLabels])];
+			check(rule, ruleId, index, effect, arg, labels, spec, matches);
 		}
 	}
 
@@ -90,7 +105,7 @@ export function evaluateTaint(
 
 function tierOf(config: TaintConfig | undefined, verdict: TaintVerdict): string {
 	const first = verdict.matches.find((m) => m.effect === verdict.verdict);
-	const rule = config?.rules.find((r, i) => (r.id ?? String(i)) === first?.rule);
+	const rule = first?.ruleIndex === undefined ? undefined : config?.rules[first.ruleIndex];
 	return rule?.tier ?? "taint";
 }
 

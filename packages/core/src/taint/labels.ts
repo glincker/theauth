@@ -8,7 +8,16 @@
 import type { ProvenanceMap } from "./types.js";
 import { CALL_LABELS_KEY } from "./types.js";
 
-const MAX_DEPTH = 8;
+/** Deepest nesting the walkers follow. Past it the walk stops and the value is marked unverified. */
+const MAX_DEPTH = 64;
+/** Most nodes (objects, arrays and leaves) one walk visits before it stops and marks the value unverified. */
+const MAX_NODES = 250_000;
+/**
+ * Label added when a value is too deep or too large to scan in full. A rule that forbids
+ * `unverified:*` (or `*`), or that requires a label, then acts on it: nothing hidden deep
+ * inside a value can slip past a taint rule.
+ */
+export const UNVERIFIED_DEPTH_LABEL = "unverified:depth";
 const objectLabels = new WeakMap<object, ReadonlySet<string>>();
 
 /** Wrapper for a tagged primitive. JSON.stringify drops the labels on purpose. */
@@ -59,25 +68,72 @@ export function untaint<T>(value: T | TaintedValue<T>): T {
 	return value instanceof TaintedValue ? value.value : value;
 }
 
-function visit(value: unknown, into: Set<string>, depth: number, seen: Set<object>): void {
-	if (value instanceof TaintedValue) {
-		for (const l of value.labels) into.add(l);
-		visit(value.value, into, depth + 1, seen);
-		return;
-	}
-	if (value === null || typeof value !== "object") return;
-	if (seen.has(value)) return;
-	seen.add(value);
-	for (const l of objectLabels.get(value) ?? []) into.add(l);
-	if (depth >= MAX_DEPTH) return;
-	const children = Array.isArray(value) ? value : Object.values(value);
-	for (const child of children) visit(child, into, depth + 1, seen);
+/** Set an own data property, safe for keys like "__proto__" that a plain assignment would swallow. */
+export function setOwn<T>(target: Record<string, T>, key: string, value: T): void {
+	Object.defineProperty(target, key, {
+		value,
+		enumerable: true,
+		writable: true,
+		configurable: true,
+	});
 }
 
-/** Labels carried by a value, including labels of anything nested inside it. */
+/**
+ * Walk a value with an explicit stack (no recursion, so depth cannot overflow the call
+ * stack). Calls `visit` for every node once. Returns true when the walk was cut short by
+ * the depth limit or the node budget, so the caller can fail closed.
+ */
+function walk(root: unknown, visit: (node: unknown) => void): boolean {
+	const seen = new Set<object>();
+	const stack: Array<{ value: unknown; depth: number }> = [{ value: root, depth: 0 }];
+	let nodes = 0;
+	let truncated = false;
+	for (let item = stack.pop(); item !== undefined; item = stack.pop()) {
+		if (++nodes > MAX_NODES) return true;
+		const { value, depth } = item;
+		if (value instanceof TaintedValue) {
+			visit(value);
+			stack.push({ value: value.value, depth: depth + 1 });
+			continue;
+		}
+		if (value === null || typeof value !== "object") {
+			visit(value);
+			continue;
+		}
+		if (seen.has(value)) continue;
+		seen.add(value);
+		visit(value);
+		const children: unknown[] = Array.isArray(value) ? value : Object.values(value);
+		if (children.length === 0) continue;
+		if (depth >= MAX_DEPTH) {
+			truncated = true;
+			continue;
+		}
+		for (let i = children.length - 1; i >= 0; i--) {
+			stack.push({ value: children[i], depth: depth + 1 });
+		}
+	}
+	return truncated;
+}
+
+function collectLabels(value: unknown, into: Set<string>): void {
+	const cut = walk(value, (node) => {
+		if (node instanceof TaintedValue) {
+			for (const l of node.labels) into.add(l);
+		} else if (node !== null && typeof node === "object") {
+			for (const l of objectLabels.get(node) ?? []) into.add(l);
+		}
+	});
+	if (cut) into.add(UNVERIFIED_DEPTH_LABEL);
+}
+
+/**
+ * Labels carried by a value, including labels of anything nested inside it. A value too
+ * deep or too large to scan in full also carries `unverified:depth`.
+ */
 export function labelsOf(value: unknown): string[] {
 	const out = new Set<string>();
-	visit(value, out, 0, new Set());
+	collectLabels(value, out);
 	return [...out];
 }
 
@@ -92,7 +148,7 @@ export function deriveLabels(...sources: unknown[]): string[] {
 		if (Array.isArray(source) && source.every((s) => typeof s === "string")) {
 			for (const l of source as string[]) if (l) out.add(l);
 		} else {
-			visit(source, out, 0, new Set());
+			collectLabels(source, out);
 		}
 	}
 	return [...out];
@@ -117,7 +173,7 @@ export function mergeProvenance(...maps: Array<ProvenanceMap | undefined>): Prov
 		}
 	}
 	const result: ProvenanceMap = {};
-	for (const [arg, set] of out) result[arg] = [...set].sort();
+	for (const [arg, set] of out) setOwn(result, arg, [...set].sort());
 	return result;
 }
 
@@ -131,6 +187,23 @@ export interface ProvenanceTrackerOptions {
 	minTextLength?: number;
 	/** Most tracked strings kept, oldest dropped first. Default 1000. */
 	maxTextEntries?: number;
+	/**
+	 * Total size of tracked strings kept, in UTF-16 code units (about bytes for ASCII), oldest
+	 * dropped first. A single string larger than this is kept as its first `maxTextBytes`
+	 * code units only. Default 1048576 (1 MiB).
+	 */
+	maxTextBytes?: number;
+	/**
+	 * Longest argument string that is searched for inside tracked strings. Longer ones are
+	 * matched against whole tracked strings only. Default 65536.
+	 */
+	maxSubstringLength?: number;
+}
+
+function positiveInt(value: number | undefined, fallback: number): number {
+	return typeof value === "number" && Number.isFinite(value) && value >= 1
+		? Math.floor(value)
+		: fallback;
 }
 
 /**
@@ -140,14 +213,23 @@ export interface ProvenanceTrackerOptions {
  */
 export class ProvenanceTracker {
 	private readonly texts = new Map<string, Set<string>>();
+	private textBytes = 0;
 	private readonly substringMatch: boolean;
 	private readonly minTextLength: number;
 	private readonly maxTextEntries: number;
+	private readonly maxTextBytes: number;
+	private readonly maxSubstringLength: number;
 
 	constructor(options: ProvenanceTrackerOptions = {}) {
 		this.substringMatch = options.substringMatch ?? true;
-		this.minTextLength = options.minTextLength ?? 4;
-		this.maxTextEntries = options.maxTextEntries ?? 1000;
+		const minText = options.minTextLength;
+		this.minTextLength =
+			typeof minText === "number" && Number.isFinite(minText) && minText >= 0
+				? Math.floor(minText)
+				: 4;
+		this.maxTextEntries = positiveInt(options.maxTextEntries, 1000);
+		this.maxTextBytes = positiveInt(options.maxTextBytes, 1_048_576);
+		this.maxSubstringLength = positiveInt(options.maxSubstringLength, 65_536);
 	}
 
 	/** Register labels for a value (and the strings inside it). Returns the value. */
@@ -157,7 +239,10 @@ export class ProvenanceTracker {
 		if (value !== null && typeof value === "object" && !(value instanceof TaintedValue)) {
 			tainted(value, [...set]);
 		}
-		this.rememberStrings(value, set, 0, new Set());
+		walk(value, (node) => {
+			const raw = untaint(node);
+			if (typeof raw === "string") this.remember(raw, set);
+		});
 		return value;
 	}
 
@@ -168,8 +253,13 @@ export class ProvenanceTracker {
 
 	/** Labels for a value: its own tags plus labels of tracked strings found in it. */
 	labelsOf(value: unknown): string[] {
-		const out = new Set(labelsOf(value));
-		this.collectTexts(value, out, 0, new Set());
+		const out = new Set<string>();
+		collectLabels(value, out);
+		const cut = walk(value, (node) => {
+			const raw = untaint(node);
+			if (typeof raw === "string") this.collectText(raw, out);
+		});
+		if (cut) out.add(UNVERIFIED_DEPTH_LABEL);
 		return [...out];
 	}
 
@@ -179,50 +269,39 @@ export class ProvenanceTracker {
 		if (args === null || typeof args !== "object") return out;
 		for (const [name, value] of Object.entries(args)) {
 			const labels = this.labelsOf(value);
-			if (labels.length > 0) out[name] = labels;
+			if (labels.length > 0) setOwn(out, name, labels);
 		}
 		const callLabels = labelsOf(args);
 		if (callLabels.length > 0) out[CALL_LABELS_KEY] = callLabels;
 		return out;
 	}
 
-	private rememberStrings(value: unknown, labels: Set<string>, depth: number, seen: Set<object>) {
-		const raw = untaint(value);
-		if (typeof raw === "string") {
-			if (raw.length < this.minTextLength) return;
-			const set = this.texts.get(raw) ?? new Set<string>();
-			for (const l of labels) set.add(l);
-			this.texts.delete(raw);
-			this.texts.set(raw, set);
-			while (this.texts.size > this.maxTextEntries) {
-				const oldest = this.texts.keys().next().value;
-				if (oldest === undefined) break;
-				this.texts.delete(oldest);
-			}
-			return;
+	private remember(text: string, labels: Set<string>): void {
+		if (text.length < this.minTextLength) return;
+		const raw = text.length > this.maxTextBytes ? text.slice(0, this.maxTextBytes) : text;
+		const existing = this.texts.get(raw);
+		const set = existing ?? new Set<string>();
+		for (const l of labels) set.add(l);
+		if (existing) this.textBytes -= raw.length;
+		this.texts.delete(raw);
+		this.texts.set(raw, set);
+		this.textBytes += raw.length;
+		while (this.texts.size > this.maxTextEntries || this.textBytes > this.maxTextBytes) {
+			const oldest = this.texts.keys().next().value;
+			if (oldest === undefined) break;
+			this.texts.delete(oldest);
+			this.textBytes -= oldest.length;
 		}
-		if (raw === null || typeof raw !== "object" || depth >= MAX_DEPTH || seen.has(raw)) return;
-		seen.add(raw);
-		const children = Array.isArray(raw) ? raw : Object.values(raw);
-		for (const child of children) this.rememberStrings(child, labels, depth + 1, seen);
 	}
 
-	private collectTexts(value: unknown, into: Set<string>, depth: number, seen: Set<object>) {
-		const raw = untaint(value);
-		if (typeof raw === "string") {
-			if (raw.length < this.minTextLength) return;
-			const exact = this.texts.get(raw);
-			if (exact) for (const l of exact) into.add(l);
-			if (this.substringMatch) {
-				for (const [text, labels] of this.texts) {
-					if (text !== raw && text.includes(raw)) for (const l of labels) into.add(l);
-				}
+	private collectText(raw: string, into: Set<string>): void {
+		if (raw.length < this.minTextLength) return;
+		const exact = this.texts.get(raw);
+		if (exact) for (const l of exact) into.add(l);
+		if (this.substringMatch && raw.length <= this.maxSubstringLength) {
+			for (const [text, labels] of this.texts) {
+				if (text !== raw && text.includes(raw)) for (const l of labels) into.add(l);
 			}
-			return;
 		}
-		if (raw === null || typeof raw !== "object" || depth >= MAX_DEPTH || seen.has(raw)) return;
-		seen.add(raw);
-		const children = Array.isArray(raw) ? raw : Object.values(raw);
-		for (const child of children) this.collectTexts(child, into, depth + 1, seen);
 	}
 }

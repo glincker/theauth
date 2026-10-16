@@ -137,12 +137,15 @@ export async function verifyCheckpoint(
 	checkpoint: Checkpoint,
 	publicKey: CheckpointPublicKey | readonly CheckpointPublicKey[],
 ): Promise<VerifyOutcome> {
-	if (!isWellFormedCheckpoint(checkpoint)) return { valid: false, reason: "malformed" };
-	if ((checkpoint.alg as string) !== "Ed25519") return { valid: false, reason: "unsupported_alg" };
-	const keys = Array.isArray(publicKey) ? publicKey : [publicKey as CheckpointPublicKey];
-	const match = keys.find((k) => k.keyId === checkpoint.keyId);
-	if (!match) return { valid: false, reason: "unknown_key" };
 	try {
+		if (!isWellFormedCheckpoint(checkpoint)) return { valid: false, reason: "malformed" };
+		if ((checkpoint.alg as string) !== "Ed25519") {
+			return { valid: false, reason: "unsupported_alg" };
+		}
+		const list: unknown[] = Array.isArray(publicKey) ? publicKey : [publicKey];
+		const keys = list.filter((k): k is CheckpointPublicKey => typeof k === "object" && k !== null);
+		const match = keys.find((k) => k.keyId === checkpoint.keyId);
+		if (!match) return { valid: false, reason: "unknown_key" };
 		if (match.publicKey.kty !== "OKP" || match.publicKey.crv !== "Ed25519") {
 			return { valid: false, reason: "unsupported_alg" };
 		}
@@ -154,8 +157,9 @@ export async function verifyCheckpoint(
 			["verify"],
 		);
 		const signature = fromBase64Url(checkpoint.signature);
-		if (signature.length !== ED25519_SIGNATURE_BYTES)
+		if (signature.length !== ED25519_SIGNATURE_BYTES) {
 			return { valid: false, reason: "bad_signature" };
+		}
 		const ok = await globalThis.crypto.subtle.verify(
 			{ name: "Ed25519" },
 			key,
@@ -164,6 +168,7 @@ export async function verifyCheckpoint(
 		);
 		return ok ? { valid: true } : { valid: false, reason: "bad_signature" };
 	} catch {
+		// Never throw on hostile input: anything unexpected is a failed check.
 		return { valid: false, reason: "bad_signature" };
 	}
 }

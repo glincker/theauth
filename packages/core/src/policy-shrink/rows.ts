@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, gte, lte, or } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
+import { wholeOr } from "./permissions.js";
 import type { DecisionRow } from "./types.js";
 
 const DEFAULT_PAGE = 1000;
@@ -22,7 +23,7 @@ export async function* readDecisionRows(
 	agentId: string,
 	opts: ReadRowsOptions = {},
 ): AsyncGenerator<DecisionRow[]> {
-	const pageSize = Math.max(1, Math.floor(opts.pageSize ?? DEFAULT_PAGE));
+	const pageSize = wholeOr(opts.pageSize, DEFAULT_PAGE, 1);
 	let cursor: { at: Date; id: string } | null = null;
 	for (;;) {
 		const conds = [eq(auditLogs.agentId, agentId)];

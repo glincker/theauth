@@ -46,11 +46,15 @@ console.log(plan.remove, report.newlyDenied);
 | `generalize` | `false` | Merge observed sibling resources into `parent:*`. |
 | `generalizeMin` | `3` | Distinct observed siblings needed before a merge. |
 
+A non-finite number (for example `NaN` from an unset environment variable) in any numeric option, or in `maxExamples` and `pageSize`, is ignored and the default is used.
+
 Output is deterministic and follows the order of the granted list.
 
 ### Generalizing
 
 With `generalize` on, `mcp:github:issues`, `mcp:github:pulls` and `mcp:github:repos` can become `mcp:github:*`. A merge happens only when every merged resource was used, when one of the agent's existing grants already covers the wildcard (the result is never broader than what the agent has today), and when the wildcard matches no resource that was denied for lack of a grant. Even so, the wildcard admits siblings nobody has called yet, so each merge is listed in `rewrites` with its `from` permissions. Leave it off if you want the result to match observed use exactly.
+
+A `*` segment in a resource pattern matches that segment and everything after it, at any depth, and also the parent itself (`tool:*` matches `tool`, `tool:a` and `tool:a:b`). Replay uses the same matching as `authorize()`.
 
 ## Example output
 

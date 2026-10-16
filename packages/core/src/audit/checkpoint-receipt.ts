@@ -7,15 +7,16 @@
 import { constantTimeEqual } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import type { Result } from "../mcp/types.js";
-import { loadCheckpointLeaves, verifyInclusionProof } from "./checkpoint.js";
+import { loadCheckpointTree, verifyInclusionProof } from "./checkpoint.js";
 import {
 	fieldCommitment,
 	fieldSalt,
 	leafPreimage,
+	loadLeaf,
 	receiptFieldsFor,
 	resolveReceiptKey,
 } from "./checkpoint-leaves.js";
-import { inclusionPath, merkleLeafHash } from "./checkpoint-merkle.js";
+import { merkleLeafHash } from "./checkpoint-merkle.js";
 import { bytesToHex, hexToBytes, isHashHex } from "./checkpoint-sign.js";
 import type {
 	Checkpoint,
@@ -42,11 +43,16 @@ export async function createReceipt(
 	opts: CreateReceiptOptions,
 ): Promise<Result<Receipt>> {
 	try {
-		const leaves = await loadCheckpointLeaves(db, checkpoint, opts.hmacKey);
-		if (!leaves.success) return leaves;
-		const index = leaves.data.findIndex((l) => l.row.id === rowId);
-		const leaf = leaves.data[index];
-		if (!leaf) return fail("ROW_NOT_FOUND", "The row is not covered by this checkpoint");
+		const covered = await loadCheckpointTree(db, checkpoint, opts.hmacKey);
+		if (!covered.success) return covered;
+		const { ids, hashes, tree } = covered.data;
+		const index = ids.indexOf(rowId);
+		if (index < 0) return fail("ROW_NOT_FOUND", "The row is not covered by this checkpoint");
+		const leaf = await loadLeaf(db, rowId, opts.hmacKey);
+		const covering = hashes[index];
+		if (!leaf || !covering || !constantTimeEqual(leaf.leafHash, covering)) {
+			return fail("LOG_MISMATCH", "The row changed while the receipt was being built");
+		}
 
 		const hashVersion = leaf.row.hashVersion ?? 1;
 		const allowed = receiptFieldsFor(hashVersion);
@@ -68,10 +74,7 @@ export async function createReceipt(
 				commitments[name] = leaf.commitments[name] as string;
 			}
 		}
-		const path = await inclusionPath(
-			leaves.data.map((l) => l.leafHash),
-			index,
-		);
+		const path = await tree.inclusionPath(index);
 		return {
 			success: true,
 			data: {

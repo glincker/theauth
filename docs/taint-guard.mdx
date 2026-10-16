@@ -114,6 +114,8 @@ The column is part of the hash chain, so `verifyAuditChain` covers it. Labels ar
 
 - Labels are only as good as the host's tagging. An untagged argument looks clean. Use `unlabeled: "violate"` on rules where a missing label should fail closed.
 - Nothing here reads the model. Labels do not follow data the model rewrites, summarizes or splits. Content matching in the tracker is a heuristic.
+- **Depth and size.** Labels are read from values nested up to 64 levels deep and up to 250,000 nodes. A value past either limit is not scanned in full, so it carries the label `unverified:depth` in addition to the labels found. A rule with `forbid: ["unverified:*"]` (or `"*"`) then escalates or denies it, and a `require` rule treats it as unproven. Without such a rule the label is only recorded.
+- **Tracker memory.** `ProvenanceTracker` keeps at most `maxTextEntries` strings (default 1000) and `maxTextBytes` in total (default 1 MiB, oldest dropped first; one larger string is kept as its first `maxTextBytes` characters). Arguments longer than `maxSubstringLength` (default 65536) are matched against whole tracked strings only, not searched for inside them.
 - A fetched page can steer the model toward arguments you labeled `user`, if your code labels them that way. Label by origin of the bytes, not by who called the tool.
 - An approver who approves without reading the arguments defeats the control.
 - This reduces one class of prompt injection harm. It is not a model level guarantee, and it does not replace sandboxing or least privilege permissions.

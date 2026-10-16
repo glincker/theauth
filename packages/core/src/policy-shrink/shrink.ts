@@ -1,6 +1,6 @@
 import { matchResource } from "../policy/abac.js";
 import type { Permission } from "../types.js";
-import { atomKey, compactPermissions, covers, extrasKey } from "./permissions.js";
+import { atomKey, compactPermissions, covers, extrasKey, wholeOr } from "./permissions.js";
 import type { ShrinkOptions, ShrinkRewrite, ShrinkSuggestion, UsageAnalysis } from "./types.js";
 
 const DEFAULT_GENERALIZE_MIN = 3;
@@ -16,6 +16,8 @@ interface Group {
 	action: string;
 	extras: Permission;
 	indexes: number[];
+	/** Distinct atoms in the group. Duplicate atoms are dropped on a merge but do not count as siblings. */
+	distinct: Set<string>;
 }
 
 /**
@@ -35,7 +37,7 @@ interface Group {
  * why it is off by default and every merge is listed in `rewrites`.
  */
 export function suggestShrink(analysis: UsageAnalysis, opts: ShrinkOptions = {}): ShrinkSuggestion {
-	const min = Math.max(1, Math.floor(opts.minObservations ?? 1));
+	const min = wholeOr(opts.minObservations, 1, 1);
 	const usedCount = new Map<string, number>();
 	for (const u of analysis.used) usedCount.set(atomKey(u.permission), u.count);
 	const attempted = new Set(analysis.attemptedOnly.map(atomKey));
@@ -58,23 +60,33 @@ export function suggestShrink(analysis: UsageAnalysis, opts: ShrinkOptions = {})
 
 	const rewrites: ShrinkRewrite[] = [];
 	if (opts.generalize) {
-		const groupMin = Math.max(2, Math.floor(opts.generalizeMin ?? DEFAULT_GENERALIZE_MIN));
+		const groupMin = wholeOr(opts.generalizeMin, DEFAULT_GENERALIZE_MIN, 2);
 		const groups = new Map<string, Group>();
 		kept.forEach((atom, index) => {
 			if (!observed.has(atomKey(atom))) return;
 			const parent = parentOf(atom.resource);
 			const action = atom.actions[0];
 			if (parent === null || action === undefined) return;
-			const key = `${parent}\u0000${action}\u0000${extrasKey(atom)}`;
+			const key = JSON.stringify([parent, action, extrasKey(atom)]);
 			const g = groups.get(key);
-			if (g) g.indexes.push(index);
-			else groups.set(key, { parent, action, extras: atom, indexes: [index] });
+			if (g) {
+				g.indexes.push(index);
+				g.distinct.add(atomKey(atom));
+			} else {
+				groups.set(key, {
+					parent,
+					action,
+					extras: atom,
+					indexes: [index],
+					distinct: new Set([atomKey(atom)]),
+				});
+			}
 		});
 
 		const drop = new Set<number>();
 		const replaceAt = new Map<number, Permission>();
 		for (const g of groups.values()) {
-			if (g.indexes.length < groupMin) continue;
+			if (g.distinct.size < groupMin) continue;
 			const to: Permission = { resource: `${g.parent}:*`, actions: [g.action] };
 			if (g.extras.constraints) to.constraints = g.extras.constraints;
 			if (g.extras.relation) to.relation = g.extras.relation;

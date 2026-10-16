@@ -9,12 +9,11 @@
 import { constantTimeEqual } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import type { Result } from "../mcp/types.js";
-import type { LogLeaf } from "./checkpoint-leaves.js";
-import { loadLeaves } from "./checkpoint-leaves.js";
+import type { LeafSet } from "./checkpoint-leaves.js";
+import { loadLeafSet } from "./checkpoint-leaves.js";
+import type { MerkleTree } from "./checkpoint-merkle.js";
 import {
-	consistencyPath,
-	inclusionPath,
-	merkleRoot,
+	buildMerkleTree,
 	verifyConsistencyPath,
 	verifyInclusionPath,
 } from "./checkpoint-merkle.js";
@@ -72,8 +71,13 @@ function rangeOf(cp: Checkpoint): { since: number | null; until: number | null }
 	return { since: cp.since, until: cp.until };
 }
 
-async function rootHex(leaves: readonly LogLeaf[]): Promise<string> {
-	return bytesToHex(await merkleRoot(leaves.map((l) => l.leafHash)));
+/** The leaves of a checkpointed log range and the tree built over them once. */
+export interface CheckpointTree extends LeafSet {
+	tree: MerkleTree;
+}
+
+async function treeOf(set: LeafSet): Promise<CheckpointTree> {
+	return { ...set, tree: await buildMerkleTree(set.hashes) };
 }
 
 function same(a: string, b: string): boolean {
@@ -91,14 +95,23 @@ export async function createCheckpoint(
 			since: opts.since ? opts.since.getTime() : null,
 			until: opts.until ? opts.until.getTime() : null,
 		};
-		const leaves = await loadLeaves(db, range, opts.hmacKey);
+		for (const bound of [range.since, range.until]) {
+			if (bound !== null && !(Number.isSafeInteger(bound) && bound >= 0)) {
+				return fail("INVALID_RANGE", "since and until must be valid dates at or after 1970");
+			}
+		}
+		const timestamp = (opts.now ?? new Date()).getTime();
+		if (!(Number.isSafeInteger(timestamp) && timestamp >= 0)) {
+			return fail("INVALID_TIMESTAMP", "now must be a valid date at or after 1970");
+		}
+		const { ids, tree } = await treeOf(await loadLeafSet(db, range, opts.hmacKey));
 		const checkpoint = await signCheckpoint(opts.signer, {
 			version: 1,
 			alg: "Ed25519",
 			keyId: opts.signer.keyId,
-			size: leaves.length,
-			rootHash: await rootHex(leaves),
-			timestamp: (opts.now ?? new Date()).getTime(),
+			size: ids.length,
+			rootHash: bytesToHex(await tree.root()),
+			timestamp,
 			...range,
 		});
 		if (opts.store) await opts.store.put(checkpoint);
@@ -117,20 +130,21 @@ async function leavesMatching(
 	db: Database,
 	checkpoint: Checkpoint,
 	hmacKey?: string,
-): Promise<Result<LogLeaf[]>> {
+): Promise<Result<CheckpointTree>> {
 	if (!isWellFormedCheckpoint(checkpoint))
 		return fail("INVALID_CHECKPOINT", "Malformed checkpoint");
-	const leaves = await loadLeaves(db, rangeOf(checkpoint), hmacKey, checkpoint.size);
-	if (leaves.length < checkpoint.size) {
+	const set = await loadLeafSet(db, rangeOf(checkpoint), hmacKey, checkpoint.size);
+	if (set.ids.length < checkpoint.size) {
 		return fail("LOG_MISMATCH", "The log has fewer rows than the checkpoint committed to");
 	}
-	if (!same(await rootHex(leaves), checkpoint.rootHash)) {
+	const built = await treeOf(set);
+	if (!same(bytesToHex(await built.tree.root()), checkpoint.rootHash)) {
 		return fail("LOG_MISMATCH", "The log no longer matches the checkpoint root");
 	}
-	return { success: true, data: leaves };
+	return { success: true, data: built };
 }
 
-export { leavesMatching as loadCheckpointLeaves };
+export { leavesMatching as loadCheckpointTree };
 
 /** Prove that a row is a leaf of the tree the checkpoint committed to. Later rows do not matter. */
 export async function createInclusionProof(
@@ -142,10 +156,10 @@ export async function createInclusionProof(
 	try {
 		const leaves = await leavesMatching(db, checkpoint, opts.hmacKey);
 		if (!leaves.success) return leaves;
-		const index = leaves.data.findIndex((l) => l.row.id === rowId);
+		const { ids, hashes, tree } = leaves.data;
+		const index = ids.indexOf(rowId);
 		if (index < 0) return fail("ROW_NOT_FOUND", "The row is not covered by this checkpoint");
-		const hashes = leaves.data.map((l) => l.leafHash);
-		const path = await inclusionPath(hashes, index);
+		const path = await tree.inclusionPath(index);
 		return {
 			success: true,
 			data: {
@@ -223,14 +237,11 @@ export async function createConsistencyProof(
 		}
 		const leaves = await leavesMatching(db, newer, opts.hmacKey);
 		if (!leaves.success) return leaves;
-		const oldRoot = await rootHex(leaves.data.slice(0, older.size));
+		const oldRoot = bytesToHex(await leaves.data.tree.prefixRoot(older.size));
 		if (!same(oldRoot, older.rootHash)) {
 			return fail("LOG_MISMATCH", "The older checkpoint is not a prefix of the current log");
 		}
-		const path = await consistencyPath(
-			leaves.data.map((l) => l.leafHash),
-			older.size,
-		);
+		const path = await leaves.data.tree.consistencyPath(older.size);
 		return {
 			success: true,
 			data: { version: 1, oldSize: older.size, newSize: newer.size, path: path.map(bytesToHex) },

@@ -1,9 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { delegationChains, permissions as permissionsTable } from "../db/schema.js";
-import { findMatchingPermission } from "../policy/abac.js";
 import type { Permission } from "../types.js";
-import { atomKey, classifyRow, splitPermission } from "./permissions.js";
+import { atomKey, classifyRow, createGrantMatcher, splitPermission } from "./permissions.js";
 import { readDecisionRows } from "./rows.js";
 import type {
 	AnalyzeOptions,
@@ -13,6 +12,9 @@ import type {
 	UsageAnalysis,
 	UsedPermission,
 } from "./types.js";
+
+/** Most delegation chain ids kept per grant, so a hostile or huge log cannot grow one set without bound. */
+const CHAINS_PER_GRANT_CAP = 1000;
 
 /** Distinct pairs kept for `deniedNoGrant` and `uncovered`, so memory stays bounded. */
 const DISTINCT_CAP = 5000;
@@ -69,8 +71,8 @@ interface UseState {
 
 /**
  * Pure accumulator behind analyzeUsage. Feed it rows in any order, then call
- * `finish`. Matching uses findMatchingPermission, the function the engine
- * uses, so a row is attributed to the same grant `authorize()` would pick.
+ * `finish`. Matching gives the same first-match result as findMatchingPermission, the function the
+ * engine uses, so a row is attributed to the same grant `authorize()` would pick.
  */
 export function createUsageAccumulator(
 	agentId: string,
@@ -78,6 +80,7 @@ export function createUsageAccumulator(
 	window: { since?: Date; until?: Date } = {},
 ) {
 	const atoms = grants.map((g) => g.permission);
+	const find = createGrantMatcher(atoms);
 	const used = new Map<number, UseState>();
 	const attempted = new Set<number>();
 	const denied = new Map<string, { action: string; resource: string }>();
@@ -100,13 +103,13 @@ export function createUsageAccumulator(
 		}
 		if (kind === "deny_no_grant") {
 			ev.noGrantDenials++;
-			const key = `${row.action}\u0000${row.resource}`;
+			const key = JSON.stringify([row.action, row.resource]);
 			if (!denied.has(key) && denied.size < DISTINCT_CAP) {
 				denied.set(key, { action: row.action, resource: row.resource });
 			}
 			return;
 		}
-		const hit = findMatchingPermission(atoms, row.action, row.resource);
+		const hit = find(row.action, row.resource);
 		if (kind === "deny_other") {
 			// Denied for another cause: the grant was exercised, so it is not proof of non-use.
 			ev.otherDenials++;
@@ -116,7 +119,7 @@ export function createUsageAccumulator(
 		ev.allowedRows++;
 		if (!hit) {
 			ev.uncoveredAllows++;
-			const key = `${row.action}\u0000${row.resource}`;
+			const key = JSON.stringify([row.action, row.resource]);
 			const u = uncovered.get(key);
 			if (u) u.count++;
 			else if (uncovered.size < DISTINCT_CAP) {
@@ -133,9 +136,12 @@ export function createUsageAccumulator(
 		if (row.timestamp < s.first) s.first = row.timestamp;
 		if (row.timestamp > s.last) s.last = row.timestamp;
 		const src = grants[hit.index]?.source;
-		if (src?.chainId) s.chains.add(src.chainId);
+		if (src?.chainId && s.chains.size < CHAINS_PER_GRANT_CAP) s.chains.add(src.chainId);
 		if (src?.kind === "delegation") {
-			for (const id of row.delegationChain ?? []) s.chains.add(id);
+			for (const id of row.delegationChain ?? []) {
+				if (s.chains.size >= CHAINS_PER_GRANT_CAP) break;
+				s.chains.add(id);
+			}
 		}
 	}
 

@@ -1,7 +1,6 @@
 import type { Database } from "../db/database.js";
-import { findMatchingPermission } from "../policy/abac.js";
 import type { Permission } from "../types.js";
-import { classifyRow } from "./permissions.js";
+import { classifyRow, createGrantMatcher, wholeOr } from "./permissions.js";
 import { readDecisionRows } from "./rows.js";
 import type {
 	BlastRadiusReport,
@@ -20,11 +19,12 @@ function ref(row: DecisionRow): RowRef {
 
 /**
  * Incremental replay of decision rows against a proposed permission set.
- * Matching only (action and resource, via the engine's findMatchingPermission).
+ * Matching only (action and resource, same first-match result as the engine's findMatchingPermission).
  * Constraints depend on live state, so they are not re-evaluated.
  */
 export function createReplay(proposed: Permission[], opts: VerifyOptions = {}) {
-	const max = Math.max(0, Math.floor(opts.maxExamples ?? DEFAULT_EXAMPLES));
+	const max = wholeOr(opts.maxExamples, DEFAULT_EXAMPLES);
+	const find = createGrantMatcher(proposed);
 	const perPermission = proposed.map((p) => ({ permission: p, allows: 0 }));
 	const report: BlastRadiusReport = {
 		replayedAllows: 0,
@@ -44,7 +44,7 @@ export function createReplay(proposed: Permission[], opts: VerifyOptions = {}) {
 			report.ignoredRows++;
 			return;
 		}
-		const hit = findMatchingPermission(proposed, row.action, row.resource);
+		const hit = find(row.action, row.resource);
 		if (kind === "allow") {
 			report.replayedAllows++;
 			if (hit) {

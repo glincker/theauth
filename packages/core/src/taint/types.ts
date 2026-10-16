@@ -43,6 +43,11 @@ export interface TaintConfig {
 
 export interface TaintMatch {
 	rule: string;
+	/**
+	 * Position of the matching rule in `TaintConfig.rules` (rule ids need not be unique).
+	 * Non-enumerable: it is not serialized and does not appear in stored verdicts.
+	 */
+	ruleIndex?: number;
 	kind: "forbid" | "require";
 	/** Argument name, or "*" for a call-level rule. */
 	arg: string;
