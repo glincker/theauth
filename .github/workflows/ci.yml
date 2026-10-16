@@ -83,11 +83,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      # On PRs, only packages changed against main and their dependents run. Push to main and the
+      # On PRs, only packages changed against main and their dependents run. Builds stay scoped to
+      # packages (as `pnpm build` is), because the example apps are not built in CI. Push to main and the
       # nightly schedule run everything. Lint always runs in full (biome is fast).
       - name: Build (affected)
         if: github.event_name == 'pull_request'
-        run: pnpm exec turbo run build --filter='...[origin/main]'
+        run: pnpm exec turbo run build --filter='...[origin/main]' --filter='!./examples/**' --filter='!./apps/**'
 
       - name: Build
         if: github.event_name != 'pull_request'
