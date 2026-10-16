@@ -93,7 +93,7 @@ if (!result.allowed) {
 }
 ```
 
-A `requireApproval` permission is always denied by `authorize()`. Your code reads the reason, opens an approval request and runs the action itself after a human approves. `policy.evaluate()` returns `escalate` for the same permission instead, which is easier to branch on. See [Approval flows](/approval) and [Permissions](/permissions).
+A `requireApproval` permission is denied by `authorize()` until the call carries the `approvalId` of an approved request, which `authorize()` then spends once. Your code reads the reason, opens an approval request and retries with the id after a human approves. `policy.evaluate()` returns `escalate` for the same permission instead, which is easier to branch on, and accepts `approvalId` the same way. See [Approval flows](/approval) and [Permissions](/permissions).
 
 To let a sub-agent act within a narrower scope, delegate a subset with a short expiry. Constraints on the delegated permissions are stored and enforced, and a child can only tighten what its parent holds: `requireApproval` is OR-ed, `maxCallsPerHour` takes the lower value, and lists are intersected.
 
@@ -211,7 +211,7 @@ await theauth.agent.revoke(agent.id);
 await theauth.delegation.revoke(chain.id); // also revokes links downstream of it
 ```
 
-Revoking an agent does not terminate an operation that already passed authorization. See [Agent identity](/agents#lifecycle) and [Cascading revocation](/delegation#cascading-revocation).
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain where the agent is the source or the target, plus the chains downstream of them, and returns their ids as `revokedDelegations`. It writes one `agent.cascade.revoked` audit row for the agent, with those ids in `delegation_chain`, and it fires `onAgentRevoke`. Calling it again revokes nothing new and writes no second row. Revoking an agent does not terminate an operation that already passed authorization. See [Agent identity](/agents#lifecycle) and [Cascading revocation](/delegation#cascading-revocation).
 
 ## What is not shipped yet?
 
@@ -219,8 +219,7 @@ Revoking an agent does not terminate an operation that already passed authorizat
   These are planned and are not available in the SDK today.
 </Warning>
 
-- **Planned:** revoking an agent that cascades to everything it delegated. In the TypeScript package, `agent.revoke()` only changes the agent's status, so revoke the delegation chains explicitly, as above. The chain rows stay active until you do.
-- **Planned:** the approver on the same row as the decision. Today the approver is on the approval's own audit row.
+- **Planned:** the approver on the same row as every decision. The decision that spends an approval carries `approver_id` and the approval id today. Other decisions keep the approver on the approval's own audit row.
 - **Planned:** automatic `input_provenance`. The column exists and you can write it, but the SDK does not fill it.
 
 ## FAQ

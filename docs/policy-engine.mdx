@@ -132,7 +132,7 @@ const decision = await theauth.policy.evaluate(
 
 `RiskContext` fields are `amount`, `currency`, `dataClass`, `irreversible` and `extras`. A rule matches only when every field in its `when` holds: `minAmount`, `currency`, `dataClasses` and `irreversible`. The caller supplies the risk values; the engine does not derive them. The amount threshold is this tier rule, not a numeric constraint on a permission, and cumulative spend is not tracked.
 
-With `openApproval: true`, an escalation opens a request through the [approval module](/approval) for the agent's owner (or `subject.userId`) and returns its id on `escalation.approvalRequestId`. If the request cannot be stored, the decision stays `escalate` without an id. It never becomes an allow. The decision stays `escalate` after a human approves, so your code runs the action once the request is approved.
+With `openApproval: true`, an escalation opens a request through the [approval module](/approval) for the agent's owner (or `subject.userId`) and returns its id on `escalation.approvalRequestId`. If the request cannot be stored, the decision stays `escalate` without an id. It never becomes an allow. The decision stays `escalate` after a human approves until you call `evaluate` again with `approvalId` set to that request id. evaluate then verifies the approval, spends it (single use) and returns `allow`, or returns `deny` with `APPROVAL_NOT_FOUND`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_EXPIRED` or `APPROVAL_ALREADY_USED`. See [Approval flows](/approval).
 
 ## Owner binding and inactive agents
 

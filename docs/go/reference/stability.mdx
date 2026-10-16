@@ -105,6 +105,16 @@ membership delete during SCIM deprovisioning returns 500 where it was ignored.
 Only the SQLite store chains audit events; the other backends report
 `ErrAuditChainUnsupported`.
 
+## Additive surface (token agent id)
+
+New in the next release, all additive: `APIToken.AgentID`,
+`MintAgentTokenInput.AgentID`, `MintAPITokenInput.AgentID` and the optional
+storage capability `APITokenAgentStorage` (`APITokensByAgentID`). Agent
+suspend and revoke now cut minted tokens by exact agent id; tokens minted
+before the id was stored are still matched by name and owner. Custom storage
+backends should add the nullable `agent_id` column and implement
+`APITokensByAgentID`, or the cascade falls back to name and owner matching.
+
 ## Stable surface
 
 ### Root package: `github.com/glincker/theauth-go/v2`

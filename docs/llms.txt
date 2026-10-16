@@ -109,6 +109,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Trust scoring](https://docs.theauth.dev/trust): TrustScore is a 0 to 100 value from each agent audit log, mapping to five named levels that gate autonomy, approval requirements, and rate limit strictness.
 - [Anomaly detection](https://docs.theauth.dev/anomaly): What theAuth provides for spotting unusual agent behavior today (trust score anomaly count, the onViolation hook, audit queries) and what is not implemented.
 - [Approval flows](https://docs.theauth.dev/approval): CIBA-style async human-in-the-loop approval for actions that should not run unattended.
+- [Guard agent tools](https://docs.theauth.dev/agent-tools): Put the policy engine in front of the tools an AI agent calls, in any TypeScript agent framework.
 - [Permission simulator](https://docs.theauth.dev/simulator): Ask what an agent would be allowed to do, with a step by step trace and no side effects.
 - [Rate limiting](https://docs.theauth.dev/rate-limiting): Apply per-IP limits on auth endpoints with the rateLimit plugin and per-agent call caps with the maxCallsPerHour constraint.
 - [CLI login (device flow)](https://docs.theauth.dev/cli-auth): Sign users into a CLI, TV app or MCP client with the OAuth device authorization grant (RFC 8628), with theauth login, logout and whoami.

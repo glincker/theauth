@@ -355,6 +355,7 @@
             "icon": "gauge",
             "pages": [
               "approval",
+              "agent-tools",
               "simulator",
               "rate-limiting",
               "cli-auth",
