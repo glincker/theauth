@@ -198,7 +198,7 @@ The export is a JSONL file plus a manifest signed with your HMAC key, and `verif
 
 The decision row and the approval answer are separate rows. The decision row holds the inputs, the policy version and the lineage. The approval row holds `approver_id`. Replay merges them in time order. Three limits apply:
 
-- `input_provenance` is a column the caller fills in through `recordAuditEvent`. Nothing in the SDK populates it automatically.
+- `input_provenance` is filled when you supply provenance labels to the tool guard (see [taint guard](/taint-guard)), or when your code passes it to `recordAuditEvent`. With no labels it stays empty, and an empty value does not mean the inputs were trusted.
 - Audit writes from `recordAuditEvent` (policy decisions, delegation, approval and SCIM events) are best effort. They never throw, failures are counted by `getAuditWriteFailures`, and the next successful write is preceded by an `audit.write_failed` row.
 - Chained rows hash keyed pseudonyms of the ids, so GDPR erasure can blank raw ids without breaking verification. Whoever holds the key can still link a pseudonym to an id.
 
@@ -220,7 +220,7 @@ In the TypeScript package, `agent.revoke()` also revokes every active delegation
 </Warning>
 
 - **Planned:** the approver on the same row as every decision. The decision that spends an approval carries `approver_id` and the approval id today. Other decisions keep the approver on the approval's own audit row.
-- **Planned:** automatic `input_provenance`. The column exists and you can write it, but the SDK does not fill it.
+- **Partly available:** `input_provenance` is filled from the labels you give the tool guard. The SDK does not work out where an input came from by itself.
 
 ## FAQ
 

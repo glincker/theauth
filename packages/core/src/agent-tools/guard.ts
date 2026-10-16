@@ -7,6 +7,9 @@ import type {
 	PolicyDecision,
 	RiskContext,
 } from "../policy/types.js";
+import type { ProvenanceTracker } from "../taint/labels.js";
+import { labelsOf, mergeProvenance, TaintedValue } from "../taint/labels.js";
+import type { ProvenanceMap } from "../taint/types.js";
 import { ToolApprovalRequiredError, ToolDeniedError, ToolGuardFailedError } from "./errors.js";
 
 /** The slice of a theAuth instance the guard uses. */
@@ -57,6 +60,18 @@ export interface GuardOptions<A = unknown, C = unknown> {
 	 * resource, so return it only for the call that was approved.
 	 */
 	approvalId?: (ctx: C | undefined, args: A) => string | undefined;
+	/**
+	 * Provenance labels of the arguments, e.g. `{ recipient: ["untrusted_web"] }`. Use the key
+	 * "*" for labels that cover the whole call. Merged with labels read from `tracker` and from
+	 * values tagged with `tainted()`. With none of these, the call is evaluated as before.
+	 */
+	provenance?: ProvenanceMap | ((args: A, ctx: C | undefined) => ProvenanceMap | undefined);
+	/**
+	 * Tracker that reads labels off the arguments and registers this tool's result as
+	 * `tool_output:<name>` (plus the labels of its arguments), so the output flows into
+	 * the arguments of later guarded calls.
+	 */
+	tracker?: ProvenanceTracker;
 	/** Open an approval request when the decision escalates. Default true. */
 	openApproval?: boolean;
 	/** Called before ToolApprovalRequiredError is thrown, e.g. to notify an approver. Errors propagate. */
@@ -75,6 +90,35 @@ function resolveName(tool: GuardableTool, options: { name?: string }): string {
 
 function reasonCode(reason: string): string | undefined {
 	return /^[A-Z][A-Z0-9_]{2,}$/.test(reason) ? reason : undefined;
+}
+
+function resolveProvenance<A, C>(
+	options: GuardOptions<A, C>,
+	args: A,
+	ctx: C | undefined,
+): ProvenanceMap | undefined {
+	const explicit =
+		typeof options.provenance === "function" ? options.provenance(args, ctx) : options.provenance;
+	const found: ProvenanceMap = {};
+	if (args !== null && typeof args === "object") {
+		for (const [name, value] of Object.entries(args)) {
+			const labels = labelsOf(value);
+			if (labels.length > 0) found[name] = labels;
+		}
+	}
+	const merged = mergeProvenance(explicit, options.tracker?.argLabels(args), found);
+	return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/** Unwrap TaintedValue arguments so the tool sees plain values. */
+function unwrapArgs(callArgs: unknown[]): unknown[] {
+	const first = callArgs[0];
+	if (first instanceof TaintedValue) return [first.value, ...callArgs.slice(1)];
+	if (first === null || typeof first !== "object" || Array.isArray(first)) return callArgs;
+	if (!Object.values(first).some((v) => v instanceof TaintedValue)) return callArgs;
+	const plain: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(first)) plain[k] = v instanceof TaintedValue ? v.value : v;
+	return [plain, ...callArgs.slice(1)];
 }
 
 /**
@@ -96,6 +140,7 @@ export function guardTool<T extends GuardableTool>(
 		const ctx = callArgs[1] as CtxOf<T> | undefined;
 		let agentId: string | undefined;
 		let decision: PolicyDecision;
+		let provenance: ProvenanceMap | undefined;
 		try {
 			agentId =
 				typeof options.agentId === "function" ? options.agentId(ctx, args) : options.agentId;
@@ -108,12 +153,16 @@ export function guardTool<T extends GuardableTool>(
 					: (options.resource ?? `tool:${toolName}`);
 			const risk = options.risk?.(args);
 			const approvalId = options.approvalId?.(ctx, args);
+			provenance = resolveProvenance(options, args, ctx);
 			decision = await theauth.policy.evaluate(
 				{
 					subject: { agentId },
 					action: options.action ?? "execute",
 					resource,
-					context: risk ? { risk } : undefined,
+					context:
+						risk || provenance
+							? { ...(risk ? { risk } : {}), ...(provenance ? { provenance } : {}) }
+							: undefined,
 					...(approvalId ? { approvalId } : {}),
 				},
 				{ openApproval: options.openApproval ?? true },
@@ -137,7 +186,13 @@ export function guardTool<T extends GuardableTool>(
 		}
 
 		if (decision.decision === "allow") {
-			return original.apply(tool, callArgs as never[]);
+			const runArgs = unwrapArgs(callArgs);
+			const result = await original.apply(tool, runArgs as never[]);
+			if (options.tracker) {
+				const inherited = [...new Set(Object.values(provenance ?? {}).flat())];
+				options.tracker.trackResult(toolName, result, inherited);
+			}
+			return result;
 		}
 		if (decision.decision === "escalate") {
 			const escalation = decision.escalation;

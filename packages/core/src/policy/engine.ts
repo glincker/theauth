@@ -20,6 +20,7 @@ import { makeDecision, withEffect } from "./decision.js";
 import { createRbacResolver } from "./rbac.js";
 import { createRebacBridge } from "./rebac-bridge.js";
 import { applyRisk } from "./risk.js";
+import { applyTaint, normalizeProvenance } from "./taint.js";
 import type {
 	DecisionPrincipal,
 	EvaluateInput,
@@ -61,7 +62,14 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const base = await evaluateBase(input);
 		// Risk is applied after the cache so it never poisons cached decisions.
 		const risked = applyRisk(base, config.risk, input.context?.risk);
-		const { decision, consumed } = await applyApproval(risked, input);
+		// Taint is applied before an approval is spent, so an approved retry still passes through it.
+		const provenance = normalizeProvenance(input.context?.provenance);
+		const tainted = applyTaint(risked, config.taint, {
+			resource: input.resource,
+			action: input.action,
+			provenance,
+		});
+		const { decision, consumed } = await applyApproval(tainted, input);
 		// Audit the final decision (after risk), so an escalate is never logged as an allow.
 		const auditId = decision.auditId ?? (consumed && auditEnabled ? generateId() : undefined);
 		const finalDecision = auditId === decision.auditId ? decision : { ...decision, auditId };
@@ -362,6 +370,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			ip: input.context?.ip,
 			userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : undefined,
 			cacheHit: decision.cacheHit,
+			inputProvenance: provenanceRecord(input, decision),
 			subjectId: decision.principal?.subjectId,
 			actorId: decision.principal?.actorId,
 			policyVersion,
@@ -373,6 +382,21 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 }
 
 // Internals
+
+/** The input_provenance value for the audit row: labels and the taint verdict, or undefined. */
+function provenanceRecord(
+	input: EvaluateInput,
+	decision: PolicyDecision,
+): Record<string, unknown> | undefined {
+	const labels = normalizeProvenance(input.context?.provenance);
+	if (!labels && !decision.taint) return undefined;
+	return {
+		labels: labels ?? {},
+		...(decision.taint
+			? { taint: { verdict: decision.taint.verdict, matches: decision.taint.matches } }
+			: {}),
+	};
+}
 
 function buildCacheKey(input: EvaluateInput): string {
 	// orgId scopes RBAC role lookup, so two requests from the same user against

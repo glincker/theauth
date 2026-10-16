@@ -4,6 +4,7 @@ export { makeDecision, outcomeOf, withEffect } from "./decision.js";
 export type { PolicyEngineDeps } from "./engine.js";
 export { createPolicyEngine } from "./engine.js";
 export { applyRisk, classifyRisk } from "./risk.js";
+export { applyTaint, evaluateTaint } from "./taint.js";
 export type {
 	ApprovalRequirement,
 	DecisionPrincipal,

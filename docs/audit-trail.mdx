@@ -64,7 +64,7 @@ Besides the action, resource, arguments and result, a row can carry:
 | `input_provenance` | Free-form JSON describing where the inputs came from |
 | `hash_version` | `2` for rows that hash pseudonyms of the ids (see below), null or `1` for older rows |
 
-`input_provenance` is filled only when your code passes it to `recordAuditEvent`. Nothing in the SDK sets it automatically, so an empty value does not mean the inputs were trusted.
+`input_provenance` is filled when you supply labels to the tool guard (see [taint guard](/taint-guard)) or pass it to `recordAuditEvent`. The SDK does not infer provenance by itself, so an empty value does not mean the inputs were trusted.
 
 ### Write failures
 
@@ -185,5 +185,5 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 - Anyone holding `hmacKey` and database write access can forge a chain. Keep the key outside the database host.
 - Retention cleanup and GDPR erasure remove or rewrite rows. Cleanup leaves a checkpoint row and erasure leaves an `audit.erasure` record. Rewriting a row in the middle by other means is flagged.
 - A pseudonym is linkable by whoever holds the key (`audit.hmacKey` or the stored secret).
-- `input_provenance` is caller supplied. The SDK does not fill it.
+- `input_provenance` comes from labels you supply. The SDK does not infer it.
 - Audit writes for policy decisions, delegation, approval and SCIM events are best effort. Failures are counted and followed by an `audit.write_failed` row (with the count and the first and last failure times), but a write that fails is not retried.
