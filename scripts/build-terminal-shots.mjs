@@ -47,7 +47,7 @@ const VARIANTS = {
 const CHAR_W = 0.602;
 const LINE_H = 1.55;
 
-const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s) => s.replaceAll(/&/g, "&amp;").replaceAll(/</g, "&lt;").replaceAll(/>/g, "&gt;");
 
 function wrapWords(text, max) {
 	const out = [];
@@ -88,7 +88,7 @@ function wrapTerminal(line, max) {
 function classify(line) {
 	if (/^\[\d+\]/.test(line)) return "label";
 	if (/needs human approval|approval request/i.test(line)) return "amber";
-	if (/^\s*(newly denied|never used)|\bremoved?\b/.test(line)) return "red";
+	if (/(^\s*(newly denied|never used))|(\bremoved?\b)/.test(line)) return "red";
 	if (/sent:|still allowed|verifies: true|extends .*: true/.test(line)) return "green";
 	return "";
 }

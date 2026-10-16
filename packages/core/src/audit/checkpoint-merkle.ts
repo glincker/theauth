@@ -143,9 +143,9 @@ export async function buildMerkleTree(leafHashes: readonly Uint8Array[]): Promis
 		size: n,
 		root: () => rangeRoot(0, n),
 		prefixRoot: (count) => rangeRoot(0, count),
-		async inclusionPath(index) {
+		inclusionPath(index) {
 			if (!Number.isInteger(index) || index < 0 || index >= n) {
-				throw new RangeError("inclusionPath: index out of range");
+				return Promise.reject(new RangeError("inclusionPath: index out of range"));
 			}
 			const path: Uint8Array[] = [];
 			let at = index;
@@ -155,7 +155,7 @@ export async function buildMerkleTree(leafHashes: readonly Uint8Array[]): Promis
 				if (sibling) path.push(sibling);
 				at = Math.floor(at / 2);
 			}
-			return path;
+			return Promise.resolve(path);
 		},
 		async consistencyPath(oldSize) {
 			if (!Number.isInteger(oldSize) || oldSize < 0 || oldSize > n) {

@@ -62,10 +62,11 @@ const refund = tool({
 			name: "refund",
 			description: "Refund an invoice",
 			parameters: z.object({ invoiceId: z.string(), amount: z.number() }),
-			execute: async ({ invoiceId, amount }: { invoiceId: string; amount: number }) => ({
-				refunded: amount,
-				invoiceId,
-			}),
+			execute: ({ invoiceId, amount }: { invoiceId: string; amount: number }) =>
+				Promise.resolve({
+					refunded: amount,
+					invoiceId,
+				}),
 		},
 	),
 	// Show a refusal to the model as text instead of rethrowing it.

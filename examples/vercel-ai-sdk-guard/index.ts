@@ -62,7 +62,7 @@ const lookupInvoice = guardTool(
 		...tool({
 			description: "Look up an invoice by id",
 			inputSchema: z.object({ invoiceId: z.string() }),
-			execute: async ({ invoiceId }) => ({ invoiceId, total: 480 }),
+			execute: ({ invoiceId }) => Promise.resolve({ invoiceId, total: 480 }),
 		}),
 	},
 );
@@ -79,7 +79,7 @@ const refund = guardTool(
 		...tool({
 			description: "Refund an invoice",
 			inputSchema: z.object({ invoiceId: z.string(), amount: z.number() }),
-			execute: async ({ invoiceId, amount }) => ({ refunded: amount, invoiceId }),
+			execute: ({ invoiceId, amount }) => Promise.resolve({ refunded: amount, invoiceId }),
 		}),
 	},
 );

@@ -24,20 +24,26 @@ function order(a: Checkpoint, b: Checkpoint): number {
 export function createMemoryCheckpointStore(): CheckpointStore {
 	const items: Checkpoint[] = [];
 	return {
-		async put(checkpoint) {
-			if (items.some((c) => sameCheckpoint(c, checkpoint))) return;
-			items.push({ ...checkpoint });
-			items.sort(order);
+		put(checkpoint) {
+			try {
+				if (!items.some((c) => sameCheckpoint(c, checkpoint))) {
+					items.push({ ...checkpoint });
+					items.sort(order);
+				}
+				return Promise.resolve();
+			} catch (error) {
+				return Promise.reject(error);
+			}
 		},
-		async latest() {
+		latest() {
 			const last = items[items.length - 1];
-			return last ? { ...last } : undefined;
+			return Promise.resolve(last ? { ...last } : undefined);
 		},
-		async getBySize(size) {
-			return items.filter((c) => c.size === size).map((c) => ({ ...c }));
+		getBySize(size) {
+			return Promise.resolve(items.filter((c) => c.size === size).map((c) => ({ ...c })));
 		},
-		async list() {
-			return items.map((c) => ({ ...c }));
+		list() {
+			return Promise.resolve(items.map((c) => ({ ...c })));
 		},
 	};
 }

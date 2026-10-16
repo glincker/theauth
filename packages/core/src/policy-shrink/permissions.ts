@@ -1,3 +1,4 @@
+import { compareStrings } from "../internal-compare.js";
 import { matchAction, matchResource } from "../policy/abac.js";
 import { POLICY_ERROR_CODES } from "../policy/types.js";
 import type { Permission } from "../types.js";
@@ -31,7 +32,7 @@ function stable(value: unknown): string {
 	if (value && typeof value === "object") {
 		const o = value as Record<string, unknown>;
 		return `{${Object.keys(o)
-			.sort()
+			.sort(compareStrings)
 			.map((k) => `${JSON.stringify(k)}:${stable(o[k])}`)
 			.join(",")}}`;
 	}

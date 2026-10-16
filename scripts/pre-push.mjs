@@ -33,14 +33,14 @@ function run(cmd, args) {
 }
 
 function hasBase() {
-	return spawnSync("git", ["rev-parse", "--verify", "-q", BASE], { cwd: ROOT }).status === 0;
+	return spawnSync("git", ["rev-parse", "--verify", "-q", BASE], { cwd: ROOT }).status === 0; // NOSONAR S4036: dev tooling must resolve pnpm/git from the user's PATH
 }
 
 const full = process.env.THEAUTH_FULL_CHECKS === "1" || !hasBase();
 if (!full && !DRY) {
 	// Nothing to check when the push does not change any package.
 	const changed = spawnSync(
-		"pnpm",
+		"pnpm", // NOSONAR S4036: dev tooling must resolve pnpm/git from the user's PATH
 		["exec", "turbo", "run", "typecheck", `--filter=...[${BASE}]`, "--dry=json"],
 		{
 			cwd: ROOT,

@@ -5,6 +5,7 @@
 // model. Objects are tagged in a WeakMap (same reference back, JSON unchanged).
 // Primitives cannot be keys, so they are wrapped in TaintedValue.
 
+import { compareStrings } from "../internal-compare.js";
 import type { ProvenanceMap } from "./types.js";
 import { CALL_LABELS_KEY } from "./types.js";
 
@@ -173,7 +174,7 @@ export function mergeProvenance(...maps: Array<ProvenanceMap | undefined>): Prov
 		}
 	}
 	const result: ProvenanceMap = {};
-	for (const [arg, set] of out) setOwn(result, arg, [...set].sort());
+	for (const [arg, set] of out) setOwn(result, arg, [...set].sort(compareStrings));
 	return result;
 }
 

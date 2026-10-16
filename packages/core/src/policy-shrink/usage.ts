@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { delegationChains, permissions as permissionsTable } from "../db/schema.js";
+import { compareStrings } from "../internal-compare.js";
 import type { Permission } from "../types.js";
 import { atomKey, classifyRow, createGrantMatcher, splitPermission } from "./permissions.js";
 import { readDecisionRows } from "./rows.js";
@@ -157,7 +158,7 @@ export function createUsageAccumulator(
 					count: s.count,
 					firstSeen: s.first,
 					lastSeen: s.last,
-					via: [...s.chains].sort(),
+					via: [...s.chains].sort(compareStrings),
 				});
 			} else if (attempted.has(i)) {
 				attemptedOnly.push(g.permission);

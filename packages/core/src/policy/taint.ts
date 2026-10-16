@@ -2,6 +2,7 @@
 // Applied after permission matching and risk tiers, before an approval is spent,
 // so a tainted call that was permitted becomes an escalate (or a deny).
 
+import { compareStrings } from "../internal-compare.js";
 import { matchLabel, setOwn } from "../taint/labels.js";
 import type {
 	ProvenanceMap,
@@ -27,7 +28,7 @@ export function normalizeProvenance(raw: unknown): ProvenanceMap | undefined {
 		const clean = [
 			...new Set(labels.filter((l): l is string => typeof l === "string" && l !== "")),
 		];
-		if (clean.length > 0) setOwn(out, arg, clean.sort());
+		if (clean.length > 0) setOwn(out, arg, clean.sort(compareStrings));
 	}
 	return Object.keys(out).length > 0 ? out : undefined;
 }

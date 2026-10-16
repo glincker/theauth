@@ -39,10 +39,14 @@ function run(cmd, args, cwd = ROOT) {
 }
 
 function plannedTestTasks() {
-	const result = spawnSync("pnpm", ["exec", "turbo", "run", "test", ...scope, "--dry=json"], {
-		cwd: ROOT,
-		encoding: "utf8",
-	});
+	const result = spawnSync(
+		"pnpm", // NOSONAR S4036: dev tooling must resolve pnpm/git from the user's PATH
+		["exec", "turbo", "run", "test", ...scope, "--dry=json"],
+		{
+			cwd: ROOT,
+			encoding: "utf8",
+		},
+	);
 	if (result.status !== 0) {
 		console.error(result.stderr);
 		process.exit(result.status ?? 1);
