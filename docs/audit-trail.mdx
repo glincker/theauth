@@ -35,6 +35,8 @@ With `agents.auditAll` on (the default), every decision about a known agent writ
 
 The `reason` string on the returned result is unchanged (for example `Agent "deploy-bot" is revoked`). The row stores the short code. The row never stores the token. It stores the action, resource, `arguments`, IP and user agent, like any other row, and it goes through the same writer, so with `tamperEvident` on it joins the agent's chain like any other row.
 
+Policy decisions from `theauth.policy.evaluate()` write a row too, with `result: "escalated"` when the outcome is `escalate`. Delegation and approval events write rows as well (`delegation.create`, and the approval request and answer, which carries the `approver_id`).
+
 Some denials write no row:
 
 - **Unknown agent id** (`authorize("no-such-agent")`). There is no agent to attach a row or a chain to, and the audit table requires a real agent. Writing rows keyed by arbitrary ids would let a caller fill the table with junk.
@@ -48,6 +50,26 @@ A failed audit write on one of these denials does not change the outcome. The ca
 
 A caller holding a revoked token can produce one row per attempt. Use `audit.cleanup({ retentionDays })` and your gateway's rate limiting if that matters for you.
 
+### Fields on each row
+
+Besides the action, resource, arguments and result, a row can carry:
+
+| Field | Holds |
+|---|---|
+| `subject_id` | The accountable human: the root owner of the delegation chain, else the agent's owner |
+| `actor_id` | The agent that acted |
+| `policy_version` | The `policy.policyVersion` label active when the decision was made |
+| `approver_id` | Who answered, on approval rows |
+| `delegation_chain` | Agent ids from the root delegator to the actor, when delegated |
+| `input_provenance` | Free-form JSON describing where the inputs came from |
+| `hash_version` | `2` for rows that hash pseudonyms of the ids (see below), null or `1` for older rows |
+
+`input_provenance` is filled only when your code passes it to `recordAuditEvent`. Nothing in the SDK sets it automatically, so an empty value does not mean the inputs were trusted.
+
+### Write failures
+
+Audit writes from `recordAuditEvent` (policy decisions, delegation, approval and SCIM events) are best effort. They do not throw and do not fail the operation they describe. Each failure is counted: read the total with `getAuditWriteFailures(db)`, or pass `audit.onAuditError` to be called with `{ error, pendingFailures, totalFailures }`. The next successful write is preceded by an `audit.write_failed` row that records how many writes were lost, so a gap in the log is visible.
+
 ## How the chain works
 
 There is one chain per agent. Each row gets `chain_seq` (1, 2, 3...), `prev_hash` and `hash`. The hash is SHA-256 over the canonical JSON (sorted keys) of the row fields, the sequence number and `prev_hash`. With `hmacKey` it is HMAC-SHA256 instead.
@@ -57,6 +79,14 @@ Why per agent and not per tenant or global: writers for different agents never c
 Concurrent writers do not need a transaction or a lock. A writer reads the chain head, computes the next hash and inserts. If another writer took that sequence number first, the unique index rejects the insert and the writer re-reads the head and retries. This behaves the same on SQLite, Postgres, MySQL and D1. Writers inside one process also queue per agent, so retries only happen across processes.
 
 Timestamps are hashed at one-second precision, because that is what the SQLite column stores.
+
+### Pseudonymized ids and erasure
+
+Rows with `hash_version` 2 hash keyed pseudonyms of `user_id`, `agent_id`, `subject_id`, `actor_id` and `approver_id` instead of the raw ids, and store the pseudonyms on the row. The key is `audit.hmacKey` when set, otherwise a random secret stored in `theauth_audit_secrets`. GDPR erasure (`deleteUser`) can then blank or replace the raw ids and the row hash still verifies.
+
+Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure writes an `audit.erasure` record naming each affected row with its stored hash. `verifyAuditChain` reports them in an `erased` count instead of as tampering.
+
+A pseudonym is linkable by whoever holds the key, so this is pseudonymization, not anonymization. Destroying the key is not implemented. The erasure path rewrites rows with SQLite-specific statements.
 
 ### Migration
 
@@ -86,7 +116,7 @@ if (result.success && !result.data.ok) {
 }
 ```
 
-Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, and `truncated`.
+Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, and `pseudonym_mismatch` (a raw id was edited after the row was written). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes an `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break.
 
 Deleting the newest rows of a chain leaves a shorter chain that still verifies. To catch that, keep a chain head somewhere the database owner cannot edit (an export manifest works) and pass it back:
 
@@ -153,5 +183,7 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 
 - Tail truncation is only detectable against a saved head (see above).
 - Anyone holding `hmacKey` and database write access can forge a chain. Keep the key outside the database host.
-- Retention cleanup and GDPR erasure remove or rewrite rows. Removing the oldest rows is not flagged; rewriting a row in the middle is.
-- Audit rows written by the policy engine are not chained yet. They show up as unchained in verify output.
+- Retention cleanup and GDPR erasure remove or rewrite rows. Cleanup leaves a checkpoint row and erasure leaves an `audit.erasure` record. Rewriting a row in the middle by other means is flagged.
+- A pseudonym is linkable by whoever holds the key (`audit.hmacKey` or the stored secret).
+- `input_provenance` is caller supplied. The SDK does not fill it.
+- Audit writes for policy decisions, delegation, approval and SCIM events are best effort. Failures are counted and followed by an `audit.write_failed` row (with the count and the first and last failure times), but a write that fails is not retried.

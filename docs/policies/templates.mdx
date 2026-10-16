@@ -1,11 +1,11 @@
 ---
 title: Policy templates
-description: "Seven copy-paste policy templates for agent authorization: tool allowlists, delegation scopes, org isolation, budget caps, business-hours gating, and ReBAC."
+description: "Nine copy-paste policy templates for agent authorization: tool allowlists, delegation scopes, org isolation, budget caps, business-hours gating, spend limits with approval, owner-only delegation, and ReBAC."
 ---
 
 Each template is a self-contained directory under `docs/policies/templates/` in the repository (the `policy.ts` and `README.md` files are not rendered as pages on this site). It contains a `policy.ts` file with the permission definitions and a `README.md` with the scenario, expected decisions, and notes on engine limitations where relevant.
 
-Seed the exported arrays into `theauth_permissions` (and the supporting tables noted in each README), then call `theauth.policy.evaluate()` against them.
+Seed the exported arrays into `theauth_permissions` (and the supporting tables noted in each README), then call `theauth.policy.evaluate()` against them. Templates 08 and 09 also export engine config or use engine checks (`policy.risk`, `subject.ownerId`), described in their READMEs.
 
 ## Templates
 
@@ -17,7 +17,9 @@ Seed the exported arrays into `theauth_permissions` (and the supporting tables n
 | 04 | `budget-gated` | Hard cap on calls per hour via `maxCallsPerHour` |
 | 05 | `step-up-for-writes` | Reads are free; writes and deletes are denied with the `requireApproval` reason |
 | 06 | `friends-of-a-friend-rebac` | Document access via ReBAC graph tuples with concrete IDs |
-| 07 | [business-hours-only](/policies/templates/07-business-hours-only) | Tool calls gated to a server-local HH:MM window |
+| 07 | `business-hours-only` | Tool calls gated to a server-local HH:MM window |
+| 08 | `spend-limit-with-approval` | A risk tier escalates payments at or above an amount to human approval |
+| 09 | `act-for-owner-only` | Owner-match check plus constrained delegation keep a worker on its owner's side |
 
 ## How to use a template
 

@@ -1,0 +1,267 @@
+---
+title: AI agent identity and accountability
+description: Give every AI agent its own identity, a named human owner, a policy check before each action, an audit record and an off switch.
+icon: scale-balanced
+---
+
+AI agent accountability means that every action an agent takes can be traced to a named human or team, was checked against a policy before it ran, and was recorded afterwards. theAuth enforces this at runtime: each agent has its own identity, permissions are checked before the action, and access can be revoked immediately.
+
+A RACI matrix says who should be responsible and accountable. An agent never reads it. The matrix only matters if the runtime enforces it, so this page maps each RACI idea to an API that exists today.
+
+<Info>
+  Features marked **Planned** are not shipped. Everything else on this page is backed by code in the current SDK.
+</Info>
+
+## Who is accountable when an AI agent acts?
+
+The human or team that owns the agent. In theAuth every agent is created with an `ownerId` that must match a real user row, and every audit row stores the agent that acted. Delegation records who gave what to whom, so you can walk back from a sub-agent to the agent that delegated to it and to that agent's owner.
+
+| RACI role | Question it answers | What theAuth uses |
+|---|---|---|
+| Responsible | Which agent did the work? | The agent's own identity and token ([Agent identity](/agents)) |
+| Accountable | Which human or team answers for it? | `ownerId` on the agent, plus the delegation chain ([Delegation](/delegation)) |
+| Consulted | Who must say yes before a risky action? | `requireApproval` and the approval request ([Approval flows](/approval)) |
+| Informed | Who can see what happened? | Audit rows, replay and export ([Audit trail](/audit-trail)) |
+
+```ts
+const reviewer = await theauth.agent.create({
+  ownerId: "user-123", // the accountable human
+  name: "invoice-reviewer",
+  type: "autonomous",
+  permissions: [{ resource: "invoices:*", actions: ["read"] }],
+});
+```
+
+A sub-agent has its own `ownerId`, but the accountable human is the owner of the root agent in its delegation chain. `delegate()` returns that owner as `rootOwnerId` and the agent ids from the root down as `path`, and `policy.evaluate()` returns the same lineage on `decision.principal`.
+
+```ts
+const chain = await theauth.delegate({
+  fromAgent: reviewer.id,
+  toAgent: subAgent.id,
+  permissions: [{ resource: "invoices:2026:*", actions: ["read"] }],
+  expiresAt: new Date(Date.now() + 30 * 60_000),
+  maxDepth: 1,
+});
+chain.rootOwnerId; // "user-123"
+chain.path; // [reviewer.id, subAgent.id]
+```
+
+When an agent has several active inbound chains, the earliest created one is followed. See [Delegation chains](/delegation).
+
+## How do you give an AI agent an identity?
+
+Create it as its own principal, not as a copy of a user session. An agent has a stable id, a hashed bearer token, a type, an expiry and a status. It has no password and no browser session.
+
+```ts
+const agent = await theauth.agent.create({
+  ownerId: "user-123",
+  name: "support-triage",
+  type: "autonomous",
+  permissions: [{ resource: "tickets:*", actions: ["read", "comment"] }],
+  expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000),
+});
+// agent.token is shown once. Only its SHA-256 hash is stored.
+```
+
+Tokens rotate with `theauth.agent.rotate(agentId)`, and the old token stops working at once. See [Agent identity](/agents). For agents that call your MCP servers, see [MCP OAuth 2.1](/mcp).
+
+## How do you limit what an AI agent can do?
+
+Check every action before it runs. `authorize()` evaluates the agent's permissions and any it received through delegation, then returns `allowed` or not. `policy.evaluate()` does the same and returns a three-way `decision`: `allow`, `deny` or `escalate`. Constraints narrow a permission: a call rate, argument patterns, a time window, an IP allowlist, and human approval.
+
+```ts
+const agent = await theauth.agent.create({
+  ownerId: "user-123",
+  name: "ops-bot",
+  type: "autonomous",
+  permissions: [
+    { resource: "db:records", actions: ["read"] },
+    {
+      resource: "db:records",
+      actions: ["write", "delete"],
+      constraints: { requireApproval: true, maxCallsPerHour: 20 },
+    },
+  ],
+});
+
+const result = await theauth.authorize(agent.id, {
+  action: "delete",
+  resource: "db:records",
+});
+if (!result.allowed) {
+  // result.reason says why. result.auditId points at the audit row.
+}
+```
+
+A `requireApproval` permission is always denied by `authorize()`. Your code reads the reason, opens an approval request and runs the action itself after a human approves. `policy.evaluate()` returns `escalate` for the same permission instead, which is easier to branch on. See [Approval flows](/approval) and [Permissions](/permissions).
+
+To let a sub-agent act within a narrower scope, delegate a subset with a short expiry. Constraints on the delegated permissions are stored and enforced, and a child can only tighten what its parent holds: `requireApproval` is OR-ed, `maxCallsPerHour` takes the lower value, and lists are intersected.
+
+```ts
+await theauth.delegate({
+  fromAgent: reviewer.id,
+  toAgent: subAgent.id,
+  permissions: [
+    { resource: "invoices:2026:*", actions: ["read"], constraints: { maxCallsPerHour: 10 } },
+  ],
+  expiresAt: new Date(Date.now() + 30 * 60_000),
+  maxDepth: 1,
+});
+```
+
+### Escalate above an amount
+
+The amount threshold is a risk-tier rule, not a numeric permission constraint. You pass the amount in `context.risk`, and a tier in the policy config decides what an action of that size requires. A permitted action that lands in an `approval` or `step_up` tier becomes `escalate`.
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  agents: { enabled: true },
+  policy: {
+    policyVersion: "2026-10-15",
+    risk: {
+      tiers: [
+        { tier: "high-value", when: { minAmount: 100, currency: "USD" }, require: "approval" },
+      ],
+    },
+  },
+});
+
+const decision = await theauth.policy.evaluate(
+  {
+    subject: { agentId: agent.id },
+    action: "execute",
+    resource: "payments:transfer",
+    context: { risk: { amount: 250, currency: "USD" } },
+  },
+  { openApproval: true },
+);
+
+decision.decision; // "allow" | "deny" | "escalate"
+decision.escalation?.approvalRequestId; // set when a request was opened
+```
+
+Risk fields are `amount`, `currency`, `dataClass`, `irreversible` and `extras`. A rule can match on `minAmount`, `currency`, `dataClasses` and `irreversible`, and the strongest matching requirement wins. Risk only escalates an action that would otherwise be allowed. Cumulative spend is not tracked. See [Policy engine](/policy-engine#risk-tiers-and-escalation).
+
+### Act only for the owner
+
+Pass the owner the request claims to act for as `subject.ownerId`. If it differs from the agent's `ownerId`, `evaluate()` denies with `POLICY_OWNER_MISMATCH`. A revoked, suspended or expired agent is denied with `POLICY_AGENT_INACTIVE`. Both checks run before the decision cache, so they take effect at once.
+
+```ts
+const decision = await theauth.policy.evaluate({
+  subject: { agentId: agent.id, ownerId: "user-999" },
+  action: "read",
+  resource: "files:user-999:notes",
+});
+decision.reason; // "POLICY_OWNER_MISMATCH"
+```
+
+For the combining rules, see [Policy engine](/policy-engine). For ready-made rules, see [Policy templates](/policies/templates), including a spending limit with human approval (template 08) and acting only for the owner (template 09).
+
+## How do you ask a human before the agent acts?
+
+Use `requireApproval` or a risk tier, then the approval module. The request stores the agent, the owner, the action, the resource and the arguments. The human's answer and their identifier are stored on the request. Calling `policy.evaluate(input, { openApproval: true })` opens the request for you on `escalate` and returns its id as `decision.escalation.approvalRequestId`. Otherwise open it yourself:
+
+```ts
+const request = await theauth.approval.request({
+  agentId: agent.id,
+  userId: agent.ownerId,
+  action: "delete",
+  resource: "db:records",
+  arguments: { table: "orders" },
+});
+
+// later, from your approval UI handler
+await theauth.approval.approve(request.id, "alice@example.com");
+```
+
+Delivering the notification is your application's job, through `webhookUrl` or `onApprovalNeeded`. See [Approval flows](/approval).
+
+## How do you audit AI agent actions?
+
+Every decision about a known agent writes an audit row, with the action, resource, arguments and result (`allowed`, `denied` or `escalated`). Rows also carry `subject_id` (the accountable human), `actor_id` (the agent), `policy_version` (from `policy.policyVersion`), `approver_id`, `delegation_chain`, `input_provenance` and `hash_version`. Turn on the hash chain to make edits and deletions detectable, then verify, replay and export.
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  agents: { enabled: true },
+  audit: { tamperEvident: true, hmacKey: process.env.AUDIT_HMAC_KEY },
+});
+
+const denied = await theauth.audit.query({ userId: "user-123", result: "denied" });
+const chain = await theauth.audit.verifyAuditChain({ from: new Date("2026-10-01") });
+const replay = await theauth.audit.replayAgent(agent.id);
+const exported = await theauth.audit.exportAudit({ agentId: agent.id });
+```
+
+The export is a JSONL file plus a manifest signed with your HMAC key, and `verifyAuditExport` checks it later without a database. See [Tamper-evident audit trail](/audit-trail) and [Audit log](/audit).
+
+The decision row and the approval answer are separate rows. The decision row holds the inputs, the policy version and the lineage. The approval row holds `approver_id`. Replay merges them in time order. Three limits apply:
+
+- `input_provenance` is a column the caller fills in through `recordAuditEvent`. Nothing in the SDK populates it automatically.
+- Audit writes from `recordAuditEvent` (policy decisions, delegation, approval and SCIM events) are best effort. They never throw, failures are counted by `getAuditWriteFailures`, and the next successful write is preceded by an `audit.write_failed` row.
+- Chained rows hash keyed pseudonyms of the ids, so GDPR erasure can blank raw ids without breaking verification. Whoever holds the key can still link a pseudonym to an id.
+
+## How do you revoke an AI agent?
+
+Call `theauth.agent.revoke(agentId)`. The agent's token is rejected on its next call and every later `authorize()` attempt is written as a denied row with the reason `agent_revoked`. `policy.evaluate()` denies a revoked or expired agent with `POLICY_AGENT_INACTIVE`. Revocation is permanent. To cut off a sub-agent without touching its parent, revoke the delegation:
+
+```ts
+await theauth.agent.revoke(agent.id);
+await theauth.delegation.revoke(chain.id); // also revokes links downstream of it
+```
+
+Revoking an agent does not terminate an operation that already passed authorization. See [Agent identity](/agents#lifecycle) and [Cascading revocation](/delegation#cascading-revocation).
+
+## What is not shipped yet?
+
+<Warning>
+  These are planned and are not available in the SDK today.
+</Warning>
+
+- **Planned:** revoking an agent that cascades to everything it delegated. In the TypeScript package, `agent.revoke()` only changes the agent's status, so revoke the delegation chains explicitly, as above. The chain rows stay active until you do.
+- **Planned:** the approver on the same row as the decision. Today the approver is on the approval's own audit row.
+- **Planned:** automatic `input_provenance`. The column exists and you can write it, but the SDK does not fill it.
+
+## FAQ
+
+### Is an AI agent a user?
+
+No. An agent has no email, password or session. It has a token and a permission set, and it belongs to a user through `ownerId`.
+
+### Does a RACI matrix replace runtime enforcement?
+
+No. The matrix records intent. The checks above are what make the intent hold when an agent runs unattended. Use the [RACI template](/accountability-raci-template) to write the matrix, then enforce each cell.
+
+### Can an agent approve its own action?
+
+The approval module records who answered through the identifier your application passes to `approve()`. theAuth does not stop your code from passing an agent identifier there, so authenticate the approver as a human in your handler.
+
+### Are denied attempts recorded?
+
+Yes, for known agents, including requests from revoked or expired agents. Unknown agent ids and unknown tokens write no row, because the audit table requires a real agent. See [what gets recorded](/audit-trail#what-gets-recorded).
+
+### Can I prove the audit log was not edited?
+
+With `audit.tamperEvident` on, `verifyAuditChain` reports edits, gaps and reordering. Deleting the newest rows is only detectable against a saved chain head. Policy decisions, delegations and approvals are all chained. See the [limits](/audit-trail#limits).
+
+### Does it work with MCP?
+
+Yes. Agents that call MCP servers authenticate through [MCP OAuth 2.1](/mcp) and are checked with the same permissions and audit trail.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="RACI template" icon="table" href="/accountability-raci-template">
+    A RACI table for agent action classes, with the enforcement for each cell.
+  </Card>
+  <Card title="Policy engine" icon="shield-halved" href="/policy-engine">
+    How decisions are combined and cached.
+  </Card>
+  <Card title="Trust scoring" icon="gauge" href="/trust">
+    A score you can use in your own approval rules.
+  </Card>
+  <Card title="Budget policies" icon="dollar-sign" href="/budget-policies">
+    Spend and call caps per agent.
+  </Card>
+</CardGroup>
