@@ -86,6 +86,25 @@ New, non-breaking: `Config.OAuth`, `Config.AuthEventSink`, `OAuthConfig`,
 `RegenerateRecoveryCodes`, `RenamePasskey`, and the package
 `github.com/glincker/theauth-go/v2/provider/oidc`.
 
+## Additive surface (agent accountability)
+
+New, non-breaking. In `policy`: `Escalate`, `Requirement`, `Escalation`,
+`RiskTier`, `Evaluator.Risk`, `Evaluator.Classify`, `Statement.Tier`,
+`Statement.Require`, `Decision.Escalation`, and the `Amount`, `Currency`,
+`DataClass` and `Irreversible` fields on `Request` and `Resource`. In the root
+package: `AuditEvent` fields `SubjectID`, `ActorID`, `PolicyVersion`,
+`ApproverID`, `DelegationChain`, `InputProvenance`, `PrevHash` and `Hash`,
+`(*TheAuth).EmitDecision`, `(*TheAuth).VerifyAuditChain`, `AuditChainResult`,
+`AuditChainBreak`, `ErrAuditUnavailable`, `ErrAuditChainUnsupported`,
+`AuditConfig.FailClosed`, `AuditConfig.DecisionActionPrefixes`,
+`AuthorizationServerConfig.SubjectActiveCacheTTL` and `RevocationOrgMember`.
+
+Behavior changes in the same release: `RequirePolicy` can now answer 403
+`policy.escalation_required` or 401 `auth.step_up_required`, and a failed
+membership delete during SCIM deprovisioning returns 500 where it was ignored.
+Only the SQLite store chains audit events; the other backends report
+`ErrAuditChainUnsupported`.
+
 ## Stable surface
 
 ### Root package: `github.com/glincker/theauth-go/v2`
