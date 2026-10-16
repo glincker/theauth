@@ -104,6 +104,7 @@ export interface AuditCredentialSubject {
 
 function toDecision(result: AuditEntry["result"]): "allow" | "deny" | "approval_required" {
 	if (result === "allowed") return "allow";
+	if (result === "escalated") return "approval_required";
 	// "denied" and "rate_limited" both map to deny in the VC decision field
 	return "deny";
 }

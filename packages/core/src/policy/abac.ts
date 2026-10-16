@@ -21,6 +21,8 @@ export interface ConstraintEvaluationInput {
 export interface ConstraintResult {
 	allowed: boolean;
 	reason?: string;
+	/** True when the constraint holds the call for human approval (escalate, not deny). */
+	needsApproval?: boolean;
 }
 
 /**
@@ -416,7 +418,9 @@ export async function evaluateConstraints(
 	}
 
 	const inspection = inspectConstraints(input, constraints, { now: new Date() });
-	return inspection.allowed ? { allowed: true } : { allowed: false, reason: inspection.reason };
+	return inspection.allowed
+		? { allowed: true }
+		: { allowed: false, reason: inspection.reason, needsApproval: inspection.needsApproval };
 }
 
 /**

@@ -21,6 +21,7 @@ import { compareCodeUnits } from "../compare.js";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
+import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
 
 export type AuditInsert = typeof auditLogs.$inferInsert;
 export type AuditRow = typeof auditLogs.$inferSelect;
@@ -30,7 +31,12 @@ export interface AuditChainConfig {
 	hmacKey?: string;
 }
 
-const HASH_VERSION = 1;
+/** Version stamped on rows this code writes. Rows with a NULL hash_version are version 1. */
+const CURRENT_HASH_VERSION = 2;
+/** Action name of the anchor row that cleanup writes before deleting a chain prefix. */
+export const CHECKPOINT_ACTION = "audit.checkpoint";
+/** Action name of the unchained side record that erasure writes for rows it could not preserve. */
+export const ERASURE_ACTION = "audit.erasure";
 const MAX_APPEND_ATTEMPTS = 30;
 
 const registry = new WeakMap<object, AuditChainConfig>();
@@ -64,13 +70,11 @@ export function canonicalJson(value: unknown): string {
 	return JSON.stringify(value);
 }
 
-/** Row fields covered by the hash, normalized so insert-time and read-back values agree. */
-function hashedFields(row: AuditInsert | AuditRow): Record<string, unknown> {
+/** Row fields covered by the hash in every version, normalized so insert-time and read-back values agree. */
+function commonFields(row: AuditInsert | AuditRow): Record<string, unknown> {
 	const ts = row.timestamp instanceof Date ? row.timestamp.getTime() : Number(row.timestamp);
 	return {
 		id: row.id,
-		agentId: row.agentId,
-		userId: row.userId,
 		action: row.action,
 		resource: row.resource,
 		parameters: row.parameters ?? null,
@@ -85,17 +89,41 @@ function hashedFields(row: AuditInsert | AuditRow): Record<string, unknown> {
 	};
 }
 
+/** Version 1 (released): raw agentId and userId. Erasing either breaks the hash. */
+function hashedFieldsV1(row: AuditInsert | AuditRow): Record<string, unknown> {
+	return { ...commonFields(row), agentId: row.agentId, userId: row.userId };
+}
+
+/**
+ * Version 2 chains these columns: id, action, resource, parameters, result,
+ * reason, durationMs, tokensCost, ip, userAgent, cacheHit, timestamp,
+ * policyVersion, delegationChain, inputProvenance, and idPseudonyms (keyed
+ * pseudonyms of userId, agentId, subjectId, actorId, approverId). The raw id
+ * columns are NOT hashed, so erasure can blank them. The verifier instead
+ * checks that any raw id still present matches its pseudonym.
+ */
+function hashedFieldsV2(row: AuditInsert | AuditRow): Record<string, unknown> {
+	return {
+		...commonFields(row),
+		policyVersion: row.policyVersion ?? null,
+		delegationChain: row.delegationChain ?? null,
+		inputProvenance: row.inputProvenance ?? null,
+		idPseudonyms: row.idPseudonyms ?? null,
+	};
+}
+
 export async function computeRowHash(
 	row: AuditInsert | AuditRow,
 	chainSeq: number,
 	prevHash: string | null,
 	hmacKey?: string,
 ): Promise<string> {
+	const version = row.hashVersion ?? 1;
 	const payload = canonicalJson({
-		v: HASH_VERSION,
+		v: version,
 		seq: chainSeq,
 		prev: prevHash,
-		row: hashedFields(row),
+		row: version >= 2 ? hashedFieldsV2(row) : hashedFieldsV1(row),
 	});
 	return hmacKey ? hmacSha256(hmacKey, payload) : sha256(payload);
 }
@@ -167,8 +195,12 @@ async function appendChained(
 	// Hashing the truncated value keeps read-back rows verifiable.
 	const stamped: AuditInsert = {
 		...values,
+		hashVersion: CURRENT_HASH_VERSION,
 		timestamp: new Date(Math.floor(values.timestamp.getTime() / 1000) * 1000),
 	};
+	const pseudonymKey = await resolvePseudonymKey(db, config.hmacKey, true);
+	if (!pseudonymKey) throw new Error("no audit pseudonym key available");
+	stamped.idPseudonyms = await computePseudonyms(stamped, pseudonymKey);
 
 	let lastError: unknown;
 	for (let attempt = 0; attempt < MAX_APPEND_ATTEMPTS; attempt++) {

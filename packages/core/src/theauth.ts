@@ -4,6 +4,7 @@ import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
 import { createAuditModule } from "./audit/audit.js";
 import { enableAuditChain } from "./audit/chain.js";
+import { setAuditWriteErrorHandler } from "./audit/record.js";
 import type { AdminModule } from "./auth/admin.js";
 import { createAdminModule } from "./auth/admin.js";
 import type { ApiKeyManagerModule } from "./auth/api-key-manager.js";
@@ -141,7 +142,14 @@ export async function createTheAuth(config: TheAuthConfig) {
 	// Unified policy engine. Always instantiated so theauth.policy is
 	// available. Callers can tune it via config.policy (cache size, TTL,
 	// combine strategy, audit sampling). Zero-config uses safe defaults.
-	const policyEngine: PolicyEngine = createPolicyEngine({ db, config: config.policy });
+	// Approval module (CIBA-style async human approval). Created first so the
+	// policy engine can open requests when evaluate() is called with openApproval.
+	const approvalModule = createApprovalModule(config.approval ?? {}, db);
+	const policyEngine: PolicyEngine = createPolicyEngine({
+		db,
+		config: config.policy,
+		approval: approvalModule,
+	});
 
 	const agentConfig = {
 		db,
@@ -160,6 +168,7 @@ export async function createTheAuth(config: TheAuthConfig) {
 	if (config.audit?.tamperEvident) {
 		enableAuditChain(db, { hmacKey: config.audit.hmacKey });
 	}
+	setAuditWriteErrorHandler(db, config.audit?.onAuditError);
 	const auditModule = createAuditModule({ db, hmacKey: config.audit?.hmacKey });
 
 	const delegationModule = createDelegationModule({ db });
@@ -190,9 +199,6 @@ export async function createTheAuth(config: TheAuthConfig) {
 	const tenantModule = createTenantModule(db);
 
 	const policyModule = createPolicyModule(db);
-
-	// Approval module — CIBA-style async human approval flows
-	const approvalModule = createApprovalModule(config.approval ?? {}, db);
 
 	// Trust module — graduated autonomy scoring
 	const trustModule = createTrustModule({}, db);

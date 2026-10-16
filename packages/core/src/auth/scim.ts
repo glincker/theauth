@@ -24,7 +24,7 @@
  */
 
 import { and, eq, like, sql } from "drizzle-orm";
-import { insertAuditRow } from "../audit/chain.js";
+import { recordAuditEvent } from "../audit/record.js";
 import type { Database } from "../db/database.js";
 import { organizations, orgMembers, sessions, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
@@ -345,19 +345,15 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	): Promise<void> {
 		if (!audit || audit.enabled === false) return;
 		try {
-			await insertAuditRow(db, {
-				id: generateId(),
+			await recordAuditEvent(db, {
 				agentId: audit.agentId,
 				userId: subjectUserId,
 				action,
 				resource,
 				parameters: {},
 				result,
-				reason: reason ?? null,
+				reason,
 				durationMs,
-				timestamp: new Date(),
-				ip: null,
-				userAgent: null,
 			});
 		} catch {
 			// Audit is best-effort. A missing system agent FK or a transient DB

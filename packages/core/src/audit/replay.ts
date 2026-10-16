@@ -31,6 +31,8 @@ export interface ChainVerification {
 	status: "verified" | "broken" | "unchained";
 	checked: number;
 	unchained: number;
+	/** Rows erased on purpose (GDPR) that an audit.erasure record accounts for. */
+	erased: number;
 	firstBreak?: ChainBreak;
 	heads: ChainHead[];
 }
@@ -55,6 +57,7 @@ function summarize(v: VerifyAuditChainResult): ChainVerification {
 		status,
 		checked: v.checked,
 		unchained: v.unchained,
+		erased: v.erased,
 		firstBreak: v.firstBreak,
 		heads: v.heads,
 	};
@@ -109,6 +112,12 @@ export async function replayAgent(
 					durationMs: r.durationMs,
 					chainSeq: r.chainSeq,
 					hash: r.hash,
+					subjectId: r.subjectId,
+					actorId: r.actorId,
+					policyVersion: r.policyVersion,
+					approverId: r.approverId,
+					delegationChain: r.delegationChain,
+					inputProvenance: r.inputProvenance,
 				},
 			});
 		}
@@ -328,6 +337,14 @@ export async function exportAudit(
 					chainSeq: r.chainSeq,
 					prevHash: r.prevHash,
 					hash: r.hash,
+					hashVersion: r.hashVersion,
+					subjectId: r.subjectId,
+					actorId: r.actorId,
+					policyVersion: r.policyVersion,
+					approverId: r.approverId,
+					delegationChain: r.delegationChain,
+					inputProvenance: r.inputProvenance,
+					idPseudonyms: r.idPseudonyms,
 				}),
 			)
 			.join("\n");

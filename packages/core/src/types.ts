@@ -336,7 +336,9 @@ export interface AuditModule {
 	query: (filter: AuditFilter) => Promise<AuditEntry[]>;
 	export: (options: AuditExportOptions) => Promise<string>;
 	/** Delete rows older than the retention period. */
-	cleanup: (options: { retentionDays: number }) => Promise<{ deleted: number }>;
+	cleanup: (options: {
+		retentionDays: number;
+	}) => Promise<{ deleted: number; checkpoints?: number }>;
 	/** Check the audit hash chain and report the first broken link. */
 	verifyAuditChain: (opts: VerifyAuditChainOptions) => Promise<Result<VerifyAuditChainResult>>;
 	/** Ordered timeline of one agent's activity with chain verification status. */
@@ -447,6 +449,10 @@ export interface DelegationChain {
 	expiresAt: Date;
 	depth: number;
 	createdAt: Date;
+	/** Human owning the root agent of this chain, the accountable principal. */
+	rootOwnerId?: string;
+	/** Agent ids from the root delegator to `toAgent`, every hop included. */
+	path?: string[];
 }
 
 export type DelegateFn = (input: DelegateInput) => Promise<DelegationChain>;
@@ -462,6 +468,13 @@ export interface AuditConfig {
 	 * database but not to this key cannot rewrite rows and recompute the chain.
 	 */
 	hmacKey?: string;
+	/**
+	 * Called when a best-effort audit write (delegation, approval, SCIM events)
+	 * fails. The write still never throws into the caller. Failures are also
+	 * counted, and the next successful write is preceded by an `audit.write_failed`
+	 * row so the stored log shows the gap. Keep the callback fast and non-throwing.
+	 */
+	onAuditError?: (info: { error: unknown; pendingFailures: number; totalFailures: number }) => void;
 }
 
 export interface AuditEntry {
@@ -471,7 +484,7 @@ export interface AuditEntry {
 	action: string;
 	resource: string;
 	parameters: Record<string, unknown>;
-	result: "allowed" | "denied" | "rate_limited";
+	result: "allowed" | "denied" | "rate_limited" | "escalated";
 	reason?: string;
 	durationMs: number;
 	tokensCost?: number;
@@ -484,7 +497,7 @@ export interface AuditFilter {
 	since?: Date;
 	until?: Date;
 	actions?: string[];
-	result?: "allowed" | "denied" | "rate_limited";
+	result?: "allowed" | "denied" | "rate_limited" | "escalated";
 	limit?: number;
 	offset?: number;
 }

@@ -21,6 +21,7 @@
  */
 
 import { eq, inArray, or, sql } from "drizzle-orm";
+import { eraseAuditIdentity } from "../audit/erasure.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import {
@@ -313,53 +314,22 @@ export function createGdprModule(db: Database): GdprModule {
 
 		// 5. Handle audit logs
 		let anonymizedAuditLogs = 0;
+		const anonymizedIds = new Map<string, string>();
+		for (const agentId of agentIds) anonymizedIds.set(agentId, await anonymizedUserId(agentId));
 
 		if (agentIds.length > 0) {
-			if (keepAuditLogs) {
-				// Replace userId and agentId with stable anonymous tokens.
-				// The hash is deterministic so aggregate reports can still
-				// group all actions from the same deleted account.
-				//
-				// The audit log FK columns are NOT NULL and reference users/agents,
-				// so we must temporarily disable FK enforcement to store the
-				// anonymized placeholder. We re-enable it immediately after.
-				const anonUserId = await anonymizedUserId(userId);
-
-				await db.run(sql`PRAGMA foreign_keys = OFF`);
-				try {
-					for (const agentId of agentIds) {
-						const anonAgentId = await anonymizedUserId(agentId);
-						const affectedRows = await db
-							.select({ id: auditLogs.id })
-							.from(auditLogs)
-							.where(eq(auditLogs.agentId, agentId));
-
-						if (affectedRows.length > 0) {
-							await db
-								.update(auditLogs)
-								.set({ userId: anonUserId, agentId: anonAgentId })
-								.where(eq(auditLogs.agentId, agentId));
-
-							anonymizedAuditLogs += affectedRows.length;
-						}
-					}
-				} finally {
-					await db.run(sql`PRAGMA foreign_keys = ON`);
-				}
-			} else {
-				// Hard delete — caller has opted out of audit retention.
-				// Deleting child rows (audit logs) does not violate FK constraints.
-				const affectedRows = await db
-					.select({ id: auditLogs.id })
-					.from(auditLogs)
-					.where(eq(auditLogs.userId, userId));
-
-				anonymizedAuditLogs = affectedRows.length;
-
-				if (affectedRows.length > 0) {
-					await db.delete(auditLogs).where(eq(auditLogs.userId, userId));
-				}
-			}
+			// Replace userId and agentId with stable anonymous tokens when keeping
+			// the logs (the hash is deterministic so aggregate reports can still
+			// group all actions from the same deleted account), or delete the
+			// user's rows when the caller opted out of retention. Both keep the
+			// audit hash chain verifiable: see audit/erasure.ts.
+			anonymizedAuditLogs = await eraseAuditIdentity(db, {
+				userId,
+				agentIds,
+				anonUserId: await anonymizedUserId(userId),
+				anonAgentId: (agentId) => anonymizedIds.get(agentId) ?? agentId,
+				keepRows: keepAuditLogs,
+			});
 		}
 
 		// 6. Remove approval requests linked to this user.

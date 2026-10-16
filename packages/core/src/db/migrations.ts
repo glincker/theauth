@@ -272,7 +272,25 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   timestamp    ${ts}   NOT NULL,
   chain_seq    INTEGER,
   prev_hash    TEXT,
-  hash         TEXT
+  hash         TEXT,
+  hash_version INTEGER,
+  subject_id   TEXT,
+  actor_id     TEXT,
+  policy_version TEXT,
+  approver_id  TEXT,
+  delegation_chain ${json},
+  input_provenance ${json},
+  id_pseudonyms ${json}
+)`,
+		},
+
+		// theauth_audit_secrets: pseudonym key for audit rows when audit.hmacKey is unset
+		{
+			feature: "audit",
+			sql: `CREATE TABLE ${ifne} theauth_audit_secrets (
+  id         TEXT  NOT NULL PRIMARY KEY,
+  secret     TEXT  NOT NULL,
+  created_at ${ts} NOT NULL
 )`,
 		},
 		// Fork guard for the audit hash chain: two writers racing for the same
@@ -1288,7 +1306,8 @@ export async function createTables(
 }
 
 /**
- * Adds the hash chain columns and the fork guard index to an audit table that
+ * Adds the hash chain columns, the accountability columns (hash_version, subject_id,
+ * actor_id, policy_version, approver_id, delegation_chain, input_provenance, id_pseudonyms) and the fork guard index to an audit table that
  * was created before they existed. Fresh tables already have them, so every
  * statement here is allowed to fail with "already exists" and is ignored.
  * SQLite and MySQL have no ADD COLUMN IF NOT EXISTS, so tolerance is the
@@ -1299,10 +1318,19 @@ async function upgradeAuditChainColumns(
 	provider: DatabaseConfig["provider"],
 ): Promise<void> {
 	const ifne = provider === "postgres" ? "IF NOT EXISTS " : "";
+	const jsonType = provider === "postgres" ? "JSONB" : provider === "mysql" ? "JSON" : "TEXT";
 	const stmts = [
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}chain_seq INTEGER`,
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}prev_hash TEXT`,
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}hash TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}hash_version INTEGER`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}subject_id TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}actor_id TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}policy_version TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}approver_id TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}delegation_chain ${jsonType}`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}input_provenance ${jsonType}`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}id_pseudonyms ${jsonType}`,
 		provider === "mysql"
 			? "CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id(191), chain_seq)"
 			: "CREATE UNIQUE INDEX IF NOT EXISTS theauth_audit_logs_chain ON theauth_audit_logs (agent_id, chain_seq)",

@@ -136,8 +136,8 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	action: text("action").notNull(), // "execute", "read", "write", "delete"
 	resource: text("resource").notNull(), // "mcp:github:create_issue"
 	parameters: text("parameters", { mode: "json" }).$type<Record<string, unknown>>(),
-	result: text("result", { enum: ["allowed", "denied", "rate_limited"] }).notNull(),
-	reason: text("reason"), // why denied/rate_limited
+	result: text("result", { enum: ["allowed", "denied", "rate_limited", "escalated"] }).notNull(),
+	reason: text("reason"), // why denied/rate_limited/escalated
 	durationMs: integer("duration_ms").notNull(),
 	tokensCost: integer("tokens_cost"),
 	ip: text("ip"),
@@ -150,6 +150,29 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	chainSeq: integer("chain_seq"),
 	prevHash: text("prev_hash"),
 	hash: text("hash"),
+	// Hash input version. NULL or 1 means the original field set; 2 adds the
+	// accountability fields below to the hashed payload.
+	hashVersion: integer("hash_version"),
+	// Accountability fields. subject is the principal the action is on behalf of,
+	// actor is the agent (or service) that performed it. Token `sub` is unchanged.
+	subjectId: text("subject_id"),
+	actorId: text("actor_id"),
+	policyVersion: text("policy_version"),
+	approverId: text("approver_id"),
+	delegationChain: text("delegation_chain", { mode: "json" }).$type<string[]>(),
+	inputProvenance: text("input_provenance", { mode: "json" }).$type<Record<string, unknown>>(),
+	// Keyed pseudonyms (HMAC) of userId, agentId, subjectId, actorId and approverId
+	// for version 2 rows. The hash covers these instead of the raw ids, so erasing
+	// the raw ids (GDPR) leaves the hash valid. NULL on version 1 rows.
+	idPseudonyms: text("id_pseudonyms", { mode: "json" }).$type<Record<string, string>>(),
+});
+
+// Per-installation secret for audit id pseudonyms when no audit.hmacKey is set.
+// One row, created lazily by the first chained write.
+export const auditSecrets = sqliteTable("theauth_audit_secrets", {
+	id: text("id").primaryKey(),
+	secret: text("secret").notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 // Rate Limit Counters (track per-agent call rates)

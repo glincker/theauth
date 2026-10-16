@@ -1,4 +1,5 @@
 import { and, eq, lt } from "drizzle-orm";
+import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
@@ -104,6 +105,15 @@ export function createApprovalModule(config: ApprovalConfig, db: Database) {
 			createdAt: now,
 		});
 
+		await recordAuditEvent(db, {
+			agentId: input.agentId,
+			userId: input.userId,
+			action: "approval.request",
+			resource: `approval:${id}`,
+			result: "allowed",
+			parameters: { approvalId: id, action: input.action, resource: input.resource },
+		});
+
 		const approvalRequest: ApprovalRequest = {
 			id,
 			agentId: input.agentId,
@@ -153,6 +163,16 @@ export function createApprovalModule(config: ApprovalConfig, db: Database) {
 			.update(approvalRequests)
 			.set({ status: newStatus, respondedAt: now, respondedBy: respondedBy ?? null })
 			.where(eq(approvalRequests.id, requestId));
+
+		await recordAuditEvent(db, {
+			agentId: row.agentId,
+			userId: row.userId,
+			action: `approval.${newStatus === "approved" ? "approve" : "deny"}`,
+			resource: `approval:${row.id}`,
+			result: newStatus === "approved" ? "allowed" : "denied",
+			approverId: respondedBy,
+			parameters: { approvalId: row.id, action: row.action, resource: row.resource },
+		});
 
 		return rowToApproval({
 			...row,
