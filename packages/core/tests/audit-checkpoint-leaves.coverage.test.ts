@@ -74,6 +74,9 @@ async function rowOf(db: Database, id: string): Promise<LeafRow> {
 	return row;
 }
 
+// Hashing 2000 rows through WebCrypto is quick alone but slow when the pre-push hook runs suites in parallel.
+const PAGING_TIMEOUT_MS = 60_000;
+
 describe("fieldValuesOf", () => {
 	let db: Database;
 	beforeEach(async () => {
@@ -240,29 +243,33 @@ describe("loadLeafSet range and limit", () => {
 		expect(set.ids).toEqual(["r2", "r3", "r4"]);
 	});
 
-	it("pages past a full page of rows without losing or repeating any", async () => {
-		// Clone one chained row into many more, spread over the timestamp order.
-		const source = await rowOf(db, "r1");
-		const extra = 2001;
-		const batch: LeafRow[] = [];
-		for (let i = 0; i < extra; i++) {
-			batch.push({
-				...source,
-				id: `bulk-${String(i).padStart(5, "0")}`,
-				timestamp: new Date(T0.getTime() + (10 + i) * 1000),
-				hash: i.toString(16).padStart(64, "0"),
-				chainSeq: null,
-				prevHash: null,
-			});
-		}
-		for (let i = 0; i < batch.length; i += 40) {
-			await db.insert(auditLogs).values(batch.slice(i, i + 40));
-		}
-		const set = await loadLeafSet(db, { since: null, until: null }, HMAC);
-		expect(set.ids.length).toBe(5 + extra);
-		expect(new Set(set.ids).size).toBe(5 + extra);
-		expect(set.ids.slice(0, 5)).toEqual(["r1", "r2", "r3", "r4", "r5"]);
-		expect(set.ids.at(-1)).toBe(`bulk-${String(extra - 1).padStart(5, "0")}`);
-		expect(set.hashes.length).toBe(set.ids.length);
-	});
+	it(
+		"pages past a full page of rows without losing or repeating any",
+		async () => {
+			// Clone one chained row into many more, spread over the timestamp order.
+			const source = await rowOf(db, "r1");
+			const extra = 2001;
+			const batch: LeafRow[] = [];
+			for (let i = 0; i < extra; i++) {
+				batch.push({
+					...source,
+					id: `bulk-${String(i).padStart(5, "0")}`,
+					timestamp: new Date(T0.getTime() + (10 + i) * 1000),
+					hash: i.toString(16).padStart(64, "0"),
+					chainSeq: null,
+					prevHash: null,
+				});
+			}
+			for (let i = 0; i < batch.length; i += 40) {
+				await db.insert(auditLogs).values(batch.slice(i, i + 40));
+			}
+			const set = await loadLeafSet(db, { since: null, until: null }, HMAC);
+			expect(set.ids.length).toBe(5 + extra);
+			expect(new Set(set.ids).size).toBe(5 + extra);
+			expect(set.ids.slice(0, 5)).toEqual(["r1", "r2", "r3", "r4", "r5"]);
+			expect(set.ids.at(-1)).toBe(`bulk-${String(extra - 1).padStart(5, "0")}`);
+			expect(set.hashes.length).toBe(set.ids.length);
+		},
+		PAGING_TIMEOUT_MS,
+	);
 });
