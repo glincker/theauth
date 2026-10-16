@@ -163,14 +163,17 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		// parent's own permissions cover the request, no inbound chain limits it.
 		let expiresAt = input.expiresAt;
 		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions)) {
-			const parentExpiry = new Date(Math.min(...inbound.map((c) => c.expiresAt.getTime())));
+			const parentExpiry = new Date(
+				inbound.reduce((min, c) => Math.min(min, c.expiresAt.getTime()), Infinity),
+			);
 			if (expiresAt > parentExpiry) expiresAt = parentExpiry;
 		}
 
 		// Depth: one deeper than the deepest inbound chain, within the stricter
 		// of the requested and inherited limits.
-		const currentDepth = inbound.length > 0 ? Math.max(...inbound.map((c) => c.depth)) + 1 : 1;
-		const maxDepth = Math.min(input.maxDepth ?? 3, ...inbound.map((c) => c.maxDepth));
+		const currentDepth =
+			inbound.length > 0 ? inbound.reduce((max, c) => Math.max(max, c.depth), 0) + 1 : 1;
+		const maxDepth = inbound.reduce((min, c) => Math.min(min, c.maxDepth), input.maxDepth ?? 3);
 
 		if (currentDepth > maxDepth) {
 			throw new DelegationError(
@@ -331,7 +334,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 	}
 
 	/**
-	 * List all delegation chains for an agent (as source or target).
+	 * List the delegation chains an agent created as the delegator (`fromAgentId`).
+	 * Inbound chains where the agent is the delegate are not included.
 	 */
 	async function listChains(agentId: string): Promise<DelegationChain[]> {
 		const chains = await db

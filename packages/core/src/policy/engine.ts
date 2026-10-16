@@ -290,7 +290,11 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			.where(eq(agents.id, agentId))
 			.limit(1);
 		const row = rows[0];
-		if (!row) return ownerId !== undefined ? POLICY_ERROR_CODES.OWNER_MISMATCH : undefined;
+		if (!row) {
+			return ownerId !== undefined
+				? POLICY_ERROR_CODES.OWNER_MISMATCH
+				: POLICY_ERROR_CODES.AGENT_NOT_FOUND;
+		}
 		if (row.status !== "active") return POLICY_ERROR_CODES.AGENT_INACTIVE;
 		if (row.expiresAt && row.expiresAt <= new Date()) return POLICY_ERROR_CODES.AGENT_INACTIVE;
 		if (ownerId !== undefined && row.ownerId !== ownerId) return POLICY_ERROR_CODES.OWNER_MISMATCH;

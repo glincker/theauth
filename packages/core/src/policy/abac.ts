@@ -56,11 +56,19 @@ function parseIPv4(ip: string): number | null {
 	if (parts.length !== 4) return null;
 	let result = 0;
 	for (const part of parts) {
-		const num = parseInt(part, 10);
-		if (Number.isNaN(num) || num < 0 || num > 255) return null;
+		if (!/^\d{1,3}$/.test(part)) return null;
+		const num = Number(part);
+		if (num > 255) return null;
 		result = (result << 8) | num;
 	}
 	return result >>> 0;
+}
+
+/** Parse "HH:MM" (00:00 to 23:59) into minutes of day, or null if malformed. */
+function parseClock(value: unknown): number | null {
+	if (typeof value !== "string") return null;
+	const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+	return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
 
 function matchesIPEntry(entry: string, ip: string): boolean {
@@ -97,16 +105,47 @@ export function validateArgPatterns(
 	patterns: string[],
 	args: Record<string, unknown>,
 ): { valid: boolean; reason?: string } {
+	const regexes: Array<{ pattern: string; regex: RegExp }> = [];
 	for (const pattern of patterns) {
-		const regex = new RegExp(pattern);
-		for (const [key, value] of Object.entries(args)) {
-			if (typeof value === "string" && !regex.test(value)) {
+		// Compiled once per pattern. An invalid pattern fails closed.
+		try {
+			regexes.push({ pattern, regex: new RegExp(pattern) });
+		} catch {
+			return { valid: false, reason: `Invalid argument pattern "${pattern}"` };
+		}
+	}
+	return walkArgs(regexes, args, "", 0);
+}
+
+const MAX_ARG_DEPTH = 32;
+
+function walkArgs(
+	regexes: Array<{ pattern: string; regex: RegExp }>,
+	value: unknown,
+	path: string,
+	depth: number,
+): { valid: boolean; reason?: string } {
+	if (typeof value === "string") {
+		for (const { pattern, regex } of regexes) {
+			if (!regex.test(value)) {
 				return {
 					valid: false,
-					reason: `Argument "${key}" value "${value}" does not match pattern "${pattern}"`,
+					reason: `Argument "${path}" value "${value}" does not match pattern "${pattern}"`,
 				};
 			}
 		}
+		return { valid: true };
+	}
+	if (value === null || typeof value !== "object") return { valid: true };
+	if (depth >= MAX_ARG_DEPTH) {
+		return { valid: false, reason: `Argument "${path}" is nested too deeply to validate` };
+	}
+	const children: Array<[string, unknown]> = Array.isArray(value)
+		? value.map((v, i): [string, unknown] => [`${path}[${i}]`, v])
+		: Object.entries(value).map(([k, v]): [string, unknown] => [path ? `${path}.${k}` : k, v]);
+	for (const [childPath, child] of children) {
+		const result = walkArgs(regexes, child, childPath, depth + 1);
+		if (!result.valid) return result;
 	}
 	return { valid: true };
 }
@@ -269,7 +308,7 @@ export function inspectConstraints(
 		return { allowed: false, needsApproval, reason, steps };
 	};
 
-	if (constraints.maxCallsPerHour && options.rateUsage !== undefined) {
+	if (constraints.maxCallsPerHour != null && options.rateUsage !== undefined) {
 		const max = constraints.maxCallsPerHour;
 		const used = options.rateUsage;
 		if (used >= max) {
@@ -327,11 +366,23 @@ export function inspectConstraints(
 	}
 
 	if (constraints.timeWindow) {
+		// Server-local time: the window is evaluated against the process timezone
+		// (getHours/getMinutes), not a per-agent or UTC clock. Both edges are
+		// inclusive; start > end means an overnight window (e.g. 22:00 to 06:00).
 		const hours = options.now.getHours();
 		const minutes = options.now.getMinutes();
 		const currentTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 		const { start, end } = constraints.timeWindow;
-		if (currentTime < start || currentTime > end) {
+		const startMin = parseClock(start);
+		const endMin = parseClock(end);
+		const nowMin = hours * 60 + minutes;
+		const inWindow =
+			startMin !== null &&
+			endMin !== null &&
+			(startMin <= endMin
+				? nowMin >= startMin && nowMin <= endMin
+				: nowMin >= startMin || nowMin <= endMin);
+		if (!inWindow) {
 			const reason = `Action is only allowed between ${start} and ${end}`;
 			return stop(
 				{
@@ -405,7 +456,7 @@ export async function evaluateConstraints(
 	input: ConstraintEvaluationInput,
 	constraints: PermissionConstraints,
 ): Promise<ConstraintResult> {
-	if (constraints.maxCallsPerHour) {
+	if (constraints.maxCallsPerHour != null) {
 		const rateResult = await checkRateLimit(
 			db,
 			input.subjectId,
@@ -435,7 +486,7 @@ export async function evaluateConstraints(
 export function isCacheUnsafe(constraints?: PermissionConstraints): boolean {
 	if (!constraints) return false;
 	return (
-		Boolean(constraints.maxCallsPerHour) ||
+		constraints.maxCallsPerHour != null ||
 		Boolean(constraints.timeWindow) ||
 		(Array.isArray(constraints.allowedArgPatterns) && constraints.allowedArgPatterns.length > 0)
 	);
