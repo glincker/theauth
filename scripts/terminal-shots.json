@@ -1,0 +1,36 @@
+{
+  "shots": [
+    {
+      "name": "taint-guard",
+      "title": "Taint guard escalates a tainted tool call",
+      "command": "npx tsx examples/taint-guard/index.ts",
+      "source": "examples/taint-guard/index.ts",
+      "outputFile": "terminal-shots/taint-guard.txt",
+      "highlightLines": [4],
+      "caption": "An address copied from a fetched page needs human approval. A user typed address passes.",
+      "alt": "Terminal running the taint guard example for AI agent authorization. A page fetched by a tool is labeled tool_output:fetch_page, so the send_email call that copies its address needs human approval, while a user typed address passes. A prompt injection guard in action."
+    },
+    {
+      "name": "policy-shrink",
+      "title": "Policy shrink finds unused permissions",
+      "command": "npx tsx examples/policy-shrink/index.ts",
+      "source": "examples/policy-shrink/index.ts",
+      "outputFile": "terminal-shots/policy-shrink.txt",
+      "showLines": [[1, 13], [18, 24]],
+      "ogShowLines": [[8, 13], [18, 23]],
+      "highlightLines": [20],
+      "caption": "Of 10 granted permissions, 5 were never used. Replaying 496 recorded allows, 3 would now be denied.",
+      "alt": "Terminal running the policy shrink example for least privilege. It lists the permissions an AI agent used and the ones it never used, then replays 496 recorded allows against the smaller policy: 493 still allowed and 3 newly denied."
+    },
+    {
+      "name": "audit-receipts",
+      "title": "Audit checkpoint and verified receipt",
+      "command": "npx tsx examples/audit-receipts/index.ts",
+      "source": "examples/audit-receipts/index.ts",
+      "outputFile": "terminal-shots/audit-receipts.txt",
+      "highlightLines": [3, 4],
+      "caption": "A signed checkpoint yields a receipt that verifies, and a newer checkpoint extends the older one.",
+      "alt": "Terminal running the audit receipts example for a tamper evident audit log. A signed checkpoint of size 3 produces a 2152 byte receipt that hides the parameters, the receipt verifies as true, and a newer checkpoint extends the older one. Useful for AI agent authorization audits."
+    }
+  ]
+}

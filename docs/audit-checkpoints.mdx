@@ -1,6 +1,6 @@
 ---
 title: Audit checkpoints and receipts
-description: Sign the state of the audit log, then hand a counterparty a receipt they can verify offline.
+description: Sign checkpoints of a tamper evident audit log and give counterparties receipts they can verify offline.
 icon: stamp
 ---
 
@@ -15,6 +15,10 @@ A checkpoint is a signed tree head, the same idea Certificate Transparency uses 
 - A **receipt** bundles a decision, an inclusion proof and the checkpoint into one JSON object.
 
 All verification functions run offline and need only the public key.
+
+<Frame caption="A signed checkpoint yields a receipt that verifies, and a newer checkpoint extends the older one.">
+  <img src="/images/terminal/audit-receipts.jpg" alt="Terminal running the audit receipts example for a tamper evident audit log. A signed checkpoint of size 3 produces a 2152 byte receipt that hides the parameters, the receipt verifies as true, and a newer checkpoint extends the older one. Useful for AI agent authorization audits." />
+</Frame>
 
 ## Sign a checkpoint
 

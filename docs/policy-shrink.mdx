@@ -1,6 +1,6 @@
 ---
 title: Policy shrink
-description: Find the permissions an agent never used, propose a smaller set, and check the proposal against its recorded decisions.
+description: Apply least privilege to AI agent authorization by finding unused permissions and replaying decisions against a smaller policy.
 icon: scissors
 ---
 
@@ -9,6 +9,10 @@ icon: scissors
 Agents tend to be granted more than they need, because it is easier to widen a grant than to work out the narrow one. Policy shrink goes the other way. It reads the authorization decisions recorded for an agent over a window, works out which grants were never used, and proposes a smaller permission set that still reproduces every call that was allowed.
 
 Nothing is changed for you. The functions read audit rows and return a report. You decide whether to apply it.
+
+<Frame caption="Of 10 granted permissions, 5 were never used. Replaying 496 recorded allows, 3 would now be denied.">
+  <img src="/images/terminal/policy-shrink.jpg" alt="Terminal running the policy shrink example for least privilege. It lists the permissions an AI agent used and the ones it never used, then replays 496 recorded allows against the smaller policy: 493 still allowed and 3 newly denied." />
+</Frame>
 
 ## How it works
 
