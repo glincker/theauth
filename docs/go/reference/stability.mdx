@@ -102,8 +102,8 @@ package: `AuditEvent` fields `SubjectID`, `ActorID`, `PolicyVersion`,
 Behavior changes in the same release: `RequirePolicy` can now answer 403
 `policy.escalation_required` or 401 `auth.step_up_required`, and a failed
 membership delete during SCIM deprovisioning returns 500 where it was ignored.
-Only the SQLite store chains audit events; the other backends report
-`ErrAuditChainUnsupported`.
+The SQLite, Postgres and MySQL stores chain audit events; the memory
+backend reports `ErrAuditChainUnsupported`.
 
 ## Additive surface (token agent id)
 
@@ -114,6 +114,26 @@ suspend and revoke now cut minted tokens by exact agent id; tokens minted
 before the id was stored are still matched by name and owner. Custom storage
 backends should add the nullable `agent_id` column and implement
 `APITokensByAgentID`, or the cascade falls back to name and owner matching.
+
+## Additive surface (audit chain on Postgres and MySQL)
+
+New in the next release, all additive. The Postgres and MySQL stores now keep
+the same tamper-evident audit hash chain as SQLite: `ChainSupported()` is true
+and `VerifyAuditChain` returns a real result instead of
+`ErrAuditChainUnsupported`. The hash input, the keyed pseudonyms
+(`theauth_audit_secrets`) and the per-organization chain key are identical to
+SQLite, so a chain verifies the same way on every backend. Concurrent writers
+are serialized per chain by a row lock on a chain head table
+(`theauth_audit_chain_heads`).
+
+Postgres migration `0028_audit_accountability` and MySQL migration
+`0027_audit_accountability` add native columns for the accountability fields,
+the pseudonyms and the chain (`chain_seq`, `prev_hash`, `hash`). Rows written
+before the migration keep a NULL `chain_seq`, count as `Unchained` and are
+never rewritten; their accountability fields stay under the reserved
+`_accountability` metadata key. `DeleteUserCascade` blanks the raw ids on both
+backends without breaking verification. New rows no longer write the
+`_accountability` metadata key. Memory stays unsupported.
 
 ## Stable surface
 
