@@ -7,6 +7,7 @@ describe("agent accountability loop", () => {
 		expect(out.unauthorizedDenied).toBe(true);
 		expect(out.approvalRequired).toBe(true);
 		expect(out.approvalUnlocked).toBe(true);
+		expect(out.replayDenied).toBe(true);
 		expect(out.chainOk).toBe(true);
 		expect(out.chainChecked).toBeGreaterThan(0);
 		expect(out.revokedRejected).toBe(true);
