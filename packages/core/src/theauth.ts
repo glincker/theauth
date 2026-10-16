@@ -456,7 +456,11 @@ export async function createTheAuth(config: TheAuthConfig) {
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
 
 		// First check the agent's own permissions
-		const ownResult = await permissionEngine.authorize(agent, enrichedRequest);
+		// Denial rows are deferred: a delegated fallback may overturn the denial,
+		// and each path writing its own row would orphan the first auditId.
+		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, {
+			deferDenialAudit: true,
+		});
 
 		let finalResult: AuthorizeResult;
 
@@ -474,12 +478,18 @@ export async function createTheAuth(config: TheAuthConfig) {
 				const delegatedResult = await permissionEngine.authorize(
 					agentWithDelegated,
 					enrichedRequest,
+					{ deferDenialAudit: true },
 				);
 				// Both denied — return the original denial so the message references the agent by name
 				// A failed approvalId is the more specific reason, so it is kept.
 				const approvalDenied = delegatedResult.reason?.startsWith("APPROVAL_") === true;
 				finalResult = delegatedResult.allowed || approvalDenied ? delegatedResult : ownResult;
 			}
+		}
+
+		// One row for the final denial; allowed results were already written.
+		if (!finalResult.allowed) {
+			await permissionEngine.auditDenial(agent, enrichedRequest, finalResult);
 		}
 
 		// afterAuthorize hook

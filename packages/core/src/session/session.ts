@@ -76,6 +76,14 @@ export interface Session {
 	metadata?: Record<string, unknown>;
 }
 
+export interface CreateSessionOptions {
+	/**
+	 * A session this one replaces (refresh). It is ignored when `maxConcurrent`
+	 * is applied, so a refresh at the cap does not evict another device.
+	 */
+	replacing?: string;
+}
+
 export interface SessionManager {
 	/**
 	 * Create a new session for the given user.
@@ -87,6 +95,7 @@ export interface SessionManager {
 	create(
 		userId: string,
 		metadata?: Record<string, unknown>,
+		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }>;
 
 	/**
@@ -165,7 +174,11 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 	 * Apply `maxConcurrent` before a new session is inserted. Evicts the oldest
 	 * active sessions (leaving room for the new one) or rejects.
 	 */
-	async function enforceLimit(userId: string, metadata?: Record<string, unknown>): Promise<void> {
+	async function enforceLimit(
+		userId: string,
+		metadata?: Record<string, unknown>,
+		replacing?: string,
+	): Promise<void> {
 		if (maxConcurrent === undefined) return;
 		if (metadata?.sessionType === "impersonation") return;
 
@@ -181,7 +194,10 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			.where(eq(sessions.userId, userId));
 
 		const active = rows
-			.filter((r) => r.expiresAt > now && r.metadata?.sessionType !== "impersonation")
+			.filter(
+				(r) =>
+					r.id !== replacing && r.expiresAt > now && r.metadata?.sessionType !== "impersonation",
+			)
 			.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
 		if (active.length < maxConcurrent) return;
@@ -210,11 +226,64 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		}
 	}
 
+	/**
+	 * Count-then-insert is racy: concurrent sign-ins can all pass the pre-check.
+	 * After the insert, recount and drop sessions beyond the cap. A newcomer that
+	 * lost the race removes itself and throws.
+	 */
+	async function reconcileLimit(
+		userId: string,
+		newId: string,
+		metadata?: Record<string, unknown>,
+		replacing?: string,
+	): Promise<void> {
+		if (maxConcurrent === undefined) return;
+		if (metadata?.sessionType === "impersonation") return;
+
+		const now = new Date();
+		const rows = await db
+			.select({
+				id: sessions.id,
+				expiresAt: sessions.expiresAt,
+				createdAt: sessions.createdAt,
+				metadata: sessions.metadata,
+			})
+			.from(sessions)
+			.where(eq(sessions.userId, userId));
+		const active = rows
+			.filter(
+				(r) =>
+					r.id !== replacing && r.expiresAt > now && r.metadata?.sessionType !== "impersonation",
+			)
+			.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1));
+		if (active.length <= maxConcurrent) return;
+
+		// Every racer ranks by the same total order (createdAt, then id), so they
+		// agree on who stays. Reject mode keeps the oldest, evict mode the newest.
+		const keep =
+			onLimit === "reject" ? active.slice(0, maxConcurrent) : active.slice(-maxConcurrent);
+		const dropped = active.filter((r) => !keep.includes(r));
+		for (const row of dropped) {
+			await db.delete(sessions).where(eq(sessions.id, row.id));
+		}
+		if (onLimit === "evict-oldest") {
+			await notifyRevoked(
+				dropped
+					.filter((r) => r.id !== newId)
+					.map((r) => ({ id: r.id, userId, expiresAt: r.expiresAt, createdAt: r.createdAt })),
+			);
+		}
+		// Losing the race means this session was dropped: do not hand out a dead token.
+		if (dropped.some((r) => r.id === newId))
+			throw new MultiSessionLimitError(userId, maxConcurrent);
+	}
+
 	async function create(
 		userId: string,
 		metadata?: Record<string, unknown>,
+		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }> {
-		await enforceLimit(userId, metadata);
+		await enforceLimit(userId, metadata, options?.replacing);
 		const id = generateId();
 		const now = new Date();
 		const expiresAt = new Date(now.getTime() + maxAge * 1000);
@@ -226,6 +295,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			metadata: metadata ?? null,
 			createdAt: now,
 		});
+		await reconcileLimit(userId, id, metadata, options?.replacing);
 
 		const token = await new SignJWT({ sub: id })
 			.setProtectedHeader({ alg: "HS256" })

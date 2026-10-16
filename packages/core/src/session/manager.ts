@@ -307,14 +307,23 @@ export function createCookieSessionManager(
 		if (!row) return null;
 		if (row.expiresAt <= new Date()) return null;
 
-		// Delete the old session and issue a fresh one so the new signed JWT
-		// reflects the updated expiry.  This keeps the session count stable
-		// and avoids the need to re-sign a token at this layer.
-		await db.delete(sessionsTable).where(eq(sessionsTable.id, sessionId));
+		// Issue the new session first so a create failure leaves the user logged
+		// in, then delete the old one. The delete reports whether this call
+		// removed it: a concurrent refresh that lost the race drops its own new
+		// session instead of leaving two live ones.
 		const { session: newSession, token: newToken } = await raw.create(
 			row.userId,
 			row.metadata ?? undefined,
+			{ replacing: sessionId },
 		);
+		const removed = await db
+			.delete(sessionsTable)
+			.where(eq(sessionsTable.id, sessionId))
+			.returning({ id: sessionsTable.id });
+		if (removed.length === 0) {
+			await db.delete(sessionsTable).where(eq(sessionsTable.id, newSession.id));
+			return null;
+		}
 
 		return {
 			session: newSession,

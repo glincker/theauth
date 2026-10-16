@@ -24,7 +24,11 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 	async function authorize(
 		agent: AgentIdentity,
 		request: AuthorizeRequest,
+		options?: AuthorizeOptions,
 	): Promise<AuthorizeResult> {
+		// A caller that may still overturn a denial (delegated fallback) writes
+		// the single final denial row itself through `auditDenial`.
+		const auditDenials = auditAll && !options?.deferDenialAudit;
 		const startTime = performance.now();
 		const auditId = generateId();
 
@@ -40,7 +44,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				reason: `No permission grants agent "${agent.name}" access to "${request.action}" on "${request.resource}"`,
 				auditId,
 			};
-			if (auditAll) {
+			if (auditDenials) {
 				await writeAuditLog(db, agent, request, result, startTime, auditId);
 			}
 			return result;
@@ -96,7 +100,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 					reason: constraintResult.reason,
 					auditId,
 				};
-				if (auditAll) {
+				if (auditDenials) {
 					await writeAuditLog(db, agent, request, result, startTime, auditId);
 				}
 				return result;
@@ -149,7 +153,26 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 		}
 	}
 
-	return { authorize, recordDenial };
+	/**
+	 * Write the one audit row for a denial whose write was deferred with
+	 * `deferDenialAudit`. Uses the result's own `auditId`, so the id the caller
+	 * returns always points at a row. Respects `auditAll`; never throws.
+	 */
+	async function auditDenial(
+		agent: AgentIdentity,
+		request: AuthorizeRequest,
+		result: AuthorizeResult,
+	): Promise<void> {
+		if (!auditAll || result.allowed || !result.auditId) return;
+		await writeAuditLog(db, agent, request, result, performance.now(), result.auditId);
+	}
+
+	return { authorize, recordDenial, auditDenial };
+}
+
+export interface AuthorizeOptions {
+	/** Skip the audit row for a denial; the caller writes it with `auditDenial`. */
+	deferDenialAudit?: boolean;
 }
 
 /** Stable reason codes stored on audit rows for denials made before permission evaluation. */
@@ -166,21 +189,27 @@ async function writeAuditLog(
 ): Promise<void> {
 	const durationMs = Math.round(performance.now() - startTime);
 
-	await insertAuditRow(db, {
-		id: auditId,
-		agentId: agent.id,
-		userId: agent.ownerId,
-		action: request.action,
-		resource: request.resource,
-		parameters: consumed
-			? { ...(request.arguments ?? {}), approvalId: consumed.approvalId }
-			: (request.arguments ?? {}),
-		result: result.allowed ? "allowed" : "denied",
-		reason: result.reason ?? null,
-		approverId: consumed?.approverId ?? null,
-		durationMs,
-		timestamp: new Date(),
-		ip: request.context?.ip ?? request.ip ?? null,
-		userAgent: request.context?.userAgent ?? null,
-	});
+	// Same contract as recordDenial: a failed audit write never turns an
+	// authorization decision into an exception.
+	try {
+		await insertAuditRow(db, {
+			id: auditId,
+			agentId: agent.id,
+			userId: agent.ownerId,
+			action: request.action,
+			resource: request.resource,
+			parameters: consumed
+				? { ...(request.arguments ?? {}), approvalId: consumed.approvalId }
+				: (request.arguments ?? {}),
+			result: result.allowed ? "allowed" : "denied",
+			reason: result.reason ?? null,
+			approverId: consumed?.approverId ?? null,
+			durationMs,
+			timestamp: new Date(),
+			ip: request.context?.ip ?? request.ip ?? null,
+			userAgent: request.context?.userAgent ?? null,
+		});
+	} catch {
+		// best effort, see above
+	}
 }

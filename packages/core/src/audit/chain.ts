@@ -53,19 +53,34 @@ export function getAuditChainConfig(db: Database): AuditChainConfig | undefined 
 	return registry.get(db);
 }
 
-/** JSON with sorted keys at every depth, so equal data always serializes equally. */
+/**
+ * JSON with sorted keys at every depth, so equal data always serializes equally.
+ * BigInt becomes a decimal string. A reference cycle throws a TypeError instead
+ * of overflowing the stack; a value shared by two siblings is not a cycle.
+ */
 export function canonicalJson(value: unknown): string {
+	return canonicalInner(value, new WeakSet<object>());
+}
+
+function canonicalInner(value: unknown, path: WeakSet<object>): string {
 	if (value === null || value === undefined) return "null";
-	if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+	if (typeof value === "bigint") return JSON.stringify(value.toString());
 	if (value instanceof Date) return JSON.stringify(value.toISOString());
 	if (typeof value === "object") {
-		const obj = value as Record<string, unknown>;
-		const parts: string[] = [];
-		for (const key of Object.keys(obj).sort(compareCodeUnits)) {
-			if (obj[key] === undefined) continue;
-			parts.push(`${JSON.stringify(key)}:${canonicalJson(obj[key])}`);
+		if (path.has(value)) throw new TypeError("canonicalJson: circular reference");
+		path.add(value);
+		try {
+			if (Array.isArray(value)) return `[${value.map((v) => canonicalInner(v, path)).join(",")}]`;
+			const obj = value as Record<string, unknown>;
+			const parts: string[] = [];
+			for (const key of Object.keys(obj).sort(compareCodeUnits)) {
+				if (obj[key] === undefined) continue;
+				parts.push(`${JSON.stringify(key)}:${canonicalInner(obj[key], path)}`);
+			}
+			return `{${parts.join(",")}}`;
+		} finally {
+			path.delete(value);
 		}
-		return `{${parts.join(",")}}`;
 	}
 	return JSON.stringify(value);
 }
