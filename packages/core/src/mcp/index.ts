@@ -24,6 +24,8 @@ export {
 } from "./client-metadata.js";
 // Consent approval
 export { approveConsent } from "./consent.js";
+// Live delegation check
+export { createDbDelegationStore } from "./delegation-check.js";
 // DPoP (RFC 9449)
 export {
 	computeAth,
@@ -97,7 +99,9 @@ export type {
 	ApproveConsentParams,
 	AuthError,
 	McpAccessToken,
+	McpActorAgentResolver,
 	McpActorClaim,
+	McpActorRef,
 	McpAsymmetricAlg,
 	McpAuthContext,
 	McpAuthModule,
@@ -109,6 +113,8 @@ export type {
 	McpClientRegistrationResponse,
 	McpConfig,
 	McpDelegationHop,
+	McpDelegationLink,
+	McpDelegationStore,
 	McpJtiDenylist,
 	McpProtectedResourceMetadata,
 	McpServerMetadata,

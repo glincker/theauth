@@ -121,7 +121,7 @@ describe("time window constraints", () => {
 		const now = new Date();
 		const hours = now.getHours();
 		const start = `${String(hours).padStart(2, "0")}:00`;
-		const end = `${String(hours + 1).padStart(2, "0")}:00`;
+		const end = hours === 23 ? "23:59" : `${String(hours + 1).padStart(2, "0")}:00`;
 
 		const agent = await theauth.agent.create({
 			ownerId: "user-1",

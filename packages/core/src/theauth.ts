@@ -456,7 +456,11 @@ export async function createTheAuth(config: TheAuthConfig) {
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
 
 		// First check the agent's own permissions
-		const ownResult = await permissionEngine.authorize(agent, enrichedRequest);
+		// Denial rows are deferred: a delegated fallback may overturn the denial,
+		// and each path writing its own row would orphan the first auditId.
+		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, {
+			deferDenialAudit: true,
+		});
 
 		let finalResult: AuthorizeResult;
 
@@ -474,33 +478,55 @@ export async function createTheAuth(config: TheAuthConfig) {
 				const delegatedResult = await permissionEngine.authorize(
 					agentWithDelegated,
 					enrichedRequest,
+					{ deferDenialAudit: true },
 				);
 				// Both denied — return the original denial so the message references the agent by name
-				finalResult = delegatedResult.allowed ? delegatedResult : ownResult;
+				// A failed approvalId is the more specific reason, so it is kept.
+				const approvalDenied = delegatedResult.reason?.startsWith("APPROVAL_") === true;
+				finalResult = delegatedResult.allowed || approvalDenied ? delegatedResult : ownResult;
 			}
 		}
 
+		// One row for the final denial; allowed results were already written.
+		if (!finalResult.allowed) {
+			await permissionEngine.auditDenial(agent, enrichedRequest, finalResult);
+		}
+
 		// afterAuthorize hook
-		void hooks.afterAuthorize?.({
-			agentId,
-			action: request.action,
-			resource: request.resource,
-			result: {
-				allowed: finalResult.allowed,
-				reason: finalResult.reason,
-				auditId: finalResult.auditId,
-			},
-		});
+		// Fire-and-forget: a throwing or rejecting hook must not surface as an
+		// unhandled rejection or change the authorization result.
+		void Promise.resolve()
+			.then(() =>
+				hooks.afterAuthorize?.({
+					agentId,
+					action: request.action,
+					resource: request.resource,
+					result: {
+						allowed: finalResult.allowed,
+						reason: finalResult.reason,
+						auditId: finalResult.auditId,
+					},
+				}),
+			)
+			.catch(() => {
+				// Hook failures are the caller's concern; the SDK has no logger to report to.
+			});
 
 		// onViolation hook when the request was denied
 		if (!finalResult.allowed) {
-			void hooks.onViolation?.({
-				type: classifyViolation(finalResult.reason),
-				agentId,
-				action: request.action,
-				resource: request.resource,
-				reason: finalResult.reason ?? "Authorization denied",
-			});
+			void Promise.resolve()
+				.then(() =>
+					hooks.onViolation?.({
+						type: classifyViolation(finalResult.reason),
+						agentId,
+						action: request.action,
+						resource: request.resource,
+						reason: finalResult.reason ?? "Authorization denied",
+					}),
+				)
+				.catch(() => {
+					// See afterAuthorize above.
+				});
 		}
 
 		return finalResult;
@@ -565,8 +591,16 @@ export async function createTheAuth(config: TheAuthConfig) {
 		},
 
 		async revoke(agentId: string): ReturnType<typeof agentModule.revoke> {
-			await agentModule.revoke(agentId);
+			const result = await agentModule.revoke(agentId);
+			// Vault consents tied to the cascaded chains die with them.
+			const vault = pluginRegistry.pluginContext.tokenVault as
+				| { revokeForDelegation?: (id: string) => Promise<number> }
+				| undefined;
+			for (const chainId of result.revokedDelegations) {
+				await vault?.revokeForDelegation?.(chainId);
+			}
 			void hooks.onAgentRevoke?.(agentId);
+			return result;
 		},
 
 		async rotate(
@@ -670,6 +704,8 @@ export async function createTheAuth(config: TheAuthConfig) {
 			query: (filter: AuditFilter) => auditModule.query(filter),
 			export: (options: AuditExportOptions) => auditModule.export(options),
 			cleanup: (options: { retentionDays: number }) => auditModule.cleanup(options),
+			replayAgent: (agentId: string, opts?: Parameters<typeof auditModule.replayAgent>[1]) =>
+				auditModule.replayAgent(agentId, opts),
 		},
 		/**
 		 * MCP server registration.

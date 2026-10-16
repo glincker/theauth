@@ -1,0 +1,8 @@
+[1] Fetch a page. Its output is labeled tool_output:fetch_page
+    [ 'tool_output:fetch_page', 'user' ]
+[2] The model copies an address from the page into send_email
+    Tool "send_email" needs human approval (tier taint). Approval request apr_dbcbd154-60a6-47e0-9054-e711c5550385 was opened. Do not retry until it is granted; tell the user it is waiting.
+[3] A user typed address passes
+    { sent: 'me@example.com' }
+[4] A human approves, the retry spends the approval once
+    { sent: 'attacker@example.com' }

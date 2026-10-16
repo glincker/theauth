@@ -1,0 +1,113 @@
+---
+title: Policy shrink
+description: Apply least privilege to AI agent authorization by finding unused permissions and replaying decisions against a smaller policy.
+icon: scissors
+---
+
+## What it does
+
+Agents tend to be granted more than they need, because it is easier to widen a grant than to work out the narrow one. Policy shrink goes the other way. It reads the authorization decisions recorded for an agent over a window, works out which grants were never used, and proposes a smaller permission set that still reproduces every call that was allowed.
+
+Nothing is changed for you. The functions read audit rows and return a report. You decide whether to apply it.
+
+<Frame caption="Of 10 granted permissions, 5 were never used. Replaying 496 recorded allows, 3 would now be denied.">
+  <img src="/images/terminal/policy-shrink.jpg" alt="Terminal running the policy shrink example for least privilege. It lists the permissions an AI agent used and the ones it never used, then replays 496 recorded allows against the smaller policy: 493 still allowed and 3 newly denied." />
+</Frame>
+
+## How it works
+
+1. `analyzeUsage` loads the agent's effective permissions (its own, plus permissions delegated to it through active chains that have not expired) and splits them to one action each. It then reads the audit rows in the window and attributes every allowed call to the grant that authorized it, using the same `matchResource` and `matchAction` the engine uses, trying own permissions before delegated ones.
+2. `suggestShrink` turns that analysis into `keep`, `remove` and `rewrites`.
+3. `verifyShrink` replays the recorded rows against the proposal and reports what would flip. `previewPolicyChange` does the same by reading the rows itself, and works for any proposed change, not just a shrink.
+
+Only allowed rows count as use. A call denied for another reason (rate limit, time window, approval, revoked agent) is not treated as proof that a grant is idle. If such a call matched a grant, that grant lands in `attemptedOnly` and stays in `keep`.
+
+## Run it
+
+```ts
+import { analyzeUsage, previewPolicyChange, suggestShrink } from "@glinr/theauth";
+
+const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+const analysis = await analyzeUsage(theauth.db, agentId, { since });
+const plan = suggestShrink(analysis, { minObservations: 5 });
+const report = await previewPolicyChange(theauth.db, agentId, plan.keep, { since });
+
+console.log(plan.remove, report.newlyDenied);
+```
+
+`analyzeUsage` returns `granted`, `used` (permission, count, `firstSeen`, `lastSeen`, and `via` with the delegation chain ids involved), `unused`, and an `evidence` block with row counts. Rows are read in pages of 1000 with a keyset cursor, so a long window does not load into memory at once. Set `pageSize` to change that.
+
+### Options for suggestShrink
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `minObservations` | `1` | Allowed calls a permission needs to be kept. |
+| `generalize` | `false` | Merge observed sibling resources into `parent:*`. |
+| `generalizeMin` | `3` | Distinct observed siblings needed before a merge. |
+
+A non-finite number (for example `NaN` from an unset environment variable) in any numeric option, or in `maxExamples` and `pageSize`, is ignored and the default is used.
+
+Output is deterministic and follows the order of the granted list.
+
+### Generalizing
+
+With `generalize` on, `mcp:github:issues`, `mcp:github:pulls` and `mcp:github:repos` can become `mcp:github:*`. A merge happens only when every merged resource was used, when one of the agent's existing grants already covers the wildcard (the result is never broader than what the agent has today), and when the wildcard matches no resource that was denied for lack of a grant. Even so, the wildcard admits siblings nobody has called yet, so each merge is listed in `rewrites` with its `from` permissions. Leave it off if you want the result to match observed use exactly.
+
+A `*` segment in a resource pattern matches that segment and everything after it, at any depth, and also the parent itself (`tool:*` matches `tool`, `tool:a` and `tool:a:b`). Replay uses the same matching as `authorize()`.
+
+## Example output
+
+This comes from `examples/policy-shrink`, an agent with seven grants (ten once split by action) and 498 recorded calls:
+
+```text
+granted (one entry per action): 10
+used:
+  mcp:github:repos read  x212
+  mcp:github:issues read  x148
+  mcp:github:issues write  x37
+  tool:db:orders query  x96
+  tool:db:users query  x3
+never used:
+  mcp:github:repos write
+  mcp:github:pulls read
+  tool:db:users delete
+  tool:mail send
+  tool:billing *
+
+replayed allows: 496
+still allowed:   493
+newly denied:    3
+  query tool:db:users
+  query tool:db:users
+  query tool:db:users
+newly allowed (was denied for lack of a grant): 0
+```
+
+The run used `minObservations: 5`, so `tool:db:users query`, called three times, was dropped and shows up as newly denied. That is the report doing its job: it is the line you read before deciding. With the default of `1` every historical allow is kept.
+
+## Reading the report
+
+| Field | Meaning |
+| --- | --- |
+| `replayedAllows` | Historical allowed calls replayed. |
+| `stillAllowed` | Of those, how many the proposal still allows. |
+| `newlyDeniedCount`, `newlyDenied` | Allowed calls the proposal would deny. The list is capped at `maxExamples` (default 1000), the count is exact. |
+| `wouldAlsoAllowCount`, `wouldAlsoAllowPreviouslyDenied` | Calls denied for lack of a grant that the proposal would allow. Expect this to be non-empty when you widen. |
+| `ignoredRows` | Denials for other causes and bookkeeping rows, left out of the comparison. |
+| `perPermission` | Allows attributed to each proposed permission. |
+
+Allowed calls that no current grant covers (an expired delegation, a removed permission) cannot be reproduced by a set built from today's grants. They are listed in `analysis.uncovered`.
+
+## Delegated permissions
+
+Delegated permissions are part of the agent's effective set. When a call is attributed to a delegated grant, the chain id is recorded in `via`, so you can see which delegation to narrow instead of editing the agent. Expired and revoked chains are not part of the granted set.
+
+## Limits
+
+- It proves past behaviour only. It cannot know about calls the agent will make next month.
+- A rare but legitimate call (a quarterly job, an incident runbook) may fall outside the window and be proposed for removal. Review the `remove` list and the window before applying it, and widen `since` for agents with long cycles.
+- Matching covers action and resource. Constraints (rate limits, time windows, IP allowlists, approvals) depend on live state, so they are carried over on kept permissions but not re-evaluated in the replay.
+- Reading is bounded by the audit retention you configured. Rows already deleted are not evidence.
+- Overlapping grants are attributed the way `authorize()` picks them, first match wins. A broad grant listed before a narrow one gets the credit, and the narrow one shows as unused.
+- Audit rows only exist for decisions that were recorded. Check that `auditAll` was on for the window.

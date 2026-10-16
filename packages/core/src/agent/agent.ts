@@ -1,7 +1,9 @@
 import { and, eq } from "drizzle-orm";
+import { recordAuditEvent } from "../audit/record.js";
 import { generateId, randomBytes, sha256, toBase64Url } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, permissions } from "../db/schema.js";
+import { createDelegationModule } from "../delegation/delegation.js";
 import type {
 	AgentFilter,
 	AgentIdentity,
@@ -55,6 +57,7 @@ function parseTokenExpiry(expiry: string): Date {
  */
 export function createAgentModule(config: AgentModuleConfig) {
 	const { db, maxPerUser, tokenExpiry } = config;
+	const delegation = createDelegationModule({ db });
 
 	async function create(input: CreateAgentInput): Promise<AgentIdentity & { token: string }> {
 		// Check max agents per user
@@ -217,7 +220,14 @@ export function createAgentModule(config: AgentModuleConfig) {
 		return updated;
 	}
 
-	async function revoke(agentId: string): Promise<void> {
+	/**
+	 * Revoke an agent, then every active delegation chain where it is source or
+	 * target (and their child chains). The agent is revoked first so a failure
+	 * part way leaves the agent unusable. One `agent.cascade.revoked` audit row
+	 * lists the revoked chain ids. Calling it again revokes nothing new and
+	 * writes no row.
+	 */
+	async function revoke(agentId: string): Promise<{ revokedDelegations: string[] }> {
 		const existing = await get(agentId);
 		if (!existing) throw new Error(`Agent ${agentId} not found.`);
 
@@ -225,6 +235,20 @@ export function createAgentModule(config: AgentModuleConfig) {
 			.update(agents)
 			.set({ status: "revoked", updatedAt: new Date() })
 			.where(eq(agents.id, agentId));
+
+		const revokedDelegations = await delegation.revokeAllForAgent(agentId);
+		if (revokedDelegations.length > 0) {
+			await recordAuditEvent(db, {
+				agentId,
+				userId: existing.ownerId,
+				action: "agent.cascade.revoked",
+				resource: `agent:${agentId}`,
+				result: "allowed",
+				delegationChain: revokedDelegations,
+				parameters: { agentId, revokedDelegations, count: revokedDelegations.length },
+			});
+		}
+		return { revokedDelegations };
 	}
 
 	async function rotate(agentId: string): Promise<AgentIdentity & { token: string }> {

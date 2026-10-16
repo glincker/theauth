@@ -33,7 +33,7 @@ Keep exactly one accountable party per row. If two names are accountable, nobody
 
 Two limits matter when you fill in the table:
 
-- The Consulted cell is a record, not a bypass. `authorize()` and `evaluate()` keep returning deny or escalate after a human approves, so your code runs the approved action itself.
+- The Consulted cell is not a bypass on its own. After a human approves, the call must carry the request's `approvalId`. `authorize()` and `evaluate()` then spend the approval once and allow that one action.
 - The Informed cell is passive. theAuth writes the rows. Alerting a person is your job, for example from the `onViolation` hook or a scheduled `audit.query`. Audit writes for policy decisions, delegation and approval events are best effort and counted on failure, so watch `getAuditWriteFailures`.
 
 ## Policy skeleton

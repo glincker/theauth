@@ -1,0 +1,170 @@
+---
+title: Guard agent tools
+description: Put the policy engine in front of the tools an AI agent calls, in any TypeScript agent framework.
+icon: shield-check
+---
+
+An agent framework calls your tool functions whenever the model asks. Nothing in the framework checks that this agent may call this tool, or that a large payment needs a human first.
+
+`guardTool` and `guardTools` wrap a tool so `theauth.policy.evaluate` runs before `execute`. They import no framework and add no dependency: a tool is any object with an `execute` function.
+
+## The guard API
+
+```ts
+import { guardTool, guardTools } from "@glinr/theauth";
+
+const guarded = guardTool(theauth, options, tool);
+const many = guardTools(theauth, options, tools); // array of tools, or a record keyed by tool name
+```
+
+Both return the same type they were given. The wrapped tool is a new object made with a spread, so `description`, `parameters`, schemas and every other property carry over.
+
+| Option | Meaning |
+| --- | --- |
+| `agentId` | A string, or `(ctx, args) => string`. The function form reads the agent id from whatever the framework passes as the second argument to `execute`. |
+| `name` | Tool name, for tools that have none. `guardTools` uses the record key. |
+| `resource` | Resource checked in the policy. Default `tool:<name>`. A function of the args is allowed. |
+| `action` | Action checked. Default `execute`. |
+| `risk` | `(args) => RiskContext`. Sets `amount`, `currency`, `dataClass` and `irreversible` so risk tiers can escalate. |
+| `openApproval` | Open an approval request on escalate. Default `true`. |
+| `onEscalate` | Called with the tier and approval request id before the error is thrown, for example to notify an approver. |
+| `onDecision` | Called with every decision, for logging. Errors thrown here are ignored. |
+
+### What happens on each decision
+
+| Decision | Result |
+| --- | --- |
+| `allow` | `execute` runs and its result is returned. |
+| `deny` | `ToolDeniedError` is thrown. `code` is the policy reason code, for example `POLICY_NO_MATCHING_PERMISSION`. `execute` does not run. |
+| `escalate` | `ToolApprovalRequiredError` is thrown with `approvalRequestId`, `tier` and `requirement`. `execute` does not run. |
+| The check throws | `ToolGuardFailedError` is thrown, with the original error as `cause`. `execute` does not run. This includes a missing agent id. |
+
+All three extend `ToolGuardError`. Their `message` is written for the model: it says what happened and tells it not to retry. Most frameworks send a thrown error's message back to the model as the tool result, so you can let it propagate. Where a framework needs a returned string instead, catch `ToolGuardError` and return `error.message`.
+
+After a human approves, call the tool again with the `approvalId` option returning the approved request id. The guard passes it to `evaluate`, which spends it once: it must match the agent, action and resource, and a second use is denied with `APPROVAL_ALREADY_USED`.
+
+## Minimal example
+
+```ts
+import { createTheAuth, guardTool, ToolApprovalRequiredError } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  policy: {
+    risk: { tiers: [{ tier: "large", when: { minAmount: 1000 }, require: "approval" }] },
+  },
+});
+
+const agent = await theauth.agent.create({
+  ownerId: "user-1",
+  name: "billing-agent",
+  type: "autonomous",
+  permissions: [{ resource: "tool:pay", actions: ["execute"] }],
+});
+
+const pay = guardTool(
+  theauth,
+  { agentId: agent.id, risk: (args: { amount: number }) => ({ amount: args.amount, currency: "USD" }) },
+  {
+    name: "pay",
+    description: "Pay a vendor",
+    execute: async (args: { amount: number }) => ({ paid: args.amount }),
+  },
+);
+
+await pay.execute({ amount: 20 }); // { paid: 20 }
+
+try {
+  await pay.execute({ amount: 5000 });
+} catch (error) {
+  if (error instanceof ToolApprovalRequiredError) {
+    error.approvalRequestId; // the open approval request
+    error.tier; // "large"
+  }
+}
+```
+
+## Framework examples
+
+<Note>
+  The framework sections below show only shapes confirmed in each framework's current documentation. Shape checked against the framework's documented tool type; not run against the framework in this repo's tests. The tests in this repo run the guard against the real in-memory engine with plain tool objects.
+</Note>
+
+### Vercel AI SDK
+
+A full walkthrough with approvals and the decision record is on [Vercel AI SDK](/vercel-ai-sdk).
+
+Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
+
+The AI SDK documents a tool as an object with `description`, `inputSchema` and `execute`, and you pass tools to `generateText` or `streamText` in a record keyed by name. `guardTools` takes that record and uses the keys as tool names. The second argument to `execute` is the framework's call options, so use a fixed `agentId` or read it from your own closure.
+
+```ts
+import { tool } from "ai";
+import { z } from "zod";
+import { guardTools } from "@glinr/theauth";
+
+const tools = guardTools(theauth, { agentId: agent.id }, {
+  pay: tool({
+    description: "Pay a vendor",
+    inputSchema: z.object({ amount: z.number() }),
+    execute: async ({ amount }) => ({ paid: amount }),
+  }),
+});
+```
+
+### OpenAI Agents SDK
+
+A full walkthrough with approvals and the decision record is on [OpenAI Agents SDK](/openai-agents-sdk).
+
+Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
+
+The `tool()` helper documents `name`, `description`, `parameters` and `execute`. It returns a tool object that exposes `invoke`, not `execute`, so wrap the definition before you pass it to `tool()`.
+
+```ts
+import { tool } from "@openai/agents";
+import { z } from "zod";
+import { guardTool } from "@glinr/theauth";
+
+const pay = tool(
+  guardTool(theauth, { agentId: agent.id }, {
+    name: "pay",
+    description: "Pay a vendor",
+    parameters: z.object({ amount: z.number() }),
+    execute: async ({ amount }) => ({ paid: amount }),
+  }),
+);
+```
+
+The documentation says an error thrown by a tool is rethrown by default and can be turned into a model-visible result with the `errorFunction` option. If you want the model to see the refusal, set it to return `error.message`. We did not confirm the exact signature beyond `(context, error, details) => result`.
+
+### LangGraph and LangChain
+
+Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
+
+LangChain documents `tool(fn, { name, description, schema })`. The result is a tool object, not a plain one, so wrap the function and pass the guarded function to `tool()`.
+
+```ts
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+import { guardTool } from "@glinr/theauth";
+
+const guarded = guardTool(theauth, { agentId: agent.id }, {
+  name: "pay",
+  execute: async ({ amount }: { amount: number }) => `paid ${amount}`,
+});
+
+const pay = tool(guarded.execute, {
+  name: "pay",
+  description: "Pay a vendor",
+  schema: z.object({ amount: z.number() }),
+});
+```
+
+## Related
+
+- [Vercel AI SDK](/vercel-ai-sdk)
+- [OpenAI Agents SDK](/openai-agents-sdk)
+- [Approval flows](/approval)
+- [Policy engine](/policy-engine)
+- [Agent accountability](/accountability)

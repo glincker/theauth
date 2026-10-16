@@ -1,0 +1,4 @@
+checkpoint: size=3 root=88ae44a090c8876c...
+receipt is 2152 bytes and hides the parameters
+receipt verifies: true
+newer checkpoint extends the older: true

@@ -107,6 +107,9 @@ function parseWindowMs(window: string): number {
 		);
 	}
 	const value = parseInt(match[1] ?? "0", 10);
+	if (value <= 0) {
+		throw new Error(`Invalid rate limit window "${window}". The duration must be above 0.`);
+	}
 	const unit = match[2];
 	switch (unit) {
 		case "s":
@@ -123,6 +126,35 @@ function parseWindowMs(window: string): number {
 }
 
 const MAX_BODY_SCAN_BYTES = 8_192;
+
+/** Stream-read at most `limit` bytes of the body, then cancel the rest. */
+async function readBodyPrefix(request: Request, limit: number): Promise<string> {
+	const body = request.body;
+	if (!body) return "";
+	const reader = body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (total < limit) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			const take = value.byteLength > limit - total ? value.subarray(0, limit - total) : value;
+			chunks.push(take);
+			total += take.byteLength;
+		}
+	} finally {
+		// Not awaited: on a cloned (tee'd) body the cancel promise settles only
+		// once the other branch is cancelled too, which is the handler's to read.
+		reader.cancel().catch(() => undefined);
+	}
+	const merged = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		merged.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return new TextDecoder().decode(merged);
+}
 
 /** Read an OAuth client_id from the query, Basic auth, or a small form/JSON body. */
 async function extractClientId(request: Request): Promise<string | null> {
@@ -147,7 +179,7 @@ async function extractClientId(request: Request): Promise<string | null> {
 	const isJson = type.includes("application/json");
 	if (!isForm && !isJson) return null;
 	try {
-		const text = (await request.clone().text()).slice(0, MAX_BODY_SCAN_BYTES);
+		const text = await readBodyPrefix(request.clone(), MAX_BODY_SCAN_BYTES);
 		if (isForm) return new URLSearchParams(text).get("client_id")?.slice(0, 128) ?? null;
 		const parsed: unknown = JSON.parse(text);
 		if (parsed && typeof parsed === "object") {
@@ -220,6 +252,25 @@ function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit 
 // Plugin factory
 
 export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
+	// Parse every configured window once, so a bad value fails at startup and
+	// requests do not re-parse.
+	const windowMsCache = new Map<string, number>();
+	const windowMsFor = (window: string): number => {
+		let ms = windowMsCache.get(window);
+		if (ms === undefined) {
+			ms = parseWindowMs(window);
+			windowMsCache.set(window, ms);
+		}
+		return ms;
+	};
+	const configured: Array<EndpointLimit | false | undefined> = [
+		config.default,
+		...PATH_TO_CONFIG_KEY.map(([, key]) => config[key]),
+		...Object.values(BUILT_IN_LIMITS),
+	];
+	for (const limit of configured) {
+		if (limit) windowMsFor(limit.window);
+	}
 	let store: RateLimitStore | null = null;
 	if (config.store && config.store !== "memory") {
 		store = isSecondaryStorage(config.store)
@@ -267,7 +318,7 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 					return undefined;
 				}
 
-				const windowMs = parseWindowMs(limit.window);
+				const windowMs = windowMsFor(limit.window);
 				const key = `rate-limit:${pathname}:${await buildKey(request)}`;
 
 				const { count, resetAt } = await getStore().increment(key, windowMs);

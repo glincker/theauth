@@ -14,7 +14,7 @@ theAuth supports this with a permission constraint called `requireApproval`. Whe
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
 <Warning>
-  Approval is a record, not a bypass. `theauth.authorize()` does not look up approval requests, so a permission with `requireApproval: true` is denied every time, even after a human approves. After `approve()` succeeds, your application performs the action itself (or calls a code path that does not run `authorize()` for that permission). Also note that `approve()` does not check `expiresAt`; the TTL is only applied when you call `cleanup()`, which marks overdue pending requests as `expired`.
+  An approval only unlocks an action when the call carries its id. A permission with `requireApproval: true` is still denied every time unless you pass `approvalId` to `authorize()` or `policy.evaluate()`. Note that `approve()` does not check `expiresAt`; the TTL is applied when the approval is spent (an expired request is refused) and when you call `cleanup()`, which marks overdue pending requests as `expired`.
 </Warning>
 
 <Info>
@@ -42,9 +42,42 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Agent retries**
 
-    Check the decision with `theauth.approval.get(requestId)`. Once the status is `approved`, your application carries out the original action. For maximum simplicity, pass the request ID back to the agent so it can poll or be woken up when a decision arrives.
+    Check the decision with `theauth.approval.get(requestId)`. Once the status is `approved`, call `authorize()` or `policy.evaluate()` again with `approvalId: requestId`. theAuth verifies and spends the approval and allows the call, then your application carries out the action. Pass the request ID back to the agent so it can poll or be woken up when a decision arrives.
   </Step>
 </Steps>
+
+## Spending an approval
+
+Pass `approvalId` on the request:
+
+```typescript
+const result = await theauth.authorize(agentId, {
+  action: "execute",
+  resource: "mcp:payments:refund",
+  approvalId: request.id,
+});
+
+const decision = await theauth.policy.evaluate({
+  subject: { agentId, ownerId },
+  action: "execute",
+  resource: "mcp:payments:refund",
+  approvalId: request.id,
+});
+```
+
+When the matched permission requires approval (or `policy.evaluate` would escalate for a risk tier that requires `approval`), theAuth checks that the request exists, is `approved`, belongs to this agent, has exactly this action and resource, has not expired and has not been used. It then marks the request consumed and allows the call. An approval is single use: the check and the consume are one conditional update (`consumed_at IS NULL`), so when two calls race with the same `approvalId` exactly one is allowed. Other constraints on the permission, such as `timeWindow` and `ipAllowlist`, still apply, and a call that fails them does not use up the approval. A tier that requires `step_up` is not satisfied by an approval.
+
+If the approval cannot be spent, the call is denied with one of these reasons:
+
+| Code | Meaning |
+| --- | --- |
+| `APPROVAL_NOT_FOUND` | No request has this id. |
+| `APPROVAL_NOT_APPROVED` | The request is pending or denied. |
+| `APPROVAL_MISMATCH` | The request is for another agent, action or resource. |
+| `APPROVAL_EXPIRED` | The request passed its `expiresAt`. |
+| `APPROVAL_ALREADY_USED` | The request was already spent. |
+
+The allow is audited with `approver_id` set to the request's `respondedBy` and the approval id in the row's `parameters.approvalId`. Upgrading adds a nullable `consumed_at` column to `theauth_approval_requests` automatically.
 
 ## ApprovalRequest fields
 

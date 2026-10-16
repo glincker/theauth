@@ -1,0 +1,169 @@
+---
+title: Prove what your AI agent did without sharing your database
+description: Sign a checkpoint of your agent audit log, mint a receipt for one decision, and let a counterparty verify it offline with a public key. Runnable TypeScript.
+icon: stamp
+---
+
+A customer asks whether your agent really approved that refund, and "trust our logs" is a weak answer. Giving them database access is worse. A signed checkpoint and a receipt let them check one decision themselves, offline, with a public key.
+
+This tutorial signs a checkpoint of an audit log, mints a receipt that reveals four fields and hides the rest, verifies it the way a counterparty would, and then proves a later checkpoint extends the first. It runs in memory with no model and no API key.
+
+![Terminal output of the audit receipts example verifying a receipt and a consistency proof](https://raw.githubusercontent.com/glincker/theauth/main/docs/images/terminal/audit-receipts.jpg)
+
+## Prerequisites
+
+- Node 20 or newer and TypeScript
+- A scratch project with `"type": "module"` in `package.json`
+
+```bash
+npm i @glinr/theauth
+npm i better-sqlite3 drizzle-orm
+npm i -D tsx typescript @types/node
+```
+
+The code below is from the [audit receipts example](https://github.com/glincker/theauth/tree/main/examples/audit-receipts). Put it in one `index.ts`. It needs a release that includes the checkpoint exports.
+
+## Step 1: Turn on a tamper evident audit log
+
+```ts
+import {
+	createCheckpoint,
+	createConsistencyProof,
+	createReceipt,
+	createTheAuth,
+	generateCheckpointKeyPair,
+	insertAuditRow,
+	users,
+	verifyConsistencyProof,
+	verifyReceipt,
+} from "@glinr/theauth";
+
+const OWNER = "user-alice";
+
+const auth = await createTheAuth({
+	database: { provider: "sqlite", url: ":memory:" },
+	agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+	audit: { tamperEvident: true, hmacKey: "demo-only-hmac-key" },
+});
+```
+
+The `hmacKey` here is for the demo. Use a real secret in production.
+
+## Step 2: Record three decisions
+
+```ts
+await auth.db.insert(users).values({
+	id: OWNER,
+	email: "alice@example.com",
+	name: "Alice",
+	username: "alice",
+	createdAt: new Date(),
+	updatedAt: new Date(),
+});
+const agent = await auth.agent.create({
+	ownerId: OWNER,
+	name: "refund-worker",
+	type: "autonomous",
+	permissions: [],
+});
+
+const now = Date.now();
+const record = (id: string, result: "allowed" | "denied", offsetSec: number) =>
+	insertAuditRow(auth.db, {
+		id,
+		agentId: agent.id,
+		userId: OWNER,
+		action: "execute",
+		resource: "mcp:payments:refund",
+		parameters: { orderId: `order-${id}`, amountCents: 4200 },
+		result,
+		reason: null,
+		durationMs: 12,
+		timestamp: new Date(now + offsetSec * 1000),
+		approverId: OWNER,
+	});
+await record("decision-1", "allowed", 1);
+await record("decision-2", "allowed", 2);
+await record("decision-3", "denied", 3);
+```
+
+In a real deployment the engine writes these rows for you. The helper is here so the demo is self contained.
+
+## Step 3: Sign a checkpoint and mint a receipt
+
+You, the operator, generate a key pair, sign the head of the log, and cut a receipt for `decision-2` that reveals only the action, resource, result and timestamp.
+
+```ts
+const keys = await generateCheckpointKeyPair("audit-2026-10");
+const first = await createCheckpoint(auth.db, { signer: keys.signer });
+if (!first.success) throw new Error(first.error.message);
+console.log(`checkpoint: size=${first.data.size} root=${first.data.rootHash.slice(0, 16)}...`);
+
+const receipt = await createReceipt(auth.db, "decision-2", first.data, {
+	reveal: ["action", "resource", "result", "timestamp"],
+});
+if (!receipt.success) throw new Error(receipt.error.message);
+const wire = JSON.stringify(receipt.data);
+console.log(`receipt is ${wire.length} bytes and hides the parameters`);
+```
+
+Keep the private key in your secret store and publish `keys.publicKey`.
+
+## Step 4: Verify as the counterparty
+
+This is all the other side needs: the receipt JSON and your public key.
+
+```ts
+const verdict = await verifyReceipt(JSON.parse(wire), keys.publicKey);
+console.log(`receipt verifies: ${verdict.valid}`);
+```
+
+## Step 5: Prove the log only grew
+
+Later the log gets a fourth row. A consistency proof shows the new checkpoint extends the old one without changing any earlier row.
+
+```ts
+await record("decision-4", "allowed", 4);
+const second = await createCheckpoint(auth.db, { signer: keys.signer });
+if (!second.success) throw new Error(second.error.message);
+const consistency = await createConsistencyProof(auth.db, first.data, second.data);
+if (!consistency.success) throw new Error(consistency.error.message);
+const extended = await verifyConsistencyProof(
+	consistency.data,
+	first.data,
+	second.data,
+	keys.publicKey,
+);
+console.log(`newer checkpoint extends the older: ${extended.valid}`);
+```
+
+Run it with `npx tsx index.ts`.
+
+## What the output means
+
+Real output from the example. Your root hash and receipt size will differ, because the rows carry timestamps from your run.
+
+```text
+checkpoint: size=3 root=0a12313ad46bb6ef...
+receipt is 2152 bytes and hides the parameters
+receipt verifies: true
+newer checkpoint extends the older: true
+```
+
+Size 3 is the three recorded decisions. The receipt is about 2 KB of JSON, and the order ID and amount stay hidden as commitments. `receipt verifies: true` means the operator's key signed a log head that contains that row with those revealed values. The last line means no earlier row was altered between the two checkpoints.
+
+## Limits
+
+A receipt proves less than it might seem to.
+
+- It does not prove the log is complete. A row never written, or left out of a checkpoint, is invisible.
+- It does not prove you showed everyone the same log. Catching a split view needs checkpoints published where several parties read them, and someone comparing.
+- A hidden field is a commitment. To prove it, reveal it with its salt.
+- It proves the record, not that the decision was right.
+- The timestamp is the signer's clock, not an independent time stamp.
+
+## Where to go next
+
+- Reference: [Audit checkpoints and receipts](https://docs.theauth.dev/audit-checkpoints) covers inclusion proofs, checkpoint stores and redaction.
+- Code: [examples/audit-receipts](https://github.com/glincker/theauth/tree/main/examples/audit-receipts)
+- Before you sign anything, trim what the agent can do: [Find and remove unused permissions from an AI agent](https://docs.theauth.dev/tutorials/remove-unused-agent-permissions).

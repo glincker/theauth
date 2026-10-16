@@ -1,3 +1,4 @@
+import { checkLiveDelegation } from "./delegation-check.js";
 import { verifyAccessJwt } from "./keys.js";
 import type {
 	McpActorClaim,
@@ -34,7 +35,8 @@ function readDelegationChain(act: McpActorClaim | undefined): McpDelegationHop[]
  * 4. Audience validation (token must be bound to `expectedAudience`, required)
  * 5. Revocation check against the configured jti denylist, if any
  * 6. Scope validation (optional - checks all required scopes are present)
- * 7. DPoP binding: a token with `cnf.jkt` is refused unless the caller passes
+ * 7. Live delegation check of the `act` chain, if a delegation store is configured
+ * 8. DPoP binding: a token with `cnf.jkt` is refused unless the caller passes
  *    `presentedDpopJkt` (the thumbprint of a verified proof) and it matches.
  *    A bound token therefore never validates as a plain bearer token.
  *
@@ -120,6 +122,33 @@ export async function validateAccessToken(
 			success: false,
 			error: { code: "INVALID_TOKEN", message: "Token has been revoked" },
 		};
+	}
+
+	// Live delegation check (opt-in): every link in the act chain must still be live
+	const delegationChain = readDelegationChain(payload.act);
+	if (ctx.config.delegationStore && delegationChain.length > 0) {
+		const failure = await checkLiveDelegation(
+			ctx.config.delegationStore,
+			payload.sub,
+			delegationChain,
+			{
+				resolveActorAgentId: ctx.config.resolveActorAgentId,
+				allowUnmappedActors: ctx.config.allowUnmappedActors,
+			},
+		);
+		if (failure) {
+			const detail =
+				failure.reason === "unmapped actor" || failure.reason === "mapper failed"
+					? failure.reason
+					: `${failure.reason} link`;
+			return {
+				success: false,
+				error: {
+					code: "INVALID_TOKEN",
+					message: `Delegation chain is no longer valid (${detail})`,
+				},
+			};
+		}
 	}
 
 	// Audience claim must exist (jose already matched it)
@@ -209,7 +238,7 @@ export async function validateAccessToken(
 					},
 				}
 			: {}),
-		delegationChain: readDelegationChain(payload.act),
+		delegationChain,
 	};
 
 	return { success: true, data: session };

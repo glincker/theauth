@@ -481,6 +481,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   expires_at    ${ts} NOT NULL,
   responded_at  ${tsNull},
   responded_by  TEXT,
+  consumed_at   ${tsNull},
   created_at    ${ts} NOT NULL
 )`,
 		},
@@ -1302,6 +1303,28 @@ export async function createTables(
 
 	if (features.audit) {
 		await upgradeAuditChainColumns(run, provider);
+	}
+	if (features.agent) {
+		await upgradeApprovalColumns(run, provider);
+	}
+}
+
+/**
+ * Adds consumed_at to an approval requests table created before approvals
+ * became single use. Fresh tables already have it, so "already exists" is
+ * ignored, the same way upgradeAuditChainColumns does it.
+ */
+async function upgradeApprovalColumns(
+	run: (sql: string) => Promise<void>,
+	provider: DatabaseConfig["provider"],
+): Promise<void> {
+	const ifne = provider === "postgres" ? "IF NOT EXISTS " : "";
+	const ts =
+		provider === "postgres" ? "TIMESTAMPTZ" : provider === "mysql" ? "DATETIME(3)" : "INTEGER";
+	try {
+		await run(`ALTER TABLE theauth_approval_requests ADD COLUMN ${ifne}consumed_at ${ts}`);
+	} catch {
+		// Column already present (fresh install or earlier upgrade).
 	}
 }
 

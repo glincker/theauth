@@ -1,0 +1,24 @@
+granted (one entry per action): 10
+used:
+  mcp:github:repos read  x212
+  mcp:github:issues read  x148
+  mcp:github:issues write  x37
+  tool:db:orders query  x96
+  tool:db:users query  x3
+never used:
+  mcp:github:repos write
+  mcp:github:pulls read
+  tool:db:users delete
+  tool:mail send
+  tool:billing *
+
+keep: [{"resource":"mcp:github:repos","actions":["read"]},{"resource":"mcp:github:issues","actions":["read","write"]},{"resource":"tool:db:orders","actions":["query"]}]
+remove: [{"resource":"mcp:github:repos","actions":["write"]},{"resource":"mcp:github:pulls","actions":["read"]},{"resource":"tool:db:users","actions":["query","delete"]},{"resource":"tool:mail","actions":["send"]},{"resource":"tool:billing","actions":["*"]}]
+
+replayed allows: 496
+still allowed:   493
+newly denied:    3
+  query tool:db:users
+  query tool:db:users
+  query tool:db:users
+newly allowed (was denied for lack of a grant): 0

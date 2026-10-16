@@ -12663,7 +12663,7 @@ await theauth.agent.revoke(agentId);
 
 Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked or expired agent with `POLICY_AGENT_INACTIVE`.
 
-`agent.revoke()` does not revoke the delegations the agent gave or received in the TypeScript package. Call `delegation.revoke()` for those chains.
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`.
 
 <Warning>
 Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
@@ -13066,7 +13066,7 @@ Revocation takes effect on the next `authorize()` call. It does not terminate an
 </Warning>
 
 <Note>
-In the TypeScript package, `agent.revoke()` changes only the agent's status. It does not revoke the delegations the agent gave or received. Call `delegation.revoke()` for each chain you want cut.
+In the TypeScript package, `agent.revoke()` also revokes every active chain where the agent is the source or the target, and the chains downstream of them. It returns their ids as `revokedDelegations` and writes one `agent.cascade.revoked` audit row for the agent. Use `delegation.revoke()` when you want to cut one chain and keep the agent.
 </Note>
 
 ### Effective permissions
@@ -13625,7 +13625,7 @@ const decision = await theauth.policy.evaluate(
 
 `RiskContext` fields are `amount`, `currency`, `dataClass`, `irreversible` and `extras`. A rule matches only when every field in its `when` holds: `minAmount`, `currency`, `dataClasses` and `irreversible`. The caller supplies the risk values; the engine does not derive them. The amount threshold is this tier rule, not a numeric constraint on a permission, and cumulative spend is not tracked.
 
-With `openApproval: true`, an escalation opens a request through the [approval module](/approval) for the agent's owner (or `subject.userId`) and returns its id on `escalation.approvalRequestId`. If the request cannot be stored, the decision stays `escalate` without an id. It never becomes an allow. The decision stays `escalate` after a human approves, so your code runs the action once the request is approved.
+With `openApproval: true`, an escalation opens a request through the [approval module](/approval) for the agent's owner (or `subject.userId`) and returns its id on `escalation.approvalRequestId`. If the request cannot be stored, the decision stays `escalate` without an id. It never becomes an allow. The decision stays `escalate` after a human approves until you call `evaluate` again with `approvalId` set to that request id. evaluate then verifies the approval, spends it (single use) and returns `allow`, or returns `deny` with `APPROVAL_NOT_FOUND`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_EXPIRED` or `APPROVAL_ALREADY_USED`. See [Approval flows](/approval).
 
 ## Owner binding and inactive agents
 
@@ -14215,7 +14215,7 @@ if (!result.allowed) {
 }
 ```
 
-A `requireApproval` permission is always denied by `authorize()`. Your code reads the reason, opens an approval request and runs the action itself after a human approves. `policy.evaluate()` returns `escalate` for the same permission instead, which is easier to branch on. See [Approval flows](/approval) and [Permissions](/permissions).
+A `requireApproval` permission is denied by `authorize()` until the call carries the `approvalId` of an approved request, which `authorize()` then spends once. Your code reads the reason, opens an approval request and retries with the id after a human approves. `policy.evaluate()` returns `escalate` for the same permission instead, which is easier to branch on, and accepts `approvalId` the same way. See [Approval flows](/approval) and [Permissions](/permissions).
 
 To let a sub-agent act within a narrower scope, delegate a subset with a short expiry. Constraints on the delegated permissions are stored and enforced, and a child can only tighten what its parent holds: `requireApproval` is OR-ed, `maxCallsPerHour` takes the lower value, and lists are intersected.
 
@@ -14333,7 +14333,7 @@ await theauth.agent.revoke(agent.id);
 await theauth.delegation.revoke(chain.id); // also revokes links downstream of it
 ```
 
-Revoking an agent does not terminate an operation that already passed authorization. See [Agent identity](/agents#lifecycle) and [Cascading revocation](/delegation#cascading-revocation).
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain where the agent is the source or the target, plus the chains downstream of them, and returns their ids as `revokedDelegations`. It writes one `agent.cascade.revoked` audit row for the agent, with those ids in `delegation_chain`, and it fires `onAgentRevoke`. Calling it again revokes nothing new and writes no second row. Revoking an agent does not terminate an operation that already passed authorization. See [Agent identity](/agents#lifecycle) and [Cascading revocation](/delegation#cascading-revocation).
 
 ## What is not shipped yet?
 
@@ -14341,8 +14341,7 @@ Revoking an agent does not terminate an operation that already passed authorizat
   These are planned and are not available in the SDK today.
 </Warning>
 
-- **Planned:** revoking an agent that cascades to everything it delegated. In the TypeScript package, `agent.revoke()` only changes the agent's status, so revoke the delegation chains explicitly, as above. The chain rows stay active until you do.
-- **Planned:** the approver on the same row as the decision. Today the approver is on the approval's own audit row.
+- **Planned:** the approver on the same row as every decision. The decision that spends an approval carries `approver_id` and the approval id today. Other decisions keep the approver on the approval's own audit row.
 - **Planned:** automatic `input_provenance`. The column exists and you can write it, but the SDK does not fill it.
 
 ## FAQ
@@ -14423,7 +14422,7 @@ Keep exactly one accountable party per row. If two names are accountable, nobody
 
 Two limits matter when you fill in the table:
 
-- The Consulted cell is a record, not a bypass. `authorize()` and `evaluate()` keep returning deny or escalate after a human approves, so your code runs the approved action itself.
+- The Consulted cell is not a bypass on its own. After a human approves, the call must carry the request's `approvalId`. `authorize()` and `evaluate()` then spend the approval once and allow that one action.
 - The Informed cell is passive. theAuth writes the rows. Alerting a person is your job, for example from the `onViolation` hook or a scheduled `audit.query`. Audit writes for policy decisions, delegation and approval events are best effort and counted on failure, so watch `getAuditWriteFailures`.
 
 ## Policy skeleton
@@ -14713,7 +14712,7 @@ Besides the action, resource, arguments and result, a row can carry:
 | `subject_id` | The accountable human: the root owner of the delegation chain, else the agent's owner |
 | `actor_id` | The agent that acted |
 | `policy_version` | The `policy.policyVersion` label active when the decision was made |
-| `approver_id` | Who answered, on approval rows |
+| `approver_id` | Who answered, on approval rows and on the decision that spends an approval (its `parameters.approvalId` holds the request id) |
 | `delegation_chain` | Agent ids from the root delegator to the actor, when delegated |
 | `input_provenance` | Free-form JSON describing where the inputs came from |
 | `hash_version` | `2` for rows that hash pseudonyms of the ids (see below), null or `1` for older rows |
@@ -15196,7 +15195,7 @@ theAuth supports this with a permission constraint called `requireApproval`. Whe
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
 <Warning>
-  Approval is a record, not a bypass. `theauth.authorize()` does not look up approval requests, so a permission with `requireApproval: true` is denied every time, even after a human approves. After `approve()` succeeds, your application performs the action itself (or calls a code path that does not run `authorize()` for that permission). Also note that `approve()` does not check `expiresAt`; the TTL is only applied when you call `cleanup()`, which marks overdue pending requests as `expired`.
+  An approval only unlocks an action when the call carries its id. A permission with `requireApproval: true` is still denied every time unless you pass `approvalId` to `authorize()` or `policy.evaluate()`. Note that `approve()` does not check `expiresAt`; the TTL is applied when the approval is spent (an expired request is refused) and when you call `cleanup()`, which marks overdue pending requests as `expired`.
 </Warning>
 
 <Info>
@@ -15224,9 +15223,42 @@ The flow is async. The agent does not block waiting. The human can respond minut
   <Step>
     **Agent retries**
 
-    Check the decision with `theauth.approval.get(requestId)`. Once the status is `approved`, your application carries out the original action. For maximum simplicity, pass the request ID back to the agent so it can poll or be woken up when a decision arrives.
+    Check the decision with `theauth.approval.get(requestId)`. Once the status is `approved`, call `authorize()` or `policy.evaluate()` again with `approvalId: requestId`. theAuth verifies and spends the approval and allows the call, then your application carries out the action. Pass the request ID back to the agent so it can poll or be woken up when a decision arrives.
   </Step>
 </Steps>
+
+## Spending an approval
+
+Pass `approvalId` on the request:
+
+```typescript
+const result = await theauth.authorize(agentId, {
+  action: "execute",
+  resource: "mcp:payments:refund",
+  approvalId: request.id,
+});
+
+const decision = await theauth.policy.evaluate({
+  subject: { agentId, ownerId },
+  action: "execute",
+  resource: "mcp:payments:refund",
+  approvalId: request.id,
+});
+```
+
+When the matched permission requires approval (or `policy.evaluate` would escalate for a risk tier that requires `approval`), theAuth checks that the request exists, is `approved`, belongs to this agent, has exactly this action and resource, has not expired and has not been used. It then marks the request consumed and allows the call. An approval is single use: the check and the consume are one conditional update (`consumed_at IS NULL`), so when two calls race with the same `approvalId` exactly one is allowed. Other constraints on the permission, such as `timeWindow` and `ipAllowlist`, still apply, and a call that fails them does not use up the approval. A tier that requires `step_up` is not satisfied by an approval.
+
+If the approval cannot be spent, the call is denied with one of these reasons:
+
+| Code | Meaning |
+| --- | --- |
+| `APPROVAL_NOT_FOUND` | No request has this id. |
+| `APPROVAL_NOT_APPROVED` | The request is pending or denied. |
+| `APPROVAL_MISMATCH` | The request is for another agent, action or resource. |
+| `APPROVAL_EXPIRED` | The request passed its `expiresAt`. |
+| `APPROVAL_ALREADY_USED` | The request was already spent. |
+
+The allow is audited with `approver_id` set to the request's `respondedBy` and the approval id in the row's `parameters.approvalId`. Upgrading adds a nullable `consumed_at` column to `theauth_approval_requests` automatically.
 
 ## ApprovalRequest fields
 
@@ -15409,6 +15441,171 @@ if (request?.status === 'approved') {
   Denials caused by requireApproval are written to the audit log as denied. The approval module itself does not write audit entries.
 </Card>
 </CardGroup>
+
+---
+
+# Guard agent tools
+
+Source: https://docs.theauth.dev/agent-tools
+
+An agent framework calls your tool functions whenever the model asks. Nothing in the framework checks that this agent may call this tool, or that a large payment needs a human first.
+
+`guardTool` and `guardTools` wrap a tool so `theauth.policy.evaluate` runs before `execute`. They import no framework and add no dependency: a tool is any object with an `execute` function.
+
+## The guard API
+
+```ts
+import { guardTool, guardTools } from "@glinr/theauth";
+
+const guarded = guardTool(theauth, options, tool);
+const many = guardTools(theauth, options, tools); // array of tools, or a record keyed by tool name
+```
+
+Both return the same type they were given. The wrapped tool is a new object made with a spread, so `description`, `parameters`, schemas and every other property carry over.
+
+| Option | Meaning |
+| --- | --- |
+| `agentId` | A string, or `(ctx, args) => string`. The function form reads the agent id from whatever the framework passes as the second argument to `execute`. |
+| `name` | Tool name, for tools that have none. `guardTools` uses the record key. |
+| `resource` | Resource checked in the policy. Default `tool:<name>`. A function of the args is allowed. |
+| `action` | Action checked. Default `execute`. |
+| `risk` | `(args) => RiskContext`. Sets `amount`, `currency`, `dataClass` and `irreversible` so risk tiers can escalate. |
+| `openApproval` | Open an approval request on escalate. Default `true`. |
+| `onEscalate` | Called with the tier and approval request id before the error is thrown, for example to notify an approver. |
+| `onDecision` | Called with every decision, for logging. Errors thrown here are ignored. |
+
+### What happens on each decision
+
+| Decision | Result |
+| --- | --- |
+| `allow` | `execute` runs and its result is returned. |
+| `deny` | `ToolDeniedError` is thrown. `code` is the policy reason code, for example `POLICY_NO_MATCHING_PERMISSION`. `execute` does not run. |
+| `escalate` | `ToolApprovalRequiredError` is thrown with `approvalRequestId`, `tier` and `requirement`. `execute` does not run. |
+| The check throws | `ToolGuardFailedError` is thrown, with the original error as `cause`. `execute` does not run. This includes a missing agent id. |
+
+All three extend `ToolGuardError`. Their `message` is written for the model: it says what happened and tells it not to retry. Most frameworks send a thrown error's message back to the model as the tool result, so you can let it propagate. Where a framework needs a returned string instead, catch `ToolGuardError` and return `error.message`.
+
+After a human approves, call the tool again with the `approvalId` option returning the approved request id. The guard passes it to `evaluate`, which spends it once: it must match the agent, action and resource, and a second use is denied with `APPROVAL_ALREADY_USED`.
+
+## Minimal example
+
+```ts
+import { createTheAuth, guardTool, ToolApprovalRequiredError } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  policy: {
+    risk: { tiers: [{ tier: "large", when: { minAmount: 1000 }, require: "approval" }] },
+  },
+});
+
+const agent = await theauth.agent.create({
+  ownerId: "user-1",
+  name: "billing-agent",
+  type: "autonomous",
+  permissions: [{ resource: "tool:pay", actions: ["execute"] }],
+});
+
+const pay = guardTool(
+  theauth,
+  { agentId: agent.id, risk: (args: { amount: number }) => ({ amount: args.amount, currency: "USD" }) },
+  {
+    name: "pay",
+    description: "Pay a vendor",
+    execute: async (args: { amount: number }) => ({ paid: args.amount }),
+  },
+);
+
+await pay.execute({ amount: 20 }); // { paid: 20 }
+
+try {
+  await pay.execute({ amount: 5000 });
+} catch (error) {
+  if (error instanceof ToolApprovalRequiredError) {
+    error.approvalRequestId; // the open approval request
+    error.tier; // "large"
+  }
+}
+```
+
+## Framework examples
+
+<Note>
+  The framework sections below show only shapes confirmed in each framework's current documentation. Shape checked against the framework's documented tool type; not run against the framework in this repo's tests. The tests in this repo run the guard against the real in-memory engine with plain tool objects.
+</Note>
+
+### Vercel AI SDK
+
+Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
+
+The AI SDK documents a tool as an object with `description`, `inputSchema` and `execute`, and you pass tools to `generateText` or `streamText` in a record keyed by name. `guardTools` takes that record and uses the keys as tool names. The second argument to `execute` is the framework's call options, so use a fixed `agentId` or read it from your own closure.
+
+```ts
+import { tool } from "ai";
+import { z } from "zod";
+import { guardTools } from "@glinr/theauth";
+
+const tools = guardTools(theauth, { agentId: agent.id }, {
+  pay: tool({
+    description: "Pay a vendor",
+    inputSchema: z.object({ amount: z.number() }),
+    execute: async ({ amount }) => ({ paid: amount }),
+  }),
+});
+```
+
+### OpenAI Agents SDK
+
+Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
+
+The `tool()` helper documents `name`, `description`, `parameters` and `execute`. It returns a tool object that exposes `invoke`, not `execute`, so wrap the definition before you pass it to `tool()`.
+
+```ts
+import { tool } from "@openai/agents";
+import { z } from "zod";
+import { guardTool } from "@glinr/theauth";
+
+const pay = tool(
+  guardTool(theauth, { agentId: agent.id }, {
+    name: "pay",
+    description: "Pay a vendor",
+    parameters: z.object({ amount: z.number() }),
+    execute: async ({ amount }) => ({ paid: amount }),
+  }),
+);
+```
+
+The documentation says an error thrown by a tool is rethrown by default and can be turned into a model-visible result with the `errorFunction` option. If you want the model to see the refusal, set it to return `error.message`. We did not confirm the exact signature beyond `(context, error, details) => result`.
+
+### LangGraph and LangChain
+
+Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
+
+LangChain documents `tool(fn, { name, description, schema })`. The result is a tool object, not a plain one, so wrap the function and pass the guarded function to `tool()`.
+
+```ts
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+import { guardTool } from "@glinr/theauth";
+
+const guarded = guardTool(theauth, { agentId: agent.id }, {
+  name: "pay",
+  execute: async ({ amount }: { amount: number }) => `paid ${amount}`,
+});
+
+const pay = tool(guarded.execute, {
+  name: "pay",
+  description: "Pay a vendor",
+  schema: z.object({ amount: z.number() }),
+});
+```
+
+## Related
+
+- [Approval flows](/approval)
+- [Policy engine](/policy-engine)
+- [Agent accountability](/accountability)
 
 ---
 

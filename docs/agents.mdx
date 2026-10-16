@@ -161,7 +161,7 @@ await theauth.agent.revoke(agentId);
 
 Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked or expired agent with `POLICY_AGENT_INACTIVE`.
 
-`agent.revoke()` does not revoke the delegations the agent gave or received in the TypeScript package. Call `delegation.revoke()` for those chains.
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`.
 
 <Warning>
 Revocation is permanent. There is no un-revoke. To restore access, create a new agent.

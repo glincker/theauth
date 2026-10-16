@@ -1,0 +1,70 @@
+{
+	"images": [
+		{
+			"file": "docs/images/terminal/taint-guard.jpg",
+			"variant": "docs 2x",
+			"title": "Taint guard escalates a tainted tool call",
+			"alt": "Terminal running the taint guard example for AI agent authorization. A page fetched by a tool is labeled tool_output:fetch_page, so the send_email call that copies its address needs human approval, while a user typed address passes. A prompt injection guard in action.",
+			"caption": "An address copied from a fetched page needs human approval. A user typed address passes.",
+			"source": "examples/taint-guard/index.ts",
+			"command": "npx tsx examples/taint-guard/index.ts",
+			"width": 1600,
+			"height": 1086
+		},
+		{
+			"file": "docs/images/terminal/taint-guard-og.jpg",
+			"variant": "social 1200x630",
+			"title": "Taint guard escalates a tainted tool call",
+			"alt": "Terminal running the taint guard example for AI agent authorization. A page fetched by a tool is labeled tool_output:fetch_page, so the send_email call that copies its address needs human approval, while a user typed address passes. A prompt injection guard in action.",
+			"caption": "An address copied from a fetched page needs human approval. A user typed address passes.",
+			"source": "examples/taint-guard/index.ts",
+			"command": "npx tsx examples/taint-guard/index.ts",
+			"width": 1200,
+			"height": 630
+		},
+		{
+			"file": "docs/images/terminal/policy-shrink.jpg",
+			"variant": "docs 2x",
+			"title": "Policy shrink finds unused permissions",
+			"alt": "Terminal running the policy shrink example for least privilege. It lists the permissions an AI agent used and the ones it never used, then replays 496 recorded allows against the smaller policy: 493 still allowed and 3 newly denied.",
+			"caption": "Of 10 granted permissions, 5 were never used. Replaying 496 recorded allows, 3 would now be denied.",
+			"source": "examples/policy-shrink/index.ts",
+			"command": "npx tsx examples/policy-shrink/index.ts",
+			"width": 1600,
+			"height": 1592
+		},
+		{
+			"file": "docs/images/terminal/policy-shrink-og.jpg",
+			"variant": "social 1200x630",
+			"title": "Policy shrink finds unused permissions",
+			"alt": "Terminal running the policy shrink example for least privilege. It lists the permissions an AI agent used and the ones it never used, then replays 496 recorded allows against the smaller policy: 493 still allowed and 3 newly denied.",
+			"caption": "Of 10 granted permissions, 5 were never used. Replaying 496 recorded allows, 3 would now be denied.",
+			"source": "examples/policy-shrink/index.ts",
+			"command": "npx tsx examples/policy-shrink/index.ts",
+			"width": 1200,
+			"height": 630
+		},
+		{
+			"file": "docs/images/terminal/audit-receipts.jpg",
+			"variant": "docs 2x",
+			"title": "Audit checkpoint and verified receipt",
+			"alt": "Terminal running the audit receipts example for a tamper evident audit log. A signed checkpoint of size 3 produces a 2152 byte receipt that hides the parameters, the receipt verifies as true, and a newer checkpoint extends the older one. Useful for AI agent authorization audits.",
+			"caption": "A signed checkpoint yields a receipt that verifies, and a newer checkpoint extends the older one.",
+			"source": "examples/audit-receipts/index.ts",
+			"command": "npx tsx examples/audit-receipts/index.ts",
+			"width": 1600,
+			"height": 810
+		},
+		{
+			"file": "docs/images/terminal/audit-receipts-og.jpg",
+			"variant": "social 1200x630",
+			"title": "Audit checkpoint and verified receipt",
+			"alt": "Terminal running the audit receipts example for a tamper evident audit log. A signed checkpoint of size 3 produces a 2152 byte receipt that hides the parameters, the receipt verifies as true, and a newer checkpoint extends the older one. Useful for AI agent authorization audits.",
+			"caption": "A signed checkpoint yields a receipt that verifies, and a newer checkpoint extends the older one.",
+			"source": "examples/audit-receipts/index.ts",
+			"command": "npx tsx examples/audit-receipts/index.ts",
+			"width": 1200,
+			"height": 630
+		}
+	]
+}

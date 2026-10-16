@@ -11,6 +11,10 @@ on:
   # forever on docs-only PRs. The `changes` job below already skips the heavy job when nothing relevant changed.
   pull_request:
     branches: [main]
+  # Nightly full run on main (every package, not only the ones a PR touched).
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,6 +25,8 @@ concurrency:
 
 jobs:
   changes:
+    # Scheduled and manual runs always do the full job, so they skip the diff.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       run_ci: ${{ steps.filter.outputs.run_ci }}
@@ -46,7 +52,10 @@ jobs:
 
   ci:
     needs: changes
-    if: needs.changes.outputs.run_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    # `!cancelled()` lets this run on schedule/dispatch, where `changes` is skipped.
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (needs.changes.outputs.run_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -74,14 +83,32 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      # On PRs, only packages changed against main and their dependents run. Builds stay scoped to
+      # packages (as `pnpm build` is), because the example apps are not built in CI. Push to main and the
+      # nightly schedule run everything. Lint always runs in full (biome is fast).
+      - name: Build (affected)
+        if: github.event_name == 'pull_request'
+        run: pnpm exec turbo run build --filter='...[origin/main]' --filter='!./examples/**' --filter='!./apps/**'
+
       - name: Build
+        if: github.event_name != 'pull_request'
         run: pnpm build
 
       - name: Lint
         run: pnpm lint
 
+      - name: Typecheck (affected)
+        if: github.event_name == 'pull_request'
+        run: pnpm exec turbo run typecheck --filter='...[origin/main]'
+
       - name: Typecheck
+        if: github.event_name != 'pull_request'
         run: pnpm typecheck
 
+      - name: Test (affected)
+        if: github.event_name == 'pull_request'
+        run: pnpm test:affected
+
       - name: Test
-        run: pnpm test
+        if: github.event_name != 'pull_request'
+        run: pnpm test:all

@@ -63,6 +63,28 @@ export interface McpConfig {
 	 */
 	jtiDenylist?: McpJtiDenylist;
 	/**
+	 * Opt in to a live delegation check. When set, `validateAccessToken` walks the
+	 * token's `act` chain (subject, then each actor) against live link records and
+	 * rejects the token if any link is missing, revoked or expired. Off by default,
+	 * so a token minted down a chain stays valid until `exp` unless this is set.
+	 */
+	delegationStore?: McpDelegationStore;
+	/**
+	 * Map each actor in the delegation chain (and the token `sub`) to the agent
+	 * id used in delegation records, before `delegationStore.findLink` runs.
+	 * Token exchange sets `act.sub` to a user or client id, so without this the
+	 * built-in DB store only matches when those ids equal agent ids. Return
+	 * `undefined` for an actor with no agent. Only used with `delegationStore`;
+	 * when unset, ids are used as they are.
+	 */
+	resolveActorAgentId?: McpActorAgentResolver;
+	/**
+	 * Let actors that `resolveActorAgentId` maps to `undefined` keep their raw id
+	 * instead of failing the check. Off by default (fail closed). A mapper that
+	 * throws always fails the check.
+	 */
+	allowUnmappedActors?: boolean;
+	/**
 	 * Opt in to DPoP (RFC 9449). When set, the token endpoint accepts a `DPoP`
 	 * proof and issues `cnf.jkt`-bound tokens, `requireMcpAuth` accepts the
 	 * `DPoP` scheme, and metadata advertises the supported algorithms. Off by
@@ -202,6 +224,29 @@ export interface McpJtiDenylist {
 	/** Deny a token id until `expiresAt`, after which the entry may be dropped. */
 	revoke: (jti: string, expiresAt: Date) => Promise<void>;
 	isRevoked: (jti: string) => Promise<boolean>;
+}
+
+/** A live delegation link between two actors. */
+export interface McpDelegationLink {
+	status: "active" | "revoked" | "expired";
+	expiresAt: Date;
+}
+
+/** An actor in a delegation chain: a hop's `sub` and client id, or the token subject. */
+export interface McpActorRef {
+	sub: string;
+	clientId?: string;
+}
+
+/** Maps a chain actor to the agent id used in delegation records. */
+export type McpActorAgentResolver = (
+	actor: McpActorRef,
+) => string | undefined | Promise<string | undefined>;
+
+/** Lookup of live delegation links, keyed by the `sub` values used in `act` claims. */
+export interface McpDelegationStore {
+	/** Return the link granting `to` authority from `from`, or null when none exists. */
+	findLink: (from: string, to: string) => Promise<McpDelegationLink | null>;
 }
 
 /** Subset of the session `TokenFamilyStore` that the MCP token endpoint uses. */

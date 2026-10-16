@@ -22,7 +22,7 @@ Test: `pnpm --filter @glinr/theauth-example-agent-accountability test`
    allow, deny or escalate. A write is denied, and the refund escalates because
    the delegated permission carries `requireApproval`. With `openApproval`, the
    escalation opens an approval request.
-4. A human approves the request, which unlocks exactly that one action.
+4. A human approves the request. Passing its `approvalId` to the next `policy.evaluate` unlocks exactly that one action, and a second use is denied.
 5. The human decision is written to the tamper-evident audit log and the chain verifies.
 6. The owner revokes the agent and its next attempt is denied with `POLICY_AGENT_INACTIVE`.
 
@@ -46,10 +46,11 @@ The source is `src/loop.ts` (the loop) and `src/index.ts` (transcript printer).
     approval apr_91220fce pending for user-alice
     alice -> APPROVED
     exec  mcp:payments:refund -> ALLOWED with approval
+    again mcp:payments:refund -> DENIED (APPROVAL_ALREADY_USED)
 
 [5] Record the human decision and verify the audit chain
-    7 audit entries for refund-worker
-    chain ok=true rows checked=7
+    8 audit entries for refund-worker
+    chain ok=true rows checked=8
 
 [6] Owner revokes the agent
     read  mcp:crm:notes      -> DENIED (POLICY_AGENT_INACTIVE)
@@ -66,9 +67,10 @@ IDs and timestamps vary per run.
 
 ## Notes
 
-- The approval is a record, not a bypass. The decision stays `escalate` after the
-  human answers, so `src/loop.ts` keeps a single-use approval set and runs the
-  action itself. Your application owns that step.
+- An approval does nothing on its own. The call must carry the `approvalId`, and
+  `policy.evaluate` (or `authorize`) then checks it is approved, for this agent,
+  action and resource, unexpired and unused, and spends it in one atomic step.
+  The audit row for that allow records `approver_id` and the approval id.
 - The final decision row (step 5) is written by the example with `insertAuditRow`
   to put the human decision into the chain. The policy decisions, delegation and
   approval events are chained by the SDK.

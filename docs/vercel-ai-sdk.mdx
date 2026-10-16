@@ -1,0 +1,161 @@
+---
+title: Vercel AI SDK
+description: Guard Vercel AI SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
+icon: shield-check
+---
+
+The Vercel AI SDK calls a tool's `execute` whenever the model asks for it. `guardTool` wraps that `execute` so `theauth.policy.evaluate` runs first. If the policy says no, or says a human must decide, the tool does not run.
+
+This page covers three things: wrapping tools, handling an escalate decision with a single use approval, and reading the record afterwards. The general guard options are on [Guard agent tools](/agent-tools).
+
+## Wrap your tools
+
+Build each tool with `tool()` from `ai`, then pass it to `guardTool`. The wrapper is a new object made with a spread, so `description`, `inputSchema` and every other property carry over, and you can pass the result straight to `generateText` or `streamText`.
+
+```ts
+import { tool } from "ai";
+import { z } from "zod";
+import { createTheAuth, guardTool } from "@glinr/theauth";
+
+const HMAC_KEY = process.env.AUDIT_HMAC_KEY!;
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  audit: { tamperEvident: true, hmacKey: HMAC_KEY },
+  policy: {
+    risk: { tiers: [{ tier: "large", when: { minAmount: 1000 }, require: "approval" }] },
+  },
+});
+
+const agent = await auth.agent.create({
+  ownerId: "user-alice",
+  name: "billing-agent",
+  type: "autonomous",
+  permissions: [
+    { resource: "tool:lookupInvoice", actions: ["execute"] },
+    { resource: "tool:refund", actions: ["execute"] },
+  ],
+});
+
+// Set after a human approves. The guard hands it to policy.evaluate once.
+let approvedId: string | undefined;
+
+const lookupInvoice = guardTool(
+  auth,
+  { agentId: agent.id },
+  {
+    name: "lookupInvoice",
+    ...tool({
+      description: "Look up an invoice by id",
+      inputSchema: z.object({ invoiceId: z.string() }),
+      execute: async ({ invoiceId }) => ({ invoiceId, total: 480 }),
+    }),
+  },
+);
+
+const refund = guardTool(
+  auth,
+  {
+    agentId: agent.id,
+    risk: (args: { amount: number }) => ({ amount: args.amount, currency: "USD" }),
+    approvalId: () => approvedId,
+  },
+  {
+    name: "refund",
+    ...tool({
+      description: "Refund an invoice",
+      inputSchema: z.object({ invoiceId: z.string(), amount: z.number() }),
+      execute: async ({ invoiceId, amount }) => ({ refunded: amount, invoiceId }),
+    }),
+  },
+);
+
+// const result = await generateText({ model, tools: { lookupInvoice, refund }, prompt });
+```
+
+The AI SDK tool has no `name`, so pass `name` yourself. It becomes the policy resource, `tool:refund`, so the agent needs a permission on that resource.
+
+`guardTools` also accepts the `{ lookupInvoice, refund }` record and uses the keys as names. Its argument type becomes a union of every tool's arguments, so for tools with different inputs `guardTool` per tool keeps the types exact.
+
+## Escalate and approve once
+
+The `large` tier above requires approval from 1000 USD. A refund of 5000 does not run. The guard opens an approval request and throws `ToolApprovalRequiredError`:
+
+```ts
+import { ToolApprovalRequiredError, ToolDeniedError } from "@glinr/theauth";
+
+try {
+  await refund.execute?.({ invoiceId: "inv_1", amount: 5000 }, options);
+} catch (error) {
+  if (error instanceof ToolApprovalRequiredError) {
+    error.approvalRequestId; // "apr_..."
+    error.tier; // "large"
+    // Tell your approver. The model is told not to retry.
+  }
+}
+```
+
+`options` is the second argument the AI SDK passes to `execute`. Check the exact fields for your version of `ai`. In `generateText` you do not build it yourself.
+
+When a person decides, approve the request and set the id the guard should spend:
+
+```ts
+await auth.approval.approve(requestId, "user-alice");
+approvedId = requestId;
+
+await refund.execute?.({ invoiceId: "inv_1", amount: 5000 }, options); // runs, spends the approval
+await refund.execute?.({ invoiceId: "inv_1", amount: 5000 }, options); // throws ToolDeniedError
+```
+
+The approval is single use. It must match the agent, action and resource, and the second call is denied with `code` set to `APPROVAL_ALREADY_USED`. Return the id from `approvalId` only for the call that was approved, then clear it. In a real app, look it up from the request that belongs to this conversation instead of a module variable.
+
+If you let the error propagate out of `execute`, the AI SDK sends its message back to the model as the tool result. The message tells the model what happened and not to retry.
+
+## Read the decision record
+
+Every decision lands in the agent's audit log. With `audit.tamperEvident` on, each row joins a per agent hash chain. `replayAgent` returns the timeline and verifies the chain in the same call.
+
+```ts
+import { replayAgent } from "@glinr/theauth";
+
+const replay = await replayAgent(auth.db, agent.id, {}, HMAC_KEY);
+if (replay.success) {
+  for (const event of replay.data.events) {
+    if (event.chained) console.log(event.detail.chainSeq, event.summary, event.detail.approverId);
+  }
+  console.log(replay.data.verification.status); // "verified" | "broken" | "unchained"
+}
+```
+
+For the run above it prints:
+
+```
+#1 allowed execute tool:lookupInvoice (matched)
+#2 escalated execute tool:refund (POLICY_ESCALATION_REQUIRED)
+#3 allowed approval.request approval:apr_...
+#4 allowed approval.approve approval:apr_... approver=user-alice
+#5 allowed execute tool:refund (APPROVAL_CONSUMED) approver=user-alice
+#6 denied execute tool:refund (APPROVAL_ALREADY_USED)
+chain verified, 6 rows checked
+```
+
+The refund that ran (#5) records the approver and the reason `APPROVAL_CONSUMED`. The replay (#6) is a separate denied row, so the record shows both what was allowed and what was refused. Approval requests and answers also appear in the timeline as events that are not chained.
+
+Two things to know:
+
+- Audit rows are written in the background. A replay read in the same tick as the call can miss the last rows, so the example waits a moment.
+- Pass the same `hmacKey` you configured. It is needed to verify an HMAC chain.
+
+See [Audit trail](/audit-trail) for the chain format, break reasons and export.
+
+## Run the example
+
+The repo has a runnable version at `examples/vercel-ai-sdk-guard`. It needs no model and no API key. It is a plain folder, not a workspace package, so install the dependencies listed in its README in a scratch project.
+
+## Related
+
+- [Guard agent tools](/agent-tools)
+- [Approval flows](/approval)
+- [Audit trail](/audit-trail)
+- [Agent accountability](/accountability)

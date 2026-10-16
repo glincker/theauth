@@ -345,6 +345,8 @@
               "accountability-raci-template",
               "audit",
               "audit-trail",
+              "audit-checkpoints",
+              "policy-shrink",
               "analyzer",
               "trust",
               "anomaly"
@@ -355,6 +357,10 @@
             "icon": "gauge",
             "pages": [
               "approval",
+              "agent-tools",
+              "taint-guard",
+              "vercel-ai-sdk",
+              "openai-agents-sdk",
               "simulator",
               "rate-limiting",
               "cli-auth",
@@ -362,6 +368,15 @@
               "agent-registration-tokens",
               "budget-policies",
               "cost-attribution"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "icon": "graduation-cap",
+            "pages": [
+              "tutorials/prompt-injection-tool-guard",
+              "tutorials/remove-unused-agent-permissions",
+              "tutorials/verifiable-agent-receipts"
             ]
           }
         ]

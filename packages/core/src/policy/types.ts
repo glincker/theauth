@@ -1,5 +1,7 @@
 // Public types for the unified policy engine.
 
+import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js";
+
 export type PolicyEffect = "permit" | "deny" | "indeterminate" | "escalate";
 
 /**
@@ -75,6 +77,11 @@ export interface PolicyEvaluationContext {
 	ip?: string;
 	risk?: RiskContext;
 	arguments?: Record<string, unknown>;
+	/**
+	 * Provenance labels per argument name ("*" for the whole call). Checked against
+	 * `PolicyEngineConfig.taint` and written to the audit record's input_provenance.
+	 */
+	provenance?: ProvenanceMap;
 	timestamp?: Date;
 	[key: string]: unknown;
 }
@@ -84,6 +91,11 @@ export interface EvaluateInput {
 	action: string;
 	resource: string;
 	context?: PolicyEvaluationContext;
+	/**
+	 * Id of an approved approval request. When the decision would escalate for
+	 * approval, evaluate() spends this request (single use) and allows instead.
+	 */
+	approvalId?: string;
 }
 
 /** Who an evaluated action is attributable to. */
@@ -112,6 +124,8 @@ export interface PolicyDecision {
 	cacheHit: boolean;
 	durationMs: number;
 	auditId?: string;
+	/** Result of the taint rules, present when provenance was supplied or a strict rule matched. */
+	taint?: TaintVerdict;
 }
 
 /**
@@ -156,6 +170,8 @@ export interface PolicyEngineConfig {
 	auditSampleRate?: number;
 	/** Risk tiers applied after permission matching. */
 	risk?: RiskConfig;
+	/** Taint rules: which provenance labels may flow into which tools. */
+	taint?: TaintConfig;
 	/** Version label of the active policy set; written to the audit policy_version field. */
 	policyVersion?: string;
 }
@@ -174,6 +190,8 @@ export const POLICY_ERROR_CODES = {
 	ESCALATION_REQUIRED: "POLICY_ESCALATION_REQUIRED",
 	OWNER_MISMATCH: "POLICY_OWNER_MISMATCH",
 	AGENT_INACTIVE: "POLICY_AGENT_INACTIVE",
+	AGENT_NOT_FOUND: "POLICY_AGENT_NOT_FOUND",
+	TAINT_VIOLATION: "POLICY_TAINT_VIOLATION",
 } as const;
 
 export type PolicyErrorCode = (typeof POLICY_ERROR_CODES)[keyof typeof POLICY_ERROR_CODES];
