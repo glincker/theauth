@@ -100,6 +100,11 @@ function resolveProvenance<A, C>(
 	const explicit =
 		typeof options.provenance === "function" ? options.provenance(args, ctx) : options.provenance;
 	const found: ProvenanceMap = {};
+	// A tainted primitive passed as the whole argument labels the call as a whole.
+	if (args instanceof TaintedValue) {
+		const wholeLabels = labelsOf(args);
+		if (wholeLabels.length > 0) found["*"] = wholeLabels;
+	}
 	if (args !== null && typeof args === "object") {
 		for (const [name, value] of Object.entries(args)) {
 			const labels = labelsOf(value);
