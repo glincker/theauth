@@ -347,6 +347,8 @@ export const approvalRequests = sqliteTable("theauth_approval_requests", {
 	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
 	respondedAt: integer("responded_at", { mode: "timestamp" }),
 	respondedBy: text("responded_by"),
+	/** Set once, atomically, when authorize or evaluate spends the approval. */
+	consumedAt: integer("consumed_at", { mode: "timestamp" }),
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 

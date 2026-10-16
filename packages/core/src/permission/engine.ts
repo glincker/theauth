@@ -1,7 +1,8 @@
+import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
 import { insertAuditRow } from "../audit/chain.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { evaluateConstraints, findMatchingPermission } from "../policy/abac.js";
+import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
 
 interface PermissionEngineConfig {
@@ -45,18 +46,50 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 			return result;
 		}
 
+		let consumed: { approvalId: string; approverId?: string } | undefined;
 		if (matchingPermission.constraints) {
-			const constraintResult = await evaluateConstraints(
+			const constraintInput = {
+				subjectId: agent.id,
+				resource: request.resource,
+				arguments: request.arguments,
+				// Adapters pass the client IP via context; direct callers may set request.ip.
+				ip: request.context?.ip ?? request.ip,
+			};
+			let constraintResult = await evaluateConstraints(
 				db,
-				{
-					subjectId: agent.id,
-					resource: request.resource,
-					arguments: request.arguments,
-					// Adapters pass the client IP via context; direct callers may set request.ip.
-					ip: request.context?.ip ?? request.ip,
-				},
+				constraintInput,
 				matchingPermission.constraints,
 			);
+			if (!constraintResult.allowed && constraintResult.needsApproval && request.approvalId) {
+				// Approval satisfies requireApproval only. The remaining constraints
+				// still apply, and the approval is spent last so a call that fails
+				// them does not burn it. The rate limit step already counted this call.
+				const rest = inspectConstraints(
+					constraintInput,
+					{
+						...matchingPermission.constraints,
+						requireApproval: false,
+						maxCallsPerHour: undefined,
+					},
+					{ now: new Date() },
+				);
+				if (rest.allowed) {
+					const spent = await consumeApproval(db, {
+						approvalId: request.approvalId,
+						agentId: agent.id,
+						action: request.action,
+						resource: request.resource,
+					});
+					if (spent.ok) {
+						consumed = { approvalId: spent.approvalId, approverId: spent.approverId };
+						constraintResult = { allowed: true };
+					} else {
+						constraintResult = { allowed: false, reason: spent.code };
+					}
+				} else {
+					constraintResult = { allowed: false, reason: rest.reason };
+				}
+			}
 			if (!constraintResult.allowed) {
 				const result: AuthorizeResult = {
 					allowed: false,
@@ -70,9 +103,11 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 			}
 		}
 
-		const result: AuthorizeResult = { allowed: true, auditId };
+		const result: AuthorizeResult = consumed
+			? { allowed: true, reason: APPROVAL_CODES.CONSUMED, auditId }
+			: { allowed: true, auditId };
 		if (auditAll) {
-			await writeAuditLog(db, agent, request, result, startTime, auditId);
+			await writeAuditLog(db, agent, request, result, startTime, auditId, consumed);
 		}
 		return result;
 	}
@@ -127,6 +162,7 @@ async function writeAuditLog(
 	result: AuthorizeResult,
 	startTime: number,
 	auditId: string,
+	consumed?: { approvalId: string; approverId?: string },
 ): Promise<void> {
 	const durationMs = Math.round(performance.now() - startTime);
 
@@ -136,9 +172,12 @@ async function writeAuditLog(
 		userId: agent.ownerId,
 		action: request.action,
 		resource: request.resource,
-		parameters: request.arguments ?? {},
+		parameters: consumed
+			? { ...(request.arguments ?? {}), approvalId: consumed.approvalId }
+			: (request.arguments ?? {}),
 		result: result.allowed ? "allowed" : "denied",
 		reason: result.reason ?? null,
+		approverId: consumed?.approverId ?? null,
 		durationMs,
 		timestamp: new Date(),
 		ip: request.context?.ip ?? request.ip ?? null,

@@ -84,6 +84,11 @@ export interface EvaluateInput {
 	action: string;
 	resource: string;
 	context?: PolicyEvaluationContext;
+	/**
+	 * Id of an approved approval request. When the decision would escalate for
+	 * approval, evaluate() spends this request (single use) and allows instead.
+	 */
+	approvalId?: string;
 }
 
 /** Who an evaluated action is attributable to. */

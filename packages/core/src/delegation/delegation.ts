@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -258,8 +258,10 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 
 	/**
 	 * Revoke a delegation chain. Revoking a parent chain also revokes all children.
+	 * Returns the ids of the chains that were active and are now revoked, this
+	 * one and its descendants.
 	 */
-	async function revokeDelegation(chainId: string): Promise<void> {
+	async function revokeDelegation(chainId: string): Promise<string[]> {
 		const chain = await db
 			.select()
 			.from(delegationChains)
@@ -267,6 +269,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			.limit(1);
 
 		if (!chain[0]) throw new Error(`Delegation chain ${chainId} not found.`);
+
+		const revoked: string[] = chain[0].status === "active" ? [chainId] : [];
 
 		// Revoke this chain
 		await db
@@ -286,8 +290,37 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			);
 
 		for (const child of childChains) {
-			await revokeDelegation(child.id);
+			revoked.push(...(await revokeDelegation(child.id)));
 		}
+		return revoked;
+	}
+
+	/**
+	 * Revoke every active chain where the agent is source or target, plus the
+	 * child chains that cascade from them. Returns the revoked chain ids.
+	 */
+	async function revokeAllForAgent(agentId: string): Promise<string[]> {
+		const rows = await db
+			.select()
+			.from(delegationChains)
+			.where(
+				and(
+					eq(delegationChains.status, "active"),
+					or(eq(delegationChains.fromAgentId, agentId), eq(delegationChains.toAgentId, agentId)),
+				),
+			);
+		const revoked: string[] = [];
+		for (const row of rows) {
+			// An earlier cascade in this loop may already have revoked it.
+			const [current] = await db
+				.select()
+				.from(delegationChains)
+				.where(eq(delegationChains.id, row.id))
+				.limit(1);
+			if (current?.status !== "active") continue;
+			revoked.push(...(await revokeDelegation(row.id)));
+		}
+		return revoked;
 	}
 
 	/**
@@ -317,5 +350,5 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		}));
 	}
 
-	return { delegate, revokeDelegation, getEffectivePermissions, listChains };
+	return { delegate, revokeDelegation, revokeAllForAgent, getEffectivePermissions, listChains };
 }

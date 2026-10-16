@@ -427,6 +427,11 @@ export interface AuthorizeRequest {
 	action: string;
 	resource: string;
 	arguments?: Record<string, unknown>;
+	/**
+	 * Id of an approved approval request. When the matched permission requires
+	 * approval, authorize spends this request (single use) and allows the call.
+	 */
+	approvalId?: string;
 	/** Client IP address for ipAllowlist constraint enforcement */
 	ip?: string;
 	/** HTTP request context (IP, User-Agent) for audit log enrichment */

@@ -20,6 +20,7 @@ export type { AdapterScope, ScopeDenial, ScopeResult } from "./adapter-scope.js"
 
 // Re-export submodules
 export * from "./agent/index.js";
+export * from "./agent-tools/index.js";
 export * from "./analyzer/index.js";
 export * from "./approval/index.js";
 export * from "./audit/index.js";
@@ -79,6 +80,7 @@ export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
 export * from "./policies/index.js";
+export type { PolicyEngineConfig } from "./policy/types.js";
 export * from "./redirect/index.js";
 export * from "./session/index.js";
 export type { SharedSignalsConfig, SharedSignalsPlugin } from "./signals/index.js";

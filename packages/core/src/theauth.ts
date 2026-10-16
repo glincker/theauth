@@ -476,7 +476,9 @@ export async function createTheAuth(config: TheAuthConfig) {
 					enrichedRequest,
 				);
 				// Both denied — return the original denial so the message references the agent by name
-				finalResult = delegatedResult.allowed ? delegatedResult : ownResult;
+				// A failed approvalId is the more specific reason, so it is kept.
+				const approvalDenied = delegatedResult.reason?.startsWith("APPROVAL_") === true;
+				finalResult = delegatedResult.allowed || approvalDenied ? delegatedResult : ownResult;
 			}
 		}
 
@@ -565,8 +567,16 @@ export async function createTheAuth(config: TheAuthConfig) {
 		},
 
 		async revoke(agentId: string): ReturnType<typeof agentModule.revoke> {
-			await agentModule.revoke(agentId);
+			const result = await agentModule.revoke(agentId);
+			// Vault consents tied to the cascaded chains die with them.
+			const vault = pluginRegistry.pluginContext.tokenVault as
+				| { revokeForDelegation?: (id: string) => Promise<number> }
+				| undefined;
+			for (const chainId of result.revokedDelegations) {
+				await vault?.revokeForDelegation?.(chainId);
+			}
 			void hooks.onAgentRevoke?.(agentId);
+			return result;
 		},
 
 		async rotate(

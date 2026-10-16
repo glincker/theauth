@@ -3,6 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import type { ApprovalModule } from "../approval/approval.js";
+import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -15,7 +16,7 @@ import type { PolicyCache } from "./cache.js";
 import { createPolicyCache } from "./cache.js";
 import type { PartialDecision } from "./combiner.js";
 import { combine } from "./combiner.js";
-import { makeDecision } from "./decision.js";
+import { makeDecision, withEffect } from "./decision.js";
 import { createRbacResolver } from "./rbac.js";
 import { createRebacBridge } from "./rebac-bridge.js";
 import { applyRisk } from "./risk.js";
@@ -38,6 +39,11 @@ export interface PolicyEngineDeps {
 	approval?: ApprovalModule;
 }
 
+interface ConsumedApproval {
+	approvalId: string;
+	approverId?: string;
+}
+
 export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 	const { db, config = {}, approval } = deps;
 	const cache: PolicyCache = createPolicyCache(config.cache ?? {});
@@ -54,11 +60,47 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 	): Promise<PolicyDecision> {
 		const base = await evaluateBase(input);
 		// Risk is applied after the cache so it never poisons cached decisions.
-		const decision = applyRisk(base, config.risk, input.context?.risk);
+		const risked = applyRisk(base, config.risk, input.context?.risk);
+		const { decision, consumed } = await applyApproval(risked, input);
 		// Audit the final decision (after risk), so an escalate is never logged as an allow.
-		emitAudit(decision, input, decision.auditId).catch(noop);
-		if (decision.decision !== "escalate" || !options.openApproval) return decision;
-		return openApprovalFor(decision, input);
+		const auditId = decision.auditId ?? (consumed && auditEnabled ? generateId() : undefined);
+		const finalDecision = auditId === decision.auditId ? decision : { ...decision, auditId };
+		emitAudit(finalDecision, input, auditId, consumed).catch(noop);
+		if (finalDecision.decision !== "escalate" || !options.openApproval) return finalDecision;
+		return openApprovalFor(finalDecision, input);
+	}
+
+	/** Spend input.approvalId when the decision escalates for approval. */
+	async function applyApproval(
+		decision: PolicyDecision,
+		input: EvaluateInput,
+	): Promise<{ decision: PolicyDecision; consumed?: ConsumedApproval }> {
+		const agentId = input.subject.agentId;
+		if (
+			decision.decision !== "escalate" ||
+			decision.escalation?.requirement !== "approval" ||
+			!input.approvalId ||
+			!agentId
+		) {
+			return { decision };
+		}
+		const spent = await consumeApproval(db, {
+			approvalId: input.approvalId,
+			agentId,
+			action: input.action,
+			resource: input.resource,
+		});
+		if (!spent.ok) {
+			return { decision: { ...withEffect(decision, "deny"), reason: spent.code } };
+		}
+		return {
+			decision: {
+				...withEffect(decision, "permit"),
+				reason: APPROVAL_CODES.CONSUMED,
+				escalation: undefined,
+			},
+			consumed: { approvalId: spent.approvalId, approverId: spent.approverId },
+		};
 	}
 
 	async function openApprovalFor(
@@ -289,6 +331,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		decision: PolicyDecision,
 		input: EvaluateInput,
 		auditId: string | undefined,
+		consumed?: ConsumedApproval,
 	): Promise<void> {
 		// auditId being undefined is the explicit signal that no row should be
 		// written. The gate (audit enabled, agentId present, sampling) was
@@ -305,7 +348,10 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			userId: input.subject.userId,
 			action: input.action,
 			resource: input.resource,
-			parameters: input.context?.arguments ?? {},
+			parameters: consumed
+				? { ...(input.context?.arguments ?? {}), approvalId: consumed.approvalId }
+				: (input.context?.arguments ?? {}),
+			approverId: consumed?.approverId,
 			result: decision.allowed ? "allowed" : escalated ? "escalated" : "denied",
 			reason: decision.reason,
 			durationMs: decision.durationMs,
