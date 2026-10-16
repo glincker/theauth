@@ -30,7 +30,7 @@ console.log(result.auditId); // a UUID, e.g. "7b0c1d52-..."
 <ParamField path="action" type="string">The action the agent attempted (e.g. read, write, delete).</ParamField>
 <ParamField path="resource" type="string">The resource the action was attempted on.</ParamField>
 <ParamField path="parameters" type={`Record<string, unknown>`}>Arguments passed to the tool at the time of the call.</ParamField>
-<ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">The outcome of the authorization check. The built-in permission engine writes only `allowed` or `denied`.</ParamField>
+<ParamField path="result" type="'allowed' | 'denied' | 'rate_limited' | 'escalated'">The outcome of the check. The built-in permission engine writes `allowed` or `denied`. `policy.evaluate()` writes `escalated` when the action needs human approval. Rows also carry accountability fields such as the acting agent, the accountable human and the policy version; see [Tamper-evident audit trail](/audit-trail#fields-on-each-row).</ParamField>
 <ParamField path="reason" type="string">Free-text explanation of a denial. Absent on allowed entries.</ParamField>
 <ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
 <ParamField path="tokensCost" type="number">Optional token usage. The built-in permission engine does not populate it.</ParamField>

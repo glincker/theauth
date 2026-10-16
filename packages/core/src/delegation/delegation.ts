@@ -1,8 +1,11 @@
 import { and, eq } from "drizzle-orm";
+import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { delegationChains, permissions } from "../db/schema.js";
 import type { DelegateInput, DelegationChain, Permission } from "../types.js";
+import { narrowConstraints } from "./constraints.js";
+import { resolveLineage } from "./lineage.js";
 
 interface DelegationModuleConfig {
 	db: Database;
@@ -53,6 +56,41 @@ function isResourceSubset(parentResource: string, childResource: string): boolea
 	return parentParts.length <= childParts.length;
 }
 
+/**
+ * Active, unexpired permissions delegated to an agent, constraints included.
+ * The one merge source shared by auth.authorize, policy.evaluate and delegate().
+ */
+export async function getDelegatedPermissions(
+	db: Database,
+	agentId: string,
+): Promise<Permission[]> {
+	const chains = await db
+		.select()
+		.from(delegationChains)
+		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
+	const now = new Date();
+	return chains
+		.filter((c) => c.expiresAt > now)
+		.flatMap((c) => (c.permissions as Permission[]).map((p) => ({ ...p })));
+}
+
+/**
+ * Apply the parent's constraints (from the first parent permission covering the
+ * child's) to each requested permission. Constraints only ever narrow.
+ */
+function inheritConstraints(parentPerms: Permission[], requested: Permission[]): Permission[] {
+	return requested.map((child) => {
+		const parent = parentPerms.find(
+			(p) =>
+				isResourceSubset(p.resource, child.resource) &&
+				child.actions.every((a) => p.actions.includes(a) || p.actions.includes("*")),
+		);
+		const constraints = narrowConstraints(parent?.constraints, child.constraints);
+		const { constraints: _requested, ...withoutConstraints } = child;
+		return constraints ? { ...withoutConstraints, constraints } : withoutConstraints;
+	});
+}
+
 export type DelegationErrorCode =
 	| "DELEGATION_PERMISSION_SUBSET"
 	| "DELEGATION_DEPTH_EXCEEDED"
@@ -98,6 +136,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		const ownPermissions: Permission[] = ownRows.map((r) => ({
 			resource: r.resource,
 			actions: r.actions,
+			constraints: r.constraints ?? undefined,
 		}));
 
 		const inboundAll = await db
@@ -108,7 +147,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			);
 		const inbound = inboundAll.filter((c) => c.expiresAt > now);
 		const inboundPermissions: Permission[] = inbound.flatMap((c) =>
-			c.permissions.map((p) => ({ resource: p.resource, actions: p.actions })),
+			(c.permissions as Permission[]).map((p) => ({ ...p })),
 		);
 
 		// Validate permissions are a subset of what the parent actually holds
@@ -142,15 +181,16 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		}
 
 		const id = generateId();
+		const granted = inheritConstraints(
+			[...ownPermissions, ...inboundPermissions],
+			input.permissions,
+		);
 
 		await db.insert(delegationChains).values({
 			id,
 			fromAgentId: input.fromAgent,
 			toAgentId: input.toAgent,
-			permissions: input.permissions.map((p) => ({
-				resource: p.resource,
-				actions: p.actions,
-			})),
+			permissions: granted,
 			depth: currentDepth,
 			maxDepth,
 			status: "active",
@@ -182,14 +222,37 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			}
 		}
 
+		const lineage = await resolveLineage(db, input.toAgent);
+		await recordAuditEvent(db, {
+			agentId: input.toAgent,
+			action: "delegation.create",
+			resource: `delegation:${id}`,
+			result: "allowed",
+			actorId: input.fromAgent,
+			subjectId: lineage.rootOwnerId,
+			delegationChain: lineage.path,
+			parameters: {
+				delegationId: id,
+				fromAgent: input.fromAgent,
+				toAgent: input.toAgent,
+				rootOwnerId: lineage.rootOwnerId,
+				hops: lineage.hops,
+				permissions: granted,
+				depth: currentDepth,
+				expiresAt: expiresAt.toISOString(),
+			},
+		});
+
 		return {
 			id,
 			fromAgent: input.fromAgent,
 			toAgent: input.toAgent,
-			permissions: input.permissions,
+			permissions: granted,
 			expiresAt,
 			depth: currentDepth,
 			createdAt: now,
+			rootOwnerId: lineage.rootOwnerId,
+			path: lineage.path,
 		};
 	}
 
@@ -231,27 +294,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 	 * Get the effective permissions for an agent, including delegated permissions.
 	 */
 	async function getEffectivePermissions(agentId: string): Promise<Permission[]> {
-		const chains = await db
-			.select()
-			.from(delegationChains)
-			.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
-
-		// Filter expired chains
-		const now = new Date();
-		const activeChains = chains.filter((c) => c.expiresAt > now);
-
-		// Collect all delegated permissions
-		const delegatedPerms: Permission[] = [];
-		for (const chain of activeChains) {
-			for (const perm of chain.permissions) {
-				delegatedPerms.push({
-					resource: perm.resource,
-					actions: perm.actions,
-				});
-			}
-		}
-
-		return delegatedPerms;
+		return getDelegatedPermissions(db, agentId);
 	}
 
 	/**
@@ -267,10 +310,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			id: c.id,
 			fromAgent: c.fromAgentId,
 			toAgent: c.toAgentId,
-			permissions: c.permissions.map((p) => ({
-				resource: p.resource,
-				actions: p.actions,
-			})),
+			permissions: c.permissions as Permission[],
 			expiresAt: c.expiresAt,
 			depth: c.depth,
 			createdAt: c.createdAt,

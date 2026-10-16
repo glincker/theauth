@@ -1,25 +1,28 @@
 // Unified policy engine: direct + delegated + role-derived permissions,
 // ABAC constraints, and ReBAC graph checks behind one evaluate() call.
 
-import { and, eq, gt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import type { ApprovalModule } from "../approval/approval.js";
+import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import {
-	agents,
-	auditLogs,
-	delegationChains,
-	permissions as permissionsTable,
-} from "../db/schema.js";
+import { agents, permissions as permissionsTable } from "../db/schema.js";
+import { getDelegatedPermissions } from "../delegation/delegation.js";
+import { resolveLineage } from "../delegation/lineage.js";
 import type { Permission } from "../types.js";
 import { evaluateConstraints, isCacheUnsafe, matchAction, matchResource } from "./abac.js";
 import type { PolicyCache } from "./cache.js";
 import { createPolicyCache } from "./cache.js";
 import type { PartialDecision } from "./combiner.js";
 import { combine } from "./combiner.js";
+import { makeDecision } from "./decision.js";
 import { createRbacResolver } from "./rbac.js";
 import { createRebacBridge } from "./rebac-bridge.js";
+import { applyRisk } from "./risk.js";
 import type {
+	DecisionPrincipal,
 	EvaluateInput,
+	EvaluateOptions,
 	InvalidateScope,
 	PolicyCacheStats,
 	PolicyDecision,
@@ -31,32 +34,100 @@ import { POLICY_ERROR_CODES } from "./types.js";
 export interface PolicyEngineDeps {
 	db: Database;
 	config?: PolicyEngineConfig;
+	/** Used to open approval requests when evaluate() runs with openApproval. */
+	approval?: ApprovalModule;
 }
 
 export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
-	const { db, config = {} } = deps;
+	const { db, config = {}, approval } = deps;
 	const cache: PolicyCache = createPolicyCache(config.cache ?? {});
 	const rbac = createRbacResolver({ db });
 	const rebac = createRebacBridge({ db });
 	const strategy = config.combineStrategy ?? "deny-overrides";
 	const auditEnabled = config.audit !== false;
 	const sampleRate = clampSampleRate(config.auditSampleRate);
+	const policyVersion = config.policyVersion;
 
-	async function evaluate(input: EvaluateInput): Promise<PolicyDecision> {
+	async function evaluate(
+		input: EvaluateInput,
+		options: EvaluateOptions = {},
+	): Promise<PolicyDecision> {
+		const base = await evaluateBase(input);
+		// Risk is applied after the cache so it never poisons cached decisions.
+		const decision = applyRisk(base, config.risk, input.context?.risk);
+		// Audit the final decision (after risk), so an escalate is never logged as an allow.
+		emitAudit(decision, input, decision.auditId).catch(noop);
+		if (decision.decision !== "escalate" || !options.openApproval) return decision;
+		return openApprovalFor(decision, input);
+	}
+
+	async function openApprovalFor(
+		decision: PolicyDecision,
+		input: EvaluateInput,
+	): Promise<PolicyDecision> {
+		const agentId = input.subject.agentId;
+		if (!approval || !agentId) return decision;
+		let userId = input.subject.userId;
+		if (!userId) {
+			const rows = await db
+				.select({ ownerId: agents.ownerId })
+				.from(agents)
+				.where(eq(agents.id, agentId))
+				.limit(1);
+			userId = rows[0]?.ownerId;
+		}
+		if (!userId) return decision;
+		try {
+			const req = await approval.request({
+				agentId,
+				userId,
+				action: input.action,
+				resource: input.resource,
+				arguments: input.context?.arguments,
+			});
+			const escalation = decision.escalation ?? {
+				tier: "constraint",
+				requirement: "approval" as const,
+				reason: decision.reason,
+			};
+			return { ...decision, escalation: { ...escalation, approvalRequestId: req.id } };
+		} catch {
+			// Approval storage failure must not turn an escalate into an allow.
+			return decision;
+		}
+	}
+
+	async function evaluateBase(input: EvaluateInput): Promise<PolicyDecision> {
 		const start = performance.now();
 
 		const validation = validateInput(input);
 		if (!validation.ok) {
 			return finalize(
-				{
-					allowed: false,
+				makeDecision({
 					effect: "indeterminate",
 					reason: validation.reason,
 					cacheHit: false,
 					durationMs: 0,
-				},
+				}),
 				start,
 			);
+		}
+
+		// Agent gate, ahead of the cache so revocation and owner binding hold at once.
+		if (input.subject.agentId) {
+			const gate = await checkAgent(input.subject.agentId, input.subject.ownerId);
+			if (gate) {
+				return finalize(
+					makeDecision({
+						effect: "deny",
+						reason: gate,
+						auditId: willEmitAudit(input) ? generateId() : undefined,
+						cacheHit: false,
+						durationMs: 0,
+					}),
+					start,
+				);
+			}
 		}
 
 		const cacheKey = buildCacheKey(input);
@@ -71,7 +142,6 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				cacheHit: true,
 				durationMs: Math.round(performance.now() - start),
 			};
-			emitAudit(decision, input, auditIdForHit).catch(noop);
 			return decision;
 		}
 
@@ -80,13 +150,12 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			effective = await resolveEffectivePermissions(db, rbac, input);
 		} catch {
 			return finalize(
-				{
-					allowed: false,
+				makeDecision({
 					effect: "indeterminate",
 					reason: POLICY_ERROR_CODES.SUBJECT_NOT_FOUND,
 					cacheHit: false,
 					durationMs: 0,
-				},
+				}),
 				start,
 			);
 		}
@@ -109,13 +178,12 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				// even if a broader permission would have permitted on its own.
 				if (result.reason === "rebac:graph-query-failed") {
 					return finalize(
-						{
-							allowed: false,
+						makeDecision({
 							effect: "indeterminate",
 							reason: POLICY_ERROR_CODES.GRAPH_QUERY_FAILED,
 							cacheHit: false,
 							durationMs: 0,
-						},
+						}),
 						start,
 					);
 				}
@@ -136,7 +204,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				);
 				if (!constraintResult.allowed) {
 					partials.push({
-						effect: "deny",
+						effect: constraintResult.needsApproval ? "escalate" : "deny",
 						reason: constraintResult.reason ?? POLICY_ERROR_CODES.CONSTRAINT_FAILED,
 						matchedRelation: perm.relation,
 					});
@@ -155,6 +223,11 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const auditIdForMiss = willEmitAudit(input) ? generateId() : undefined;
 		const decision: PolicyDecision = {
 			...combined,
+			principal: await resolvePrincipal(input),
+			escalation:
+				combined.decision === "escalate"
+					? { tier: "constraint", requirement: "approval", reason: combined.reason }
+					: undefined,
 			auditId: auditIdForMiss,
 			cacheHit: false,
 			durationMs: Math.round(performance.now() - start),
@@ -164,8 +237,33 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			cache.set(cacheKey, decision);
 		}
 
-		emitAudit(decision, input, auditIdForMiss).catch(noop);
 		return decision;
+	}
+
+	/** Returns a deny reason when the agent may not act, else undefined. */
+	async function checkAgent(agentId: string, ownerId?: string): Promise<string | undefined> {
+		const rows = await db
+			.select({ ownerId: agents.ownerId, status: agents.status, expiresAt: agents.expiresAt })
+			.from(agents)
+			.where(eq(agents.id, agentId))
+			.limit(1);
+		const row = rows[0];
+		if (!row) return ownerId !== undefined ? POLICY_ERROR_CODES.OWNER_MISMATCH : undefined;
+		if (row.status !== "active") return POLICY_ERROR_CODES.AGENT_INACTIVE;
+		if (row.expiresAt && row.expiresAt <= new Date()) return POLICY_ERROR_CODES.AGENT_INACTIVE;
+		if (ownerId !== undefined && row.ownerId !== ownerId) return POLICY_ERROR_CODES.OWNER_MISMATCH;
+		return undefined;
+	}
+
+	async function resolvePrincipal(input: EvaluateInput): Promise<DecisionPrincipal | undefined> {
+		const agentId = input.subject.agentId;
+		if (!agentId) return undefined;
+		try {
+			const lineage = await resolveLineage(db, agentId);
+			return { actorId: agentId, subjectId: lineage.rootOwnerId, delegationChain: lineage.path };
+		} catch {
+			return { actorId: agentId, delegationChain: [agentId] };
+		}
 	}
 
 	function willEmitAudit(input: EvaluateInput): boolean {
@@ -197,36 +295,28 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		// already evaluated by willEmitAudit() so emitAudit just acts on it.
 		if (!auditId || !input.subject.agentId) return;
 
-		let userId = input.subject.userId;
-		if (!userId) {
-			const ownerRows = await db
-				.select({ ownerId: agents.ownerId })
-				.from(agents)
-				.where(eq(agents.id, input.subject.agentId))
-				.limit(1);
-			userId = ownerRows[0]?.ownerId;
-			if (!userId) return; // no owner means we can't satisfy the FK
-		}
-
-		try {
-			await db.insert(auditLogs).values({
-				id: auditId,
-				agentId: input.subject.agentId,
-				userId,
-				action: input.action,
-				resource: input.resource,
-				parameters: input.context?.arguments ?? {},
-				result: decision.allowed ? "allowed" : "denied",
-				reason: decision.reason ?? null,
-				durationMs: decision.durationMs,
-				timestamp: new Date(),
-				ip: input.context?.ip ?? null,
-				userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : null,
-				cacheHit: decision.cacheHit,
-			});
-		} catch {
-			// non-blocking by design; the decision is already returned
-		}
+		const escalated = decision.decision === "escalate";
+		const chain = decision.principal?.delegationChain ?? [];
+		// recordAuditEvent never throws, so the decision is already returned to the
+		// caller, and a failed write is counted and followed by a gap row.
+		await recordAuditEvent(db, {
+			id: auditId,
+			agentId: input.subject.agentId,
+			userId: input.subject.userId,
+			action: input.action,
+			resource: input.resource,
+			parameters: input.context?.arguments ?? {},
+			result: decision.allowed ? "allowed" : escalated ? "escalated" : "denied",
+			reason: decision.reason,
+			durationMs: decision.durationMs,
+			ip: input.context?.ip,
+			userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : undefined,
+			cacheHit: decision.cacheHit,
+			subjectId: decision.principal?.subjectId,
+			actorId: decision.principal?.actorId,
+			policyVersion,
+			delegationChain: chain.length > 1 ? chain : undefined,
+		});
 	}
 
 	return { evaluate, invalidate, stats };
@@ -278,7 +368,7 @@ async function resolveEffectivePermissions(
 		? await fetchDirectPermissions(db, input.subject.agentId)
 		: [];
 	const delegated = input.subject.agentId
-		? await fetchDelegatedPermissions(db, input.subject.agentId)
+		? await getDelegatedPermissions(db, input.subject.agentId)
 		: [];
 	const roles = input.subject.userId
 		? await rbac.resolveRolePermissions({
@@ -300,26 +390,6 @@ async function fetchDirectPermissions(db: Database, agentId: string): Promise<Pe
 		constraints: r.constraints ?? undefined,
 		relation: r.relation ?? undefined,
 	}));
-}
-
-async function fetchDelegatedPermissions(db: Database, agentId: string): Promise<Permission[]> {
-	const now = new Date();
-	const chains = await db
-		.select()
-		.from(delegationChains)
-		.where(
-			and(
-				eq(delegationChains.toAgentId, agentId),
-				eq(delegationChains.status, "active"),
-				gt(delegationChains.expiresAt, now),
-			),
-		);
-	return chains.flatMap((chain) =>
-		chain.permissions.map((perm) => ({
-			resource: perm.resource,
-			actions: perm.actions,
-		})),
-	);
 }
 
 function noop(): void {

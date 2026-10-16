@@ -13,6 +13,7 @@ import type { PolicyDecision } from "../src/policy/types.js";
 
 const decision = (allowed: boolean): PolicyDecision => ({
 	allowed,
+	decision: allowed ? "allow" : "deny",
 	effect: allowed ? "permit" : "deny",
 	reason: "test",
 	cacheHit: false,

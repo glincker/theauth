@@ -7,6 +7,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
+import { createApprovalModule } from "../src/approval/approval.js";
+import { createAuditModule } from "../src/audit/audit.js";
+import { computeRowHash } from "../src/audit/chain.js";
 import {
 	enableAuditChain,
 	exportAudit,
@@ -339,5 +342,108 @@ describe("exportAudit", () => {
 		const db = await setup();
 		const r = await exportAudit(db, {});
 		expect(r).toMatchObject({ success: false, error: { code: "NO_SIGNING_KEY" } });
+	});
+});
+
+describe("accountability fields", () => {
+	const acct = {
+		subjectId: "u1",
+		actorId: "a1",
+		policyVersion: "pol-7",
+		approverId: "u9",
+		delegationChain: ["a0", "a1"],
+		inputProvenance: { source: "tool_output", ref: "call-1" },
+	};
+
+	it("persists the fields and covers them with the hash", async () => {
+		const db = await setup();
+		enableAuditChain(db, { hmacKey: KEY });
+		await insertAuditRow(db, row("r1", "a1", 1, acct));
+		const [stored] = await db.select().from(auditLogs).where(eq(auditLogs.id, "r1"));
+		expect(stored).toMatchObject({ ...acct, hashVersion: 2 });
+		expect((await verify(db, {}, KEY)).ok).toBe(true);
+
+		await db.update(auditLogs).set({ approverId: "someone-else" }).where(eq(auditLogs.id, "r1"));
+		const v = await verify(db, {}, KEY);
+		expect(v.firstBreak).toMatchObject({ rowId: "r1", reason: "pseudonym_mismatch" });
+	});
+
+	it("still verifies version 1 rows written before the fields existed", async () => {
+		const db = await setup();
+		enableAuditChain(db);
+		const legacy = row("old1", "a1", 1, { hashVersion: null });
+		const hash = await computeRowHash(legacy, 1, null);
+		await db.insert(auditLogs).values({ ...legacy, chainSeq: 1, prevHash: null, hash });
+		await insertAuditRow(db, row("new2", "a1", 2, acct));
+		const v = await verify(db);
+		expect(v).toMatchObject({ ok: true, checked: 2 });
+		const [r2] = await db.select().from(auditLogs).where(eq(auditLogs.id, "new2"));
+		expect(r2?.prevHash).toBe(hash);
+	});
+});
+
+describe("retention cleanup anchor", () => {
+	const OLD = new Date("2020-01-01T00:00:00Z");
+
+	it("keeps the chain verifiable after deleting the oldest rows", async () => {
+		const db = await setup();
+		enableAuditChain(db, { hmacKey: KEY });
+		for (let i = 1; i <= 3; i++) {
+			await insertAuditRow(
+				db,
+				row(`o${i}`, "a1", 0, { timestamp: new Date(OLD.getTime() + i * 1000) }),
+			);
+		}
+		for (let i = 1; i <= 2; i++) {
+			await insertAuditRow(db, row(`n${i}`, "a1", 0, { timestamp: new Date() }));
+		}
+		const mod = createAuditModule({ db, hmacKey: KEY });
+		const res = await mod.cleanup({ retentionDays: 30 });
+		expect(res).toMatchObject({ deleted: 3, checkpoints: 1 });
+
+		const rows = await db.select().from(auditLogs).where(eq(auditLogs.agentId, "a1"));
+		expect(rows.map((r) => r.id).filter((id) => id.startsWith("o"))).toEqual([]);
+		expect(rows.some((r) => r.action === "audit.checkpoint")).toBe(true);
+		expect(await verify(db, {}, KEY)).toMatchObject({ ok: true, checked: 3 });
+
+		// Tampering with the first surviving row's link is caught via the anchor.
+		await db
+			.update(auditLogs)
+			.set({ prevHash: "f".repeat(64) })
+			.where(eq(auditLogs.id, "n1"));
+		const bad = await verify(db, {}, KEY);
+		expect(bad.ok).toBe(false);
+		expect(bad.firstBreak?.rowId).toBe("n1");
+	});
+
+	it("records an anchor even when every row has expired", async () => {
+		const db = await setup();
+		enableAuditChain(db);
+		await insertAuditRow(db, row("o1", "a1", 0, { timestamp: OLD }));
+		const mod = createAuditModule({ db });
+		await mod.cleanup({ retentionDays: 30 });
+		const rows = await db.select().from(auditLogs);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.chainSeq).toBe(2);
+		expect(await verify(db)).toMatchObject({ ok: true, checked: 1 });
+	});
+});
+
+describe("approval writes", () => {
+	it("chains request and decision rows with the approver", async () => {
+		const db = await setup();
+		enableAuditChain(db);
+		const approvals = createApprovalModule({}, db);
+		const req = await approvals.request({
+			agentId: "a1",
+			userId: "u1",
+			action: "write",
+			resource: "mcp:x",
+		});
+		await approvals.approve(req.id, "u1");
+		const rows = await db.select().from(auditLogs).where(eq(auditLogs.agentId, "a1"));
+		const done = rows.find((r) => r.action === "approval.approve");
+		expect(done).toMatchObject({ approverId: "u1", result: "allowed", hashVersion: 2 });
+		expect(await verify(db)).toMatchObject({ ok: true, checked: 2 });
 	});
 });

@@ -1,0 +1,105 @@
+---
+title: Agent RACI template
+description: A RACI table for AI agent actions, and how each Responsible, Accountable, Consulted and Informed cell is enforced at runtime in theAuth.
+icon: table
+---
+
+Copy this table into your own docs, fill in names, then enforce each cell. A RACI table on its own is a document the agent never reads. The sections below show which theAuth API makes each cell true. For the background, see [AI agent identity and accountability](/accountability).
+
+## The template
+
+One row per action class. Replace the placeholders in the last four columns.
+
+| Action class | Example resource | Responsible (agent) | Accountable (one human or team) | Consulted (before) | Informed (after) |
+|---|---|---|---|---|---|
+| Read internal data | `docs:*` read | `research-agent` | Owner of the agent | None | Audit log |
+| Write to a system of record | `crm:*` write | `sync-agent` | Team lead | Data owner via approval | Audit log, owner |
+| Delete data | `db:*` delete | `ops-agent` | Head of platform | Approver on duty via approval | Audit log, security |
+| Spend money | `payments:*` execute | `buyer-agent` | Finance owner | Finance approver above threshold | Audit log, finance |
+| Delegate to another agent | `delegate` | `planner-agent` | Owner of the planner | None | Audit log |
+| Change its own permissions | none | Not allowed | Security | Not applicable | Audit log |
+
+Keep exactly one accountable party per row. If two names are accountable, nobody is.
+
+## How each cell is enforced
+
+| Cell | Enforced by | Docs |
+|---|---|---|
+| Responsible | The agent has its own id and token. Its permissions list the resources and actions it may use. | [Agent identity](/agents), [Permissions](/permissions) |
+| Accountable | `ownerId` on the agent. For sub-agents, `rootOwnerId` on the delegation chain and `decision.principal` name the human at the root. `subject.ownerId` on `evaluate()` rejects a request that names a different owner. | [Agent identity](/agents), [Delegation](/delegation) |
+| Consulted | `requireApproval` on the permission, or a risk tier, makes `evaluate()` return `escalate`. A human answers the approval request. | [Approval flows](/approval), [Policy engine](/policy-engine#risk-tiers-and-escalation) |
+| Informed | Each decision writes an audit row with the accountable human, the acting agent, the policy version and the delegation path. Query, replay or export it. | [Audit trail](/audit-trail), [Audit log](/audit) |
+| Stop | `agent.revoke()` and `delegation.revoke()` take effect on the next call. `agent.revoke()` does not revoke the agent's delegations in the TypeScript package, so revoke those too. | [Agent identity](/agents#lifecycle), [Delegation](/delegation#cascading-revocation) |
+
+Two limits matter when you fill in the table:
+
+- The Consulted cell is a record, not a bypass. `authorize()` and `evaluate()` keep returning deny or escalate after a human approves, so your code runs the approved action itself.
+- The Informed cell is passive. theAuth writes the rows. Alerting a person is your job, for example from the `onViolation` hook or a scheduled `audit.query`. Audit writes for policy decisions, delegation and approval events are best effort and counted on failure, so watch `getAuditWriteFailures`.
+
+## Policy skeleton
+
+theAuth permissions are typed objects, not a YAML or JSON policy language. This skeleton matches the table above. Each entry is the same permission shape used by the [policy templates](/policies/templates).
+
+```ts
+export const agentPermissions = [
+  // Read internal data: Responsible agent acts alone, Informed through audit.
+  { resource: "docs:*", actions: ["read"] },
+
+  // Write: allowed, but rate limited.
+  {
+    resource: "crm:*",
+    actions: ["write"],
+    constraints: { maxCallsPerHour: 100 },
+  },
+
+  // Delete: Consulted through a human approval.
+  {
+    resource: "db:*",
+    actions: ["delete"],
+    constraints: { requireApproval: true },
+  },
+];
+```
+
+Create the agent with these permissions and the accountable human as `ownerId`:
+
+```ts
+const agent = await theauth.agent.create({
+  ownerId: "user-123", // the Accountable cell
+  name: "ops-agent",
+  type: "autonomous",
+  permissions: agentPermissions,
+});
+```
+
+For the spend row, a risk tier escalates payments above an amount instead of a resource string chosen in app code:
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL },
+  agents: { enabled: true },
+  policy: {
+    policyVersion: "2026-10-15",
+    risk: {
+      tiers: [{ tier: "large-payment", when: { minAmount: 100 }, require: "approval" }],
+    },
+  },
+});
+
+const decision = await theauth.policy.evaluate(
+  {
+    subject: { agentId: agent.id, ownerId: "user-123" },
+    action: "execute",
+    resource: "payments:transfer",
+    context: { risk: { amount: 250, currency: "USD" } },
+  },
+  { openApproval: true },
+);
+// decision.decision === "escalate", decision.escalation.approvalRequestId is set
+```
+
+The threshold is a risk-tier rule keyed on `context.risk.amount`, not a general numeric constraint on a permission. For sub-agents, delegate with `theauth.delegate()`: constraints carry over and can only tighten. See the spending limit (08) and owner scope (09) entries in [Policy templates](/policies/templates).
+
+<Note>
+  A RACI "Consulted" or "Informed" party that is a team, not a person, is represented by whoever your `onApprovalNeeded` handler or alert routes to. theAuth stores a single `ownerId` per agent.
+</Note>

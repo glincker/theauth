@@ -45,9 +45,12 @@ Every `evaluate()` call returns a `PolicyDecision`. Never throw on a denied deci
 
 | Field | Type | Description |
 |---|---|---|
-| `allowed` | `boolean` | Whether the request is permitted. |
-| `effect` | `"permit" \| "deny" \| "indeterminate"` | The combining result. `indeterminate` means no permission matched or an error occurred; callers should treat it as deny. |
-| `reason` | `string` | A human-readable or error-code string explaining the decision. On clean permits, this is `"matched"`. When nothing matched it is `POLICY_NO_MATCHING_PERMISSION`. Other codes: `POLICY_INVALID_INPUT`, `POLICY_SUBJECT_NOT_FOUND`, `POLICY_GRAPH_QUERY_FAILED`. |
+| `decision` | `"allow" \| "deny" \| "escalate"` | The three-way outcome. `escalate` means the action must not run until a human approves or the actor steps up. |
+| `allowed` | `boolean` | True only when `decision` is `allow`. |
+| `effect` | `"permit" \| "deny" \| "indeterminate" \| "escalate"` | The canonical combining result. `decision` and `allowed` are derived from it. `indeterminate` means no permission matched or an error occurred; callers should treat it as deny. |
+| `escalation` | `{ tier, requirement, reason, approvalRequestId? } \| undefined` | Present on `escalate`. `requirement` is `approval` or `step_up`. |
+| `principal` | `{ actorId, subjectId?, delegationChain } \| undefined` | For agent subjects: the acting agent, the accountable human at the root of its delegation chain (or its owner), and the agent ids from the root down. |
+| `reason` | `string` | A human-readable or error-code string explaining the decision. On clean permits, this is `"matched"`. When nothing matched it is `POLICY_NO_MATCHING_PERMISSION`. Other codes: `POLICY_INVALID_INPUT`, `POLICY_SUBJECT_NOT_FOUND`, `POLICY_GRAPH_QUERY_FAILED`, `POLICY_CONSTRAINT_FAILED`, `POLICY_ESCALATION_REQUIRED`, `POLICY_OWNER_MISMATCH`, `POLICY_AGENT_INACTIVE`. |
 | `matchedPermissionId` | `string \| undefined` | Declared on the type but not populated by the engine today; it is always `undefined`. |
 | `matchedRelation` | `string \| undefined` | The ReBAC relation string of the permission that produced the result, if that permission has `relation` set. |
 | `cacheHit` | `boolean` | Whether this decision came from the LRU cache. |
@@ -58,7 +61,7 @@ Every `evaluate()` call returns a `PolicyDecision`. Never throw on a denied deci
 
 ### Direct and delegated permissions
 
-For agent subjects, the engine fetches permissions stored directly on the agent (via the `permissions` table) and permissions received through active, non-expired delegation chains. Delegated permissions carry only `resource` and `actions` into the engine; constraints set on the delegated permission are not applied.
+For agent subjects, the engine fetches permissions stored directly on the agent (via the `permissions` table) and permissions received through active, non-expired delegation chains. Delegated permissions reach the engine with their constraints, and the constraints are applied. `delegate()` stores them narrowed against the parent: `requireApproval` is OR-ed, `maxCallsPerHour` takes the lower value, and `allowedArgPatterns` and `ipAllowlist` are intersected. A permission whose constraint requires approval makes the decision `escalate`, not `deny`.
 
 Unlike `authorize()`, the engine evaluates every matching permission (not just the first) and combines the results.
 
@@ -94,6 +97,51 @@ const perm: Permission = {
 At evaluation time the engine calls into the existing ReBAC module to check whether `(subject, "viewer", resource)` is satisfied, including inherited relations from parent objects. The requested resource must be a concrete `type:id` (for example `document:123`); a resource containing `*` never matches a relation. Set only one of `agentId` or `userId` on the subject for relation checks, because a subject with both is treated as invalid and does not match. If no tuple matches, the permission is skipped. It does not contribute a PERMIT or DENY, the next permission in the effective set is checked instead.
 
 If the graph query itself fails (database error or depth limit exceeded), the engine records `POLICY_GRAPH_QUERY_FAILED` and returns `indeterminate` rather than accidentally granting access. The engine is fail-closed on graph errors.
+
+## Risk tiers and escalation
+
+A permitted action can still need a human. Pass typed risk attributes as `context.risk` and configure tier rules under `policy.risk.tiers`. After permission matching, the strongest matching tier decides what the action requires: `none`, `approval` or `step_up`. An `allow` that lands in an `approval` or `step_up` tier becomes `escalate`. Deny and escalate results pass through unchanged. Risk is applied after the cache, so it never changes cached decisions.
+
+```typescript
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  agents: { enabled: true },
+  policy: {
+    policyVersion: '2026-10-15',
+    risk: {
+      tiers: [
+        { tier: 'large-payment', when: { minAmount: 100, currency: 'USD' }, require: 'approval' },
+        { tier: 'pii-delete', when: { dataClasses: ['pii'], irreversible: true }, require: 'step_up' },
+      ],
+    },
+  },
+});
+
+const decision = await theauth.policy.evaluate(
+  {
+    subject: { agentId: agent.id },
+    action: 'execute',
+    resource: 'payments:transfer',
+    context: { risk: { amount: 250, currency: 'USD' } },
+  },
+  { openApproval: true },
+);
+// decision.decision === 'escalate'
+// decision.escalation?.approvalRequestId is the opened approval request
+```
+
+`RiskContext` fields are `amount`, `currency`, `dataClass`, `irreversible` and `extras`. A rule matches only when every field in its `when` holds: `minAmount`, `currency`, `dataClasses` and `irreversible`. The caller supplies the risk values; the engine does not derive them. The amount threshold is this tier rule, not a numeric constraint on a permission, and cumulative spend is not tracked.
+
+With `openApproval: true`, an escalation opens a request through the [approval module](/approval) for the agent's owner (or `subject.userId`) and returns its id on `escalation.approvalRequestId`. If the request cannot be stored, the decision stays `escalate` without an id. It never becomes an allow. The decision stays `escalate` after a human approves, so your code runs the action once the request is approved.
+
+## Owner binding and inactive agents
+
+Before the cache is consulted, `evaluate()` checks the agent row:
+
+- A revoked, suspended or expired agent is denied with `POLICY_AGENT_INACTIVE`.
+- If `subject.ownerId` is set and differs from the agent's `ownerId`, the decision is `POLICY_OWNER_MISMATCH`. If the agent does not exist and `ownerId` is set, the same code is returned.
+
+Omit `subject.ownerId` and no owner check runs. Take the value from the authenticated request, not from agent input.
 
 ## Caching
 
@@ -175,7 +223,7 @@ To flip to permit-overrides (any PERMIT wins over DENYs), pass `combineStrategy:
 
 ## Audit
 
-Every `evaluate()` call with an `agentId` in the subject writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards. The `result` column is `allowed` or `denied`. Calls rejected by input validation, and calls where the agent has no owner, write no row.
+Every `evaluate()` call with an `agentId` in the subject writes one audit row to `audit_logs`, including cache hits. The `cache_hit` column distinguishes hot from cold decisions in dashboards. The `result` column is `allowed`, `denied` or `escalated`. The row stores the final decision after risk tiers, so an escalation is never logged as an allow. It also carries `subject_id` (the accountable human), `actor_id`, `policy_version` (from `policyVersion`) and `delegation_chain` when the agent acts through a delegation. The row is written through the same writer as other audit rows, so with `audit.tamperEvident` on it joins the agent's [hash chain](/audit-trail). Calls rejected by input validation, and calls where the agent has no owner, write no row.
 
 ```typescript
 const theauth = await createTheAuth({
@@ -191,7 +239,7 @@ const theauth = await createTheAuth({
 
 **Current limitation:** Only evaluations with an `agentId` in the subject write audit rows. The `audit_logs` table has `agent_id NOT NULL`, so user-only subjects (where only `userId` is present) are silently skipped.
 
-Audit writes are non-blocking. A write failure is swallowed and does not affect the returned decision. The `auditId` on the decision is generated before the write, so it can refer to a row that was never written if the insert failed. It is `undefined` when audit is disabled, the sample excluded the call, or the subject has no `agentId`.
+Audit writes are non-blocking. A write failure does not affect the returned decision, but it is counted by `getAuditWriteFailures` and reported to `audit.onAuditError`, and the next successful write is preceded by an `audit.write_failed` row. A write that fails is not retried. The `auditId` on the decision is generated before the write, so it can refer to a row that was never written if the insert failed. It is `undefined` when audit is disabled, the sample excluded the call, or the subject has no `agentId`.
 
 ## Configuration
 
@@ -203,6 +251,8 @@ Full `PolicyEngineConfig` reference:
 <ParamField path="combineStrategy" type={`"deny-overrides" | "permit-overrides"`} default={`"deny-overrides"`}>How to combine PERMIT and DENY results from multiple matching permissions.</ParamField>
 <ParamField path="audit" type="boolean" default="true">Whether to write audit rows. Disabling suppresses all audit writes.</ParamField>
 <ParamField path="auditSampleRate" type="number" default="1.0">Fraction of evaluations that write audit rows, from 0.0 to 1.0.</ParamField>
+<ParamField path="risk.tiers" type="RiskTierRule[]">Tier rules `{ tier, when, require }`. `require` is `none`, `approval` or `step_up`. The strongest match wins.</ParamField>
+<ParamField path="policyVersion" type="string">Label for the active policy set, written to the `policy_version` field of each audit row. You choose the value.</ParamField>
 
 ## Migration from `authorize()`
 

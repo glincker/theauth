@@ -7,82 +7,56 @@
  * - permit-overrides: any explicit PERMIT wins; else first DENY; else INDETERMINATE.
  */
 
+import { makeDecision } from "./decision.js";
 import type { PolicyCombineStrategy, PolicyDecision } from "./types.js";
 import { POLICY_ERROR_CODES } from "./types.js";
 
 export interface PartialDecision {
-	effect: "permit" | "deny";
+	effect: "permit" | "deny" | "escalate";
 	reason: string;
 	matchedPermissionId?: string;
 	matchedRelation?: string;
 }
+
+// Precedence per strategy. An escalate sits between permit and deny: it never
+// beats an explicit deny under deny-overrides, and never beats a clean permit
+// under permit-overrides.
+const PRECEDENCE: Record<PolicyCombineStrategy, ReadonlyArray<PartialDecision["effect"]>> = {
+	"deny-overrides": ["deny", "escalate", "permit"],
+	"permit-overrides": ["permit", "escalate", "deny"],
+};
 
 export function combine(
 	partials: readonly PartialDecision[],
 	strategy: PolicyCombineStrategy = "deny-overrides",
 ): Pick<
 	PolicyDecision,
-	"allowed" | "effect" | "reason" | "matchedPermissionId" | "matchedRelation"
+	"allowed" | "decision" | "effect" | "reason" | "matchedPermissionId" | "matchedRelation"
 > {
-	if (partials.length === 0) {
-		return {
-			allowed: false,
-			effect: "indeterminate",
-			reason: POLICY_ERROR_CODES.NO_MATCHING_PERMISSION,
-		};
+	for (const effect of PRECEDENCE[strategy] ?? []) {
+		const hit = partials.find((p) => p.effect === effect);
+		if (hit === undefined) continue;
+		return pick({
+			effect,
+			reason: hit.reason,
+			matchedPermissionId: hit.matchedPermissionId,
+			matchedRelation: hit.matchedRelation,
+		});
 	}
 
-	if (strategy === "deny-overrides") {
-		const firstDeny = partials.find((p) => p.effect === "deny");
-		if (firstDeny !== undefined) {
-			return {
-				allowed: false,
-				effect: "deny",
-				reason: firstDeny.reason,
-				matchedPermissionId: firstDeny.matchedPermissionId,
-				matchedRelation: firstDeny.matchedRelation,
-			};
-		}
+	return pick({ effect: "indeterminate", reason: POLICY_ERROR_CODES.NO_MATCHING_PERMISSION });
+}
 
-		const firstPermit = partials.find((p) => p.effect === "permit");
-		if (firstPermit !== undefined) {
-			return {
-				allowed: true,
-				effect: "permit",
-				reason: firstPermit.reason,
-				matchedPermissionId: firstPermit.matchedPermissionId,
-				matchedRelation: firstPermit.matchedRelation,
-			};
-		}
-	}
+type Combined = ReturnType<typeof combine>;
 
-	if (strategy === "permit-overrides") {
-		const firstPermit = partials.find((p) => p.effect === "permit");
-		if (firstPermit !== undefined) {
-			return {
-				allowed: true,
-				effect: "permit",
-				reason: firstPermit.reason,
-				matchedPermissionId: firstPermit.matchedPermissionId,
-				matchedRelation: firstPermit.matchedRelation,
-			};
-		}
-
-		const firstDeny = partials.find((p) => p.effect === "deny");
-		if (firstDeny !== undefined) {
-			return {
-				allowed: false,
-				effect: "deny",
-				reason: firstDeny.reason,
-				matchedPermissionId: firstDeny.matchedPermissionId,
-				matchedRelation: firstDeny.matchedRelation,
-			};
-		}
-	}
-
+function pick(fields: Pick<PolicyDecision, "effect" | "reason"> & Partial<Combined>): Combined {
+	const d = makeDecision({ ...fields, cacheHit: false, durationMs: 0 });
 	return {
-		allowed: false,
-		effect: "indeterminate",
-		reason: POLICY_ERROR_CODES.NO_MATCHING_PERMISSION,
+		allowed: d.allowed,
+		decision: d.decision,
+		effect: d.effect,
+		reason: d.reason,
+		matchedPermissionId: fields.matchedPermissionId,
+		matchedRelation: fields.matchedRelation,
 	};
 }

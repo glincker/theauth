@@ -1,7 +1,9 @@
-import { and, desc, eq, gte, lt, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte } from "drizzle-orm";
+import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
 import type { AuditEntry, AuditExportOptions, AuditFilter } from "../types.js";
+import { CHECKPOINT_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
 import type { AuditChainExportOptions, ReplayOptions } from "./replay.js";
 import { exportAudit, replayAgent } from "./replay.js";
 import type { VerifyAuditChainOptions } from "./verify.js";
@@ -105,23 +107,91 @@ export function createAuditModule(config: AuditModuleConfig) {
 	/**
 	 * Delete audit log entries older than the specified retention period.
 	 * Returns the count of deleted rows.
+	 *
+	 * With the chain enabled, each agent's chain loses only its oldest
+	 * contiguous run of expired rows, and a checkpoint row recording the last
+	 * deleted seq and hash is appended first so verification still links.
+	 * Expired rows that sit behind a newer row in seq order are kept until the
+	 * rows in front of them expire.
 	 */
-	async function cleanup(options: { retentionDays: number }): Promise<{ deleted: number }> {
+	async function cleanup(options: {
+		retentionDays: number;
+	}): Promise<{ deleted: number; checkpoints?: number }> {
 		const cutoff = new Date(Date.now() - options.retentionDays * 24 * 60 * 60 * 1000);
+		const chain = getAuditChainConfig(db);
+		let deleted = 0;
+		let checkpoints = 0;
 
-		// Count rows to be deleted before removing them
+		if (chain) {
+			const agentRows = await db
+				.selectDistinct({ agentId: auditLogs.agentId })
+				.from(auditLogs)
+				.where(and(isNotNull(auditLogs.chainSeq), lt(auditLogs.timestamp, cutoff)));
+			for (const { agentId } of agentRows) {
+				const rows = await db
+					.select({
+						seq: auditLogs.chainSeq,
+						hash: auditLogs.hash,
+						userId: auditLogs.userId,
+						timestamp: auditLogs.timestamp,
+					})
+					.from(auditLogs)
+					.where(and(eq(auditLogs.agentId, agentId), isNotNull(auditLogs.chainSeq)))
+					.orderBy(asc(auditLogs.chainSeq));
+				let count = 0;
+				let last: (typeof rows)[number] | undefined;
+				for (const r of rows) {
+					if (r.timestamp >= cutoff) break;
+					count++;
+					last = r;
+				}
+				if (!last || last.seq === null || last.hash === null || count === 0) continue;
+				await insertAuditRow(db, {
+					id: `chk_${generateId()}`,
+					agentId,
+					userId: last.userId,
+					action: CHECKPOINT_ACTION,
+					resource: `audit:${agentId}`,
+					parameters: {
+						throughSeq: last.seq,
+						lastHash: last.hash,
+						deletedCount: count,
+						cutoff: cutoff.toISOString(),
+					},
+					result: "allowed",
+					reason: "retention",
+					durationMs: 0,
+					timestamp: new Date(),
+				});
+				await db
+					.delete(auditLogs)
+					.where(and(eq(auditLogs.agentId, agentId), lte(auditLogs.chainSeq, last.seq)));
+				deleted += count;
+				checkpoints++;
+			}
+		}
+
+		// Unchained rows, or every expired row when the chain is not enabled.
 		const toDelete = await db
 			.select({ id: auditLogs.id })
 			.from(auditLogs)
-			.where(lt(auditLogs.timestamp, cutoff));
-
-		if (toDelete.length === 0) {
-			return { deleted: 0 };
+			.where(
+				chain
+					? and(lt(auditLogs.timestamp, cutoff), isNull(auditLogs.chainSeq))
+					: lt(auditLogs.timestamp, cutoff),
+			);
+		if (toDelete.length > 0) {
+			await db
+				.delete(auditLogs)
+				.where(
+					chain
+						? and(lt(auditLogs.timestamp, cutoff), isNull(auditLogs.chainSeq))
+						: lt(auditLogs.timestamp, cutoff),
+				);
+			deleted += toDelete.length;
 		}
 
-		await db.delete(auditLogs).where(lt(auditLogs.timestamp, cutoff));
-
-		return { deleted: toDelete.length };
+		return chain ? { deleted, checkpoints } : { deleted };
 	}
 
 	return {

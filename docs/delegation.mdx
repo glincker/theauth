@@ -70,6 +70,29 @@ Invalid delegations:
 { resource: 'mcp:slack:*', actions: ['read'] }     // resource not held by parent
 ```
 
+### Constraints carry over
+
+Constraints on the permissions you delegate are stored on the chain and enforced by `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
+
+| Constraint | Result |
+|---|---|
+| `requireApproval` | True if either side sets it |
+| `maxCallsPerHour` | The lower of the two values |
+| `allowedArgPatterns`, `ipAllowlist` | The patterns or addresses both sides share. If none are shared, the parent's list stays. |
+| `timeWindow` | The overlap of two same-day windows. Otherwise the parent's window stays. |
+
+```typescript
+await theauth.delegate({
+  fromAgent: orchestrator.id,
+  toAgent: worker.id,
+  permissions: [
+    { resource: 'mcp:payments:refund', actions: ['execute'], constraints: { requireApproval: true } },
+  ],
+  expiresAt: new Date(Date.now() + 15 * 60_000),
+  maxDepth: 1,
+});
+```
+
 ### Depth limiting
 
 Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code compares the new link's depth with the `maxDepth` passed on that same call (default 3) and throws if the depth is larger. `maxDepth` is not stored as a ceiling for later hops, so to stop re-delegation you pass a small `maxDepth` on each call, and the hop that would exceed it is rejected.
@@ -117,6 +140,10 @@ If the chain is `orchestrator → sub → subSub`, revoking `orchestrator → su
 Revocation takes effect on the next `authorize()` call. It does not terminate any in-progress operations.
 </Warning>
 
+<Note>
+In the TypeScript package, `agent.revoke()` changes only the agent's status. It does not revoke the delegations the agent gave or received. Call `delegation.revoke()` for each chain you want cut.
+</Note>
+
 ### Effective permissions
 
 To see the full set of permissions an agent has at a given moment, including those received through active chains:
@@ -144,6 +171,10 @@ const outbound = await theauth.delegation.listChains(orchestrator.id);
 <ParamField path="expiresAt" type="Date">Expiry time for the chain.</ParamField>
 <ParamField path="depth" type="number">Current depth of this chain in the delegation tree.</ParamField>
 <ParamField path="createdAt" type="Date">When the chain was created.</ParamField>
+<ParamField path="rootOwnerId" type="string | undefined">The human who owns the root agent of the chain. If the delegating agent was itself delegated to, the walk continues upward through active, unexpired chains, following the earliest created one when there are several.</ParamField>
+<ParamField path="path" type="string[] | undefined">Agent ids from the root delegator down to `toAgent`.</ParamField>
+
+`rootOwnerId` and `path` are returned by `delegate()` (`listChains()` does not include them). `policy.evaluate()` returns the same lineage as `decision.principal`, and each delegation is written to the audit log with the lineage on the row. The audit write is best effort: a failure does not fail the delegation, and it is counted (see [Tamper-evident audit trail](/audit-trail#write-failures)).
 
 ## Typical pattern
 
