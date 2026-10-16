@@ -70,6 +70,21 @@ export interface McpConfig {
 	 */
 	delegationStore?: McpDelegationStore;
 	/**
+	 * Map each actor in the delegation chain (and the token `sub`) to the agent
+	 * id used in delegation records, before `delegationStore.findLink` runs.
+	 * Token exchange sets `act.sub` to a user or client id, so without this the
+	 * built-in DB store only matches when those ids equal agent ids. Return
+	 * `undefined` for an actor with no agent. Only used with `delegationStore`;
+	 * when unset, ids are used as they are.
+	 */
+	resolveActorAgentId?: McpActorAgentResolver;
+	/**
+	 * Let actors that `resolveActorAgentId` maps to `undefined` keep their raw id
+	 * instead of failing the check. Off by default (fail closed). A mapper that
+	 * throws always fails the check.
+	 */
+	allowUnmappedActors?: boolean;
+	/**
 	 * Opt in to DPoP (RFC 9449). When set, the token endpoint accepts a `DPoP`
 	 * proof and issues `cnf.jkt`-bound tokens, `requireMcpAuth` accepts the
 	 * `DPoP` scheme, and metadata advertises the supported algorithms. Off by
@@ -216,6 +231,17 @@ export interface McpDelegationLink {
 	status: "active" | "revoked" | "expired";
 	expiresAt: Date;
 }
+
+/** An actor in a delegation chain: a hop's `sub` and client id, or the token subject. */
+export interface McpActorRef {
+	sub: string;
+	clientId?: string;
+}
+
+/** Maps a chain actor to the agent id used in delegation records. */
+export type McpActorAgentResolver = (
+	actor: McpActorRef,
+) => string | undefined | Promise<string | undefined>;
 
 /** Lookup of live delegation links, keyed by the `sub` values used in `act` claims. */
 export interface McpDelegationStore {

@@ -1,13 +1,29 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { delegationChains } from "../db/schema.js";
-import type { McpDelegationHop, McpDelegationLink, McpDelegationStore } from "./types.js";
+import type {
+	McpActorAgentResolver,
+	McpActorRef,
+	McpDelegationHop,
+	McpDelegationLink,
+	McpDelegationStore,
+} from "./types.js";
 
 /** Why a delegation chain failed the live check. */
 export interface McpDelegationFailure {
 	from: string;
 	to: string;
-	reason: "missing" | "revoked" | "expired";
+	reason: "missing" | "revoked" | "expired" | "unmapped actor" | "mapper failed";
+}
+
+/** Options for {@link checkLiveDelegation}. */
+export interface McpDelegationCheckOptions {
+	/** Map each chain actor (and the subject) to an agent id before the link lookup. */
+	resolveActorAgentId?: McpActorAgentResolver;
+	/** Keep the raw id for actors the mapper returns `undefined` for, instead of failing. */
+	allowUnmappedActors?: boolean;
+	/** Clock override for tests. */
+	now?: Date;
 }
 
 /**
@@ -17,23 +33,59 @@ export interface McpDelegationFailure {
  * runs from the token subject through the innermost actor out to the current
  * actor, so each consecutive pair must have an active, unexpired link. Returns
  * the first failing link, or null when every link is live (or there are no hops).
+ *
+ * With `resolveActorAgentId`, every path entry is mapped to an agent id first.
+ * An actor mapped to `undefined` fails with "unmapped actor" unless
+ * `allowUnmappedActors` is set, and a mapper that throws fails with
+ * "mapper failed". Failures report the raw ids from the token.
  */
 export async function checkLiveDelegation(
 	store: McpDelegationStore,
 	subject: string,
 	hops: McpDelegationHop[],
-	now: Date = new Date(),
+	options: McpDelegationCheckOptions = {},
 ): Promise<McpDelegationFailure | null> {
-	const path = [subject, ...hops.map((h) => h.sub).reverse()];
-	for (let i = 0; i < path.length - 1; i++) {
-		const from = path[i] as string;
-		const to = path[i + 1] as string;
-		const link = await store.findLink(from, to);
-		if (!link) return { from, to, reason: "missing" };
-		if (link.status === "revoked") return { from, to, reason: "revoked" };
-		if (link.status === "expired" || link.expiresAt <= now) return { from, to, reason: "expired" };
+	const now = options.now ?? new Date();
+	const actors: McpActorRef[] = [{ sub: subject }, ...[...hops].reverse()];
+	const mapper = options.resolveActorAgentId;
+	const ids: string[] = [];
+	for (const actor of actors) {
+		if (!mapper) {
+			ids.push(actor.sub);
+			continue;
+		}
+		let mapped: string | undefined;
+		try {
+			mapped = await mapper(actor);
+		} catch {
+			return failure(actors, ids.length, "mapper failed");
+		}
+		if (mapped === undefined || mapped === "") {
+			if (!options.allowUnmappedActors) return failure(actors, ids.length, "unmapped actor");
+			mapped = actor.sub;
+		}
+		ids.push(mapped);
+	}
+	for (let i = 0; i < ids.length - 1; i++) {
+		const link = await store.findLink(ids[i] as string, ids[i + 1] as string);
+		if (!link) return failure(actors, i + 1, "missing");
+		if (link.status === "revoked") return failure(actors, i + 1, "revoked");
+		if (link.status === "expired" || link.expiresAt <= now) {
+			return failure(actors, i + 1, "expired");
+		}
 	}
 	return null;
+}
+
+/** Build a failure for the link ending at `actors[toIndex]`, using raw token ids. */
+function failure(
+	actors: McpActorRef[],
+	toIndex: number,
+	reason: McpDelegationFailure["reason"],
+): McpDelegationFailure {
+	const to = actors[toIndex] as McpActorRef;
+	const from = actors[Math.max(toIndex - 1, 0)] as McpActorRef;
+	return { from: from.sub, to: to.sub, reason };
 }
 
 /**

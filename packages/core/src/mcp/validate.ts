@@ -131,13 +131,21 @@ export async function validateAccessToken(
 			ctx.config.delegationStore,
 			payload.sub,
 			delegationChain,
+			{
+				resolveActorAgentId: ctx.config.resolveActorAgentId,
+				allowUnmappedActors: ctx.config.allowUnmappedActors,
+			},
 		);
 		if (failure) {
+			const detail =
+				failure.reason === "unmapped actor" || failure.reason === "mapper failed"
+					? failure.reason
+					: `${failure.reason} link`;
 			return {
 				success: false,
 				error: {
 					code: "INVALID_TOKEN",
-					message: `Delegation chain is no longer valid (${failure.reason} link)`,
+					message: `Delegation chain is no longer valid (${detail})`,
 				},
 			};
 		}
