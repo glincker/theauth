@@ -44,6 +44,7 @@ import { createTables } from "./db/migrations.js";
 import { users } from "./db/schema.js";
 import { createDelegationModule } from "./delegation/delegation.js";
 import { createDidModule } from "./did/module.js";
+import { createExplainer } from "./explain/explain.js";
 import { createHookRuntime } from "./hooks/runtime.js";
 import { createMcpServerRegistry } from "./mcp/server-registry.js";
 import { createPermissionEngine } from "./permission/engine.js";
@@ -149,6 +150,12 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		agentModule,
 		permissionEngine,
 		delegationModule,
+	});
+	const { explain } = createExplainer({
+		db,
+		agentModule,
+		runBeforeAuthorize,
+		hookConfigured: !!hooks.beforeAuthorize,
 	});
 
 	const tenantModule = createTenantModule(db);
@@ -392,6 +399,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		user: userModule,
 		authorize,
 		authorizeByToken,
+		/** Read-only account of what `authorize()` would decide and why. No audit rows, no counters. */
+		explain,
 		delegate,
 		delegation: {
 			revoke: async (chainId: string): Promise<void> => {

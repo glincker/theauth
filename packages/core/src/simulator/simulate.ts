@@ -4,9 +4,9 @@ import { createCostAttributionModule } from "../auth/cost-attribution.js";
 import type { Database } from "../db/database.js";
 import { delegationChains } from "../db/schema.js";
 import type { Result } from "../mcp/types.js";
-import type { ConstraintStep } from "../policy/abac.js";
-import { findMatchingPermission, inspectConstraints, readRateUsage } from "../policy/abac.js";
 import type { AgentIdentity, Permission } from "../types.js";
+import type { SetEvaluation } from "./evaluate-set.js";
+import { evaluateSet } from "./evaluate-set.js";
 import type {
 	EffectivePermission,
 	MatrixCell,
@@ -20,103 +20,8 @@ import type {
 
 const MAX_MATRIX_CELLS = 2000;
 
-interface Evaluation {
-	allowed: boolean;
-	needsApproval: boolean;
-	reason?: string;
-	steps: TraceStep[];
-}
-
 function fail(code: string, message: string): Result<never> {
 	return { success: false, error: { code, message } };
-}
-
-function matchKind(pattern: string, resource: string): string {
-	if (pattern === resource) return "exact";
-	if (pattern === "*") return "wildcard:all";
-	return "wildcard:prefix";
-}
-
-function constraintToTrace(step: ConstraintStep): TraceStep {
-	return {
-		stage: step.constraint === "requireApproval" ? "approval" : "constraint",
-		outcome: step.outcome,
-		detail: step.detail,
-		data: { constraint: step.constraint, observed: step.observed, configured: step.configured },
-	};
-}
-
-/** Same walk as the real authorize path (permission engine): first matching rule, then its constraints, with every step recorded. The rate counter is read, never incremented. */
-async function evaluateSet(
-	db: Database | null,
-	agent: Pick<AgentIdentity, "id" | "name">,
-	permissions: Permission[],
-	label: string,
-	input: SimulateInput,
-	now: Date,
-): Promise<Evaluation> {
-	const { action, resource } = input;
-	const match = findMatchingPermission(permissions, action, resource);
-	if (!match) {
-		const reason = `No permission grants agent "${agent.name}" access to "${action}" on "${resource}"`;
-		return {
-			allowed: false,
-			needsApproval: false,
-			reason,
-			steps: [
-				{
-					stage: "permission",
-					outcome: "fail",
-					detail: reason,
-					data: { source: label, rulesChecked: permissions.length },
-				},
-			],
-		};
-	}
-
-	const { permission, index } = match;
-	const steps: TraceStep[] = [
-		{
-			stage: "permission",
-			outcome: "pass",
-			detail: `Rule ${index} in ${label} grants "${action}" on "${resource}"`,
-			data: {
-				source: label,
-				index,
-				rulePattern: permission.resource,
-				ruleActions: permission.actions,
-				resourceMatch: matchKind(permission.resource, resource),
-				actionMatch: permission.actions.includes(action) ? "exact" : "wildcard:all",
-			},
-		},
-	];
-
-	if (!permission.constraints) {
-		return { allowed: true, needsApproval: false, steps };
-	}
-
-	let rateUsage = input.overrides?.rateUsage;
-	if (permission.constraints.maxCallsPerHour && rateUsage === undefined) {
-		rateUsage = db && agent.id ? await readRateUsage(db, agent.id, resource, now) : 0;
-	}
-
-	const inspection = inspectConstraints(
-		{
-			subjectId: agent.id,
-			resource,
-			arguments: input.context?.arguments,
-			ip: input.context?.ip,
-		},
-		permission.constraints,
-		{ now, rateUsage },
-	);
-	for (const step of inspection.steps) steps.push(constraintToTrace(step));
-	return {
-		allowed: inspection.allowed,
-		needsApproval: inspection.needsApproval,
-		reason: inspection.reason,
-		steps,
-	};
 }
 
 interface ResolvedChain {
@@ -135,7 +40,7 @@ async function loadChains(db: Database, agentId: string): Promise<ResolvedChain[
 		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
 	return rows.map((c) => ({
 		id: c.id,
-		permissions: c.permissions.map((p) => ({ resource: p.resource, actions: p.actions })),
+		permissions: c.permissions.map((p) => ({ ...p })),
 		depth: c.depth,
 		maxDepth: c.maxDepth,
 		expiresAt: c.expiresAt,
@@ -154,7 +59,7 @@ function fromOverride(chain: SimulatedChain, i: number): ResolvedChain {
 	};
 }
 
-function describeDecision(e: Evaluation): SimulationDecision {
+function describeDecision(e: SetEvaluation): SimulationDecision {
 	if (e.allowed) return "allow";
 	return e.needsApproval ? "needs_approval" : "deny";
 }

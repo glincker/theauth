@@ -67,6 +67,7 @@ export type {
 	EmailTemplates,
 } from "./email/index.js";
 export { createEmailTemplates } from "./email/index.js";
+export * from "./explain/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
 export { generateOpenAPISpec } from "./openapi.js";

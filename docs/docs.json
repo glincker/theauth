@@ -366,6 +366,7 @@
               "openai-agents-sdk",
               "agent-frameworks",
               "simulator",
+              "explain",
               "rate-limiting",
               "cli-auth",
               "cli-tools",

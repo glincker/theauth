@@ -1,0 +1,70 @@
+---
+title: Explain a decision
+description: Ask why authorize() would allow or deny a call, with the matched rule, delegation link, constraint checks and hook outcome, and no side effects.
+icon: search
+---
+
+## What it does
+
+`theauth.explain(agentId, action, resource, options?)` mirrors `theauth.authorize()` and returns the reasoning instead of just the verdict. It answers questions like "which rule let this through?", "which delegation carried it?" and "why was this denied?".
+
+It only reads. It writes no audit rows, does not increment rate limit counters, does not spend approvals, and never caches.
+
+```ts
+const result = await theauth.explain("agent_123", "read", "mcp:github:repos", {
+  context: { ip: "10.1.2.3" },
+});
+
+if (!result.success) throw new Error(result.error.message);
+const e = result.data;
+
+console.log(e.decision, e.code, e.reason);
+console.log(e.matchedGrant?.source, e.matchedGrant?.link?.delegationId);
+console.log(e.constraints);
+```
+
+The call returns a `Result`. A denial is a successful explanation (`decision: "deny"`). A database failure returns `EXPLAIN_LOAD_FAILED`, and empty input returns `EXPLAIN_INVALID_INPUT`.
+
+## Result
+
+| Field | Meaning |
+| --- | --- |
+| `decision` | `allow`, `deny` or `escalate` |
+| `allowed` | `true` only for `allow` |
+| `code` | The same [decision code](/errors) `authorize()` would return, such as `no_permission`, `rate_limited` or `hook_denied` |
+| `reason` | Human readable explanation |
+| `agent` | Id, name, owner, status and expiry. `null` when the agent does not exist (code `agent_not_found`) |
+| `delegation` | The chain from the root human to the agent, plus every inbound grant |
+| `matchedGrant` | The rule that decided, or that came closest. Includes `source` (`own` or `delegation`), `index`, `resourceMatch`, `actionMatch` and, for delegated rules, the `link` that carried it |
+| `constraints` | Checks on the matched rule, in order: rate limit, argument patterns, approval, time window, IP allowlist |
+| `attempts` | Which permission sets were tried (own, then delegated) and how each ended |
+| `hook` | Whether `beforeAuthorize` is configured, whether it ran, and what it said |
+| `trace` | The full step list, the same `TraceStep` type as the [simulator](/simulator), with a `hook` stage |
+
+## Semantics
+
+`explain()` follows `authorize()`: the first matching rule wins, own permissions are tried before delegated ones, and when both deny the own verdict stands. When a delegated rule matched but failed a constraint, `matchedGrant` and `constraints` show that rule and `reason` says so, even though the code stays the one `authorize()` returns.
+
+A rule with `requireApproval` reports `decision: "escalate"` and code `approval_required`. Explain cannot spend an approval.
+
+The unified `policy.evaluate()` engine (deny overrides, risk, taint) is not explained yet. The `engine` option is reserved for it and only accepts `"authorize"`.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `arguments` | none | Tool arguments checked against `allowedArgPatterns` |
+| `context` | none | Request metadata. `ip` is checked against `ipAllowlist` |
+| `at` | now | Evaluate time windows at this instant |
+| `runHooks` | `false` | Call `beforeAuthorize` with `dryRun: true` and `source: "explain"` |
+
+## Hooks
+
+Hooks can call external services, so `explain()` skips `beforeAuthorize` unless you pass `runHooks: true`. When skipped, `hook.configured` is `true` and `hook.evaluated` is `false`, which tells you the live answer may differ.
+
+With `runHooks: true` the hook runs through the same timeout and fail-closed handling as `authorize()`. It receives `dryRun: true`, so a hook that writes records or notifies someone should check that flag and stay quiet. A deny, escalate, timeout or error from the hook is reflected in `decision`, `code` and `hook`.
+
+## Related
+
+- [Permission simulator](/simulator) for what-if overrides, matrices and access reviews
+- [Hooks](/hooks) for `beforeAuthorize` and `dryRun`
