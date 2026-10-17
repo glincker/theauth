@@ -1,0 +1,118 @@
+---
+title: Agent-auth conformance suite
+description: Point one command at any OAuth 2.1 or MCP server and get an honest pass, fail or skip report on agent-relevant behavior, plus a shields.io badge.
+icon: badge-check
+---
+
+`@glinr/theauth-conformance` is a black-box test tool. It talks to a server over HTTP only, needs no secrets, and works against any OAuth 2.1 authorization server or MCP resource server, not just theAuth.
+
+```bash
+npx @glinr/theauth-conformance https://auth.example.com
+```
+
+Every check ends as one of three things:
+
+- **pass**: the server did the right thing, and the evidence is in the report.
+- **fail**: the server did the wrong thing, or a request errored out.
+- **skip**: the check cannot be run honestly. Either the feature is optional and not advertised, or it needs a credential the tool does not have. A skip always says why. Nothing is faked into a pass.
+
+## Options
+
+```text
+theauth-conformance <url> [options]
+
+  --json                 Print the report as JSON
+  --badge <file>         Write a shields.io endpoint badge JSON file
+  --resource <url>       Protected MCP endpoint to probe for the 401 challenge
+  --client-id <id>       Use this client instead of registering one through DCR
+  --redirect-uri <uri>   Redirect URI registered for --client-id
+  --token <token>        Access token, only read to inspect its audience
+  --refresh-token <tok>  Refresh token for the rotation check (it gets consumed)
+  --timeout <ms>         Per-request timeout, default 10000
+  --verbose              Include evidence in the human report
+  --strict               Exit 1 on any failed check, not only MUST failures
+```
+
+The URL can be an authorization server issuer or a resource server. The tool looks for `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration` and `/.well-known/oauth-protected-resource`, and follows `authorization_servers` from resource metadata when the authorization server is somewhere else.
+
+Exit code is `0` when no MUST check failed, `1` otherwise, and `2` for a usage error. You can also pass tokens through `THEAUTH_CONFORMANCE_TOKEN` and `THEAUTH_CONFORMANCE_REFRESH_TOKEN` to keep them out of shell history.
+
+## What it checks
+
+Severity follows RFC 2119. A failing MUST turns the badge red. A failing SHOULD or MAY turns it yellow.
+
+| Check id | Severity | Spec | What it does |
+| --- | --- | --- | --- |
+| `as-metadata` | must | RFC 8414 | Authorization server metadata exists, `issuer` matches the URL it was served from, endpoints are https (or loopback), `code` and `authorization_code` are supported. |
+| `rs-metadata` | should | RFC 9728 | Protected resource metadata exists with a `resource` and at least one `authorization_servers` entry. |
+| `metadata-consistency` | must | RFC 9728, RFC 8414 | The resource lists the authorization server's issuer, and scopes it advertises are known to the authorization server. |
+| `pkce-s256-advertised` | must | OAuth 2.1, RFC 7636 | `code_challenge_methods_supported` includes `S256` and does not include `plain`. |
+| `pkce-required` | must | OAuth 2.1, RFC 9700 | An authorize request with no `code_challenge` is refused. |
+| `pkce-plain-rejected` | must | OAuth 2.1, RFC 7636 | An authorize request with `code_challenge_method=plain` is refused. |
+| `redirect-exact-match` | must | OAuth 2.1, RFC 9700 | A path-extended and a foreign-host `redirect_uri` are refused and never redirected to. |
+| `dcr-registration` | should | RFC 7591 | Registering a public client returns 201 with the client id and echoed metadata, uncached. |
+| `dcr-validation` | must | RFC 7591 | Plain http (non-loopback) and `javascript:` redirect URIs get a 400 with an error code. |
+| `refresh-garbage-rejected` | must | RFC 6749, OAuth 2.1 | A made-up refresh token gets `invalid_grant` (or `invalid_client`), never a 200 or a 500. |
+| `refresh-rotation` | must | OAuth 2.1, RFC 9700 | With a real refresh token: it rotates, the old one is refused, and replay revokes the newer one. |
+| `resource-indicator-audience` | must | RFC 8707 | With a real JWT access token: `aud` matches the protected resource. |
+| `token-exchange-rejects-garbage` | must | RFC 8693 | If advertised: a made-up subject token is refused with an OAuth error. |
+| `token-exchange-act-chain` | should | RFC 8693 | Nested `act` claims on exchanged tokens. Always skipped, see below. |
+| `introspection-inactive` | must | RFC 7662 | If advertised: a garbage token returns `active=false`. |
+| `dpop-advertised` | may | RFC 9449 | If advertised: only asymmetric signing algorithms are listed. |
+| `dpop-enforced` | must | RFC 9449 | If advertised: a garbage DPoP token with a garbage proof gets a 401 from the resource. |
+| `www-authenticate-resource-metadata` | must | RFC 9728, RFC 6750 | An unauthenticated request to the protected MCP endpoint gets a 401 whose `WWW-Authenticate` carries a working `resource_metadata` URL. |
+
+## What gets skipped, and why
+
+A black-box tool with no credentials cannot see everything. These are skipped rather than guessed:
+
+- **Optional features that are not advertised**: DCR, token exchange, introspection and DPoP.
+- **`refresh-rotation`** until you pass `--refresh-token` and `--client-id`. The test consumes the token.
+- **`resource-indicator-audience`** until you pass `--token`. Audience binding is only visible on a real token, and the token must be a JWT.
+- **`token-exchange-act-chain`**. Reading the `act` chain needs a valid subject token and client credentials. The tool does not have them, so it never claims a result.
+- **Introspection** when the endpoint requires client authentication (it answers 401 or 403).
+- **Negative authorize probes** (`pkce-required`, `pkce-plain-rejected`, `redirect-exact-match`) when the server never lets a fully valid request through, or when it accepts the bad request and moves on to a login page. Later validation is invisible from outside, so the result is a skip, not a pass.
+
+Negative authorize probes always run a control request first. If the control request is itself rejected, the negative ones are skipped, because their failure would prove nothing.
+
+## Badge
+
+`--badge out.json` writes a [shields.io endpoint](https://shields.io/badges/endpoint-badge) document:
+
+```json
+{
+  "schemaVersion": 1,
+  "label": "agent-auth",
+  "message": "13/13 passed, 5 skipped",
+  "color": "brightgreen"
+}
+```
+
+The message counts only checks that ran, so skips never inflate the score. Green means nothing failed, yellow means only SHOULD or MAY checks failed, red means a MUST failed, and grey (`not tested`) means no check could run.
+
+Publish the JSON somewhere with a stable public URL (a GitHub Pages file, a release asset, a raw file on your default branch) and point shields at it:
+
+```markdown
+[![agent-auth conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fexample.com%2Fagent-auth-badge.json)](https://docs.theauth.dev/conformance)
+```
+
+To refresh it in CI:
+
+```bash
+npx @glinr/theauth-conformance https://auth.example.com --badge badge.json
+```
+
+## Programmatic use
+
+```ts
+import { buildBadge, runSuite } from "@glinr/theauth-conformance";
+
+const report = await runSuite({ target: "https://auth.example.com", timeoutMs: 10000 });
+const badge = buildBadge(report);
+```
+
+## How theAuth is tested
+
+The package's own test starts the real MCP OAuth module from `@glinr/theauth` on a Node `http` server and runs the whole suite against it. The expected result is pinned: 13 pass, 0 fail, 5 skipped (refresh rotation, audience, token exchange twice, introspection). A second test runs the suite against a deliberately lax stub server and asserts the checks fail there, so a pass is not the only outcome the suite can produce.
+
+This tests behavior, not certification. A green badge says the server behaved correctly on these probes. It is not an audit.

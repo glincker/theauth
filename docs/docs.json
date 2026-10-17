@@ -360,8 +360,10 @@
               "approval",
               "agent-tools",
               "taint-guard",
+              "playground",
               "vercel-ai-sdk",
               "openai-agents-sdk",
+              "agent-frameworks",
               "simulator",
               "rate-limiting",
               "dev-mode",
@@ -394,7 +396,9 @@
               "mcp",
               "mcp-grants",
               "mcp-client-compat",
+              "conformance",
               "mcp-registry",
+              "admin-mcp",
               "dpop",
               "gateway"
             ]
@@ -470,7 +474,17 @@
               "hibp",
               "sign-in-gate",
               "trusted-device",
-              "multi-session"
+              "multi-session",
+              "owasp-agentic-mapping"
+            ]
+          },
+          {
+            "group": "Use cases",
+            "icon": "lightbulb",
+            "pages": [
+              "use-cases/mcp-server-behind-oauth",
+              "use-cases/github-actions-oidc",
+              "use-cases/sqlite-oauth-server"
             ]
           },
           {

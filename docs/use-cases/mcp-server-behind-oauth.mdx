@@ -1,0 +1,180 @@
+---
+title: Protect an MCP server with OAuth 2.1
+description: Put an MCP server behind OAuth 2.1 with theAuth. The client gets a token with PKCE, and the server checks audience and scopes on every request.
+---
+
+This page shows how to put an MCP server behind OAuth 2.1 with theAuth, so each tool call carries a token that was issued for that server and that scope.
+
+The setup has two roles in one process: theAuth is the authorization server (it issues tokens), and your MCP endpoint is the resource server (it checks them). The example below runs both on one origin, the same way `examples/mcp-server` does.
+
+## 1. Ask
+
+The MCP client starts with discovery. It fetches the protected resource metadata from your server, follows the `authorization_servers` entry to the authorization server metadata, registers itself if it has no client id yet, and then sends the user to the authorize endpoint with a PKCE challenge and a `resource` parameter (RFC 8707).
+
+Create the module. Storage is passed as callbacks, so you can back them with your own database. The in-memory maps below are for illustration.
+
+```typescript
+import { createTheAuth } from "@glinr/theauth";
+import { createMcpModule } from "@glinr/theauth/mcp";
+import type { McpAccessToken, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
+
+const clients = new Map<string, McpClient>();
+const codes = new Map<string, McpAuthorizationCode>();
+const tokens = new Map<string, McpAccessToken>();
+const byRefreshToken = new Map<string, string>();
+
+const mcpStore = {
+  storeClient: async (client: McpClient) => {
+    clients.set(client.clientId, client);
+  },
+  findClient: async (clientId: string) => clients.get(clientId) ?? null,
+  storeAuthorizationCode: async (code: McpAuthorizationCode) => {
+    codes.set(code.code, code);
+  },
+  consumeAuthorizationCode: async (code: string) => {
+    const found = codes.get(code) ?? null;
+    if (found) codes.delete(code); // single use
+    return found;
+  },
+  storeToken: async (token: McpAccessToken) => {
+    tokens.set(token.accessToken, token);
+    if (token.refreshToken) byRefreshToken.set(token.refreshToken, token.accessToken);
+  },
+  findTokenByRefreshToken: async (refreshToken: string) => {
+    const accessToken = byRefreshToken.get(refreshToken);
+    return accessToken ? (tokens.get(accessToken) ?? null) : null;
+  },
+  revokeToken: async (accessToken: string) => {
+    tokens.delete(accessToken);
+  },
+  // Return the signed-in user id from your session, or null to send them to loginPage
+  resolveUserId: async (_request: Request) => null as string | null,
+};
+
+export const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  baseUrl: "https://auth.yourapp.com",
+  mcp: { enabled: true },
+});
+
+export const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: "https://auth.yourapp.com",
+    baseUrl: "https://auth.yourapp.com/api/theauth",
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+    resource: "https://mcp.yourapp.com/mcp", // this server's canonical URI (RFC 8707)
+    scopes: ["mcp:read", "mcp:execute"],
+    accessTokenTtl: 3600,
+    loginPage: "https://auth.yourapp.com/login",
+    allowedResources: ["https://mcp.yourapp.com/mcp"],
+  },
+  ...mcpStore,
+});
+```
+
+`resource` is what makes the server check audience. `middleware`, `validateToken` and `requireScopes` check the token audience against it and refuse to run without it. `requireMcpAuth` uses it as the default expected audience. `allowedResources` stops a client from asking for a token for some other resource.
+
+Mount the OAuth endpoints with a framework adapter. The example uses Hono:
+
+```typescript
+import { Hono } from "hono";
+import { theAuthHono } from "@glinr/theauth-hono";
+
+const app = new Hono();
+app.route("/api", theAuthHono(theauth, { mcp }));
+```
+
+The adapter serves the metadata routes, `POST /mcp/register`, `GET /mcp/authorize` and `POST /mcp/token`. See [MCP OAuth 2.1](/mcp) for the full endpoint table.
+
+## 2. Find the rule
+
+The MCP endpoint is a resource server. Wrap its handler with `mcp.requireMcpAuth`. The wrapper checks the signature, issuer, expiry and audience of the Bearer token, then checks the scopes you name. It runs your handler only when all of those pass, and passes in the verified principal.
+
+```typescript
+const listTools = mcp.requireMcpAuth(
+  async (_request, principal) => {
+    return Response.json({
+      tools: [{ name: "search_docs" }],
+      user: principal.userId,
+      client: principal.clientId,
+      scopes: principal.scopes,
+    });
+  },
+  { requiredScopes: ["mcp:read"] },
+);
+
+const callTool = mcp.requireMcpAuth(
+  async (request, principal) => {
+    const body = (await request.json()) as { name: string };
+    return Response.json({ ok: true, tool: body.name, by: principal.userId });
+  },
+  { requiredScopes: ["mcp:execute"] },
+);
+
+app.get("/mcp/tools", (c) => listTools(c.req.raw));
+app.post("/mcp/tools/call", (c) => callTool(c.req.raw));
+```
+
+The principal has `userId`, `clientId`, `agent` (or `null`), `delegationChain`, `scopes`, `resource`, `tokenId` and `expiresAt`. Use `principal.userId` for ownership checks in your own code. Do not trust a user id from the request body.
+
+For the token exchange itself, the client sends a standard authorization code request with its PKCE verifier and the resource:
+
+```http
+POST /api/theauth/mcp/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&code=<code from the redirect>
+&code_verifier=<PKCE verifier>
+&redirect_uri=http://127.0.0.1:8976/callback
+&client_id=<client id>
+&resource=https://mcp.yourapp.com/mcp
+```
+
+To revoke a token, mount a route that passes the request to `mcp.revoke`. The docs say the TypeScript adapters do not serve `/mcp/revoke` by default:
+
+```typescript
+app.post("/api/theauth/mcp/revoke", async (c) => {
+  await mcp.revoke(c.req.raw);
+  return c.body(null, 200);
+});
+```
+
+## 3. See the result
+
+A request with no token gets a 401 and a `WWW-Authenticate: Bearer` challenge that points at the protected resource metadata. A token with the wrong audience is refused. A token that lacks the scope gets a 403 with `insufficient_scope`. A valid token runs the handler.
+
+```bash
+curl -i https://mcp.yourapp.com/mcp/tools
+# HTTP/1.1 401
+# WWW-Authenticate: Bearer resource_metadata="https://mcp.yourapp.com/.well-known/oauth-protected-resource", ...
+
+curl -i -H "Authorization: Bearer $ACCESS_TOKEN" https://mcp.yourapp.com/mcp/tools
+# HTTP/1.1 200
+```
+
+If you want proof-of-possession, set `dpop` in the MCP config and read [DPoP and requireMcpAuth](/dpop). Then a stolen bearer token is not enough on its own.
+
+## Evidence and limits
+
+- The module and resource wrapper described here are the TypeScript package in `packages/core/src/mcp`. `requireMcpAuth` is exported from `packages/core/src/mcp/index.ts` and the tests in `packages/core/tests/mcp-dpop.test.ts` call it through `mcp.requireMcpAuth`.
+- The Hono example in `examples/mcp-server/src/server.ts` runs the same module, but it uses `mcp.validateToken` inside its own routes. It does not use `requireMcpAuth`. The snippets above are the shape of `requireMcpAuth`, not copied from that example.
+- Access tokens are signed JWTs. A resource server that validates them locally does not see revocation until the token expires. Keep `accessTokenTtl` short, or add a `jtiDenylist` and check it on your side. The `jtiDenylist` option is documented in `packages/core/src/mcp/types.ts`.
+- The TypeScript adapters do not serve `/mcp/revoke` or `/mcp/jwks` by default. The snippet above mounts revocation yourself.
+- Dynamic client registration is a compatibility path. The MCP spec now prefers Client ID Metadata Documents. See [MCP client compatibility](/mcp-client-compat) and [MCP registry](/mcp-registry).
+- A Go implementation of the same flow on SQLite exists. See [OAuth 2.1 for an MCP server on SQLite](/use-cases/sqlite-oauth-server). That page is Go only.
+
+## FAQ
+
+### Do I need a separate authorization server?
+
+No. The `createMcpModule` call runs in the same process as your MCP endpoint in the example. You can split them later. The resource check only needs the issuer, the signing keys (published through `mcp.getJwks()`) and the `resource` value.
+
+### Why does my client get a token with the wrong audience?
+
+The client must send `resource` on the authorize and token requests, and the value must be in `allowedResources`. If the client does not send `resource`, the token is not bound to your server. Check the `resource` value your client sends, and compare it with `config.resource`.
+
+### Can an agent act through this server?
+
+Yes. Tokens can carry an `agent` claim and a delegation chain (`delegationChain` on the principal). Agent identity is covered in [Agent identity](/agents) and [Delegation chains](/delegation). Token exchange for agents needs `tokenExchange` and `jtiDenylist` in the MCP config. See [MCP server grants](/mcp-grants).

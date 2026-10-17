@@ -114,8 +114,10 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Approval flows](https://docs.theauth.dev/approval): CIBA-style async human-in-the-loop approval for actions that should not run unattended.
 - [Guard agent tools](https://docs.theauth.dev/agent-tools): Put the policy engine in front of the tools an AI agent calls, in any TypeScript agent framework.
 - [Taint-aware tool guard](https://docs.theauth.dev/taint-guard): Label where tool arguments came from so a prompt injection guard can hold risky AI agent tool calls for approval.
+- [Playground](https://docs.theauth.dev/playground): Run the real taint guard, policy engine and signed audit receipts in your browser, with no server.
 - [Vercel AI SDK](https://docs.theauth.dev/vercel-ai-sdk): Guard Vercel AI SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
 - [OpenAI Agents SDK](https://docs.theauth.dev/openai-agents-sdk): Guard OpenAI Agents SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
+- [Agent framework wrappers](https://docs.theauth.dev/agent-frameworks): Guard tools in LangChain.js, LangGraph and Mastra with theAuth policy, and pause for human approval using each framework's own interrupt mechanism.
 - [Permission simulator](https://docs.theauth.dev/simulator): Ask what an agent would be allowed to do, with a step by step trace and no side effects.
 - [Rate limiting](https://docs.theauth.dev/rate-limiting): Apply per-IP limits on auth endpoints with the rateLimit plugin and per-agent call caps with the maxCallsPerHour constraint.
 - [Dev mode](https://docs.theauth.dev/dev-mode): Run theauth dev to get a local server with a demo user, a delegation, and a policy check in under a minute.
@@ -130,7 +132,9 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [MCP OAuth 2.1](https://docs.theauth.dev/mcp): Configure theAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
 - [MCP server grants](https://docs.theauth.dev/mcp-grants): Enable client_credentials, RFC 8693 token exchange, jwt-bearer (ID-JAG) and private_key_jwt client authentication on the MCP authorization server.
 - [MCP client compatibility](https://docs.theauth.dev/mcp-client-compat): The lenientClients options that relax strict MCP request checks for real-world clients, what each one gives up, and a recommended profile.
+- [Agent-auth conformance suite](https://docs.theauth.dev/conformance): Point one command at any OAuth 2.1 or MCP server and get an honest pass, fail or skip report on agent-relevant behavior, plus a shields.io badge.
 - [MCP Registry](https://docs.theauth.dev/mcp-registry): Publish the theAuth MCP server to the official MCP Registry with mcp-publisher.
+- [Admin MCP server](https://docs.theauth.dev/admin-mcp): Let an MCP client inspect a theAuth deployment, and change it only after a human approves.
 - [DPoP and requireMcpAuth](https://docs.theauth.dev/dpop): Bind MCP access tokens to a client key with DPoP (RFC 9449) and protect resource handlers with requireMcpAuth.
 - [Gateway](https://docs.theauth.dev/gateway): An auth proxy that sits in front of any API or MCP server, enforcing auth, permissions, rate limiting, and audit without changing upstream code.
 - [Overview](https://docs.theauth.dev/adapters/index): Drop theAuth into Hono, Express, Next.js, Fastify, Nuxt, SvelteKit, Astro, NestJS, SolidStart, or TanStack with one adapter import.
@@ -165,6 +169,10 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Sign-in gate](https://docs.theauth.dev/sign-in-gate): One gate decides whether a verified sign-in may get a session. Forced password change, required second factor, trusted devices and a per-user session limit.
 - [Trusted devices](https://docs.theauth.dev/trusted-device): Skip two-factor auth on verified devices via createTrustedDeviceModule. Trust is stored as an HMAC-signed fingerprint with a configurable expiry duration.
 - [Multi-session](https://docs.theauth.dev/multi-session): Let users hold multiple active sessions and manage them from an account settings page.
+- [OWASP agentic threats mapped to theAuth](https://docs.theauth.dev/owasp-agentic-mapping): Which theAuth feature addresses each OWASP Top 10 for Agentic Applications risk, and where the feature stops short.
+- [Protect an MCP server with OAuth 2.1](https://docs.theauth.dev/use-cases/mcp-server-behind-oauth): Put an MCP server behind OAuth 2.1 with theAuth. The client gets a token with PKCE, and the server checks audience and scopes on every request.
+- [CI jobs as agents with GitHub Actions OIDC](https://docs.theauth.dev/use-cases/github-actions-oidc): Let a GitHub Actions job get a theAuth access token with its own OIDC identity, no stored secret. The Go library has a helper for this. The TypeScript package does not.
+- [Run a full OAuth 2.1 server on SQLite](https://docs.theauth.dev/use-cases/sqlite-oauth-server): Run theAuth's OAuth 2.1 authorization server and an MCP resource server from one Go binary and one SQLite file. Go library only, not available in the TypeScript package.
 - [Lifecycle hooks](https://docs.theauth.dev/hooks): Running custom logic before and after authorization, agent creation, and policy violations.
 - [Webhooks](https://docs.theauth.dev/webhooks): Push HMAC-signed HTTP POST payloads to external URLs for the events you emit. Configure endpoints with the `webhooks` option of createTheAuth.
 - [Event streaming](https://docs.theauth.dev/event-streaming): Stream events you emit (agent lifecycle, auth, budget, and others) to clients in real time via SSE using createEventStreamModule. Missed events replay from a timestamp cursor.

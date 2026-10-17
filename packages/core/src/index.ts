@@ -17,7 +17,7 @@ export type {
 } from "./adapter-guard.js";
 export { createAdapterGuard, isProtectedAdapterPath } from "./adapter-guard.js";
 export type { AdapterScope, ScopeDenial, ScopeResult } from "./adapter-scope.js";
-
+export * from "./admin-api/index.js";
 // Re-export submodules
 export * from "./agent/index.js";
 export * from "./agent-tools/index.js";

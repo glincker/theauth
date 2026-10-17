@@ -1,0 +1,53 @@
+---
+title: OWASP agentic threats mapped to theAuth
+description: Which theAuth feature addresses each OWASP Top 10 for Agentic Applications risk, and where the feature stops short.
+---
+
+This page maps each risk in the OWASP Top 10 for Agentic Applications to the theAuth feature that reduces it, and says what the feature does not cover.
+
+<Warning>
+  **Category names.** The risk names below follow the OWASP Top 10 for Agentic Applications for 2026 (OWASP GenAI Security Project). They are listed without OWASP's numeric identifiers; check the wording against the OWASP publication before you cite it in an audit.
+</Warning>
+
+## How to read the table
+
+Each row names a risk, the theAuth feature that reduces it, and the limit. A feature listed in the mitigation column is a control you turn on or call. It does not stop the risk by itself. Most controls here act at the authorization boundary: they decide whether a tool call, token or delegation is allowed, not whether the model was persuaded to ask for it.
+
+## Mapping
+
+| # | Risk | theAuth feature | Limit |
+| --- | --- | --- | --- |
+| 1 | Agent Goal Hijack | [Taint-aware tool guard](/taint-guard) holds tool calls whose arguments came from untrusted content. [Approval flows](/approval) send risky calls to a human. | Taint tracks where an argument came from. It does not judge whether the model's plan is malicious. |
+| 2 | Tool Misuse and Exploitation | [Permission engine](/permissions) gates resources, time windows and IP ranges per agent. [Rate limiting](/rate-limiting) caps calls per hour. MCP `requiredScopes` checks scopes on each tool route. | Permissions cover the tools you register with them. Unlisted tools are not gated. |
+| 3 | Identity and Privilege Abuse | [Agent identity](/agents) gives each agent its own short-lived token. [Token vault](/token-vault) keeps third-party credentials out of agent hands. [DPoP](/dpop) binds tokens to a key. Audience checks (RFC 8707) stop a token from being used on another resource. | A bearer token that is not DPoP-bound still works for anyone who holds it. Offline JWT checks do not see revocation. |
+| 4 | Agentic Supply Chain Vulnerabilities | jwt-bearer accepts assertions only from listed issuers. [MCP registry](/mcp-registry) covers registering MCP servers. Lenient client options are off by default. | theAuth does not scan third-party MCP servers or their code. |
+| 5 | Unexpected Code Execution | Not a theAuth control. Limit it by withholding code-execution tools from agents, using the permission engine. | theAuth does not inspect or sandbox code. Use a sandbox runtime for that. |
+| 6 | Memory and Context Poisoning | Taint labels show which tool inputs came from outside content, so a poisoned value can be held for review. [Audit trail](/audit) records each authorization decision. | Memory stores are your own. theAuth does not scan or clean them. |
+| 7 | Insecure Inter-Agent Communication | Token exchange (RFC 8693) produces tokens with an `act` chain that names each actor. [Delegation chains](/delegation) limit depth and cascade revocation. | Messages between agents outside the token flow are not covered. |
+| 8 | Cascading Failures | [Rate limiting](/rate-limiting) limits how fast one agent can act. Delegation depth limits and cascading revocation stop a bad grant from spreading. | Rate limits are per agent and per IP. They do not stop a fleet-wide failure by themselves. |
+| 9 | Human-Agent Trust Exploitation | [Approval flows](/approval) move the decision to a channel the agent does not control. The MCP `consentPage` option shows consent in your own UI. | theAuth cannot tell whether a human approval was well informed. Design the approval prompt yourself. |
+| 10 | Rogue Agents | Revoke an agent or its delegation grants. [Trust scoring](/trust) gates autonomy by audit history. [Anomaly detection](/anomaly) reports unusual agent behavior. | Anomaly detection is limited. The page lists what is not implemented. |
+
+## Where to start
+
+Start with the controls that act before a tool runs: [permissions](/permissions), [approval flows](/approval) and the [taint-aware tool guard](/taint-guard). The [prompt injection tool guard tutorial](/tutorials/prompt-injection-tool-guard) shows the guard end to end. For token-level controls, read [MCP server grants](/mcp-grants) and [DPoP](/dpop). For the use case, see [Protect an MCP server with OAuth 2.1](/use-cases/mcp-server-behind-oauth).
+
+## Evidence and limits
+
+- Each feature link goes to the page that documents it. Feature claims follow those pages. Where a feature is narrower than its name, the Limit column says so.
+- The risk names follow a secondary reading of the OWASP list (see the note at the top). The earlier threat model for the Go authorization server is in [Threat model](/go/security/threat-model). It uses its own categories and does not map to the OWASP list.
+- This table is a mapping, not a certification. It does not replace a review of your own tools, prompts and data.
+
+## FAQ
+
+### Does theAuth stop prompt injection?
+
+No. It limits what an injected instruction can do. The taint guard holds risky calls for review, and permissions and approvals decide what the agent may run. The model can still be fooled into asking for a call, and the controls then decide whether it runs.
+
+### Which risk is the least covered?
+
+Risk 5, unexpected code execution. theAuth gates access to tools but does not run or inspect code. Keep code-execution tools out of agent scopes, or run them in a separate sandbox.
+
+### How do I know a control is on?
+
+Each control is a config option or a call in your code. Check the config you pass to `createTheAuth` and `createMcpModule`, and look at the audit trail for decisions. The pages linked above name the option for each control.

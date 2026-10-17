@@ -16087,6 +16087,40 @@ The column is part of the hash chain, so `verifyAuditChain` covers it. Labels ar
 
 ---
 
+# Playground
+
+Source: https://docs.theauth.dev/playground
+
+The playground runs the same `guardTool`, taint labels and policy engine you ship, inside a browser tab. It uses the in-memory SQLite store (`sql.js`, WebAssembly) and WebCrypto for Ed25519, so nothing leaves the page.
+
+## What you can try
+
+1. A poisoned web page tells the agent to email an attacker. The address carries the `untrusted_web` label, so the taint rule blocks the call.
+2. A 20 EUR payment stays under the limit and is allowed.
+3. A 5000 EUR payment reaches the `large-payment` risk tier and escalates to approval.
+4. Edit the policy JSON and run again.
+
+Each run shows the decision, the reason, the labels the engine saw, and a signed audit receipt. The page verifies the receipt itself: the Ed25519 signature on the checkpoint and the Merkle inclusion proof. Change one digit of the receipt and verification fails.
+
+## What is real
+
+Everything in the decision path is the published code from `@glinr/theauth`: `createTheAuth`, `guardTool`, `tainted`, the policy engine, `createCheckpoint`, `createReceipt` and `verifyReceipt`. The only app edge code points `sql.js` at its bundled `.wasm` file and replaces server-only drivers (mail, Postgres, MySQL, `zlib`) with empty modules. Those paths are never called.
+
+## Run it locally
+
+```bash
+pnpm --filter playground dev
+pnpm --filter playground build
+```
+
+The build is plain static files in `apps/playground/dist`. Host them anywhere.
+
+## Copy the code
+
+The Copy code button emits a `guardTool` snippet for the scenario and policy you picked. See [Guard agent tools](/agent-tools) and [Taint guard](/taint-guard) for the full API, and [Audit checkpoints](/audit-checkpoints) for receipts.
+
+---
+
 # Vercel AI SDK
 
 Source: https://docs.theauth.dev/vercel-ai-sdk
@@ -16402,6 +16436,91 @@ The repo has a runnable version at `examples/openai-agents-guard`. It needs no m
 - [Approval flows](/approval)
 - [Audit trail](/audit-trail)
 - [Agent accountability](/accountability)
+
+---
+
+# Agent framework wrappers
+
+Source: https://docs.theauth.dev/agent-frameworks
+
+`@glinr/theauth-agent-frameworks` wraps your framework's tool objects with `guardTool`. When policy allows a call, the tool runs. When policy denies it, `ToolDeniedError` is thrown. When policy escalates, the wrapper hands the approval request to the framework's human-in-the-loop feature and, once a person approves, retries the call with the approved request id.
+
+The framework packages are optional peer dependencies. The wrappers type the tools structurally, so installing this package does not install LangChain or Mastra.
+
+```bash
+npm install @glinr/theauth-agent-frameworks @glinr/theauth
+```
+
+## LangChain.js and LangGraph
+
+Import `interrupt` from `@langchain/langgraph` and pass it in. Guard the tools before you hand them to your agent or `ToolNode`.
+
+```ts
+import { Command, interrupt } from "@langchain/langgraph";
+import { guardLangChainTools } from "@glinr/theauth-agent-frameworks/langchain";
+
+const tools = guardLangChainTools(
+  theauth,
+  { agentId: agent.id, interrupt, risk: (args) => ({ amount: args.amount, currency: "USD" }) },
+  [lookupInvoice, refund],
+);
+```
+
+When `refund` escalates, the graph pauses. The interrupt value (`result.__interrupt__`) is an `ApprovalInterruptPayload` with the tool name, tier, arguments and `approvalRequestId`. Approve the request, then resume the same thread:
+
+```ts
+await theauth.approval.approve(payload.approvalRequestId, approverId);
+await graph.invoke(new Command({ resume: { approved: true } }), config);
+```
+
+Resume with `{ approved: false }` to reject: the tool call fails with `ToolDeniedError` (`APPROVAL_REJECTED`). A graph needs a checkpointer for interrupts to work, which is a LangGraph requirement.
+
+A LangGraph node restarts from the top when it resumes, so the policy check runs a second time and can open a second pending request. The id from the first interrupt is the one that gets spent. The extra request expires on its own.
+
+## Mastra
+
+```ts
+import { guardMastraTools } from "@glinr/theauth-agent-frameworks/mastra";
+
+const tools = guardMastraTools(theauth, { agentId: agent.id }, { lookupInvoice, refund });
+```
+
+On escalation the wrapper calls `context.suspend` with the same approval payload. Give the tool a `resumeSchema` shaped like `{ approved: boolean, approvalRequestId?: string }`, and resume with that data after the approval. If Mastra provides no `suspend` in the context, the wrapper throws `ToolApprovalRequiredError` instead. Set `onApprovalRequired: "throw"` to always throw. Mastra versions before 1.0 passed `{ context }` as the first argument to `execute`; set `legacyContextArg: true` for those.
+
+## Vercel AI SDK and OpenAI Agents SDK
+
+These need no wrapper. Their tools are plain objects with `execute`, so use `guardTool` from `@glinr/theauth` as shown in [Vercel AI SDK](/vercel-ai-sdk) and [OpenAI Agents SDK](/openai-agents-sdk). Their runs end when a tool throws, and the retry comes in a new request, so use the shared helper to carry the approval across:
+
+```ts
+import {
+  createApprovalGrants,
+  resumeAfterApproval,
+} from "@glinr/theauth-agent-frameworks";
+
+const grants = createApprovalGrants();
+const refund = guardTool(
+  theauth,
+  { agentId: agent.id, approvalId: grants.approvalIdFor("refund") },
+  refundTool,
+);
+
+// Later, in the handler that runs after the person decides:
+const result = await resumeAfterApproval(theauth, requestId, {
+  grants,
+  call: { toolName: "refund", args: heldArgs },
+});
+if (result.status === "approved") {
+  // Run the agent again. The next identical refund call spends the approval once.
+}
+```
+
+## resumeAfterApproval
+
+`resumeAfterApproval(theauth, requestId, options)` reads the request with `theauth.approval.get` and returns one of `approved` (with the `approvalId` to pass to the guard), `pending`, `denied`, `expired` or `not_found`. Set `waitMs` to keep polling a pending request. With `grants` and `call`, an approved id is stored until the matching retry spends it. The guard still checks the agent, action and resource when it spends the id, and a second use is denied.
+
+## Taint blocks
+
+Guard options such as `tracker` and `provenance` pass straight through. A call whose arguments carry a blocked label is denied with `ToolDeniedError` before any approval is opened. See [Taint guard](/taint-guard).
 
 ---
 
@@ -18851,6 +18970,125 @@ The Go library has the same five switches as `ClientCompat` (`OptionalResource`,
 
 ---
 
+# Agent-auth conformance suite
+
+Source: https://docs.theauth.dev/conformance
+
+`@glinr/theauth-conformance` is a black-box test tool. It talks to a server over HTTP only, needs no secrets, and works against any OAuth 2.1 authorization server or MCP resource server, not just theAuth.
+
+```bash
+npx @glinr/theauth-conformance https://auth.example.com
+```
+
+Every check ends as one of three things:
+
+- **pass**: the server did the right thing, and the evidence is in the report.
+- **fail**: the server did the wrong thing, or a request errored out.
+- **skip**: the check cannot be run honestly. Either the feature is optional and not advertised, or it needs a credential the tool does not have. A skip always says why. Nothing is faked into a pass.
+
+## Options
+
+```text
+theauth-conformance <url> [options]
+
+  --json                 Print the report as JSON
+  --badge <file>         Write a shields.io endpoint badge JSON file
+  --resource <url>       Protected MCP endpoint to probe for the 401 challenge
+  --client-id <id>       Use this client instead of registering one through DCR
+  --redirect-uri <uri>   Redirect URI registered for --client-id
+  --token <token>        Access token, only read to inspect its audience
+  --refresh-token <tok>  Refresh token for the rotation check (it gets consumed)
+  --timeout <ms>         Per-request timeout, default 10000
+  --verbose              Include evidence in the human report
+  --strict               Exit 1 on any failed check, not only MUST failures
+```
+
+The URL can be an authorization server issuer or a resource server. The tool looks for `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration` and `/.well-known/oauth-protected-resource`, and follows `authorization_servers` from resource metadata when the authorization server is somewhere else.
+
+Exit code is `0` when no MUST check failed, `1` otherwise, and `2` for a usage error. You can also pass tokens through `THEAUTH_CONFORMANCE_TOKEN` and `THEAUTH_CONFORMANCE_REFRESH_TOKEN` to keep them out of shell history.
+
+## What it checks
+
+Severity follows RFC 2119. A failing MUST turns the badge red. A failing SHOULD or MAY turns it yellow.
+
+| Check id | Severity | Spec | What it does |
+| --- | --- | --- | --- |
+| `as-metadata` | must | RFC 8414 | Authorization server metadata exists, `issuer` matches the URL it was served from, endpoints are https (or loopback), `code` and `authorization_code` are supported. |
+| `rs-metadata` | should | RFC 9728 | Protected resource metadata exists with a `resource` and at least one `authorization_servers` entry. |
+| `metadata-consistency` | must | RFC 9728, RFC 8414 | The resource lists the authorization server's issuer, and scopes it advertises are known to the authorization server. |
+| `pkce-s256-advertised` | must | OAuth 2.1, RFC 7636 | `code_challenge_methods_supported` includes `S256` and does not include `plain`. |
+| `pkce-required` | must | OAuth 2.1, RFC 9700 | An authorize request with no `code_challenge` is refused. |
+| `pkce-plain-rejected` | must | OAuth 2.1, RFC 7636 | An authorize request with `code_challenge_method=plain` is refused. |
+| `redirect-exact-match` | must | OAuth 2.1, RFC 9700 | A path-extended and a foreign-host `redirect_uri` are refused and never redirected to. |
+| `dcr-registration` | should | RFC 7591 | Registering a public client returns 201 with the client id and echoed metadata, uncached. |
+| `dcr-validation` | must | RFC 7591 | Plain http (non-loopback) and `javascript:` redirect URIs get a 400 with an error code. |
+| `refresh-garbage-rejected` | must | RFC 6749, OAuth 2.1 | A made-up refresh token gets `invalid_grant` (or `invalid_client`), never a 200 or a 500. |
+| `refresh-rotation` | must | OAuth 2.1, RFC 9700 | With a real refresh token: it rotates, the old one is refused, and replay revokes the newer one. |
+| `resource-indicator-audience` | must | RFC 8707 | With a real JWT access token: `aud` matches the protected resource. |
+| `token-exchange-rejects-garbage` | must | RFC 8693 | If advertised: a made-up subject token is refused with an OAuth error. |
+| `token-exchange-act-chain` | should | RFC 8693 | Nested `act` claims on exchanged tokens. Always skipped, see below. |
+| `introspection-inactive` | must | RFC 7662 | If advertised: a garbage token returns `active=false`. |
+| `dpop-advertised` | may | RFC 9449 | If advertised: only asymmetric signing algorithms are listed. |
+| `dpop-enforced` | must | RFC 9449 | If advertised: a garbage DPoP token with a garbage proof gets a 401 from the resource. |
+| `www-authenticate-resource-metadata` | must | RFC 9728, RFC 6750 | An unauthenticated request to the protected MCP endpoint gets a 401 whose `WWW-Authenticate` carries a working `resource_metadata` URL. |
+
+## What gets skipped, and why
+
+A black-box tool with no credentials cannot see everything. These are skipped rather than guessed:
+
+- **Optional features that are not advertised**: DCR, token exchange, introspection and DPoP.
+- **`refresh-rotation`** until you pass `--refresh-token` and `--client-id`. The test consumes the token.
+- **`resource-indicator-audience`** until you pass `--token`. Audience binding is only visible on a real token, and the token must be a JWT.
+- **`token-exchange-act-chain`**. Reading the `act` chain needs a valid subject token and client credentials. The tool does not have them, so it never claims a result.
+- **Introspection** when the endpoint requires client authentication (it answers 401 or 403).
+- **Negative authorize probes** (`pkce-required`, `pkce-plain-rejected`, `redirect-exact-match`) when the server never lets a fully valid request through, or when it accepts the bad request and moves on to a login page. Later validation is invisible from outside, so the result is a skip, not a pass.
+
+Negative authorize probes always run a control request first. If the control request is itself rejected, the negative ones are skipped, because their failure would prove nothing.
+
+## Badge
+
+`--badge out.json` writes a [shields.io endpoint](https://shields.io/badges/endpoint-badge) document:
+
+```json
+{
+  "schemaVersion": 1,
+  "label": "agent-auth",
+  "message": "13/13 passed, 5 skipped",
+  "color": "brightgreen"
+}
+```
+
+The message counts only checks that ran, so skips never inflate the score. Green means nothing failed, yellow means only SHOULD or MAY checks failed, red means a MUST failed, and grey (`not tested`) means no check could run.
+
+Publish the JSON somewhere with a stable public URL (a GitHub Pages file, a release asset, a raw file on your default branch) and point shields at it:
+
+```markdown
+[![agent-auth conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fexample.com%2Fagent-auth-badge.json)](https://docs.theauth.dev/conformance)
+```
+
+To refresh it in CI:
+
+```bash
+npx @glinr/theauth-conformance https://auth.example.com --badge badge.json
+```
+
+## Programmatic use
+
+```ts
+import { buildBadge, runSuite } from "@glinr/theauth-conformance";
+
+const report = await runSuite({ target: "https://auth.example.com", timeoutMs: 10000 });
+const badge = buildBadge(report);
+```
+
+## How theAuth is tested
+
+The package's own test starts the real MCP OAuth module from `@glinr/theauth` on a Node `http` server and runs the whole suite against it. The expected result is pinned: 13 pass, 0 fail, 5 skipped (refresh rotation, audience, token exchange twice, introspection). A second test runs the suite against a deliberately lax stub server and asserts the checks fail there, so a pass is not the only outcome the suite can produce.
+
+This tests behavior, not certification. A green badge says the server behaved correctly on these probes. It is not an audit.
+
+---
+
 # MCP Registry
 
 Source: https://docs.theauth.dev/mcp-registry
@@ -18941,6 +19179,99 @@ On macOS use a Homebrew OpenSSL 3 binary, because the system `openssl` cannot ge
 - "You do not have permission to publish this server": the `name` prefix does not match the namespace you logged in with.
 - "Invalid or expired Registry JWT token": run `mcp-publisher login github` again.
 - "Registry validation failed for package": `mcpName` is missing or differs from `name`, or the version is not on npm.
+
+---
+
+# Admin MCP server
+
+Source: https://docs.theauth.dev/admin-mcp
+
+The `@glinr/theauth-mcp` server starts read-only. Add `--allow-writes` and it also offers four write tools, each gated by an approval request.
+
+## Read tools
+
+These are always registered: `list_agents`, `get_agent`, `list_delegations`, `list_sessions`, `query_audit`, `check_permission`, `inspect_token`, `doctor` and `get_approval_status`. Tokens and secret-looking fields are redacted.
+
+## Write tools
+
+Registered only when you pass `--allow-writes` (or set `THEAUTH_ALLOW_WRITES=1`):
+
+| Tool | Effect |
+| --- | --- |
+| `revoke_agent` | Revoke an agent identity |
+| `revoke_delegation` | Revoke a delegation chain |
+| `rotate_key` | Rotate an agent credential (the new token is not shown to the client) |
+| `disable_user` | Disable a user and end its sessions |
+
+```json
+{
+  "mcpServers": {
+    "theauth-admin": {
+      "command": "npx",
+      "args": ["-y", "@glinr/theauth-mcp", "--allow-writes"],
+      "env": {
+        "THEAUTH_API_URL": "https://auth.example.com/api",
+        "THEAUTH_API_KEY": "...",
+        "THEAUTH_MCP_ACTOR": "ops-bot@example.com"
+      }
+    }
+  }
+}
+```
+
+## How a write is approved
+
+Writes use the same [approval flow](/approval) as the rest of theAuth. No write runs on the first call.
+
+1. The client calls the tool with the target `id`. The server records the request in the audit log, opens an approval request (action such as `admin:revoke_agent`, resource such as `agent:abc`) and returns `{ "status": "pending", "approvalId": "..." }`.
+2. A human approves or denies it through your normal approval channel.
+3. The client polls `get_approval_status`, or calls the same tool again with `approvalId`.
+4. If the request is approved and unexpired, the server spends it and then runs the change. A denied, expired, already used or mismatched approval does nothing.
+
+An approval is single use and tied to one action and one resource, so approving one revoke cannot authorize another.
+
+## Audit
+
+With `THEAUTH_MCP_ACTOR` set (default `theauth-mcp`), every tool call, read or write, is written to the audit log as `admin_mcp.<tool>` with that actor. Writes record each step: requested, pending, executed, denied or failed. If the audit write for a new request fails, the request is not opened.
+
+## Deployment routes
+
+Core ships these routes as an opt-in plugin, `adminApi`. It is off unless `enabled` is exactly `true`; when off, none of the routes exist and each answers 404.
+
+```ts
+import { adminApi, createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  // ...
+  plugins: [
+    adminApi({
+      enabled: true,
+      adminUserIds: ["user_ops"],
+      systemAgentId: "agent_admin_mcp",
+      rateLimit: { max: 60, window: 60 },
+    }),
+  ],
+});
+```
+
+| Route | Backed by |
+| --- | --- |
+| `GET /delegations` | delegation chains, filtered by `agentId` and `status` |
+| `DELETE /delegations/{id}` | `revokeDelegation` (cascades to child chains) |
+| `GET /sessions` | session list, each row a one-way `ref`, never the session id or a token |
+| `POST /users/{id}/disable` | admin `banUser` (ends sessions, revokes agent tokens) |
+| `POST /approvals` | `approval.request` |
+| `GET /approvals/{id}` | `approval.get` |
+| `POST /approvals/{id}/consume` | `consumeApproval` (one conditional update, so a replay or a race is refused with 409) |
+| `POST /audit/events` | `recordAuditEvent`, with secret-looking params redacted |
+
+Rules the routes enforce:
+
+- Every call needs an `Authorization: Bearer` credential that resolves to a user in `adminUserIds`. Missing or bad credentials get 401, any other user gets 403, and an empty `adminUserIds` refuses everyone. Cookie-only requests are refused.
+- `systemAgentId` must be an existing agent. Approvals and audit rows reference an agent, so the `agentId` and `userId` the MCP server sends are labels and are ignored: the approval is owned by the calling admin and bound to that agent.
+- Approval actions must look like `admin:<name>`. Only the admin who opened an approval can consume it, and approving it still happens through your normal approval channel, never through these routes.
+- An admin cannot disable itself or another configured admin (unless `allowDisablingAdmins` is set).
+- Requests are rate limited per admin user, and ids, enums and body sizes are validated.
 
 ---
 
@@ -25388,6 +25719,483 @@ Revokes every non-expired session for the user except `currentSessionId` and ret
     Erase or export user data on request.
   </Card>
 </CardGroup>
+
+---
+
+# OWASP agentic threats mapped to theAuth
+
+Source: https://docs.theauth.dev/owasp-agentic-mapping
+
+This page maps each risk in the OWASP Top 10 for Agentic Applications to the theAuth feature that reduces it, and says what the feature does not cover.
+
+<Warning>
+  **Category names.** The risk names below follow the OWASP Top 10 for Agentic Applications for 2026 (OWASP GenAI Security Project). They are listed without OWASP's numeric identifiers; check the wording against the OWASP publication before you cite it in an audit.
+</Warning>
+
+## How to read the table
+
+Each row names a risk, the theAuth feature that reduces it, and the limit. A feature listed in the mitigation column is a control you turn on or call. It does not stop the risk by itself. Most controls here act at the authorization boundary: they decide whether a tool call, token or delegation is allowed, not whether the model was persuaded to ask for it.
+
+## Mapping
+
+| # | Risk | theAuth feature | Limit |
+| --- | --- | --- | --- |
+| 1 | Agent Goal Hijack | [Taint-aware tool guard](/taint-guard) holds tool calls whose arguments came from untrusted content. [Approval flows](/approval) send risky calls to a human. | Taint tracks where an argument came from. It does not judge whether the model's plan is malicious. |
+| 2 | Tool Misuse and Exploitation | [Permission engine](/permissions) gates resources, time windows and IP ranges per agent. [Rate limiting](/rate-limiting) caps calls per hour. MCP `requiredScopes` checks scopes on each tool route. | Permissions cover the tools you register with them. Unlisted tools are not gated. |
+| 3 | Identity and Privilege Abuse | [Agent identity](/agents) gives each agent its own short-lived token. [Token vault](/token-vault) keeps third-party credentials out of agent hands. [DPoP](/dpop) binds tokens to a key. Audience checks (RFC 8707) stop a token from being used on another resource. | A bearer token that is not DPoP-bound still works for anyone who holds it. Offline JWT checks do not see revocation. |
+| 4 | Agentic Supply Chain Vulnerabilities | jwt-bearer accepts assertions only from listed issuers. [MCP registry](/mcp-registry) covers registering MCP servers. Lenient client options are off by default. | theAuth does not scan third-party MCP servers or their code. |
+| 5 | Unexpected Code Execution | Not a theAuth control. Limit it by withholding code-execution tools from agents, using the permission engine. | theAuth does not inspect or sandbox code. Use a sandbox runtime for that. |
+| 6 | Memory and Context Poisoning | Taint labels show which tool inputs came from outside content, so a poisoned value can be held for review. [Audit trail](/audit) records each authorization decision. | Memory stores are your own. theAuth does not scan or clean them. |
+| 7 | Insecure Inter-Agent Communication | Token exchange (RFC 8693) produces tokens with an `act` chain that names each actor. [Delegation chains](/delegation) limit depth and cascade revocation. | Messages between agents outside the token flow are not covered. |
+| 8 | Cascading Failures | [Rate limiting](/rate-limiting) limits how fast one agent can act. Delegation depth limits and cascading revocation stop a bad grant from spreading. | Rate limits are per agent and per IP. They do not stop a fleet-wide failure by themselves. |
+| 9 | Human-Agent Trust Exploitation | [Approval flows](/approval) move the decision to a channel the agent does not control. The MCP `consentPage` option shows consent in your own UI. | theAuth cannot tell whether a human approval was well informed. Design the approval prompt yourself. |
+| 10 | Rogue Agents | Revoke an agent or its delegation grants. [Trust scoring](/trust) gates autonomy by audit history. [Anomaly detection](/anomaly) reports unusual agent behavior. | Anomaly detection is limited. The page lists what is not implemented. |
+
+## Where to start
+
+Start with the controls that act before a tool runs: [permissions](/permissions), [approval flows](/approval) and the [taint-aware tool guard](/taint-guard). The [prompt injection tool guard tutorial](/tutorials/prompt-injection-tool-guard) shows the guard end to end. For token-level controls, read [MCP server grants](/mcp-grants) and [DPoP](/dpop). For the use case, see [Protect an MCP server with OAuth 2.1](/use-cases/mcp-server-behind-oauth).
+
+## Evidence and limits
+
+- Each feature link goes to the page that documents it. Feature claims follow those pages. Where a feature is narrower than its name, the Limit column says so.
+- The risk names follow a secondary reading of the OWASP list (see the note at the top). The earlier threat model for the Go authorization server is in [Threat model](/go/security/threat-model). It uses its own categories and does not map to the OWASP list.
+- This table is a mapping, not a certification. It does not replace a review of your own tools, prompts and data.
+
+## FAQ
+
+### Does theAuth stop prompt injection?
+
+No. It limits what an injected instruction can do. The taint guard holds risky calls for review, and permissions and approvals decide what the agent may run. The model can still be fooled into asking for a call, and the controls then decide whether it runs.
+
+### Which risk is the least covered?
+
+Risk 5, unexpected code execution. theAuth gates access to tools but does not run or inspect code. Keep code-execution tools out of agent scopes, or run them in a separate sandbox.
+
+### How do I know a control is on?
+
+Each control is a config option or a call in your code. Check the config you pass to `createTheAuth` and `createMcpModule`, and look at the audit trail for decisions. The pages linked above name the option for each control.
+
+---
+
+# Protect an MCP server with OAuth 2.1
+
+Source: https://docs.theauth.dev/use-cases/mcp-server-behind-oauth
+
+This page shows how to put an MCP server behind OAuth 2.1 with theAuth, so each tool call carries a token that was issued for that server and that scope.
+
+The setup has two roles in one process: theAuth is the authorization server (it issues tokens), and your MCP endpoint is the resource server (it checks them). The example below runs both on one origin, the same way `examples/mcp-server` does.
+
+## 1. Ask
+
+The MCP client starts with discovery. It fetches the protected resource metadata from your server, follows the `authorization_servers` entry to the authorization server metadata, registers itself if it has no client id yet, and then sends the user to the authorize endpoint with a PKCE challenge and a `resource` parameter (RFC 8707).
+
+Create the module. Storage is passed as callbacks, so you can back them with your own database. The in-memory maps below are for illustration.
+
+```typescript
+import { createTheAuth } from "@glinr/theauth";
+import { createMcpModule } from "@glinr/theauth/mcp";
+import type { McpAccessToken, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
+
+const clients = new Map<string, McpClient>();
+const codes = new Map<string, McpAuthorizationCode>();
+const tokens = new Map<string, McpAccessToken>();
+const byRefreshToken = new Map<string, string>();
+
+const mcpStore = {
+  storeClient: async (client: McpClient) => {
+    clients.set(client.clientId, client);
+  },
+  findClient: async (clientId: string) => clients.get(clientId) ?? null,
+  storeAuthorizationCode: async (code: McpAuthorizationCode) => {
+    codes.set(code.code, code);
+  },
+  consumeAuthorizationCode: async (code: string) => {
+    const found = codes.get(code) ?? null;
+    if (found) codes.delete(code); // single use
+    return found;
+  },
+  storeToken: async (token: McpAccessToken) => {
+    tokens.set(token.accessToken, token);
+    if (token.refreshToken) byRefreshToken.set(token.refreshToken, token.accessToken);
+  },
+  findTokenByRefreshToken: async (refreshToken: string) => {
+    const accessToken = byRefreshToken.get(refreshToken);
+    return accessToken ? (tokens.get(accessToken) ?? null) : null;
+  },
+  revokeToken: async (accessToken: string) => {
+    tokens.delete(accessToken);
+  },
+  // Return the signed-in user id from your session, or null to send them to loginPage
+  resolveUserId: async (_request: Request) => null as string | null,
+};
+
+export const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  baseUrl: "https://auth.yourapp.com",
+  mcp: { enabled: true },
+});
+
+export const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: "https://auth.yourapp.com",
+    baseUrl: "https://auth.yourapp.com/api/theauth",
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+    resource: "https://mcp.yourapp.com/mcp", // this server's canonical URI (RFC 8707)
+    scopes: ["mcp:read", "mcp:execute"],
+    accessTokenTtl: 3600,
+    loginPage: "https://auth.yourapp.com/login",
+    allowedResources: ["https://mcp.yourapp.com/mcp"],
+  },
+  ...mcpStore,
+});
+```
+
+`resource` is what makes the server check audience. `middleware`, `validateToken` and `requireScopes` check the token audience against it and refuse to run without it. `requireMcpAuth` uses it as the default expected audience. `allowedResources` stops a client from asking for a token for some other resource.
+
+Mount the OAuth endpoints with a framework adapter. The example uses Hono:
+
+```typescript
+import { Hono } from "hono";
+import { theAuthHono } from "@glinr/theauth-hono";
+
+const app = new Hono();
+app.route("/api", theAuthHono(theauth, { mcp }));
+```
+
+The adapter serves the metadata routes, `POST /mcp/register`, `GET /mcp/authorize` and `POST /mcp/token`. See [MCP OAuth 2.1](/mcp) for the full endpoint table.
+
+## 2. Find the rule
+
+The MCP endpoint is a resource server. Wrap its handler with `mcp.requireMcpAuth`. The wrapper checks the signature, issuer, expiry and audience of the Bearer token, then checks the scopes you name. It runs your handler only when all of those pass, and passes in the verified principal.
+
+```typescript
+const listTools = mcp.requireMcpAuth(
+  async (_request, principal) => {
+    return Response.json({
+      tools: [{ name: "search_docs" }],
+      user: principal.userId,
+      client: principal.clientId,
+      scopes: principal.scopes,
+    });
+  },
+  { requiredScopes: ["mcp:read"] },
+);
+
+const callTool = mcp.requireMcpAuth(
+  async (request, principal) => {
+    const body = (await request.json()) as { name: string };
+    return Response.json({ ok: true, tool: body.name, by: principal.userId });
+  },
+  { requiredScopes: ["mcp:execute"] },
+);
+
+app.get("/mcp/tools", (c) => listTools(c.req.raw));
+app.post("/mcp/tools/call", (c) => callTool(c.req.raw));
+```
+
+The principal has `userId`, `clientId`, `agent` (or `null`), `delegationChain`, `scopes`, `resource`, `tokenId` and `expiresAt`. Use `principal.userId` for ownership checks in your own code. Do not trust a user id from the request body.
+
+For the token exchange itself, the client sends a standard authorization code request with its PKCE verifier and the resource:
+
+```http
+POST /api/theauth/mcp/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&code=<code from the redirect>
+&code_verifier=<PKCE verifier>
+&redirect_uri=http://127.0.0.1:8976/callback
+&client_id=<client id>
+&resource=https://mcp.yourapp.com/mcp
+```
+
+To revoke a token, mount a route that passes the request to `mcp.revoke`. The docs say the TypeScript adapters do not serve `/mcp/revoke` by default:
+
+```typescript
+app.post("/api/theauth/mcp/revoke", async (c) => {
+  await mcp.revoke(c.req.raw);
+  return c.body(null, 200);
+});
+```
+
+## 3. See the result
+
+A request with no token gets a 401 and a `WWW-Authenticate: Bearer` challenge that points at the protected resource metadata. A token with the wrong audience is refused. A token that lacks the scope gets a 403 with `insufficient_scope`. A valid token runs the handler.
+
+```bash
+curl -i https://mcp.yourapp.com/mcp/tools
+# HTTP/1.1 401
+# WWW-Authenticate: Bearer resource_metadata="https://mcp.yourapp.com/.well-known/oauth-protected-resource", ...
+
+curl -i -H "Authorization: Bearer $ACCESS_TOKEN" https://mcp.yourapp.com/mcp/tools
+# HTTP/1.1 200
+```
+
+If you want proof-of-possession, set `dpop` in the MCP config and read [DPoP and requireMcpAuth](/dpop). Then a stolen bearer token is not enough on its own.
+
+## Evidence and limits
+
+- The module and resource wrapper described here are the TypeScript package in `packages/core/src/mcp`. `requireMcpAuth` is exported from `packages/core/src/mcp/index.ts` and the tests in `packages/core/tests/mcp-dpop.test.ts` call it through `mcp.requireMcpAuth`.
+- The Hono example in `examples/mcp-server/src/server.ts` runs the same module, but it uses `mcp.validateToken` inside its own routes. It does not use `requireMcpAuth`. The snippets above are the shape of `requireMcpAuth`, not copied from that example.
+- Access tokens are signed JWTs. A resource server that validates them locally does not see revocation until the token expires. Keep `accessTokenTtl` short, or add a `jtiDenylist` and check it on your side. The `jtiDenylist` option is documented in `packages/core/src/mcp/types.ts`.
+- The TypeScript adapters do not serve `/mcp/revoke` or `/mcp/jwks` by default. The snippet above mounts revocation yourself.
+- Dynamic client registration is a compatibility path. The MCP spec now prefers Client ID Metadata Documents. See [MCP client compatibility](/mcp-client-compat) and [MCP registry](/mcp-registry).
+- A Go implementation of the same flow on SQLite exists. See [OAuth 2.1 for an MCP server on SQLite](/use-cases/sqlite-oauth-server). That page is Go only.
+
+## FAQ
+
+### Do I need a separate authorization server?
+
+No. The `createMcpModule` call runs in the same process as your MCP endpoint in the example. You can split them later. The resource check only needs the issuer, the signing keys (published through `mcp.getJwks()`) and the `resource` value.
+
+### Why does my client get a token with the wrong audience?
+
+The client must send `resource` on the authorize and token requests, and the value must be in `allowedResources`. If the client does not send `resource`, the token is not bound to your server. Check the `resource` value your client sends, and compare it with `config.resource`.
+
+### Can an agent act through this server?
+
+Yes. Tokens can carry an `agent` claim and a delegation chain (`delegationChain` on the principal). Agent identity is covered in [Agent identity](/agents) and [Delegation chains](/delegation). Token exchange for agents needs `tokenExchange` and `jtiDenylist` in the MCP config. See [MCP server grants](/mcp-grants).
+
+---
+
+# CI jobs as agents with GitHub Actions OIDC
+
+Source: https://docs.theauth.dev/use-cases/github-actions-oidc
+
+This page shows how a CI job can exchange its GitHub OIDC token for a theAuth access token, so a deploy or a bot runs as a known identity with a short-lived token and no stored client secret.
+
+<Warning>
+  The GitHub Actions helper exists only in the Go library. The TypeScript package has no GitHub-specific helper, and its generic `jwtBearer` grant does not accept a raw GitHub OIDC token. The steps below are the Go flow. The full Go write-up is in [`go/docs/github-actions-oidc.md`](https://github.com/glincker/theauth/blob/main/go/docs/github-actions-oidc.md) in the repository.
+</Warning>
+
+## 1. Ask
+
+The job asks GitHub for an OIDC token for a specific audience. The workflow needs `id-token: write`. GitHub then signs a token whose claims name the repository, branch, environment and workflow that ran.
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # lets the job request an OIDC token
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Get a GitHub OIDC token
+        run: |
+          AUD="https://auth.example.com/gh"
+          GH_TOKEN=$(curl -sS \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUD" | jq -r .value)
+          echo "::add-mask::$GH_TOKEN"
+          echo "GH_TOKEN=$GH_TOKEN" >> "$GITHUB_ENV"
+```
+
+The job then posts that token to the theAuth token endpoint with the RFC 7523 `jwt-bearer` grant:
+
+```bash
+ACCESS=$(curl -sS https://auth.example.com/oauth/token \
+  -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer \
+  --data-urlencode "assertion=$GH_TOKEN" \
+  -d resource=https://api.example.com/mcp \
+  -d scope=api.read | jq -r .access_token)
+echo "::add-mask::$ACCESS"
+echo "ACCESS_TOKEN=$ACCESS" >> "$GITHUB_ENV"
+```
+
+Add `client_id=<agent client id>` to the exchange if the token should act as an agent. The agent's policy and rate limit then apply to the token.
+
+## 2. Find the rule
+
+The server decides which workflows may log in. Build the issuer with `GitHubActionsIssuer`, which refuses to build one with no restriction:
+
+```go
+iss, err := theauth.GitHubActionsIssuer(theauth.GitHubActionsOptions{
+    Repository:    "acme/app",                  // exact owner/name
+    Refs:          []string{"refs/heads/main"}, // or one glob: "refs/heads/release/*"
+    Environment:   "production",
+    Audience:      "https://auth.example.com/gh",
+    SubjectMapper: myWorkflowMapper{},          // GitHub's sub is not a ULID
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+cfg.AuthorizationServer = &theauth.AuthorizationServerConfig{
+    Issuer:    "https://auth.example.com",
+    Resources: resources,
+    JWTBearer: &theauth.JWTBearerConfig{TrustedJWTIssuers: []theauth.TrustedJWTIssuer{iss}},
+}
+```
+
+`GitHubActionsIssuer` sets the issuer, the JWKS URL and `RS256` for you. Each of `Repository`, `RepositoryOwner`, `Refs` and `Environment` adds a claim matcher. All matchers must pass. If `Audience` is empty, the required `aud` is your authorization server issuer URL. `SubjectMapper` maps the GitHub `sub` (for example `repo:acme/app:ref:refs/heads/main`) to a local user, because the built-in mapper expects a ULID.
+
+## 3. See the result
+
+A workflow that matches gets an access token. A workflow that fails any matcher gets `invalid_grant`, with the same generic description every time. The response never names the claim that failed, so a caller cannot probe your config.
+
+A denied exchange returns an OAuth error body with `error` set to `invalid_grant`. Test a denial by running the same workflow from a branch other than `main`.
+
+The operator sees the reason in the audit log:
+
+```json
+{"action": "jwt_bearer.claims_denied",
+ "targetType": "jwt_issuer", "targetId": "https://token.actions.githubusercontent.com",
+ "metadata": {"issuer": "...", "failed_claims": ["repository", "ref"], "agent_id": "...", "agent_name": "..."}}
+```
+
+`failed_claims` lists claim names only.
+
+## Evidence and limits
+
+- The GitHub issuer constructor, its matchers and the audit event come from the Go docs linked above. The claim names were read from GitHub's live discovery document, as that page says.
+- Tests in the Go library sign tokens with a local key and do not call GitHub. The request-token flow in the workflow has not been run against GitHub from the repository, so check it in your own pipeline first.
+- GitHub tokens are short lived. Compare the job duration with `AssertionMaxAge` (default 300 seconds) before you rely on long jobs.
+- GitHub signs tokens for every repository with the same issuer. Without `Repository` or `RepositoryOwner`, any public repository's workflow could log in. The constructor refuses that setup. If you build the issuer by hand, add the matchers yourself.
+- TypeScript: the `jwtBearer` option in `createMcpModule` expects an ID-JAG assertion (`typ: oauth-id-jag+jwt`, a `client_id` claim and `aud` equal to the issuer). A raw GitHub OIDC token does not match that shape, so it is refused. Read [MCP server grants](/mcp-grants#jwt-bearer-and-id-jag-rfc-7523) before you try it.
+
+## FAQ
+
+### Can I use this from TypeScript?
+
+Not with the current package. There is no GitHub helper, and the generic jwt-bearer grant needs ID-JAG assertions. Use the Go library for this flow.
+
+### Does the job need a client secret?
+
+No. The job holds only the GitHub OIDC token for the run, which GitHub issues for that job and expires. Do not store a theAuth client secret in the repository for this flow.
+
+### What if I want the deploy token limited to one environment?
+
+Set `Environment` in `GitHubActionsOptions`. GitHub applies the environment's protection rules, such as required reviewers, before the job starts, so the token is issued only after approval. Limit scopes with the `scope` and `resource` parameters on the exchange.
+
+---
+
+# Run a full OAuth 2.1 server on SQLite
+
+Source: https://docs.theauth.dev/use-cases/sqlite-oauth-server
+
+This page shows how a single Go binary and one SQLite file can run a full OAuth 2.1 authorization server that issues tokens for an MCP server.
+
+<Note>
+  This is a Go library feature. The TypeScript OAuth 2.1 server (`createMcpModule`) takes storage callbacks that you write, as shown in [MCP OAuth 2.1](/mcp). For TypeScript, see [MCP OAuth 2.1](/mcp). The full Go guide is [`go/docs/mcp-oauth-sqlite.md`](https://github.com/glincker/theauth/blob/main/go/docs/mcp-oauth-sqlite.md) in the repository, and the store is documented in [SQLite storage](/go/guides/sqlite-storage).
+</Note>
+
+## 1. Ask
+
+A native client, such as a command line tool, registers itself and asks for a token for your MCP resource. It uses PKCE with S256, the only method the server accepts, and sends the resource as RFC 8707 `resource`.
+
+Registration is closed unless you configure it. The client below uses a public client and the `none` authentication method:
+
+```json
+{
+  "client_name": "Claude Code (e2e)",
+  "redirect_uris": ["http://127.0.0.1:8976/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+Then the client sends the user to `/oauth/authorize` with `code_challenge_method=S256` and `resource=https://mcp.example.com/mcp`, and exchanges the code at `/oauth/token`.
+
+## 2. Find the rule
+
+Open the database, then build the server. The store runs on a `*sql.DB` you own, so you set the pragmas. Foreign keys must be on, and `New` refuses a database without them. The busy timeout and immediate transactions make concurrent token requests wait rather than fail with `database is locked`.
+
+```go
+db, err := sql.Open("sqlite",
+	"file:auth.db?_pragma=foreign_keys(1)&_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_txlock=immediate")
+if err != nil {
+	log.Fatal(err)
+}
+if err := sqlitestore.Migrate(ctx, db); err != nil { // applies every pending migration
+	log.Fatal(err)
+}
+store, err := sqlitestore.New(db)
+if err != nil {
+	log.Fatal(err)
+}
+
+a, err := theauth.New(theauth.Config{
+	Storage:       store,
+	BaseURL:       "https://auth.example.com",
+	EncryptionKey: key, // 32 bytes, seals the JWKS private keys
+	AuthorizationServer: &theauth.AuthorizationServerConfig{
+		Issuer: "https://auth.example.com",
+		Resources: []theauth.ProtectedResource{{
+			Identifier: "https://mcp.example.com/mcp",
+			Scopes:     []string{"files.read", "files.write"},
+		}},
+		RegistrationTokens:    []string{initialAccessToken},
+		AccessTokenRevocation: true,
+	},
+})
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+The authorization server writes its signing keys to the same file, sealed with `EncryptionKey`. Keep that key stable. A different key cannot open the stored keys, and existing tokens stop verifying.
+
+The MCP side is a separate module, `mcpresource`. It checks the bearer token on each request, using the JWKS and introspection endpoints of the server above:
+
+```go
+v := mcpresource.New("https://mcp.example.com/mcp",
+	mcpresource.WithJWKS("https://auth.example.com/oauth/jwks"),
+	mcpresource.WithIntrospection("https://auth.example.com/oauth/introspect", rsID, rsSecret),
+)
+mux.Handle("/mcp", v.Middleware(handler))
+mux.Handle("/write", v.Middleware(v.RequireScope("files.write")(writeHandler)))
+```
+
+`Migrate` applies migrations 0001 to 0034. The OAuth tables start at 0020. If you manage the schema yourself, see the migration list in the [SQLite guide](/go/guides/sqlite-storage) and in `go/docs/mcp-oauth-sqlite.md`.
+
+## 3. See the result
+
+A request without a token gets a 401 with a `WWW-Authenticate: Bearer` header that names the protected resource metadata URL. A token that lacks the scope gets a 403 `insufficient_scope`. A valid token reaches the handler.
+
+Metadata is the usual trap. The OAuth routes sit at the root of the handler you mount. If your issuer has a path, RFC 8414 and RFC 9728 clients ask for the well-known document with that path appended, under the origin root. Forward `/.well-known/` as well:
+
+```go
+const prefix = "/api/v1/auth-lib"
+
+h := a.Handler() // build once: each call mounts new routes and rate-limit buckets
+mux := http.NewServeMux()
+mux.Handle(prefix+"/", http.StripPrefix(prefix, h))
+mux.Handle("/.well-known/", h) // no StripPrefix: the library matches the issuer path
+```
+
+Without the second line, the well-known URLs return 404 and standards-following clients cannot find the server.
+
+## Evidence and limits
+
+- The steps follow `go/docs/mcp-oauth-sqlite.md`. Its code comes from `storage/sqlite/oauth_e2e_test.go`, `oauth_mcpresource_test.go` and `oauth_pathprefix_test.go`, which run against a real SQLite file.
+- Restart durability is tested. A restart keeps the JWKS key ids, active and revoked tokens, refresh tokens and unredeemed codes. Call `a.Close()` on shutdown so the audit writer drains.
+- Revocation is visible to `mcpresource` only through introspection or a revocation checker. A JWKS-only resource server keeps accepting a revoked token until it expires.
+- SQLite allows one writer at a time. Run one process per database file. For several replicas, use Postgres or MySQL. The Go docs list those backends.
+- Back up the database file together with `EncryptionKey`. The file alone cannot sign tokens.
+- The Go module paths are not repeated here. Check the `storage/sqlite` and `mcpresource` module versions in the Go docs before you copy the imports.
+
+## FAQ
+
+### Is this available in TypeScript?
+
+No. The OAuth 2.1 server in the TypeScript package is built with `createMcpModule` and needs storage callbacks you write. Use the Go library for a single binary with SQLite.
+
+### Can several app servers share one SQLite file?
+
+Not as a supported setup. SQLite serializes writes, and the rate limiter, replay cache and CIMD cache are in process memory. Run one process per file, or move to Postgres or MySQL.
+
+### Do I need a separate authorization server?
+
+No. The example runs the authorization server and the `mcpresource` check in one binary. `mcpresource` is a separate module, so you can move it to another process and point it at the JWKS and introspection URLs.
 
 ---
 

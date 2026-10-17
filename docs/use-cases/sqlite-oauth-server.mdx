@@ -1,0 +1,120 @@
+---
+title: Run a full OAuth 2.1 server on SQLite
+description: Run theAuth's OAuth 2.1 authorization server and an MCP resource server from one Go binary and one SQLite file. Go library only, not available in the TypeScript package.
+---
+
+This page shows how a single Go binary and one SQLite file can run a full OAuth 2.1 authorization server that issues tokens for an MCP server.
+
+<Note>
+  This is a Go library feature. The TypeScript OAuth 2.1 server (`createMcpModule`) takes storage callbacks that you write, as shown in [MCP OAuth 2.1](/mcp). For TypeScript, see [MCP OAuth 2.1](/mcp). The full Go guide is [`go/docs/mcp-oauth-sqlite.md`](https://github.com/glincker/theauth/blob/main/go/docs/mcp-oauth-sqlite.md) in the repository, and the store is documented in [SQLite storage](/go/guides/sqlite-storage).
+</Note>
+
+## 1. Ask
+
+A native client, such as a command line tool, registers itself and asks for a token for your MCP resource. It uses PKCE with S256, the only method the server accepts, and sends the resource as RFC 8707 `resource`.
+
+Registration is closed unless you configure it. The client below uses a public client and the `none` authentication method:
+
+```json
+{
+  "client_name": "Claude Code (e2e)",
+  "redirect_uris": ["http://127.0.0.1:8976/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+Then the client sends the user to `/oauth/authorize` with `code_challenge_method=S256` and `resource=https://mcp.example.com/mcp`, and exchanges the code at `/oauth/token`.
+
+## 2. Find the rule
+
+Open the database, then build the server. The store runs on a `*sql.DB` you own, so you set the pragmas. Foreign keys must be on, and `New` refuses a database without them. The busy timeout and immediate transactions make concurrent token requests wait rather than fail with `database is locked`.
+
+```go
+db, err := sql.Open("sqlite",
+	"file:auth.db?_pragma=foreign_keys(1)&_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_txlock=immediate")
+if err != nil {
+	log.Fatal(err)
+}
+if err := sqlitestore.Migrate(ctx, db); err != nil { // applies every pending migration
+	log.Fatal(err)
+}
+store, err := sqlitestore.New(db)
+if err != nil {
+	log.Fatal(err)
+}
+
+a, err := theauth.New(theauth.Config{
+	Storage:       store,
+	BaseURL:       "https://auth.example.com",
+	EncryptionKey: key, // 32 bytes, seals the JWKS private keys
+	AuthorizationServer: &theauth.AuthorizationServerConfig{
+		Issuer: "https://auth.example.com",
+		Resources: []theauth.ProtectedResource{{
+			Identifier: "https://mcp.example.com/mcp",
+			Scopes:     []string{"files.read", "files.write"},
+		}},
+		RegistrationTokens:    []string{initialAccessToken},
+		AccessTokenRevocation: true,
+	},
+})
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+The authorization server writes its signing keys to the same file, sealed with `EncryptionKey`. Keep that key stable. A different key cannot open the stored keys, and existing tokens stop verifying.
+
+The MCP side is a separate module, `mcpresource`. It checks the bearer token on each request, using the JWKS and introspection endpoints of the server above:
+
+```go
+v := mcpresource.New("https://mcp.example.com/mcp",
+	mcpresource.WithJWKS("https://auth.example.com/oauth/jwks"),
+	mcpresource.WithIntrospection("https://auth.example.com/oauth/introspect", rsID, rsSecret),
+)
+mux.Handle("/mcp", v.Middleware(handler))
+mux.Handle("/write", v.Middleware(v.RequireScope("files.write")(writeHandler)))
+```
+
+`Migrate` applies migrations 0001 to 0034. The OAuth tables start at 0020. If you manage the schema yourself, see the migration list in the [SQLite guide](/go/guides/sqlite-storage) and in `go/docs/mcp-oauth-sqlite.md`.
+
+## 3. See the result
+
+A request without a token gets a 401 with a `WWW-Authenticate: Bearer` header that names the protected resource metadata URL. A token that lacks the scope gets a 403 `insufficient_scope`. A valid token reaches the handler.
+
+Metadata is the usual trap. The OAuth routes sit at the root of the handler you mount. If your issuer has a path, RFC 8414 and RFC 9728 clients ask for the well-known document with that path appended, under the origin root. Forward `/.well-known/` as well:
+
+```go
+const prefix = "/api/v1/auth-lib"
+
+h := a.Handler() // build once: each call mounts new routes and rate-limit buckets
+mux := http.NewServeMux()
+mux.Handle(prefix+"/", http.StripPrefix(prefix, h))
+mux.Handle("/.well-known/", h) // no StripPrefix: the library matches the issuer path
+```
+
+Without the second line, the well-known URLs return 404 and standards-following clients cannot find the server.
+
+## Evidence and limits
+
+- The steps follow `go/docs/mcp-oauth-sqlite.md`. Its code comes from `storage/sqlite/oauth_e2e_test.go`, `oauth_mcpresource_test.go` and `oauth_pathprefix_test.go`, which run against a real SQLite file.
+- Restart durability is tested. A restart keeps the JWKS key ids, active and revoked tokens, refresh tokens and unredeemed codes. Call `a.Close()` on shutdown so the audit writer drains.
+- Revocation is visible to `mcpresource` only through introspection or a revocation checker. A JWKS-only resource server keeps accepting a revoked token until it expires.
+- SQLite allows one writer at a time. Run one process per database file. For several replicas, use Postgres or MySQL. The Go docs list those backends.
+- Back up the database file together with `EncryptionKey`. The file alone cannot sign tokens.
+- The Go module paths are not repeated here. Check the `storage/sqlite` and `mcpresource` module versions in the Go docs before you copy the imports.
+
+## FAQ
+
+### Is this available in TypeScript?
+
+No. The OAuth 2.1 server in the TypeScript package is built with `createMcpModule` and needs storage callbacks you write. Use the Go library for a single binary with SQLite.
+
+### Can several app servers share one SQLite file?
+
+Not as a supported setup. SQLite serializes writes, and the rate limiter, replay cache and CIMD cache are in process memory. Run one process per file, or move to Postgres or MySQL.
+
+### Do I need a separate authorization server?
+
+No. The example runs the authorization server and the `mcpresource` check in one binary. `mcpresource` is a separate module, so you can move it to another process and point it at the JWKS and introspection URLs.
