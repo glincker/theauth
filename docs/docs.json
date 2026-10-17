@@ -123,6 +123,7 @@
               "index",
               "concepts",
               "quickstart",
+              "dev-mode",
               "works-with",
               "whats-new"
             ]
@@ -366,7 +367,6 @@
               "agent-frameworks",
               "simulator",
               "rate-limiting",
-              "dev-mode",
               "cli-auth",
               "cli-tools",
               "agent-registration-tokens",
@@ -397,10 +397,10 @@
               "mcp-grants",
               "mcp-client-compat",
               "conformance",
-              "mcp-registry",
               "admin-mcp",
               "dpop",
-              "gateway"
+              "gateway",
+              "gateway-mcp"
             ]
           },
           {
@@ -446,7 +446,7 @@
               "electron",
               "browser-extension",
               "ui-components",
-              "registry",
+              "publishing",
               "dashboard"
             ]
           },

@@ -1,25 +1,10 @@
 ---
-title: Admin MCP server
-description: Let an MCP client inspect a theAuth deployment, and change it only after a human approves.
+title: "Admin MCP server for theAuth deployments"
+description: "Connect an MCP client to the theAuth admin server to inspect agents, delegations and audit logs. Writes like revoke_agent need human approval."
 icon: shield-halved
 ---
 
-The `@glinr/theauth-mcp` server starts read-only. Add `--allow-writes` and it also offers four write tools, each gated by an approval request.
-
-## Read tools
-
-These are always registered: `list_agents`, `get_agent`, `list_delegations`, `list_sessions`, `query_audit`, `check_permission`, `inspect_token`, `doctor` and `get_approval_status`. Tokens and secret-looking fields are redacted.
-
-## Write tools
-
-Registered only when you pass `--allow-writes` (or set `THEAUTH_ALLOW_WRITES=1`):
-
-| Tool | Effect |
-| --- | --- |
-| `revoke_agent` | Revoke an agent identity |
-| `revoke_delegation` | Revoke a delegation chain |
-| `rotate_key` | Rotate an agent credential (the new token is not shown to the client) |
-| `disable_user` | Disable a user and end its sessions |
+The `@glinr/theauth-mcp` server is read-only by default. Add `--allow-writes` (or set `THEAUTH_ALLOW_WRITES=1`) to register four write tools. Each write needs human approval.
 
 ```json
 {
@@ -37,24 +22,66 @@ Registered only when you pass `--allow-writes` (or set `THEAUTH_ALLOW_WRITES=1`)
 }
 ```
 
-## How a write is approved
+## Read tools
 
-Writes use the same [approval flow](/approval) as the rest of theAuth. No write runs on the first call.
+Always registered: `list_agents`, `get_agent`, `list_delegations`, `list_sessions`, `query_audit`, `check_permission`, `inspect_token`, `doctor` and `get_approval_status`. Tokens and secret-looking fields are redacted.
 
-1. The client calls the tool with the target `id`. The server records the request in the audit log, opens an approval request (action such as `admin:revoke_agent`, resource such as `agent:abc`) and returns `{ "status": "pending", "approvalId": "..." }`.
-2. A human approves or denies it through your normal approval channel.
-3. The client polls `get_approval_status`, or calls the same tool again with `approvalId`.
-4. If the request is approved and unexpired, the server spends it and then runs the change. A denied, expired, already used or mismatched approval does nothing.
+## Write tools
 
-An approval is single use and tied to one action and one resource, so approving one revoke cannot authorize another.
+| Tool | Effect |
+| --- | --- |
+| `revoke_agent` | Revoke an agent identity |
+| `revoke_delegation` | Revoke a delegation chain |
+| `rotate_key` | Rotate an agent credential. The new token is not shown to the client. |
+| `disable_user` | Disable a user and end its sessions |
+
+## Approval flow
+
+Writes use the [approval flow](/approval). No write runs on the first call.
+
+<Steps>
+
+<Step>
+
+### Request
+
+The client calls the tool with the target `id`. The server logs the request, opens an approval (for example `admin:revoke_agent` on `agent:abc`) and returns `{ "status": "pending", "approvalId": "..." }`.
+
+</Step>
+
+<Step>
+
+### Approve
+
+A human approves or denies through your normal approval channel.
+
+</Step>
+
+<Step>
+
+### Retry
+
+The client polls `get_approval_status`, or calls the same tool again with `approvalId`.
+
+</Step>
+
+<Step>
+
+### Run
+
+If the approval is approved and unexpired, the server spends it and runs the change. Otherwise nothing runs.
+
+</Step>
+
+</Steps>
 
 ## Audit
 
-With `THEAUTH_MCP_ACTOR` set (default `theauth-mcp`), every tool call, read or write, is written to the audit log as `admin_mcp.<tool>` with that actor. Writes record each step: requested, pending, executed, denied or failed. If the audit write for a new request fails, the request is not opened.
+With `THEAUTH_MCP_ACTOR` set (default `theauth-mcp`), every call is logged as `admin_mcp.<tool>` with that actor. Writes log each step: requested, pending, executed, denied or failed.
 
 ## Deployment routes
 
-Core ships these routes as an opt-in plugin, `adminApi`. It is off unless `enabled` is exactly `true`; when off, none of the routes exist and each answers 404.
+Core ships these routes as an opt-in plugin, `adminApi`. It is off unless `enabled` is exactly `true`. When it is off, every route answers 404.
 
 ```ts
 import { adminApi, createTheAuth } from "@glinr/theauth";
@@ -74,19 +101,21 @@ const theauth = await createTheAuth({
 
 | Route | Backed by |
 | --- | --- |
-| `GET /delegations` | delegation chains, filtered by `agentId` and `status` |
+| `GET /delegations` | Delegation chains, filtered by `agentId` and `status` |
 | `DELETE /delegations/{id}` | `revokeDelegation` (cascades to child chains) |
-| `GET /sessions` | session list, each row a one-way `ref`, never the session id or a token |
-| `POST /users/{id}/disable` | admin `banUser` (ends sessions, revokes agent tokens) |
+| `GET /sessions` | Sessions as one-way `ref`s, never ids or tokens |
+| `POST /users/{id}/disable` | Admin `banUser` (ends sessions, revokes agent tokens) |
 | `POST /approvals` | `approval.request` |
 | `GET /approvals/{id}` | `approval.get` |
-| `POST /approvals/{id}/consume` | `consumeApproval` (one conditional update, so a replay or a race is refused with 409) |
-| `POST /audit/events` | `recordAuditEvent`, with secret-looking params redacted |
+| `POST /approvals/{id}/consume` | `consumeApproval`. A replay or race is refused with 409. |
+| `POST /audit/events` | `recordAuditEvent`, secret-looking params redacted |
 
-Rules the routes enforce:
+## Limits
 
-- Every call needs an `Authorization: Bearer` credential that resolves to a user in `adminUserIds`. Missing or bad credentials get 401, any other user gets 403, and an empty `adminUserIds` refuses everyone. Cookie-only requests are refused.
-- `systemAgentId` must be an existing agent. Approvals and audit rows reference an agent, so the `agentId` and `userId` the MCP server sends are labels and are ignored: the approval is owned by the calling admin and bound to that agent.
-- Approval actions must look like `admin:<name>`. Only the admin who opened an approval can consume it, and approving it still happens through your normal approval channel, never through these routes.
-- An admin cannot disable itself or another configured admin (unless `allowDisablingAdmins` is set).
-- Requests are rate limited per admin user, and ids, enums and body sizes are validated.
+- Calls need an `Authorization: Bearer` credential for a user in `adminUserIds`. Bad credentials get 401, other users get 403, and an empty list refuses everyone. Cookie-only requests are refused.
+- `systemAgentId` must be an existing agent. The `agentId` and `userId` the MCP server sends are labels and are ignored. The approval belongs to the calling admin.
+- Approval actions must look like `admin:<name>`. Only the admin who opened an approval can consume it. Approving still happens outside these routes.
+- An approval is single use and tied to one action and one resource.
+- If the audit write for a new request fails, the request is not opened.
+- Admins cannot disable themselves or other configured admins, unless `allowDisablingAdmins` is set.
+- Requests are rate limited per admin user. Ids, enums and body sizes are validated.

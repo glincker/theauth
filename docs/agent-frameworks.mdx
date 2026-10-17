@@ -1,22 +1,20 @@
 ---
-title: Agent framework wrappers
-description: Guard tools in LangChain.js, LangGraph and Mastra with theAuth policy, and pause for human approval using each framework's own interrupt mechanism.
+title: "Guard LangGraph and Mastra agent tools"
+description: "Wrap LangChain.js, LangGraph and Mastra tools in TypeScript with guardTool. Denied calls throw, and risky calls pause for human approval."
 icon: plug
 ---
 
-`@glinr/theauth-agent-frameworks` wraps your framework's tool objects with `guardTool`. When policy allows a call, the tool runs. When policy denies it, `ToolDeniedError` is thrown. When policy escalates, the wrapper hands the approval request to the framework's human-in-the-loop feature and, once a person approves, retries the call with the approved request id.
-
-The framework packages are optional peer dependencies. The wrappers type the tools structurally, so installing this package does not install LangChain or Mastra.
-
-Tested against `@langchain/langgraph` 1.5.1 (with `MemorySaver`, both a plain node and the prebuilt `ToolNode`) and `@mastra/core` 1.78.0 (a workflow step and an `Agent`). Other versions are likely to work but are not tested. Mastra passes suspend and resume data under `context.agent` or `context.workflow`; the wrapper reads both.
+`@glinr/theauth-agent-frameworks` wraps framework tools with `guardTool`. Allowed calls run, denied calls throw `ToolDeniedError`, and escalated calls pause for approval through the framework's own interrupt mechanism.
 
 ```bash
 npm install @glinr/theauth-agent-frameworks @glinr/theauth
 ```
 
-## LangChain.js and LangGraph
+Framework packages are optional peer dependencies, so this install does not pull in LangChain or Mastra.
 
-Import `interrupt` from `@langchain/langgraph` and pass it in. Guard the tools before you hand them to your agent or `ToolNode`.
+Tested against `@langchain/langgraph` 1.5.1 (with `MemorySaver`, both a plain node and the prebuilt `ToolNode`) and `@mastra/core` 1.78.0 (a workflow step and an `Agent`). Other versions are likely to work but are not tested.
+
+## LangChain.js and LangGraph
 
 ```ts
 import { Command, interrupt } from "@langchain/langgraph";
@@ -29,16 +27,14 @@ const tools = guardLangChainTools(
 );
 ```
 
-When `refund` escalates, the graph pauses. The interrupt value (`result.__interrupt__`) is an `ApprovalInterruptPayload` with the tool name, tier, arguments and `approvalRequestId`. Approve the request, then resume the same thread:
+When `refund` escalates, the graph pauses. The interrupt value (`result.__interrupt__`) is an `ApprovalInterruptPayload` with the tool name, tier, arguments and `approvalRequestId`. Approve it, then resume the same thread:
 
 ```ts
 await theauth.approval.approve(payload.approvalRequestId, approverId);
 await graph.invoke(new Command({ resume: { approved: true } }), config);
 ```
 
-Resume with `{ approved: false }` to reject: the tool call fails with `ToolDeniedError` (`APPROVAL_REJECTED`). A graph needs a checkpointer for interrupts to work, which is a LangGraph requirement.
-
-A LangGraph node restarts from the top when it resumes, so the policy check runs a second time and can open a second pending request. The id from the first interrupt is the one that gets spent. The extra request expires on its own.
+Resume with `{ approved: false }` to reject. The call then fails with `ToolDeniedError` (`APPROVAL_REJECTED`).
 
 ## Mastra
 
@@ -48,11 +44,13 @@ import { guardMastraTools } from "@glinr/theauth-agent-frameworks/mastra";
 const tools = guardMastraTools(theauth, { agentId: agent.id }, { lookupInvoice, refund });
 ```
 
-On escalation the wrapper calls `context.suspend` with the same approval payload. Give the tool a `resumeSchema` shaped like `{ approved: boolean, approvalRequestId?: string }`, and resume with that data after the approval. If Mastra provides no `suspend` in the context, the wrapper throws `ToolApprovalRequiredError` instead. Set `onApprovalRequired: "throw"` to always throw. Mastra versions before 1.0 passed `{ context }` as the first argument to `execute`; set `legacyContextArg: true` for those.
+On escalation, the wrapper calls `context.suspend` with the approval payload. Give the tool a `resumeSchema` shaped like `{ approved: boolean, approvalRequestId?: string }` and resume with that data. The wrapper reads suspend and resume data under `context.agent` or `context.workflow`.
+
+Without `suspend` in the context, the wrapper throws `ToolApprovalRequiredError`. Set `onApprovalRequired: "throw"` to always throw. For Mastra versions before 1.0, which passed `{ context }` as the first argument to `execute`, set `legacyContextArg: true`.
 
 ## Vercel AI SDK and OpenAI Agents SDK
 
-These need no wrapper. Their tools are plain objects with `execute`, so use `guardTool` from `@glinr/theauth` as shown in [Vercel AI SDK](/vercel-ai-sdk) and [OpenAI Agents SDK](/openai-agents-sdk). Their runs end when a tool throws, and the retry comes in a new request, so use the shared helper to carry the approval across:
+These need no wrapper. Use `guardTool` from `@glinr/theauth` as shown in [Vercel AI SDK](/vercel-ai-sdk) and [OpenAI Agents SDK](/openai-agents-sdk). Their runs end when a tool throws, and the retry arrives in a new request, so carry the approval across with the shared helpers:
 
 ```ts
 import {
@@ -77,10 +75,12 @@ if (result.status === "approved") {
 }
 ```
 
-## resumeAfterApproval
+## Resume after approval
 
-`resumeAfterApproval(theauth, requestId, options)` reads the request with `theauth.approval.get` and returns one of `approved` (with the `approvalId` to pass to the guard), `pending`, `denied`, `expired` or `not_found`. Set `waitMs` to keep polling a pending request. With `grants` and `call`, an approved id is stored until the matching retry spends it. The guard still checks the agent, action and resource when it spends the id, and a second use is denied.
+`resumeAfterApproval` reads the request with `theauth.approval.get` and returns `approved` (with the `approvalId`), `pending`, `denied`, `expired` or `not_found`. Set `waitMs` to keep polling a pending request. With `grants` and `call`, an approved id is held until the matching retry spends it. The guard still checks agent, action and resource, and a second use is denied.
 
-## Taint blocks
+## Limits
 
-Guard options such as `tracker` and `provenance` pass straight through. A call whose arguments carry a blocked label is denied with `ToolDeniedError` before any approval is opened. See [Taint guard](/taint-guard).
+- A LangGraph graph needs a checkpointer for interrupts. This is a LangGraph requirement.
+- A resumed LangGraph node restarts from the top, so the policy check runs again and can open a second pending request. The first interrupt's id is the one spent. The extra request expires on its own.
+- A call whose arguments carry a blocked taint label is denied before any approval opens. Guard options such as `tracker` and `provenance` pass through. See [Taint guard](/taint-guard).
