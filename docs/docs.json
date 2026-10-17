@@ -379,6 +379,7 @@
             "icon": "graduation-cap",
             "pages": [
               "tutorials/prompt-injection-tool-guard",
+              "tutorials/agent-delegation-e2e",
               "tutorials/remove-unused-agent-permissions",
               "tutorials/verifiable-agent-receipts"
             ]
@@ -492,6 +493,8 @@
             "icon": "arrows-spin",
             "pages": [
               "hooks",
+              "community-integrations",
+              "require-scope",
               "webhooks",
               "event-streaming",
               "custom-session",

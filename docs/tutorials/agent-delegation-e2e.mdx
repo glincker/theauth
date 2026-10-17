@@ -1,0 +1,177 @@
+---
+title: Delegate a scoped token to an agent and revoke it
+description: Walk through a user delegating a read-only token to an agent, an MCP server verifying it, a denied out-of-scope call, the audit trail, and revocation. Runnable TypeScript.
+icon: route
+---
+
+An agent that can do everything its owner can do is a liability. This tutorial builds the opposite: a user hands an agent a read-only token, an MCP server checks it on every call, the agent is stopped when it reaches for a write tool, and the user can pull the plug at any time.
+
+It runs in one process with an in-memory SQLite database, no model and no API key. The full script is in [`examples/agent-delegation-e2e`](https://github.com/glincker/theauth/tree/main/examples/agent-delegation-e2e).
+
+## What you build
+
+| Step | What happens | Result |
+| --- | --- | --- |
+| 1 | The user approves an OAuth 2.1 grant, the agent narrows it | Token with `mcp:read` only |
+| 2 | The agent calls `read_report` | Allowed |
+| 3 | The agent calls `delete_report` | Denied, 403 |
+| 4 | Read the audit log | One row per decision |
+| 5 | The user revokes the delegation | Next call is rejected, 401 |
+
+## 1. Create the agents and the delegation
+
+Alice owns a parent agent with read and write access. She delegates read only to a child agent. The child has no permissions of its own.
+
+```typescript
+const assistant = await auth.agent.create({
+  ownerId: 'user-alice',
+  name: 'alice-assistant',
+  type: 'autonomous',
+  permissions: [{ resource: 'mcp:reports:*', actions: ['read', 'write'] }],
+});
+const reportBot = await auth.agent.create({
+  ownerId: 'user-alice',
+  name: 'report-bot',
+  type: 'delegated',
+  permissions: [],
+});
+const chain = await auth.delegate({
+  fromAgent: assistant.id,
+  toAgent: reportBot.id,
+  permissions: [{ resource: 'mcp:reports:*', actions: ['read'] }],
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  maxDepth: 1,
+});
+```
+
+<Note>
+The example inserts the owner row with drizzle, as the quickstart does. A marked comment in the script shows where `auth.user.create()` replaces it.
+</Note>
+
+## 2. Configure the MCP server
+
+The OAuth server and the resource server share one `createMcpModule`. Three options matter here. `tokenExchange` lets the agent narrow its token, `delegationStore` makes the module re-check the delegation chain against live records, and `resolveActorAgentId` maps OAuth identities to agent ids.
+
+```typescript
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: origin,
+    baseUrl: `${origin}/api/auth`,
+    resource: origin,
+    signingSecret: SIGNING_SECRET,
+    scopes: ['mcp:read', 'mcp:write'],
+    accessTokenTtl: 3600,
+    jtiDenylist: createInMemoryJtiDenylist(), // required by tokenExchange
+    tokenExchange: { enabled: true },
+    delegationStore: createDbDelegationStore(auth.db),
+    resolveActorAgentId: ({ sub, clientId }) =>
+      clientId ? agentByClient.get(clientId) : sub === OWNER_ID ? assistant.id : undefined,
+  },
+  // ...your storage callbacks
+});
+```
+
+The mapper runs on the token subject (the user, mapped to the parent agent) and on each actor (the OAuth client, mapped to the child agent). Delegation links are agent to agent, so both ends need an agent id. See [MCP OAuth 2.1](/mcp) for the full option list.
+
+## 3. Delegate the scoped token
+
+Alice approves the agent app through the authorization code flow with PKCE. That grant carries `mcp:read mcp:write`. The agent then trades it for a narrower token.
+
+```typescript
+const exchanged = await mcp.token(
+  form({
+    grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+    subject_token: granted.data.access_token,
+    subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+    scope: 'mcp:read',
+    resource: origin,
+  }),
+);
+```
+
+Token exchange can only narrow. Asking for a scope the subject token lacks fails with `invalid_scope`. The new token carries an `act` claim that records which client is acting for the user. See [MCP server grants](/mcp-grants).
+
+## 4. Verify on every call
+
+The MCP server checks the bearer token and the scope the tool needs before it runs anything.
+
+```typescript
+const check = await mcp.requireScopes(request, [TOOL_SCOPES[tool]]);
+if (!check.authorized) return check.response; // 401 or 403
+```
+
+`read_report` needs `mcp:read`, so it passes. `delete_report` needs `mcp:write`, so `requireScopes` returns a 403 step-up response and the tool never runs. The server writes an audit row for both outcomes with `recordAuditEvent`.
+
+## 5. Revoke the parent delegation
+
+```typescript
+await auth.delegation.revoke(chain.id);
+```
+
+The agent's token has not expired and its signature is still valid. The next call is rejected anyway, because `delegationStore` finds the revoked link in the chain from the user to the agent.
+
+## Expected output
+
+```text
+> tsx src/index.ts
+
+
+== Setup: owner, agents and delegation
+   parent agent           alice-assistant (f6358e84-72e...)
+   child agent            report-bot (813814c5-a9b...)
+   delegation             8b8ed5e0-1de... read on mcp:reports:*
+
+== Step 1: Alice approves a scoped OAuth grant for the agent app
+   user grant scopes      mcp:read mcp:write
+   agent token scopes     mcp:read (narrowed by token exchange)
+
+== Step 2: agent calls read_report (needs mcp:read)
+   HTTP                   200
+   result                 {"content":"[simulated] read_report ok"}
+
+== Step 3: agent calls delete_report (needs mcp:write)
+   HTTP                   403
+   result                 {"error":"insufficient scope","status":403}
+
+== Audit log
+   2026-10-17T23:07:25.000Z allowed  delegation.create delegation:8b8ed5e0-1dec-4f74-b52b-b2cc9de5fd0d ()
+   2026-10-17T23:07:25.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
+   2026-10-17T23:07:25.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+
+== Revocation: Alice revokes the parent delegation
+   revoked                8b8ed5e0-1de...
+   HTTP                   401
+   result                 {"error":"Delegation chain is no longer valid (revoked link)","status":401}
+
+== Audit log after revocation
+   2026-10-17T23:07:25.000Z allowed  delegation.create delegation:8b8ed5e0-1dec-4f74-b52b-b2cc9de5fd0d ()
+   2026-10-17T23:07:25.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
+   2026-10-17T23:07:25.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+   2026-10-17T23:07:25.000Z denied   mcp.tools.call mcp:reports:read_report (token rejected: Delegation chain is no longer valid (revoked link))
+```
+
+IDs are random and timestamps are the time of your run.
+
+## Rough edges to know about
+
+- Audit timestamps have one second resolution, so rows from one run share a timestamp. Sort stably, or order by your own sequence.
+- `delegation.revoke()` does not write an audit row today. The example records the rejected call, which is the evidence that matters.
+- A rejected token has no verified session, so the example reads the `act.client_id` claim without verifying it, only to attribute the denied call in the audit log. Never use it to grant access.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Delegation chains" href="/delegation">
+  Depth limits, constraints and cascading revocation.
+</Card>
+  <Card title="MCP OAuth 2.1" href="/mcp">
+  The authorization server, scopes and the live delegation check.
+</Card>
+  <Card title="MCP server grants" href="/mcp-grants">
+  Token exchange, client credentials and jwt-bearer.
+</Card>
+  <Card title="Audit trail" href="/audit">
+  Query, export and verify the audit log.
+</Card>
+</CardGroup>
