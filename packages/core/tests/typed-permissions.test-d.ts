@@ -71,6 +71,18 @@ describe("typed permissions", () => {
 		});
 	});
 
+	it("explain accepts a declared action and resource", () => {
+		typed.explain("a", "read", "mcp:github:issues");
+		typed.explain("a", "execute", "tool:file_read", { runHooks: false });
+	});
+
+	it("explain rejects a typo in the resource or an undeclared action", () => {
+		// @ts-expect-error resource typo
+		typed.explain("a", "read", "mcp:gihtub:issues");
+		// @ts-expect-error "execute" is not listed for mcp:github:*
+		typed.explain("a", "execute", "mcp:github:issues");
+	});
+
 	it("TypedTheAuth can be cast to TheAuth for adapters", () => {
 		const adapterFactory = (_auth: TheAuth): void => undefined;
 		adapterFactory(typed as unknown as TheAuth);

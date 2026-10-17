@@ -1,3 +1,4 @@
+import type { ExplainOptions } from "../explain/types.js";
 import type { TheAuth } from "../theauth-core.js";
 import type {
 	AuthorizeRequest,
@@ -41,6 +42,15 @@ export type TypedPermission<C extends PermissionCatalog> = {
 	};
 }[keyof C & string];
 
+/** Correlated (action, resource, options) positional arguments for `explain`, same rules as TypedAuthorizeRequest. */
+export type TypedExplainArgs<C extends PermissionCatalog> = {
+	[P in keyof C & string]: [
+		action: C[P][number],
+		resource: ResourceOf<P>,
+		options?: ExplainOptions,
+	];
+}[keyof C & string];
+
 type TypedCreateAgentInput<C extends PermissionCatalog> = Omit<CreateAgentInput, "permissions"> & {
 	permissions: TypedPermission<C>[];
 };
@@ -59,8 +69,9 @@ type TypedDelegateInput<C extends PermissionCatalog> = Omit<DelegateInput, "perm
  */
 export type TypedTheAuth<C extends PermissionCatalog> = Omit<
 	TheAuth,
-	"authorize" | "authorizeByToken" | "delegate" | "agent"
+	"authorize" | "authorizeByToken" | "delegate" | "agent" | "explain"
 > & {
+	explain(agentId: string, ...args: TypedExplainArgs<C>): ReturnType<TheAuth["explain"]>;
 	authorize(
 		agentId: string,
 		request: TypedAuthorizeRequest<C>,
