@@ -146,7 +146,9 @@ describe("TheAuthHooks - onViolation", () => {
 
 		expect(onViolation).toHaveBeenCalledOnce();
 		const violation = onViolation.mock.calls[0]?.[0];
-		expect(violation?.type).toBe("rate_limited");
+		// The type comes from the hook_denied code, not from the reason text.
+		expect(violation?.code).toBe("hook_denied");
+		expect(violation?.type).toBe("permission_denied");
 	});
 
 	it("does not fire when authorization is allowed", async () => {

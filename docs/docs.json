@@ -532,6 +532,7 @@
             "icon": "arrow-right-arrow-left",
             "pages": [
               "migrate/index",
+              "upgrading-to-2",
               "migrate/choose-a-path",
               "migrate/run-both-and-migrate",
               "migrate/import-users",

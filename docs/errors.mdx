@@ -33,10 +33,39 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 }
 ```
 
+## Decision codes
+
+`authorize()`, `authorizeByToken()` and `policy.evaluate()` return a machine-readable `code` next to the free-form `reason`. The set is closed: `DECISION_CODES` is exported from `@glinr/theauth`, with the `DecisionCode` type, `isDecisionCode()` and `violationTypeOf()`. Branch on `code`, never on `reason` text.
+
+| Code | Meaning | `onViolation.type` |
+|------|---------|--------------------|
+| `allowed` | The call is allowed. | none |
+| `approval_consumed` | The call is allowed and spent a single-use approval. | none |
+| `no_permission` | No permission grants the action on the resource. | `permission_denied` |
+| `rate_limited` | `maxCallsPerHour` is used up. | `rate_limited` |
+| `ip_not_allowed` | The IP is missing or not in `ipAllowlist`. | `ip_blocked` |
+| `time_restricted` | Outside the permission's `timeWindow`. | `time_restricted` |
+| `argument_rejected` | An argument failed `allowedArgPatterns`, or a pattern is not a valid regex. | `permission_denied` |
+| `approval_required` | The permission has `requireApproval` and no approval id was given. | `approval_required` |
+| `approval_invalid` | The approval id is unknown, not approved, already used, or for another call. | `approval_required` |
+| `agent_not_found` | No agent with that id. | `permission_denied` |
+| `agent_revoked` | The agent is revoked. | `permission_denied` |
+| `agent_expired` | The agent is expired. | `permission_denied` |
+| `invalid_token` | `authorizeByToken` got an unknown, revoked or expired token. | `permission_denied` |
+| `owner_mismatch` | `policy.evaluate` was given an owner that does not own the agent. | `permission_denied` |
+| `hook_denied` | A `beforeAuthorize` hook blocked the call. | `permission_denied` |
+| `hook_timeout` | Reserved for a hook that timed out. | `permission_denied` |
+| `hook_error` | Reserved for a hook that threw. | `permission_denied` |
+| `taint_violation` | A taint rule matched the call's input provenance. | `permission_denied` |
+| `risk_escalation` | A risk tier requires approval or step up. | `permission_denied` |
+| `policy_indeterminate` | The policy engine could not decide (invalid input, graph error). It denies. | `permission_denied` |
+
+`code` is optional on the `AuthorizeResult` type so results you build by hand still compile, but core always sets it. `PolicyDecision.code` is always present.
+
 ## Error code reference
 
 <Warning>
-`theauth.authorize()` and `theauth.delegate()` do not return the permission and delegation codes in the tables below. `authorize()` returns `{ allowed, reason, auditId }` where `reason` is free-form text (for example `No permission grants agent "x" access to "write" on "mcp:github:repos"`), and `delegate()` throws a plain `Error` with a descriptive message (a subset violation or a depth overrun). Treat the Agent, Permission, Token, and Delegation tables as a reference vocabulary for your own HTTP layer, not as values the TypeScript core emits. The MCP module returns `Result` errors with codes such as `INVALID_CLIENT`, `INVALID_GRANT`, `LOGIN_REQUIRED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_AUDIENCE`, `INVALID_ISSUER`, `INSUFFICIENT_SCOPE`, `UNAUTHORIZED`, and `SERVER_ERROR`.
+`theauth.authorize()` and `theauth.delegate()` do not return the permission and delegation codes in the tables below. `authorize()` returns `{ allowed, reason, auditId, code }` where `reason` is free-form text (for example `No permission grants agent "x" access to "write" on "mcp:github:repos"`), and `delegate()` throws a plain `Error` with a descriptive message (a subset violation or a depth overrun). Treat the Agent, Permission, Token, and Delegation tables as a reference vocabulary for your own HTTP layer, not as values the TypeScript core emits. The MCP module returns `Result` errors with codes such as `INVALID_CLIENT`, `INVALID_GRANT`, `LOGIN_REQUIRED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_AUDIENCE`, `INVALID_ISSUER`, `INSUFFICIENT_SCOPE`, `UNAUTHORIZED`, and `SERVER_ERROR`.
 </Warning>
 
 ### Agent errors

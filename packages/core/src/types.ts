@@ -28,6 +28,7 @@ import type { DatabaseConfig } from "./db/database.js";
 import type { DidWebConfig } from "./did/types.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
 import type { McpConfig, Result } from "./mcp/types.js";
+import type { DecisionCode } from "./permission/codes.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
@@ -246,6 +247,8 @@ export interface AuthorizeResult {
 	allowed: boolean;
 	reason?: string;
 	auditId: string;
+	/** Machine-readable outcome. Always set by core; optional on the type so hand-built results in user code still compile. */
+	code?: DecisionCode;
 }
 
 export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promise<AuthorizeResult>;

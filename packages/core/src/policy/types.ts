@@ -1,5 +1,6 @@
 // Public types for the unified policy engine.
 
+import type { DecisionCode } from "../permission/codes.js";
 import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js";
 
 export type PolicyEffect = "permit" | "deny" | "indeterminate" | "escalate";
@@ -103,6 +104,8 @@ export interface PolicyDecision {
 	/** Canonical field. permit maps to allow, escalate to escalate, the rest to deny. */
 	effect: PolicyEffect;
 	reason: string;
+	/** Machine-readable outcome. Prefer this over parsing `reason`. */
+	code: DecisionCode;
 	escalation?: EscalationInfo;
 	/** Resolved accountable principal, present for agent subjects. */
 	principal?: DecisionPrincipal;
@@ -115,9 +118,9 @@ export interface PolicyDecision {
 	taint?: TaintVerdict;
 }
 
-/** Input shape for constructing a PolicyDecision by hand. `decision` and `allowed` are optional and recomputed from `effect` by makeDecision(). */
-export type PolicyDecisionInput = Omit<PolicyDecision, "decision" | "allowed"> &
-	Partial<Pick<PolicyDecision, "decision" | "allowed">>;
+/** Input shape for constructing a PolicyDecision by hand. `decision` and `allowed` are optional and recomputed from `effect` by makeDecision(). `code` is optional and defaults from `effect`. */
+export type PolicyDecisionInput = Omit<PolicyDecision, "decision" | "allowed" | "code"> &
+	Partial<Pick<PolicyDecision, "decision" | "allowed" | "code">>;
 
 export interface PolicyCacheStats {
 	hits: number;

@@ -1,0 +1,26 @@
+---
+title: Upgrading to 2.0
+description: Breaking changes in theAuth 2.0 for integrations built on 1.x, with what changed and what to do.
+icon: arrow-up-right-dots
+---
+
+This page lists behavior changes in `@glinr/theauth` 2.0 that a working 1.x integration can see. Each section says what changed and what to change in your code.
+
+## Typed decision codes
+
+`authorize()`, `authorizeByToken()` and `policy.evaluate()` now return a machine-readable `code`, and `onViolation` receives `code` next to `type`. See [Errors](/errors#decision-codes) for the list.
+
+What changed:
+
+- `PolicyDecision` has a new required field `code`. Code that builds a `PolicyDecision` by hand with an object literal must add it. `makeDecision()` fills it in from `effect` when you leave it out.
+- `AuthorizeResult.code` is optional on the type and always set by core.
+- `onViolation.type` is now derived from the code, not from substrings of the reason text. The five `type` values are unchanged, but some denials classify differently. A reason that contained "rate", "ip", "time", "window" or "approval" by accident, such as an agent named `pirate-bot`, was reported as `rate_limited` and is now `permission_denied`.
+- A `beforeAuthorize` block now reports `type: "permission_denied"` with `code: "hook_denied"`. Before, the type came from words in your hook's reason string.
+- When a delegated permission fails with an approval problem, `authorize()` reports that failure instead of the agent's own denial. This now includes the case where the delegated permission requires approval and no approval id was given. Before, only a failed approval id was preferred.
+- `classifyViolation()` is deprecated. It still works with its old logic.
+
+What to do:
+
+- Replace checks on `reason` text with checks on `result.code` or the `code` passed to `onViolation`.
+- Replace `classifyViolation(reason)` with `violationTypeOf(code)`.
+- If you route alerts on `type`, review the cases above.

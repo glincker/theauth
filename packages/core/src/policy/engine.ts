@@ -10,6 +10,7 @@ import type { Database } from "../db/database.js";
 import { agents, permissions as permissionsTable } from "../db/schema.js";
 import { getDelegatedPermissions } from "../delegation/delegation.js";
 import { resolveLineage } from "../delegation/lineage.js";
+import type { DenialCode } from "../permission/codes.js";
 import type { Permission } from "../types.js";
 import { evaluateConstraints, isCacheUnsafe, matchAction, matchResource } from "./abac.js";
 import type { PolicyCache } from "./cache.js";
@@ -99,11 +100,13 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			resource: input.resource,
 		});
 		if (!spent.ok) {
-			return { decision: { ...withEffect(decision, "deny"), reason: spent.code } };
+			return {
+				decision: { ...withEffect(decision, "deny", "approval_invalid"), reason: spent.code },
+			};
 		}
 		return {
 			decision: {
-				...withEffect(decision, "permit"),
+				...withEffect(decision, "permit", "approval_consumed"),
 				reason: APPROVAL_CODES.CONSUMED,
 				escalation: undefined,
 			},
@@ -170,7 +173,8 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				return finalize(
 					makeDecision({
 						effect: "deny",
-						reason: gate,
+						reason: gate.reason,
+						code: gate.code,
 						auditId: willEmitAudit(input) ? generateId() : undefined,
 						cacheHit: false,
 						durationMs: 0,
@@ -256,6 +260,9 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 					partials.push({
 						effect: constraintResult.needsApproval ? "escalate" : "deny",
 						reason: constraintResult.reason ?? POLICY_ERROR_CODES.CONSTRAINT_FAILED,
+						code:
+							constraintResult.code ??
+							(constraintResult.needsApproval ? "approval_required" : "no_permission"),
 						matchedRelation: perm.relation,
 					});
 					continue;
@@ -265,6 +272,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			partials.push({
 				effect: "permit",
 				reason: "matched",
+				code: "allowed",
 				matchedRelation: perm.relation,
 			});
 		}
@@ -290,8 +298,11 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		return decision;
 	}
 
-	/** Returns a deny reason when the agent may not act, else undefined. */
-	async function checkAgent(agentId: string, ownerId?: string): Promise<string | undefined> {
+	/** Returns the deny reason and code when the agent may not act, else undefined. */
+	async function checkAgent(
+		agentId: string,
+		ownerId?: string,
+	): Promise<{ reason: string; code: DenialCode } | undefined> {
 		const rows = await db
 			.select({ ownerId: agents.ownerId, status: agents.status, expiresAt: agents.expiresAt })
 			.from(agents)
@@ -300,12 +311,21 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const row = rows[0];
 		if (!row) {
 			return ownerId !== undefined
-				? POLICY_ERROR_CODES.OWNER_MISMATCH
-				: POLICY_ERROR_CODES.AGENT_NOT_FOUND;
+				? { reason: POLICY_ERROR_CODES.OWNER_MISMATCH, code: "owner_mismatch" }
+				: { reason: POLICY_ERROR_CODES.AGENT_NOT_FOUND, code: "agent_not_found" };
 		}
-		if (row.status !== "active") return POLICY_ERROR_CODES.AGENT_INACTIVE;
-		if (row.expiresAt && row.expiresAt <= new Date()) return POLICY_ERROR_CODES.AGENT_INACTIVE;
-		if (ownerId !== undefined && row.ownerId !== ownerId) return POLICY_ERROR_CODES.OWNER_MISMATCH;
+		if (row.status !== "active") {
+			return {
+				reason: POLICY_ERROR_CODES.AGENT_INACTIVE,
+				code: row.status === "expired" ? "agent_expired" : "agent_revoked",
+			};
+		}
+		if (row.expiresAt && row.expiresAt <= new Date()) {
+			return { reason: POLICY_ERROR_CODES.AGENT_INACTIVE, code: "agent_expired" };
+		}
+		if (ownerId !== undefined && row.ownerId !== ownerId) {
+			return { reason: POLICY_ERROR_CODES.OWNER_MISMATCH, code: "owner_mismatch" };
+		}
 		return undefined;
 	}
 

@@ -17,26 +17,43 @@ Authorization hooks run only for calls to `theauth.authorize()`. They do not run
 
 ## Available hooks
 
-<ParamField path="beforeAuthorize" type={`(context: { agentId, action, resource, arguments? }) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before every `theauth.authorize()` call. Return `{ allow: false, reason }` to block: the call returns `{ allowed: false, reason, auditId: "" }` without touching the database, so no audit row is written. Return nothing or `{ allow: true }` to proceed.</ParamField>
-<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, result }) => Promise<void>`}>Fires after authorize() completes with the final result (`{ allowed, reason?, auditId }`). It does not fire when `beforeAuthorize` blocked the call or when the agent was not found or is not active.</ParamField>
+<ParamField path="beforeAuthorize" type={`(context: { agentId, action, resource, arguments? }) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before every `theauth.authorize()` call. Return `{ allow: false, reason }` to block: the call returns `{ allowed: false, reason, auditId: "", code: "hook_denied" }` without touching the database, so no audit row is written. Return nothing or `{ allow: true }` to proceed.</ParamField>
+<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, result }) => Promise<void>`}>Fires after authorize() completes with the final result (`{ allowed, reason?, auditId, code? }`). It does not fire when `beforeAuthorize` blocked the call or when the agent was not found or is not active.</ParamField>
 <ParamField path="beforeAgentCreate" type={`(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before `theauth.agent.create()`. Return `{ allow: false }` to reject the creation; `create()` then throws an `Error` carrying your reason.</ParamField>
 <ParamField path="afterAgentCreate" type={`(agent: AgentIdentity) => Promise<void>`}>Fires after an agent is successfully created.</ParamField>
 <ParamField path="onAgentRevoke" type={`(agentId: string) => Promise<void>`}>Fires after `theauth.agent.revoke()` succeeds.</ParamField>
-<ParamField path="onViolation" type={`(violation: { type, agentId, action, resource, reason }) => Promise<void>`}>Fires when `theauth.authorize()` returns a denial (including a `beforeAuthorize` block). Budget policies are not part of `authorize()`, so they do not trigger it.</ParamField>
+<ParamField path="onViolation" type={`(violation: { type, code, agentId, action, resource, reason }) => Promise<void>`}>Fires when `theauth.authorize()` returns a denial (including a `beforeAuthorize` block). `code` is the machine-readable denial code and `type` is its coarse grouping. Budget policies are not part of `authorize()`, so they do not trigger it.</ParamField>
 
-### Violation types
+### Violation codes and types
 
-The `onViolation` hook receives a typed `type` field so you can route each category to a different handler.
+Every denial carries a `code` from a closed set. `onViolation` receives it as `code`, `authorize()` and `authorizeByToken()` return it as `result.code`, and `policy.evaluate()` returns it as `decision.code`. Branch on `code`, not on the `reason` text.
 
-| Type | When it fires |
-|------|---------------|
-| `permission_denied` | Default when no other category matches (for example, no permission grants the agent the action) |
-| `rate_limited` | The denial reason contains "rate" |
-| `ip_blocked` | The denial reason contains "ip" or "allowlist" (the request IP is missing or not in the permission's `ipAllowlist`) |
-| `time_restricted` | The denial reason contains "time" or "window" (outside the permission's `timeWindow`) |
-| `approval_required` | The denial reason contains "approval" (the permission has `requireApproval`) |
+```typescript
+import { DECISION_CODES, violationTypeOf } from '@glinr/theauth';
 
-The type is derived by substring matching on the denial reason text, checked in the order above. A reason that happens to contain one of those substrings, for example an agent or resource name containing "rate" or "time", can be classified as that category.
+hooks: {
+  async onViolation({ code, agentId }) {
+    if (code === DECISION_CODES.RATE_LIMITED) await alerts.warn(agentId);
+    // violationTypeOf(code) gives the coarse type
+  },
+},
+```
+
+`type` stays available and keeps the same five values. It is derived from `code` with `violationTypeOf`:
+
+| Type | Codes that map to it |
+|------|----------------------|
+| `rate_limited` | `rate_limited` |
+| `ip_blocked` | `ip_not_allowed` (the request IP is missing or not in the permission's `ipAllowlist`) |
+| `time_restricted` | `time_restricted` (outside the permission's `timeWindow`) |
+| `approval_required` | `approval_required`, `approval_invalid` |
+| `permission_denied` | every other code |
+
+A `beforeAuthorize` block reports code `hook_denied`, so its `type` is `permission_denied` whatever the reason text says. See [Errors](/errors#decision-codes) for the full list of codes.
+
+<Note>
+  `classifyViolation(reason)` is still exported but deprecated. It matches substrings of the reason text, so a reason that merely contains "rate" or "time" is misclassified. Use `code` and `violationTypeOf` instead.
+</Note>
 
 ## Registering hooks
 
@@ -115,7 +132,7 @@ Returning `{ allow: false }` from `beforeAgentCreate` causes the `theauth.agent.
 
 ## Reacting to violations
 
-The `onViolation` hook fires for every denial returned by `theauth.authorize()`, classified as described above. Use it to send alerts or update your observability platform.
+The `onViolation` hook fires for every denial returned by `theauth.authorize()`, with the `code` and `type` described above. Use it to send alerts or update your observability platform.
 
 ```typescript
 const theauth = await createTheAuth({

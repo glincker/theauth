@@ -4,6 +4,7 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
+import { DECISION_CODES } from "./codes.js";
 
 interface PermissionEngineConfig {
 	db: Database;
@@ -36,6 +37,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				allowed: false,
 				reason: `No permission grants agent "${agent.name}" access to "${request.action}" on "${request.resource}"`,
 				auditId,
+				code: DECISION_CODES.NO_PERMISSION,
 			};
 			if (auditDenials) {
 				await writeAuditLog(db, agent, request, result, startTime, auditId);
@@ -81,10 +83,14 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 						consumed = { approvalId: spent.approvalId, approverId: spent.approverId };
 						constraintResult = { allowed: true };
 					} else {
-						constraintResult = { allowed: false, reason: spent.code };
+						constraintResult = {
+							allowed: false,
+							reason: spent.code,
+							code: DECISION_CODES.APPROVAL_INVALID,
+						};
 					}
 				} else {
-					constraintResult = { allowed: false, reason: rest.reason };
+					constraintResult = { allowed: false, reason: rest.reason, code: rest.code };
 				}
 			}
 			if (!constraintResult.allowed) {
@@ -92,6 +98,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 					allowed: false,
 					reason: constraintResult.reason,
 					auditId,
+					code: constraintResult.code ?? DECISION_CODES.NO_PERMISSION,
 				};
 				if (auditDenials) {
 					await writeAuditLog(db, agent, request, result, startTime, auditId);
@@ -101,8 +108,13 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 		}
 
 		const result: AuthorizeResult = consumed
-			? { allowed: true, reason: APPROVAL_CODES.CONSUMED, auditId }
-			: { allowed: true, auditId };
+			? {
+					allowed: true,
+					reason: APPROVAL_CODES.CONSUMED,
+					auditId,
+					code: DECISION_CODES.APPROVAL_CONSUMED,
+				}
+			: { allowed: true, auditId, code: DECISION_CODES.ALLOWED };
 		if (auditAll) {
 			await writeAuditLog(db, agent, request, result, startTime, auditId, consumed);
 		}
