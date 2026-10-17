@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
-import { delegationChains, permissions as permissionsTable } from "../db/schema.js";
+import { permissions as permissionsTable } from "../db/schema.js";
+import { loadLiveInboundRows } from "../delegation/liveness.js";
 import { compareStrings } from "../internal-compare.js";
 import type { Permission } from "../types.js";
 import { atomKey, classifyRow, createGrantMatcher, splitPermission } from "./permissions.js";
@@ -21,7 +22,7 @@ const CHAINS_PER_GRANT_CAP = 1000;
 const DISTINCT_CAP = 5000;
 
 /**
- * The agent's effective permissions as single-action grants. Own permissions come first, then permissions delegated through active, unexpired chains, which is the order `authorize()` tries them in. Rows are read without an ORDER BY, like the engine's own lookup, so first-match attribution agrees with it. Expired or revoked delegations are not included.
+ * The agent's effective permissions as single-action grants. Own permissions come first, then permissions delegated through active, unexpired chains, which is the order `authorize()` tries them in. Rows are read without an ORDER BY, like the engine's own lookup, so first-match attribution agrees with it. Expired or revoked delegations, and links whose delegator is no longer live, are not included.
  */
 export async function loadGrants(
 	db: Database,
@@ -29,10 +30,7 @@ export async function loadGrants(
 	now: Date = new Date(),
 ): Promise<Grant[]> {
 	const own = await db.select().from(permissionsTable).where(eq(permissionsTable.agentId, agentId));
-	const chains = await db
-		.select()
-		.from(delegationChains)
-		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
+	const chains = await loadLiveInboundRows(db, agentId, now);
 
 	const grants: Grant[] = [];
 	const seen = new Set<string>();

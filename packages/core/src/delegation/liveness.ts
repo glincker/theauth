@@ -1,6 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
-import { agents, delegationChains } from "../db/schema.js";
+import { agents, delegationChains, permissions } from "../db/schema.js";
+import type { Permission } from "../types.js";
+import { isPermissionSubset } from "./subset.js";
 
 type ChainRow = typeof delegationChains.$inferSelect;
 
@@ -10,11 +12,25 @@ export type DelegatorState = "live" | "revoked" | "expired";
 const MAX_WALK = 16;
 
 /**
- * A delegator lends authority only while it is live. An agent delegator must be `active` and unexpired. A delegator that is not an agent row (a root user) has no status to check. An agent that itself holds active inbound links is live only if at least one of them traces back to a live delegator, so a revoked or expired agent higher up takes the whole branch below it out, even when no revocation cascade ran. Agents with no inbound links stand on their own.
+ * A delegator lends authority only while it is live. An agent delegator must be `active` and unexpired. A delegator that is not an agent row (a root user) has no status to check. An agent that itself holds active inbound links is live only if at least one of them traces back to a live delegator, so a revoked or expired agent higher up takes the whole branch below it out, even when no revocation cascade ran. The exception is a link whose permissions the active delegator holds directly: that authority did not come through the dead chain, so the link stays. Agents with no inbound links stand on their own.
  */
 export function createDelegatorLiveness(db: Database, now: Date) {
 	const agentCache = new Map<string, Promise<typeof agents.$inferSelect | undefined>>();
 	const inboundCache = new Map<string, Promise<ChainRow[]>>();
+	const ownCache = new Map<string, Promise<Permission[]>>();
+
+	const ownPermissions = (id: string) => {
+		let hit = ownCache.get(id);
+		if (!hit) {
+			hit = db
+				.select()
+				.from(permissions)
+				.where(eq(permissions.agentId, id))
+				.then((rows) => rows.map((r) => ({ resource: r.resource, actions: r.actions })));
+			ownCache.set(id, hit);
+		}
+		return hit;
+	};
 
 	const agentRow = (id: string) => {
 		let hit = agentCache.get(id);
@@ -56,11 +72,21 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 		const next = new Set(trail).add(id);
 		let firstDead: DelegatorState = "revoked";
 		for (const [i, link] of inbound.entries()) {
-			const state = await stateOf(link.fromAgentId, next);
+			const state = await linkState(link, next);
 			if (state === "live") return "live";
 			if (i === 0) firstDead = state;
 		}
 		return firstDead;
+	}
+
+	/** A link is live if its delegator is live, or if the delegator is itself active and unexpired and its own direct permissions cover what the link grants (that authority never came through an inbound chain). */
+	async function linkState(link: ChainRow, trail: Set<string>): Promise<DelegatorState> {
+		const state = await stateOf(link.fromAgentId, trail);
+		if (state === "live") return "live";
+		const row = await agentRow(link.fromAgentId);
+		if (!row || row.status !== "active" || (row.expiresAt && row.expiresAt <= now)) return state;
+		const own = await ownPermissions(link.fromAgentId);
+		return isPermissionSubset(own, link.permissions as Permission[]) ? "live" : state;
 	}
 
 	return {
@@ -71,7 +97,7 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 			const rows = await inboundRows(agentId);
 			const kept: ChainRow[] = [];
 			for (const row of rows) {
-				if ((await stateOf(row.fromAgentId, new Set([agentId]))) === "live") kept.push(row);
+				if ((await linkState(row, new Set([agentId]))) === "live") kept.push(row);
 			}
 			return kept;
 		},
