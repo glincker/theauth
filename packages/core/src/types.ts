@@ -30,6 +30,7 @@ import type { TheAuthHooks } from "./hooks/lifecycle.js";
 import type { HookSafetyConfig } from "./hooks/safety.js";
 import type { McpConfig, Result } from "./mcp/types.js";
 import type { DecisionCode } from "./permission/codes.js";
+import type { PermissionCatalog } from "./permission/typed.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
@@ -60,6 +61,10 @@ export interface TheAuthConfig {
 
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
 	hooks?: TheAuthHooks;
+	/**
+	 * Optional permission catalog (see `definePermissions`). Declaring it narrows `resource` and `action` on the returned instance at the type level. Not enforced at runtime.
+	 */
+	permissions?: PermissionCatalog;
 	/**
 	 * Timeout and failure policy for `hooks.beforeAuthorize` and `hooks.beforeAgentCreate`. Sibling of `hooks` so the hooks object stays a plain map of functions. Defaults: 2000 ms timeout, deny on timeout or error for beforeAuthorize, throw for beforeAgentCreate. Env: THEAUTH_HOOK_TIMEOUT_MS, THEAUTH_HOOK_ON_TIMEOUT, THEAUTH_HOOK_ON_ERROR.
 	 */
