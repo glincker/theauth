@@ -1,0 +1,47 @@
+---
+title: Dev mode
+description: Run theauth dev to get a local server with a demo user, a delegation, and a policy check in under a minute.
+icon: play
+---
+
+`theauth dev` is the fastest way to see delegation, policy and audit working. It needs no config, no database and no account.
+
+```bash
+npx theauth dev
+```
+
+## What it does
+
+It starts a local server on `127.0.0.1` with an in-memory SQLite database, then seeds:
+
+1. A demo user, `demo@theauth.dev`.
+2. A `planner-agent` owned by that user, with read access to repos and write access to issues.
+3. A `worker-agent` that starts with no permissions of its own.
+4. A delegation from the planner to the worker that grants only `read` on `mcp:github:repos`.
+
+It then runs three guarded tool calls and prints the result of each:
+
+| Call | Result | Why |
+| --- | --- | --- |
+| worker reads a repo | allowed | The delegation covers it |
+| worker deletes a repo | denied | The delegation does not cover it |
+| planner writes an issue | allowed | The planner holds that grant itself |
+
+Every call lands in the audit log. The command verifies the audit hash chain and reports the count.
+
+## Open the dashboard
+
+When the dashboard build is present, the walkthrough prints a dashboard URL. Open it to browse the agents, the delegation and the audit entries. If the build is missing, the command prints the API URL only and everything else still works. Try `curl http://localhost:3100/api/agents`.
+
+## Options
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `--port <n>` | `3100` | Also settable with the `THEAUTH_DEV_PORT` environment variable |
+| `--smoke` | off | Run the walkthrough, check the server answers, then exit with code 0 or 1 |
+
+Press Ctrl+C to stop. The data is in memory, so it is gone when the process exits.
+
+## Limits
+
+Dev mode turns off authentication on the management routes and binds to localhost only. Do not expose it. For a real setup, run `npx theauth init`.

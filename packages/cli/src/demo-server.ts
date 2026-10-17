@@ -14,6 +14,19 @@ import { cors } from "hono/cors";
 
 export interface DemoServerOptions {
 	port: number;
+	/** Reuse an already seeded instance instead of creating and seeding one. */
+	theauth?: TheAuth;
+	/** Skip the banner and warnings; the caller prints its own output. */
+	quiet?: boolean;
+	/** Interface to bind. Defaults to all interfaces, as before. */
+	hostname?: string;
+}
+
+export interface DemoServerHandle {
+	port: number;
+	/** True when the dashboard UI is served; false when only the API is up. */
+	dashboard: boolean;
+	close: () => Promise<void>;
 }
 
 const MIME: Record<string, string> = {
@@ -175,28 +188,31 @@ function createAuthRoute(secret: string | null): Hono {
 
 // Server
 
-export async function startDemoServer(options: DemoServerOptions): Promise<void> {
+export async function startDemoServer(options: DemoServerOptions): Promise<DemoServerHandle> {
 	const { port } = options;
+	const quiet = options.quiet === true;
 	const dashboardSecret = env.THEAUTH_DASHBOARD_SECRET ?? null;
 
-	if (dashboardSecret === null) {
+	if (dashboardSecret === null && !quiet) {
 		stdout.write("  [warn] THEAUTH_DASHBOARD_SECRET is not set -- dashboard auth is disabled.\n");
 	}
 
 	// 1. Create TheAuth with in-memory SQLite
-	const theauth = await createTheAuth({
-		database: { provider: "sqlite", url: ":memory:" },
-		agents: {
-			enabled: true,
-			maxPerUser: 50,
-			defaultPermissions: [],
-			auditAll: true,
-			tokenExpiry: "24h",
-		},
-	});
+	const theauth =
+		options.theauth ??
+		(await createTheAuth({
+			database: { provider: "sqlite", url: ":memory:" },
+			agents: {
+				enabled: true,
+				maxPerUser: 50,
+				defaultPermissions: [],
+				auditAll: true,
+				tokenExpiry: "24h",
+			},
+		}));
 
 	// 2. Seed demo data
-	await seedDemoData(theauth);
+	if (options.theauth === undefined) await seedDemoData(theauth);
 
 	// 3. Build the Hono app
 	// Demo only: no authentication on the management routes. Real apps pass
@@ -388,12 +404,27 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	app.route("/api", api);
 
 	// 4. Serve dashboard static files
-	const distDir = resolveDashboardDistDir();
 	const apiUrl = `http://localhost:${port}/api`;
-	const indexHtml = await patchIndexHtml(distDir, apiUrl);
+	let distDir = "";
+	let indexHtml = "";
+	let hasDashboard = true;
+	try {
+		distDir = resolveDashboardDistDir();
+		indexHtml = await patchIndexHtml(distDir, apiUrl);
+	} catch (err) {
+		// A caller that brought its own instance can live without the UI.
+		if (options.theauth === undefined) throw err;
+		hasDashboard = false;
+	}
 
 	// Serve static assets or fall back to SPA index.html
 	app.get("*", (c) => {
+		if (!hasDashboard) {
+			return c.json(
+				{ code: "NO_DASHBOARD", message: "Dashboard build not found. The API is at /api." },
+				404,
+			);
+		}
 		const pathname = decodeURIComponent(new URL(c.req.url).pathname);
 
 		// Try serving a static file if the path has an extension
@@ -422,13 +453,26 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 	});
 
 	// 5. Start the server
-	serve({ fetch: app.fetch, port }, () => {
-		stdout.write("\n");
-		stdout.write("  TheAuth Dashboard (demo mode)\n");
-		stdout.write("  ==============================\n\n");
-		stdout.write(`  Local:     http://localhost:${port}\n`);
-		stdout.write(`  API:       ${apiUrl}\n`);
-		stdout.write(`  Database:  in-memory SQLite\n\n`);
-		stdout.write("  Press Ctrl+C to stop.\n\n");
+	return await new Promise<DemoServerHandle>((resolveStart, rejectStart) => {
+		const server = serve(
+			{ fetch: app.fetch, port, ...(options.hostname ? { hostname: options.hostname } : {}) },
+			() => {
+				if (!quiet) {
+					stdout.write("\n");
+					stdout.write("  TheAuth Dashboard (demo mode)\n");
+					stdout.write("  ==============================\n\n");
+					stdout.write(`  Local:     http://localhost:${port}\n`);
+					stdout.write(`  API:       ${apiUrl}\n`);
+					stdout.write(`  Database:  in-memory SQLite\n\n`);
+					stdout.write("  Press Ctrl+C to stop.\n\n");
+				}
+				resolveStart({
+					port,
+					dashboard: hasDashboard,
+					close: () => new Promise<void>((done) => server.close(() => done())),
+				});
+			},
+		);
+		server.on("error", rejectStart);
 	});
 }

@@ -364,6 +364,7 @@
               "openai-agents-sdk",
               "simulator",
               "rate-limiting",
+              "dev-mode",
               "cli-auth",
               "cli-tools",
               "agent-registration-tokens",
@@ -393,6 +394,7 @@
               "mcp",
               "mcp-grants",
               "mcp-client-compat",
+              "mcp-registry",
               "dpop",
               "gateway"
             ]
@@ -440,6 +442,7 @@
               "electron",
               "browser-extension",
               "ui-components",
+              "registry",
               "dashboard"
             ]
           },

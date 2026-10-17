@@ -12,12 +12,4 @@ pnpm dev
 
 ## Deploy
 
-```bash
-pnpm deploy
-```
-
-## Notes
-
-- Uses D1 binding instead of a connection URL
-- Tables are auto-created on first request
-- See `wrangler.toml` for D1 database configuration
+This folder depends on workspace packages (`workspace:*`), so it only installs inside the monorepo and a one-click deploy button would fail. To get a deployable copy, scaffold a standalone project with `npm create theauth-app@latest` and pick the `cloudflare-workers` template, then set the secret with `wrangler secret put SESSION_SECRET` (copy `.dev.vars.example` to `.dev.vars` for local runs).

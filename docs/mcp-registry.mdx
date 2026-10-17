@@ -1,0 +1,92 @@
+---
+title: MCP Registry
+description: Publish the theAuth MCP server to the official MCP Registry with mcp-publisher.
+icon: upload
+---
+
+The `@glinr/theauth-mcp` package ships a `server.json` at `packages/mcp/server.json`. This page covers listing it in the [MCP Registry](https://registry.modelcontextprotocol.io). The Registry is in preview, so check its docs if a step fails.
+
+The Registry stores metadata only. The package itself must already be on npm.
+
+## What must match
+
+- `name` in `server.json` is `io.github.glincker/theauth-mcp`.
+- `mcpName` in `packages/mcp/package.json` must be the same string. The Registry checks it against the npm package.
+- `version` in `server.json` and in its `packages[0]` entry must equal a version that exists on npm (currently `1.1.1`). Ranges and `latest` are rejected.
+- `description` is at most 100 characters.
+- `$schema` is `https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json`.
+
+Bump both versions in `server.json` each time you publish a new package version.
+
+## Publish steps
+
+1. Publish the npm package first.
+
+   ```bash
+   npm publish --access public
+   ```
+
+2. Install `mcp-publisher`.
+
+   ```bash
+   brew install mcp-publisher
+   ```
+
+   On Linux, download the release tarball from `https://github.com/modelcontextprotocol/registry/releases/latest`.
+
+3. Check the file from the package folder.
+
+   ```bash
+   cd packages/mcp
+   mcp-publisher validate
+   ```
+
+4. Log in. The `io.github.glincker/*` namespace is verified through GitHub, and you must be able to act for the `glincker` organization.
+
+   ```bash
+   mcp-publisher login github
+   ```
+
+   Open `https://github.com/login/device` and enter the code shown.
+
+5. Publish.
+
+   ```bash
+   mcp-publisher publish
+   ```
+
+6. Confirm the listing.
+
+   ```bash
+   curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.glincker/theauth-mcp"
+   ```
+
+## Namespace verification
+
+| Namespace | How it is verified |
+| --- | --- |
+| `io.github.<user or org>/name` | `mcp-publisher login github` |
+| `com.example/name` (reverse domain) | DNS TXT record or an HTTP file, then `mcp-publisher login dns` or `login http` |
+
+For a domain namespace, generate an Ed25519 key, publish the public key, then log in with the private key:
+
+```bash
+openssl genpkey -algorithm Ed25519 -out key.pem
+PUBLIC_KEY="$(openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64)"
+echo "example.com. IN TXT \"v=MCPv1; k=ed25519; p=${PUBLIC_KEY}\""
+```
+
+Put that TXT record on the apex of the domain. For the HTTP method, serve `v=MCPv1; k=ed25519; p=<PUBLIC_KEY>` at `https://example.com/.well-known/mcp-registry-auth`. Then:
+
+```bash
+PRIVATE_KEY="$(openssl pkey -in key.pem -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')"
+mcp-publisher login dns --domain example.com --private-key "${PRIVATE_KEY}"
+```
+
+On macOS use a Homebrew OpenSSL 3 binary, because the system `openssl` cannot generate Ed25519 keys. If you change the namespace, update `name` and `mcpName` together.
+
+## Common errors
+
+- "You do not have permission to publish this server": the `name` prefix does not match the namespace you logged in with.
+- "Invalid or expired Registry JWT token": run `mcp-publisher login github` again.
+- "Registry validation failed for package": `mcpName` is missing or differs from `name`, or the version is not on npm.

@@ -1,6 +1,6 @@
 ---
 title: AI coding assistants
-description: Install theAuth with Claude Code, Cursor or VS Code. A skill file, a local MCP server for docs search and config scaffolding, and llms.txt for everything else.
+description: Point Cursor, Claude Code, Codex, Copilot and Gemini at theAuth. A one-command setup, the docs MCP servers, llms.txt, and copyable rule files.
 icon: robot
 ---
 
@@ -58,9 +58,41 @@ VS Code uses `servers` with `"type": "stdio"` instead of `mcpServers`.
 
 The skill lives in the repository at [`skills/theauth/SKILL.md`](https://github.com/glincker/theauth/blob/main/skills/theauth/SKILL.md) and covers install, adapter choice, plugins, agent identity, delegation and MCP auth. Any tool that reads the `SKILL.md` format can use it directly. `init --agent` copies it into your project.
 
+## The hosted docs MCP server
+
+This docs site also serves a remote MCP server at `https://docs.theauth.dev/mcp`. It exposes a search tool over these docs and needs no install. Add it to a client that supports remote MCP servers:
+
+```bash title="terminal"
+claude mcp add --transport http theauth-docs https://docs.theauth.dev/mcp
+```
+
+For Cursor, VS Code, Codex and Gemini CLI, add the same URL as a remote (HTTP) server in their MCP settings. Config file names change between releases, so check each tool's MCP docs. The Go docs are not part of this server.
+
+## Rule files to copy
+
+Rule files tell the assistant how to use theAuth and what it must not do. Ready-made versions live in [`templates/ai-rules/`](https://github.com/glincker/theauth/tree/main/templates/ai-rules):
+
+| File | Copy to | Tool |
+|---|---|---|
+| `AGENTS.md` | `AGENTS.md` in your project root | Codex, Cursor, Copilot coding agent, Gemini CLI |
+| `.cursor/rules/theauth.mdc` | `.cursor/rules/theauth.mdc` | Cursor |
+| `CLAUDE.md` | append to your `CLAUDE.md` | Claude Code |
+| `copilot-instructions.md` | `.github/copilot-instructions.md` | GitHub Copilot |
+
+Gemini CLI reads `GEMINI.md` by default. Either copy `AGENTS.md` to `GEMINI.md` or set `context.fileName` to `AGENTS.md` in `.gemini/settings.json`.
+
+The rules say how to wire theAuth (one `createTheAuth` instance, an adapter with `authenticate`, `guardTool` around agent tools, `requireMcpAuth` for MCP) and list the things an assistant must not do:
+
+- Never log or commit tokens, secrets or `Authorization` headers.
+- Always verify delegation with `authorize` or `policy.evaluate`. Never trust a claimed owner.
+- Keep policy deny by default. Treat `deny`, `escalate` and errors as "do not run".
+- Wrap every agent tool with `guardTool` or `guardTools`.
+- Use DPoP for MCP tokens that leave your trust boundary.
+- Match redirect URIs exactly.
+
 ## llms.txt
 
-For assistants that fetch context from URLs:
+For assistants that fetch context from URLs (paste the link into Cursor with `@Docs`, or into any chat):
 
 - [`/llms.txt`](https://docs.theauth.dev/llms.txt): one line per page.
 - [`/llms-full.txt`](https://docs.theauth.dev/llms-full.txt): the full text of every page.

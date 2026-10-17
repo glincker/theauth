@@ -26,6 +26,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 | --- | --- | --- |
 | `next-saas` | available | Next.js App Router · Drizzle · theAuth auth |
 | `hono-mcp` | available | Hono server · MCP OAuth 2.1 |
+| `cloudflare-workers` | available | Hono on Workers · D1 database |
 | `expo-mobile` | coming soon | Expo Router · React Native |
 
 ## Database drivers

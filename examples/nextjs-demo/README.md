@@ -40,3 +40,7 @@ lib/
 - SQLite database written to `theauth-demo.db` in the project root
 - No `.env` required, everything runs out of the box
 - Verification and password reset links print to the terminal in dev
+
+## Deploy
+
+This folder depends on workspace packages (`workspace:*`), so it only installs inside the monorepo and a one-click deploy button would fail. To get a deployable copy, scaffold a standalone project with `npm create theauth-app@latest` and pick the `next-saas` template.
