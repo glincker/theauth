@@ -30,7 +30,7 @@ describe("playground scenarios", () => {
 	}, 30_000);
 
 	it("rejects a receipt whose root hash was changed", async () => {
-		const { verifyReceipt } = await import("@glinr/theauth");
+		const { verifyReceipt } = await import("@glinr/theauth/browser");
 		const preset = PRESETS[1];
 		if (!preset) throw new Error("missing preset");
 		const r = await runScenario(preset.call, DEFAULT_POLICY, key);

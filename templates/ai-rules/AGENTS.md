@@ -1,36 +1,36 @@
-# theAuth rules for AI coding assistants
+# theAuth rules
 
-This project uses theAuth (`@glinr/theauth`) for agent and human auth.
-
-## How to wire theAuth
-
-- Package: `@glinr/theauth`. Docs: https://docs.theauth.dev (full text: https://docs.theauth.dev/llms-full.txt). Check the docs or the installed types before using an option. Do not invent APIs.
-- Create one instance at startup and reuse it:
+Package `@glinr/theauth`. Docs: https://docs.theauth.dev (full text: https://docs.theauth.dev/llms-full.txt). Do not invent APIs.
 
 ```ts
 import { createTheAuth } from "@glinr/theauth";
 
-export const theauth = await createTheAuth({
+export const theauth = await createTheAuth({ // once at startup, reuse
   database: { provider: "sqlite", url: "theauth.db" },
   agents: { enabled: true, auditAll: true },
 });
+// Mount the framework adapter (-hono, -express, -fastify, -nextjs)
+// Agent action: theauth.authorize(agentId, { action, resource }) or theauth.policy.evaluate(...)
+// Agent tool: guardTool or guardTools, never execute around the guard
+// MCP: createMcpModule (@glinr/theauth/mcp), mcp.requireMcpAuth or mcp.requireScopes
 ```
 
-- Look for an existing `createTheAuth(` before adding one. Extend it.
-- Mount the framework adapter for the framework the project already uses (`@glinr/theauth-hono`, `-express`, `-fastify`, `-nextjs`, and others). Management routes need `authenticate` or `auth.session`. Never ship `allowUnauthenticated: true`.
-- Check every agent action with `theauth.authorize(agentId, { action, resource })` or `theauth.policy.evaluate(...)` and branch on the result. `evaluate` returns `allow`, `deny` or `escalate`.
-- Wrap agent tools with `guardTool` or `guardTools` from `@glinr/theauth` (see https://docs.theauth.dev/agent-tools). Do not call a tool's `execute` around the guard.
-- MCP auth: `createMcpModule` from `@glinr/theauth/mcp`, protect handlers with `mcp.requireMcpAuth(...)` or `mcp.requireScopes(request, [...])`. Enable DPoP with the `dpop` option (https://docs.theauth.dev/dpop).
-- Run the project's typecheck after edits.
+## Must
 
-## Security rules (do not break these)
+- Extend the existing `createTheAuth(` instead of adding one.
+- Treat policy as deny by default: `deny`, `escalate` and `indeterminate` mean do not run.
+- Verify delegation with `theauth.delegate(...)` and `authorize` or `policy.evaluate`. Delegation only narrows permissions.
+- After `escalate`, get human approval and retry with the approval id (single use).
+- Use the `dpop` option on MCP tokens that leave your trust boundary. Share the replay cache across instances.
+- Read secrets from environment variables. Session and MCP signing secrets are 32+ characters.
+- Match redirect URIs exactly. PKCE S256 only.
 
-1. Never log, print, return in an error, or commit tokens. That covers agent tokens (`kv_...`), session and refresh tokens, bearer headers, DPoP proofs, signing secrets and `THEAUTH_SESSION_SECRET`. Redact `Authorization` headers in request logs.
-2. An agent token is shown once at creation. Store it in a secrets manager. Rotate with `theauth.agent.rotate`.
-3. Always verify delegation. Never trust a caller's claim that it acts for a user or another agent. Use `theauth.delegate(...)` to create grants and `authorize` or `policy.evaluate` to check them. Delegation can only narrow permissions, so never write code that copies a parent's permissions wider.
-4. Policy is deny by default. Treat `deny`, `escalate` and `indeterminate` as "do not run". Never turn an error from the policy check into an allow. Do not add catch-all `*` permissions to make a test pass.
-5. Every tool an agent can call goes through `guardTool` or `guardTools`. After `escalate`, wait for a human approval and retry with the approval id. An approval is single use.
-6. Turn on DPoP for MCP access tokens that leave your trust boundary, and keep the replay cache on shared storage when you run more than one instance.
-7. Redirect URIs are matched exactly. Never use prefix, substring, regex or wildcard matching, and never accept a `redirect_uri` that was not registered for the client. PKCE S256 is the only challenge method.
-8. Secrets come from environment variables. Session and MCP signing secrets are 32+ characters.
-9. Do not disable cookie `Secure`, `HttpOnly` or `SameSite`, and do not turn off rate limits to get a test green.
+## Never
+
+- Log, print, return in errors or commit tokens, session cookies, bearer headers, DPoP proofs, signing secrets or `THEAUTH_SESSION_SECRET`. Redact `Authorization` in request logs.
+- Store an agent token (`kv_...`, shown once) anywhere but a secrets manager. Rotate with `theauth.agent.rotate`.
+- Turn a policy error into an allow, or add catch-all `*` permissions to pass a test.
+- Copy a parent's permissions wider when delegating.
+- Ship `allowUnauthenticated: true`. Management routes need `authenticate` or `auth.session`.
+- Use prefix, substring, regex or wildcard redirect matching.
+- Disable cookie `Secure`, `HttpOnly` or `SameSite`, or rate limits, to get a test green.

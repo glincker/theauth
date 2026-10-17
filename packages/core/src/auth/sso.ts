@@ -30,7 +30,6 @@
  * ```
  */
 
-import { deflateRaw } from "node:zlib";
 import { and, eq } from "drizzle-orm";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { generateId, randomBytesHex, sha256Raw, toHex } from "../crypto/web-crypto.js";
@@ -576,14 +575,12 @@ function getSamlAttributeValue(assertion: XmlNode, attributeName: string): strin
 
 // SAML helpers
 
-function deflateRawAsync(input: string): Promise<Uint8Array> {
-	const encoder = new TextEncoder();
-	return new Promise((resolve, reject) => {
-		deflateRaw(encoder.encode(input), (err, result) => {
-			if (err) reject(err);
-			else resolve(new Uint8Array(result));
-		});
-	});
+async function deflateRawAsync(input: string): Promise<Uint8Array> {
+	// Web standard API (Node 18+, Workers, Deno, Bun, browsers): keeps node:zlib out of the graph.
+	const stream = new Blob([new TextEncoder().encode(input)])
+		.stream()
+		.pipeThrough(new CompressionStream("deflate-raw"));
+	return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {

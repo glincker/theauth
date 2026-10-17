@@ -6,35 +6,4 @@ alwaysApply: false
 
 # theAuth
 
-## How to wire theAuth
-
-- Package: `@glinr/theauth`. Docs: https://docs.theauth.dev (full text: https://docs.theauth.dev/llms-full.txt). Check the docs or the installed types before using an option. Do not invent APIs.
-- Create one instance at startup and reuse it:
-
-```ts
-import { createTheAuth } from "@glinr/theauth";
-
-export const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
-  agents: { enabled: true, auditAll: true },
-});
-```
-
-- Look for an existing `createTheAuth(` before adding one. Extend it.
-- Mount the framework adapter for the framework the project already uses (`@glinr/theauth-hono`, `-express`, `-fastify`, `-nextjs`, and others). Management routes need `authenticate` or `auth.session`. Never ship `allowUnauthenticated: true`.
-- Check every agent action with `theauth.authorize(agentId, { action, resource })` or `theauth.policy.evaluate(...)` and branch on the result. `evaluate` returns `allow`, `deny` or `escalate`.
-- Wrap agent tools with `guardTool` or `guardTools` from `@glinr/theauth` (see https://docs.theauth.dev/agent-tools). Do not call a tool's `execute` around the guard.
-- MCP auth: `createMcpModule` from `@glinr/theauth/mcp`, protect handlers with `mcp.requireMcpAuth(...)` or `mcp.requireScopes(request, [...])`. Enable DPoP with the `dpop` option (https://docs.theauth.dev/dpop).
-- Run the project's typecheck after edits.
-
-## Security rules (do not break these)
-
-1. Never log, print, return in an error, or commit tokens. That covers agent tokens (`kv_...`), session and refresh tokens, bearer headers, DPoP proofs, signing secrets and `THEAUTH_SESSION_SECRET`. Redact `Authorization` headers in request logs.
-2. An agent token is shown once at creation. Store it in a secrets manager. Rotate with `theauth.agent.rotate`.
-3. Always verify delegation. Never trust a caller's claim that it acts for a user or another agent. Use `theauth.delegate(...)` to create grants and `authorize` or `policy.evaluate` to check them. Delegation can only narrow permissions, so never write code that copies a parent's permissions wider.
-4. Policy is deny by default. Treat `deny`, `escalate` and `indeterminate` as "do not run". Never turn an error from the policy check into an allow. Do not add catch-all `*` permissions to make a test pass.
-5. Every tool an agent can call goes through `guardTool` or `guardTools`. After `escalate`, wait for a human approval and retry with the approval id. An approval is single use.
-6. Turn on DPoP for MCP access tokens that leave your trust boundary, and keep the replay cache on shared storage when you run more than one instance.
-7. Redirect URIs are matched exactly. Never use prefix, substring, regex or wildcard matching, and never accept a `redirect_uri` that was not registered for the client. PKCE S256 is the only challenge method.
-8. Secrets come from environment variables. Session and MCP signing secrets are 32+ characters.
-9. Do not disable cookie `Secure`, `HttpOnly` or `SameSite`, and do not turn off rate limits to get a test green.
+Follow `AGENTS.md` in the repository root for wiring and security rules.

@@ -32,7 +32,8 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "THEAUTH_FRAMEWORK_INTEGRATION=1 vitest run tests/integration"
   },
   "peerDependencies": {
     "@glinr/theauth": ">=1.2.0",
@@ -49,9 +50,13 @@
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
+    "@langchain/core": "1.2.18",
+    "@langchain/langgraph": "1.5.1",
+    "@mastra/core": "1.78.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "zod": "4.3.6"
   },
   "homepage": "https://docs.theauth.dev/agent-frameworks",
   "bugs": {

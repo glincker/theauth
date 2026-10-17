@@ -119,9 +119,10 @@ describe("TheAuth Gateway", () => {
 			gateway = createGateway({ upstream: UPSTREAM, theauth });
 			const res = await gateway.handleRequest(makeRequest("/_theauth/health"));
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { status: string; upstream: string };
+			const body = (await res.json()) as { status: string; upstream?: string };
 			expect(body.status).toBe("ok");
-			expect(body.upstream).toBe(UPSTREAM);
+			// The upstream location is not disclosed to unauthenticated callers.
+			expect(body.upstream).toBeUndefined();
 		});
 
 		it("does not forward health check to upstream", async () => {
@@ -272,7 +273,7 @@ describe("TheAuth Gateway", () => {
 				theauth,
 				policies: [{ path: "/api/*", public: true }],
 			});
-			// /api/users/123 has two levels beyond /api — micromatch /* matches one
+			// /api/users/123 has two levels beyond /api - micromatch /* matches one
 			const res = await gateway.handleRequest(makeRequest("/api/users/123"));
 			expect(res.status).toBe(401); // falls back to requiring auth
 		});
@@ -562,7 +563,7 @@ describe("TheAuth Gateway", () => {
 			expect(capturedHeaders.authorization).toBeUndefined();
 		});
 
-		it("keeps Authorization header when stripAuthHeader is false (default)", async () => {
+		it("keeps Authorization header only when stripAuthHeader is false", async () => {
 			const { token } = await createTestAgent(theauth);
 			const capturedHeaders: Record<string, string> = {};
 
@@ -574,7 +575,7 @@ describe("TheAuth Gateway", () => {
 				return Promise.resolve(upstreamOk());
 			});
 
-			gateway = createGateway({ upstream: UPSTREAM, theauth });
+			gateway = createGateway({ upstream: UPSTREAM, theauth, stripAuthHeader: false });
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
 			expect(capturedHeaders.authorization).toBeTruthy();
@@ -691,7 +692,7 @@ describe("TheAuth Gateway", () => {
 
 			// Without audit, the only log entries would come from the initial agent creation
 			const entries = await theauth.audit.query({ limit: 100 });
-			// There may be 0 gateway-specific entries — just verify no crash
+			// There may be 0 gateway-specific entries - just verify no crash
 			expect(Array.isArray(entries)).toBe(true);
 		});
 	});

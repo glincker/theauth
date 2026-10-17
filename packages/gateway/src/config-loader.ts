@@ -30,6 +30,7 @@ const GatewayPolicySchema = z.object({
 		.optional(),
 	rateLimit: RateLimitConfigSchema.optional(),
 	public: z.boolean().optional(),
+	requiredScopes: z.array(z.string().min(1)).optional(),
 });
 
 /** RFC 9110 header field name token. */
@@ -52,8 +53,21 @@ const TrustedProxyConfigSchema = z
 	})
 	.strict();
 
+/** MCP mode in a config file. The CLI builds the validator from env, see cli.ts. */
+const McpFileConfigSchema = z
+	.object({
+		resource: z.string().url(),
+		issuer: z.string().url().optional(),
+		requiredScopes: z.array(z.string().min(1)).optional(),
+		resourceMetadataUrl: z.string().url().optional(),
+	})
+	.strict();
+
 export const GatewayFileConfigSchema = z.object({
-	upstream: z.string().url(),
+	upstream: z
+		.string()
+		.url()
+		.refine((u) => /^https?:\/\//i.test(u), "must be an http or https URL"),
 	basePath: z.string().optional(),
 	policies: z.array(GatewayPolicySchema).optional(),
 	cors: CorsConfigSchema.optional(),
@@ -61,6 +75,9 @@ export const GatewayFileConfigSchema = z.object({
 	audit: z.boolean().optional(),
 	stripAuthHeader: z.boolean().optional(),
 	trustedProxy: TrustedProxyConfigSchema.optional(),
+	maxBodyBytes: z.number().int().positive().optional(),
+	upstreamTimeoutMs: z.number().int().positive().optional(),
+	mcp: McpFileConfigSchema.optional(),
 });
 
 export type GatewayFileConfig = z.infer<typeof GatewayFileConfigSchema>;

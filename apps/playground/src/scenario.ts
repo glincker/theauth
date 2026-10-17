@@ -9,7 +9,7 @@ import type {
 	TaintConfig,
 	TaintVerdict,
 	TheAuth,
-} from "@glinr/theauth";
+} from "@glinr/theauth/browser";
 import {
 	createCheckpoint,
 	createReceipt,
@@ -21,7 +21,8 @@ import {
 	tainted,
 	users,
 	verifyReceipt,
-} from "@glinr/theauth";
+} from "@glinr/theauth/browser";
+import { loadSqlJs } from "./edge/sql-js.js";
 import type { PlaygroundPolicy, ToolCall } from "./presets.js";
 
 export type Outcome = "allow" | "deny" | "escalate";
@@ -84,6 +85,7 @@ const HMAC_KEY = "playground-audit-key";
 async function buildAuth(policy: PlaygroundPolicy): Promise<TheAuth> {
 	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
+		sqlJs: loadSqlJs,
 		agents: { enabled: true, maxPerUser: 5, defaultPermissions: [], auditAll: true },
 		audit: { tamperEvident: true, hmacKey: HMAC_KEY },
 		policy: {
