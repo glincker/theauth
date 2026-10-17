@@ -11,6 +11,13 @@ const ROOT = resolve(import.meta.dirname, "..");
 // done by hand: a rejected first publish would fail the whole run. Set INCLUDE_ALIAS=1 to include it.
 const EXCLUDE = new Set(process.env.INCLUDE_ALIAS === "1" ? [] : ["packages/theauth-alias"]);
 
+// Brand new packages cannot be created by the automated publish (npm answers 404 on the first PUT, which fails the whole
+// run and blocks every other package). Publish each once by hand with `npm publish --access public`, add its trusted
+// publisher on npmjs.com, then delete it from this list.
+for (const dir of ["packages/conformance", "packages/agent-frameworks"]) {
+	if (process.env.INCLUDE_NEW_PACKAGES !== "1") EXCLUDE.add(dir);
+}
+
 function walk(dir, depth, out) {
 	if (depth > 3) return;
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
