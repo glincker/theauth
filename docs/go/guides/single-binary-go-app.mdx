@@ -46,7 +46,7 @@ a, err := theauth.New(theauth.Config{
 })
 ```
 
-- `CoreStorage` is used because SQLite does not implement organizations, SAML, SCIM or RBAC. Enabling a feature that needs one fails in `New` with `ErrStorageMissingCapability`. See [Capability interfaces](/go/concepts/capability-interfaces).
+- `Config.CoreStorage` is used because the SQLite store is passed as the core store; the extra capabilities it implements (organizations, SAML, SCIM, RBAC) are detected by type assertion. The OAuth authorization server, agents and CIBA are in the release after v2.10.0 (migrations 0020 to 0034), not in v2.10.0. Enabling a feature whose capability the store lacks fails in `New` with `ErrStorageMissingCapability`. See [Capability interfaces](/go/concepts/capability-interfaces).
 - `Bootstrap` closes public signup until the first user exists. Without `SetupToken`, a random one is generated and logged once. `a.SetupToken()` returns it if you would rather print it yourself.
 - Without RBAC there is no admin role, so supply `UserAbilities` yourself. It is evaluated on every request, so changing a user's role narrows their existing tokens at once.
 - Local HTTP only: leave `BaseURL` as `http://...` and the cookie is not marked `Secure`. With an `https://` base URL it is.

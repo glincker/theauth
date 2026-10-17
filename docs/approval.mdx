@@ -237,8 +237,8 @@ console.log(`Expired ${result.expired} stale approval requests`);
 const request = await theauth.approval.get('apr_...');
 
 if (request?.status === 'approved') {
-  // Safe to carry out the action. authorize() will still deny this
-  // permission, so run the action directly from your own code.
+  // Approved. Call authorize() again with approvalId: request.id. It spends
+  // the approval once and allows the call, then you carry out the action.
   await deleteFile('/prod/dataset.csv');
 } else if (request?.status === 'denied') {
   console.log('Human denied the request.');
@@ -257,6 +257,6 @@ if (request?.status === 'approved') {
   Trust levels are separate from approval. Use them in your own logic to decide which agents get requireApproval permissions.
 </Card>
   <Card title="Audit trail" href="/audit">
-  Denials caused by requireApproval are written to the audit log as denied. The approval module itself does not write audit entries.
+  Denials caused by requireApproval are written to the audit log as denied. An allow that spends an approval is audited with the approver's id in `approver_id`. Creating a request (`approval.request`) and approving or denying it (`approval.approve`, `approval.deny`) also write audit entries.
 </Card>
 </CardGroup>

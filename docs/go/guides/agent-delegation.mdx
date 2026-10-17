@@ -9,7 +9,7 @@ This guide walks the OAuth path for agents: an agent owned by a user, a credenti
 
 - `Config.AuthorizationServer` and a 32 byte `Config.EncryptionKey`.
 - `Config.AgentIdentity` (an empty `&theauth.AgentConfig{}` takes the defaults: chain depth 3, delegation cap 90 days, delegated token TTL 15 minutes).
-- A storage backend with agent identity support: memory, Postgres or MySQL. SQLite does not have it.
+- A storage backend with agent identity support: memory, Postgres, MySQL, or SQLite from the release after v2.10.0 (migrations 0030 and 0031). In v2.10.0 itself SQLite does not have it.
 
 ## Register an agent
 

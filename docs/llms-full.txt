@@ -12711,9 +12711,9 @@ await theauth.agent.revoke(agentId);
 // The agent's token is rejected immediately
 ```
 
-Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked or expired agent with `POLICY_AGENT_INACTIVE`.
+Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked, suspended or expired agent with `POLICY_AGENT_INACTIVE`. This check is pending in a changeset and is available in the next release after 1.1.2. Before it, `evaluate()` took an agent id directly and did not read the agent's status.
 
-In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`.
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`. The cascade is pending in a changeset and is available in the next release after 1.1.2. Before it, `agent.revoke()` did not touch delegation chains.
 
 <Warning>
 Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
@@ -13116,7 +13116,7 @@ Revocation takes effect on the next `authorize()` call. It does not terminate an
 </Warning>
 
 <Note>
-In the TypeScript package, `agent.revoke()` also revokes every active chain where the agent is the source or the target, and the chains downstream of them. It returns their ids as `revokedDelegations` and writes one `agent.cascade.revoked` audit row for the agent. Use `delegation.revoke()` when you want to cut one chain and keep the agent.
+In the TypeScript package, `agent.revoke()` also revokes every active chain where the agent is the source or the target, and the chains downstream of them. It returns their ids as `revokedDelegations` and writes one `agent.cascade.revoked` audit row for the agent. Use `delegation.revoke()` when you want to cut one chain and keep the agent. This `agent.revoke()` cascade is pending in a changeset and is available in the next release after 1.1.2. Before it, revoke the agent's chains with `delegation.revoke()`.
 </Note>
 
 <Note>
@@ -15726,8 +15726,8 @@ console.log(`Expired ${result.expired} stale approval requests`);
 const request = await theauth.approval.get('apr_...');
 
 if (request?.status === 'approved') {
-  // Safe to carry out the action. authorize() will still deny this
-  // permission, so run the action directly from your own code.
+  // Approved. Call authorize() again with approvalId: request.id. It spends
+  // the approval once and allows the call, then you carry out the action.
   await deleteFile('/prod/dataset.csv');
 } else if (request?.status === 'denied') {
   console.log('Human denied the request.');
@@ -15746,7 +15746,7 @@ if (request?.status === 'approved') {
   Trust levels are separate from approval. Use them in your own logic to decide which agents get requireApproval permissions.
 </Card>
   <Card title="Audit trail" href="/audit">
-  Denials caused by requireApproval are written to the audit log as denied. The approval module itself does not write audit entries.
+  Denials caused by requireApproval are written to the audit log as denied. An allow that spends an approval is audited with the approver's id in `approver_id`. Creating a request (`approval.request`) and approving or denying it (`approval.approve`, `approval.deny`) also write audit entries.
 </Card>
 </CardGroup>
 
@@ -18122,7 +18122,7 @@ Adapters register these routes relative to their mount path (default `/api/theau
 | `GET /mcp/authorize` | OAuth 2.1 | Authorization endpoint |
 | `POST /mcp/token` | OAuth 2.1 | Token endpoint |
 
-So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. The authorization server metadata also advertises `revocation_endpoint` (`/mcp/revoke`) and `jwks_uri` (`/mcp/jwks`), but the TypeScript adapters do not serve either route today.
+So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. The authorization server metadata also advertises `revocation_endpoint` (`/mcp/revoke`) and `jwks_uri` (`/mcp/jwks`), but the TypeScript adapters do not serve either route today. To accept revocation, mount a `POST` route yourself that passes the incoming `Request` to `mcp.revoke(request)` (RFC 7009, client authenticated, own tokens only). To publish keys, serve `await mcp.getJwks()` at the `jwks_uri`. For example in Hono: `app.post('/api/theauth/mcp/revoke', async (c) => { await mcp.revoke(c.req.raw); return c.body(null, 200); })`.
 
 <Warning>
   The well-known documents are registered relative to the mount point, so with the default mount they live at `/api/theauth/.well-known/...`. MCP clients look for them at the root of your origin (`/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`). When you mount the adapter under a prefix, add root-level routes (or rewrites) that serve the same documents:
@@ -18532,7 +18532,7 @@ const mcp = createMcpModule({
 });
 ```
 
-Clients that authenticate with `private_key_jwt` can also revoke tokens at `/mcp/revoke`. The assertion audience must be the revoke endpoint URL or the issuer, an assertion addressed to the token endpoint is refused there, and the `jti` store is shared with the token endpoint. An assertion combined with basic auth or `client_secret` is rejected.
+Clients that authenticate with `private_key_jwt` can also revoke tokens through `mcp.revoke(request)`. The framework adapters do not serve `/mcp/revoke` themselves, so mount a `POST` route in your host that calls `mcp.revoke(request)` (see [MCP](/mcp)); metadata advertises `<baseUrl>/mcp/revoke`, so mount it there. The assertion audience must be the revoke endpoint URL or the issuer, an assertion addressed to the token endpoint is refused there, and the `jti` store is shared with the token endpoint. An assertion combined with basic auth or `client_secret` is rejected.
 
 `createMcpModule` throws at startup if `tokenExchange.enabled` is set without `jtiDenylist`. The denylist is what makes a revoked subject token fail the exchange. See the multi-instance note below.
 
@@ -18634,7 +18634,7 @@ Each `jti` works once per client. Do not send a `client_secret` or Basic header 
 
 Two stores default to process memory and break down behind a load balancer.
 
-**`jtiDenylist`.** `createInMemoryJtiDenylist()` is per process. A token revoked at `/mcp/revoke` on one instance still exchanges on another. Pass your own `McpJtiDenylist` (`revoke(jti, expiresAt)` and `isRevoked(jti)`) backed by Redis or your database.
+**`jtiDenylist`.** `createInMemoryJtiDenylist()` is per process. A token revoked through `mcp.revoke` on one instance still exchanges on another. Pass your own `McpJtiDenylist` (`revoke(jti, expiresAt)` and `isRevoked(jti)`) backed by Redis or your database.
 
 **`assertionStorage`.** The replay cache for `private_key_jwt` assertions and jwt-bearer `jti` values defaults to an in-process store. With several instances an assertion can be replayed once per instance. Give every instance the same shared store:
 
