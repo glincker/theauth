@@ -1,57 +1,32 @@
-import { eq } from "drizzle-orm";
 import { createAgentModule } from "./agent/agent.js";
+import { createAgentFacade } from "./agent/facade.js";
 import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
 import { createAuditModule } from "./audit/audit.js";
 import { enableAuditChain } from "./audit/chain.js";
+import { createAuditFacade } from "./audit/facade.js";
 import { setAuditWriteErrorHandler } from "./audit/record.js";
-import type { AdminModule } from "./auth/admin.js";
-import { createAdminModule } from "./auth/admin.js";
-import type { ApiKeyManagerModule } from "./auth/api-key-manager.js";
-import { createApiKeyManagerModule } from "./auth/api-key-manager.js";
-import type { CaptchaModule } from "./auth/captcha.js";
-import { createCaptchaModule } from "./auth/captcha.js";
-import type { EmailOtpModule } from "./auth/email-otp.js";
-import { createEmailOtpModule } from "./auth/email-otp.js";
-import type { EmailVerificationModule } from "./auth/email-verification.js";
-import { createEmailVerificationModule } from "./auth/email-verification.js";
-import type { MagicLinkModule } from "./auth/magic-link.js";
-import { createMagicLinkModule } from "./auth/magic-link.js";
-import { createOneTimeTokenModule } from "./auth/one-time-token.js";
-import type { OrgModule } from "./auth/organization.js";
-import { createOrgModule } from "./auth/organization.js";
-import type { PasskeyModule } from "./auth/passkey.js";
-import { createPasskeyModule } from "./auth/passkey.js";
-import type { PasswordResetModule } from "./auth/password-reset.js";
-import { createPasswordResetModule } from "./auth/password-reset.js";
-import type { PhoneAuthModule } from "./auth/phone.js";
-import { createPhoneAuthModule } from "./auth/phone.js";
+import { createHumanAuthModules } from "./auth/human-modules.js";
 import type { SignInGate } from "./auth/sign-in-gate.js";
 import { createSignInGate } from "./auth/sign-in-gate.js";
-import { signInGatePlugin } from "./auth/sign-in-gate-plugin.js";
-import type { SsoModule } from "./auth/sso.js";
-import { createSsoModule } from "./auth/sso.js";
-import type { TotpModule } from "./auth/totp.js";
-import { createTotpModule } from "./auth/totp.js";
 import type { ResolvedUser } from "./auth/types.js";
-import type { UsernameAuthModule } from "./auth/username.js";
-import { createUsernameAuthModule } from "./auth/username.js";
-import type { WebhookModule } from "./auth/webhooks.js";
-import { createWebhookModule } from "./auth/webhooks.js";
 import { createAuthorizePipeline } from "./authorize/pipeline.js";
 import type { Database } from "./db/database.js";
 import { createTables } from "./db/migrations.js";
-import { users } from "./db/schema.js";
 import { createDelegationModule } from "./delegation/delegation.js";
 import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
 import { createHookRuntime } from "./hooks/runtime.js";
 import { createMcpServerRegistry } from "./mcp/server-registry.js";
 import { createPermissionEngine } from "./permission/engine.js";
-import { buildClearCookie, extractToken, json } from "./plugin/helpers.js";
+import {
+	createEndpointContext,
+	createRequestHookRunner,
+	registerSessionEndpoints,
+	withSignInGatePlugin,
+} from "./plugin/core-wiring.js";
 import { createPluginRouter } from "./plugin/router.js";
 import { initializePlugins } from "./plugin/runner.js";
-import type { EndpointContext, TheAuthPlugin } from "./plugin/types.js";
 import { createPolicyModule } from "./policies/budget.js";
 import { createPolicyEngine } from "./policy/engine.js";
 import type { PolicyEngine } from "./policy/types.js";
@@ -64,20 +39,8 @@ import { createSessionManager } from "./session/session.js";
 import { assertSecondaryStorageConfig, createSecondaryStorageResolver } from "./storage/resolve.js";
 import { createTenantModule } from "./tenant/tenant.js";
 import { createTrustModule } from "./trust/scoring.js";
-import type {
-	AuditExportOptions,
-	AuditFilter,
-	DelegateInput,
-	DelegationChain,
-	TheAuthConfig,
-} from "./types.js";
+import type { TheAuthConfig } from "./types.js";
 import { createUserModule } from "./user/user.js";
-
-/** Append the sign-in gate routes unless the caller already registered them. */
-function withSignInGatePlugin(plugins: TheAuthPlugin[], hasSession: boolean): TheAuthPlugin[] {
-	if (!hasSession || plugins.some((p) => p.id === "theauth-sign-in-gate")) return plugins;
-	return [...plugins, signInGatePlugin()];
-}
 
 /** Opens the database for a config. Injected so entry points choose which drivers can load. */
 export type DatabaseOpener = (config: TheAuthConfig["database"]) => Promise<Database>;
@@ -104,16 +67,13 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		runBeforeAuthorize: hooks.beforeAuthorize ? runBeforeAuthorize : undefined,
 	});
 
-	const agentConfig = {
+	const agentModule = createAgentModule({
 		db,
 		maxPerUser: config.agents?.maxPerUser ?? 10,
 		defaultPermissions: config.agents?.defaultPermissions ?? [],
 		tokenExpiry: config.agents?.tokenExpiry ?? "24h",
-	};
-
-	const agentModule = createAgentModule(agentConfig);
+	});
 	const userModule = createUserModule({ db });
-
 	const permissionEngine = createPermissionEngine({
 		db,
 		auditAll: config.agents?.auditAll ?? true,
@@ -126,7 +86,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	const auditModule = createAuditModule({ db, hmacKey: config.audit?.hmacKey });
 
 	const delegationModule = createDelegationModule({ db });
-
 	const sessionManager: SessionManager | null = config.auth?.session
 		? createSessionManager(config.auth.session, db)
 		: null;
@@ -142,7 +101,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	});
 
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
-
 	const { authorize, authorizeByToken } = createAuthorizePipeline({
 		db,
 		hooks,
@@ -159,75 +117,29 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	});
 
 	const tenantModule = createTenantModule(db);
-
 	const policyModule = createPolicyModule(db);
-
 	const trustModule = createTrustModule({}, db);
-
 	const didModule = createDidModule(db, config.did);
 
-	const magicLinkModule: MagicLinkModule | null =
-		config.magicLink && sessionManager
-			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate)
-			: null;
-
-	const emailOtpModule: EmailOtpModule | null =
-		config.emailOtp && sessionManager
-			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
-			: null;
-
-	const totpModule: TotpModule | null = config.totp ? createTotpModule(config.totp, db) : null;
-
-	const passkeyModule: PasskeyModule | null = config.passkey
-		? createPasskeyModule(config.passkey, db)
-		: null;
-
-	const orgModule: OrgModule | null = config.org ? createOrgModule(config.org, db) : null;
-
-	const ssoModule: SsoModule | null = config.sso ? createSsoModule(config.sso, db) : null;
-
-	const adminModule: AdminModule | null = config.admin
-		? createAdminModule(config.admin, db, sessionManager)
-		: null;
-
-	const apiKeyManagerModule: ApiKeyManagerModule | null = config.apiKeys
-		? createApiKeyManagerModule(config.apiKeys, db)
-		: null;
-
-	const usernameModule: UsernameAuthModule | null =
-		config.username && sessionManager
-			? createUsernameAuthModule(config.username, db, sessionManager, signInGate)
-			: null;
-
-	const oneTimeTokenModule = createOneTimeTokenModule({}, db);
-	const passwordResetModule: PasswordResetModule | null =
-		config.passwordReset && sessionManager
-			? createPasswordResetModule(
-					config.passwordReset,
-					db,
-					sessionManager,
-					oneTimeTokenModule,
-					signInGate,
-				)
-			: null;
-
-	const emailVerificationModule: EmailVerificationModule | null = config.emailVerification
-		? createEmailVerificationModule(config.emailVerification, db, oneTimeTokenModule)
-		: null;
-
-	const phoneModule: PhoneAuthModule | null =
-		config.phone && sessionManager
-			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate)
-			: null;
-
-	const captchaModule: CaptchaModule | null = config.captcha
-		? createCaptchaModule(config.captcha)
-		: null;
+	const {
+		magicLinkModule,
+		emailOtpModule,
+		totpModule,
+		passkeyModule,
+		orgModule,
+		ssoModule,
+		adminModule,
+		apiKeyManagerModule,
+		usernameModule,
+		oneTimeTokenModule,
+		passwordResetModule,
+		emailVerificationModule,
+		phoneModule,
+		captchaModule,
+		webhookModule,
+	} = createHumanAuthModules(config, db, sessionManager, signInGate);
 
 	const redirectChain: RedirectChainManager = createRedirectChain(config.redirects);
-
-	const webhookModule: WebhookModule | null =
-		config.webhooks && config.webhooks.length > 0 ? createWebhookModule(config.webhooks) : null;
 
 	// Runs after core modules so plugins can depend on them.
 	assertSecondaryStorageConfig(config.secondaryStorage);
@@ -241,155 +153,26 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		signInGate,
 	);
 
-	const endpointCtx: EndpointContext = {
-		db,
-		trustedProxy: config.trustedProxy,
-		async getUser(request: Request): Promise<ResolvedUser | null> {
-			if (authAdapter) {
-				const user = await authAdapter.resolveUser(request);
-				if (user) return user;
-			}
-
-			if (sessionManager) {
-				const token = extractToken(request);
-				if (!token) return null;
-
-				try {
-					const session = await sessionManager.validate(token);
-					if (!session) return null;
-
-					const userRows = await db.select().from(users).where(eq(users.id, session.userId));
-					const user = userRows[0];
-					if (!user) return null;
-
-					return {
-						id: user.id,
-						email: user.email ?? undefined,
-						name: user.name ?? undefined,
-					};
-				} catch {
-					return null;
-				}
-			}
-
-			return null;
-		},
-		async getSession(token: string) {
-			if (!sessionManager) return null;
-			return sessionManager.validate(token);
-		},
-	};
-
-	async function runRequestHooks(request: Request): Promise<Request | Response> {
-		let current = request;
-		for (const hook of pluginRegistry.hooks.onRequest) {
-			if (!hook) continue;
-			const result = await hook(current);
-			if (result instanceof Response) return result;
-			if (result instanceof Request) current = result;
-		}
-		return current;
-	}
+	const endpointCtx = createEndpointContext(db, config, sessionManager);
+	const runRequestHooks = createRequestHookRunner(pluginRegistry);
 
 	const pluginRouter = createPluginRouter(pluginRegistry.endpoints, {
 		trustedProxy: config.trustedProxy,
 	});
 
-	if (sessionManager) {
-		pluginRegistry.endpoints.push({
-			method: "POST",
-			path: "/auth/sign-out",
-			metadata: { description: "Revoke the current session and clear cookie" },
-			async handler(request) {
-				const token = extractToken(request);
-				if (!token) return json({ error: "No session" }, 401);
+	if (sessionManager) registerSessionEndpoints(pluginRegistry, sessionManager, endpointCtx);
 
-				try {
-					const session = await sessionManager.validate(token);
-					if (session) {
-						await sessionManager.revoke(session.id);
-					}
-				} catch {
-					// Invalid token: still clear the cookie.
-				}
-
-				return new Response(JSON.stringify({ success: true }), {
-					status: 200,
-					headers: {
-						"Content-Type": "application/json",
-						"Set-Cookie": buildClearCookie("theauth_session"),
-					},
-				});
-			},
-		});
-
-		pluginRegistry.endpoints.push({
-			method: "GET",
-			path: "/auth/session",
-			metadata: { description: "Get current session and user info" },
-			async handler(request) {
-				const user = await endpointCtx.getUser(request);
-				if (!user) return json({ error: "Not authenticated" }, 401);
-
-				const token = extractToken(request);
-				const session = token ? await sessionManager.validate(token) : null;
-
-				return json({
-					user,
-					session: session ? { id: session.id, expiresAt: session.expiresAt } : null,
-				});
-			},
-		});
-	}
-
-	async function delegate(input: DelegateInput): Promise<DelegationChain> {
-		const parentAgent = await agentModule.get(input.fromAgent);
-		if (!parentAgent) throw new Error(`Parent agent "${input.fromAgent}" not found`);
-		if (parentAgent.status !== "active") {
-			throw new Error(`Parent agent "${parentAgent.name}" is ${parentAgent.status}`);
-		}
-		return delegationModule.delegate(input);
-	}
-
-	const agentProxy = {
-		async create(
-			...args: Parameters<typeof agentModule.create>
-		): ReturnType<typeof agentModule.create> {
-			const [input] = args;
-
-			await guardAgentCreate(input);
-
-			const agent = await agentModule.create(input);
-
-			void hooks.afterAgentCreate?.(agent);
-
-			return agent;
-		},
-
-		async revoke(agentId: string): ReturnType<typeof agentModule.revoke> {
-			const result = await agentModule.revoke(agentId);
-			// Vault consents tied to the cascaded chains die with them.
-			const vault = pluginRegistry.pluginContext.tokenVault as
-				| { revokeForDelegation?: (id: string) => Promise<number> }
-				| undefined;
-			for (const chainId of result.revokedDelegations) {
-				await vault?.revokeForDelegation?.(chainId);
-			}
-			void hooks.onAgentRevoke?.(agentId);
-			return result;
-		},
-
-		async rotate(
-			...args: Parameters<typeof agentModule.rotate>
-		): ReturnType<typeof agentModule.rotate> {
-			return agentModule.rotate(...args);
-		},
-
-		get: agentModule.get,
-		list: agentModule.list,
-		update: agentModule.update,
-		validateToken: agentModule.validateToken,
-	};
+	const {
+		agent: agentProxy,
+		delegate,
+		delegation,
+	} = createAgentFacade({
+		agentModule,
+		delegationModule,
+		hooks,
+		guardAgentCreate,
+		pluginContext: pluginRegistry.pluginContext,
+	});
 
 	const mcpRegistry = createMcpServerRegistry(db);
 
@@ -402,25 +185,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		/** Read-only account of what `authorize()` would decide and why. No audit rows, no counters. */
 		explain,
 		delegate,
-		delegation: {
-			revoke: async (chainId: string): Promise<void> => {
-				await delegationModule.revokeDelegation(chainId);
-				// Vault consents tied to this chain die with it (reads also re-check the chain).
-				const vault = pluginRegistry.pluginContext.tokenVault as
-					| { revokeForDelegation?: (id: string) => Promise<number> }
-					| undefined;
-				await vault?.revokeForDelegation?.(chainId);
-			},
-			getEffectivePermissions: delegationModule.getEffectivePermissions,
-			listChains: delegationModule.listChains,
-		},
-		audit: {
-			query: (filter: AuditFilter) => auditModule.query(filter),
-			export: (options: AuditExportOptions) => auditModule.export(options),
-			cleanup: (options: { retentionDays: number }) => auditModule.cleanup(options),
-			replayAgent: (agentId: string, opts?: Parameters<typeof auditModule.replayAgent>[1]) =>
-				auditModule.replayAgent(agentId, opts),
-		},
+		delegation,
+		audit: createAuditFacade(auditModule),
 		/** MCP server registration, backed by the `theauth_mcp_servers` table. */
 		mcp: mcpRegistry,
 		/** Per-feature secondary storage (rate limits, device codes, ...). */
@@ -432,9 +198,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			getSummary: privilegeAnalyzer.getSummary,
 		},
 		/**
-		 * Human auth integration. `session` is only available when `auth.session` was passed to `createTheAuth()`.
-		 *
-		 * @example
 		 * ```typescript
 		 * app.use(async (req, res, next) => {
 		 *   const user = await theauth.auth.resolveUser(req);

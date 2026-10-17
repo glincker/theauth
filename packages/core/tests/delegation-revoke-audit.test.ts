@@ -113,4 +113,29 @@ describe("delegation.revoke audit", () => {
 		await theauth.delegation.revoke(link.id);
 		expect(await revokeRows(b.id)).toHaveLength(1);
 	});
+
+	it("records revokedBy when the caller passes it, and null otherwise", async () => {
+		const a = await mk("a");
+		const b = await mk("b", []);
+		const c = await mk("c", []);
+		const one = await theauth.delegate({
+			fromAgent: a.id,
+			toAgent: b.id,
+			permissions: PERMS,
+			expiresAt: EXP,
+		});
+		const two = await theauth.delegate({
+			fromAgent: a.id,
+			toAgent: c.id,
+			permissions: PERMS,
+			expiresAt: EXP,
+		});
+		await theauth.delegation.revoke(one.id, { revokedBy: "user-1" });
+		await theauth.delegation.revoke(two.id);
+
+		const [rb] = await revokeRows(b.id);
+		const [rc] = await revokeRows(c.id);
+		expect(rb?.parameters).toMatchObject({ revokedBy: "user-1" });
+		expect(rc?.parameters).toMatchObject({ revokedBy: null });
+	});
 });
