@@ -1,0 +1,90 @@
+---
+title: Community integrations
+description: Build a third-party integration that plugs into theAuth hooks, and get it listed in the community directory.
+icon: puzzle-piece
+---
+
+A community integration is a package written by someone outside the theAuth maintainers that connects theAuth to another tool. Typical examples are a policy service that decides `beforeAuthorize`, an alerting bridge that reacts to `onViolation`, or an audit exporter that forwards `afterAuthorize` results.
+
+Integrations use the public hook API from [Lifecycle hooks](/hooks). They do not patch the SDK, and they do not need access to the theAuth database.
+
+## Build one from the template
+
+The repository ships a minimal skeleton at `templates/integration-adapter/`. It contains:
+
+- `package.json` with `@glinr/theauth` as a peer dependency, so your package uses the host application's copy.
+- `src/index.ts` with a `createBeforeAuthorizeHook` factory and a placeholder `evaluate(context)` function.
+- `src/index.test.ts`, a vitest suite covering allow, deny, thrown errors, and timeouts.
+- `README.md` with registration steps.
+
+Copy the directory, rename the package, and replace `evaluate()` with your own check. Keep the factory shape so hosts can pass options such as `timeoutMs` and an injected evaluator for tests.
+
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+import { createBeforeAuthorizeHook } from 'your-integration';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  hooks: {
+    beforeAuthorize: createBeforeAuthorizeHook({ timeoutMs: 2000 }),
+  },
+});
+```
+
+## The contract
+
+### Hook input
+
+`beforeAuthorize` receives one object per `theauth.authorize()` call:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `agentId` | `string` | The agent making the call. |
+| `action` | `string` | The action being requested. |
+| `resource` | `string` | The resource the action targets. |
+| `arguments` | `object`, optional | Extra call arguments, when the caller provides them. |
+
+`beforeAuthorize` does not run for `theauth.authorizeByToken()` or `theauth.policy.evaluate()`.
+
+### Hook output
+
+Return one of the following:
+
+- `{ allow: true }` or nothing: the call proceeds.
+- `{ allow: false, reason: string }`: the call is blocked. theAuth returns `{ allowed: false, reason, auditId: "" }` and writes no audit row.
+
+### Failure behavior
+
+Integrations must deny by default. If your code throws, rejects, or does not settle within the host's time budget, return `{ allow: false, reason }` with a short explanation. Do not return `{ allow: true }` from a catch block.
+
+theAuth awaits `beforeAuthorize`, and an exception thrown inside it propagates to the caller. A fail-open integration can therefore turn a backend outage into unrestricted agent access. The template enforces a timeout and converts errors into denials for this reason.
+
+Other hooks (`afterAuthorize`, `onViolation`, and the rest) are fire-and-forget. Wrap their bodies in `try/catch`, because an unhandled rejection can terminate a Node.js process.
+
+## Get listed
+
+Maintainers review listings. To request one:
+
+1. Open a Discussion in [glincker/theauth](https://github.com/glincker/theauth/discussions) with the spec and fixture described below.
+2. Include a short spec: what the integration does, which hooks it uses, its failure behavior, and the package name and version.
+3. Attach a test fixture: a small script or vitest file that shows an allow case, a deny case, and an error case against your package.
+4. A maintainer reviews the spec and fixture. Accepted integrations are added to the table below.
+
+Listing does not mean theAuth maintains or audits the package. Review the code before you depend on it.
+
+## Listed integrations
+
+| Name | Maintainer | Package | Status |
+|------|------------|---------|--------|
+| _No integrations listed yet._ | | | |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Lifecycle hooks" href="/hooks">
+  Full hook signatures, violation types, and blocking semantics.
+</Card>
+  <Card title="Event streaming" href="/event-streaming">
+  Forward authorization events to Kafka, NATS, or webhooks.
+</Card>
+</CardGroup>

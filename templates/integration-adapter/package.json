@@ -1,0 +1,24 @@
+{
+  "name": "theauth-integration-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Template for a community integration that registers a theAuth beforeAuthorize hook.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@glinr/theauth": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.11"
+  }
+}
