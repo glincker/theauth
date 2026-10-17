@@ -50,9 +50,13 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 				code: DECISION_CODES.AGENT_NOT_FOUND,
 			};
 		}
-		if (agent.status !== "active") {
+		// A row still marked active can be past its expiresAt; the clock decides, not the stored flag.
+		const elapsed = agent.expiresAt != null && agent.expiresAt.getTime() <= Date.now();
+		if (agent.status !== "active" || elapsed) {
 			const code =
-				agent.status === "expired" ? DECISION_CODES.AGENT_EXPIRED : DECISION_CODES.AGENT_REVOKED;
+				agent.status === "expired" || (agent.status === "active" && elapsed)
+					? DECISION_CODES.AGENT_EXPIRED
+					: DECISION_CODES.AGENT_REVOKED;
 			const auditId = await permissionEngine.recordDenial(
 				{ agentId: agent.id, ownerId: agent.ownerId },
 				context ? { ...request, context } : request,
@@ -60,7 +64,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 			);
 			return {
 				allowed: false,
-				reason: `Agent "${agent.name}" is ${agent.status}`,
+				reason: `Agent "${agent.name}" is ${elapsed && agent.status === "active" ? "expired" : agent.status}`,
 				auditId,
 				code,
 			};

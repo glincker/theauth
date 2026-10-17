@@ -73,3 +73,7 @@ What to do:
 ## delegation docs corrected
 
 The delegation page said a delegating agent could not re-delegate permissions it received, and that `maxDepth` was not inherited. Neither matched the code. Re-delegation of received permissions is allowed (within what the agent holds), and `maxDepth` is inherited: a hop is checked against the smallest `maxDepth` among the delegations into its parent. No behavior changed.
+
+## authorize() now enforces expiresAt
+
+`authorize(agentId, ...)` used to check only the stored `status`, so an agent past its `expiresAt` kept passing until something flipped its status to `expired`. It now compares `expiresAt` to the clock and denies with code `agent_expired`, writing the normal denied audit row. `authorizeByToken()`, `agent.validateToken()` and `policy.evaluate()` already did this. If you relied on an elapsed agent still passing, extend its `expiresAt` through `agent.update()`.
