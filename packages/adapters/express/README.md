@@ -91,6 +91,18 @@ For full docs on agent identity, permissions, delegation, and audit, see the mai
 MIT
 
 <!-- theauth:links -->
+## Protect a route for agents
+
+```ts
+import { getAgent, requireScope } from "@glinr/theauth-express";
+
+app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices" }), (_req, res) => {
+  res.json({ agentId: getAgent(res)?.id });
+});
+```
+
+Missing or invalid bearer token returns 401, a denied scope returns 403 with the reason. See the [requireScope guide](https://docs.theauth.dev/require-scope).
+
 ## Learn more
 
 - [express adapter guide](https://docs.theauth.dev/adapters/express)

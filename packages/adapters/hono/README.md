@@ -90,6 +90,20 @@ For full docs on agent identity, permissions, delegation, and audit, see the mai
 MIT
 
 <!-- theauth:links -->
+## Protect a route for agents
+
+```ts
+import { Hono } from "hono";
+import { requireScope, type AgentEnv } from "@glinr/theauth-hono";
+
+const app = new Hono<AgentEnv>();
+app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices" }), (c) =>
+  c.json({ agentId: c.get("agent").id }),
+);
+```
+
+Missing or invalid bearer token returns 401, a denied scope returns 403 with the reason. See the [requireScope guide](https://docs.theauth.dev/require-scope).
+
 ## Learn more
 
 - [hono adapter guide](https://docs.theauth.dev/adapters/hono)

@@ -1,0 +1,63 @@
+---
+title: requireScope
+description: Protect an endpoint for agents with one line in the Hono, Next.js, or Express adapter.
+---
+
+`requireScope(theauth, { action, resource })` guards a route so only agents holding that permission reach your handler. It reads `Authorization: Bearer kv_...`, calls `authorizeByToken`, and either answers the request itself or continues with the agent identity attached.
+
+## Behavior
+
+| Situation | Response |
+| --- | --- |
+| No bearer token | 401 `UNAUTHORIZED` |
+| Unknown, revoked, or expired token | 401 `UNAUTHORIZED` |
+| Valid token, scope not granted | 403 `FORBIDDEN` with the denial reason in `error.message` |
+| Allowed | Handler runs with the agent identity |
+
+Errors use the same `{ "error": { "code", "message" } }` shape as the rest of the adapters. Every check is recorded in the audit trail like any other authorization.
+
+## Hono
+
+```ts
+import { Hono } from "hono";
+import { requireScope, type AgentEnv } from "@glinr/theauth-hono";
+
+const app = new Hono<AgentEnv>();
+
+app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices" }), (c) => {
+  const agent = c.get("agent");
+  return c.json({ agentId: agent.id });
+});
+```
+
+## Next.js
+
+The guard wraps a route handler. The handler receives the agent as its second argument and the route context as its third.
+
+```ts
+import { requireScope } from "@glinr/theauth-nextjs";
+
+export const GET = requireScope(theauth, { action: "read", resource: "invoices" })(
+  async (_req, agent) => Response.json({ agentId: agent.id }),
+);
+```
+
+## Express
+
+```ts
+import { getAgent, requireScope } from "@glinr/theauth-express";
+
+app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices" }), (_req, res) => {
+  res.json({ agentId: getAgent(res)?.id });
+});
+```
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `action` | Action the agent must be allowed to perform. |
+| `resource` | Resource the action applies to. |
+| `clientIp` | Optional `(request) => string \| undefined`. Supplies the caller IP for `ipAllowlist` constraints and audit rows. Behind a proxy, resolve it from a header you trust. |
+
+`requireScope` is separate from `theAuthHono`, `theAuthNextjs`, and `theAuthExpress`. It does not need the management routes or an `authenticate` resolver.

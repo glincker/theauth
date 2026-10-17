@@ -30,3 +30,5 @@
 
 export type { TheAuthHonoOptions } from "./adapter.js";
 export { authHono, theAuthHono, theAuthHono as createHonoAdapter } from "./adapter.js";
+export type { AgentEnv, RequireScopeOptions } from "./require-scope.js";
+export { requireScope } from "./require-scope.js";
