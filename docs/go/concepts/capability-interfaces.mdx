@@ -34,16 +34,16 @@ Verified against the adapters in this repository. "Yes" means the adapter has th
 | Device grant (RFC 8628) | `DeviceCodeStorage` | Yes | Yes | Yes | Yes |
 | Shared login throttle store | `LoginThrottleStore` | In-process default | Yes | Yes | Yes |
 | Organizations, SAML, SCIM, RBAC | `OrganizationStorage`, `SAMLStorage`, `SCIMStorage`, `RBACStorage` | Yes | Yes (migrations 0013 to 0016) | Yes | Yes |
-| OAuth 2.1 authorization server, agent identity and delegation grants | `OAuthServerStorage` | Yes | Yes (next release; migrations 0020 to 0031) | Yes | Yes |
-| Pushed authorization requests (RFC 9126) | PAR methods | Yes | Yes (next release; 0025) | Yes | No |
-| CIBA backchannel auth | `CIBAStorage` | Yes | Yes (next release; 0033) | Yes | No |
-| Durable JWT-bearer `jti` replay | `JWTBearerStorage` | Yes | Yes (next release; 0032) | No | No |
-| Session auth methods (`amr`, `auth_time`) | `SessionAuthStorage` | Yes | Yes (next release; 0034) | Yes | Yes |
+| OAuth 2.1 authorization server, agent identity and delegation grants | `OAuthServerStorage` | Yes | Yes (storage/sqlite v0.3.0; migrations 0020 to 0031) | Yes | Yes |
+| Pushed authorization requests (RFC 9126) | PAR methods | Yes | Yes (storage/sqlite v0.3.0; 0025) | Yes | No |
+| CIBA backchannel auth | `CIBAStorage` | Yes | Yes (storage/sqlite v0.3.0; 0033) | Yes | No |
+| Durable JWT-bearer `jti` replay | `JWTBearerStorage` | Yes | Yes (storage/sqlite v0.3.0; 0032) | No | No |
+| Session auth methods (`amr`, `auth_time`) | `SessionAuthStorage` | Yes | Yes (storage/sqlite v0.3.0; 0034) | Yes | Yes |
 | Audit hash chain | `VerifyAuditChain` | No (reports unsupported) | Yes | Yes | Yes |
 | Shared signals store | `SignalsStore()` | Use `signals.NewMemoryStore` | Yes | Yes | No |
 | Authorization policies ([policy engine](/go/guides/policy-engine)) | `policy.Storage` | Not verified | Not verified | Not verified | Not verified |
 
-The "next release" cells are implemented on the SQLite store in the release after v2.10.0 and are not in v2.10.0 itself. The per backend cells come from `docs/storage-capabilities.md` in the Go repository, which derives them from each store's method set.
+The "storage/sqlite v0.3.0" cells are implemented in root v2.11.0 and need a `storage/sqlite` release newer than v0.2.0 (v0.3.0 once tagged). The per backend cells come from `docs/storage-capabilities.md` in the Go repository, which derives them from each store's method set.
 
 Postgres and MySQL implement the token, device, session-management, TOTP replay, user-count and throttle capabilities, and the new `storagetest` suites for them pass against live PostgreSQL 16 and MySQL 8. The older shared contract gate for those two adapters (`THEAUTH_PG_CONTRACT`, `THEAUTH_MYSQL_CONTRACT`) is still off in CI because some older subtests fail; see `docs/ROADMAP.md`. Treat Postgres and MySQL support for the newer features as newly added.
 
