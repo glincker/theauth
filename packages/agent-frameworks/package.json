@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-agent-frameworks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Drop-in theAuth tool guarding with human approval for LangChain.js/LangGraph and Mastra, plus a shared resume helper for the Vercel AI SDK and OpenAI Agents SDK",
   "license": "MIT",
   "author": "TheAuth <support@glinr.com>",

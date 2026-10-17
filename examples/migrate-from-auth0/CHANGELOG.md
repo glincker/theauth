@@ -1,5 +1,12 @@
 # @glinr/theauth-example-migrate-from-auth0
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [bf41bbb]
+  - @glinr/theauth@1.3.0
+
 ## 0.0.9
 
 ### Patch Changes
