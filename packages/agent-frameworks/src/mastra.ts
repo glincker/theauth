@@ -14,6 +14,17 @@ export interface MastraToolContextLike {
 	/** Present while a tool can pause for input. Resumed runs see `resumeData`. */
 	suspend?: (payload: unknown) => Promise<unknown>;
 	resumeData?: unknown;
+	/** Mastra 1.x nests these under `agent` (Agent runs) or `workflow` (workflow steps). */
+	agent?: {
+		suspend?: (payload: unknown) => Promise<unknown>;
+		resumeData?: unknown;
+		suspendPayload?: unknown;
+	};
+	workflow?: {
+		suspend?: (payload: unknown) => Promise<unknown>;
+		resumeData?: unknown;
+		suspendPayload?: unknown;
+	};
 	[key: string]: unknown;
 }
 
@@ -69,7 +80,8 @@ export function guardMastraTool<T extends MastraToolLike>(
 				},
 			).execute(args, ctx);
 
-		const resume = ctx?.resumeData;
+		const suspendFn = ctx?.suspend ?? ctx?.agent?.suspend ?? ctx?.workflow?.suspend;
+		const resume = ctx?.resumeData ?? ctx?.agent?.resumeData ?? ctx?.workflow?.resumeData;
 		if (resume !== undefined) {
 			const decision = normalizeDecision(resume);
 			if (!decision.approved) {
@@ -79,16 +91,23 @@ export function guardMastraTool<T extends MastraToolLike>(
 					code: "APPROVAL_REJECTED",
 				});
 			}
-			if (decision.approvalRequestId) return attempt(decision.approvalRequestId);
+			const prior = (ctx?.agent?.suspendPayload ?? ctx?.workflow?.suspendPayload) as
+				| { approvalRequestId?: string; suspendPayload?: { approvalRequestId?: string } }
+				| undefined;
+			const id =
+				decision.approvalRequestId ??
+				prior?.approvalRequestId ??
+				prior?.suspendPayload?.approvalRequestId;
+			if (id) return attempt(id);
 		}
 
 		try {
 			return await attempt();
 		} catch (error) {
-			if (!isApprovalRequired(error) || onApprovalRequired === "throw" || !ctx?.suspend) {
+			if (!isApprovalRequired(error) || onApprovalRequired === "throw" || !suspendFn) {
 				throw error;
 			}
-			await ctx.suspend(toInterruptPayload(error, args));
+			await suspendFn(toInterruptPayload(error, args));
 			return undefined;
 		}
 	};

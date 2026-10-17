@@ -8,6 +8,8 @@ icon: plug
 
 The framework packages are optional peer dependencies. The wrappers type the tools structurally, so installing this package does not install LangChain or Mastra.
 
+Tested against `@langchain/langgraph` 1.5.1 (with `MemorySaver`, both a plain node and the prebuilt `ToolNode`) and `@mastra/core` 1.78.0 (a workflow step and an `Agent`). Other versions are likely to work but are not tested. Mastra passes suspend and resume data under `context.agent` or `context.workflow`; the wrapper reads both.
+
 ```bash
 npm install @glinr/theauth-agent-frameworks @glinr/theauth
 ```

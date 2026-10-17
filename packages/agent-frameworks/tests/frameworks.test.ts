@@ -222,6 +222,36 @@ describe("Mastra wrapper", () => {
 		expect(calls.at(-1)?.approvalId).toBe("req_1");
 	});
 
+	it.each([
+		"agent",
+		"workflow",
+	] as const)("suspends and resumes through the nested %s context Mastra 1.x passes", async (key) => {
+		const { policy, calls } = host((input) =>
+			input.approvalId === "req_1" ? decision("allow") : decision("escalate", { escalation }),
+		);
+		const { tool, run } = fakeMastraTool();
+		const guarded = guardMastraTool(policy, { agentId: "a1" }, tool);
+		const suspend = vi.fn(async (_payload: unknown) => undefined);
+
+		await guarded.execute?.({ amount: 5000 } as never, { [key]: { suspend } } as never);
+		expect(suspend).toHaveBeenCalledWith(expect.objectContaining({ approvalRequestId: "req_1" }));
+		expect(run).not.toHaveBeenCalled();
+
+		// A bare { approved: true } resume carries no id: it is read from the suspend payload.
+		const resumed = await guarded.execute?.(
+			{ amount: 5000 } as never,
+			{
+				[key]: {
+					suspend,
+					resumeData: { approved: true },
+					suspendPayload: { approvalRequestId: "req_1" },
+				},
+			} as never,
+		);
+		expect(resumed).toEqual({ refunded: true });
+		expect(calls.at(-1)?.approvalId).toBe("req_1");
+	});
+
 	it("denies on a rejected resume and throws when suspend is unavailable", async () => {
 		const { policy } = host(() => decision("escalate", { escalation }));
 		const { tool } = fakeMastraTool();
