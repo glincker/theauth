@@ -1,0 +1,92 @@
+{
+  "providers": {
+    "count": 48,
+    "firstClass": [
+      "apple",
+      "atlassian",
+      "discord",
+      "dropbox",
+      "figma",
+      "github",
+      "gitlab",
+      "google",
+      "kakao",
+      "kick",
+      "linear",
+      "linkedin",
+      "microsoft",
+      "notion",
+      "paypal",
+      "reddit",
+      "slack",
+      "spotify",
+      "twitch",
+      "twitter",
+      "vercel",
+      "zoom"
+    ],
+    "legacyPresets": [
+      "auth0",
+      "authentik",
+      "bitbucket",
+      "box",
+      "cognito",
+      "coinbase",
+      "facebook",
+      "gitea",
+      "huggingface",
+      "keycloak",
+      "line",
+      "naver",
+      "okta",
+      "onelogin",
+      "patreon",
+      "polar",
+      "railway",
+      "roblox",
+      "salesforce",
+      "tiktok",
+      "vk",
+      "wechat",
+      "wordpress",
+      "yahoo",
+      "yandex",
+      "zitadel"
+    ]
+  },
+  "adapters": {
+    "totalPackages": 12,
+    "frameworkAdapters": 10,
+    "frameworks": [
+      "astro",
+      "express",
+      "fastify",
+      "hono",
+      "nestjs",
+      "nextjs",
+      "nuxt",
+      "solidstart",
+      "sveltekit",
+      "tanstack"
+    ],
+    "excluded": [
+      "nextjs-auth",
+      "prisma"
+    ]
+  },
+  "coreRuntimeDependencies": {
+    "count": 4,
+    "names": [
+      "drizzle-orm",
+      "jose",
+      "sql.js",
+      "zod"
+    ]
+  },
+  "tests": {
+    "label": "approximate",
+    "testCases": 4276,
+    "testFiles": 306,
+    "method": "textual count of it(...) and test(...) call sites in packages/**/*.test.ts, excluding node_modules"
+  }
+}
