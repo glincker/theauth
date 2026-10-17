@@ -187,3 +187,10 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 - A pseudonym is linkable by whoever holds the key (`audit.hmacKey` or the stored secret).
 - `input_provenance` comes from labels you supply. The SDK does not infer it.
 - Audit writes for policy decisions, delegation, approval and SCIM events are best effort. Failures are counted and followed by an `audit.write_failed` row (with the count and the first and last failure times), but a write that fails is not retried.
+
+## Related
+
+- [Audit checkpoints and receipts](/audit-checkpoints): signed tree heads and proofs that others can check offline.
+- [Tutorial: verifiable agent receipts](/tutorials/verifiable-agent-receipts)
+- [Taint aware tool guard](/taint-guard): fills `input_provenance`.
+- [Find and remove unused permissions](/policy-shrink): reads these rows.

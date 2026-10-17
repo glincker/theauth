@@ -2,7 +2,7 @@
 title: "Resource Server (mcpresource)"
 description: "The mcpresource module is a zero-dependency Go module for MCP resource servers."
 ---
-The `mcpresource` module is a zero-dependency Go module for MCP resource servers. It validates bearer JWTs, enforces audience claims, walks RFC 8693 actor chains via AS introspection, and emits the correct `WWW-Authenticate` response on failure.
+The `mcpresource` module is a zero-dependency Go module for MCP resource servers. It validates bearer JWTs, enforces audience claims, checks RFC 8693 actor chains and delegation grants through AS introspection when a token carries them, and emits the correct `WWW-Authenticate` response on failure.
 
 ## Install
 
@@ -57,8 +57,9 @@ On every request the middleware:
 2. Verifies the JWT signature against a cached JWKS (refreshes on `kid` miss and at the configured cache TTL). `EdDSA`, `ES256` and `RS256` are accepted; RSA keys must be at least 2048 bits and the key type must match the header `alg`.
 3. Enforces the `aud` claim against the resource URI passed to `mcpresource.New`. `aud` may be a string or an array.
 4. Checks `exp`, `nbf`, and `iat` with a 60-second clock skew tolerance (configurable).
-5. Walks the RFC 8693 `act` chain via AS introspection and returns `active: false` if any delegation grant in the chain is revoked.
-6. On any failure: emits HTTP 401 with `WWW-Authenticate: Bearer error="invalid_token", resource_metadata="..."` per RFC 6750 and RFC 9728.
+5. If a `RevocationChecker` is installed (see below), asks it whether the token was revoked. A revoked token, or a checker error without `WithRevocationFailOpen`, gets a 401.
+6. For tokens that carry an `act` claim or a `delegation_grant_id`, calls AS introspection and rejects the request if the AS reports `active: false`, for example because a delegation grant was revoked. Tokens with neither claim are not introspected. Introspection results are cached for the cache TTL, or for the shorter `Cache-Control: max-age` the AS returns.
+7. On any failure: emits HTTP 401 with `WWW-Authenticate: Bearer error="invalid_token", resource_metadata="..."` per RFC 6750 and RFC 9728.
 
 ## The `Principal` type
 
@@ -101,11 +102,20 @@ See [Protect MCP tools](/go/guides/protect-mcp-tools) for examples and the limit
 
 | Option | Default | Description |
 |---|---|---|
-| `WithJWKS(url)` | required | JWKS endpoint URL for signature verification. |
-| `WithIntrospection(url, clientID, secret)` | required | Introspection endpoint + client credentials. |
-| `WithCacheTTL(d)` | 60s | How long JWKS keys and introspection responses are cached. |
+| `WithJWKS(url)` | none | JWKS endpoint URL for signature verification of JWTs. |
+| `WithIntrospection(url, clientID, secret)` | none | Introspection endpoint and client credentials. Used for tokens that carry `act` or `delegation_grant_id`, and for device revocation introspection. The middleware verifies JWTs only; it does not introspect opaque tokens. |
+| `WithCacheTTL(d)` | 60s | How long JWKS keys and introspection responses are cached. Values at or below zero are ignored. |
+| `WithRevocationChecker(c)` | none | Installs a `RevocationChecker` (`IsRevoked(ctx, token, *Principal) (bool, error)`; `RevocationCheckerFunc` adapts a function). Runs on every authenticated request after offline validation. |
+| `WithRevocationFailOpen()` | off | Lets requests through when the checker returns an error. Without it a failing checker denies the request. |
+| `WithDeviceRevocationIntrospection()` | off | Checks tokens with a `device_id` claim against the introspection endpoint and passes other tokens. Needs `WithIntrospection`, and replaces any checker set earlier. |
 | `WithHTTPClient(c)` | `http.DefaultClient` | Custom HTTP client (e.g., for timeouts or mTLS). |
 | `WithClockSkew(d)` | 60s | Tolerance for `exp`/`nbf`/`iat` clock drift. |
+
+## Which options you need
+
+Neither `WithJWKS` nor `WithIntrospection` is required on its own, but with neither set the validator rejects every token and `Validator.Diagnostics()` reports `no-verification-source`. Log the diagnostics at startup.
+
+With `WithJWKS` only, tokens are validated offline (signature, audience, expiry). That path cannot see revocation: a revoked token stays valid until `exp`. Add `WithIntrospection` so `act` and `delegation_grant_id` tokens are checked against the AS, and add `WithRevocationChecker` or `WithDeviceRevocationIntrospection` for tokens revoked before `exp`.
 
 ## Concurrent safety
 

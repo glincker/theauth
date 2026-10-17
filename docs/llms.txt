@@ -10,6 +10,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Core concepts](https://docs.theauth.dev/concepts): The mental model you need before touching code. Agents, permissions, delegation, audit, trust, MCP.
 - [Quickstart](https://docs.theauth.dev/quickstart): Two five-minute tracks. Add agent auth (identity, permissions, audit) or human auth (email and password), or both. Scaffold a Next.js SaaS with one command.
 - [Works with](https://docs.theauth.dev/works-with): The frameworks, runtimes, identity providers, databases and client platforms theAuth works with.
+- [What's new](https://docs.theauth.dev/whats-new): What changed in the TypeScript SDK across the agent accountability and tool guard work, and what the pending release contains.
 - [Add to an existing app](https://docs.theauth.dev/add-to-existing-app): Drop theAuth into an app that already has human auth. Clerk, Auth.js, better-auth, or your own.
 - [Configuration](https://docs.theauth.dev/configuration): Reference for the `createTheAuth()` options in `TheAuthConfig`. Covers database providers, agent settings, session config, password reset, and which options createTheAuth actually reads.
 - [Database setup](https://docs.theauth.dev/database): Configure theAuth with SQLite, native SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for native SQLite, and skipping auto-migrations.
@@ -105,11 +106,16 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Agent RACI template](https://docs.theauth.dev/accountability-raci-template): A RACI table for AI agent actions, and how each Responsible, Accountable, Consulted and Informed cell is enforced at runtime in theAuth.
 - [Audit trail](https://docs.theauth.dev/audit): Immutable logging of every authorization decision, with filtering, export, and compliance references.
 - [Tamper-evident audit trail](https://docs.theauth.dev/audit-trail): Chain audit rows with SHA-256 or HMAC hashes, verify the chain, replay what an agent did, and export signed evidence.
+- [Audit checkpoints and receipts](https://docs.theauth.dev/audit-checkpoints): Sign checkpoints of a tamper evident audit log and give counterparties receipts they can verify offline.
+- [Policy shrink](https://docs.theauth.dev/policy-shrink): Apply least privilege to AI agent authorization by finding unused permissions and replaying decisions against a smaller policy.
 - [Privilege analyzer](https://docs.theauth.dev/analyzer): Scan agent permissions with `theauth.analyzer` to surface over-privileged identities, unused scopes, wildcard risks, and stale agents across your deployment.
 - [Trust scoring](https://docs.theauth.dev/trust): TrustScore is a 0 to 100 value from each agent audit log, mapping to five named levels that gate autonomy, approval requirements, and rate limit strictness.
 - [Anomaly detection](https://docs.theauth.dev/anomaly): What theAuth provides for spotting unusual agent behavior today (trust score anomaly count, the onViolation hook, audit queries) and what is not implemented.
 - [Approval flows](https://docs.theauth.dev/approval): CIBA-style async human-in-the-loop approval for actions that should not run unattended.
 - [Guard agent tools](https://docs.theauth.dev/agent-tools): Put the policy engine in front of the tools an AI agent calls, in any TypeScript agent framework.
+- [Taint-aware tool guard](https://docs.theauth.dev/taint-guard): Label where tool arguments came from so a prompt injection guard can hold risky AI agent tool calls for approval.
+- [Vercel AI SDK](https://docs.theauth.dev/vercel-ai-sdk): Guard Vercel AI SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
+- [OpenAI Agents SDK](https://docs.theauth.dev/openai-agents-sdk): Guard OpenAI Agents SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
 - [Permission simulator](https://docs.theauth.dev/simulator): Ask what an agent would be allowed to do, with a step by step trace and no side effects.
 - [Rate limiting](https://docs.theauth.dev/rate-limiting): Apply per-IP limits on auth endpoints with the rateLimit plugin and per-agent call caps with the maxCallsPerHour constraint.
 - [CLI login (device flow)](https://docs.theauth.dev/cli-auth): Sign users into a CLI, TV app or MCP client with the OAuth device authorization grant (RFC 8628), with theauth login, logout and whoami.
@@ -117,6 +123,9 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Agent registration tokens](https://docs.theauth.dev/agent-registration-tokens): Let a headless agent or CLI create its own agent identity with a one-time, scoped, expiring token, without a human session on the agent side.
 - [Budget policies](https://docs.theauth.dev/budget-policies): Controlling LLM spend and call volume with per-agent, per-user, and per-tenant policies.
 - [Cost attribution](https://docs.theauth.dev/cost-attribution): Track LLM token spend, API call costs, and custom costs per agent, per tool, and per delegation chain.
+- [Stop prompt injection from making an AI agent send email](https://docs.theauth.dev/tutorials/prompt-injection-tool-guard): Label where tool arguments came from, then hold any email whose recipient was copied from a web page for human approval. Runnable TypeScript, no API key.
+- [Find and remove unused permissions from an AI agent](https://docs.theauth.dev/tutorials/remove-unused-agent-permissions): Replay recorded decisions to see which agent grants were never used, propose a smaller set, and preview what it would deny. Runnable TypeScript.
+- [Prove what your AI agent did without sharing your database](https://docs.theauth.dev/tutorials/verifiable-agent-receipts): Sign a checkpoint of your agent audit log, mint a receipt for one decision, and let a counterparty verify it offline with a public key. Runnable TypeScript.
 - [MCP OAuth 2.1](https://docs.theauth.dev/mcp): Configure theAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
 - [MCP server grants](https://docs.theauth.dev/mcp-grants): Enable client_credentials, RFC 8693 token exchange, jwt-bearer (ID-JAG) and private_key_jwt client authentication on the MCP authorization server.
 - [MCP client compatibility](https://docs.theauth.dev/mcp-client-compat): The lenientClients options that relax strict MCP request checks for real-world clients, what each one gives up, and a recommended profile.

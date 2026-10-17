@@ -141,7 +141,7 @@ Revocation takes effect on the next `authorize()` call. It does not terminate an
 </Warning>
 
 <Note>
-In the TypeScript package, `agent.revoke()` also revokes every active chain where the agent is the source or the target, and the chains downstream of them. It returns their ids as `revokedDelegations` and writes one `agent.cascade.revoked` audit row for the agent. Use `delegation.revoke()` when you want to cut one chain and keep the agent.
+In the TypeScript package, `agent.revoke()` also revokes every active chain where the agent is the source or the target, and the chains downstream of them. It returns their ids as `revokedDelegations` and writes one `agent.cascade.revoked` audit row for the agent. Use `delegation.revoke()` when you want to cut one chain and keep the agent. This `agent.revoke()` cascade is pending in a changeset and is available in the next release after 1.1.2. Before it, revoke the agent's chains with `delegation.revoke()`.
 </Note>
 
 <Note>
@@ -238,7 +238,10 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
   <Card title="Agent identity" href="/agents">
   Create the agents that participate in delegation chains.
 </Card>
+  <Card title="Remove unused permissions" href="/policy-shrink">
+  Delegated permissions count as granted when you compare them with what an agent used.
+</Card>
   <Card title="MCP OAuth 2.1" href="/mcp">
-  Use delegation with MCP-authenticated agents.
+  Use delegation with MCP-authenticated agents. The optional `delegationStore` re-checks a token's delegation chain on each validation.
 </Card>
 </CardGroup>

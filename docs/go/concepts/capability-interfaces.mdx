@@ -33,17 +33,23 @@ Verified against the adapters in this repository. "Yes" means the adapter has th
 | Scoped API tokens | `APITokenStorage` | Yes | Yes | Yes | Yes |
 | Device grant (RFC 8628) | `DeviceCodeStorage` | Yes | Yes | Yes | Yes |
 | Shared login throttle store | `LoginThrottleStore` | In-process default | Yes | Yes | Yes |
-| Organizations, SAML, SCIM, RBAC | `OrganizationStorage`, `SAMLStorage`, `SCIMStorage`, `RBACStorage` | Yes | No | Yes | Yes |
-| OAuth 2.1 authorization server, agent identity | `OAuthServerStorage` | Yes | No | Yes | Yes |
-| CIBA backchannel auth | `CIBAStorage` | Yes | No | Yes | No |
-| Durable JWT-bearer `jti` replay | `JWTBearerStorage` | Yes | No | No | No |
-| Authorization policies ([policy engine](/go/guides/policy-engine)) | `policy.Storage` | Yes | No | No | No |
+| Organizations, SAML, SCIM, RBAC | `OrganizationStorage`, `SAMLStorage`, `SCIMStorage`, `RBACStorage` | Yes | Yes (migrations 0013 to 0016) | Yes | Yes |
+| OAuth 2.1 authorization server, agent identity and delegation grants | `OAuthServerStorage` | Yes | Yes (next release; migrations 0020 to 0031) | Yes | Yes |
+| Pushed authorization requests (RFC 9126) | PAR methods | Yes | Yes (next release; 0025) | Yes | No |
+| CIBA backchannel auth | `CIBAStorage` | Yes | Yes (next release; 0033) | Yes | No |
+| Durable JWT-bearer `jti` replay | `JWTBearerStorage` | Yes | Yes (next release; 0032) | No | No |
+| Session auth methods (`amr`, `auth_time`) | `SessionAuthStorage` | Yes | Yes (next release; 0034) | Yes | Yes |
+| Audit hash chain | `VerifyAuditChain` | No (reports unsupported) | Yes | Yes | Yes |
+| Shared signals store | `SignalsStore()` | Use `signals.NewMemoryStore` | Yes | Yes | No |
+| Authorization policies ([policy engine](/go/guides/policy-engine)) | `policy.Storage` | Not verified | Not verified | Not verified | Not verified |
+
+The "next release" cells are implemented on the SQLite store in the release after v2.10.0 and are not in v2.10.0 itself. The per backend cells come from `docs/storage-capabilities.md` in the Go repository, which derives them from each store's method set.
 
 Postgres and MySQL implement the token, device, session-management, TOTP replay, user-count and throttle capabilities, and the new `storagetest` suites for them pass against live PostgreSQL 16 and MySQL 8. The older shared contract gate for those two adapters (`THEAUTH_PG_CONTRACT`, `THEAUTH_MYSQL_CONTRACT`) is still off in CI because some older subtests fail; see `docs/ROADMAP.md`. Treat Postgres and MySQL support for the newer features as newly added.
 
 Notes:
 
-- Without `JWTBearerStorage`, JWT-bearer replay protection uses an in-process map and is lost on restart. Without `CIBAStorage`, `/oauth/bc-authorize` is not mounted.
+- Without `JWTBearerStorage` (Postgres and MySQL), JWT-bearer replay protection uses an in-process cache that is per process and lost on restart. Without `CIBAStorage` (MySQL), `/oauth/bc-authorize` is not mounted. MySQL also has no pushed authorization request storage, and the memory store has no hash-linked audit chain, so do not use it where you need tamper evidence.
 - Without `TOTPReplayStorage`, the last used TOTP step is tracked in process memory only.
 - Without `RecoveryCodeStorage` or `WebAuthnRenameStorage`, the matching routes answer 501 and everything else works.
 - The login throttle store is a separate hook, `Config.LoginThrottle.Store`. SQLite provides `Store.ThrottleStore()` so several processes on one database share counters. Others use the in-process default or a store you supply.
@@ -67,8 +73,8 @@ Agent tokens minted with `MintAgentToken` are API tokens (`kind=agent`), so they
 ## Choosing a backend
 
 - **memory**: tests and demos. State is lost on restart.
-- **sqlite** (`storage/sqlite`, separate module, Go 1.26): single-binary and single-host apps, CLIs with a local server, edge boxes. Covers sign-in, passkeys, TOTP, sessions with step-up, API tokens, device login and audit. It has no organizations, SAML, SCIM, RBAC or OAuth authorization server. One process should own the file.
+- **sqlite** (`storage/sqlite`, separate module, Go 1.26): single-binary and single-host apps, CLIs with a local server, edge boxes. It implements sign-in, passkeys, TOTP, sessions with step-up, API tokens, device login, audit, organizations, SAML, SCIM and RBAC. The OAuth authorization server, agents, delegation grants, jwt-bearer `jti` storage and CIBA are implemented in the release after v2.10.0 (migrations 0020 to 0034), not in v2.10.0. SQLite allows one writer at a time: use WAL mode and let one process own the file.
 - **postgres**: multi-instance production with the full enterprise and OAuth server surface, plus tokens, device login and session management. No durable JWT-bearer `jti` replay store.
 - **mysql**: same coverage as Postgres except CIBA.
 
-Pick by the features you need first, host topology second. SQLite is the fit for a single-binary app without organizations, SAML, SCIM or the authorization server. If you need those, use Postgres or MySQL. You can also implement a capability on your own adapter; see [Write a Custom Storage Backend](/go/guides/custom-storage-backend) and run the `storagetest` suites (`RunAPITokens`, `RunDeviceCodes`, `RunSessionManagement`) against it.
+Pick by the features you need first, host topology second. SQLite is the fit when a single process owns the database (WAL mode, one writer). Use Postgres or MySQL when several instances share one database. Note that MySQL has no CIBA or pushed authorization request storage, and Postgres and MySQL have no durable jwt-bearer `jti` store. You can also implement a capability on your own adapter; see [Write a Custom Storage Backend](/go/guides/custom-storage-backend) and run the `storagetest` suites (`RunAPITokens`, `RunDeviceCodes`, `RunSessionManagement`) against it.

@@ -31,7 +31,7 @@ MCP tool srv  <---[JWT with act chain]------------- |
       v  (validates via mcpresource middleware)
       |-- JWKS verify
       |-- audience enforce
-      |-- act chain walk via introspection
+      |-- introspection (only for tokens with act or delegation_grant_id)
       |-- revocation propagate
 ```
 
@@ -63,7 +63,14 @@ When a user revokes a delegation grant:
 3. The `mcpresource` validator refreshes its introspection cache within `CacheTTL` (default 60 seconds).
 4. After the TTL, every request using a derived token returns 401.
 
-There is no immediate token blacklist push; the propagation window is the cache TTL. Operators who need sub-second propagation should set `WithCacheTTL(0)` on the `mcpresource.Validator` and accept the per-request introspection cost.
+There is no immediate token blacklist push; the propagation window is the cache TTL. `WithCacheTTL(d)` only accepts positive values. Zero and negative values are ignored and the 60 second default stays, so `WithCacheTTL(0)` does not turn on per request introspection.
+
+The middleware also honors the `Cache-Control: max-age` header on introspection responses. When the introspection response carries a `Cache-Control: max-age`, that value replaces the cache TTL for that result, whether shorter or longer, parsed in whole seconds. To get tighter revocation, either:
+
+- Have the authorization server answer introspection with a short `max-age`, or
+- Install a revocation checker with `mcpresource.WithRevocationChecker` (or `WithDeviceRevocationIntrospection` for device tokens) that runs on every request. Keep it fast or cache it yourself.
+
+See [Resource server](/go/concepts/resource-server) for the options.
 
 ## Next steps
 

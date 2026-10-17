@@ -126,19 +126,22 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import { guardTool } from "@glinr/theauth";
 
-const pay = tool(
-  guardTool(theauth, { agentId: agent.id }, {
+const pay = tool({
+  ...guardTool(theauth, { agentId: agent.id }, {
     name: "pay",
     description: "Pay a vendor",
     parameters: z.object({ amount: z.number() }),
-    execute: async ({ amount }) => ({ paid: amount }),
+    execute: async ({ amount }: { amount: number }) => ({ paid: amount }),
   }),
-);
+  errorFunction: (_context, error) => (error instanceof Error ? error.message : "The tool failed."),
+});
 ```
 
-The documentation says an error thrown by a tool is rethrown by default and can be turned into a model-visible result with the `errorFunction` option. If you want the model to see the refusal, set it to return `error.message`. We did not confirm the exact signature beyond `(context, error, details) => result`.
+Pass `errorFunction` in the same options object as the guarded definition (checked against `@openai/agents` 0.20.0). It receives the context and the error and returns the text the model sees, so return `error.message` for a refusal. See [OpenAI Agents SDK](/openai-agents-sdk) for a complete example.
 
 ### LangGraph and LangChain
+
+theAuth ships no LangGraph or CrewAI integration. The example below is a LangChain tool wrapped by hand, and CrewAI is not covered on this page.
 
 Shape checked against the framework's documented tool type; not run against the framework in this repo's tests.
 
@@ -168,3 +171,7 @@ const pay = tool(guarded.execute, {
 - [Approval flows](/approval)
 - [Policy engine](/policy-engine)
 - [Agent accountability](/accountability)
+- [Taint aware tool guard](/taint-guard)
+- [Tutorial: stop prompt injection from making an agent send email](/tutorials/prompt-injection-tool-guard)
+- [Find and remove unused permissions](/policy-shrink)
+

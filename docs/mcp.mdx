@@ -137,7 +137,7 @@ Adapters register these routes relative to their mount path (default `/api/theau
 | `GET /mcp/authorize` | OAuth 2.1 | Authorization endpoint |
 | `POST /mcp/token` | OAuth 2.1 | Token endpoint |
 
-So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. The authorization server metadata also advertises `revocation_endpoint` (`/mcp/revoke`) and `jwks_uri` (`/mcp/jwks`), but the TypeScript adapters do not serve either route today.
+So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. The authorization server metadata also advertises `revocation_endpoint` (`/mcp/revoke`) and `jwks_uri` (`/mcp/jwks`), but the TypeScript adapters do not serve either route today. To accept revocation, mount a `POST` route yourself that passes the incoming `Request` to `mcp.revoke(request)` (RFC 7009, client authenticated, own tokens only). To publish keys, serve `await mcp.getJwks()` at the `jwks_uri`. For example in Hono: `app.post('/api/theauth/mcp/revoke', async (c) => { await mcp.revoke(c.req.raw); return c.body(null, 200); })`.
 
 <Warning>
   The well-known documents are registered relative to the mount point, so with the default mount they live at `/api/theauth/.well-known/...`. MCP clients look for them at the root of your origin (`/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`). When you mount the adapter under a prefix, add root-level routes (or rewrites) that serve the same documents:
@@ -439,6 +439,6 @@ To rotate, move the old key into `previous: [{ kid, publicKey }]` and set a new 
     IETF draft claims emitted on MCP-issued agent JWTs.
   </Card>
   <Card title="Delegation" href="/delegation" icon="link">
-    Delegate a subset of MCP scopes to sub-agents with depth limits.
+    Delegate a subset of MCP scopes to sub-agents with depth limits. Revoking a link can reject tokens minted down the chain when you set `delegationStore`.
   </Card>
 </CardGroup>

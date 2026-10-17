@@ -1,0 +1,49 @@
+---
+title: What's new
+description: What changed in the TypeScript SDK across the agent accountability and tool guard work, and what the pending release contains.
+icon: sparkles
+---
+
+This page covers two rounds of work on `@glinr/theauth`. Both aim to make an agent's actions checkable before and after they run. The changes sit in pending changesets in the repository and are merged to main. This page does not name a release number. Check the [GitHub releases](https://github.com/glincker/theauth/releases) for what has been published, and the changelog for breaking changes.
+
+Every changeset in the pending set is `minor` or `patch`, and several change behavior, so read the "Behavior changes" list before you upgrade.
+
+## Accountability at runtime (first round)
+
+- **Three way decisions.** `policy.evaluate` returns `allow`, `deny` or `escalate`. Risk tiers map an amount, currency or data class to no approval, human approval or step up. See [Agent accountability](/accountability) and [Policy engine](/policy-engine).
+- **Delegation keeps its limits.** A delegated permission carries its constraints, narrowed against the parent, and a child that does not overlap the parent now gets a deny instead of the parent's wider value. See [Delegation](/delegation).
+- **Revoking an agent cuts its delegations.** `agent.revoke()` also revokes the chains where the agent is source or target, and everything downstream. See [Cascading revocation](/delegation#cascading-revocation).
+- **Richer audit rows.** Rows record the accountable human, the acting agent, the policy version, the approver and the delegation chain. Delegation and approval events join the hash chain. See [Tamper evident audit trail](/audit-trail).
+- **Fail closed fixes.** `maxCallsPerHour: 0` denies, malformed time windows and IP lists deny, a revoked or suspended agent is denied by `evaluate`, and an unknown agent id is denied.
+
+## Tools, approvals and proofs (second round)
+
+- **Single use approvals.** `authorize()` and `policy.evaluate()` accept an `approvalId`. An approval is checked against the agent, action and resource, then spent once. See [Approval flows](/approval).
+- **Tool guard.** `guardTool` and `guardTools` put the policy engine in front of any tool with an `execute` function. Walkthroughs for the [Vercel AI SDK](/vercel-ai-sdk) and the [OpenAI Agents SDK](/openai-agents-sdk), with the shared pieces in [Guard agent tools](/agent-tools). LangChain appears as a hand wrapped example, not a supported integration.
+- **Taint guard.** Tool arguments can carry labels for where they came from, and policy decides which labels may reach which tools. The labels are written to the audit row. See [Taint aware tool guard](/taint-guard).
+- **Policy shrink.** `analyzeUsage`, `suggestShrink` and `verifyShrink` compare what an agent may do with what it did, and report which recorded decisions would change. They never edit permissions. See [Policy shrink](/policy-shrink).
+- **Audit checkpoints and receipts.** Signed checkpoints over the audit log, with inclusion and consistency proofs and receipts that verify offline with a public key. See [Audit checkpoints and receipts](/audit-checkpoints).
+- **MCP live delegation check.** With `delegationStore` set, a token's `act` chain is re-checked against live links, and `resolveActorAgentId` maps actors to agent ids. See [MCP OAuth 2.1](/mcp#security-hardening).
+- **Session and audit fixes.** Session refresh and `maxConcurrent` no longer race, a failing audit write no longer makes `authorize()` throw, and `canonicalJson` rejects cycles.
+
+## Behavior changes to check
+
+- ABAC `requireApproval` now escalates instead of returning a plain deny. `allowed` is still false.
+- `policy.evaluate` writes an audit row on every call, and the row joins the hash chain.
+- A permission with `requireApproval: true` is denied until the call carries a valid `approvalId`.
+- Delegated constraints that do not overlap the parent now deny every call.
+- `checkLiveDelegation` takes an options object as its fourth argument in place of the `now` date.
+- Rows written before the new audit columns verify as erased history, not as tampered.
+
+## Tutorials
+
+- [Stop prompt injection from making an agent send email](/tutorials/prompt-injection-tool-guard)
+- [Find and remove unused agent permissions](/tutorials/remove-unused-agent-permissions)
+- [Give a counterparty a receipt they can verify offline](/tutorials/verifiable-agent-receipts)
+
+## Limits that still apply
+
+- `input_provenance` holds the labels you supply. The SDK does not infer where an input came from.
+- The approver is stored on the approval's audit row and on the decision that spends it, not on every decision row.
+- `CheckpointStore` ships with an in memory implementation. There is no database backed store.
+- The MCP adapters do not serve the `/mcp/revoke` or `/mcp/jwks` routes that the metadata advertises.

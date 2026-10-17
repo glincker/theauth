@@ -73,7 +73,7 @@ const refund = tool({
 
 The tool name is the policy resource, `tool:refund`, so the agent needs a permission on it. `ToolGuardError` is the parent of `ToolDeniedError`, `ToolApprovalRequiredError` and `ToolGuardFailedError`. Their messages are written for the model and say not to retry.
 
-Without `errorFunction`, check what your version of the SDK does with an error thrown by a tool before you rely on the default.
+`errorFunction` is an option on the tool itself (checked against `@openai/agents` 0.20.0). This page does not describe what the SDK does with a thrown error when it is missing, so set it on every guarded tool.
 
 ## Escalate and approve once
 
