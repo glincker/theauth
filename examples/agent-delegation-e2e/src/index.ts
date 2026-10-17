@@ -16,7 +16,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createTheAuth, recordAuditEvent, users } from "@glinr/theauth";
+import { createTheAuth, recordAuditEvent } from "@glinr/theauth";
 import type {
 	McpAccessToken,
 	McpAuthorizationCode,
@@ -81,17 +81,12 @@ async function main(): Promise<void> {
 		},
 	});
 
-	// The owner row. TODO(auth.user.create): replace this drizzle insert with `await auth.user.create({...})` once it ships.
-	auth.db
-		.insert(users)
-		.values({
-			id: OWNER_ID,
-			email: "alice@example.com",
-			name: "Alice",
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		})
-		.run();
+	const owner = await auth.user.create({
+		id: OWNER_ID,
+		email: "alice@example.com",
+		name: "Alice",
+	});
+	if (owner.id !== OWNER_ID) throw new Error("owner id mismatch");
 
 	// ---- Step 0: agents and the delegation between them ----
 	header("Setup: owner, agents and delegation");

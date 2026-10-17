@@ -89,21 +89,18 @@ npm install @glinr/theauth
 ```
 
 ```typescript
-import { createTheAuth, users } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 
 const auth = await createTheAuth({
   database: { provider: "sqlite", url: ":memory:" },
   agents: { enabled: true }, // creates the agent and audit tables
 });
 
-// Agents need an owner row in theauth_users (human auth creates these for you).
-auth.db.insert(users).values({
-  id: "user-123", email: "owner@example.com", name: "Owner",
-  createdAt: new Date(), updatedAt: new Date(),
-}).run();
+// Agents need an owner (human auth creates these for you).
+const owner = await auth.user.create({ email: "owner@example.com", name: "Owner" });
 
 const agent = await auth.agent.create({
-  ownerId: "user-123",
+  ownerId: owner.id,
   name: "github-reader",
   type: "autonomous",
   permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
