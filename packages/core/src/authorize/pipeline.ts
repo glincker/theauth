@@ -1,15 +1,23 @@
 import type { createAgentModule } from "../agent/agent.js";
+import type { Database } from "../db/database.js";
 import type { createDelegationModule } from "../delegation/delegation.js";
-import type { TheAuthHooks } from "../hooks/lifecycle.js";
+import { resolveHookChain } from "../delegation/lineage.js";
+import type { AuthorizeSource, HookDelegationChain, TheAuthHooks } from "../hooks/lifecycle.js";
+import type { BeforeAuthorizeRunner } from "../hooks/run.js";
 import { DECISION_CODES, violationTypeOf } from "../permission/codes.js";
 import type { createPermissionEngine } from "../permission/engine.js";
-import type { AuthorizeRequest, AuthorizeResult, RequestContext } from "../types.js";
+import type { AgentIdentity, AuthorizeRequest, AuthorizeResult, RequestContext } from "../types.js";
+import type { HookBlock } from "./hook-outcome.js";
+import { hookAuditDetail, isHookBlock, withHookDetail } from "./hook-outcome.js";
 
 export interface AuthorizePipelineDeps {
+	db: Database;
 	hooks: TheAuthHooks;
 	agentModule: ReturnType<typeof createAgentModule>;
 	permissionEngine: ReturnType<typeof createPermissionEngine>;
 	delegationModule: ReturnType<typeof createDelegationModule>;
+	/** Runs `hooks.beforeAuthorize` with timeout and fail-closed handling. */
+	runBeforeAuthorize: BeforeAuthorizeRunner;
 }
 
 export interface AuthorizePipeline {
@@ -26,34 +34,13 @@ export interface AuthorizePipeline {
 }
 
 export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizePipeline {
-	const { hooks, agentModule, permissionEngine, delegationModule } = deps;
+	const { db, hooks, agentModule, permissionEngine, delegationModule, runBeforeAuthorize } = deps;
 
 	async function authorize(
 		agentId: string,
 		request: AuthorizeRequest,
 		context?: RequestContext,
 	): Promise<AuthorizeResult> {
-		if (hooks.beforeAuthorize) {
-			const verdict = await hooks.beforeAuthorize({
-				agentId,
-				action: request.action,
-				resource: request.resource,
-				arguments: request.arguments,
-			});
-			if (verdict && !verdict.allow) {
-				const reason = verdict.reason ?? "Blocked by beforeAuthorize hook";
-				void hooks.onViolation?.({
-					type: violationTypeOf(DECISION_CODES.HOOK_DENIED),
-					code: DECISION_CODES.HOOK_DENIED,
-					agentId,
-					action: request.action,
-					resource: request.resource,
-					reason,
-				});
-				return { allowed: false, reason, auditId: "", code: DECISION_CODES.HOOK_DENIED };
-			}
-		}
-
 		const agent = await agentModule.get(agentId);
 		if (!agent) {
 			return {
@@ -79,12 +66,48 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 			};
 		}
 
+		return authorizeResolved(agent, request, context, "authorize");
+	}
+
+	/** Everything after the agent is resolved and active: hook, own permissions, delegated fallback, audit, notifications. */
+	async function authorizeResolved(
+		agent: AgentIdentity,
+		request: AuthorizeRequest,
+		context: RequestContext | undefined,
+		source: AuthorizeSource,
+	): Promise<AuthorizeResult> {
+		const agentId = agent.id;
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
+
+		// Lineage is loaded lazily and only when a hook is configured.
+		let chain: Promise<HookDelegationChain> | undefined;
+		const loadChain = () => {
+			chain ??= resolveHookChain(db, agentId);
+			return chain;
+		};
+		const { token: _token, ...publicAgent } = agent;
+		const outcome = await runBeforeAuthorize({
+			agentId,
+			action: request.action,
+			resource: request.resource,
+			arguments: request.arguments,
+			agent: publicAgent,
+			source,
+			context,
+			dryRun: false,
+			delegation: loadChain,
+		});
+		if (isHookBlock(outcome)) {
+			return blockedByHook(agent, enrichedRequest, outcome, source, await loadChain());
+		}
+		const hookDetail = hookAuditDetail(outcome);
+		const auditParameters = hookDetail ? { theauthHook: hookDetail } : undefined;
 
 		// Denial rows are deferred: a delegated fallback may overturn this denial,
 		// and writing one row per path would orphan the first auditId.
 		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, {
 			deferDenialAudit: true,
+			auditParameters,
 		});
 
 		let finalResult: AuthorizeResult;
@@ -101,7 +124,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 				const delegatedResult = await permissionEngine.authorize(
 					agentWithDelegated,
 					enrichedRequest,
-					{ deferDenialAudit: true },
+					{ deferDenialAudit: true, auditParameters },
 				);
 				// Both denied: keep the original denial, unless an approval failure is more specific.
 				const approvalDenied =
@@ -113,7 +136,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 
 		// One row for the final denial; allowed results were already written.
 		if (!finalResult.allowed) {
-			await permissionEngine.auditDenial(agent, enrichedRequest, finalResult);
+			await permissionEngine.auditDenial(agent, enrichedRequest, finalResult, auditParameters);
 		}
 
 		// Fire-and-forget: a throwing hook must not change the authorization result.
@@ -123,6 +146,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 					agentId,
 					action: request.action,
 					resource: request.resource,
+					source,
 					result: {
 						allowed: finalResult.allowed,
 						reason: finalResult.reason,
@@ -145,6 +169,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 						agentId,
 						action: request.action,
 						resource: request.resource,
+						source,
 						reason: finalResult.reason ?? "Authorization denied",
 					}),
 				)
@@ -152,6 +177,44 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 		}
 
 		return finalResult;
+	}
+
+	/** Write the audit row for a hook block, notify, and shape the result. The row joins the agent's hash chain. */
+	async function blockedByHook(
+		agent: AgentIdentity,
+		request: AuthorizeRequest,
+		outcome: HookBlock,
+		source: AuthorizeSource,
+		chain: HookDelegationChain,
+	): Promise<AuthorizeResult> {
+		const auditId = await permissionEngine.recordDenial(
+			{ agentId: agent.id, ownerId: agent.ownerId },
+			request,
+			outcome.code,
+			{
+				parameters: withHookDetail(request.arguments, hookAuditDetail(outcome)),
+				durationMs: outcome.elapsedMs,
+				subjectId: chain.rootOwnerId,
+				actorId: agent.id,
+				delegationChain: chain.path.length > 1 ? chain.path : undefined,
+				result: outcome.kind === "escalate" ? "escalated" : "denied",
+				reason: outcome.reason,
+			},
+		);
+		void Promise.resolve()
+			.then(() =>
+				hooks.onViolation?.({
+					type: violationTypeOf(outcome.code),
+					code: outcome.code,
+					agentId: agent.id,
+					action: request.action,
+					resource: request.resource,
+					source,
+					reason: outcome.reason,
+				}),
+			)
+			.catch(() => {});
+		return { allowed: false, reason: outcome.reason, auditId, code: outcome.code };
 	}
 
 	async function authorizeByToken(
@@ -179,8 +242,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 				code: DECISION_CODES.INVALID_TOKEN,
 			};
 		}
-		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
-		return permissionEngine.authorize(agent, enrichedRequest);
+		return authorizeResolved(agent, request, context, "authorizeByToken");
 	}
 
 	return { authorize, authorizeByToken };

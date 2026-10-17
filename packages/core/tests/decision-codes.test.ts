@@ -281,7 +281,9 @@ describe("authorize() codes", () => {
 				},
 			},
 		});
-		const result = await theauth.authorize("whoever", { action: "read", resource: "mcp:x" });
+		await theauth.user.create({ id: "user-1", email: "t@example.com" });
+		const agent = await makeAgent(theauth, [{ resource: "mcp:x", actions: ["read"] }]);
+		const result = await theauth.authorize(agent.id, { action: "read", resource: "mcp:x" });
 		expect(result.code).toBe("hook_denied");
 		expect(violations[0]).toMatchObject({ code: "hook_denied", type: "permission_denied" });
 	});

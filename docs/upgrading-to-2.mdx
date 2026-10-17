@@ -24,3 +24,52 @@ What to do:
 - Replace checks on `reason` text with checks on `result.code` or the `code` passed to `onViolation`.
 - Replace `classifyViolation(reason)` with `violationTypeOf(code)`.
 - If you route alerts on `type`, review the cases above.
+
+## beforeAuthorize runs later, with more context, and covers every entry point
+
+`hooks.beforeAuthorize` now runs after the agent is resolved and known to be active, and before permissions are evaluated. See [Lifecycle hooks](/hooks).
+
+What changed:
+
+- The hook no longer runs for an unknown agent id, an invalid token, or a revoked or expired agent. Those deny first, with their own codes. Before, the hook ran for every id, including ones that do not exist.
+- The context gains `agent` (token omitted), `delegation` (root owner, path, links and inbound grants), `source`, `context` (ip and user agent), `dryRun` and `signal`. The old fields keep their names and meaning, so a hook that destructures `{ agentId, action, resource, arguments }` keeps working.
+- The hook now also runs for `authorizeByToken()` and for `policy.evaluate()` with an agent subject. A `policy.evaluate()` call for a user-only subject does not run it. Hook verdicts are never cached.
+- A hook can return `{ decision: "escalate" }`. `authorize()` then denies with code `approval_required`, and `policy.evaluate()` returns an escalate decision with `escalation.tier` set to `"hook"`. A valid `approvalId` passed to `policy.evaluate()` is spent, and evaluation then continues through the agent's normal permissions, so an approval never grants more than the agent already holds.
+- A hook block now writes an audit row and returns its id as `auditId`. It used to return `auditId: ""` and write nothing.
+- `authorizeByToken()` now honors delegated permissions and fires `afterAuthorize` and `onViolation`, matching `authorize()`. A delegated agent that was denied by token because its permissions came only from a delegation is now allowed.
+- `afterAuthorize` and `onViolation` receive a `source` field.
+- `DelegationHop` (internal lineage type) now carries the permissions, depth, limit and dates of each hop, so the `hops` stored in the parameters of `delegation.create` audit rows are larger.
+
+What to do:
+
+- If your hook relied on running for unknown agent ids (for example to count probes), move that logic to `onViolation`, which sees `agent_not_found`.
+- If you call `authorizeByToken()` for delegated agents and relied on it denying them, review those agents' delegations.
+- If your hook inspects the delegation chain, read it from `context.delegation` instead of loading it yourself.
+
+## Hooks time out and fail closed
+
+`beforeAuthorize` and `beforeAgentCreate` now run under a timeout (2000 ms by default), and failures deny. See [Hook safety](/hooks#hook-safety-timeout-and-fail-closed).
+
+What changed:
+
+- A `beforeAuthorize` hook that throws, returns a malformed verdict, or exceeds the timeout now denies the call with code `hook_error` or `hook_timeout`. Before, a throw propagated to the caller of `authorize()`.
+- A `beforeAgentCreate` hook that throws or times out makes `agent.create()` throw. A timeout throws `HookTimeoutError`; a throw rethrows the original error as before.
+- A blocked `agent.create()` now throws `HookBlockedError` (still an `Error`) instead of a plain `Error`, with the same message.
+
+What to do:
+
+- Set `hookSafety.onError: "throw"` to keep the old behavior of a throwing `beforeAuthorize` rejecting the call, or `"allow"` to fail open (every bypass is marked `fail_open` in the audit row).
+- Raise `hookSafety.timeoutMs` (or `THEAUTH_HOOK_TIMEOUT_MS`) if your hook calls a slow service. Pass `context.signal` to `fetch()` so the request stops on timeout.
+
+## New audit column: decision_code
+
+`theauth_audit_logs` gains a nullable `decision_code TEXT` column and an index on `(agent_id, decision_code)`. See [Database](/database#upgrading-the-audit-table).
+
+- `createTables()` adds both on startup. Old rows keep a NULL code, and `audit.query()` reports them with `code` undefined.
+- If you run with `database.skipMigrations: true`, apply `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` before deploying. Without the column, audit reads and writes fail.
+- The column is not part of the audit hash, so existing chains and the Go verifier keep verifying.
+- `audit.query()` accepts `codes: DecisionCode[]`, and entries carry `code`.
+
+## delegation docs corrected
+
+The delegation page said a delegating agent could not re-delegate permissions it received, and that `maxDepth` was not inherited. Neither matched the code. Re-delegation of received permissions is allowed (within what the agent holds), and `maxDepth` is inherited: a hop is checked against the smallest `maxDepth` among the delegations into its parent. No behavior changed.

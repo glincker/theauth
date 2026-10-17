@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, lte } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
+import { isDecisionCode } from "../permission/codes.js";
 import type { AuditEntry, AuditExportOptions, AuditFilter } from "../types.js";
 import { CHECKPOINT_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
 import type { AuditChainExportOptions, ReplayOptions } from "./replay.js";
@@ -27,6 +28,9 @@ export function createAuditModule(config: AuditModuleConfig) {
 		if (filter.since) conditions.push(gte(auditLogs.timestamp, filter.since));
 		if (filter.until) conditions.push(lte(auditLogs.timestamp, filter.until));
 		if (filter.result) conditions.push(eq(auditLogs.result, filter.result));
+		if (filter.codes && filter.codes.length > 0) {
+			conditions.push(inArray(auditLogs.decisionCode, filter.codes));
+		}
 
 		let q = db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).$dynamic();
 
@@ -205,6 +209,7 @@ function toAuditEntry(row: typeof auditLogs.$inferSelect): AuditEntry {
 		parameters: (row.parameters as Record<string, unknown>) ?? {},
 		result: row.result as AuditEntry["result"],
 		reason: row.reason ?? undefined,
+		code: isDecisionCode(row.decisionCode) ? row.decisionCode : undefined,
 		durationMs: row.durationMs,
 		tokensCost: row.tokensCost ?? undefined,
 		timestamp: row.timestamp,

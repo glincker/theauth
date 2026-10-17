@@ -39,11 +39,11 @@ console.log(chain.depth);     // 1
 console.log(chain.expiresAt); // Date
 ```
 
-<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated.</ParamField>
+<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated, either as its own permission or through a delegation it received.</ParamField>
 <ParamField path="toAgent" type="string">Agent ID receiving the permissions.</ParamField>
-<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent's own permissions.</ParamField>
+<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed what the fromAgent holds (its own permissions plus the active, unexpired delegations it received).</ParamField>
 <ParamField path="expiresAt" type="Date">When the delegation expires. After this point, the chain is no longer valid.</ParamField>
-<ParamField path="maxDepth" type="number">Highest chain depth this call may create. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to this value, otherwise the call throws. Default is 3. The value is not inherited by later hops: each `delegate()` call is checked against its own `maxDepth`.</ParamField>
+<ParamField path="maxDepth" type="number">Highest chain depth this link and any later link below it may reach. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to the effective limit, otherwise the call throws. Default is 3. The limit is inherited: a re-delegation is checked against the smaller of its own `maxDepth` and the `maxDepth` of every active delegation the parent received.</ParamField>
 
 ### Permission subset enforcement
 
@@ -72,7 +72,7 @@ Invalid delegations:
 
 ### Constraints carry over
 
-Constraints on the permissions you delegate are stored on the chain and enforced by `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
+Constraints on the permissions you delegate are stored on the chain and enforced by `authorize()`, `authorizeByToken()` and `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
 
 | Constraint | Result |
 |---|---|
@@ -95,7 +95,7 @@ await theauth.delegate({
 
 ### Depth limiting
 
-Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code compares the new link's depth with the `maxDepth` passed on that same call (default 3) and throws if the depth is larger. `maxDepth` is not stored as a ceiling for later hops, so to stop re-delegation you pass a small `maxDepth` on each call, and the hop that would exceed it is rejected.
+Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code computes an effective limit, the smallest of the `maxDepth` passed on that call (default 3) and the `maxDepth` stored on every active, unexpired delegation into the delegating agent, and throws if the new link's depth is larger. The effective limit is stored on the new link, so a limit set at the top of a chain holds for every hop below it. A later call can lower it, never raise it.
 
 ```typescript
 // Orchestrator → Sub (depth 1, maxDepth 2): allowed
@@ -107,7 +107,7 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Sub → SubSub (depth 2, maxDepth 2): allowed
+// Sub → SubSub (depth 2, limit min(2, 2) = 2): allowed
 await theauth.delegate({
   fromAgent: sub.id,
   toAgent: subSub.id,
@@ -116,15 +116,15 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Same call with maxDepth: 1 is rejected: depth 2 exceeds maxDepth 1
-// SubSub → anything with maxDepth: 2 is rejected: depth 3 exceeds maxDepth 2
+// Sub → anyone with maxDepth: 1 is rejected: depth 2 exceeds limit 1
+// SubSub → anyone, even with maxDepth: 10, is rejected: depth 3 exceeds the inherited limit 2
 ```
 
 The default `maxDepth` when not specified is `3`.
 
-<Warning>
-The subset check uses the delegating agent's own permissions, not the permissions it received through delegation. An agent that holds only delegated permissions (such as `sub` above, created with `permissions: []`) cannot re-delegate them: that call throws the subset error before depth is considered. Give the intermediate agent its own copy of the permissions if it must re-delegate.
-</Warning>
+<Info>
+A delegating agent can re-delegate permissions it received. The subset check runs against the agent's own permissions plus the active delegations into it, so `sub` above, created with `permissions: []`, can pass on what it was given, never more. The new link also cannot outlive the delegation it was derived from: its expiry is capped at the earliest expiry among the delegations into the parent, unless the parent's own permissions already cover the request.
+</Info>
 
 ### Cascading revocation
 
@@ -213,7 +213,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
     ```
   </Step>
   <Step>
-    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (re-delegation calls must pass a larger one, see depth limiting above).
+    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (later hops inherit it, see depth limiting above).
 
     ```typescript
     await theauth.delegate({

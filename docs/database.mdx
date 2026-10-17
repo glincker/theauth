@@ -180,7 +180,7 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 | `theauth_agents` | AI agent identities (the core entity) |
 | `theauth_permissions` | Per-agent resource+action permissions with constraints |
 | `theauth_delegation_chains` | Agent-to-agent delegation records |
-| `theauth_audit_logs` | Log of every agent action |
+| `theauth_audit_logs` | Log of every agent action. The nullable `decision_code` column holds the machine-readable outcome (added in 2.0, not part of the audit hash) |
 | `theauth_rate_limits` | Per-agent call-rate counters |
 | `theauth_mcp_servers` | Registered MCP servers |
 | `theauth_sessions` | theAuth-managed human user sessions |
@@ -199,6 +199,10 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 | `theauth_oidc_clients`, `theauth_oidc_auth_codes`, `theauth_oidc_refresh_tokens` | OIDC provider records |
 | `theauth_rebac_resources`, `theauth_rebac_relationships` | ReBAC graph |
 | `theauth_federation_instances`, `theauth_federation_tokens` | Federation records |
+
+### Upgrading the audit table
+
+`createTables()` adds `decision_code TEXT` and the index `theauth_audit_logs_code (agent_id, decision_code)` to an existing audit table on startup, and does nothing when they already exist. Old rows keep a NULL code. If you set `database.skipMigrations: true`, run `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` yourself before deploying 2.0, because the audit queries select that column. On MySQL use the prefixed index shown in the file. The column is not covered by the audit hash, so existing hash chains and the Go verifier keep verifying.
 
 All table and column names use `snake_case`. IDs are `text`. In the SQLite schema, timestamps are stored as integers.
 

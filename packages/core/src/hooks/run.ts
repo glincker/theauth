@@ -1,68 +1,15 @@
 /**
  * beforeAuthorize hook runner: timeout via AbortSignal, fail-closed by default.
- *
- * The item 1 hook types are declared locally as a draft. A later task moves
- * them into lifecycle.ts.
  */
-import type { AgentIdentity, Permission, RequestContext } from "../types.js";
+import type { DecisionCode } from "../permission/codes.js";
+import type {
+	BeforeAuthorizeContext,
+	HookDelegationChain,
+	HookVerdict,
+	TheAuthHooks,
+} from "./lifecycle.js";
 import type { HookErrorInfo, ResolvedHookSafety } from "./safety.js";
 import { HookTimeoutError } from "./safety.js";
-
-/** Draft of the decision code union; replaced by the permission/codes.js type later. */
-export type HookDecisionCode = "hook_denied" | "approval_required" | "hook_timeout" | "hook_error";
-
-export interface DelegationLink {
-	delegationId: string;
-	fromAgent: string;
-	toAgent: string;
-	permissions: Permission[];
-	depth: number;
-	maxDepth: number;
-	expiresAt: Date;
-	createdAt: Date;
-}
-
-export interface HookDelegationChain {
-	rootOwnerId?: string;
-	path: string[];
-	links: DelegationLink[];
-	inbound: DelegationLink[];
-}
-
-export type AuthorizeSource = "authorize" | "authorizeByToken" | "policy.evaluate" | "explain";
-
-export interface BeforeAuthorizeContext {
-	agentId: string;
-	action: string;
-	resource: string;
-	arguments?: Record<string, unknown>;
-	agent: Omit<AgentIdentity, "token">;
-	delegation: HookDelegationChain;
-	source: AuthorizeSource;
-	context?: RequestContext;
-	dryRun: boolean;
-	/** Aborted when the hook timeout fires. Pass it to fetch(). */
-	signal: AbortSignal;
-}
-
-export interface LegacyHookVerdict {
-	allow: boolean;
-	reason?: string;
-}
-
-export interface HookVerdict {
-	decision: "allow" | "deny" | "escalate";
-	reason?: string;
-	guard?: string;
-	ruleId?: string;
-	metadata?: Record<string, string | number | boolean>;
-}
-
-export type BeforeAuthorizeResult = HookVerdict | LegacyHookVerdict | undefined;
-
-export interface BeforeAuthorizeHooks {
-	beforeAuthorize?: (context: BeforeAuthorizeContext) => Promise<BeforeAuthorizeResult>;
-}
 
 type VerdictMeta = Pick<HookVerdict, "guard" | "ruleId" | "metadata">;
 
@@ -70,7 +17,7 @@ export type HookOutcome =
 	| { kind: "allow"; elapsedMs: number }
 	| ({
 			kind: "deny" | "escalate";
-			code: HookDecisionCode;
+			code: DecisionCode;
 			reason: string;
 			elapsedMs: number;
 	  } & VerdictMeta)
@@ -130,19 +77,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const MAX_METADATA_KEYS = 16;
+const MAX_VALUE_CHARS = 256;
+
+function clip(value: string): string {
+	return value.length > MAX_VALUE_CHARS ? value.slice(0, MAX_VALUE_CHARS) : value;
+}
+
+/** Keep scalar values only: max 16 keys, strings clipped to 256 chars. */
+function sanitizeMetadata(raw: Record<string, unknown>): Record<string, string | number | boolean> {
+	const out: Record<string, string | number | boolean> = {};
+	for (const [key, value] of Object.entries(raw)) {
+		if (Object.keys(out).length >= MAX_METADATA_KEYS) break;
+		if (typeof value === "string") out[clip(key)] = clip(value);
+		else if (typeof value === "number" && Number.isFinite(value)) out[clip(key)] = value;
+		else if (typeof value === "boolean") out[clip(key)] = value;
+	}
+	return out;
+}
+
 /** Returns undefined for a malformed verdict. */
-function normalizeVerdict(result: unknown): Normalized | undefined {
+export function normalizeVerdict(result: unknown): Normalized | undefined {
 	if (result === undefined || result === null) return { decision: "allow" };
 	if (!isRecord(result)) return undefined;
 	const reason = typeof result.reason === "string" ? result.reason : undefined;
 	const d = result.decision;
 	if (d === "allow" || d === "deny" || d === "escalate") {
 		const verdict: Normalized = { decision: d, reason };
-		if (typeof result.guard === "string") verdict.guard = result.guard;
-		if (typeof result.ruleId === "string") verdict.ruleId = result.ruleId;
-		if (isRecord(result.metadata)) {
-			verdict.metadata = result.metadata as Record<string, string | number | boolean>;
-		}
+		if (typeof result.guard === "string") verdict.guard = clip(result.guard);
+		if (typeof result.ruleId === "string") verdict.ruleId = clip(result.ruleId);
+		if (isRecord(result.metadata)) verdict.metadata = sanitizeMetadata(result.metadata);
 		return verdict;
 	}
 	if (typeof result.allow === "boolean") {
@@ -151,7 +115,7 @@ function normalizeVerdict(result: unknown): Normalized | undefined {
 	return undefined;
 }
 
-function notify(safety: ResolvedHookSafety, info: HookErrorInfo): void {
+export function notify(safety: ResolvedHookSafety, info: HookErrorInfo): void {
 	try {
 		safety.onHookError?.(info);
 	} catch {
@@ -160,7 +124,7 @@ function notify(safety: ResolvedHookSafety, info: HookErrorInfo): void {
 }
 
 export function createBeforeAuthorizeRunner(
-	hooks: BeforeAuthorizeHooks,
+	hooks: Pick<TheAuthHooks, "beforeAuthorize">,
 	safety: ResolvedHookSafety,
 ): BeforeAuthorizeRunner {
 	const guard = safety.beforeAuthorize;

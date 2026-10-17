@@ -1,12 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, delegationChains } from "../db/schema.js";
+import type { DelegationLink, HookDelegationChain } from "../hooks/lifecycle.js";
+import type { Permission } from "../types.js";
 
-export interface DelegationHop {
-	delegationId: string;
-	fromAgent: string;
-	toAgent: string;
-}
+/** @deprecated Alias kept for compatibility. Use `DelegationLink`. */
+export type DelegationHop = DelegationLink;
 
 /** Who stands behind an agent: the root of its delegation chain and every hop. */
 export interface DelegationLineage {
@@ -14,33 +13,58 @@ export interface DelegationLineage {
 	rootOwnerId?: string;
 	/** Agent ids from the root delegator down to the agent. */
 	path: string[];
-	hops: DelegationHop[];
+	hops: DelegationLink[];
 }
 
 const MAX_WALK = 16;
+
+type ChainRow = typeof delegationChains.$inferSelect;
+
+function toLink(row: ChainRow): DelegationLink {
+	return {
+		delegationId: row.id,
+		fromAgent: row.fromAgentId,
+		toAgent: row.toAgentId,
+		permissions: (row.permissions as Permission[]).map((p) => ({ ...p })),
+		depth: row.depth,
+		maxDepth: row.maxDepth,
+		expiresAt: row.expiresAt,
+		createdAt: row.createdAt,
+	};
+}
+
+/** Active, unexpired grants whose toAgent is agentId, oldest first. Same filter as the delegated permission fallback. */
+export async function loadInboundGrants(
+	db: Database,
+	agentId: string,
+	now: Date = new Date(),
+): Promise<DelegationLink[]> {
+	const rows = await db
+		.select()
+		.from(delegationChains)
+		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
+	return rows
+		.filter((c) => c.expiresAt > now)
+		.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+		.map(toLink);
+}
 
 /** Walk active, unexpired inbound delegations upward to the root agent. When an agent has several inbound chains the earliest created one is followed, so the result is deterministic. */
 export async function resolveLineage(db: Database, agentId: string): Promise<DelegationLineage> {
 	const now = new Date();
 	const path = [agentId];
-	const hops: DelegationHop[] = [];
+	const hops: DelegationLink[] = [];
 	const seen = new Set<string>([agentId]);
 	let current = agentId;
 
 	for (let i = 0; i < MAX_WALK; i++) {
-		const inbound = await db
-			.select()
-			.from(delegationChains)
-			.where(and(eq(delegationChains.toAgentId, current), eq(delegationChains.status, "active")));
-		const live = inbound
-			.filter((c) => c.expiresAt > now && !seen.has(c.fromAgentId))
-			.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-		const next = live[0];
+		const inbound = await loadInboundGrants(db, current, now);
+		const next = inbound.find((l) => !seen.has(l.fromAgent));
 		if (!next) break;
-		hops.unshift({ delegationId: next.id, fromAgent: next.fromAgentId, toAgent: next.toAgentId });
-		path.unshift(next.fromAgentId);
-		seen.add(next.fromAgentId);
-		current = next.fromAgentId;
+		hops.unshift(next);
+		path.unshift(next.fromAgent);
+		seen.add(next.fromAgent);
+		current = next.fromAgent;
 	}
 
 	const rows = await db
@@ -49,4 +73,19 @@ export async function resolveLineage(db: Database, agentId: string): Promise<Del
 		.where(eq(agents.id, current))
 		.limit(1);
 	return { rootOwnerId: rows[0]?.ownerId, path, hops };
+}
+
+/** Lineage plus every inbound grant of the agent: the shape handed to hooks and explain(). */
+export async function resolveHookChain(
+	db: Database,
+	agentId: string,
+): Promise<HookDelegationChain> {
+	const lineage = await resolveLineage(db, agentId);
+	const inbound = await loadInboundGrants(db, agentId);
+	return {
+		rootOwnerId: lineage.rootOwnerId,
+		path: lineage.path,
+		links: lineage.hops,
+		inbound,
+	};
 }

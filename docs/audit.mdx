@@ -7,7 +7,7 @@ icon: scroll
 
 ## How audit logging works
 
-Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). Calls rejected before the permission engine runs, such as an unknown or revoked agent, are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
+Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). A call blocked by a `beforeAuthorize` hook, including a hook timeout or error, is logged as a denial in the agent's hash chain (see [Lifecycle hooks](/hooks#what-a-block-leaves-in-the-audit-log)). A call for a revoked or expired agent is logged too. Calls for an unknown agent id or an unknown token have no agent row to attach to and are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
 
 `authorize()` returns an `auditId` linking the decision to its log entry:
 
@@ -32,6 +32,7 @@ console.log(result.auditId); // a UUID, e.g. "7b0c1d52-..."
 <ParamField path="parameters" type={`Record<string, unknown>`}>Arguments passed to the tool at the time of the call.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited' | 'escalated'">The outcome of the check. The built-in permission engine writes `allowed` or `denied`. `policy.evaluate()` writes `escalated` when the action needs human approval. Rows also carry accountability fields such as the acting agent, the accountable human and the policy version; see [Tamper-evident audit trail](/audit-trail#fields-on-each-row).</ParamField>
 <ParamField path="reason" type="string">Free-text explanation of a denial. Absent on allowed entries.</ParamField>
+<ParamField path="code" type="DecisionCode">Machine-readable outcome, such as `allowed`, `no_permission`, `rate_limited`, `hook_denied`, `hook_timeout` or `hook_error`. Read from the nullable `decision_code` column, so it is `undefined` on rows written before that column existed. It is an index convenience, not evidence: it is not part of the audit hash, so use `reason` and the hashed fields when proving what happened.</ParamField>
 <ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
 <ParamField path="tokensCost" type="number">Optional token usage. The built-in permission engine does not populate it.</ParamField>
 <ParamField path="timestamp" type="Date">When the authorization check occurred.</ParamField>
@@ -57,6 +58,7 @@ const logs = await theauth.audit.query({
 <ParamField path="userId" type="string">Filter to all agents owned by a user.</ParamField>
 <ParamField path="since" type="Date">Include entries on or after this timestamp.</ParamField>
 <ParamField path="until" type="Date">Include entries on or before this timestamp.</ParamField>
+<ParamField path="codes" type="DecisionCode[]">Only entries whose `code` is one of these, for example `['hook_denied', 'hook_timeout', 'hook_error']` to list every hook block.</ParamField>
 <ParamField path="actions" type="string[]">Filter to specific action names. Applied after `limit` and `offset`, so a page can come back shorter than `limit`.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">Filter by outcome.</ParamField>
 <ParamField path="limit" type="number">Maximum entries to return. No default: all matching entries are returned when omitted.</ParamField>

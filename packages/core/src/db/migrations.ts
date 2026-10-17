@@ -236,6 +236,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   parameters   ${json},
   result       TEXT    NOT NULL,
   reason       TEXT,
+  decision_code TEXT,
   duration_ms  INTEGER NOT NULL,
   tokens_cost  INTEGER,
   ip           TEXT,
@@ -1244,9 +1245,13 @@ async function upgradeAuditChainColumns(
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}delegation_chain ${jsonType}`,
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}input_provenance ${jsonType}`,
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}id_pseudonyms ${jsonType}`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}decision_code TEXT`,
 		provider === "mysql"
 			? "CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id(191), chain_seq)"
 			: "CREATE UNIQUE INDEX IF NOT EXISTS theauth_audit_logs_chain ON theauth_audit_logs (agent_id, chain_seq)",
+		provider === "mysql"
+			? "CREATE INDEX theauth_audit_logs_code ON theauth_audit_logs (agent_id(191), decision_code(64))"
+			: "CREATE INDEX IF NOT EXISTS theauth_audit_logs_code ON theauth_audit_logs (agent_id, decision_code)",
 	];
 	for (const sql of stmts) {
 		try {

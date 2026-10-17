@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents } from "../db/schema.js";
+import type { DecisionCode } from "../permission/codes.js";
 import type { AuditInsert } from "./chain.js";
 import { insertAuditRow } from "./chain.js";
 
@@ -18,6 +19,8 @@ export interface RecordedEvent {
 	resource: string;
 	result: "allowed" | "denied" | "rate_limited" | "escalated";
 	reason?: string;
+	/** Machine-readable outcome. Stored in its own column, not covered by the audit hash. */
+	decisionCode?: DecisionCode;
 	durationMs?: number;
 	parameters?: Record<string, unknown>;
 	subjectId?: string;
@@ -156,6 +159,7 @@ export async function recordAuditEvent(db: Database, event: RecordedEvent): Prom
 			parameters: event.parameters ?? {},
 			result: event.result,
 			reason: event.reason ?? null,
+			decisionCode: event.decisionCode ?? null,
 			durationMs: event.durationMs ?? 0,
 			timestamp: new Date(),
 			subjectId: event.subjectId ?? null,

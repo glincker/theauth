@@ -1,0 +1,5 @@
+---
+"@glinr/theauth": major
+---
+
+`beforeAuthorize` now runs after the agent is resolved and active, with a richer context (`agent`, `delegation` chain from the root human, `source`, `context`, `dryRun`, `signal`), and for `authorizeByToken()` and `policy.evaluate()` (agent subjects) as well as `authorize()`. It no longer runs for unknown agent ids, invalid tokens, or revoked or expired agents. `authorizeByToken()` now honors delegated permissions and fires `afterAuthorize` and `onViolation` like `authorize()`. Hooks run under a timeout and fail closed: a `beforeAuthorize` timeout, throw or malformed verdict denies with code `hook_timeout` or `hook_error`, and a `beforeAgentCreate` timeout or throw makes `agent.create()` throw. Configure with `hookSafety` or `THEAUTH_HOOK_TIMEOUT_MS`, `THEAUTH_HOOK_ON_TIMEOUT`, `THEAUTH_HOOK_ON_ERROR`; `onError: "throw"` restores the old propagate behavior. Hook verdicts may also be `{ decision: "allow" | "deny" | "escalate" }`. See the upgrade notes in `docs/upgrading-to-2.mdx`.

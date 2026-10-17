@@ -39,12 +39,13 @@ import { createUsernameAuthModule } from "./auth/username.js";
 import type { WebhookModule } from "./auth/webhooks.js";
 import { createWebhookModule } from "./auth/webhooks.js";
 import { createAuthorizePipeline } from "./authorize/pipeline.js";
-import { generateId } from "./crypto/web-crypto.js";
 import type { Database } from "./db/database.js";
 import { createTables } from "./db/migrations.js";
-import { mcpServers, users } from "./db/schema.js";
+import { users } from "./db/schema.js";
 import { createDelegationModule } from "./delegation/delegation.js";
 import { createDidModule } from "./did/module.js";
+import { createHookRuntime } from "./hooks/runtime.js";
+import { createMcpServerRegistry } from "./mcp/server-registry.js";
 import { createPermissionEngine } from "./permission/engine.js";
 import { buildClearCookie, extractToken, json } from "./plugin/helpers.js";
 import { createPluginRouter } from "./plugin/router.js";
@@ -67,8 +68,6 @@ import type {
 	AuditFilter,
 	DelegateInput,
 	DelegationChain,
-	McpServer,
-	McpServerInput,
 	TheAuthConfig,
 } from "./types.js";
 import { createUserModule } from "./user/user.js";
@@ -94,10 +93,14 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	// The policy engine can open approval requests, so the approval module is created first.
 	const approvalModule = createApprovalModule(config.approval ?? {}, db);
+	const hooks = config.hooks ?? {};
+	const { runBeforeAuthorize, guardAgentCreate } = createHookRuntime(hooks, config.hookSafety);
 	const policyEngine: PolicyEngine = createPolicyEngine({
 		db,
 		config: config.policy,
 		approval: approvalModule,
+		// Only when a hook exists, so policy.evaluate pays nothing without one.
+		runBeforeAuthorize: hooks.beforeAuthorize ? runBeforeAuthorize : undefined,
 	});
 
 	const agentConfig = {
@@ -139,9 +142,10 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
 
-	const hooks = config.hooks ?? {};
 	const { authorize, authorizeByToken } = createAuthorizePipeline({
+		db,
 		hooks,
+		runBeforeAuthorize,
 		agentModule,
 		permissionEngine,
 		delegationModule,
@@ -346,12 +350,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		): ReturnType<typeof agentModule.create> {
 			const [input] = args;
 
-			if (hooks.beforeAgentCreate) {
-				const verdict = await hooks.beforeAgentCreate(input);
-				if (verdict && !verdict.allow) {
-					throw new Error(verdict.reason ?? "Agent creation blocked by beforeAgentCreate hook");
-				}
-			}
+			await guardAgentCreate(input);
 
 			const agent = await agentModule.create(input);
 
@@ -385,63 +384,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		validateToken: agentModule.validateToken,
 	};
 
-	// Backed by the theauth_mcp_servers table (defined in db/schema.ts).
-	const mcpRegistry = {
-		/** Registers an MCP tool server. The returned record includes the generated `id` and `createdAt`. */
-		async register(input: McpServerInput): Promise<McpServer> {
-			const now = new Date();
-			const id = generateId();
-
-			await db.insert(mcpServers).values({
-				id,
-				name: input.name,
-				endpoint: input.endpoint,
-				tools: input.tools,
-				authRequired: input.authRequired ?? true,
-				rateLimitRpm: input.rateLimit?.rpm ?? null,
-				status: "active",
-				createdAt: now,
-				updatedAt: now,
-			});
-
-			return {
-				id,
-				name: input.name,
-				endpoint: input.endpoint,
-				tools: input.tools,
-				authRequired: input.authRequired ?? true,
-				createdAt: now,
-			};
-		},
-
-		/** Lists all registered MCP servers, active or not. */
-		async list(): Promise<McpServer[]> {
-			const rows = await db.select().from(mcpServers);
-			return rows.map((row) => ({
-				id: row.id,
-				name: row.name,
-				endpoint: row.endpoint,
-				tools: row.tools,
-				authRequired: row.authRequired,
-				createdAt: row.createdAt,
-			}));
-		},
-
-		/** Gets one MCP server by ID, or null when not found. */
-		async get(id: string): Promise<McpServer | null> {
-			const rows = await db.select().from(mcpServers).where(eq(mcpServers.id, id));
-			const row = rows[0];
-			if (!row) return null;
-			return {
-				id: row.id,
-				name: row.name,
-				endpoint: row.endpoint,
-				tools: row.tools,
-				authRequired: row.authRequired,
-				createdAt: row.createdAt,
-			};
-		},
-	};
+	const mcpRegistry = createMcpServerRegistry(db);
 
 	return {
 		agent: agentProxy,

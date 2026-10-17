@@ -39,6 +39,7 @@ const theauth = await createTheAuth({
 <ParamField path="auth" type={`{ adapter?: AuthAdapter; session?: SessionConfig }`}>Human auth adapter and session config.</ParamField>
 <ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config. See [Approval flows](/approval).</ParamField>
 <ParamField path="hooks" type="TheAuthHooks">Lifecycle hooks for sandboxing and custom validation. See [Hooks](/hooks).</ParamField>
+<ParamField path="hookSafety" type="HookSafetyConfig">Timeout and failure policy for `beforeAuthorize` and `beforeAgentCreate`. Defaults: 2000 ms, deny on timeout or error for `beforeAuthorize`, throw for `beforeAgentCreate`. Environment variables `THEAUTH_HOOK_TIMEOUT_MS`, `THEAUTH_HOOK_ON_TIMEOUT` and `THEAUTH_HOOK_ON_ERROR` set the defaults. See [Hook safety](/hooks#hook-safety-timeout-and-fail-closed).</ParamField>
 <ParamField path="policy" type="PolicyEngineConfig">Unified policy engine cache, combine strategy, and audit sampling. See [Policy engine](/policy-engine).</ParamField>
 <ParamField path="did" type="{ web?: DidWebConfig }">did:web domain and path. See [DIDs](/did).</ParamField>
 <ParamField path="plugins" type="TheAuthPlugin[]">Plugin factories such as `gdpr()`, `rateLimit()`, `twoFactor()`. See [Plugins](#plugins).</ParamField>

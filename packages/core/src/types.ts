@@ -27,6 +27,7 @@ import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
 import type { DidWebConfig } from "./did/types.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
+import type { HookSafetyConfig } from "./hooks/safety.js";
 import type { McpConfig, Result } from "./mcp/types.js";
 import type { DecisionCode } from "./permission/codes.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
@@ -59,6 +60,10 @@ export interface TheAuthConfig {
 
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
 	hooks?: TheAuthHooks;
+	/**
+	 * Timeout and failure policy for `hooks.beforeAuthorize` and `hooks.beforeAgentCreate`. Sibling of `hooks` so the hooks object stays a plain map of functions. Defaults: 2000 ms timeout, deny on timeout or error for beforeAuthorize, throw for beforeAgentCreate. Env: THEAUTH_HOOK_TIMEOUT_MS, THEAUTH_HOOK_ON_TIMEOUT, THEAUTH_HOOK_ON_ERROR.
+	 */
+	hookSafety?: HookSafetyConfig;
 
 	did?: {
 		/** did:web config, required for generating did:web identities. */
@@ -310,6 +315,8 @@ export interface AuditEntry {
 	parameters: Record<string, unknown>;
 	result: "allowed" | "denied" | "rate_limited" | "escalated";
 	reason?: string;
+	/** Machine-readable outcome. Undefined on rows written before `decision_code` existed. An index convenience, not part of the audit hash. */
+	code?: DecisionCode;
 	durationMs: number;
 	tokensCost?: number;
 	timestamp: Date;
@@ -322,6 +329,8 @@ export interface AuditFilter {
 	until?: Date;
 	actions?: string[];
 	result?: "allowed" | "denied" | "rate_limited" | "escalated";
+	/** Only rows whose `decision_code` is one of these. */
+	codes?: DecisionCode[];
 	limit?: number;
 	offset?: number;
 }

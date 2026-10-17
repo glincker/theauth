@@ -91,6 +91,41 @@ describe("TheAuthHooks - beforeAuthorize", () => {
 	});
 });
 
+describe("TheAuthHooks - beforeAuthorize ordering", () => {
+	it("a hook written against the old context shape still works", async () => {
+		const seen: string[] = [];
+		const theauth = await createTestTheAuth({
+			beforeAuthorize: async ({ agentId, action, resource }) => {
+				seen.push(`${agentId}:${action}:${resource}`);
+				return undefined;
+			},
+		});
+		const agent = await seedAgent(theauth);
+		const result = await theauth.authorize(agent.id, { action: "read", resource: "mcp:github" });
+		expect(result.allowed).toBe(true);
+		expect(seen).toEqual([`${agent.id}:read:mcp:github`]);
+	});
+
+	it("does not run for an unknown agent id", async () => {
+		const beforeAuthorize = vi.fn().mockResolvedValue(undefined);
+		const theauth = await createTestTheAuth({ beforeAuthorize });
+		const result = await theauth.authorize("missing", { action: "read", resource: "mcp:github" });
+		expect(result.allowed).toBe(false);
+		expect(result.code).toBe("agent_not_found");
+		expect(beforeAuthorize).not.toHaveBeenCalled();
+	});
+
+	it("runs before own permissions: a block wins even when the agent is permitted", async () => {
+		const theauth = await createTestTheAuth({
+			beforeAuthorize: async () => ({ allow: false, reason: "frozen" }),
+		});
+		const agent = await seedAgent(theauth);
+		const result = await theauth.authorize(agent.id, { action: "read", resource: "mcp:github" });
+		expect(result).toMatchObject({ allowed: false, reason: "frozen", code: "hook_denied" });
+		expect(result.auditId).not.toBe("");
+	});
+});
+
 describe("TheAuthHooks - afterAuthorize", () => {
 	it("fires after a successful authorization", async () => {
 		const afterAuthorize = vi.fn().mockResolvedValue(undefined);
