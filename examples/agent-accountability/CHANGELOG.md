@@ -1,5 +1,12 @@
 # @glinr/theauth-example-agent-accountability
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [bf41bbb]
+  - @glinr/theauth@1.3.0
+
 ## 0.0.1
 
 ### Patch Changes

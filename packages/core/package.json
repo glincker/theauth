@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Open-source auth for AI agents and humans: agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, and audit",
   "type": "module",
   "main": "dist/index.js",
