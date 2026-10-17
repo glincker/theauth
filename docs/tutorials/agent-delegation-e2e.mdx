@@ -14,9 +14,10 @@ It runs in one process with an in-memory SQLite database, no model and no API ke
 | --- | --- | --- |
 | 1 | The user approves an OAuth 2.1 grant, the agent narrows it | Token with `mcp:read` only |
 | 2 | The agent calls `read_report` | Allowed |
-| 3 | The agent calls `delete_report` | Denied, 403 |
-| 4 | Read the audit log | One row per decision |
-| 5 | The user revokes the delegation | Next call is rejected, 401 |
+| 3 | `explain()` says why `delete_report` is denied, then the agent calls it | Denied, 403 |
+| 4 | A `beforeAuthorize` hook sees the chain and blocks a resource | `hook_denied` audit row |
+| 5 | Read the audit log | One row per decision, in write order |
+| 6 | The user revokes the delegation | `delegation.revoke` row, next call rejected with 401 |
 
 ## 1. Create the agents and the delegation
 
@@ -44,9 +45,7 @@ const chain = await auth.delegate({
 });
 ```
 
-<Note>
-The example inserts the owner row with drizzle, as the quickstart does. A marked comment in the script shows where `auth.user.create()` replaces it.
-</Note>
+The owner is created first with `auth.user.create({ id: 'user-alice', email, name })`.
 
 ## 2. Configure the MCP server
 
@@ -103,13 +102,45 @@ if (!check.authorized) return check.response; // 401 or 403
 
 `read_report` needs `mcp:read`, so it passes. `delete_report` needs `mcp:write`, so `requireScopes` returns a 403 step-up response and the tool never runs. The server writes an audit row for both outcomes with `recordAuditEvent`.
 
-## 5. Revoke the parent delegation
+Before the 403, the script asks theAuth why the write would be denied. `explain()` only reads: it writes no audit row and spends nothing.
 
 ```typescript
-await auth.delegation.revoke(chain.id);
+const why = await auth.explain(reportBot.id, 'write', 'mcp:reports:delete_report');
+if (!why.success) throw new Error(why.error.message);
+console.log(why.data.decision, why.data.code, why.data.matchedGrant);
+// deny no_permission undefined
 ```
 
-The agent's token has not expired and its signature is still valid. The next call is rejected anyway, because `delegationStore` finds the revoked link in the chain from the user to the agent.
+The delegated rule covers read only, so no grant matches a write and `matchedGrant` is absent. See [Explain a decision](/explain).
+
+## 5. Add a hook (optional)
+
+A `beforeAuthorize` hook runs for `auth.authorize()` and receives the delegation chain behind the agent. This one logs the chain depth and denies a resource on a blocklist. Hooks fail closed: a throw or a timeout denies the call.
+
+```typescript
+const auth = await createTheAuth({
+  // ...
+  hooks: {
+    async beforeAuthorize({ delegation, resource }) {
+      console.log(`chain depth=${delegation.path.length - 1} resource=${resource}`);
+      if (BLOCKED_RESOURCES.has(resource.split(':').pop() ?? '')) {
+        return { decision: 'deny', reason: 'resource is on the example blocklist', ruleId: 'example-blocklist' };
+      }
+      return undefined;
+    },
+  },
+});
+```
+
+The blocked call returns code `hook_denied` and writes an audit row with that code. See [Lifecycle hooks](/hooks).
+
+## 6. Revoke the parent delegation
+
+```typescript
+await auth.delegation.revoke(chain.id, { revokedBy: 'user-alice' });
+```
+
+This writes a `delegation.revoke` audit row on the delegate's chain with `revokedBy` set. The agent's token has not expired and its signature is still valid. The next call is rejected anyway, because `delegationStore` finds the revoked link in the chain from the user to the agent.
 
 ## Expected output
 
@@ -118,9 +149,9 @@ The agent's token has not expired and its signature is still valid. The next cal
 
 
 == Setup: owner, agents and delegation
-   parent agent           alice-assistant (f6358e84-72e...)
-   child agent            report-bot (813814c5-a9b...)
-   delegation             8b8ed5e0-1de... read on mcp:reports:*
+   parent agent           alice-assistant (7d41da37-5a8...)
+   child agent            report-bot (b48d3e18-57a...)
+   delegation             8a7628c2-8b2... read on mcp:reports:*
 
 == Step 1: Alice approves a scoped OAuth grant for the agent app
    user grant scopes      mcp:read mcp:write
@@ -130,34 +161,54 @@ The agent's token has not expired and its signature is still valid. The next cal
    HTTP                   200
    result                 {"content":"[simulated] read_report ok"}
 
-== Step 3: agent calls delete_report (needs mcp:write)
+== Step 3: why would delete_report be denied? (theauth.explain)
+   decision               deny (code no_permission)
+   reason                 No permission grants agent "report-bot" access to "write" on "mcp:reports:delete_report"
+   matched grant          none (no rule matches write on this resource)
+
+== Step 3b: agent calls delete_report (needs mcp:write)
    HTTP                   403
    result                 {"error":"insufficient scope","status":403}
 
-== Audit log
-   2026-10-17T23:07:25.000Z allowed  delegation.create delegation:8b8ed5e0-1dec-4f74-b52b-b2cc9de5fd0d ()
-   2026-10-17T23:07:25.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
-   2026-10-17T23:07:25.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+== Step 4: beforeAuthorize hook (optional guard on theauth.authorize)
+   [hook] source=authorize chain depth=1 resource=mcp:reports:q3
+   read q3                allowed=true
+   [hook] source=authorize chain depth=1 resource=mcp:reports:payroll
+   read payroll           allowed=false code=hook_denied
+   audit id               cd0174d0-cf6...
+
+== Audit log (write order)
+   2026-10-17T23:41:54.000Z allowed  delegation.create delegation:8a7628c2-8b21-4a3f-9d16-8f4711ef5d6c ()
+   2026-10-17T23:41:54.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
+   2026-10-17T23:41:54.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+   2026-10-17T23:41:54.000Z allowed  read mcp:reports:q3 [allowed] ()
+   2026-10-17T23:41:54.000Z denied   read mcp:reports:payroll [hook_denied] (resource is on the example blocklist)
+   write order check      ok
 
 == Revocation: Alice revokes the parent delegation
-   revoked                8b8ed5e0-1de...
+   revoked                8a7628c2-8b2...
    HTTP                   401
    result                 {"error":"Delegation chain is no longer valid (revoked link)","status":401}
 
 == Audit log after revocation
-   2026-10-17T23:07:25.000Z allowed  delegation.create delegation:8b8ed5e0-1dec-4f74-b52b-b2cc9de5fd0d ()
-   2026-10-17T23:07:25.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
-   2026-10-17T23:07:25.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
-   2026-10-17T23:07:25.000Z denied   mcp.tools.call mcp:reports:read_report (token rejected: Delegation chain is no longer valid (revoked link))
+   2026-10-17T23:41:54.000Z allowed  delegation.create delegation:8a7628c2-8b21-4a3f-9d16-8f4711ef5d6c ()
+   2026-10-17T23:41:54.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
+   2026-10-17T23:41:54.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+   2026-10-17T23:41:54.000Z allowed  read mcp:reports:q3 [allowed] ()
+   2026-10-17T23:41:54.000Z denied   read mcp:reports:payroll [hook_denied] (resource is on the example blocklist)
+   2026-10-17T23:41:54.000Z allowed  delegation.revoke delegation:8a7628c2-8b21-4a3f-9d16-8f4711ef5d6c revokedBy=user-alice ()
+   2026-10-17T23:41:54.000Z denied   mcp.tools.call mcp:reports:read_report (token rejected: Delegation chain is no longer valid (revoked link))
+   write order check      ok
 ```
 
-IDs are random and timestamps are the time of your run.
+IDs are random and timestamps are the time of your run. The `read` rows come from `auth.authorize()`. `audit.query` returns newest first, so the script reverses it to print write order. Rows from the same second still come back in write order.
 
 ## Rough edges to know about
 
-- Audit timestamps have one second resolution, so rows from one run share a timestamp. Sort stably, or order by your own sequence.
-- `delegation.revoke()` does not write an audit row today. The example records the rejected call, which is the evidence that matters.
+- `audit.query` returns newest first. Reverse it if you want to read a trail top to bottom.
+- Audit timestamps still have one second resolution, so rows from one run print the same time. Write order is reliable even so.
 - A rejected token has no verified session, so the example reads the `act.client_id` claim without verifying it, only to attribute the denied call in the audit log. Never use it to grant access.
+- `explain()` shows no `matchedGrant` when no rule matches at all, so the output says why a write fails but not which near miss was closest.
 
 ## Next steps
 

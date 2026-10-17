@@ -5,10 +5,14 @@
  *   2. The agent narrows it with RFC 8693 token exchange to a read-only token.
  *   3. The agent calls an MCP server. The server verifies the token with
  *      theAuth, and the call is allowed (scope mcp:read).
- *   4. The agent tries a write tool and is denied (scope mcp:write missing).
- *   5. The audit log entries for all three steps are printed.
- *   6. Alice revokes the parent delegation. The same token is rejected on the
- *      agent's next call, because the server re-checks the delegation chain.
+ *   4. theauth.explain() says why a write would be denied, then the agent tries
+ *      the write tool and is denied (scope mcp:write missing).
+ *   5. A beforeAuthorize hook receives the delegation chain and blocks a
+ *      blocklisted resource. The block leaves an audit row with a decision code.
+ *   6. The audit log is printed in write order.
+ *   7. Alice revokes the parent delegation (a delegation.revoke audit row names
+ *      her). The same token is rejected on the agent's next call, because the
+ *      server re-checks the delegation chain.
  *
  * Run with:  pnpm --filter @glinr/theauth-example-agent-delegation-e2e start
  */
@@ -34,6 +38,8 @@ const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
 const REDIRECT_URI = "http://127.0.0.1/callback";
 const SIGNING_SECRET = "agent-delegation-e2e-secret-at-least-32-chars-long";
 const OWNER_ID = "user-alice";
+/** Example blocklist for the beforeAuthorize hook: last segment of the resource. */
+const BLOCKED_RESOURCES = new Set(["payroll"]);
 
 /** MCP tools and the OAuth scope each one needs. */
 const TOOL_SCOPES: Record<string, string> = {
@@ -78,6 +84,23 @@ async function main(): Promise<void> {
 			defaultPermissions: [],
 			auditAll: true,
 			tokenExpiry: "24h",
+		},
+		hooks: {
+			// Fail closed: a throw or timeout here denies the call. It receives the delegation chain.
+			async beforeAuthorize({ delegation, resource, source, dryRun }) {
+				const depth = delegation.path.length - 1;
+				if (!dryRun) {
+					console.log(`   [hook] source=${source} chain depth=${depth} resource=${resource}`);
+				}
+				if (BLOCKED_RESOURCES.has(resource.split(":").pop() ?? "")) {
+					return {
+						decision: "deny",
+						reason: "resource is on the example blocklist",
+						ruleId: "example-blocklist",
+					};
+				}
+				return undefined;
+			},
 		},
 	});
 
@@ -301,29 +324,77 @@ async function main(): Promise<void> {
 		line("HTTP", `${readCall.status}`);
 		line("result", JSON.stringify(readCall.body));
 
-		// ---- Step 3: out of scope call ----
-		header("Step 3: agent calls delete_report (needs mcp:write)");
+		// ---- Step 3: explain, then the out of scope call ----
+		header("Step 3: why would delete_report be denied? (theauth.explain)");
+		const why = await auth.explain(reportBot.id, "write", "mcp:reports:delete_report");
+		if (!why.success) throw new Error(why.error.message);
+		const explained = why.data;
+		line("decision", `${explained.decision} (code ${explained.code})`);
+		line("reason", explained.reason);
+		const grant = explained.matchedGrant;
+		line(
+			"matched grant",
+			grant
+				? `${grant.source} ${grant.permission.resource} [${grant.permission.actions.join(",")}] resource ${grant.resourceMatch}, action ${grant.actionMatch}`
+				: "none (no rule matches write on this resource)",
+		);
+
+		header("Step 3b: agent calls delete_report (needs mcp:write)");
 		const writeCall = await callTool("delete_report");
 		line("HTTP", `${writeCall.status}`);
 		line("result", JSON.stringify(writeCall.body));
 
+		// ---- Step 4: a beforeAuthorize hook blocks a blocklisted resource ----
+		header("Step 4: beforeAuthorize hook (optional guard on theauth.authorize)");
+		const hookAllowed = await auth.authorize(reportBot.id, {
+			action: "read",
+			resource: "mcp:reports:q3",
+		});
+		line("read q3", `allowed=${hookAllowed.allowed}`);
+		const hookBlocked = await auth.authorize(reportBot.id, {
+			action: "read",
+			resource: "mcp:reports:payroll",
+		});
+		line("read payroll", `allowed=${hookBlocked.allowed} code=${hookBlocked.code}`);
+		line("audit id", short(hookBlocked.auditId));
+
 		// ---- Audit trail ----
-		header("Audit log");
+		header("Audit log (write order)");
 		const printAudit = async (): Promise<void> => {
-			// Timestamps have one second resolution, so a stable sort keeps same-second rows in insertion order.
-			const rows = await auth.audit.query({ agentId: reportBot.id });
-			rows.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+			// audit.query returns newest first and orders same-second rows by write order, so reversing gives write order.
+			const rows = (await auth.audit.query({ agentId: reportBot.id })).reverse();
 			for (const e of rows) {
+				const code = e.code ? ` [${e.code}]` : "";
+				const by =
+					e.action === "delegation.revoke" ? ` revokedBy=${String(e.parameters?.revokedBy)}` : "";
 				console.log(
-					`   ${e.timestamp.toISOString()} ${e.result.padEnd(8)} ${e.action} ${e.resource} (${e.reason ?? ""})`,
+					`   ${e.timestamp.toISOString()} ${e.result.padEnd(8)} ${e.action} ${e.resource}${code}${by} (${e.reason ?? ""})`,
 				);
 			}
+			return void verifyOrder(rows.map((e) => e.action));
+		};
+		/** The rows were written in this order, so the query must return them in it. */
+		const expected = [
+			"delegation.create",
+			"mcp.tools.call",
+			"mcp.tools.call",
+			"read",
+			"read",
+			"delegation.revoke",
+			"mcp.tools.call",
+		];
+		const verifyOrder = (actions: string[]): void => {
+			const want = expected.slice(0, actions.length);
+			line(
+				"write order check",
+				JSON.stringify(actions) === JSON.stringify(want) ? "ok" : `MISMATCH ${actions.join(",")}`,
+			);
 		};
 		await printAudit();
 
 		// ---- Revocation ----
 		header("Revocation: Alice revokes the parent delegation");
-		await auth.delegation.revoke(chain.id);
+		await auth.delegation.revoke(chain.id, { revokedBy: OWNER_ID });
 		line("revoked", short(chain.id));
 		const afterRevoke = await callTool("read_report");
 		line("HTTP", `${afterRevoke.status}`);
