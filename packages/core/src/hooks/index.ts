@@ -1,3 +1,5 @@
+export type { ExternalGuard, GuardCheckInput } from "./guard.js";
+export { composeBeforeAuthorize, guardHook } from "./guard.js";
 export type {
 	AuthHooks,
 	AuthorizeSource,

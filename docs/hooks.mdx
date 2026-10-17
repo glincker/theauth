@@ -277,3 +277,52 @@ discovery = createDiscoveryModule(theauth.db);
   Query the record of authorization decisions.
 </Card>
 </CardGroup>
+
+## External guards
+
+An external guard is a policy service that decides whether an agent may act, for example HOL Guard. It plugs in through `beforeAuthorize`. `guardHook` adapts a guard to that hook, so the guard only implements `check`. Timeout, default deny and audit fields come from the hook runner.
+
+```ts
+import { createTheAuth, guardHook, type ExternalGuard } from "@glinr/theauth";
+
+const holGuard: ExternalGuard = {
+  name: "hol-guard",
+  version: "1.0.0",
+  async check(input, signal) {
+    const res = await fetch("https://guard.example.com/check", {
+      method: "POST",
+      body: JSON.stringify(input),
+      signal,
+    });
+    return res.json(); // { decision: "allow" | "deny" | "escalate", reason?, ruleId?, metadata? }
+  },
+};
+
+const theauth = await createTheAuth({
+  database,
+  hooks: { beforeAuthorize: guardHook(holGuard) },
+  hookSafety: { beforeAuthorize: { timeoutMs: 1500 } },
+});
+```
+
+### What the guard receives
+
+`check(input, signal)` gets the agent (id, owner, tenant, type, name, never the token), the request (`action`, `resource`, `arguments`), the full delegation chain from the root human (`rootOwnerId`, `path`, `links` with each grant's permissions, `inbound`), the entry point (`source`), the client `ip` when known, and `dryRun`. `dryRun` is true from `explain()`, so the guard should not count or log it as a real call. The `signal` aborts at the hook timeout, so pass it to `fetch`.
+
+### Verdicts
+
+The guard returns `{ decision: "allow" | "deny" | "escalate", reason?, guard?, ruleId?, metadata? }`. `guardHook` fills `guard` with `guard.name` when the guard leaves it empty. `reason` is returned to the calling agent, so keep secrets out of it. `guard`, `ruleId` and `metadata` are written to the audit row under `parameters.theauthHook`. A guard can only narrow access: an allow never overrides theAuth's own permission checks.
+
+### Default deny
+
+A throw, a rejected promise or a malformed verdict denies with code `hook_error`. No answer within `timeoutMs` (default 2000) aborts the signal and denies with code `hook_timeout`. Failing open is possible only by setting `onTimeout: "allow"` or `onError: "allow"` in `hookSafety`, and each fail-open is recorded on the audit row.
+
+### Composing guards
+
+`composeBeforeAuthorize` runs several hooks in order with deny-overrides. The first deny short-circuits, an escalate beats allow, and a throw from any hook propagates so the whole check denies.
+
+```ts
+import { composeBeforeAuthorize, guardHook } from "@glinr/theauth";
+
+hooks: { beforeAuthorize: composeBeforeAuthorize(guardHook(holGuard), guardHook(internalRules)) }
+```
