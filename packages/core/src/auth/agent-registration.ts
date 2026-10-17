@@ -1,11 +1,6 @@
 /**
  * Agent registration tokens.
- *
- * A human (or an admin) mints a short-lived, single-use token that carries a
- * fixed set of permissions. A headless agent or CLI redeems it once to create
- * its own agent identity, with no human session on the agent's side. The token
- * is returned once and stored as a SHA-256 hash. The bearer can choose the
- * agent's name but cannot widen its permissions, type or owner.
+ * A headless agent or CLI redeems it once to create its own agent identity, with no human session on the agent's side. The token is returned once and stored as a SHA-256 hash. The bearer can choose the agent's name but cannot widen its permissions, type or owner.
  *
  * @example
  * ```typescript

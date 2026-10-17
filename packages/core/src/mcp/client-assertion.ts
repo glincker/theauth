@@ -7,9 +7,7 @@ import type { SafeFetchOptions } from "./safe-fetch.js";
 import type { McpAuthContext, McpClient, Result } from "./types.js";
 
 /**
- * private_key_jwt client authentication (RFC 7523 section 2.2, OIDC Core
- * section 9). The assertion is signed by the client's own key, names the
- * client as `iss` and `sub`, targets this server and is single use.
+ * private_key_jwt client authentication (RFC 7523 section 2.2, OIDC Core section 9). The assertion is signed by the client's own key, names the client as `iss` and `sub`, targets this server and is single use.
  */
 
 /** Asymmetric algorithms only. HMAC and `none` are never accepted. */
@@ -29,10 +27,7 @@ function fetchOptionsFor(ctx: McpAuthContext): SafeFetchOptions {
 	};
 }
 
-/**
- * Verify a `client_assertion`. On success returns the authenticated client.
- * `expectedClientId`, when the request also names a client_id, must match.
- */
+/** Verify a `client_assertion`. On success returns the authenticated client. `expectedClientId`, when the request also names a client_id, must match. */
 export async function verifyClientAssertion(
 	ctx: McpAuthContext,
 	input: {

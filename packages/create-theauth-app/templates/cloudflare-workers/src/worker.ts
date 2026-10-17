@@ -11,7 +11,6 @@ import { createTheAuth } from "@glinr/theauth";
 import { theAuthHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
 
-// Cloudflare Workers env bindings
 type Env = {
 	DB: D1Database;
 	SESSION_SECRET: string;
@@ -19,10 +18,8 @@ type Env = {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Health check, no DB required
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-// All TheAuth routes under /api
 // auth is created per-request so it picks up the correct D1 binding
 app.all("/api/*", async (c) => {
 	const auth = await createTheAuth({
@@ -30,7 +27,6 @@ app.all("/api/*", async (c) => {
 			provider: "d1",
 			binding: c.env.DB,
 			// Set skipMigrations: true once you've run `wrangler d1 migrations apply`
-			// skipMigrations: true,
 		},
 		auth: {
 			session: {

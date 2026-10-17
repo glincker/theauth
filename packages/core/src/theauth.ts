@@ -7,10 +7,7 @@ export type { TheAuth };
 
 /**
  * Create a TheAuth instance.
- *
- * The factory is **async** so it can open database connections for Postgres
- * and MySQL (which require async driver initialisation) and optionally run
- * `CREATE TABLE IF NOT EXISTS` for all schema tables.
+ * The factory is **async** so it can open database connections for Postgres and MySQL (which require async driver initialisation) and optionally run `CREATE TABLE IF NOT EXISTS` for all schema tables.
  *
  * @example SQLite (simplest)
  * ```typescript

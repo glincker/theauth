@@ -1,22 +1,12 @@
 /**
  * SSRF-safe JSON fetcher.
- *
- * Used to retrieve Client ID Metadata Documents from URLs that an
- * unauthenticated party chose. The fetcher:
- *
  * - accepts https URLs only, with no credentials and the default port;
- * - resolves the hostname and rejects loopback, private (RFC 1918), link-local,
- *   carrier-grade NAT, multicast, unique-local IPv6 and cloud metadata ranges;
+ * - resolves the hostname and rejects loopback, private (RFC 1918), link-local, carrier-grade NAT, multicast, unique-local IPv6 and cloud metadata ranges;
  * - never follows redirects (`redirect: "manual"`, any 3xx fails);
  * - enforces a small body cap while streaming;
  * - accepts `application/json` (or `+json`) responses only;
  * - times out;
- * - fails closed: every error becomes an `{ ok: false }` result.
- *
- * Residual risk: the platform `fetch` resolves the name again when it connects,
- * so a DNS rebinding attacker with a very short TTL can still win the race
- * between our check and the connection. Deployments that need to close that gap
- * pass a `fetchImpl` that pins the connection to the validated address.
+ * - fails closed: every error becomes an `{ ok: false }` result. Residual risk: the platform `fetch` resolves the name again when it connects, so a DNS rebinding attacker with a very short TTL can still win the race between our check and the connection.
  */
 
 export type DnsResolver = (hostname: string) => Promise<string[]>;
@@ -59,8 +49,6 @@ const BLOCKED_HOSTNAMES = new Set([
 	"kubernetes.default.svc",
 ]);
 const BLOCKED_SUFFIXES = [".localhost", ".local", ".internal", ".localdomain", ".home.arpa"];
-
-// IP classification
 
 function parseIPv4(input: string): number[] | null {
 	const parts = input.split(".");
@@ -156,11 +144,7 @@ function isBlockedIPv6(g: number[]): boolean {
 	return false;
 }
 
-/**
- * True when the address is loopback, private, link-local, metadata, multicast
- * or otherwise not a routable public address. Unparseable input counts as
- * blocked (fail closed).
- */
+/** True when the address is loopback, private, link-local, metadata, multicast or otherwise not a routable public address. Unparseable input counts as blocked (fail closed). */
 export function isBlockedIp(address: string): boolean {
 	const trimmed = address.trim().replace(/^\[|\]$/g, "");
 	const v4 = parseIPv4(trimmed);
@@ -175,20 +159,12 @@ export function isIpLiteral(host: string): boolean {
 	return parseIPv4(h) !== null || h.includes(":");
 }
 
-// DNS
-
-/**
- * Default resolver: Node's `dns.lookup` with `all: true`. On runtimes without
- * `node:dns` the import fails and the fetch is rejected (fail closed); pass a
- * `resolver` there.
- */
+/** Default resolver: Node's `dns.lookup` with `all: true`. On runtimes without `node:dns` the import fails and the fetch is rejected (fail closed); pass a `resolver` there. */
 export const defaultDnsResolver: DnsResolver = async (hostname) => {
 	const dns = await import("node:dns/promises");
 	const records = await dns.lookup(hostname, { all: true, verbatim: true });
 	return records.map((r) => r.address);
 };
-
-// Fetch
 
 /** Check a URL's scheme, authority and host. Returns a failure or the parsed URL. */
 export function checkFetchableUrl(
@@ -240,10 +216,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<string 
 	return new TextDecoder().decode(merged);
 }
 
-/**
- * Fetch a JSON document from an untrusted https URL without exposing the
- * server to SSRF. Never throws.
- */
+/** Fetch a JSON document from an untrusted https URL without exposing the server to SSRF. Never throws. */
 export async function safeFetchJson(
 	rawUrl: string,
 	options: SafeFetchOptions = {},

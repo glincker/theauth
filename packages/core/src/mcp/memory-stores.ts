@@ -3,11 +3,7 @@ import type { McpJtiDenylist, McpTokenFamilyStore } from "./types.js";
 
 /**
  * In-process refresh token family store.
- *
- * This is the default when `config.tokenFamilies` is not set. It gives
- * rotation and reuse detection inside one process. State is lost on restart
- * and not shared across instances, so production deployments with more than
- * one instance should pass `createTokenFamilyStore(db)` instead.
+ * This is the default when `config.tokenFamilies` is not set. State is lost on restart and not shared across instances, so production deployments with more than one instance should pass `createTokenFamilyStore(db)` instead.
  */
 export function createInMemoryTokenFamilyStore(): McpTokenFamilyStore {
 	interface FamilyRow {

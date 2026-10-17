@@ -1,14 +1,6 @@
 /**
  * Real-time event streaming via Server-Sent Events (SSE) for TheAuth.
- *
- * Provides a persistent connection feed of audit events, agent lifecycle
- * changes, auth events, and anomalies. SOC teams and monitoring systems can
- * subscribe instead of polling the audit API or relying solely on webhooks.
- *
- * Endpoint: GET /api/theauth/events/stream
- * Auth: Bearer token via Authorization header or `?token=` query param
- * Filtering: `?types=audit,agent.created`
- * Replay: `?since=2026-01-01T00:00:00Z` or Last-Event-ID header
+ * Endpoint: GET /api/theauth/events/stream Auth: Bearer token via Authorization header or `?token=` query param Filtering: `?types=audit,agent.created` Replay: `?since=2026-01-01T00:00:00Z` or Last-Event-ID header
  *
  * @example
  * ```typescript
@@ -34,8 +26,6 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { streamEvents } from "../db/schema.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
-
-// Types
 
 export const EVENT_TYPES = [
 	"audit",
@@ -74,11 +64,8 @@ export interface EventStreamConfig {
 	/** Require a valid Bearer token to connect (default: true) */
 	requireAuth?: boolean;
 	/**
-	 * Validate a Bearer token and return the subscriber ID (userId or agentId)
-	 * on success, or null on failure.
-	 *
-	 * Only called when `requireAuth` is true. When omitted, any non-empty token
-	 * is accepted and used as the subscriber ID.
+	 * Validate a Bearer token and return the subscriber ID (userId or agentId) on success, or null on failure.
+	 * Only called when `requireAuth` is true.
 	 */
 	validateToken?: (token: string) => Promise<string | null>;
 }
@@ -96,8 +83,6 @@ export interface EventStreamModule {
 	close(): void;
 }
 
-// Validation
-
 const eventTypeSchema = z.enum(EVENT_TYPES);
 
 const queryParamsSchema = z.object({
@@ -105,8 +90,6 @@ const queryParamsSchema = z.object({
 	types: z.string().optional(),
 	since: z.string().datetime({ offset: true }).optional(),
 });
-
-// Helpers
 
 function ok<T>(data: T): Result<T> {
 	return { success: true, data };
@@ -153,8 +136,6 @@ function isSseRequest(request: Request): boolean {
 	return accept.includes("text/event-stream");
 }
 
-// Factory
-
 export function createEventStreamModule(config: EventStreamConfig): EventStreamModule {
 	const {
 		db,
@@ -165,13 +146,13 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 		validateToken,
 	} = config;
 
-	// Active client controllers — one per open SSE connection
+	// Active client controllers, one per open SSE connection
 	const clients = new Map<
 		string,
 		{ controller: ReadableStreamDefaultController<Uint8Array>; types: EventType[] | null }
 	>();
 
-	// Heartbeat timer — fired once, sends to all clients
+	// Heartbeat timer, fired once, sends to all clients
 	let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
 	function startHeartbeat(): void {
@@ -182,7 +163,7 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 				try {
 					controller.enqueue(heartbeat);
 				} catch {
-					// Client disconnected — the cleanup runs in the cancel callback
+					// Client disconnected, the cleanup runs in the cancel callback
 				}
 			}
 		}, heartbeatIntervalMs);
@@ -209,9 +190,7 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 		const encoded = new TextEncoder().encode(formatSseEvent(event));
 
 		for (const [id, client] of clients.entries()) {
-			// Apply per-connection type filter
 			if (client.types !== null && !client.types.includes(event.type)) continue;
-			// Apply module-level type filter
 			if (allowedTypes && !allowedTypes.includes(event.type)) continue;
 
 			try {
@@ -233,7 +212,7 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 				userId: event.userId ?? null,
 			});
 		} catch {
-			// Non-fatal — streaming continues even when persistence fails
+			// Non-fatal, streaming continues even when persistence fails
 		}
 	}
 
@@ -274,7 +253,6 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 			return new Response("Too many connections", { status: 503 });
 		}
 
-		// Parse query params
 		const url = new URL(request.url);
 		const rawParams: Record<string, string> = {};
 		for (const [k, v] of url.searchParams.entries()) {
@@ -286,13 +264,12 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 		}
 		const params = parsed.data;
 
-		// Async setup — we return the Response immediately and do auth inside the
+		// Async setup, we return the Response immediately and do auth inside the
 		// ReadableStream start callback so the HTTP layer doesn't need to await.
 		const clientId = generateId();
 
 		const stream = new ReadableStream<Uint8Array>({
 			start(controller) {
-				// Auth then attach
 				void (async () => {
 					if (requireAuth) {
 						const token = extractToken(request) ?? params.token ?? null;
@@ -320,7 +297,6 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 						}
 					}
 
-					// Resolve per-connection type filter
 					let connectionTypes: EventType[] | null = null;
 					if (params.types) {
 						const filtered = parseEventTypes(params.types);
@@ -330,7 +306,6 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 					clients.set(clientId, { controller, types: connectionTypes });
 					startHeartbeat();
 
-					// Send a connected confirmation
 					controller.enqueue(
 						new TextEncoder().encode(
 							`event: connected\ndata: ${JSON.stringify({ clientId, timestamp: new Date().toISOString() })}\n\n`,
@@ -380,9 +355,7 @@ export function createEventStreamModule(config: EventStreamConfig): EventStreamM
 		for (const [id, { controller }] of clients.entries()) {
 			try {
 				controller.close();
-			} catch {
-				// Already closed
-			}
+			} catch {}
 			clients.delete(id);
 		}
 	}

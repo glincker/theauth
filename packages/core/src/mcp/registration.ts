@@ -31,19 +31,12 @@ function metadataError(message: string): Result<McpClientRegistrationResponse> {
 
 /**
  * Dynamic Client Registration (RFC 7591).
- *
- * Endpoint logic for: POST /mcp/register
- *
- * Validates the registration request, generates client credentials (the
- * secret is stored as a SHA-256 digest),
- * persists the client via the context store, and returns the
- * RFC 7591-compliant registration response.
+ * Validates the registration request, generates client credentials (the secret is stored as a SHA-256 digest), persists the client via the context store, and returns the RFC 7591-compliant registration response.
  */
 export async function registerClient(
 	ctx: McpAuthContext,
 	body: unknown,
 ): Promise<Result<McpClientRegistrationResponse>> {
-	// Validate input
 	const parsed = McpClientRegistrationSchema.safeParse(body);
 	if (!parsed.success) {
 		return {
@@ -109,7 +102,6 @@ export async function registerClient(
 		return metadataError("jwks and jwks_uri are only valid with private_key_jwt");
 	}
 
-	// Validate redirect URIs
 	for (const uri of redirectUris) {
 		try {
 			const parsed = new URL(uri);
@@ -149,13 +141,11 @@ export async function registerClient(
 		}
 	}
 
-	// Generate credentials
 	const clientId = generateId();
 	const isPublic = authMethod === "none";
 	const clientSecret =
 		isPublic || authMethod === "private_key_jwt" ? null : generateSecureToken(48);
 
-	// Persist
 	const now = new Date();
 	const client: McpClient = {
 		clientId,
@@ -185,7 +175,6 @@ export async function registerClient(
 
 	await ctx.storeClient(client);
 
-	// Build response
 	const response: McpClientRegistrationResponse = {
 		client_id: clientId,
 		client_id_issued_at: Math.floor(now.getTime() / 1000),

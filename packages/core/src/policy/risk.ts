@@ -28,10 +28,7 @@ function ruleMatches(rule: RiskTierRule, risk: RiskContext): boolean {
 	return true;
 }
 
-/**
- * Return the strongest matching tier rule (first wins on ties), or undefined
- * when no rule matches or no risk context was supplied.
- */
+/** Return the strongest matching tier rule (first wins on ties), or undefined when no rule matches or no risk context was supplied. */
 export function classifyRisk(
 	config: RiskConfig | undefined,
 	risk: RiskContext | undefined,
@@ -45,10 +42,7 @@ export function classifyRisk(
 	return best;
 }
 
-/**
- * Downgrade an allow to an escalate when the risk tier demands approval.
- * Deny and escalate decisions pass through unchanged.
- */
+/** Downgrade an allow to an escalate when the risk tier demands approval. Deny and escalate decisions pass through unchanged. */
 export function applyRisk(
 	decision: PolicyDecision,
 	config: RiskConfig | undefined,

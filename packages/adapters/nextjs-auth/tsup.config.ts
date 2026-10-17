@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig([
-	// Main entry — Node.js runtime, includes server-only server exports.
+	// Main entry: Node.js runtime, includes server-only server exports.
 	{
 		entry: { index: "src/index.ts" },
 		format: ["esm"],
@@ -12,7 +12,7 @@ export default defineConfig([
 		target: "node20",
 		external: ["next", "react", "server-only"],
 	},
-	// Middleware entry — Edge-runtime safe, no next/headers, no server-only.
+	// Middleware entry: Edge-runtime safe, no next/headers, no server-only.
 	{
 		entry: { middleware: "src/middleware.ts" },
 		format: ["esm"],

@@ -7,8 +7,6 @@ import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 export type { EmailOtpConfig };
 
-// Plugin factory
-
 export function emailOtp(config: EmailOtpConfig): TheAuthPlugin {
 	return {
 		id: "theauth-email-otp",

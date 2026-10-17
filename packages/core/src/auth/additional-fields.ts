@@ -1,13 +1,5 @@
 /**
- * Additional user/session fields plugin for TheAuth.
- *
- * Lets callers extend the user and session schemas with typed custom fields
- * without writing any database migrations.  Fields are stored in the existing
- * `user.metadata` or `session.metadata` JSON columns.
- *
- * Field types: `string`, `number`, `boolean`, `json`.
- * Required fields must be present when calling `setUserFields`.
- * Fields not in the schema are rejected during `validate()`.
+ * Additional user and session fields, stored in `user.metadata` and `session.metadata`.
  *
  * @example
  * ```typescript
@@ -38,8 +30,6 @@ import type { Database } from "../db/database.js";
 import { sessions, users } from "../db/schema.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 
-// Public types
-
 export interface FieldDefinition {
 	type: "string" | "number" | "boolean" | "json";
 	required?: boolean;
@@ -47,9 +37,7 @@ export interface FieldDefinition {
 }
 
 export interface AdditionalFieldsConfig {
-	/** Custom fields for users (stored in user.metadata). */
 	user?: Record<string, FieldDefinition>;
-	/** Custom fields for sessions (stored in session.metadata). */
 	session?: Record<string, FieldDefinition>;
 }
 
@@ -59,41 +47,17 @@ export interface ValidationResult {
 }
 
 export interface AdditionalFieldsModule {
-	/**
-	 * Return the additional fields stored in `user.metadata` for the given user.
-	 *
-	 * Fields missing from the stored metadata are filled with their `defaultValue`
-	 * (if one is defined in the schema).
-	 */
+	/** Returns the additional fields stored in `user.metadata` for a user. */
 	getUserFields(userId: string): Promise<Record<string, unknown>>;
-	/**
-	 * Write `fields` into `user.metadata`, merging with any already-stored values.
-	 *
-	 * Validates against the `user` schema before writing.
-	 * Throws when the user does not exist or validation fails.
-	 */
+	/** Writes `fields` into `user.metadata`, merging with stored values. */
 	setUserFields(userId: string, fields: Record<string, unknown>): Promise<void>;
-	/**
-	 * Return the additional fields stored in `session.metadata` for the given session.
-	 */
+	/** Returns the additional fields stored in `session.metadata` for a session. */
 	getSessionFields(sessionId: string): Promise<Record<string, unknown>>;
-	/**
-	 * Write `fields` into `session.metadata`, merging with any already-stored values.
-	 *
-	 * Validates against the `session` schema before writing.
-	 * Throws when the session does not exist or validation fails.
-	 */
+	/** Writes `fields` into `session.metadata`, merging with stored values. */
 	setSessionFields(sessionId: string, fields: Record<string, unknown>): Promise<void>;
-	/**
-	 * Validate a field map against the "user" or "session" schema.
-	 *
-	 * Returns `{ valid: true }` on success or `{ valid: false, errors: [...] }` on
-	 * failure.  Does not throw.
-	 */
+	/** Validates a field map against the "user" or "session" schema. */
 	validate(fields: Record<string, unknown>, schema: "user" | "session"): ValidationResult;
 }
-
-// Validation
 
 const TYPE_CHECKS: Record<FieldDefinition["type"], (v: unknown) => boolean> = {
 	string: (v) => typeof v === "string",
@@ -110,14 +74,12 @@ function validateFields(
 
 	const errors: string[] = [];
 
-	// Check required fields are present
 	for (const [key, def] of Object.entries(schema)) {
 		if (def.required && !(key in fields)) {
 			errors.push(`Field "${key}" is required`);
 		}
 	}
 
-	// Check provided fields are in schema and match the declared type
 	for (const [key, value] of Object.entries(fields)) {
 		const def = schema[key];
 		if (!def) {
@@ -131,8 +93,6 @@ function validateFields(
 
 	return errors.length === 0 ? { valid: true } : { valid: false, errors };
 }
-
-// Default value hydration
 
 function applyDefaults(
 	stored: Record<string, unknown>,
@@ -149,8 +109,6 @@ function applyDefaults(
 	return result;
 }
 
-// Module factory
-
 export function createAdditionalFieldsModule(
 	config: AdditionalFieldsConfig,
 	db: Database,
@@ -161,8 +119,6 @@ export function createAdditionalFieldsModule(
 	): ValidationResult {
 		return validateFields(fields, schemaKey === "user" ? config.user : config.session);
 	}
-
-	// User fields
 
 	async function getUserFields(userId: string): Promise<Record<string, unknown>> {
 		const rows = await db
@@ -222,8 +178,6 @@ export function createAdditionalFieldsModule(
 			.set({ metadata: updatedMeta, updatedAt: new Date() })
 			.where(eq(users.id, userId));
 	}
-
-	// Session fields
 
 	async function getSessionFields(sessionId: string): Promise<Record<string, unknown>> {
 		const rows = await db
@@ -287,8 +241,6 @@ export function createAdditionalFieldsModule(
 	return { getUserFields, setUserFields, getSessionFields, setSessionFields, validate };
 }
 
-// Plugin factory
-
 export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPlugin {
 	return {
 		id: "theauth-additional-fields",
@@ -296,7 +248,6 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 		async init(ctx) {
 			const mod = createAdditionalFieldsModule(config, ctx.db);
 
-			// GET /auth/users/fields?userId=<id>
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/users/fields",
@@ -323,7 +274,6 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 				},
 			});
 
-			// PUT /auth/users/fields
 			ctx.addEndpoint({
 				method: "PUT",
 				path: "/auth/users/fields",
@@ -371,7 +321,6 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 				},
 			});
 
-			// POST /auth/fields/validate
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/fields/validate",
@@ -417,8 +366,6 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 		},
 	};
 }
-
-// Helpers
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {

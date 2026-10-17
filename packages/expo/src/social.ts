@@ -41,11 +41,7 @@ function splitReturnUrl(url: string): {
 	};
 }
 
-/**
- * Run the native app sign-in: open the provider in the system browser with a
- * PKCE challenge, then trade the single-use code the server returns for a
- * session. The PKCE verifier never leaves the device.
- */
+/** Runs native sign-in via the system browser with PKCE. The verifier never leaves the device. */
 export async function runSocialSignIn(
 	base: string,
 	provider: string,

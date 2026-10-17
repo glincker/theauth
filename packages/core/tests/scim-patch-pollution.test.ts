@@ -1,7 +1,4 @@
-/**
- * A SCIM client controls the PATCH path and value. Neither may reach
- * Object.prototype or a prototype chain.
- */
+/** A SCIM client controls the PATCH path and value. Neither may reach Object.prototype or a prototype chain. */
 
 import { afterEach, describe, expect, it } from "vitest";
 import { applyPatchOps, parsePatchPath, ScimPatchError } from "../src/auth/scim-patch.js";

@@ -1,8 +1,6 @@
 /**
  * RFC 6749 section 6 refresh for the built-in providers.
- *
- * Response bodies are parsed but never echoed in errors, since failures can
- * still carry token material.
+ * Response bodies are parsed but never echoed in errors, since failures can still carry token material.
  */
 
 import { OAuthRefreshError } from "../errors.js";

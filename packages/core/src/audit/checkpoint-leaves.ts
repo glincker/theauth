@@ -1,11 +1,6 @@
 /**
  * Turns chained audit rows into Merkle leaves.
- *
- * The log order is (timestamp, id) over every row that has a chain hash, across
- * all agents. A leaf commits to the row id, the row's chain hash and one salted
- * commitment per hashed field. The per-field salt is derived from the audit key
- * and the row hash, so the operator can always rebuild it and never has to store
- * it, while a receipt reveals it only for the fields the caller chooses.
+ * The per-field salt is derived from the audit key and the row hash, so the operator can always rebuild it and never has to store it, while a receipt reveals it only for the fields the caller chooses.
  */
 
 import { and, asc, eq, gt, gte, isNotNull, lte, or } from "drizzle-orm";
@@ -186,9 +181,7 @@ function cacheFor(db: Database, key: string): LeafCache {
 }
 
 /**
- * Leaf hash of a row, reused when the row's content is unchanged since the last time it was
- * hashed. The fingerprint costs one digest where a fresh leaf costs about two per field, and
- * it covers every input of the leaf, so a rewritten row is always rehashed and detected.
+ * Leaf hash of a row, reused when the row's content is unchanged since the last time it was hashed. The fingerprint costs one digest where a fresh leaf costs about two per field, and it covers every input of the leaf, so a rewritten row is always rehashed and detected.
  */
 async function leafHashOf(row: LeafRow, key: string, cache: LeafCache): Promise<Uint8Array> {
 	const rowHash = row.hash as string;
@@ -215,9 +208,7 @@ export interface LeafSet {
 }
 
 /**
- * Load the leaf hashes of the log in order, optionally bounded by row timestamp and by a
- * leaf count. Reads only the columns a leaf commits to, a page at a time, with the range,
- * order and limit applied in SQL.
+ * Load the leaf hashes of the log in order, optionally bounded by row timestamp and by a leaf count. Reads only the columns a leaf commits to, a page at a time, with the range, order and limit applied in SQL.
  */
 export async function loadLeafSet(
 	db: Database,

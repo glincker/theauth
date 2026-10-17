@@ -10,8 +10,6 @@ import type {
 import type { McpProtectedHandler, RequireMcpAuthOptions } from "./require-mcp-auth.js";
 import type { DnsResolver } from "./safe-fetch.js";
 
-// Result Type
-
 export interface TheAuthError {
 	code: string;
 	message: string;
@@ -25,83 +23,31 @@ export type AuthError = TheAuthError;
 
 export type Result<T> = { success: true; data: T } | { success: false; error: TheAuthError };
 
-// MCP Module Configuration
-
 export interface McpConfig {
-	/** Enable MCP authorization server */
 	enabled: boolean;
-	/** Enforce auth on all MCP requests */
 	enforceAuth?: boolean;
-	/** Custom scopes supported by this server */
 	scopes?: string[];
-	/** Issuer URL (typically your base URL) */
 	issuer?: string;
-	/** Base URL for MCP endpoints */
 	baseUrl?: string;
-	/**
-	 * Secret key for HS256 signing (must be >= 32 chars). Required unless
-	 * `signing` is set. When both are set, new tokens use `signing` and HS256
-	 * tokens issued earlier are still accepted until they expire.
-	 */
+	/** HS256 signing secret (at least 32 chars). Required unless `signing` is set. */
 	signingSecret?: string;
-	/**
-	 * Opt in to asymmetric signing (ES256 or EdDSA). Tokens get a `kid`
-	 * header, public keys are served by `getJwks()`, and `previous` keys stay
-	 * published and accepted so rotation does not invalidate live tokens.
-	 */
+	/** Opt in to asymmetric signing (ES256 or EdDSA). Tokens get a `kid` header; public keys are published in the JWKS. */
 	signing?: McpSigningConfig;
-	/**
-	 * Canonical URI of this resource server (RFC 8707). `middleware`,
-	 * `validateToken` and `requireScopes` check the token audience against it
-	 * and refuse to run without it.
-	 */
+	/** Canonical URI of this resource server (RFC 8707). */
 	resource?: string;
-	/**
-	 * Optional jti denylist. When set, revoked access tokens (refresh rotation,
-	 * reuse detection, the revocation endpoint) are rejected by
-	 * `validateAccessToken` even though they are still validly signed.
-	 */
+	/** Optional jti denylist. When set, revoked access tokens are refused. */
 	jtiDenylist?: McpJtiDenylist;
-	/**
-	 * Opt in to a live delegation check. When set, `validateAccessToken` walks the
-	 * token's `act` chain (subject, then each actor) against live link records and
-	 * rejects the token if any link is missing, revoked or expired. Off by default,
-	 * so a token minted down a chain stays valid until `exp` unless this is set.
-	 */
+	/** Opt in to a live delegation check: `validateAccessToken` walks the token's `act` chain against this store. */
 	delegationStore?: McpDelegationStore;
-	/**
-	 * Map each actor in the delegation chain (and the token `sub`) to the agent
-	 * id used in delegation records, before `delegationStore.findLink` runs.
-	 * Token exchange sets `act.sub` to a user or client id, so without this the
-	 * built-in DB store only matches when those ids equal agent ids. Return
-	 * `undefined` for an actor with no agent. Only used with `delegationStore`;
-	 * when unset, ids are used as they are.
-	 */
+	/** Maps each actor in the delegation chain (and the token `sub`) to the agent id used in delegation records. */
 	resolveActorAgentId?: McpActorAgentResolver;
-	/**
-	 * Let actors that `resolveActorAgentId` maps to `undefined` keep their raw id
-	 * instead of failing the check. Off by default (fail closed). A mapper that
-	 * throws always fails the check.
-	 */
+	/** Lets actors that `resolveActorAgentId` maps to `undefined` keep their raw id instead of failing the chain. */
 	allowUnmappedActors?: boolean;
-	/**
-	 * Opt in to DPoP (RFC 9449). When set, the token endpoint accepts a `DPoP`
-	 * proof and issues `cnf.jkt`-bound tokens, `requireMcpAuth` accepts the
-	 * `DPoP` scheme, and metadata advertises the supported algorithms. Off by
-	 * default; bearer tokens keep working unless `required` is true.
-	 */
+	/** Opt in to DPoP (RFC 9449). The token endpoint accepts a `DPoP` proof and issues `cnf.jkt`-bound tokens. */
 	dpop?: McpDpopConfig;
-	/**
-	 * Refresh token family store used for rotation and reuse detection. Defaults
-	 * to an in-process store (single instance only). Pass
-	 * `createTokenFamilyStore(db)` for a durable, multi-instance store.
-	 */
+	/** Refresh token family store for rotation and reuse detection. Defaults to an in-process store. */
 	tokenFamilies?: McpTokenFamilyStore;
-	/**
-	 * Client ID Metadata Documents (client_id is an https URL). Off by default.
-	 * When enabled, unknown https client_ids are fetched through an SSRF-safe
-	 * fetcher and must contain a matching `client_id`.
-	 */
+	/** Client ID Metadata Documents (client_id is an https URL). Off by default. */
 	clientIdMetadataDocuments?: {
 		enabled: boolean;
 		/** DNS resolver override (tests, edge runtimes). */
@@ -110,99 +56,44 @@ export interface McpConfig {
 		fetchImpl?: typeof fetch;
 		/** Restrict to these hostnames when set. */
 		allowedHosts?: string[];
-		/**
-		 * Seconds a failed document fetch is remembered before the next attempt.
-		 * Default 30; 0 disables the negative cache.
-		 */
+		/** Seconds a failed document fetch is remembered before the next attempt. Default 30; 0 disables the negative cache. */
 		negativeCacheSeconds?: number;
 	};
-	/**
-	 * Compatibility switches for lenient MCP clients (optional resource, dropped
-	 * unknown scopes, loopback redirect ports, path-prefix audiences). Off by
-	 * default; see {@link McpLenientClientsConfig}.
-	 */
+	/** Compatibility switches for lenient MCP clients. */
 	lenientClients?: McpLenientClientsConfig;
-	/**
-	 * Opt in to the `client_credentials` grant for confidential clients. Needs a
-	 * `resolvePrincipal` mapping. Tokens are scope-limited, carry no refresh
-	 * token and can be DPoP-bound.
-	 */
+	/** Opt in to the `client_credentials` grant for confidential clients. Requires a `resolvePrincipal` mapping. */
 	clientCredentials?: McpClientCredentialsConfig;
-	/**
-	 * Opt in to RFC 8693 token exchange. Requires `jtiDenylist` so revoked
-	 * subject tokens are refused.
-	 */
+	/** Opt in to RFC 8693 token exchange. Requires `jtiDenylist` so revoked subject tokens are refused. */
 	tokenExchange?: McpTokenExchangeConfig;
-	/**
-	 * Opt in to RFC 7523 `jwt-bearer` redemption of ID-JAG assertions
-	 * (`typ: oauth-id-jag+jwt`) from trusted issuers.
-	 */
+	/** Opt in to RFC 7523 `jwt-bearer` redemption of ID-JAG assertions (`typ: oauth-id-jag+jwt`) from trusted issuers. */
 	jwtBearer?: McpJwtBearerConfig;
-	/**
-	 * Replay cache for `private_key_jwt` client assertions and jwt-bearer
-	 * assertions (`jti`). Defaults to an in-process store (single instance
-	 * only); pass shared storage in multi-instance deployments.
-	 */
+	/** Replay cache for `private_key_jwt` and jwt-bearer assertions (`jti`). */
 	assertionStorage?: SecondaryStorage;
 	/** Access token TTL in seconds (default: 3600) */
 	accessTokenTtl?: number;
 	/** Refresh token TTL in seconds (default: 604800 = 7 days) */
 	refreshTokenTtl?: number;
-	/**
-	 * Absolute lifetime of a refresh token family in seconds (default: 2592000,
-	 * 30 days). Rotation slides the per-token expiry but never extends past this.
-	 */
+	/** Absolute lifetime of a refresh token family in seconds (default: 2592000, 30 days). Rotation slides the per-token expiry but never extends past this. */
 	refreshTokenAbsoluteTtl?: number;
 	/** Authorization code TTL in seconds (default: 600 = 10 minutes) */
 	codeTtl?: number;
-	/** Allowed resource URIs for RFC 8707 */
 	allowedResources?: string[];
-	/** Login page URL - where users are redirected to authenticate */
 	loginPage?: string;
-	/** Consent page URL - where users approve scopes */
 	consentPage?: string;
-	/**
-	 * Clients that are pre-registered at startup.
-	 *
-	 * These are stored via `storeClient` when the module is created,
-	 * so they behave identically to dynamically-registered clients.
-	 * Useful for first-party apps, CLIs, or test fixtures that should
-	 * always exist without a prior registration call.
-	 */
+	/** Clients pre-registered at startup, stored via `storeClient` when the module initializes. */
 	preRegisteredClients?: Array<{
 		clientId: string;
 		clientSecret?: string;
 		redirectUris: string[];
 		clientName?: string;
 		scope?: string;
-		/**
-		 * Grant types this client may use. Default: authorization_code and
-		 * refresh_token. List `client_credentials`, the token-exchange URN or
-		 * the jwt-bearer URN here to allow those grants for the client.
-		 */
+		/** Grant types this client may use. Default: authorization_code and refresh_token. */
 		grantTypes?: string[];
 	}>;
-	/** Custom token claims generator */
 	getAdditionalClaims?: (userId: string, scopes: string[]) => Promise<Record<string, unknown>>;
-	/**
-	 * Emit IETF agentic JWT claims on issued access tokens.
-	 *
-	 * When true, any claims returned by `getAgenticContext` are embedded in
-	 * the token payload using the registered draft-goswami-agentic-jwt-00 claim
-	 * names. Claims with no available context value are omitted. Off by default.
-	 *
-	 * @default false
-	 */
+	/** Emit IETF agentic JWT claims on issued access tokens. */
 	emitAgenticJwtClaims?: boolean;
-	/**
-	 * Resolve agentic context for a given user at token issuance time.
-	 *
-	 * Called only when `emitAgenticJwtClaims` is true. Return only the claims
-	 * you can populate; absent fields are skipped rather than fabricated.
-	 *
-	 * TODO(v3): wire this through theauth.ts so the trust module can provide
-	 * trust_tier automatically without requiring the caller to implement it.
-	 */
+	/** Agentic context for a user at token issuance. Called only when `emitAgenticJwtClaims` is on. */
 	getAgenticContext?: (userId: string) => Promise<{
 		agentId?: string;
 		agentType?: "autonomous" | "delegated" | "supervised";
@@ -214,7 +105,6 @@ export type McpAsymmetricAlg = "ES256" | "EdDSA";
 
 export interface McpSigningConfig {
 	alg: McpAsymmetricAlg;
-	/** Key used to sign new tokens. */
 	current: { kid: string; privateKey: JWK };
 	/** Retired keys that remain published and accepted for verification. */
 	previous?: Array<{ kid: string; publicKey: JWK }>;
@@ -226,7 +116,6 @@ export interface McpJtiDenylist {
 	isRevoked: (jti: string) => Promise<boolean>;
 }
 
-/** A live delegation link between two actors. */
 export interface McpDelegationLink {
 	status: "active" | "revoked" | "expired";
 	expiresAt: Date;
@@ -243,7 +132,6 @@ export type McpActorAgentResolver = (
 	actor: McpActorRef,
 ) => string | undefined | Promise<string | undefined>;
 
-/** Lookup of live delegation links, keyed by the `sub` values used in `act` claims. */
 export interface McpDelegationStore {
 	/** Return the link granting `to` authority from `from`, or null when none exists. */
 	findLink: (from: string, to: string) => Promise<McpDelegationLink | null>;
@@ -325,9 +213,7 @@ export interface McpClient {
 	userId: string | null;
 	/** Set to "cimd" for clients resolved from a Client ID Metadata Document. */
 	source?: "cimd";
-	/** Public keys for `private_key_jwt` client authentication. */
 	jwks?: { keys: JWK[] };
-	/** HTTPS URL of the client's JWKS, for `private_key_jwt`. */
 	jwksUri?: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -373,8 +259,6 @@ export interface McpClientRegistrationResponse {
 	jwks_uri?: string;
 }
 
-// Authorization Code
-
 export interface McpAuthorizationCode {
 	code: string;
 	clientId: string;
@@ -387,8 +271,6 @@ export interface McpAuthorizationCode {
 	expiresAt: Date;
 	createdAt: Date;
 }
-
-// Authorization Request
 
 export interface McpAuthorizeRequest {
 	response_type: string;
@@ -407,28 +289,16 @@ export interface McpAuthorizeResult {
 	state: string | null;
 }
 
-// Access Token
-
 export interface McpAccessToken {
-	/**
-	 * SHA-256 hex digest of the access token JWT. The raw token is never
-	 * handed to storage. Rows written by older versions hold the raw JWT.
-	 */
+	/** SHA-256 hex digest of the access token JWT. The raw token is never handed to storage. Rows written by older versions hold the raw JWT. */
 	accessToken: string;
-	/**
-	 * SHA-256 hex digest of the refresh token, or null. Rows written by older
-	 * versions hold the raw value; lookups fall back to it once.
-	 */
+	/** SHA-256 hex digest of the refresh token, or null. Rows written by older versions hold the raw value; lookups fall back to it once. */
 	refreshToken: string | null;
-	/** Token id (`jti` claim). */
 	jti?: string;
 	/** Refresh token family, used for reuse detection (RFC 9700). */
 	familyId?: string;
 	tokenType: "Bearer" | "DPoP";
-	/**
-	 * RFC 7638 thumbprint of the DPoP key this grant is bound to. Persist it:
-	 * the refresh grant refuses any other key. Absent for bearer grants.
-	 */
+	/** RFC 7638 thumbprint of the DPoP key this grant is bound to. Persist it: the refresh grant refuses any other key. Absent for bearer grants. */
 	dpopJkt?: string;
 	expiresIn: number;
 	scope: string[];
@@ -438,8 +308,6 @@ export interface McpAccessToken {
 	expiresAt: Date;
 	createdAt: Date;
 }
-
-// Token Request / Response
 
 export interface McpTokenRequest {
 	grant_type: string;
@@ -463,8 +331,6 @@ export interface McpTokenResponse {
 	issued_token_type?: string;
 }
 
-// Token Validation
-
 export interface McpTokenPayload {
 	sub: string;
 	iss: string;
@@ -479,7 +345,6 @@ export interface McpTokenPayload {
 	agent_id?: string;
 	agent_type?: string;
 	trust_tier?: string;
-	/** RFC 8693 actor claim, nested for a delegation chain. */
 	act?: McpActorClaim;
 }
 
@@ -503,15 +368,10 @@ export interface McpSession {
 	resource: string | null;
 	expiresAt: Date;
 	tokenId: string;
-	/** Thumbprint of the DPoP key the token is bound to, when it is bound. */
 	dpopJkt?: string;
-	/** Agent identity claims, when the token carries them. */
 	agent?: { id: string; type?: string; trustTier?: string };
-	/** Delegation chain from `act` claims, current actor first. Empty when none. */
 	delegationChain?: McpDelegationHop[];
 }
-
-// MCP Auth Context (passed to all handler functions)
 
 export interface McpAuthContext {
 	config: Required<
@@ -526,41 +386,24 @@ export interface McpAuthContext {
 		>
 	> &
 		McpConfig;
-	/** Store a client registration */
 	storeClient: (client: McpClient) => Promise<void>;
-	/** Find a client by ID */
 	findClient: (clientId: string) => Promise<McpClient | null>;
-	/** Store an authorization code */
 	storeAuthorizationCode: (code: McpAuthorizationCode) => Promise<void>;
-	/** Find and consume an authorization code (must delete after finding) */
 	consumeAuthorizationCode: (code: string) => Promise<McpAuthorizationCode | null>;
-	/** Store an access token record */
 	storeToken: (token: McpAccessToken) => Promise<void>;
-	/** Find a token by refresh token value */
 	findTokenByRefreshToken: (refreshToken: string) => Promise<McpAccessToken | null>;
 	/** Revoke a token (by stored access token value, which is its SHA-256 digest) */
 	revokeToken: (accessToken: string) => Promise<void>;
-	/**
-	 * Optional: persist a hashed client secret in place of a legacy plaintext
-	 * one after a successful check. Without it, legacy rows keep working but
-	 * are not upgraded.
-	 */
+	/** Optional: persist a hashed client secret in place of a legacy plaintext one after a successful check. Without it, legacy rows keep working but are not upgraded. */
 	updateClientSecret?: (clientId: string, hashedSecret: string) => Promise<void>;
-	/** Optional: revoke every stored token that belongs to a refresh token family. */
 	revokeTokenFamily?: (familyId: string) => Promise<void>;
-	/** Resolved family store (always set by `createMcpModule`). */
 	tokenFamilies?: McpTokenFamilyStore;
-	/** Resolve the authenticated user ID (e.g., from session cookie) */
 	resolveUserId: (request: Request) => Promise<string | null>;
 }
 
-// MCP Module (public API shape)
-
 export interface ApproveConsentParams {
-	/** Authenticated user who approved the consent */
 	userId: string;
 	clientId: string;
-	/** Space-separated scope string or array */
 	scope: string | string[];
 	state?: string;
 	redirectUri: string;
@@ -570,49 +413,29 @@ export interface ApproveConsentParams {
 }
 
 export interface McpAuthModule {
-	/** Get OAuth 2.0 Authorization Server Metadata */
 	getMetadata: () => McpServerMetadata;
-	/** Get Protected Resource Metadata (RFC 9728) */
 	getProtectedResourceMetadata: () => McpProtectedResourceMetadata;
-	/** Register a new OAuth client (RFC 7591) */
 	registerClient: (
 		body: McpClientRegistrationRequest,
 	) => Promise<Result<McpClientRegistrationResponse>>;
-	/** Handle authorization request */
 	authorize: (request: Request) => Promise<Result<McpAuthorizeResult>>;
-	/**
-	 * Issue an authorization code after a user has explicitly approved consent.
-	 *
-	 * When `config.consentPage` is set, `authorize` redirects to that page
-	 * instead of issuing a code directly.  The consent page must call this
-	 * method after the user clicks "Allow".
-	 */
+	/** Issues an authorization code after the user approves consent. */
 	approveConsent: (params: ApproveConsentParams) => Promise<Result<{ redirectUri: string }>>;
-	/** Handle token exchange */
 	token: (request: Request) => Promise<Result<McpTokenResponse>>;
-	/** Public JWKS (RFC 7517). Empty when HS256 is used. */
 	getJwks: () => Promise<{ keys: JWK[] }>;
-	/** RFC 7009 token revocation. Always succeeds for unknown tokens. */
 	revoke: (request: Request) => Promise<Result<Record<string, never>>>;
-	/** Validate an access token */
 	validateToken: (token: string, requiredScopes?: string[]) => Promise<Result<McpSession>>;
-	/** Middleware that validates Bearer tokens and returns session */
 	middleware: (request: Request) => Promise<Result<McpSession>>;
-	/** Build a step-up challenge response (403) indicating required scopes */
 	buildStepUpResponse: (options: {
 		currentScopes: string[];
 		requiredScopes: string[];
 		resource?: string;
 	}) => Response;
-	/**
-	 * Wrap a Web API handler so it only runs for a valid Bearer or DPoP token.
-	 * The handler receives the verified principal. See `requireMcpAuth`.
-	 */
+	/** Wraps a Web API handler so it runs only for a valid Bearer or DPoP token. */
 	requireMcpAuth: (
 		handler: McpProtectedHandler,
 		options?: RequireMcpAuthOptions,
 	) => (request: Request) => Promise<Response>;
-	/** Validate token and check scopes. Returns session if valid, or a Response to send back */
 	requireScopes: (
 		request: Request,
 		requiredScopes: string[],

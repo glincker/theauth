@@ -1,11 +1,5 @@
 /**
- * SCIM 2.0 directory sync for TheAuth.
- *
- * Implements RFC 7644 (SCIM 2.0 protocol) to allow enterprise identity
- * providers (Okta, Azure AD, Google Workspace) to provision and deprovision
- * users and groups automatically.
- *
- * Users map to theauth_users. Groups map to theauth_organizations.
+ * SCIM 2.0 directory sync (RFC 7644) for enterprise identity providers such as Okta, Azure AD and Google Workspace.
  *
  * @example
  * ```typescript
@@ -31,35 +25,21 @@ import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
 
-// Public types
-
 export interface ScimConfig {
-	/** Bearer token for SCIM API authentication */
 	bearerToken: string;
 	/** Whether to auto-create users on provision (default: true) */
 	autoCreateUsers?: boolean;
 	/** Whether to auto-deactivate users on deprovision (default: true) */
 	autoDeactivateUsers?: boolean;
-	/** Callback when user is provisioned */
 	onProvision?: (user: ScimUser) => Promise<void>;
-	/** Callback when user is deprovisioned */
 	onDeprovision?: (userId: string) => Promise<void>;
-	/**
-	 * Resolves the user id the current request speaks for. Required to enable
-	 * `GET /scim/v2/Me`. If omitted, `/Me` returns 501 with a clear detail.
-	 * The resolver should derive the id from the bearer token or associated
-	 * session and return `null` when the caller is not tied to a user.
-	 */
+	/** Resolves the user id a request speaks for. Required for `GET /scim/v2/Me`; without it, `/Me` returns 501. */
 	resolveSelf?: (request: Request) => Promise<string | null>;
 	/**
-	 * Audit every SCIM provisioning write. When configured, each
-	 * POST/PUT/PATCH/DELETE on /Users or /Groups writes an `auditLogs` row
-	 * attributed to `agentId`. The caller is responsible for pre-creating a
-	 * system agent and passing its id. Set `enabled: false` to turn off
-	 * writes without deleting the agent (useful in tests).
+	 * Audit every SCIM provisioning write. When configured, each POST/PUT/PATCH/DELETE on /Users or /Groups writes an `auditLogs` row attributed to `agentId`. The caller is responsible for pre-creating a system agent and passing its id. Set `enabled: false` to turn off writes without deleting the agent (useful in tests).
 	 */
 	audit?: {
-		/** FK to kavach_agents.id — typically a dedicated "scim-provisioner" system agent. */
+		/** FK to kavach_agents.id, typically a dedicated "scim-provisioner" system agent. */
 		agentId: string;
 		/** Defaults to true when `audit` is set. */
 		enabled?: boolean;
@@ -85,8 +65,6 @@ export interface ScimGroup {
 export interface ScimModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
-
-// Internal row types
 
 interface UserRow {
 	id: string;
@@ -119,8 +97,6 @@ interface OrgMemberRow {
 	joinedAt: Date;
 }
 
-// SCIM constants
-
 const SCIM_CONTENT_TYPE = "application/scim+json";
 
 const SCHEMA_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
@@ -132,8 +108,6 @@ const SCHEMA_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
 const SCHEMA_SP_CONFIG = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig";
 const SCHEMA_RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType";
 const SCHEMA_ENTERPRISE = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
-
-// Helpers
 
 function scimResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -162,7 +136,6 @@ function toIso(date: Date): string {
 	return date.toISOString();
 }
 
-/** Extract the last path segment after the given prefix segment. */
 function extractId(pathname: string, prefix: string): string | null {
 	const segments = pathname.split("/").filter(Boolean);
 	const idx = segments.indexOf(prefix);
@@ -170,8 +143,6 @@ function extractId(pathname: string, prefix: string): string | null {
 	const seg = segments[idx + 1];
 	return seg !== undefined ? decodeURIComponent(seg) : null;
 }
-
-// Mapping functions
 
 function userRowToScim(row: UserRow, baseUrl: string): Record<string, unknown> {
 	const primaryEmail = row.email;
@@ -239,12 +210,7 @@ function orgRowToScim(
 	};
 }
 
-// Filter parsing (RFC 7644 §3.4.2.2)
-// Full grammar lives in scim-filter.ts. We keep a legacy clause-array shape
-// here so the SQL translator below stays simple for the common Okta filters
-// (pure "and" of eq/co/sw/pr). For expressions that do not flatten to that
-// shape (or / not / value-paths / ne / ew / gt / ge / lt / le) the caller
-// falls back to in-memory evaluation against the serialized resource.
+// Filter parsing, RFC 7644 §3.4.2.2. The full grammar lives in scim-filter.ts; a legacy clause array keeps SQL translation simple.
 
 type LegacyFilterOp = "eq" | "co" | "sw" | "pr";
 
@@ -254,10 +220,7 @@ interface FilterClause {
 	value?: string;
 }
 
-/**
- * Try to express the AST as a flat `and` of clauses the SQL translator
- * understands. Returns `null` when the filter is richer than that.
- */
+/** Flattens an AST into a legacy `and` clause list, or null when the filter is richer than that. */
 function flattenToLegacyClauses(ast: FilterAst): FilterClause[] | null {
 	const clauses: FilterClause[] = [];
 	const stack: FilterAst[] = [ast];
@@ -290,20 +253,12 @@ function attrKey(path: string[]): string {
 	return path.join(".").toLowerCase();
 }
 
-/**
- * Parse a SCIM filter string via the RFC 7644 AST and attempt to flatten it
- * to a legacy clause list. Returns `{ clauses: null }` when the filter is
- * structurally fine but too rich for the SQL path.
- *
- * @throws ScimFilterError when the filter is malformed.
- */
+/** Parses a SCIM filter via the RFC 7644 AST. `clauses` is null when the filter is too rich for SQL. */
 function parseScimFilter(filter: string): { ast: FilterAst; clauses: FilterClause[] | null } {
 	const ast = parseFilter(filter);
 	const clauses = flattenToLegacyClauses(ast);
 	return { ast, clauses };
 }
-
-// PATCH operation types (RFC 7644 §3.5.2)
 
 interface PatchOperation {
 	op: "add" | "replace" | "remove";
@@ -316,8 +271,6 @@ interface PatchBody {
 	Operations: PatchOperation[];
 }
 
-// Module factory
-
 export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 	const {
 		bearerToken,
@@ -329,11 +282,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		audit,
 	} = config;
 
-	// Audit helper
-	// Writes one `auditLogs` row per successful provisioning write. Intentionally
-	// tolerant: a failed audit write must never corrupt the response path, so
-	// errors are swallowed after logging. Every call site records its own
-	// start-timestamp so durationMs reflects the actual DB work, not the audit.
+	// Best-effort: a failed audit write must never fail the provisioning response.
 
 	async function writeScimAudit(
 		action: string,
@@ -361,8 +310,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		}
 	}
 
-	// Auth guard
-
 	function isAuthorized(request: Request): boolean {
 		const authHeader = request.headers.get("Authorization");
 		if (!authHeader) return false;
@@ -370,17 +317,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return scheme?.toLowerCase() === "bearer" && token === bearerToken;
 	}
 
-	// Base URL extraction
-
 	function getBaseUrl(request: Request): string {
 		const url = new URL(request.url);
 		return `${url.protocol}//${url.host}`;
 	}
 
-	// Sort helper
-	// RFC 7644 §3.4.2.3. sortBy is a dotted attribute path into the serialized
-	// SCIM resource. sortOrder is "ascending" (default) or "descending". Ties
-	// break on `id` for determinism across pages.
+	// Sort helper, RFC 7644 §3.4.2.3. Ascending by default; ties break on id.
 
 	interface SortSpec {
 		by: string[];
@@ -407,7 +349,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			const bv = readAttr(b.scim, spec.by);
 			const primary = compareSortValues(av, bv);
 			if (primary !== 0) return primary * direction;
-			// Stable tie-break on id keeps pages consistent.
 			const ida = (a.scim.id as string | undefined) ?? "";
 			const idb = (b.scim.id as string | undefined) ?? "";
 			return ida < idb ? -1 : ida > idb ? 1 : 0;
@@ -440,8 +381,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return String(a).localeCompare(String(b));
 	}
 
-	// User handlers
-
 	async function handleListUsers(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		const filterParam = url.searchParams.get("filter") ?? "";
@@ -450,9 +389,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const baseUrl = getBaseUrl(request);
 		const sortSpec = parseSortSpec(url);
 
-		// Parse filter AST once. Simple and-of-clauses filters take a fast SQL
-		// path. Complex filters (or / not / value-paths / advanced ops) fall
-		// back to broad fetch + in-memory evaluation.
+		// Simple AND-of-clauses filters take the SQL fast path; complex ones fall back to in-memory evaluation.
 		let ast: FilterAst | null = null;
 		let clauses: FilterClause[] | null = null;
 		if (filterParam) {
@@ -471,11 +408,8 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const conditions = clauses ? buildUserSqlConditions(clauses) : null;
 		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
 
-		// When sort is requested we must order the full filtered set before
-		// paginating. SQL ORDER BY cannot reach into JSON-embedded metadata
-		// attributes, so force the in-memory path whenever sortBy is set.
+		// Sorting needs the full filtered set before pagination, and SQL ORDER BY cannot reach JSON metadata.
 		if (conditions !== null && !sortSpec) {
-			// Fast path — SQL filter covers the entire expression.
 			const countRows = await db
 				.select({ count: sql<number>`count(*)` })
 				.from(users)
@@ -499,7 +433,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			});
 		}
 
-		// Fallback — evaluate AST against the SCIM-shaped resource in memory.
 		const allRows = (await db.select().from(users)) as UserRow[];
 		const mapped = allRows.map((r) => ({ row: r, scim: userRowToScim(r, baseUrl) }));
 		const matched = ast
@@ -557,7 +490,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 				else return null;
 				continue;
 			}
-			// Unknown attribute — cannot SQL-translate, request in-memory fallback.
 			return null;
 		}
 		return conds;
@@ -589,12 +521,10 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return scimError("userName is required", 400, "invalidValue");
 		}
 
-		// Extract email
 		const emailsRaw = body.emails as Array<{ value: string; primary?: boolean }> | undefined;
 		const primaryEmail =
 			emailsRaw?.find((e) => e.primary)?.value ?? emailsRaw?.[0]?.value ?? userName;
 
-		// Extract name parts
 		const nameRaw = body.name as
 			| { givenName?: string; familyName?: string; formatted?: string }
 			| undefined;
@@ -606,7 +536,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const externalId = (body.externalId as string | undefined) ?? null;
 		const active = (body.active as boolean | undefined) ?? true;
 
-		// Check if user already exists by email or userName
 		const existing = (await db
 			.select()
 			.from(users)
@@ -795,7 +724,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		let banned = current.banned;
 		const externalId = current.externalId;
 
-		// Extract mutated fields back from the SCIM view.
 		const scimUserName = scimView.userName;
 		if (typeof scimUserName === "string") username = scimUserName;
 
@@ -870,7 +798,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 
 		await db.delete(sessions).where(eq(sessions.userId, userId));
 		if (autoDeactivateUsers) {
-			// Soft delete: deactivate rather than destroy
 			const now = new Date();
 			const meta = { ...(row.metadata ?? {}), "scim:active": false, "scim:deprovisioned": true };
 			await db
@@ -893,8 +820,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		);
 		return new Response(null, { status: 204 });
 	}
-
-	// Group handlers
 
 	async function getMembersForOrg(orgId: string): Promise<OrgMemberRow[]> {
 		return (await db
@@ -971,7 +896,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			});
 		}
 
-		// In-memory fallback for complex filters.
 		const allOrgs = (await db.select().from(organizations)) as OrgRow[];
 		const resources = await Promise.all(
 			allOrgs.map(async (org) => {
@@ -1039,14 +963,12 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 
 		const externalId = (body.externalId as string | undefined) ?? null;
 
-		// Generate a URL-safe slug
 		const slug = displayName
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/g, "-")
 			.replace(/^-|-$/g, "")
 			.slice(0, 50);
 
-		// Ensure slug uniqueness
 		const existingSlug = (await db
 			.select({ id: organizations.id })
 			.from(organizations)
@@ -1058,10 +980,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const id = `org_scim_${generateId()}`;
 		const now = new Date();
 
-		// SCIM groups need an owner — use a system placeholder stored in metadata
-		// The ownerId column is not null, so we use a convention: store "scim" owner reference
-		// We require at least one member in the members array to serve as owner,
-		// or fall back to the first user in the DB.
+		// ownerId is NOT NULL, so SCIM groups use the first user as owner.
 		const membersRaw = body.members as Array<{ value: string }> | undefined;
 		const ownerCandidateId = membersRaw?.[0]?.value;
 
@@ -1069,7 +988,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		if (ownerCandidateId) {
 			ownerId = ownerCandidateId;
 		} else {
-			// Fall back to first user in DB
 			const firstUser = (await db.select({ id: users.id }).from(users).limit(1)) as {
 				id: string;
 			}[];
@@ -1097,7 +1015,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			updatedAt: now,
 		});
 
-		// Add initial members
 		if (membersRaw && membersRaw.length > 0) {
 			const memberInserts = membersRaw.map((m) => ({
 				id: `om_scim_${generateId()}`,
@@ -1161,7 +1078,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			.set({ name: displayName, metadata, updatedAt: now })
 			.where(eq(organizations.id, groupId));
 
-		// Replace member list if provided
 		if (membersRaw !== undefined) {
 			await db.delete(orgMembers).where(eq(orgMembers.orgId, groupId));
 			if (membersRaw.length > 0) {
@@ -1231,11 +1147,9 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 				displayName = typeof op.value === "string" ? op.value : displayName;
 			} else if (opLower === "add" && (path === "members" || !path)) {
 				const val = op.value as Record<string, unknown> | Array<{ value: string }> | undefined;
-				// Could be array of members or object with displayName
 				if (Array.isArray(val)) {
 					for (const m of val) {
 						if (typeof m.value === "string") {
-							// Check if already a member
 							const existing = (await db
 								.select({ id: orgMembers.id })
 								.from(orgMembers)
@@ -1266,7 +1180,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 							.where(and(eq(orgMembers.orgId, groupId), eq(orgMembers.userId, targetUserId)));
 					}
 				} else if (path === "members") {
-					// Remove specific members from value array
 					const val = op.value as Array<{ value: string }> | undefined;
 					if (Array.isArray(val)) {
 						for (const m of val) {
@@ -1326,8 +1239,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		);
 		return new Response(null, { status: 204 });
 	}
-
-	// Discovery endpoints
 
 	function handleServiceProviderConfig(request: Request): Response {
 		const baseUrl = getBaseUrl(request);
@@ -1480,10 +1391,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		});
 	}
 
-	// /Bulk endpoint (RFC 7644 §3.7)
-	// Bulk is advertised as unsupported in /ServiceProviderConfig. We still
-	// handle the route so clients that probe `/Bulk` get a spec-correct 501
-	// rather than a generic 404 or an HTML error page.
+	// /Bulk (RFC 7644 §3.7). Advertised as unsupported, but routed so probes get a spec-correct 501.
 
 	const SCHEMA_BULK_REQUEST = "urn:ietf:params:scim:api:messages:2.0:BulkRequest";
 
@@ -1493,9 +1401,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return scimError(`Bulk requires Content-Type "${SCIM_CONTENT_TYPE}"`, 415, "invalidValue");
 		}
 
-		// We intentionally do not parse the body — bulk is unsupported and we
-		// return the same error regardless of content. Rejecting here keeps
-		// an attacker from using this endpoint as an echo/oracle surface.
+		// The body is never parsed: bulk is unsupported, and the same error is returned for every body.
 		return scimResponse(
 			{
 				schemas: [SCHEMA_ERROR],
@@ -1505,8 +1411,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			501,
 		);
 	}
-
-	// /Me endpoint (RFC 7644 §3.11)
 
 	async function handleMe(request: Request): Promise<Response> {
 		if (!resolveSelf) {
@@ -1537,23 +1441,18 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		return scimResponse(userRowToScim(row, getBaseUrl(request)));
 	}
 
-	// Request router
-
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 
-		// Only handle /scim/v2/ paths
 		if (!pathname.includes("/scim/v2/")) return null;
 
-		// Auth check on all SCIM routes
 		if (!isAuthorized(request)) {
 			return scimError("Unauthorized: valid Bearer token required", 401);
 		}
 
 		const method = request.method.toUpperCase();
 
-		// Discovery — no ID extraction needed
 		if (method === "GET" && pathname.endsWith("/scim/v2/ServiceProviderConfig")) {
 			return handleServiceProviderConfig(request);
 		}
@@ -1570,7 +1469,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return handleBulk(request);
 		}
 
-		// Users collection
 		if (method === "GET" && /\/scim\/v2\/Users\/?$/.test(pathname)) {
 			return handleListUsers(request);
 		}
@@ -1578,7 +1476,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return handleCreateUser(request);
 		}
 
-		// Users by ID
 		const userId = extractId(pathname, "Users");
 		if (userId) {
 			if (method === "GET") return handleGetUser(request, userId);
@@ -1587,7 +1484,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			if (method === "DELETE") return handleDeleteUser(request, userId);
 		}
 
-		// Groups collection
 		if (method === "GET" && /\/scim\/v2\/Groups\/?$/.test(pathname)) {
 			return handleListGroups(request);
 		}
@@ -1595,7 +1491,6 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 			return handleCreateGroup(request);
 		}
 
-		// Groups by ID
 		const groupId = extractId(pathname, "Groups");
 		if (groupId) {
 			if (method === "GET") return handleGetGroup(request, groupId);

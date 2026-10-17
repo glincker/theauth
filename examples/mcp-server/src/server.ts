@@ -1,23 +1,7 @@
-// TheAuth MCP Server Example
-//
-// A Hono server that acts as both:
-//   1. An MCP OAuth 2.1 authorization server (issues tokens)
-//   2. An MCP resource server (protects tool endpoints with those tokens)
-//
+// A Hono server that is both an MCP OAuth 2.1 authorization server and the resource server it protects.
+// Flow: register (POST /api/mcp/register), authorize with PKCE (GET /api/mcp/authorize),
+// exchange the code (POST /api/mcp/token), then call tools with the Bearer token.
 // Start: pnpm --filter @glinr/theauth-example-mcp-server start
-//
-// Flow:
-//   1. Client registers via POST /api/mcp/register
-//   2. Client starts OAuth PKCE flow via GET /api/mcp/authorize
-//   3. Client exchanges code for token via POST /api/mcp/token
-//   4. Client calls protected tools with Bearer token
-//
-// Quick test (without full OAuth flow):
-//   curl http://localhost:3001/api/agents -X POST -H "Content-Type: application/json" \
-//     -d '{"ownerId":"user-1","name":"mcp-agent","type":"autonomous","permissions":[{"resource":"mcp:*","actions":["read","execute"]}]}'
-//
-//   # Use the returned token to call protected endpoints:
-//   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
 import type { TheAuth } from "@glinr/theauth";
 import { createTheAuth, users } from "@glinr/theauth";
@@ -36,15 +20,12 @@ const PORT = 3001;
 const BASE_URL = `http://localhost:${PORT}`;
 const SIGNING_SECRET = "theauth-example-secret-key-at-least-32-chars-long";
 
-// In-memory MCP stores
-// In production, back these with your database.
+// In-memory MCP stores. In production, back these with your database.
 
 const clients = new Map<string, McpClient>();
 const authCodes = new Map<string, McpAuthorizationCode>();
 const tokens = new Map<string, McpAccessToken>();
 const refreshTokenIndex = new Map<string, string>(); // refreshToken -> accessToken
-
-// Seed data
 
 function seedUser(auth: TheAuth): void {
 	auth.db
@@ -58,8 +39,6 @@ function seedUser(auth: TheAuth): void {
 		})
 		.run();
 }
-
-// MCP tools (the resources being protected)
 
 interface Tool {
 	name: string;
@@ -102,8 +81,6 @@ const MCP_TOOLS: Tool[] = [
 		},
 	},
 ];
-
-// Homepage
 
 function homepageHtml(): string {
 	return `<!DOCTYPE html>
@@ -181,8 +158,6 @@ curl ${BASE_URL}/api/audit</code>
 </html>`;
 }
 
-// Server bootstrap
-
 async function main(): Promise<void> {
 	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: "mcp-server.db" },
@@ -195,10 +170,8 @@ async function main(): Promise<void> {
 		},
 	});
 
-	// Tables are auto-created by createTheAuth. Just seed the demo user.
 	seedUser(auth);
 
-	// Create the MCP OAuth 2.1 authorization server module
 	const mcp: McpAuthModule = createMcpModule({
 		config: {
 			enabled: true,
@@ -209,7 +182,6 @@ async function main(): Promise<void> {
 			accessTokenTtl: 3600,
 			refreshTokenTtl: 86400,
 		},
-		// Storage callbacks (in-memory for this example)
 		storeClient: async (client: McpClient) => {
 			clients.set(client.clientId, client);
 		},
@@ -241,27 +213,23 @@ async function main(): Promise<void> {
 			}
 			tokens.delete(accessToken);
 		},
-		// In a real app, this reads from session/cookie
+		// Real apps read the user from the session cookie here.
 		resolveUserId: async (_request: Request) => {
 			return "user-1"; // auto-approve as demo user
 		},
 	});
 
-	// Mount all TheAuth routes (agents, audit, delegation, MCP OAuth)
 	// Demo only: no authentication on the management routes. Real apps pass
 	// `authenticate` (see the adapter docs).
 	const api = theAuthHono(auth, { mcp, allowUnauthenticated: true });
 
 	const app = new Hono();
 
-	// Homepage
 	app.get("/", (c) => c.html(homepageHtml()));
 
-	// TheAuth API + MCP OAuth endpoints
 	app.route("/api", api);
 
-	// Protected MCP tool endpoints
-	// These require a valid Bearer token (either a kv_ agent token or an MCP JWT)
+	// Accepts either a kv_ agent token or an MCP JWT as the Bearer token.
 
 	app.get("/tools/list", async (c) => {
 		const authHeader = c.req.header("authorization");
@@ -271,7 +239,6 @@ async function main(): Promise<void> {
 			return c.json({ error: "Missing Authorization header" }, 401);
 		}
 
-		// Try agent token auth first (kv_ tokens)
 		if (token.startsWith("kv_")) {
 			const result = await auth.authorizeByToken(token, {
 				action: "read",
@@ -281,7 +248,6 @@ async function main(): Promise<void> {
 				return c.json({ error: "Forbidden", reason: result.reason }, 403);
 			}
 		} else {
-			// Try MCP JWT validation
 			const result = await mcp.validateToken(token, ["mcp:read"]);
 			if (!result.success) {
 				return c.json({ error: result.error.message }, 401);
@@ -316,7 +282,6 @@ async function main(): Promise<void> {
 			return c.json({ error: `Unknown tool: ${toolName}` }, 404);
 		}
 
-		// Authorize the tool call
 		if (token.startsWith("kv_")) {
 			const result = await auth.authorizeByToken(token, {
 				action: "execute",
@@ -333,7 +298,6 @@ async function main(): Promise<void> {
 			}
 		}
 
-		// Simulate tool execution
 		return c.json({
 			content: [
 				{

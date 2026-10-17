@@ -2,13 +2,8 @@
 
 import type { TrustedDevice } from "./trusted-device.js";
 
-// Public types
-
 /**
- * Every sign-in method that goes through the gate. Which of them require a
- * second factor is controlled by `require2faFor`; the default list is
- * `password`, `social` and `magic_link` only, so the extra methods below are
- * opt-in.
+ * Every sign-in method that goes through the gate. Which of them require a second factor is controlled by `require2faFor`; the default list is `password`, `social` and `magic_link` only, so the extra methods below are opt-in.
  */
 export const SIGN_IN_METHODS = [
 	"password",
@@ -46,9 +41,7 @@ export interface SignInGateTrustedDeviceConfig {
 
 export interface SignInGateConfig {
 	/**
-	 * Sign-in methods that must pass a second factor when the user has one
-	 * enabled. Default when the gate is configured: password, social, magic_link.
-	 * Without any gate configuration the default is none (existing behaviour).
+	 * Sign-in methods that must pass a second factor when the user has one enabled. Default when the gate is configured: password, social, magic_link. Without any gate configuration the default is none (existing behaviour).
 	 */
 	require2faFor?: SignInMethod[];
 	/** HMAC secret for challenges and device cookies. Falls back to the session secret. */

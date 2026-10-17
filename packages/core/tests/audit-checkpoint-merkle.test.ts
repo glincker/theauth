@@ -1,7 +1,4 @@
-/**
- * RFC 6962 Merkle tree: roots against an independent node:crypto reference,
- * and every inclusion and consistency proof for tree sizes 1..33.
- */
+/** RFC 6962 Merkle tree: roots against an independent node:crypto reference, and every inclusion and consistency proof for tree sizes 1..33. */
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";

@@ -1,29 +1,9 @@
 /**
  * Kakao Login (OAuth 2.0) provider.
- *
- * Endpoints:
- * - Authorization: https://kauth.kakao.com/oauth/authorize
- * - Token:         https://kauth.kakao.com/oauth/token
- * - Profile:       https://kapi.kakao.com/v2/user/me
- *
  * Notes:
- * - `clientId` is the app's REST API key, from the Kakao developer console
- *   under the app's platform keys.
- * - The client secret is required at the token endpoint by default (it can
- *   be turned off per app in the console).
- * - Scopes are comma separated: `account_email`, `profile_nickname`,
- *   `profile_image`.
- * - Kakao's REST guide does not describe PKCE, so no challenge is sent.
- * - The token endpoint takes form-encoded bodies. A refresh issues a new
- *   access token, and a new refresh token only when the old one expires
- *   within a month.
- * - The profile has a numeric top-level `id` and everything else under
- *   `kakao_account`. The email is only present when the user consented to
- *   `account_email`, and email access needs the app to be approved for it.
- *   `is_email_valid` and `is_email_verified` are both required to be true
- *   before `emailVerified` is set.
- *
- * Docs: https://developers.kakao.com/docs/en/kakaologin/rest-api
+ * - `clientId` is the app's REST API key, from the Kakao developer console under the app's platform keys.
+ * - The client secret is required at the token endpoint by default (it can be turned off per app in the console).
+ * - Kakao's REST guide does not describe PKCE, so no challenge is sent. A refresh issues a new access token, and a new refresh token only when the old one expires within a month. The email is only present when the user consented to `account_email`, and email access needs the app to be approved for it. `is_email_valid` and `is_email_verified` are both required to be true before `emailVerified` is set.
  */
 
 import type { OAuthProvider, OAuthProviderConfig } from "../types.js";

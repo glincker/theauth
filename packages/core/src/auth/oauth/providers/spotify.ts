@@ -1,37 +1,20 @@
 /**
  * Spotify OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://accounts.spotify.com/authorize
- * - Token:         https://accounts.spotify.com/api/token
- * - UserInfo:      https://api.spotify.com/v1/me
- *
  * Notes:
  * - PKCE S256 is supported and encouraged for public clients.
  * - The `user-read-email` scope is required to get the user's email.
- * - The `user-read-private` scope is required to access the user's country
- *   and subscription type. Both are included in the defaults for sign-in.
- * - Email may be absent from the response when the account was created without
- *   one (e.g., via Facebook sign-up on Spotify). Handle the undefined case.
- * - Avatar images are returned as an array of `images`; the first entry is
- *   typically the largest.
- *
- * Docs: https://developer.spotify.com/documentation/web-api/concepts/authorization
+ * - The `user-read-private` scope is required to access the user's country and subscription type. Both are included in the defaults for sign-in. Docs: https://developer.spotify.com/documentation/web-api/concepts/authorization
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const USER_INFO_URL = "https://api.spotify.com/v1/me";
 
 export const DEFAULT_SPOTIFY_SCOPES = ["user-read-email", "user-read-private"];
-
-// Raw response shapes
 
 interface SpotifyTokenResponse {
 	access_token: string;
@@ -54,8 +37,6 @@ interface SpotifyUserResponse {
 	images?: SpotifyImage[];
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as SpotifyUserResponse;
 
@@ -75,8 +56,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Factory
 
 /**
  * Create a Spotify OAuth provider instance.
@@ -184,8 +163,6 @@ export function createSpotifyProvider(config: OAuthProviderConfig): OAuthProvide
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

@@ -169,7 +169,6 @@ export function createWebhookModule(config: WebhookConfig): WebhookModule {
 		);
 
 		for (const sub of matching) {
-			// fire-and-forget
 			void dispatchWithRetry(sub.url, event, payload, resolvedConfig);
 		}
 	}
@@ -202,17 +201,13 @@ export function createWebhookModule(config: WebhookConfig): WebhookModule {
 	return { subscribe, unsubscribe, list, dispatch, test };
 }
 
-/**
- * Verify an incoming webhook signature.
- * Returns true if the signature matches the payload and secret.
- */
+/** Verify an incoming webhook signature. Returns true if the signature matches the payload and secret. */
 export async function verifyWebhookSignature(
 	secret: string,
 	rawBody: string,
 	signature: string,
 ): Promise<boolean> {
 	const expected = await signPayload(secret, rawBody);
-	// Constant-time comparison
 	if (expected.length !== signature.length) return false;
 	const a = new TextEncoder().encode(expected);
 	const b = new TextEncoder().encode(signature);

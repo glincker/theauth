@@ -28,16 +28,7 @@ export interface McpDelegationCheckOptions {
 
 /**
  * Walk the delegation chain from a token against live link records.
- *
- * `hops` is the `act` claim flattened current actor first. The authority path
- * runs from the token subject through the innermost actor out to the current
- * actor, so each consecutive pair must have an active, unexpired link. Returns
- * the first failing link, or null when every link is live (or there are no hops).
- *
- * With `resolveActorAgentId`, every path entry is mapped to an agent id first.
- * An actor mapped to `undefined` fails with "unmapped actor" unless
- * `allowUnmappedActors` is set, and a mapper that throws fails with
- * "mapper failed". Failures report the raw ids from the token.
+ * The authority path runs from the token subject through the innermost actor out to the current actor, so each consecutive pair must have an active, unexpired link. Returns the first failing link, or null when every link is live (or there are no hops). An actor mapped to `undefined` fails with "unmapped actor" unless `allowUnmappedActors` is set, and a mapper that throws fails with "mapper failed". Failures report the raw ids from the token.
  */
 export async function checkLiveDelegation(
 	store: McpDelegationStore,
@@ -89,10 +80,7 @@ function failure(
 }
 
 /**
- * Delegation store backed by the `delegation_chains` table, where the chain
- * source and target ids are the `act` subjects (agent ids). When several rows
- * link the same pair, a live one wins so a newer grant is not masked by an old
- * revoked row.
+ * Delegation store backed by the `delegation_chains` table, where the chain source and target ids are the `act` subjects (agent ids). When several rows link the same pair, a live one wins so a newer grant is not masked by an old revoked row.
  */
 export function createDbDelegationStore(db: Database): McpDelegationStore {
 	return {

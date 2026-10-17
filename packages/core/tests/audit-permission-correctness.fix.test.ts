@@ -1,8 +1,4 @@
-/**
- * Audit write failures never throw out of authorize; delegated fallback
- * leaves one audit row; canonicalJson guards cycles and BigInt; the secret
- * is read once per db handle.
- */
+/** Audit write failures never throw out of authorize; delegated fallback leaves one audit row; canonicalJson guards cycles and BigInt; the secret is read once per db handle. */
 
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";

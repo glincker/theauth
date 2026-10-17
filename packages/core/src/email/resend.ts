@@ -1,7 +1,5 @@
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
-// Config
-
 export interface ResendConfig {
 	/** Resend API key (required). Must start with "re_". */
 	apiKey: string;
@@ -9,12 +7,7 @@ export interface ResendConfig {
 	from?: string;
 }
 
-// Provider
-
-/**
- * Email provider backed by Resend (https://resend.com).
- * Uses raw fetch() — no SDK dependency, edge-compatible.
- */
+/** Email provider backed by Resend (https://resend.com). Uses raw fetch(), no SDK dependency, edge-compatible. */
 export function resend(config: ResendConfig): EmailProvider {
 	if (!config.apiKey) {
 		throw new Error(

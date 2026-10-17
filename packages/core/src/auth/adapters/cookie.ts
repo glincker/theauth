@@ -1,10 +1,6 @@
 /**
  * JWT cookie auth adapter.
- *
- * Verifies a JWT from an httpOnly cookie using a symmetric secret
- * (HS256/HS384/HS512). Extracts standard claims and returns them as a
- * `ResolvedUser`. Designed for backends that set JWT tokens in cookies
- * (e.g. a Go API with GitHub OAuth).
+ * Verifies a JWT from an httpOnly cookie using a symmetric secret (HS256/HS384/HS512).
  *
  * @example
  * ```typescript
@@ -21,8 +17,6 @@ import { jwtVerify } from "jose";
 import { z } from "zod";
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
-// Options schema
-
 const CookieAuthOptionsSchema = z.object({
 	/** Secret used to verify HS256/HS384/HS512 tokens. */
 	secret: z.string().min(1, "secret is required"),
@@ -32,10 +26,7 @@ const CookieAuthOptionsSchema = z.object({
 	issuer: z.string().optional(),
 	/** Expected `aud` claim. Omit to skip audience validation. */
 	audience: z.string().optional(),
-	/**
-	 * Map JWT claim names to ResolvedUser fields.
-	 * Defaults: { id: "user_id", email: "email", name: "name", image: "avatar" }
-	 */
+	/** Map JWT claim names to ResolvedUser fields. Defaults: { id: "user_id", email: "email", name: "name", image: "avatar" } */
 	claimMapping: z
 		.object({
 			id: z.string().default("user_id"),
@@ -47,8 +38,6 @@ const CookieAuthOptionsSchema = z.object({
 });
 
 export type CookieAuthOptions = z.input<typeof CookieAuthOptionsSchema>;
-
-// Cookie parser
 
 function parseCookies(cookieHeader: string): Map<string, string> {
 	const cookies = new Map<string, string>();
@@ -62,17 +51,12 @@ function parseCookies(cookieHeader: string): Map<string, string> {
 	return cookies;
 }
 
-// Factory
-
 /**
- * Create an `AuthAdapter` that validates a JWT from an httpOnly cookie
- * and maps its claims to a `ResolvedUser`.
- *
+ * Create an `AuthAdapter` that validates a JWT from an httpOnly cookie and maps its claims to a `ResolvedUser`.
  * Returns `null` when:
  * - No cookie header is present
  * - The named cookie is missing
- * - The JWT signature is invalid, the token is expired, or claims do not
- *   match the configured `issuer` / `audience`
+ * - The JWT signature is invalid, the token is expired, or claims do not match the configured `issuer` / `audience`
  * - The JWT has no `sub` or mapped ID claim
  */
 export function cookieAuth(options: CookieAuthOptions): AuthAdapter {
@@ -94,7 +78,7 @@ export function cookieAuth(options: CookieAuthOptions): AuthAdapter {
 					audience: parsed.audience,
 				});
 
-				// Extract user ID — try mapped claim first, fall back to `sub`
+				// Extract user ID, try mapped claim first, fall back to `sub`
 				const id =
 					(payload[parsed.claimMapping.id] as string | undefined) ??
 					(payload.sub as string | undefined);

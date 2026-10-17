@@ -1,16 +1,12 @@
 /**
  * Integration tests: policy engine wired through createTheAuth().
- *
- * Verifies that theauth.policy.{evaluate, invalidate, stats} are reachable
- * and produce correct decisions against real in-memory SQLite data.
+ * Verifies that theauth.policy.{evaluate, invalidate, stats} are reachable and produce correct decisions against real in-memory SQLite data.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { agents, permissions as permissionsTable, users } from "../src/db/schema.js";
 import type { TheAuth } from "../src/theauth.js";
 import { createTheAuth } from "../src/theauth.js";
-
-// Helpers
 
 async function createTestTheAuth(): Promise<TheAuth> {
 	return createTheAuth({
@@ -49,8 +45,6 @@ async function seedFixtures(theauth: TheAuth): Promise<{ agentId: string; userId
 
 	return { agentId, userId };
 }
-
-// Suite
 
 describe("theauth.policy integration", () => {
 	let theauth: TheAuth;
@@ -147,7 +141,6 @@ describe("theauth.policy integration", () => {
 			createdAt: new Date(),
 		});
 
-		// Populate the cache
 		await theauth.policy.evaluate({
 			subject: { agentId },
 			action: "read",
@@ -155,7 +148,6 @@ describe("theauth.policy integration", () => {
 		});
 		expect(theauth.policy.stats().size).toBe(1);
 
-		// Invalidate by agentId
 		theauth.policy.invalidate({ agentId });
 		expect(theauth.policy.stats().size).toBe(0);
 

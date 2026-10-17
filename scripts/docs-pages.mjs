@@ -1,5 +1,4 @@
-// Shared docs loader used by scripts/generate-llms.mjs and the CLI asset build.
-// Reads docs/docs.json for page order and docs/*.mdx for content.
+// Shared docs loader for generate-llms.mjs and the CLI asset build: page order from docs/docs.json, content from docs/*.mdx.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 

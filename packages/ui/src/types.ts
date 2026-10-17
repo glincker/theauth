@@ -6,7 +6,6 @@ import type { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactNod
 
 export type ClassNameOverride = string | ((defaultClassName: string) => string);
 
-// Slot replacement
 // Every component exposes a components prop for full slot replacement.
 
 export interface InputSlotProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -42,8 +41,6 @@ export interface AvatarSlotProps {
 	className?: string;
 }
 
-// Shared component slots
-
 export interface SharedSlots {
 	Input?: ComponentType<InputSlotProps>;
 	Button?: ComponentType<ButtonSlotProps>;
@@ -52,16 +49,12 @@ export interface SharedSlots {
 	Error?: ComponentType<ErrorSlotProps>;
 }
 
-// OAuth provider metadata
-
 export interface OAuthProviderMeta {
 	id: string;
 	name: string;
 	icon?: ReactNode;
 	color?: string;
 }
-
-// Sign-in component
 
 export interface SignInClassNames {
 	root?: ClassNameOverride;
@@ -115,8 +108,6 @@ export interface SignInProps {
 	className?: string;
 }
 
-// Sign-up component
-
 export interface SignUpClassNames {
 	root?: ClassNameOverride;
 	card?: ClassNameOverride;
@@ -148,8 +139,6 @@ export interface SignUpProps {
 	className?: string;
 }
 
-// User button
-
 export interface UserButtonClassNames {
 	root?: ClassNameOverride;
 	trigger?: ClassNameOverride;
@@ -178,8 +167,6 @@ export interface UserButtonProps {
 	className?: string;
 }
 
-// OAuth buttons
-
 export interface OAuthButtonsClassNames {
 	root?: ClassNameOverride;
 	button?: ClassNameOverride;
@@ -199,8 +186,6 @@ export interface OAuthButtonsProps {
 	disabled?: boolean;
 	className?: string;
 }
-
-// Forgot password
 
 export interface ForgotPasswordClassNames {
 	root?: ClassNameOverride;
@@ -225,8 +210,6 @@ export interface ForgotPasswordProps {
 	className?: string;
 }
 
-// Two-factor verify
-
 export interface TwoFactorClassNames {
 	root?: ClassNameOverride;
 	card?: ClassNameOverride;
@@ -250,8 +233,6 @@ export interface TwoFactorVerifyProps {
 	title?: string;
 	className?: string;
 }
-
-// Auth card
 
 export interface AuthCardClassNames {
 	root?: ClassNameOverride;

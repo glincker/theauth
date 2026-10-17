@@ -1,12 +1,7 @@
 import micromatch from "micromatch";
 import type { GatewayPolicy } from "./types.js";
 
-/**
- * Find the most-specific matching policy for a given path and method.
- *
- * Policies are tested in order. The first match wins.
- * A policy matches when both the path glob and the method (if specified) match.
- */
+/** Returns the first policy whose path glob and (if set) method match. Policies are tested in order. */
 export function matchPolicy(
 	policies: GatewayPolicy[],
 	pathname: string,

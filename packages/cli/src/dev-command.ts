@@ -1,9 +1,5 @@
 /**
  * `theauth dev`: zero-config local first run.
- *
- * Boots an in-memory theauth instance, seeds a demo user, two agents and a
- * delegation, runs one allowed and one denied tool call, verifies the audit
- * chain, then serves the API (and the dashboard when it is built).
  */
 
 import { env, stdout } from "node:process";
@@ -75,7 +71,6 @@ export interface DevWorkspace {
 export const DEV_USER_ID = "user-demo";
 export const DEV_USER_EMAIL = "demo@theauth.dev";
 
-/** Create the in-memory instance used by dev mode. */
 export function createDevInstance(): Promise<TheAuth> {
 	return createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -89,10 +84,6 @@ export function createDevInstance(): Promise<TheAuth> {
 	});
 }
 
-/**
- * Seed the demo user, a planner agent the user owns, a worker agent, and a
- * narrow delegation from planner to worker. Then run the guarded tool calls.
- */
 export async function seedDevWorkspace(theauth: TheAuth): Promise<DevWorkspace> {
 	theauth.db
 		.insert(users)

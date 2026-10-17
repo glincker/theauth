@@ -6,16 +6,8 @@ import { defineEventHandler, getRequestURL, readBody, setHeader, setResponseStat
 import { dispatch } from "./dispatch.js";
 
 export interface TheAuthNuxtOptions extends AdapterSecurityOptions {
-	/**
-	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
-	 */
 	mcp?: McpAuthModule;
-	/**
-	 * The URL path prefix before the catch-all segment.
-	 * Defaults to `/api/theauth`.
-	 *
-	 * @example `/api/auth`
-	 */
+	/** URL path prefix before the catch-all segment. Defaults to `/api/theauth`. */
 	basePath?: string;
 }
 
@@ -50,20 +42,17 @@ export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventH
 	const guard = createAdapterGuard(auth, options, "theAuthNuxt");
 
 	return defineEventHandler(async (event: H3Event) => {
-		// Build a standard Request from the H3 event so we can delegate to the
-		// shared dispatcher without duplicating any routing logic.
+		// Build a standard Request from the H3 event so dispatch can be reused.
 		const url = getRequestURL(event);
 		const method = event.method ?? "GET";
 
-		// Collect headers from the H3 event
 		const headers = new Headers();
 		const rawHeaders = event.headers;
 		rawHeaders.forEach((value, key) => {
 			headers.set(key, value);
 		});
 
-		// For methods that carry a body, read it from H3 and re-serialise as JSON
-		// so the standard Request.json() call in dispatch works correctly.
+		// Re-serialise the H3 body as JSON so Request.json() in dispatch works.
 		let body: BodyInit | null = null;
 		if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
 			try {
@@ -73,14 +62,13 @@ export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventH
 					headers.set("Content-Type", "application/json");
 				}
 			} catch {
-				// body stays null — dispatch will handle the parse error
+				// body stays null, dispatch will handle the parse error
 			}
 		}
 
 		const request = new Request(url.toString(), { method, headers, body });
 		const response = await dispatch(request, auth, mcp, basePath, guard);
 
-		// Write the Response back through H3
 		setResponseStatus(event, response.status);
 		response.headers.forEach((value, key) => {
 			if (key.toLowerCase() !== "set-cookie") setHeader(event, key, value);
@@ -89,8 +77,7 @@ export function theAuthNuxt(auth: TheAuth, options?: TheAuthNuxtOptions): EventH
 		const cookies = response.headers.getSetCookie();
 		if (cookies.length > 0) setHeader(event, "set-cookie", cookies);
 
-		// H3 route handlers can return a string, Buffer, or null; return the
-		// body text directly so H3 sends it as-is.
+		// H3 can send a string, Buffer or null, so return the text as-is.
 		if (response.status === 204 || response.body === null) {
 			return null;
 		}

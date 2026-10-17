@@ -8,10 +8,7 @@ interface Entry {
 
 const SWEEP_EVERY = 256;
 
-/**
- * In-process storage. The default. State is lost on restart and not shared
- * between instances, so use it for dev, tests and single-process servers.
- */
+/** In-process storage. The default. State is lost on restart and not shared between instances, so use it for dev, tests and single-process servers. */
 export function memoryStorage(): SecondaryStorage {
 	const entries = new Map<string, Entry>();
 	let ops = 0;

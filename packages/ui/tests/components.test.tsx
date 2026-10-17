@@ -1,12 +1,6 @@
-/**
- * Tests for @glinr/theauth-ui components.
- */
-
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-// Module mocks
 
 // Must be defined before imports that depend on @glinr/theauth-react
 const mockSignIn = vi.fn();
@@ -50,16 +44,12 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-// Helpers
-
 function getForm(submitButtonName: string): HTMLFormElement {
 	const btn = screen.getByRole("button", { name: submitButtonName });
 	const form = btn.closest("form");
 	if (!form) throw new Error(`No form ancestor found for button "${submitButtonName}"`);
 	return form;
 }
-
-// cx()
 
 describe("cx()", () => {
 	it("returns defaults when override is undefined", () => {
@@ -80,8 +70,6 @@ describe("cx()", () => {
 		expect(cx("base", () => "replaced")).toBe("replaced");
 	});
 });
-
-// AuthCard
 
 describe("AuthCard", () => {
 	it("renders children", () => {
@@ -120,8 +108,6 @@ describe("AuthCard", () => {
 		expect(screen.queryByRole("heading")).toBeNull();
 	});
 });
-
-// OAuthButtons
 
 describe("OAuthButtons", () => {
 	const providers = [
@@ -170,8 +156,6 @@ describe("OAuthButtons", () => {
 		expect(screen.getByText("D")).toBeTruthy();
 	});
 });
-
-// SignIn
 
 describe("SignIn", () => {
 	it("renders email and password inputs", () => {
@@ -222,8 +206,6 @@ describe("SignIn", () => {
 		expect(screen.getByRole("button", { name: "Magic link" })).toBeTruthy();
 	});
 });
-
-// SignUp
 
 describe("SignUp", () => {
 	it("renders name, email, password, and confirm password fields by default", () => {
@@ -278,8 +260,6 @@ describe("SignUp", () => {
 		expect(screen.getByText("Sign in")).toBeTruthy();
 	});
 });
-
-// UserButton
 
 describe("UserButton", () => {
 	it("renders the avatar trigger button", () => {
@@ -340,8 +320,6 @@ describe("UserButton", () => {
 		await waitFor(() => expect(onSignOut).toHaveBeenCalledOnce());
 	});
 });
-
-// TwoFactorVerify
 
 describe("TwoFactorVerify", () => {
 	it("renders 6 digit inputs by default", () => {
@@ -409,8 +387,6 @@ describe("TwoFactorVerify", () => {
 	});
 });
 
-// ForgotPassword
-
 describe("ForgotPassword", () => {
 	it("renders the email input", () => {
 		render(<ForgotPassword />);
@@ -467,8 +443,6 @@ describe("ForgotPassword", () => {
 	});
 });
 
-// Accessibility
-
 describe("accessibility", () => {
 	it("announces form errors with role=alert", async () => {
 		render(<SignUp />);
@@ -500,8 +474,6 @@ describe("accessibility", () => {
 		expect(screen.getByRole("region", { name: "Welcome back" })).toBeTruthy();
 	});
 });
-
-// Passkeys
 
 describe("SignIn passkeys", () => {
 	function fakeClient(over: Partial<import("../src/types.js").PasskeyClientLike> = {}) {

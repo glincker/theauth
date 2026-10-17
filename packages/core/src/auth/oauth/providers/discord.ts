@@ -1,28 +1,11 @@
 /**
  * Discord OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://discord.com/api/oauth2/authorize
- * - Token:         https://discord.com/api/oauth2/token
- * - UserInfo:      https://discord.com/api/users/@me
- *
- * Notes:
- * - PKCE S256 is supported as of the Discord OAuth 2.0 implementation.
- * - The `identify` scope grants access to the user object (ID, username,
- *   avatar). The `email` scope is required separately to receive the email.
- * - Avatar URLs are constructed from the user ID and avatar hash. When the
- *   user has no custom avatar, `avatar` is null and Discord serves a default
- *   based on the discriminator (or username for the new username system).
- * - Discord user IDs are Snowflakes (64-bit integers serialized as strings).
- *
- * Docs: https://discord.com/developers/docs/topics/oauth2
+ * Notes: - PKCE S256 is supported as of the Discord OAuth 2.0 implementation. The `email` scope is required separately to receive the email. When the user has no custom avatar, `avatar` is null and Discord serves a default based on the discriminator (or username for the new username system).
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
-
-// Constants
 
 const AUTHORIZATION_URL = "https://discord.com/api/oauth2/authorize";
 const TOKEN_URL = "https://discord.com/api/oauth2/token";
@@ -31,8 +14,6 @@ const CDN_BASE = "https://cdn.discordapp.com";
 
 export const DEFAULT_DISCORD_SCOPES = ["identify", "email"];
 const DEFAULT_SCOPES = DEFAULT_DISCORD_SCOPES;
-
-// Raw response shapes
 
 interface DiscordTokenResponse {
 	access_token: string;
@@ -51,8 +32,6 @@ interface DiscordUserResponse {
 	verified?: boolean;
 	avatar?: string | null;
 }
-
-// Factory
 
 /**
  * Create a Discord OAuth provider instance.
@@ -183,8 +162,6 @@ export function createDiscordProvider(config: OAuthProviderConfig): OAuthProvide
 	};
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as DiscordUserResponse;
 
@@ -207,8 +184,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Helpers
 
 function buildAvatarUrl(userId: string, avatarHash: string | null | undefined): string | undefined {
 	if (!avatarHash) return undefined;

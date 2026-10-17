@@ -29,7 +29,6 @@ const C = {
 const FONT = "Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const MONO = "Menlo,ui-monospace,JetBrains Mono,Consolas,monospace";
 
-// Two variants: the docs image (2x, 800 wide) and the social image (1200x630).
 const VARIANTS = {
 	main: { suffix: "", w: 800, scale: 2, margin: 40, font: 15, wrap: 72, capWrap: 100, capFont: 15 },
 	og: {

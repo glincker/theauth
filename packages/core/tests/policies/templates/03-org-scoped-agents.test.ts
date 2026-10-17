@@ -1,6 +1,4 @@
-/**
- * Tests for template 03 — org-scoped agents.
- */
+/** Tests for template 03, org-scoped agents. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import {

@@ -1,14 +1,6 @@
 /**
  * Routes that finish a gated sign-in and manage trusted devices.
- *
- *   POST /auth/sign-in/two-factor      { challenge, code, factor?, trustDevice? }
- *   POST /auth/sign-in/password-change { challenge, newPassword }
- *   GET  /auth/trusted-devices                (authenticated)
- *   POST /auth/trusted-devices/revoke  { id } (authenticated)
- *   POST /auth/trusted-devices/revoke-all     (authenticated)
- *
- * `createTheAuth` registers this plugin automatically when `auth.session` is
- * configured, unless a plugin with id `theauth-sign-in-gate` is already present.
+ * `createTheAuth` registers this plugin automatically when `auth.session` is configured, unless a plugin with id `theauth-sign-in-gate` is already present.
  */
 
 import { buildSetCookie, json, parseBody } from "../plugin/helpers.js";

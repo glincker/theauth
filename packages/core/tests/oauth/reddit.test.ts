@@ -1,6 +1,4 @@
-/**
- * Tests for the Reddit OAuth provider.
- */
+/** Tests for the Reddit OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,15 +12,11 @@ const CLIENT_SECRET = "test-reddit-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USER_RAW = {
 	id: "abc123",
 	name: "redditor42",
 	icon_img: "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_1.png?token=xyz",
 };
-
-// Provider construction
 
 describe("createRedditProvider", () => {
 	it("creates a provider with id reddit", () => {
@@ -53,8 +47,6 @@ describe("createRedditProvider", () => {
 		}
 	});
 });
-
-// Authorization URL
 
 describe("createRedditProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and duration=permanent", async () => {
@@ -87,8 +79,6 @@ describe("createRedditProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeRedditProfile", () => {
 	it("maps Reddit user to OAuthUserInfo with no email", () => {

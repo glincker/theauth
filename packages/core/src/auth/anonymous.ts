@@ -1,13 +1,6 @@
 /**
  * Anonymous authentication for TheAuth.
- *
- * Lets users start as guests without providing credentials. The anonymous
- * user can later be upgraded to a real account by supplying an email.
- *
- * Anonymous users are stored in `theauth_users` with a synthetic placeholder
- * email (`anon_<uuid>@theauth.anonymous`) and a metadata flag
- * `{ anonymous: true }`. This satisfies the NOT NULL UNIQUE constraint on
- * the email column while keeping them easily identifiable.
+ * This satisfies the NOT NULL UNIQUE constraint on the email column while keeping them easily identifiable.
  *
  * @example
  * ```typescript
@@ -27,8 +20,6 @@ import type { Database } from "../db/database.js";
 import { sessions, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 
-// Public types
-
 export interface AnonymousAuthConfig {
 	/** How long anonymous sessions last in seconds (default: 86400 = 24 hours) */
 	sessionTtlSeconds?: number;
@@ -43,20 +34,13 @@ export interface AnonymousAuthModule {
 	upgradeUser(anonymousUserId: string, upgrade: { email: string; name?: string }): Promise<void>;
 	/** Check if a user was created as anonymous and has not been upgraded. */
 	isAnonymous(userId: string): Promise<boolean>;
-	/**
-	 * Delete anonymous users older than `maxAgeMs` and their sessions.
-	 * Returns the number of users removed.
-	 */
+	/** Delete anonymous users older than `maxAgeMs` and their sessions. Returns the number of users removed. */
 	cleanup(maxAgeMs?: number): Promise<number>;
 }
-
-// Constants
 
 const DEFAULT_SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 const DEFAULT_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
 const ANONYMOUS_EMAIL_DOMAIN = "theauth.anonymous";
-
-// Factory
 
 export function createAnonymousAuthModule(
 	config: AnonymousAuthConfig,

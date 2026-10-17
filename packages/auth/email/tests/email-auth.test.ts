@@ -5,8 +5,6 @@ import { createEmailAuth } from "../src/email-auth.js";
 import { ErrorCodes } from "../src/errors.js";
 import type { EmailAuthModule } from "../src/types.js";
 
-// Test helpers
-
 function makeMocks() {
 	const sentVerifications: Array<{ email: string; token: string; url: string }> = [];
 	const sentResets: Array<{ email: string; token: string; url: string }> = [];
@@ -43,8 +41,6 @@ async function createTestModule(
 
 	return { auth, mocks };
 }
-
-// Tests
 
 describe("createEmailAuth", () => {
 	describe("signUp", () => {
@@ -230,7 +226,6 @@ describe("createEmailAuth", () => {
 			await auth.signUp({ email: "iris@example.com", password: "Password123" });
 			const token = mocks.sentVerifications[0]?.token;
 
-			// Small delay to ensure expiry
 			await new Promise((resolve) => setTimeout(resolve, 5));
 
 			await expect(auth.verifyEmail(token)).rejects.toMatchObject({
@@ -252,7 +247,6 @@ describe("createEmailAuth", () => {
 			const result = await auth.resetPassword(resetToken, "NewPassword1");
 			expect(result.success).toBe(true);
 
-			// Should be able to sign in with new password
 			const session = await auth.signIn({ email: "jake@example.com", password: "NewPassword1" });
 			expect(session.user.email).toBe("jake@example.com");
 		});
@@ -295,7 +289,6 @@ describe("createEmailAuth", () => {
 			const result = await auth.changePassword(user.id, "OldPass123", "NewPass456");
 			expect(result.success).toBe(true);
 
-			// Can sign in with new password
 			const session = await auth.signIn({ email: "leo@example.com", password: "NewPass456" });
 			expect(session.user.email).toBe("leo@example.com");
 		});

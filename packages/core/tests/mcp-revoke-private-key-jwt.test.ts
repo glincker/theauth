@@ -1,7 +1,4 @@
-/**
- * RFC 7009 revocation with private_key_jwt client authentication, plus the
- * unchanged client_secret flow.
- */
+/** RFC 7009 revocation with private_key_jwt client authentication, plus the unchanged client_secret flow. */
 import { describe, expect, it } from "vitest";
 import {
 	addClient,

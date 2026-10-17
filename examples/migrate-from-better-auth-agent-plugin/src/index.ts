@@ -1,10 +1,5 @@
 /**
- * migrate-from-better-auth-agent-plugin
- *
- * Runnable companion to docs/migrate/from-better-auth-agent-plugin.mdx.
- * Exercises the AFTER patterns: AgentIdentity as a primary entity, multi-hop
- * delegation chains with maxDepth, cascading revocation, and
- * authorizeByToken against the delegated permission.
+ * Runnable companion to docs/migrate/from-better-auth-agent-plugin.mdx, run against the workspace package.
  */
 
 import { createTheAuth, users } from "@glinr/theauth";
@@ -100,9 +95,7 @@ async function main(): Promise<void> {
 
 	section("Step 4: Authorize the delegated child, reject out-of-scope");
 
-	// authorize() falls back to delegation-chain permissions when the agent's
-	// own direct permissions deny. That is what the migration guide calls
-	// "the child reads through the chain."
+	// Falls back to delegation-chain permissions when direct permissions deny ("the child reads through the chain").
 	const delegatedPerms = await auth.delegation.getEffectivePermissions(child.id);
 	for (const p of delegatedPerms) {
 		ok("child delegated perm", `${p.resource} actions=[${p.actions.join(",")}]`);

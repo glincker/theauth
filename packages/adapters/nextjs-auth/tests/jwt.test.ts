@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isTokenExpiring, readJwtExp } from "../src/jwt.js";
 
-// Helper: build a minimal JWT with a given payload (no real signing)
 function makeJwt(payload: Record<string, unknown>): string {
 	const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
 		.replace(/=/g, "")
@@ -33,7 +32,6 @@ describe("readJwtExp", () => {
 	});
 
 	it("returns null when the payload is not valid JSON", () => {
-		// Corrupt the payload section
 		const token = "header.!!!notbase64!!.sig";
 		expect(readJwtExp(token)).toBeNull();
 	});

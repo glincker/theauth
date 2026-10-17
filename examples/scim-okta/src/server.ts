@@ -1,7 +1,4 @@
-// Minimal SCIM 2.0 server wired up the way Okta expects it.
-//
-// Start:   pnpm --filter @glinr/theauth-example-scim-okta start
-// Verify:  curl -H "Authorization: Bearer $SCIM_TOKEN" http://localhost:3000/scim/v2/ServiceProviderConfig
+// Minimal SCIM 2.0 server wired the way Okta expects. Start: pnpm --filter @glinr/theauth-example-scim-okta start
 
 import { createTheAuth } from "@glinr/theauth";
 import { scim } from "@glinr/theauth/auth";
@@ -13,9 +10,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 const SCIM_TOKEN = process.env.SCIM_TOKEN;
 if (!SCIM_TOKEN) throw new Error("SCIM_TOKEN env var required");
 
-// Pre-created service agent id. Create one in your app before booting and
-// pass the id here so every provisioning write lands in auditLogs under a
-// consistent actor. See the README for a one-liner to seed it.
+// Service agent id for provisioning writes, so every write lands in auditLogs under one actor. Seed it before boot.
 const AUDIT_AGENT_ID = process.env.SCIM_AGENT_ID ?? "agent-scim-provisioner";
 
 const theauth = await createTheAuth({

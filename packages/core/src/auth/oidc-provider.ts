@@ -1,10 +1,5 @@
 /**
- * OIDC Provider module for TheAuth.
- *
- * Turns TheAuth into a full OpenID Connect identity provider (IdP).
- * External applications can register as OIDC clients and authenticate
- * their users against TheAuth using standard authorization code flow
- * with PKCE, ID tokens, refresh tokens, discovery, and JWKS.
+ * OpenID Connect provider: turns TheAuth into an identity provider for external applications.
  *
  * @example
  * ```typescript
@@ -42,11 +37,7 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { OidcLogoutConfig, OidcLogoutModule, OidcSidIndex } from "./oidc-logout.js";
 import { createOidcLogoutModule, createOidcSidIndex } from "./oidc-logout.js";
 
-// Re-export shared types
-
 export type { AuthError, Result, TheAuthError };
-
-// Public types
 
 export interface OidcProviderConfig {
 	/** Issuer identifier, e.g. "https://auth.example.com". Must be a URL. */
@@ -65,11 +56,7 @@ export interface OidcProviderConfig {
 	idTokenTtl?: number;
 	/** Scopes this provider supports. Default: ['openid', 'profile', 'email']. */
 	supportedScopes?: string[];
-	/**
-	 * Opt in to RP-initiated logout and back-channel logout fan-out. Adds
-	 * `end_session_endpoint` and `backchannel_logout_*` to discovery, a `sid`
-	 * claim to ID tokens, and `provider.logout`. Off by default.
-	 */
+	/** Opt in to RP-initiated logout and back-channel logout fan-out. Adds the logout fields to discovery. */
 	logout?: OidcLogoutConfig;
 }
 
@@ -109,22 +96,16 @@ export interface AuthorizeParams {
 	codeChallengeMethod?: string;
 	/** The authenticated user's ID. Must be resolved before calling authorize. */
 	userId: string;
-	/**
-	 * Provider session id of the signed-in user. With `config.logout` it is
-	 * indexed so session revoke and logout can notify this client.
-	 */
+	/** Provider session id of the signed-in user. With `config.logout` it is indexed so session revoke and logout can notify this client. */
 	sessionId?: string;
 }
 
 export interface TokenParams {
 	grantType: string;
-	// authorization_code grant
 	code?: string;
 	redirectUri?: string;
 	codeVerifier?: string;
-	// refresh_token grant
 	refreshToken?: string;
-	// Client authentication
 	clientId: string;
 	clientSecret?: string;
 }
@@ -197,8 +178,6 @@ export interface OidcProviderModule {
 	logout?: OidcLogoutModule;
 }
 
-// Zod schemas
-
 const registerClientSchema = z.object({
 	clientName: z.string().min(1, "clientName must not be empty"),
 	redirectUris: z.array(z.string().url()).min(1, "at least one redirectUri is required"),
@@ -249,8 +228,6 @@ const tokenSchema = z.discriminatedUnion("grantType", [
 	}),
 ]);
 
-// Constants
-
 const DEFAULT_ACCESS_TOKEN_TTL = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL = 86400 * 30;
 const DEFAULT_AUTH_CODE_TTL = 600;
@@ -261,8 +238,6 @@ const CLIENT_ID_BYTE_LENGTH = 16;
 const CLIENT_SECRET_BYTE_LENGTH = 32;
 const AUTH_CODE_BYTE_LENGTH = 32;
 const REFRESH_TOKEN_BYTE_LENGTH = 32;
-
-// Internal helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -283,15 +258,7 @@ async function computeS256Challenge(codeVerifier: string): Promise<string> {
 	return jose.base64url.encode(new Uint8Array(digest));
 }
 
-// Factory
-
-/**
- * Create an OIDC Provider module that turns TheAuth into an identity provider.
- *
- * @param config       Provider configuration (issuer, signing key, TTLs).
- * @param db           Drizzle database instance.
- * @param getUserClaims Callback that resolves user claims given a userId and scopes.
- */
+/** Creates an OIDC provider module that turns TheAuth into an identity provider. */
 export function createOidcProviderModule(
 	config: OidcProviderConfig,
 	db: Database,
@@ -305,7 +272,6 @@ export function createOidcProviderModule(
 	const idTokenTtl = config.idTokenTtl ?? DEFAULT_ID_TOKEN_TTL;
 	const supportedScopes = config.supportedScopes ?? DEFAULT_SCOPES;
 
-	// Resolve the signing key (CryptoKey or JWK -> CryptoKey)
 	let signingKeyPromise: Promise<CryptoKey> | undefined;
 	let publicJwkPromise: Promise<jose.JWK> | undefined;
 
@@ -315,7 +281,6 @@ export function createOidcProviderModule(
 				if (config.signingKey instanceof CryptoKey) {
 					return config.signingKey;
 				}
-				// It's a JWK object — asymmetric algorithms always produce CryptoKey
 				const imported = await jose.importJWK(config.signingKey as jose.JWK, signingAlg);
 				return imported as CryptoKey;
 			})();
@@ -330,18 +295,14 @@ export function createOidcProviderModule(
 				if (config.signingKey instanceof CryptoKey) {
 					jwk = await jose.exportJWK(config.signingKey);
 				} else {
-					// Input was already a JWK — use it directly without import/export round-trip
 					jwk = { ...(config.signingKey as jose.JWK) };
 				}
-				// Strip private key components — only expose the public key
 				const { d, p, q, dp, dq, qi, k, ...publicComponents } = jwk;
 				return { ...publicComponents, alg: signingAlg, use: "sig", kid: "theauth-oidc-1" };
 			})();
 		}
 		return publicJwkPromise;
 	}
-
-	// logout wiring (opt-in)
 
 	const logout: OidcLogoutModule | undefined = config.logout
 		? createOidcLogoutModule({
@@ -361,8 +322,6 @@ export function createOidcProviderModule(
 	const sidIndex: OidcSidIndex | undefined = config.logout
 		? createOidcSidIndex(db, issuer, config.logout.indexTtlSeconds)
 		: undefined;
-
-	// registerClient
 
 	async function registerClient(input: RegisterClientInput): Promise<Result<OidcClient>> {
 		const parsed = registerClientSchema.safeParse(input);
@@ -459,8 +418,6 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// getClient
-
 	async function getClient(clientId: string): Promise<Result<OidcClient>> {
 		if (!clientId || clientId.trim() === "") {
 			return { success: false, error: makeError("INVALID_INPUT", "clientId must not be empty") };
@@ -488,8 +445,6 @@ export function createOidcProviderModule(
 			},
 		};
 	}
-
-	// deleteClient
 
 	async function deleteClient(clientId: string): Promise<Result<void>> {
 		if (!clientId || clientId.trim() === "") {
@@ -520,8 +475,6 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// authorize
-
 	async function authorize(
 		params: AuthorizeParams,
 	): Promise<Result<{ code: string; state?: string }>> {
@@ -547,7 +500,6 @@ export function createOidcProviderModule(
 			sessionId,
 		} = parsed.data;
 
-		// Validate client exists
 		const clientRows = await db
 			.select()
 			.from(oidcClients)
@@ -558,7 +510,6 @@ export function createOidcProviderModule(
 			return { success: false, error: makeError("CLIENT_NOT_FOUND", "Client not found") };
 		}
 
-		// Validate redirect URI
 		if (!client.redirectUris.includes(redirectUri)) {
 			return {
 				success: false,
@@ -566,7 +517,6 @@ export function createOidcProviderModule(
 			};
 		}
 
-		// Validate requested scopes
 		const requestedScopes = scope.split(" ").filter(Boolean);
 		for (const s of requestedScopes) {
 			if (!supportedScopes.includes(s)) {
@@ -579,7 +529,6 @@ export function createOidcProviderModule(
 			}
 		}
 
-		// Generate authorization code
 		const code = generateRandomHex(AUTH_CODE_BYTE_LENGTH);
 		const codeHash = await hashSecret(code);
 		const now = new Date();
@@ -620,8 +569,6 @@ export function createOidcProviderModule(
 		}
 	}
 
-	// exchangeToken
-
 	async function exchangeToken(params: TokenParams): Promise<Result<TokenResponse>> {
 		const parsed = tokenSchema.safeParse(params);
 		if (!parsed.success) {
@@ -653,7 +600,6 @@ export function createOidcProviderModule(
 		const { code, redirectUri, codeVerifier, clientId, clientSecret } = data;
 		const codeHash = await hashSecret(code);
 
-		// Find the auth code
 		const codeRows = await db
 			.select()
 			.from(oidcAuthCodes)
@@ -664,7 +610,6 @@ export function createOidcProviderModule(
 			return { success: false, error: makeError("INVALID_CODE", "Authorization code not found") };
 		}
 
-		// Check if already used
 		if (authCode.used) {
 			return {
 				success: false,
@@ -672,7 +617,6 @@ export function createOidcProviderModule(
 			};
 		}
 
-		// Check expiry
 		if (authCode.expiresAt <= new Date()) {
 			return {
 				success: false,
@@ -683,7 +627,6 @@ export function createOidcProviderModule(
 		// Mark as used immediately to prevent replay
 		await db.update(oidcAuthCodes).set({ used: true }).where(eq(oidcAuthCodes.id, authCode.id));
 
-		// Validate client
 		if (authCode.clientId !== clientId) {
 			return {
 				success: false,
@@ -691,13 +634,11 @@ export function createOidcProviderModule(
 			};
 		}
 
-		// Validate client secret
 		const clientResult = await authenticateClient(clientId, clientSecret);
 		if (!clientResult.success) {
 			return clientResult;
 		}
 
-		// Validate redirect URI
 		if (authCode.redirectUri !== redirectUri) {
 			return {
 				success: false,
@@ -705,7 +646,6 @@ export function createOidcProviderModule(
 			};
 		}
 
-		// Validate PKCE
 		if (authCode.codeChallenge) {
 			if (!codeVerifier) {
 				return {
@@ -722,7 +662,6 @@ export function createOidcProviderModule(
 			}
 		}
 
-		// Generate tokens
 		const scopes = authCode.scopes.split(" ").filter(Boolean);
 		const sid = sidIndex ? await sidIndex.forCode(codeHash) : null;
 		return generateTokenSet(authCode.userId, clientId, scopes, authCode.nonce, sid);
@@ -737,13 +676,11 @@ export function createOidcProviderModule(
 		const { refreshToken, clientId, clientSecret } = data;
 		const tokenHash = await hashSecret(refreshToken);
 
-		// Authenticate client
 		const clientResult = await authenticateClient(clientId, clientSecret);
 		if (!clientResult.success) {
 			return clientResult;
 		}
 
-		// Find the refresh token
 		const rows = await db
 			.select()
 			.from(oidcRefreshTokens)
@@ -778,13 +715,11 @@ export function createOidcProviderModule(
 			};
 		}
 
-		// Revoke old refresh token (rotation)
 		await db
 			.update(oidcRefreshTokens)
 			.set({ revoked: true })
 			.where(eq(oidcRefreshTokens.id, record.id));
 
-		// Issue new token set
 		const scopes = record.scopes.split(" ").filter(Boolean);
 		const sid = sidIndex ? await sidIndex.latest(record.userId, clientId) : null;
 		return generateTokenSet(record.userId, clientId, scopes, null, sid);
@@ -830,7 +765,6 @@ export function createOidcProviderModule(
 		const now = Math.floor(Date.now() / 1000);
 		const jti = generateId();
 
-		// Access token (JWT)
 		const accessTokenBuilder = new jose.SignJWT({
 			scope: scopes.join(" "),
 			client_id: clientId,
@@ -845,7 +779,6 @@ export function createOidcProviderModule(
 
 		const accessToken = await accessTokenBuilder.sign(key);
 
-		// ID token (JWT)
 		const userClaims = await getUserClaims(userId, scopes);
 		const idTokenPayload: Record<string, unknown> = {
 			...userClaims,
@@ -857,7 +790,6 @@ export function createOidcProviderModule(
 		if (sid) {
 			idTokenPayload.sid = sid;
 		}
-		// Add at_hash (access token hash)
 		const atHashBuffer = await sha256Raw(accessToken);
 		const atHashHalf = atHashBuffer.subarray(0, atHashBuffer.length / 2);
 		idTokenPayload.at_hash = jose.base64url.encode(atHashHalf);
@@ -871,7 +803,6 @@ export function createOidcProviderModule(
 			.setExpirationTime(now + idTokenTtl)
 			.sign(key);
 
-		// Refresh token (opaque)
 		const rawRefreshToken = generateRandomHex(REFRESH_TOKEN_BYTE_LENGTH);
 		const refreshTokenHash = await hashSecret(rawRefreshToken);
 		const refreshExpiresAt = new Date((now + refreshTokenTtl) * 1000);
@@ -909,8 +840,6 @@ export function createOidcProviderModule(
 		};
 	}
 
-	// getUserInfo
-
 	async function getUserInfo(accessToken: string): Promise<Result<UserInfoClaims>> {
 		const validation = await validateAccessToken(accessToken);
 		if (!validation.success) {
@@ -933,8 +862,6 @@ export function createOidcProviderModule(
 			};
 		}
 	}
-
-	// getDiscoveryDocument
 
 	function getDiscoveryDocument(): OidcDiscoveryDocument {
 		return {
@@ -971,14 +898,10 @@ export function createOidcProviderModule(
 		};
 	}
 
-	// getJwks
-
 	async function getJwks(): Promise<JsonWebKeySet> {
 		const publicJwk = await getPublicJwk();
 		return { keys: [publicJwk] };
 	}
-
-	// validateAccessToken
 
 	async function validateAccessToken(token: string): Promise<Result<AccessTokenClaims>> {
 		if (!token || token.trim() === "") {

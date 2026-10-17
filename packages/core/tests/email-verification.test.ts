@@ -1,6 +1,4 @@
-/**
- * Tests for the email verification flow.
- */
+/** Tests for the email verification flow. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -135,11 +133,9 @@ describe("EmailVerificationModule", () => {
 		it("revokes previous tokens when re-sending", async () => {
 			const { userId } = await insertUser(db, "alice@example.com");
 
-			// Send first verification
 			await verificationModule.sendVerification(userId, "alice@example.com");
 			const firstToken = sendVerificationEmail.mock.calls[0]![1] as string;
 
-			// Send second verification
 			await verificationModule.sendVerification(userId, "alice@example.com");
 
 			// First token should now be invalid

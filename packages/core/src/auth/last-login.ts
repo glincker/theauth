@@ -1,11 +1,6 @@
 /**
  * Last login tracking module for TheAuth.
  *
- * Records each successful authentication event per user, capturing the method
- * used, optional IP address, optional user agent, and timestamp. A rolling
- * window of recent logins is kept — older entries beyond the configured limit
- * are pruned on every write so storage stays bounded.
- *
  * @example
  * ```typescript
  * const loginHistory = createLastLoginModule({}, db);
@@ -37,14 +32,7 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
 export type { AuthError, Result, TheAuthError };
 
-// Public types
-
-/**
- * All supported login methods.
- *
- * For OAuth providers use the `oauth:{provider}` pattern, e.g. `oauth:github`,
- * `oauth:google`, `oauth:microsoft`.
- */
+/** All supported login methods. */
 export type LoginMethod =
 	| "email-password"
 	| "magic-link"
@@ -59,11 +47,7 @@ export type LoginMethod =
 	| "api-key";
 
 export interface LastLoginConfig {
-	/**
-	 * Maximum number of login events to retain per user.
-	 * Older rows beyond this limit are deleted on every `recordLogin` call.
-	 * Default: 10.
-	 */
+	/** Maximum number of login events to retain per user. Older rows beyond this limit are deleted on every `recordLogin` call. Default: 10. */
 	maxHistoryPerUser?: number;
 }
 
@@ -88,29 +72,16 @@ export interface LoginEvent {
 export interface LastLoginModule {
 	/**
 	 * Record a successful login event for a user.
-	 *
-	 * If the total stored events for that user exceed `maxHistoryPerUser`, the
-	 * oldest events are deleted so only the most recent N are kept.
+	 * If the total stored events for that user exceed `maxHistoryPerUser`, the oldest events are deleted so only the most recent N are kept.
 	 */
 	recordLogin(input: RecordLoginInput): Promise<Result<LoginEvent>>;
 
-	/**
-	 * Retrieve the single most recent login event for a user.
-	 *
-	 * Returns `null` in `data` when no history exists for the user.
-	 */
+	/** Retrieve the single most recent login event for a user. */
 	getLastLogin(userId: string): Promise<Result<LoginEvent | null>>;
 
-	/**
-	 * Return login history for a user, newest first.
-	 *
-	 * @param userId  The user to look up.
-	 * @param limit   Maximum number of events to return. Defaults to `maxHistoryPerUser`.
-	 */
+	/** Return login history for a user, newest first. */
 	getLoginHistory(userId: string, limit?: number): Promise<Result<LoginEvent[]>>;
 }
-
-// Zod validation
 
 const LOGIN_METHOD_BASE_VALUES = [
 	"email-password",
@@ -129,18 +100,14 @@ const recordLoginInputSchema = z.object({
 	userId: z.string().min(1, "userId must not be empty"),
 	method: z.union([
 		z.enum(LOGIN_METHOD_BASE_VALUES),
-		// oauth:{provider} — provider must be at least one character
+		// oauth:{provider}, provider must be at least one character
 		z.string().regex(/^oauth:[a-z0-9_-]+$/i, "OAuth method must match oauth:{provider}"),
 	]),
 	ip: z.string().min(1).optional(),
 	userAgent: z.string().min(1).optional(),
 });
 
-// Constants
-
 const DEFAULT_MAX_HISTORY = 10;
-
-// Internal helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -164,18 +131,12 @@ function rowToLoginEvent(row: {
 	};
 }
 
-// Factory
-
 /**
  * Create a last-login tracking module backed by the provided database.
- *
- * The module is stateless — safe to instantiate multiple times against the
- * same database.
+ * The module is stateless, safe to instantiate multiple times against the same database.
  */
 export function createLastLoginModule(config: LastLoginConfig, db: Database): LastLoginModule {
 	const maxHistory = config.maxHistoryPerUser ?? DEFAULT_MAX_HISTORY;
-
-	// recordLogin
 
 	async function recordLogin(input: RecordLoginInput): Promise<Result<LoginEvent>> {
 		const parsed = recordLoginInputSchema.safeParse(input);
@@ -242,8 +203,6 @@ export function createLastLoginModule(config: LastLoginConfig, db: Database): La
 		}
 	}
 
-	// getLastLogin
-
 	async function getLastLogin(userId: string): Promise<Result<LoginEvent | null>> {
 		if (typeof userId !== "string" || userId.trim() === "") {
 			return { success: false, error: makeError("INVALID_INPUT", "userId must not be empty") };
@@ -269,8 +228,6 @@ export function createLastLoginModule(config: LastLoginConfig, db: Database): La
 			};
 		}
 	}
-
-	// getLoginHistory
 
 	async function getLoginHistory(userId: string, limit?: number): Promise<Result<LoginEvent[]>> {
 		if (typeof userId !== "string" || userId.trim() === "") {

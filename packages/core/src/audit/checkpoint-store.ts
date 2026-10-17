@@ -17,9 +17,7 @@ function order(a: Checkpoint, b: Checkpoint): number {
 }
 
 /**
- * Checkpoint store that keeps everything in process memory. Good for tests and
- * single-process tools. There is no drizzle-backed store yet: it needs a new
- * table and migration, so it is left out rather than half done.
+ * Checkpoint store that keeps everything in process memory. Good for tests and single-process tools. There is no drizzle-backed store yet: it needs a new table and migration, so it is left out rather than half done.
  */
 export function createMemoryCheckpointStore(): CheckpointStore {
 	const items: Checkpoint[] = [];

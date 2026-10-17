@@ -1,32 +1,11 @@
 /**
  * Log in with PayPal (OAuth 2.0 / OIDC) provider.
- *
- * Endpoints (live):
- * - Authorization: https://www.paypal.com/connect
- * - Token:         https://api-m.paypal.com/v1/oauth2/token
- * - UserInfo:      https://api-m.paypal.com/v1/identity/openidconnect/userinfo?schema=openid
- *
- * Sandbox swaps the hosts for `www.sandbox.paypal.com` and
- * `api-m.sandbox.paypal.com`; pass `sandbox: true`.
- *
  * Notes:
- * - Client credentials go in an `Authorization: Basic` header at the token
- *   endpoint, for the code exchange and for refresh.
+ * - Client credentials go in an `Authorization: Basic` header at the token endpoint, for the code exchange and for refresh.
  * - PayPal's guides do not describe PKCE, so no challenge is sent.
- * - The login URL carries `flowEntry=static`, as in PayPal's button guide.
- * - Scopes are space separated: `openid`, `profile`, `email`, `address`.
  * - Token responses include a refresh token and `expires_in` of 28800.
- * - PayPal's Identity API documents `user_id`, `sub`, `name`, `email`,
- *   `emails[]` and `email_verified`. The mapping reads `user_id` first and
- *   falls back to `sub`, and reads `email` first and falls back to the
- *   primary entry of `emails`. The exact response for each `schema` value
- *   is not spelled out in the public guides, so check a live response
- *   before relying on `emails`.
- * - `emailVerified` is left unset on purpose. A PayPal email is not treated
- *   as verified for account linking.
- *
- * Docs: https://developer.paypal.com/docs/log-in-with-paypal/integrate/
- *       https://developer.paypal.com/docs/api/identity/v1
+ * - PayPal's Identity API documents `user_id`, `sub`, `name`, `email`, `emails[]` and `email_verified`. The exact response for each `schema` value is not spelled out in the public guides, so check a live response before relying on `emails`.
+ * - `emailVerified` is left unset on purpose. A PayPal email is not treated as verified for account linking.
  */
 
 import type { OAuthProvider, OAuthProviderConfig } from "../types.js";

@@ -1,15 +1,8 @@
-/**
- * Unit tests for the process-local LRU policy cache.
- *
- * Covers hit/miss counters, TTL expiry, LRU eviction order, recency promotion,
- * prefix invalidation, enabled=false, and skipCache option.
- */
+/** Unit tests for the process-local LRU policy cache. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPolicyCache } from "../src/policy/cache.js";
 import type { PolicyDecision } from "../src/policy/types.js";
-
-// Helpers
 
 const decision = (allowed: boolean): PolicyDecision => ({
 	allowed,
@@ -19,8 +12,6 @@ const decision = (allowed: boolean): PolicyDecision => ({
 	cacheHit: false,
 	durationMs: 0,
 });
-
-// Tests
 
 describe("createPolicyCache", () => {
 	describe("miss / hit counters", () => {

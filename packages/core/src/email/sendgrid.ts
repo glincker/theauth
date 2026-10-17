@@ -1,7 +1,5 @@
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
-// Config
-
 export interface SendGridConfig {
 	/** SendGrid API key (required). */
 	apiKey: string;
@@ -9,12 +7,7 @@ export interface SendGridConfig {
 	from?: string;
 }
 
-// Provider
-
-/**
- * Email provider backed by SendGrid (https://sendgrid.com).
- * Uses raw fetch() — no SDK dependency, edge-compatible.
- */
+/** Email provider backed by SendGrid (https://sendgrid.com). Uses raw fetch(), no SDK dependency, edge-compatible. */
 export function sendgrid(config: SendGridConfig): EmailProvider {
 	if (!config.apiKey) {
 		throw new Error(

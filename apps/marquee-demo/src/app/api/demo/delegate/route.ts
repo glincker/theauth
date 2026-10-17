@@ -1,6 +1,5 @@
 /**
- * POST /api/demo/delegate
- * Step 4: Delegate from the parent agent to a sub-agent with narrower scope.
+ * POST /api/demo/delegate (step 4): delegates from the parent agent to a narrower sub-agent.
  */
 
 import { NextResponse } from "next/server";

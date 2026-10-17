@@ -39,17 +39,7 @@ function parseEnvelope(raw: string | null): Envelope | null {
 
 /**
  * Cloudflare Workers KV storage.
- *
- * KV is eventually consistent and has no atomic increment, so `incr` is a
- * read-modify-write. Two requests landing in different locations at the same
- * moment can both read the same count, and writes take up to ~60 seconds to
- * propagate. That makes counters approximate: fine for soft abuse limits, not
- * for strict ones. For strict counters use `databaseStorage` (D1), a Durable
- * Object, or Redis. Plain get/set values (device codes, caches) are fine on KV
- * as long as you tolerate the propagation delay.
- *
- * Expiry is enforced by an envelope stored with the value, so TTLs shorter than
- * KV's 60 second minimum still behave correctly on read.
+ * KV is eventually consistent and has no atomic increment, so `incr` is a read-modify-write. That makes counters approximate: fine for soft abuse limits, not for strict ones.
  */
 export function cloudflareKvStorage(kv: KVNamespaceWithList): SecondaryStorage {
 	async function read(key: string): Promise<Envelope | null> {

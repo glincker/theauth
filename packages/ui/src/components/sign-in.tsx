@@ -7,8 +7,6 @@ import { AuthCard } from "./auth-card.js";
 import { DefaultButton, DefaultDivider, DefaultError, DefaultInput } from "./defaults.js";
 import { OAuthButtons } from "./oauth-buttons.js";
 
-// Default slots
-
 function DefaultLink({ href, children, className, onClick }: LinkSlotProps): ReactNode {
 	return (
 		<a
@@ -30,8 +28,6 @@ function DefaultLink({ href, children, className, onClick }: LinkSlotProps): Rea
 		</a>
 	);
 }
-
-// Component
 
 export function SignIn({
 	classNames,

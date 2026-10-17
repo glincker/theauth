@@ -28,10 +28,7 @@ function toStored(r: typeof users.$inferSelect): StoredUser {
 }
 
 /**
- * Store backed by theauth's own tables. Users go into `theauth_users` (external id and
- * source in the existing columns), password hashes into `theauth_username_accounts`
- * keyed by the lowercased email, and progress into `theauth_migration_ledger`, which this
- * creates on first use. The ledger holds ids and counts, never email or hashes.
+ * Store backed by theauth's own tables. Users go into `theauth_users` (external id and source in the existing columns), password hashes into `theauth_username_accounts` keyed by the lowercased email, and progress into `theauth_migration_ledger`, which this creates on first use. The ledger holds ids and counts, never email or hashes.
  */
 export async function createDbMigrationStore(db: Database): Promise<MigrationStore> {
 	await db.run(sql.raw(LEDGER_DDL));

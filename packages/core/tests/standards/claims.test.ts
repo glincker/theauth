@@ -1,6 +1,4 @@
-/**
- * Tests for IETF agentic JWT claim constants and JWT session integration.
- */
+/** Tests for IETF agentic JWT claim constants and JWT session integration. */
 
 import { decodeJwt } from "jose";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -10,8 +8,6 @@ import { createDatabase } from "../../src/db/database.js";
 import { createTables } from "../../src/db/migrations.js";
 import { users } from "../../src/db/schema.js";
 import { AGENTIC_JWT_CLAIMS } from "../../src/standards/claims.js";
-
-// Helpers
 
 const TEST_SECRET = "super-secret-key-at-least-32-chars-long!!";
 
@@ -40,8 +36,6 @@ function decodePayload(token: string): Record<string, unknown> {
 	return decodeJwt(token) as Record<string, unknown>;
 }
 
-// Constant stability
-
 describe("AGENTIC_JWT_CLAIMS", () => {
 	it("snapshot: claim name strings are stable", () => {
 		expect(AGENTIC_JWT_CLAIMS).toStrictEqual({
@@ -59,7 +53,7 @@ describe("AGENTIC_JWT_CLAIMS", () => {
 	});
 });
 
-// JwtSessionModule — flag off
+// JwtSessionModule, flag off
 
 describe("JwtSessionModule — emitAgenticJwtClaims off (default)", () => {
 	let db: Database;
@@ -109,7 +103,7 @@ describe("JwtSessionModule — emitAgenticJwtClaims off (default)", () => {
 	});
 });
 
-// JwtSessionModule — flag on
+// JwtSessionModule, flag on
 
 describe("JwtSessionModule — emitAgenticJwtClaims on", () => {
 	let db: Database;
@@ -163,7 +157,7 @@ describe("JwtSessionModule — emitAgenticJwtClaims on", () => {
 
 	it("partial context: only available claims are emitted", async () => {
 		const mod = createJwtSessionModule({ secret: TEST_SECRET, emitAgenticJwtClaims: true }, db);
-		// Only agentId provided — agent_type and trust_tier should be absent.
+		// Only agentId provided, agent_type and trust_tier should be absent.
 		const result = await mod.createSession({
 			...SAMPLE_USER,
 			agenticContext: {

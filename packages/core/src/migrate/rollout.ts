@@ -49,10 +49,7 @@ function clampPercent(p: number): number {
 	return Math.min(100, Math.max(0, p));
 }
 
-/**
- * Decide which system serves a user. Pass an object, or a function that returns the
- * current config, so a flag change takes effect without a redeploy.
- */
+/** Decide which system serves a user. Pass an object, or a function that returns the current config, so a flag change takes effect without a redeploy. */
 export function createRollout(config: RolloutConfig | (() => RolloutConfig)) {
 	const current = typeof config === "function" ? config : () => config;
 

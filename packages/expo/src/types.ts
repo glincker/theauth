@@ -1,5 +1,3 @@
-// Domain types
-
 export interface TheAuthUser {
 	id: string;
 	email?: string;
@@ -59,17 +57,9 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-// Result type
-
 export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
 
-// Storage adapter
-
-/**
- * Storage adapter interface - matches AsyncStorage and SecureStore APIs.
- * Pass an implementation from @react-native-async-storage/async-storage or
- * expo-secure-store without importing those packages directly here.
- */
+/** Matches AsyncStorage and SecureStore. Pass one in without importing those packages here. */
 export interface TheAuthStorage {
 	getItem(key: string): Promise<string | null>;
 	setItem(key: string, value: string): Promise<void>;
@@ -79,13 +69,7 @@ export interface TheAuthStorage {
 /** @deprecated Use `TheAuthStorage` instead. Will be removed in a future major version. */
 export type AuthStorage = TheAuthStorage;
 
-// Social sign-in
-
-/**
- * Native app sign-in through the system browser. The browser and crypto
- * pieces are injected so this package has no hard dependency on
- * `expo-web-browser` or `expo-crypto`.
- */
+/** Native sign-in through the system browser. Browser and crypto are injected to avoid hard deps. */
 export interface SocialSignInConfig {
 	/** The app's redirect URI. Must be listed in the server's `mobile.redirectUris`. */
 	redirectUri: string;
@@ -100,10 +84,7 @@ export interface SocialSignInConfig {
 	sha256?(input: string): Promise<Uint8Array>;
 }
 
-/**
- * A platform passkey authenticator. Options and results are the WebAuthn JSON
- * forms, so `react-native-passkey`'s `Passkey` object satisfies this directly.
- */
+/** Platform passkey authenticator. Uses WebAuthn JSON, so `react-native-passkey`'s `Passkey` fits directly. */
 export interface PasskeyAuthenticator {
 	/** Create a credential from the server's registration options. */
 	create(options: Record<string, unknown>): Promise<Record<string, unknown>>;
@@ -111,21 +92,16 @@ export interface PasskeyAuthenticator {
 	get(options: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
-/** The slice of React Native's `AppState` the provider uses. */
 export interface AppStateLike {
 	addEventListener(type: "change", listener: (state: string) => void): { remove(): void };
 }
-
-// Config
 
 export interface TheAuthExpoConfig {
 	/** Full base URL including path: "https://api.myapp.com/api/theauth" */
 	basePath: string;
 	/** Storage adapter for persisting session tokens. Defaults to in-memory. */
 	storage?: TheAuthStorage;
-	/** Enables `signInWithProvider`. */
 	social?: SocialSignInConfig;
-	/** Enables `signInWithPasskey` and `registerPasskey`. */
 	passkeys?: PasskeyAuthenticator;
 	/**
 	 * `fetch` used for every request, e.g. `createDPoPClient({ ... }).fetch` from
@@ -141,8 +117,6 @@ export interface TheAuthExpoConfig {
 
 /** @deprecated Use `TheAuthExpoConfig` instead. Will be removed in a future major version. */
 export type AuthExpoConfig = TheAuthExpoConfig;
-
-// Context value
 
 export interface TheAuthContextValue {
 	session: TheAuthSession | null;
@@ -161,9 +135,7 @@ export interface TheAuthContextValue {
 	refresh: () => Promise<void>;
 }
 
-// Deprecated aliases
-// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
-// removed in a future major version.
+// Backward-compat aliases for the pre-rebrand API.
 
 /** @deprecated Use `TheAuthContextValue` instead. Will be removed in a future major version. */
 export type AuthContextValue = TheAuthContextValue;

@@ -1,6 +1,4 @@
-/**
- * Tests for anonymous authentication.
- */
+/** Tests for anonymous authentication. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -14,8 +12,6 @@ import { users } from "../src/db/schema.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// Helpers
-
 const SESSION_SECRET = "test-session-secret-for-anonymous-auth-min32chars!!";
 
 async function createTestDb(): Promise<Database> {
@@ -23,8 +19,6 @@ async function createTestDb(): Promise<Database> {
 	await createTables(db, "sqlite");
 	return db;
 }
-
-// createAnonymousUser
 
 describe("AnonymousAuthModule.createAnonymousUser", () => {
 	let db: Database;
@@ -73,8 +67,6 @@ describe("AnonymousAuthModule.createAnonymousUser", () => {
 	});
 });
 
-// isAnonymous
-
 describe("AnonymousAuthModule.isAnonymous", () => {
 	let db: Database;
 	let mod: AnonymousAuthModule;
@@ -100,8 +92,6 @@ describe("AnonymousAuthModule.isAnonymous", () => {
 		expect(await mod.isAnonymous(userId)).toBe(false);
 	});
 });
-
-// upgradeUser
 
 describe("AnonymousAuthModule.upgradeUser", () => {
 	let db: Database;
@@ -154,8 +144,6 @@ describe("AnonymousAuthModule.upgradeUser", () => {
 		);
 	});
 });
-
-// cleanup
 
 describe("AnonymousAuthModule.cleanup", () => {
 	let db: Database;
@@ -239,7 +227,7 @@ describe("anonymousAuth plugin endpoints", () => {
 		const { anonymousAuth } = await import("../src/auth/anonymous-plugin.js");
 
 		// We need the auth adapter to resolve the userId from the session token.
-		// The plugin creates sessions using theauth's internal DB — we can't share
+		// The plugin creates sessions using theauth's internal DB, we can't share
 		// that DB from outside. Instead, use a token-map adapter: after creating
 		// the anonymous user we store the (token → userId) mapping.
 		const tokenMap = new Map<string, string>();

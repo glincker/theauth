@@ -1,7 +1,6 @@
 import type { TranslationKeys } from "../i18n.js";
 
 export const de: TranslationKeys = {
-	// Auth errors
 	"auth.invalidCredentials": "Ungültige E-Mail-Adresse oder falsches Passwort.",
 	"auth.emailNotVerified": "Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.",
 	"auth.accountLocked":
@@ -14,20 +13,17 @@ export const de: TranslationKeys = {
 	"auth.tokenInvalid": "Dieser Link ist ungültig oder wurde bereits verwendet.",
 	"auth.unauthorized": "Du bist nicht berechtigt, diese Aktion auszuführen.",
 
-	// Agent errors
 	"agent.notFound": "Agent nicht gefunden.",
 	"agent.revoked": "Der Zugriff dieses Agenten wurde widerrufen.",
 	"agent.limitExceeded": "Agentenlimit für dieses Konto erreicht.",
 	"agent.permissionDenied": "Der Agent hat keine Berechtigung für diese Aktion.",
 
-	// 2FA
 	"twoFactor.invalidCode":
 		"Ungültiger Bestätigungscode. Überprüfe deine Authentifizierungs-App und versuche es erneut.",
 	"twoFactor.alreadyEnabled":
 		"Die Zwei-Faktor-Authentifizierung ist für dieses Konto bereits aktiviert.",
 	"twoFactor.notEnabled": "Die Zwei-Faktor-Authentifizierung ist für dieses Konto nicht aktiviert.",
 
-	// Email subjects
 	"email.verification.subject": "Bestätige deine E-Mail-Adresse",
 	"email.passwordReset.subject": "Setze dein Passwort zurück",
 	"email.magicLink.subject": "Dein Anmelde-Link",
@@ -35,7 +31,6 @@ export const de: TranslationKeys = {
 	"email.invitation.subject": "Du wurdest eingeladen, {{orgName}} beizutreten",
 	"email.welcome.subject": "Willkommen bei {{appName}}",
 
-	// General
 	"general.serverError": "Etwas ist schiefgelaufen. Versuche es später erneut.",
 	"general.badRequest": "Die Anfrage konnte nicht verarbeitet werden.",
 	"general.notFound": "Die angeforderte Ressource wurde nicht gefunden.",

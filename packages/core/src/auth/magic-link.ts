@@ -1,10 +1,6 @@
 /**
  * Magic link authentication for TheAuth.
- *
- * Sends a one-time-use signed link to the user's email. When the link is
- * clicked the token is verified, the user is found or created, and a session
- * is returned. The transport (SMTP, Resend, SES, etc.) is provided by the
- * caller via `sendMagicLink`.
+ * When the link is clicked the token is verified, the user is found or created, and a session is returned.
  *
  * @example
  * ```typescript
@@ -34,8 +30,6 @@ import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// Public types
-
 export interface MagicLinkConfig {
 	/** Send the magic link email. You provide the transport. */
 	sendMagicLink: (email: string, token: string, url: string) => Promise<void>;
@@ -51,11 +45,7 @@ export interface MagicLinkModule {
 	/** Send a magic link to the user's email. */
 	sendLink: (email: string) => Promise<{ sent: boolean }>;
 	/**
-	 * Verify a magic link token and create a session.
-	 * Returns null when the token is invalid, expired, or already used.
-	 * Throws `SignInGateError` when the sign-in gate requires a forced password
-	 * change or a second factor first (the link is consumed; finish with the
-	 * challenge on the error).
+	 * Verify a magic link token and create a session. Returns null when the token is invalid, expired, or already used. Throws `SignInGateError` when the sign-in gate requires a forced password change or a second factor first (the link is consumed; finish with the challenge on the error).
 	 */
 	verify: (
 		token: string,
@@ -66,12 +56,8 @@ export interface MagicLinkModule {
 	} | null>;
 	/**
 	 * Handle an incoming HTTP request.
-	 *
-	 * - `POST /auth/magic-link/send` – JSON body `{ email: string }`
-	 * - `GET  /auth/magic-link/verify?token=<token>`
-	 *
-	 * Returns null when the path does not match (so callers can fall through
-	 * to other handlers).
+	 * - `POST /auth/magic-link/send`, JSON body `{ email: string }`
+	 * - `GET  /auth/magic-link/verify?token=<token>` Returns null when the path does not match (so callers can fall through to other handlers).
 	 */
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
@@ -80,8 +66,6 @@ export interface MagicLinkModule {
 
 const DEFAULT_EXPIRY_SECONDS = 900; // 15 minutes
 const DEFAULT_CALLBACK_PATH = "/auth/magic-link/verify";
-
-// Factory
 
 export function createMagicLinkModule(
 	config: MagicLinkConfig,
@@ -92,8 +76,6 @@ export function createMagicLinkModule(
 	const gate = signInGate ?? createSignInGate({ db });
 	const tokenExpiry = config.tokenExpiry ?? DEFAULT_EXPIRY_SECONDS;
 	const callbackPath = config.callbackPath ?? DEFAULT_CALLBACK_PATH;
-
-	// helpers
 
 	/** Find an existing user by email or create a new one. */
 	async function findOrCreateUser(email: string): Promise<{ id: string; email: string }> {
@@ -115,8 +97,6 @@ export function createMagicLinkModule(
 
 		return { id, email };
 	}
-
-	// public API
 
 	async function sendLink(rawEmail: string): Promise<{ sent: boolean }> {
 		const email = normalizeEmail(rawEmail);
@@ -184,7 +164,6 @@ export function createMagicLinkModule(
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 
-		// POST /auth/magic-link/send
 		if (request.method === "POST" && pathname === "/auth/magic-link/send") {
 			let body: unknown;
 			try {
@@ -215,7 +194,6 @@ export function createMagicLinkModule(
 			});
 		}
 
-		// GET /auth/magic-link/verify?token=...
 		if (request.method === "GET" && pathname === callbackPath) {
 			const token = url.searchParams.get("token");
 			if (!token) {

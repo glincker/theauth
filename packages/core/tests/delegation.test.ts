@@ -16,7 +16,6 @@ async function createTestTheAuth(options?: { auditAll?: boolean }) {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({

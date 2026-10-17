@@ -1,8 +1,6 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 
-// JSON Config Schema
-
 const RateLimitConfigSchema = z.object({
 	windowMs: z.number().int().positive(),
 	max: z.number().int().positive(),
@@ -82,10 +80,7 @@ export const GatewayFileConfigSchema = z.object({
 
 export type GatewayFileConfig = z.infer<typeof GatewayFileConfigSchema>;
 
-/**
- * Load and validate a gateway JSON config file.
- * Throws a descriptive error if the file is missing or invalid.
- */
+/** Loads and validates a gateway JSON config file. Throws if the file is missing or invalid. */
 export function loadConfigFile(path: string): GatewayFileConfig {
 	let raw: string;
 	try {

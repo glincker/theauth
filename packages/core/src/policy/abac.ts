@@ -1,8 +1,5 @@
 /**
- * ABAC primitives: resource/action matching, IP allowlist, time windows,
- * rate limits, argument pattern validation. Extracted from the legacy
- * permission/engine.ts so both the legacy authorize() and the new unified
- * policy engine can share one implementation.
+ * ABAC primitives: resource/action matching, IP allowlist, time windows, rate limits, argument pattern validation. Extracted from the legacy permission/engine.ts so both the legacy authorize() and the new unified policy engine can share one implementation.
  */
 
 import { and, eq, gte } from "drizzle-orm";
@@ -25,10 +22,7 @@ export interface ConstraintResult {
 	needsApproval?: boolean;
 }
 
-/**
- * Match a resource pattern against a requested resource.
- * Supports wildcards: "mcp:github:*", "tool:*", "*".
- */
+/** Match a resource pattern against a requested resource. Supports wildcards: "mcp:github:*", "tool:*", "*". */
 export function matchResource(pattern: string, resource: string): boolean {
 	if (pattern === "*") return true;
 
@@ -44,9 +38,7 @@ export function matchResource(pattern: string, resource: string): boolean {
 	return patternParts.length === resourceParts.length;
 }
 
-/**
- * Check if an action is allowed by a permission's actions list.
- */
+/** Check if an action is allowed by a permission's actions list. */
 export function matchAction(allowedActions: string[], requestedAction: string): boolean {
 	return allowedActions.includes(requestedAction) || allowedActions.includes("*");
 }
@@ -89,18 +81,12 @@ function matchesIPEntry(entry: string, ip: string): boolean {
 	return (entryNum & mask) === (ipNum & mask);
 }
 
-/**
- * Check whether an IP is in the allowlist (exact IPs or CIDR ranges).
- * Exported for the legacy permission engine.
- */
+/** Check whether an IP is in the allowlist (exact IPs or CIDR ranges). Exported for the legacy permission engine. */
 export function isIPAllowed(allowlist: string[], ip: string): boolean {
 	return allowlist.some((entry) => matchesIPEntry(entry, ip));
 }
 
-/**
- * Validate request arguments against allowed regex patterns. All string-typed
- * argument values must match every pattern, otherwise the request is denied.
- */
+/** Validate request arguments against allowed regex patterns. All string-typed argument values must match every pattern, otherwise the request is denied. */
 export function validateArgPatterns(
 	patterns: string[],
 	args: Record<string, unknown>,
@@ -151,9 +137,7 @@ function walkArgs(
 }
 
 /**
- * Sliding-window rate limit check. Increments the per-agent counter as a
- * side effect when the request is allowed. Skipped entirely when subjectId
- * is empty (RBAC-only requests for human users do not consume agent quota).
+ * Sliding-window rate limit check. Increments the per-agent counter as a side effect when the request is allowed. Skipped entirely when subjectId is empty (RBAC-only requests for human users do not consume agent quota).
  */
 export async function checkRateLimit(
 	db: Database,
@@ -213,10 +197,7 @@ export function rateLimitReason(totalCalls: number, max: number, resource: strin
 	return `Rate limit exceeded: ${totalCalls}/${max} calls per hour for resource "${resource}"`;
 }
 
-/**
- * Find the first permission that grants `action` on `resource`. Shared by the
- * real authorize path and the simulator so both pick the same rule.
- */
+/** Find the first permission that grants `action` on `resource`. Shared by the real authorize path and the simulator so both pick the same rule. */
 export function findMatchingPermission(
 	permissions: Permission[],
 	action: string,
@@ -229,10 +210,7 @@ export function findMatchingPermission(
 	return permission ? { permission, index } : null;
 }
 
-/**
- * Read the calls recorded in the last hour for an agent and resource.
- * Read-only: unlike checkRateLimit it never increments the counter.
- */
+/** Read the calls recorded in the last hour for an agent and resource. Read-only: unlike checkRateLimit it never increments the counter. */
 export async function readRateUsage(
 	db: Database,
 	agentId: string,
@@ -281,17 +259,12 @@ export interface ConstraintInspection {
 
 export interface InspectOptions {
 	now: Date;
-	/**
-	 * Calls already recorded this hour. Leave undefined to skip the rate step,
-	 * which evaluateConstraints runs itself because it must also count the call.
-	 */
+	/** Calls already recorded this hour. Leave undefined to skip the rate step, which evaluateConstraints runs itself because it must also count the call. */
 	rateUsage?: number;
 }
 
 /**
- * Evaluate every constraint without touching storage. Constraint order is
- * rate limit, arg patterns, approval, time window, IP allowlist, and the walk
- * stops at the first failure, exactly like evaluateConstraints.
+ * Evaluate every constraint without touching storage. Constraint order is rate limit, arg patterns, approval, time window, IP allowlist, and the walk stops at the first failure, exactly like evaluateConstraints.
  */
 export function inspectConstraints(
 	input: ConstraintEvaluationInput,
@@ -444,12 +417,8 @@ export function inspectConstraints(
 }
 
 /**
- * Evaluate every constraint on a permission. Returns the first failure, or
- * { allowed: true } if all pass. Constraint order: rate limit, arg patterns,
- * approval, time window, IP allowlist.
- *
- * The rate limit step records the call; everything after it is delegated to
- * inspectConstraints so the simulator evaluates the same rules.
+ * Evaluate every constraint on a permission. Returns the first failure, or { allowed: true } if all pass. Constraint order: rate limit, arg patterns, approval, time window, IP allowlist.
+ * The rate limit step records the call; everything after it is delegated to inspectConstraints so the simulator evaluates the same rules.
  */
 export async function evaluateConstraints(
 	db: Database,
@@ -475,13 +444,10 @@ export async function evaluateConstraints(
 }
 
 /**
- * Returns true when the constraint result depends on per-call state or input,
- * so the decision must NOT be cached:
- *  - maxCallsPerHour: counter changes every call
- *  - timeWindow: result flips at window boundaries
- *  - allowedArgPatterns: result depends on context.arguments, which are not
- *    part of the cache key. Caching could otherwise let safe-args permits
- *    serve unsafe-args requests.
+ * Returns true when the constraint result depends on per-call state or input, so the decision must NOT be cached:
+ * - maxCallsPerHour: counter changes every call
+ * - timeWindow: result flips at window boundaries
+ * - allowedArgPatterns: result depends on context.arguments, which are not part of the cache key. Caching could otherwise let safe-args permits serve unsafe-args requests.
  */
 export function isCacheUnsafe(constraints?: PermissionConstraints): boolean {
 	if (!constraints) return false;

@@ -1,26 +1,14 @@
 /**
  * Drizzle ORM schema additions for OAuth provider support.
- *
- * Two tables:
- * - `theauth_oauth_accounts`  — links a TheAuth user to a provider account.
- * - `theauth_oauth_states`    — short-lived PKCE state entries for CSRF protection.
- *
- * Import from the main schema barrel (`db/schema.ts`) is intentionally
- * avoided here to keep this file self-contained and easy to tree-shake.
+ * Import from the main schema barrel (`db/schema.ts`) is intentionally avoided here to keep this file self-contained and easy to tree-shake.
  */
 
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { users } from "../../db/schema.js";
 
-// theauth_oauth_accounts
-
 /**
- * Persists the link between a TheAuth user and an external OAuth provider
- * account.  One user may have multiple rows (one per provider).
- *
- * Tokens are stored in plaintext because they are short-lived access tokens
- * issued by the provider; they carry no TheAuth privileges.  Implementors
- * with stricter requirements should encrypt these columns at rest.
+ * Persists the link between a TheAuth user and an external OAuth provider account.  One user may have multiple rows (one per provider).
+ * Tokens are stored in plaintext because they are short-lived access tokens issued by the provider; they carry no TheAuth privileges. Implementors with stricter requirements should encrypt these columns at rest.
  */
 export const oauthAccounts = sqliteTable("theauth_oauth_accounts", {
 	id: text("id").primaryKey(),
@@ -41,19 +29,14 @@ export const oauthAccounts = sqliteTable("theauth_oauth_accounts", {
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// theauth_oauth_states
-
 /**
  * Short-lived state entries that tie an authorization request to its callback.
- *
- * Each entry is created by `getAuthorizationUrl` and consumed (deleted) by
- * `handleCallback`.  Entries that were never consumed are cleaned up by
- * `expiresAt` — callers should periodically prune stale rows.
+ * Entries that were never consumed are cleaned up by `expiresAt`, callers should periodically prune stale rows.
  */
 export const oauthStates = sqliteTable("theauth_oauth_states", {
 	/** Random, opaque state value sent as the `state` query parameter. */
 	state: text("state").primaryKey(),
-	/** PKCE code verifier (plain text — never sent to the provider). */
+	/** PKCE code verifier (plain text, never sent to the provider). */
 	codeVerifier: text("code_verifier").notNull(),
 	/** The redirect URI used to start this flow (re-validated on callback). */
 	redirectUri: text("redirect_uri").notNull(),

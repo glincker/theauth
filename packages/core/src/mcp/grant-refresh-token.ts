@@ -12,9 +12,7 @@ import type {
 } from "./types.js";
 import { hashToken } from "./utils.js";
 
-/**
- * refresh_token grant: rotate tokens.
- */
+/** refresh_token grant: rotate tokens. */
 export async function handleRefreshTokenGrant(
 	ctx: McpAuthContext,
 	data: Extract<McpTokenRequestParsed, { grant_type: "refresh_token" }>,
@@ -96,7 +94,6 @@ export async function handleRefreshTokenGrant(
 		};
 	}
 
-	// Check refresh token expiry
 	const refreshExpiry = new Date(
 		existingToken.createdAt.getTime() + ctx.config.refreshTokenTtl * 1000,
 	);
@@ -157,7 +154,6 @@ export async function handleRefreshTokenGrant(
 	// Revoke the old access token
 	await revokeStoredAccessToken(ctx, existingToken);
 
-	// Issue new tokens (rotation)
 	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
 		ctx,
 		existingToken.userId,
@@ -188,7 +184,6 @@ export async function handleRefreshTokenGrant(
 
 	await ctx.storeToken(tokenRecord);
 
-	// Build response
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",

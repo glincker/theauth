@@ -86,15 +86,8 @@ function parseOverrides(v: unknown): SimulationOverrides | undefined {
 }
 
 /**
- * Opt-in, admin-only what-if endpoint. Mounts:
- * - POST /agents/:id/simulate
- *
- * Body, one of:
- * - { action, resource, context?, overrides? }  single decision with trace
- * - { matrix: { actions, resources }, context?, overrides? }  decisions for a grid
- * - { effective: true }  one row per rule and action the agent holds
- *
- * Nothing is written: no audit rows, no rate counters, no spend.
+ * Opt-in, admin-only what-if endpoint. Mounts: - POST /agents/:id/simulate
+ * }  single decision with trace - { matrix: { actions, resources }, context?, overrides? Nothing is written: no audit rows, no rate counters, no spend.
  */
 export function simulator(config: SimulatorPluginConfig = {}): TheAuthPlugin {
 	return {

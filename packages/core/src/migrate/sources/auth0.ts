@@ -15,10 +15,7 @@ function hashesByEmail(text: string | undefined): Map<string, LegacyHash> {
 	return map;
 }
 
-/**
- * Auth0 user export (Management API bulk export JSON) with the optional password
- * hash export Auth0 support provides (newline-delimited JSON, bcrypt hashes).
- */
+/** Auth0 user export (Management API bulk export JSON) with the optional password hash export Auth0 support provides (newline-delimited JSON, bcrypt hashes). */
 export const auth0Parser: SourceParser = {
 	source: "auth0",
 	parse(text, options): ParseOutput {

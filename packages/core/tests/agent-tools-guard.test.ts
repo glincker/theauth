@@ -1,7 +1,4 @@
-/**
- * guardTool / guardTools: policy in front of an agent tool, tested against the
- * real in-memory createTheAuth. No agent framework is involved.
- */
+/** guardTool / guardTools: policy in front of an agent tool, tested against the real in-memory createTheAuth. No agent framework is involved. */
 
 import { describe, expect, it, vi } from "vitest";
 import { users } from "../src/db/schema.js";

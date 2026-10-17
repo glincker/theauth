@@ -12,11 +12,7 @@ import type { McpAsymmetricAlg, McpAuthContext } from "./types.js";
 
 /**
  * Signing key material for the MCP authorization server.
- *
- * HS256 with `signingSecret` stays the default. Setting `config.signing` opts
- * in to asymmetric signing (ES256 or EdDSA): access tokens carry a `kid`
- * header, public keys are served from the JWKS endpoint, and the previous
- * key(s) stay published and accepted while old tokens age out.
+ * HS256 with `signingSecret` stays the default.
  */
 
 export interface McpSigningKeyPair {
@@ -112,10 +108,7 @@ export async function getJwks(ctx: McpAuthContext): Promise<{ keys: JWK[] }> {
 }
 
 /**
- * Verify an access token JWT and return its payload. Tokens whose header says
- * HS256 are checked with the shared secret (only when one is configured);
- * everything else goes through the JWKS, which pins the algorithm to the
- * configured one. Throws a jose error on any failure.
+ * Verify an access token JWT and return its payload. Tokens whose header says HS256 are checked with the shared secret (only when one is configured); everything else goes through the JWKS, which pins the algorithm to the configured one. Throws a jose error on any failure.
  */
 export async function verifyAccessJwt(
 	ctx: McpAuthContext,

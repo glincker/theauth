@@ -6,8 +6,6 @@ import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 export type { PasskeyConfig };
 
-// Helpers
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
 		status,
@@ -22,8 +20,6 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 		return {};
 	}
 }
-
-// Plugin factory
 
 export function passkey(config: PasskeyConfig): TheAuthPlugin {
 	return {

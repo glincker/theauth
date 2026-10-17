@@ -1,19 +1,6 @@
 /**
  * Tamper-evident audit chain.
- *
- * Chain scope: one chain per agent. Each agent's rows get chain_seq 1, 2, 3...
- * and every row stores the hash of the previous row (prev_hash) plus its own
- * hash. Per agent (rather than per tenant or global) because writers for
- * different agents never contend, a replay is exactly one chain, and the
- * unique index on (agent_id, chain_seq) is enough to stop a fork.
- *
- * Concurrency: no transaction or lock. A writer reads the chain head, computes
- * the next hash and inserts. If another writer took the same seq first, the
- * unique index rejects the insert and the writer re-reads the head and retries.
- * That works the same on SQLite, Postgres, MySQL and D1.
- *
- * With `hmacKey`, hashes are HMAC-SHA256, so someone with database write access
- * but not the key cannot recompute a valid chain after editing rows.
+ * Per agent (rather than per tenant or global) because writers for different agents never contend, a replay is exactly one chain, and the unique index on (agent_id, chain_seq) is enough to stop a fork. If another writer took the same seq first, the unique index rejects the insert and the writer re-reads the head and retries. With `hmacKey`, hashes are HMAC-SHA256, so someone with database write access but not the key cannot recompute a valid chain after editing rows.
  */
 
 import { and, desc, eq, isNotNull } from "drizzle-orm";
@@ -54,9 +41,7 @@ export function getAuditChainConfig(db: Database): AuditChainConfig | undefined 
 }
 
 /**
- * JSON with sorted keys at every depth, so equal data always serializes equally.
- * BigInt becomes a decimal string. A reference cycle throws a TypeError instead
- * of overflowing the stack; a value shared by two siblings is not a cycle.
+ * JSON with sorted keys at every depth, so equal data always serializes equally. BigInt becomes a decimal string. A reference cycle throws a TypeError instead of overflowing the stack; a value shared by two siblings is not a cycle.
  */
 export function canonicalJson(value: unknown): string {
 	return canonicalInner(value, new WeakSet<object>());
@@ -110,12 +95,7 @@ function hashedFieldsV1(row: AuditInsert | AuditRow): Record<string, unknown> {
 }
 
 /**
- * Version 2 chains these columns: id, action, resource, parameters, result,
- * reason, durationMs, tokensCost, ip, userAgent, cacheHit, timestamp,
- * policyVersion, delegationChain, inputProvenance, and idPseudonyms (keyed
- * pseudonyms of userId, agentId, subjectId, actorId, approverId). The raw id
- * columns are NOT hashed, so erasure can blank them. The verifier instead
- * checks that any raw id still present matches its pseudonym.
+ * Version 2 chains these columns: id, action, resource, parameters, result, reason, durationMs, tokensCost, ip, userAgent, cacheHit, timestamp, policyVersion, delegationChain, inputProvenance, and idPseudonyms (keyed pseudonyms of userId, agentId, subjectId, actorId, approverId). The raw id columns are NOT hashed, so erasure can blank them. The verifier instead checks that any raw id still present matches its pseudonym.
  */
 function hashedFieldsV2(row: AuditInsert | AuditRow): Record<string, unknown> {
 	return {
@@ -174,10 +154,7 @@ async function readHead(
 	return { seq: head.seq, hash: head.hash };
 }
 
-/**
- * Insert an audit row. Plain insert unless the chain is enabled for this
- * database, in which case the row is linked to its agent's chain.
- */
+/** Insert an audit row. Plain insert unless the chain is enabled for this database, in which case the row is linked to its agent's chain. */
 export async function insertAuditRow(db: Database, values: AuditInsert): Promise<void> {
 	const config = registry.get(db);
 	if (!config) {

@@ -1,15 +1,6 @@
 /**
  * Signed session cookie cache.
- *
- * Keeps a short-lived, signed copy of the session in a cookie so most requests
- * skip the database. The trade-off is revocation lag: a revoked session keeps
- * working until its cache cookie expires (`maxAge`, 5 minutes by default).
- * Keep `maxAge` short, or call `clear` on sign-out.
- *
- * The cookie is signed, not encrypted. Anyone holding it can read it, so use
- * `exclude` to keep sensitive fields out. Oversized payloads are rejected with
- * `COOKIE_TOO_LARGE` rather than silently truncated by the browser, and
- * payloads past ~3.6 KB are chunked across several cookies.
+ * Keeps a short-lived, signed copy of the session in a cookie so most requests skip the database. The trade-off is revocation lag: a revoked session keeps working until its cache cookie expires (`maxAge`, 5 minutes by default). Keep `maxAge` short, or call `clear` on sign-out. The cookie is signed, not encrypted. Anyone holding it can read it, so use `exclude` to keep sensitive fields out. Oversized payloads are rejected with `COOKIE_TOO_LARGE` rather than silently truncated by the browser, and payloads past ~3.6 KB are chunked across several cookies.
  *
  * @example
  * ```typescript
@@ -42,11 +33,7 @@ export interface SessionCookieCacheConfig {
 	name?: string;
 	/** Cache lifetime in seconds. Default 300. */
 	maxAge?: number;
-	/**
-	 * Fields to leave out of the cached copy. Dot paths into the session:
-	 * `metadata.ipAddress`, `metadata.role`. Top-level `id`, `userId` and
-	 * `expiresAt` are required for validation and cannot be excluded.
-	 */
+	/** Fields to leave out of the cached copy. Dot paths into the session: `metadata.ipAddress`, `metadata.role`. Top-level `id`, `userId` and `expiresAt` are required for validation and cannot be excluded. */
 	exclude?: string[];
 	/** Hard cap on the encoded value in bytes before chunking. Default 14400. */
 	maxBytes?: number;
@@ -63,24 +50,13 @@ export interface CachedSession {
 }
 
 export interface SessionCookieCache {
-	/**
-	 * Produce the `Set-Cookie` headers caching `session`.
-	 *
-	 * @param binding Value tying the cache to the session cookie it was issued
-	 *                for (the session token). A cache copied next to another
-	 *                session's token will not validate.
-	 * @param requestCookieHeader The current `Cookie` header, so stale chunks
-	 *                from a previous larger value get deleted.
-	 */
+	/** Produce the `Set-Cookie` headers caching `session`. */
 	encode(
 		session: Session,
 		binding: string,
 		requestCookieHeader?: string,
 	): Promise<Result<{ headers: string[]; chunks: number; bytes: number }>>;
-	/**
-	 * Read and verify the cache from a `Cookie` header. Returns `null` for
-	 * absent, tampered, expired or mismatched-binding caches.
-	 */
+	/** Read and verify the cache from a `Cookie` header. Returns `null` for absent, tampered, expired or mismatched-binding caches. */
 	decode(cookieHeader: string, binding: string): Promise<CachedSession | null>;
 	/** Deletion headers for the cache cookie and its chunks. */
 	clear(cookieHeader?: string): string[];

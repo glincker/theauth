@@ -1,15 +1,4 @@
-/**
- * Export audit records as W3C Verifiable Credentials.
- *
- * Takes a time range of audit log entries and returns either individual
- * credentials per record or a single Verifiable Presentation wrapping
- * all of them. Useful for compliance exports that must be
- * cryptographically verifiable (EU AI Act Article 12, SOC 2 CC7).
- *
- * Context URL: https://theauth.dev/contexts/audit/v1.jsonld
- * This context is defined locally — the URL does not need to resolve at
- * runtime. It serves as a stable identifier for the credential schema.
- */
+/** Exports audit records as W3C Verifiable Credentials. */
 
 import { CompactSign, importJWK, SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
@@ -23,70 +12,42 @@ import type {
 } from "./types.js";
 import { VC_CONTEXT_V2, VC_TYPE_CREDENTIAL, VC_TYPE_PRESENTATION } from "./types.js";
 
-// Constants
-
 export const THEAUTH_AUDIT_CREDENTIAL = "TheAuthAuditCredential";
 
-/**
- * Context URL for TheAuthAuditCredential.
- * Defined locally — the URL does not need to resolve at runtime.
- */
+/** Context URL for TheAuthAuditCredential. Defined locally; the URL does not need to resolve. */
 export const THEAUTH_AUDIT_CONTEXT = "https://theauth.dev/contexts/audit/v1.jsonld";
 
 const THEAUTH_VERSION = "0.3.0";
 const DEFAULT_TTL_SECONDS = 86400;
 
-// Types
-
 /** AuditRecord is an alias for AuditEntry used in the VC export surface. */
 export type AuditRecord = AuditEntry;
 
-/** Options passed to `exportAuditAsVC`. */
 export interface ExportAuditOptions {
-	/** Start of the time range (inclusive). */
 	since: Date;
-	/** End of the time range (inclusive). */
 	until: Date;
-	/**
-	 * DID of the issuer signing the credentials.
-	 * Must match the keypair in `issuerConfig`.
-	 */
+	/** DID of the issuer. Must match the keypair in `issuerConfig`. */
 	issuerDid: string;
-	/** Private/public keypair config for signing. */
 	issuerConfig: VCIssuerConfig;
 	/** Output format. Default: `"ldp_vc"` (JSON-LD with embedded proof). */
 	format?: "ldp_vc" | "jwt_vc";
 	/** Output structure. Default: `"individual"` (one VC per record). */
 	output?: "individual" | "presentation";
-	/** Optional filter applied after the time range query. */
 	filter?: (record: AuditRecord) => boolean;
-	/** Records to export. Pass the results of `listAuditRecords` or `theauth.audit.query()`. */
 	records: AuditRecord[];
 }
 
-/** The result of `exportAuditAsVC`. */
 export interface AuditExportResult {
-	/**
-	 * Individual credentials — one per audit record.
-	 * When `output === "presentation"`, these are also embedded in `presentation`.
-	 */
+	/** Individual credentials, one per audit record. With `output: "presentation"` they are wrapped in one presentation. */
 	credentials: VerifiableCredential[];
-	/**
-	 * JWT strings when `format === "jwt_vc"`. Parallel to `credentials`.
-	 * Pass these to `verifyCredential()` instead of the credential objects.
-	 */
+	/** JWT strings when `format` is `jwt_vc`, parallel to `credentials`. */
 	jwts?: string[];
-	/** Present only when `output === "presentation"`. */
 	presentation?: VerifiablePresentation;
-	/** The format used. */
 	format: "ldp_vc" | "jwt_vc";
-	/** Timestamp of the export run. */
 	issuedAt: Date;
-	/** Number of credentials produced. */
 	count: number;
 }
 
-/** The credentialSubject for a TheAuthAuditCredential. */
 export interface AuditCredentialSubject {
 	id: string;
 	agentId: string;
@@ -100,16 +61,12 @@ export interface AuditCredentialSubject {
 	theauthVersion: string;
 }
 
-// Decision mapping
-
 function toDecision(result: AuditEntry["result"]): "allow" | "deny" | "approval_required" {
 	if (result === "allowed") return "allow";
 	if (result === "escalated") return "approval_required";
 	// "denied" and "rate_limited" both map to deny in the VC decision field
 	return "deny";
 }
-
-// Credential builder
 
 function buildAuditCredential(record: AuditRecord, issuerDid: string): VerifiableCredential {
 	const subject: AuditCredentialSubject = {
@@ -138,8 +95,6 @@ function buildAuditCredential(record: AuditRecord, issuerDid: string): Verifiabl
 	};
 }
 
-// Signing
-
 async function signAsJsonLd(
 	credential: VerifiableCredential,
 	config: VCIssuerConfig,
@@ -148,7 +103,6 @@ async function signAsJsonLd(
 	const kid = `${issuerDid}#${issuerDid.split(":").pop() ?? "key-1"}`;
 	const key = await importJWK(privateKeyJwk, "EdDSA");
 
-	// Sign the credential body (without proof) as a compact JWS
 	const { proof: _proof, ...vcWithoutProof } = credential;
 	const payload = new TextEncoder().encode(JSON.stringify(vcWithoutProof));
 
@@ -213,31 +167,7 @@ async function signPresentationAsJsonLd(
 	return { ...presentation, proof };
 }
 
-// Public API
-
-/**
- * Export a set of audit records as Verifiable Credentials.
- *
- * Pass `records` from `theauth.audit.query()` or `listAuditRecords`.
- * The function applies the optional `filter`, signs each record with
- * the issuer keypair, and returns either individual VCs or a single
- * Verifiable Presentation.
- *
- * ```ts
- * const result = await exportAuditAsVC({
- *   since: new Date('2025-01-01'),
- *   until: new Date('2025-01-31'),
- *   issuerDid: keyPair.did,
- *   issuerConfig: {
- *     issuerDid: keyPair.did,
- *     privateKeyJwk: keyPair.privateKeyJwk,
- *     publicKeyJwk: keyPair.publicKeyJwk,
- *   },
- *   records,
- * });
- * console.log(result.count); // 42
- * ```
- */
+/** Exports the given audit records within the time range as Verifiable Credentials. */
 export async function exportAuditAsVC(options: ExportAuditOptions): Promise<AuditExportResult> {
 	const {
 		since,
@@ -250,13 +180,11 @@ export async function exportAuditAsVC(options: ExportAuditOptions): Promise<Audi
 		records,
 	} = options;
 
-	// Apply time range filter first
 	const inRange = records.filter((r) => {
 		const t = r.timestamp.getTime();
 		return t >= since.getTime() && t <= until.getTime();
 	});
 
-	// Apply caller-supplied filter if provided
 	const filtered = filter ? inRange.filter(filter) : inRange;
 
 	if (filtered.length === 0) {
@@ -296,7 +224,6 @@ export async function exportAuditAsVC(options: ExportAuditOptions): Promise<Audi
 		};
 	}
 
-	// Build a Verifiable Presentation wrapping all credentials
 	const basePresentation: VerifiablePresentation = {
 		"@context": [VC_CONTEXT_V2, THEAUTH_AUDIT_CONTEXT],
 		id: `urn:uuid:${generateId()}`,
@@ -320,17 +247,7 @@ export async function exportAuditAsVC(options: ExportAuditOptions): Promise<Audi
 	};
 }
 
-/**
- * Filter audit records by time range with an optional predicate.
- *
- * Convenience helper for callers that already have records in memory
- * and want to slice them before passing to `exportAuditAsVC`.
- *
- * ```ts
- * const records = await theauth.audit.query({ since, until });
- * const denyRecords = listAuditRecords(records, since, until, r => r.result === 'denied');
- * ```
- */
+/** Filters audit records by time range, with an optional predicate. */
 export function listAuditRecords(
 	records: AuditRecord[],
 	since: Date,

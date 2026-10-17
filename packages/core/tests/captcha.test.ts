@@ -1,14 +1,8 @@
-/**
- * Tests for captcha integration.
- *
- * All external HTTP calls are mocked via vi.stubGlobal on fetch.
- */
+/** Tests for captcha integration. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CaptchaModule } from "../src/auth/captcha.js";
 import { createCaptchaModule } from "../src/auth/captcha.js";
-
-// Helpers
 
 function mockFetchSuccess(data: Record<string, unknown>) {
 	return vi.fn().mockResolvedValue({

@@ -4,8 +4,6 @@ import { createEmailAuth } from "./email-auth.js";
 import { EmailAuthError, ErrorCodes, gateErrorResponse } from "./errors.js";
 import type { EmailAuthConfig, EmailSignInGate } from "./types.js";
 
-// HTTP helpers
-
 function jsonOk(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify(data), {
 		status,
@@ -45,8 +43,6 @@ function errorToResponse(err: unknown): Response {
 	return jsonError("INTERNAL_ERROR", "An unexpected error occurred.", 500);
 }
 
-// Plugin factory
-
 /**
  * Email + password authentication plugin for TheAuth.
  *
@@ -85,7 +81,6 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 			const signInLimiter = createRateLimiter({ max: 10, window: 60 });
 			const resetLimiter = createRateLimiter({ max: 3, window: 60 });
 
-			// POST /auth/sign-up
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/sign-up",
@@ -108,7 +103,6 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 				}, signUpLimiter),
 			});
 
-			// POST /auth/sign-in
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/sign-in",
@@ -133,7 +127,6 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 				}, signInLimiter),
 			});
 
-			// POST /auth/verify-email
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/verify-email",
@@ -151,7 +144,6 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 				},
 			});
 
-			// POST /auth/request-reset
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/request-reset",
@@ -163,7 +155,7 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 					try {
 						const body = await parseBody(request);
 						await emailAuth.requestReset(String(body.email ?? ""));
-						// Always return success — do not reveal whether the email exists
+						// Always return success: do not reveal whether the email exists
 						return jsonOk({ success: true });
 					} catch (err) {
 						return errorToResponse(err);
@@ -171,7 +163,6 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 				}, resetLimiter),
 			});
 
-			// POST /auth/reset-password
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/reset-password",
@@ -192,7 +183,6 @@ export function emailPassword(config: EmailAuthConfig): TheAuthPlugin {
 				},
 			});
 
-			// POST /auth/change-password (requires authentication)
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/change-password",

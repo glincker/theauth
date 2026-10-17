@@ -210,9 +210,7 @@ export function createContext(opts: Options): Context {
 			try {
 				const response = await probeResource(url);
 				if (response.status === 401) return { url, response, explicit: false };
-			} catch {
-				// Try the next candidate.
-			}
+			} catch {}
 		}
 		return null;
 	}

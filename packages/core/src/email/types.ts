@@ -1,5 +1,3 @@
-// Email provider types
-
 export interface EmailSendOptions {
 	to: string;
 	subject: string;

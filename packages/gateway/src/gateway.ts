@@ -17,11 +17,7 @@ import {
 import { createGatewayRateLimiter } from "./rate-limiter.js";
 import type { Gateway, GatewayConfig, GatewayPolicy, ResolvedIdentity } from "./types.js";
 
-// Health Check Path
-
 const HEALTH_PATH = "/_theauth/health";
-
-// Response Helpers
 
 function jsonResponse(
 	body: unknown,
@@ -46,8 +42,6 @@ function errorResponse(
 	return jsonResponse({ error: { code, message } }, status, extraHeaders);
 }
 
-// Token Extraction
-
 function extractBearerToken(request: Request): string | null {
 	const auth = request.headers.get("Authorization");
 	if (!auth?.startsWith("Bearer ")) return null;
@@ -62,8 +56,6 @@ function extractBearerToken(request: Request): string | null {
 function extractClientIp(request: Request, trustedProxy?: TrustedProxyConfig): string | undefined {
 	return resolveClientIp(request, trustedProxy) ?? undefined;
 }
-
-// Rate Limit Key
 
 /** Small non-cryptographic hash that keeps limiter keys bounded in size. */
 function fingerprint(value: string): string {
@@ -101,8 +93,6 @@ function rateLimitKey(
 	].join("\n");
 	return `anon:${fingerprint(material)}`;
 }
-
-// Permission Check
 
 async function authorizeIdentity(
 	theauth: TheAuth,
@@ -149,8 +139,6 @@ async function checkPermissions(
 	return { allowed: true };
 }
 
-// Audit
-
 async function recordAuditEntry(
 	theauth: TheAuth,
 	request: Request,
@@ -174,8 +162,6 @@ async function recordAuditEntry(
 		// Audit failures must never block the gateway response.
 	}
 }
-
-// Gateway Factory
 
 /**
  * Create a TheAuth Gateway that enforces auth, authorization, and rate
@@ -274,7 +260,6 @@ export function createGateway(config: GatewayConfig): Gateway {
 			return errorResponse("FORBIDDEN", "Origin not allowed", 403, corsHeaders);
 		}
 
-		// CORS Preflight
 		if (isPreflight(request) && cors) {
 			return new Response(null, { status: 204, headers: corsHeaders });
 		}
@@ -284,7 +269,6 @@ export function createGateway(config: GatewayConfig): Gateway {
 			? matchedPolicy.public !== true && (matchedPolicy.requireAuth ?? true)
 			: true;
 
-		// Token Resolution
 		let identity: ResolvedIdentity | null = null;
 		if (mcp && requireAuth) {
 			const result = await authenticateMcp(mcp, request, matchedPolicy?.requiredScopes);
@@ -318,7 +302,6 @@ export function createGateway(config: GatewayConfig): Gateway {
 			}
 		}
 
-		// Global Rate Limit
 		if (globalLimiter) {
 			const rl = globalLimiter.check(rateLimitKey(identity, request, trustedProxy));
 			if (!rl.allowed) {
@@ -357,7 +340,6 @@ export function createGateway(config: GatewayConfig): Gateway {
 			}
 		}
 
-		// Proxy
 		const limit: BodyLimit = { max: maxBodyBytes, exceeded: false };
 		const limited = limitBody(request, limit);
 		if (limited.tooLarge) {
@@ -422,8 +404,6 @@ export function createGateway(config: GatewayConfig): Gateway {
 
 	return { handleRequest, listen, close };
 }
-
-// Re-export config types for convenience
 
 export type {
 	CorsConfig,

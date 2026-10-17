@@ -1,11 +1,4 @@
-/**
- * Webhook system types.
- *
- * Event types align with the TheAuth auth event surface:
- * user, session, agent, permission, and organization lifecycle events.
- */
-
-// Event types
+/** Webhook system types. */
 
 export type WebhookEventType =
 	| "user.signIn"
@@ -27,8 +20,6 @@ export type WebhookEventType =
 	| "organization.created"
 	| "organization.memberAdded";
 
-// Delivery status
-
 export type DeliveryStatus = "pending" | "success" | "failed" | "exhausted";
 
 // Delivery record (tracks each attempt)
@@ -47,7 +38,7 @@ export interface DeliveryAttempt {
 }
 
 export interface DeliveryRecord {
-	/** Unique delivery ID — stable across retries for the same event dispatch */
+	/** Unique delivery ID, stable across retries for the same event dispatch */
 	deliveryId: string;
 	/** Target endpoint URL */
 	url: string;
@@ -62,8 +53,6 @@ export interface DeliveryRecord {
 	/** Unix timestamp (ms) of last status update */
 	updatedAt: number;
 }
-
-// Configuration
 
 export interface WebhookEndpointConfig {
 	/** Destination URL for the POST */
@@ -94,13 +83,8 @@ export interface WebhooksPluginConfig {
 	signing?: "hmac-sha256";
 }
 
-// Delivery engine interface
-
 export interface DeliveryEngine {
-	/**
-	 * Deliver a webhook payload to a single endpoint.
-	 * Returns the final delivery record after all attempts have completed.
-	 */
+	/** Deliver a webhook payload to a single endpoint. Returns the final delivery record after all attempts have completed. */
 	deliver(
 		endpoint: WebhookEndpointConfig,
 		event: string,

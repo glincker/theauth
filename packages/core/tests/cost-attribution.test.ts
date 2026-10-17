@@ -3,8 +3,6 @@ import { createCostAttributionModule } from "../src/auth/cost-attribution.js";
 import * as schema from "../src/db/schema.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// Test helpers
-
 async function createTestTheAuth() {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -17,7 +15,6 @@ async function createTestTheAuth() {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({
@@ -44,16 +41,12 @@ async function seedAgent(
 	});
 }
 
-// Tests
-
 describe("cost attribution module", () => {
 	let theauth: Awaited<ReturnType<typeof createTestTheAuth>>;
 
 	beforeEach(async () => {
 		theauth = await createTestTheAuth();
 	});
-
-	// recordCost
 
 	describe("recordCost", () => {
 		it("records a cost event and returns success", async () => {
@@ -188,8 +181,6 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// getAgentCost
-
 	describe("getAgentCost", () => {
 		it("returns empty report for agent with no costs", async () => {
 			const agent = await seedAgent(theauth);
@@ -276,7 +267,7 @@ describe("cost attribution module", () => {
 
 			await module.recordCost({ agentId: agent.id, tool: "openai:gpt-4o", costUsd: 0.1 });
 
-			// Query for a period that starts tomorrow — should return nothing
+			// Query for a period that starts tomorrow, should return nothing
 			const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
 			const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 			const result = await module.getAgentCost(agent.id, { start: tomorrow, end: nextWeek });
@@ -313,8 +304,6 @@ describe("cost attribution module", () => {
 			expect(result.data.totalCostUsd).toBeCloseTo(1.0, 6);
 		});
 	});
-
-	// getOwnerCost
 
 	describe("getOwnerCost", () => {
 		it("returns empty report for owner with no agents", async () => {
@@ -372,8 +361,6 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// getTopAgentsByCost
-
 	describe("getTopAgentsByCost", () => {
 		it("returns empty array when no costs exist", async () => {
 			const module = createCostAttributionModule(theauth.db);
@@ -428,8 +415,6 @@ describe("cost attribution module", () => {
 			expect(result.data).toHaveLength(0);
 		});
 	});
-
-	// getDelegationChainCost
 
 	describe("getDelegationChainCost", () => {
 		it("returns empty report for chain with no events", async () => {
@@ -489,8 +474,6 @@ describe("cost attribution module", () => {
 			expect(result.data.agentId).toBe("chain-report-test");
 		});
 	});
-
-	// checkBudget
 
 	describe("checkBudget", () => {
 		it("returns withinBudget: true when no budget policy exists", async () => {
@@ -590,8 +573,6 @@ describe("cost attribution module", () => {
 		});
 	});
 
-	// cleanup
-
 	describe("cleanup", () => {
 		it("returns 0 deleted when no old events exist", async () => {
 			const agent = await seedAgent(theauth);
@@ -614,8 +595,6 @@ describe("cost attribution module", () => {
 			expect(result.data.deleted).toBe(0);
 		});
 	});
-
-	// alert system
 
 	describe("alert system", () => {
 		it("does not fire alerts when no thresholds configured", async () => {
@@ -676,8 +655,6 @@ describe("cost attribution module", () => {
 			expect(types).not.toContain("warn");
 		});
 	});
-
-	// currency
 
 	describe("currency config", () => {
 		it("defaults to USD currency", async () => {

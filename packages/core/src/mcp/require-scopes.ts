@@ -3,19 +3,12 @@ import type { McpAuthContext, McpSession } from "./types.js";
 import { extractBearerToken } from "./utils.js";
 import { buildUnauthorizedResponse, validateAccessToken } from "./validate.js";
 
-// Scope challenge helper
-
 /**
- * Validate the Bearer token on a request and assert that it carries all of
- * the `requiredScopes`.
+ * Validates the Bearer token on a request and asserts that it carries all `requiredScopes`.
+ * Returns 401 for a missing or malformed token, 403 with a step-up challenge for missing scopes,
+ * and the session otherwise.
  *
- * Encapsulates the three-branch decision MCP resource servers need to make:
- *
- *  1. No token (or malformed token)  → 401 Unauthorized
- *  2. Valid token, missing scopes    → 403 with step-up challenge
- *  3. Valid token, all scopes present → session returned to the caller
- *
- * Usage:
+ * @example
  * ```typescript
  * const check = await requireScopes(ctx, request, ['mcp:write']);
  * if (!check.authorized) return check.response;

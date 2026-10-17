@@ -1,6 +1,4 @@
-/**
- * Argument checks and rejection paths of the RFC 6962 Merkle helpers.
- */
+/** Argument checks and rejection paths of the RFC 6962 Merkle helpers. */
 
 import { describe, expect, it } from "vitest";
 import {

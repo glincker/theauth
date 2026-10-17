@@ -7,8 +7,6 @@ import type { GatewayTheAuth } from "./init.js";
 import { buildMcpValidator, initTheAuth } from "./init.js";
 import type { GatewayConfig } from "./types.js";
 
-// CLI Entry Point
-
 async function main(): Promise<void> {
 	const { values } = parseArgs({
 		options: {
@@ -35,7 +33,6 @@ async function main(): Promise<void> {
 		process.exit(0);
 	}
 
-	// Load JSON config if provided, then merge CLI flags on top
 	let fileConfig: Partial<GatewayFileConfig> = {};
 	if (values.config) {
 		try {
@@ -136,7 +133,6 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	// Graceful shutdown
 	const shutdown = async () => {
 		console.log("\nShutting down...");
 		await gateway.close();

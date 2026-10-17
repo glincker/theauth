@@ -11,13 +11,7 @@ const CORS_HEADERS = {
 
 /**
  * Build a step-up challenge response (403) indicating required scopes.
- *
- * When a token has valid scopes but lacks a specific scope needed for an
- * operation, return this response so the client knows it must re-authorize
- * with the additional scopes.
- *
- * Per RFC 6750 §3.1 the WWW-Authenticate header uses the
- * `error="insufficient_scope"` challenge to signal the exact upgrade path.
+ * When a token has valid scopes but lacks a specific scope needed for an operation, return this response so the client knows it must re-authorize with the additional scopes. Per RFC 6750 §3.1 the WWW-Authenticate header uses the `error="insufficient_scope"` challenge to signal the exact upgrade path.
  */
 export function buildStepUpResponse(
 	ctx: McpAuthContext,

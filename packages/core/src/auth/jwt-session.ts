@@ -1,13 +1,5 @@
 /**
- * JWT session plugin for TheAuth.
- *
- * Issues short-lived access JWTs and long-lived refresh tokens for general-purpose
- * session management. This is distinct from the internal OIDC provider JWT — this
- * plugin is for apps that want to vend their own session tokens without running a
- * full OIDC flow.
- *
- * Access tokens are stateless JWTs (no DB lookup on verify). Refresh tokens are
- * opaque random strings stored hashed in the database, soft-revoked on use.
+ * JWT session plugin: short-lived access JWTs and long-lived refresh tokens. Distinct from the internal OIDC provider.
  *
  * @example
  * ```typescript
@@ -48,15 +40,10 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import type { AgentType, TrustTier } from "../standards/claims.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 
-// Re-export shared types
-
 export type { AuthError, Result, TheAuthError };
 
-// Public types
-
 export interface JwtSessionConfig {
-	/** Signing key. A plain string uses HMAC-SHA256 (must be >= 32 chars).
-	 *  Pass a `CryptoKey` or `JsonWebKey` for RSA/EC algorithms. */
+	/** Signing key. A string uses HMAC-SHA256 (at least 32 chars). Pass a CryptoKey or JsonWebKey for RSA/EC. */
 	secret: string | CryptoKey | JsonWebKey;
 	/** JWT algorithm. Defaults to 'HS256' for string secrets, 'RS256' for keys. */
 	algorithm?: string;
@@ -64,37 +51,17 @@ export interface JwtSessionConfig {
 	accessTokenTtl?: number;
 	/** Refresh token TTL in seconds. Default: 604800 (7 days). */
 	refreshTokenTtl?: number;
-	/** JWT `iss` claim. */
 	issuer?: string;
-	/** JWT `aud` claim. */
 	audience?: string;
-	/** Attach extra claims to the access token payload. */
 	customClaims?: (user: { id: string; email?: string; name?: string }) => Record<string, unknown>;
-	/**
-	 * Emit IETF agentic JWT claims on issued access tokens.
-	 *
-	 * When true, `agent_id`, `agent_type`, and `trust_tier` are included
-	 * in the token payload if the corresponding values are present on
-	 * `SessionUser.agenticContext`. Claims not present in the context are
-	 * omitted rather than fabricated. Off by default.
-	 *
-	 * @default false
-	 */
+	/** Emits agentic JWT claims (`agent_id`, `agent_type`, `trust_tier`) on access tokens when the session has agentic context. */
 	emitAgenticJwtClaims?: boolean;
 }
 
-/**
- * Optional agentic context carried alongside a session user.
- *
- * Used when `JwtSessionConfig.emitAgenticJwtClaims` is true to populate
- * draft-goswami-agentic-jwt-00 claims on the issued access token.
- */
+/** Agentic context for a session user, used when emitAgenticJwtClaims is true. */
 export interface AgenticSessionContext {
-	/** Stable agent identifier (populates `agent_id`). */
 	agentId?: string;
-	/** Operational mode (populates `agent_type`). */
 	agentType?: AgentType;
-	/** Trust tier band at issuance (populates `trust_tier`). */
 	trustTier?: TrustTier;
 }
 
@@ -103,10 +70,7 @@ export interface SessionUser {
 	email?: string;
 	name?: string;
 	image?: string;
-	/**
-	 * Optional agentic context. Only used when
-	 * `JwtSessionConfig.emitAgenticJwtClaims` is true.
-	 */
+	/** Optional agentic context. Only used when emitAgenticJwtClaims is true. */
 	agenticContext?: AgenticSessionContext;
 }
 
@@ -125,40 +89,18 @@ export interface VerifiedSession {
 }
 
 export interface JwtSessionModule {
-	/**
-	 * Issue a new access + refresh token pair for the given user.
-	 *
-	 * The refresh token is stored hashed. The raw value is returned once and
-	 * cannot be recovered from the database.
-	 */
+	/** Issues an access and refresh token pair. The refresh token is stored hashed and returned only once. */
 	createSession(user: SessionUser): Promise<Result<SessionTokens>>;
 
-	/**
-	 * Verify an access token and return the embedded claims.
-	 *
-	 * Does not touch the database. Fails on expiry, wrong signature, or issuer/
-	 * audience mismatch.
-	 */
+	/** Verifies an access token without touching the database. Fails on expiry, bad signature, or issuer/audience mismatch. */
 	verifySession(token: string): Promise<Result<VerifiedSession>>;
 
-	/**
-	 * Exchange a refresh token for a new access + refresh token pair.
-	 *
-	 * The incoming refresh token is soft-revoked (marked used) on success.
-	 * A brand-new refresh token is issued so that each refresh rotates the token.
-	 */
+	/** Exchanges a refresh token for a new pair. The old token is marked used. */
 	refreshSession(refreshToken: string): Promise<Result<SessionTokens>>;
 
-	/**
-	 * Revoke a refresh token, preventing any further refreshes.
-	 *
-	 * Calling this on an already-revoked or unknown token is a no-op (returns
-	 * success) so that logout endpoints are idempotent.
-	 */
+	/** Revokes a refresh token. Revoking an unknown or already-revoked token succeeds, so logout stays idempotent. */
 	revokeSession(refreshToken: string): Promise<Result<void>>;
 }
-
-// Validation
 
 const configSchema = z.object({
 	secret: z.union([z.string().min(1), z.instanceof(Object)]),
@@ -170,13 +112,9 @@ const configSchema = z.object({
 	customClaims: z.function().optional(),
 });
 
-// Constants
-
 const DEFAULT_ACCESS_TTL = 900; // 15 min
 const DEFAULT_REFRESH_TTL = 604_800; // 7 days
 const REFRESH_TOKEN_BYTES = 32;
-
-// Internal helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -190,22 +128,13 @@ function generateRefreshToken(): string {
 	return randomBytesHex(REFRESH_TOKEN_BYTES);
 }
 
-/**
- * Resolve the `secret` field into a value that `jose` can use for signing and
- * verification.
- *
- * - String secrets → `Uint8Array` (raw HMAC key bytes — the canonical jose
- *   pattern for HS256/HS384/HS512).
- * - `CryptoKey` → returned as-is (RSA/EC keys).
- * - `JsonWebKey` → imported via `jose.importJWK` and returned as `CryptoKey`.
- */
+/** Resolves `secret` into a key jose can sign and verify with (raw bytes for HMAC, imported JWK or CryptoKey otherwise). */
 async function resolveSigningKey(
 	secret: string | CryptoKey | JsonWebKey,
 	algorithm: string,
 ): Promise<Uint8Array | CryptoKey> {
 	if (typeof secret === "string") {
-		// Encode directly to Uint8Array — jose accepts this for HMAC algorithms
-		// without needing to go through crypto.subtle.importKey.
+		// Raw bytes for HMAC: jose accepts them directly, with no crypto.subtle.importKey step.
 		return new TextEncoder().encode(secret);
 	}
 
@@ -213,15 +142,11 @@ async function resolveSigningKey(
 		return secret;
 	}
 
-	// JsonWebKey
 	const imported = await importJWK(secret as Parameters<typeof importJWK>[0], algorithm);
 	return imported as CryptoKey;
 }
 
-/**
- * Derive the default algorithm from the secret type if the caller did not
- * specify one explicitly.
- */
+/** Default algorithm for the secret type, used when `algorithm` is not set. */
 function defaultAlgorithm(secret: string | CryptoKey | JsonWebKey): string {
 	if (typeof secret === "string") return "HS256";
 	if (secret instanceof CryptoKey) {
@@ -230,21 +155,13 @@ function defaultAlgorithm(secret: string | CryptoKey | JsonWebKey): string {
 		if (name === "RSASSA-PKCS1-v1_5") return "RS256";
 		if (name === "ECDSA") return "ES256";
 	}
-	// JsonWebKey: infer from `kty`
 	const jwk = secret as JsonWebKey;
 	if (jwk.kty === "RSA") return "RS256";
 	if (jwk.kty === "EC") return "ES256";
 	return "HS256";
 }
 
-// Factory
-
-/**
- * Create a JWT session module backed by the provided database.
- *
- * The module is stateless beyond the database — multiple instances sharing
- * the same DB are safe and will honour each other's revocations.
- */
+/** Creates a JWT session module backed by the given database. Instances sharing a DB agree on tokens. */
 export function createJwtSessionModule(config: JwtSessionConfig, db: Database): JwtSessionModule {
 	const parsed = configSchema.safeParse(config);
 	if (!parsed.success) {
@@ -257,9 +174,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 	const accessTtl = config.accessTokenTtl ?? DEFAULT_ACCESS_TTL;
 	const refreshTtl = config.refreshTokenTtl ?? DEFAULT_REFRESH_TTL;
 
-	// Resolve the signing key once and cache it. Because key derivation is
-	// async we lazily initialise on first use via a promise that all concurrent
-	// callers share.
+	// Key derivation is async, so it is initialized once and shared by concurrent callers.
 	let signingKeyPromise: Promise<Uint8Array | CryptoKey> | null = null;
 
 	function getSigningKey(): Promise<Uint8Array | CryptoKey> {
@@ -268,8 +183,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		}
 		return signingKeyPromise;
 	}
-
-	// createSession
 
 	async function createSession(user: SessionUser): Promise<Result<SessionTokens>> {
 		if (!user.id || typeof user.id !== "string" || user.id.trim() === "") {
@@ -307,7 +220,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 				}
 			}
 
-			// Build access token
 			let builder = new SignJWT({
 				sub: user.id,
 				...(user.email !== undefined ? { email: user.email } : {}),
@@ -323,7 +235,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 
 			const accessToken = await builder.sign(key);
 
-			// Build refresh token and persist hash
 			const rawRefresh = generateRefreshToken();
 			const refreshHash = await hashToken(rawRefresh);
 			const expiresAt = new Date((now + refreshTtl) * 1000);
@@ -352,8 +263,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		}
 	}
 
-	// verifySession
-
 	async function verifySession(token: string): Promise<Result<VerifiedSession>> {
 		if (typeof token !== "string" || token.trim() === "") {
 			return {
@@ -379,7 +288,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 				};
 			}
 
-			// Pull well-known claims out; everything else becomes `claims`
 			const { sub, iss, aud, iat, exp, nbf, jti, email, name, ...rest } = payload as JWTPayload & {
 				email?: string;
 				name?: string;
@@ -406,7 +314,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Token verification failed";
 
-			// Normalise jose error codes
 			if (message.includes("expired") || message.includes("exp")) {
 				return { success: false, error: makeError("TOKEN_EXPIRED", "Token has expired") };
 			}
@@ -432,8 +339,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 			return { success: false, error: makeError("INVALID_TOKEN", message) };
 		}
 	}
-
-	// refreshSession
 
 	async function refreshSession(refreshToken: string): Promise<Result<SessionTokens>> {
 		if (typeof refreshToken !== "string" || refreshToken.trim() === "") {
@@ -475,13 +380,11 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 				};
 			}
 
-			// Mark the old token as used before issuing a new pair (rotate)
 			await db
 				.update(jwtRefreshTokens)
 				.set({ used: true })
 				.where(and(eq(jwtRefreshTokens.id, record.id), eq(jwtRefreshTokens.used, false)));
 
-			// Issue new token pair for the same user
 			return createSession({ id: record.userId });
 		} catch (err) {
 			return {
@@ -493,8 +396,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 			};
 		}
 	}
-
-	// revokeSession
 
 	async function revokeSession(refreshToken: string): Promise<Result<void>> {
 		if (typeof refreshToken !== "string" || refreshToken.trim() === "") {
@@ -525,7 +426,6 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 					.where(eq(jwtRefreshTokens.id, rows[0].id));
 			}
 
-			// Idempotent: unknown or already-revoked tokens are treated as success
 			return { success: true, data: undefined };
 		} catch (err) {
 			return {

@@ -1,7 +1,4 @@
-/**
- * The indexed grant matcher must give exactly the first match the engine's linear
- * findMatchingPermission gives, for any permission list and any (action, resource).
- */
+/** The indexed grant matcher must give exactly the first match the engine's linear findMatchingPermission gives, for any permission list and any (action, resource). */
 
 import { describe, expect, it } from "vitest";
 import { findMatchingPermission } from "../src/policy/abac.js";

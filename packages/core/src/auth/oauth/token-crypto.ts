@@ -1,10 +1,4 @@
-/**
- * Encryption at rest for provider tokens in `theauth_oauth_accounts`.
- *
- * Reuses the token vault cipher (AES-256-GCM, key ids, AAD binding). Stored
- * values carry an `enc:` marker so legacy plaintext rows stay readable and
- * are told apart from sealed ones without guessing.
- */
+/** Encryption at rest for provider tokens in `theauth_oauth_accounts`. */
 
 import type { VaultCipher } from "../../vault/cipher.js";
 import { createVaultCipher } from "../../vault/cipher.js";
@@ -29,10 +23,7 @@ function aadFor(accountId: string, field: TokenField): string {
 	return `theauth:oauth-account:${accountId}:${field}`;
 }
 
-/**
- * Throws synchronously when encryption is enabled but no usable key config is
- * present, so a misconfigured deployment fails at startup, not on first login.
- */
+/** Throws synchronously when encryption is enabled but no usable key config is present, so a misconfigured deployment fails at startup, not on first login. */
 export function createTokenSealer(config: OAuthTokenEncryptionConfig | undefined): TokenSealer {
 	const enabled = config !== undefined && config.enabled !== false;
 	let cipherPromise: Promise<VaultCipher> | null = null;

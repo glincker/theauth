@@ -1,11 +1,6 @@
 #!/usr/bin/env node
-// check-versions.mjs
-// Diffs every public workspace package's local version against the
-// version on npm. Prints a table; exits 0 by default. Pass --strict
-// to exit non-zero when any diff is found.
-//
-// Used by the publish workflow as a sanity report so the action
-// summary has a clear "what's about to change" line.
+// Diffs each public workspace package's version against npm and prints a table.
+// Exits 0 by default; --strict exits non-zero on any diff. The publish workflow uses it as a summary.
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";

@@ -1,7 +1,5 @@
 /**
- * Portable receipts: one JSON object holding a decision (with only the fields
- * the caller chose to reveal), an inclusion proof and the signed checkpoint.
- * A counterparty verifies it offline with the operator's public key.
+ * Portable receipts: one JSON object holding a decision (with only the fields the caller chose to reveal), an inclusion proof and the signed checkpoint. A counterparty verifies it offline with the operator's public key.
  */
 
 import { constantTimeEqual } from "../crypto/web-crypto.js";
@@ -115,10 +113,7 @@ function receiptShapeOk(r: Receipt): boolean {
 	);
 }
 
-/**
- * Verify a receipt offline: the checkpoint signature, that the revealed values
- * match their commitments, and that the resulting leaf is in the checkpoint tree.
- */
+/** Verify a receipt offline: the checkpoint signature, that the revealed values match their commitments, and that the resulting leaf is in the checkpoint tree. */
 export async function verifyReceipt(
 	receipt: Receipt,
 	publicKey: CheckpointPublicKey | readonly CheckpointPublicKey[],

@@ -140,7 +140,7 @@ describe("email templates: custom template override", () => {
 			},
 		});
 
-		// emailOtp was not overridden — should use built-in
+		// emailOtp was not overridden, should use built-in
 		const result = templates.render("emailOtp", {
 			email: "user@example.com",
 			code: "999888",

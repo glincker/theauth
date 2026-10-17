@@ -1,6 +1,4 @@
-/**
- * Tests for email OTP authentication.
- */
+/** Tests for email OTP authentication. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailOtpModule } from "../src/auth/email-otp.js";
@@ -11,8 +9,6 @@ import { createTables } from "../src/db/migrations.js";
 import { emailOtps } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
 
-// Helpers
-
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-chars!!";
 
 async function createTestDb(): Promise<Database> {
@@ -22,12 +18,8 @@ async function createTestDb(): Promise<Database> {
 }
 
 function makeSendOtp() {
-	return vi.fn(async (_email: string, _code: string) => {
-		// no-op in tests
-	});
+	return vi.fn(async (_email: string, _code: string) => {});
 }
-
-// Suite
 
 describe("EmailOtpModule.sendCode", () => {
 	let db: Database;
@@ -262,7 +254,6 @@ describe("EmailOtpModule.handleRequest", () => {
 	it("POST /auth/otp/verify returns 200 on correct code", async () => {
 		const { getCode } = await setupWithCapture();
 
-		// Send code first
 		await mod.handleRequest(
 			new Request("https://app.example.com/auth/otp/send", {
 				method: "POST",

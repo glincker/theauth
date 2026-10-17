@@ -1,62 +1,46 @@
 /**
  * OAuth / OIDC provider exports.
- *
- * First-class named providers (createXProvider) plus the generic OIDC factory
- * and legacy preset helpers for services that do not yet have a dedicated file.
+ * First-class named providers (createXProvider) plus the generic OIDC factory and legacy preset helpers for services that do not yet have a dedicated file.
  */
 
-// Apple
 export { createAppleProvider } from "./apple.js";
 
-// Atlassian
 export {
 	createAtlassianProvider,
 	DEFAULT_ATLASSIAN_SCOPES,
 	normalizeProfile as normalizeAtlassianProfile,
 } from "./atlassian.js";
 
-// Discord
 export {
 	createDiscordProvider,
 	DEFAULT_DISCORD_SCOPES,
 	normalizeProfile as normalizeDiscordProfile,
 } from "./discord.js";
 
-// Dropbox
 export {
 	createDropboxProvider,
 	DEFAULT_DROPBOX_SCOPES,
 	normalizeProfile as normalizeDropboxProfile,
 } from "./dropbox.js";
 
-// Figma
 export {
 	createFigmaProvider,
 	DEFAULT_FIGMA_SCOPES,
 	normalizeProfile as normalizeFigmaProfile,
 } from "./figma.js";
 
-// Generic OIDC factory
 export type { GenericOIDCConfig } from "./generic.js";
 export { genericOIDC } from "./generic.js";
 
-// GitHub
 export { createGithubProvider } from "./github.js";
 
-// GitLab
 export { createGitlabProvider } from "./gitlab.js";
 
-// Google
 export { createGoogleProvider } from "./google.js";
-// Kakao
 export { createKakaoProvider, DEFAULT_KAKAO_SCOPES } from "./kakao.js";
-// Kick
 export { createKickProvider, DEFAULT_KICK_SCOPES } from "./kick.js";
-// Linear
 export { createLinearProvider, DEFAULT_LINEAR_SCOPES } from "./linear.js";
-// LinkedIn
 export { createLinkedInProvider } from "./linkedin.js";
-// Microsoft
 export { createMicrosoftProvider } from "./microsoft.js";
 // Notion
 export {
@@ -64,13 +48,12 @@ export {
 	DEFAULT_NOTION_SCOPES,
 	normalizeProfile as normalizeNotionProfile,
 } from "./notion.js";
-// PayPal
 export {
 	createPaypalProvider,
 	DEFAULT_PAYPAL_SCOPES,
 	type PaypalProviderConfig,
 } from "./paypal.js";
-// Legacy preset providers — kept for backwards compatibility.
+// Legacy preset providers, kept for backwards compatibility.
 // These use the genericOIDC factory directly and have a different signature
 // (clientId, clientSecret) vs. the first-class (OAuthProviderConfig) pattern.
 export {
@@ -114,35 +97,28 @@ export {
 	zitadelProvider,
 	zoomProvider,
 } from "./presets.js";
-// Reddit
 export {
 	createRedditProvider,
 	DEFAULT_REDDIT_SCOPES,
 	normalizeProfile as normalizeRedditProfile,
 } from "./reddit.js";
-// Slack
 export {
 	createSlackProvider,
 	DEFAULT_SLACK_SCOPES,
 	normalizeProfile as normalizeSlackProfile,
 } from "./slack.js";
-// Spotify
 export {
 	createSpotifyProvider,
 	DEFAULT_SPOTIFY_SCOPES,
 	normalizeProfile as normalizeSpotifyProfile,
 } from "./spotify.js";
-// Twitch
 export {
 	createTwitchProvider,
 	DEFAULT_TWITCH_SCOPES,
 	normalizeProfile as normalizeTwitchProfile,
 } from "./twitch.js";
-// Twitter / X
 export { createTwitterProvider } from "./twitter.js";
-// Vercel
 export { createVercelProvider, DEFAULT_VERCEL_SCOPES } from "./vercel.js";
-// Zoom
 export {
 	createZoomProvider,
 	DEFAULT_ZOOM_SCOPES,

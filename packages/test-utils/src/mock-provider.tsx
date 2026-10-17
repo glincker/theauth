@@ -1,11 +1,5 @@
 /**
- * MockTheAuthProvider
- *
- * Wraps `TheAuthContext.Provider` with controlled fake data so component tests
- * can exercise auth-dependent UI without making any network requests.
- *
- * All action methods (signIn, signUp, signOut, refresh) are `vi.fn()` spies
- * by default so you can assert call counts and return values in tests.
+ * Stands in for `<TheAuthProvider>` in component tests, with fake data and `vi.fn()` action spies.
  */
 
 import type {
@@ -18,8 +12,6 @@ import { TheAuthContext } from "@glinr/theauth-react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 
-// Types
-
 export interface MockTheAuthProviderProps {
 	children: ReactNode;
 	/** The user to expose via `useUser()`. Defaults to `null`. */
@@ -30,29 +22,15 @@ export interface MockTheAuthProviderProps {
 	isAuthenticated?: boolean;
 	/** Override `isLoading`. Defaults to `false`. */
 	isLoading?: boolean;
-	/**
-	 * Override the `signIn` spy.
-	 * Defaults to `vi.fn()` resolving `{ success: true, data: undefined }`.
-	 */
+	/** Override the `signIn` spy. Defaults to `vi.fn()` resolving `{ success: true, data: undefined }`. */
 	signIn?: TheAuthContextValue["signIn"];
-	/**
-	 * Override the `signUp` spy.
-	 * Defaults to `vi.fn()` resolving `{ success: true, data: undefined }`.
-	 */
+	/** Override the `signUp` spy. Defaults to `vi.fn()` resolving `{ success: true, data: undefined }`. */
 	signUp?: TheAuthContextValue["signUp"];
-	/**
-	 * Override the `signOut` spy.
-	 * Defaults to `vi.fn()` resolving `undefined`.
-	 */
+	/** Override the `signOut` spy. Defaults to `vi.fn()` resolving `undefined`. */
 	signOut?: TheAuthContextValue["signOut"];
-	/**
-	 * Override the `refresh` spy.
-	 * Defaults to `vi.fn()` resolving `undefined`.
-	 */
+	/** Override the `refresh` spy. Defaults to `vi.fn()` resolving `undefined`. */
 	refresh?: TheAuthContextValue["refresh"];
 }
-
-// Default spies
 
 function makeDefaultSignIn(): TheAuthContextValue["signIn"] {
 	const spy = vi.fn(
@@ -82,11 +60,8 @@ function makeDefaultRefresh(): TheAuthContextValue["refresh"] {
 	return vi.fn(async (): Promise<void> => undefined);
 }
 
-// Component
-
 /**
  * Drop-in replacement for `<TheAuthProvider>` in component tests.
- *
  * @example
  * ```tsx
  * const user = createMockUser();
@@ -121,7 +96,7 @@ export function MockTheAuthProvider({
 		signUp: signUp ?? makeDefaultSignUp(),
 		signOut: signOut ?? makeDefaultSignOut(),
 		refresh: refresh ?? makeDefaultRefresh(),
-		// v0.5 rotation surface — managed-mode no-ops in tests by default.
+		// Rotation surface: managed-mode no-ops in tests by default.
 		rotateSession: async () => ({
 			success: false,
 			code: "network_error",

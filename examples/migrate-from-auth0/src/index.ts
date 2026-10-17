@@ -1,17 +1,6 @@
 /**
- * migrate-from-auth0
- *
- * Runnable companion to docs/migrate/from-auth0.mdx. Exercises the AFTER
- * patterns from that guide against the live theauth workspace package, so
- * the documented examples cannot drift from the real API surface.
- *
- * Step list mirrors the guide:
- *   1. createTheAuth instance (replaces the Auth0 tenant)
- *   2. Seed a human owner (replaces Auth0 user export import)
- *   3. Create an M2M-equivalent service agent with scoped permissions
- *   4. Authorize staging (allowed) and production (approval-gated)
- *   5. Rotate the service token atomically
- *   6. Inspect the audit trail for compliance
+ * Runnable companion to docs/migrate/from-auth0.mdx. Runs the guide's patterns against the
+ * workspace package so the documented examples cannot drift from the real API.
  */
 
 import { createTheAuth, users } from "@glinr/theauth";

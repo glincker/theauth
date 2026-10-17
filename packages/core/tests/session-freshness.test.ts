@@ -1,6 +1,4 @@
-/**
- * Tests for session freshness enforcement.
- */
+/** Tests for session freshness enforcement. */
 
 import { describe, expect, it } from "vitest";
 import { createSessionFreshnessModule } from "../src/session/freshness.js";

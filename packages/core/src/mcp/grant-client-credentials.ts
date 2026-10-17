@@ -7,11 +7,7 @@ import type { McpAuthContext, McpTokenResponse, Result } from "./types.js";
 
 /**
  * client_credentials grant (RFC 6749 section 4.4) for confidential clients.
- *
- * The client acts as itself: the token `sub` is the principal returned by
- * `clientCredentials.resolvePrincipal`, never a user. Scopes are bounded by
- * the principal (or the client's registered scope), `offline_access` is never
- * granted and no refresh token is issued. A DPoP proof binds the token.
+ * The client acts as itself: the token `sub` is the principal returned by `clientCredentials.resolvePrincipal`, never a user. Scopes are bounded by the principal (or the client's registered scope), `offline_access` is never granted and no refresh token is issued.
  */
 export async function handleClientCredentialsGrant(
 	ctx: McpAuthContext,

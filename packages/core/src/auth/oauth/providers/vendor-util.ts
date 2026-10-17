@@ -1,7 +1,4 @@
-/**
- * Small helpers shared by the vendor provider files that sit on top of
- * `genericOIDC` (Linear, Kick, Vercel, PayPal, Kakao).
- */
+/** Small helpers shared by the vendor provider files that sit on top of `genericOIDC` (Linear, Kick, Vercel, PayPal, Kakao). */
 
 /** Non-empty string, or undefined. */
 export function str(value: unknown): string | undefined {

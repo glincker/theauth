@@ -1,7 +1,4 @@
-/**
- * A tainted primitive passed as the whole argument must reach the policy as
- * call level provenance, otherwise taint rules never see its labels.
- */
+/** A tainted primitive passed as the whole argument must reach the policy as call level provenance, otherwise taint rules never see its labels. */
 
 import { describe, expect, it } from "vitest";
 import type { GuardableTool, PolicyHost } from "../src/agent-tools/guard.js";

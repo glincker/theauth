@@ -10,8 +10,6 @@ import type { VCIssuerConfig } from "../../src/vc/types.js";
 import { VC_CONTEXT_V2 } from "../../src/vc/types.js";
 import { createVCVerifier } from "../../src/vc/verifier.js";
 
-// Fixtures
-
 const T0 = new Date("2025-06-01T00:00:00Z");
 const T2 = new Date("2025-06-01T02:00:00Z");
 
@@ -33,10 +31,7 @@ function makeRecord(
 	};
 }
 
-/**
- * Seed 20 records spread across 2 hours (0 to 7200000 ms).
- * Records 0–9 are "allowed", 10–14 are "denied", 15–19 are "rate_limited".
- */
+/** Seed 20 records spread across 2 hours (0 to 7200000 ms). Records 0, 9 are "allowed", 10, 14 are "denied", 15, 19 are "rate_limited". */
 function makeRecords(): AuditEntry[] {
 	return Array.from({ length: 20 }, (_, i) => {
 		const offsetMs = Math.floor((i / 19) * 7_200_000);
@@ -54,8 +49,6 @@ async function makeConfig(): Promise<{ config: VCIssuerConfig; did: string }> {
 	};
 	return { config, did: keyPair.did };
 }
-
-// Tests
 
 describe("exportAuditAsVC – ldp_vc individual", () => {
 	it("returns 20 credentials with correct shape", async () => {
@@ -181,7 +174,6 @@ describe("exportAuditAsVC – ldp_vc presentation", () => {
 		expect(vp?.verifiableCredential).toHaveLength(20);
 		expect(vp?.holder).toBe(did);
 
-		// Verify the presentation
 		if (vp) {
 			const vpResult = await verifier.verifyPresentation(vp, config.publicKeyJwk);
 			expect(vpResult.success).toBe(true);
@@ -238,11 +230,11 @@ describe("exportAuditAsVC – filter test", () => {
 			format: "ldp_vc",
 			output: "individual",
 			records,
-			// Records 10–19 are "denied" or "rate_limited" (non-allowed)
+			// Records 10, 19 are "denied" or "rate_limited" (non-allowed)
 			filter: (r) => r.result === "denied",
 		});
 
-		// Records 10–14 are "denied" (5 records)
+		// Records 10, 14 are "denied" (5 records)
 		expect(result.count).toBe(5);
 		for (const vc of result.credentials) {
 			const subject = vc.credentialSubject as { decision?: string };

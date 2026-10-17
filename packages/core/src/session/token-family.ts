@@ -1,29 +1,18 @@
 /**
- * Token family tracking for refresh token reuse detection.
- *
- * Each refresh token belongs to a "family" — a chain of rotations that all
- * originate from the same initial login.  When `reuseDetection` is enabled,
- * presenting an already-used token from a family immediately revokes every
- * token in that family, because reuse indicates the token was stolen.
- *
- * The database table `theauth_refresh_token_families` stores:
- *   - family-level metadata (userId, absolute expiry, revocation status)
- *
- * Each individual refresh token row in `theauth_refresh_tokens` links back to
- * its family via `familyId`.
+ * Token family tracking for refresh token reuse detection. Each refresh token belongs to a family, a chain of rotations that can be revoked together.
  *
  * @example
  * ```typescript
  * const families = createTokenFamilyStore(db);
  *
- * // On login — create a new family and issue the first token
+ * // On login, create a new family and issue the first token
  * const family = await families.createFamily(userId, absoluteExpiresAt);
  * const token = await families.issueToken(family.id, refreshTokenTTL);
  *
- * // On refresh — consume the token (marks it used, issues a new one)
+ * // On refresh, consume the token (marks it used, issues a new one)
  * const result = await families.consumeToken(rawToken);
  * if (result.status === 'reuse') {
- *   // Entire family revoked — force re-login
+ *   // Entire family revoked, force re-login
  * }
  * ```
  */
@@ -33,12 +22,9 @@ import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { refreshTokenFamilies, refreshTokens } from "../db/schema.js";
 
-// Public types
-
 export interface TokenFamily {
 	id: string;
 	userId: string;
-	/** Absolute expiry — no refresh can extend beyond this date. */
 	absoluteExpiresAt: Date;
 	revoked: boolean;
 	createdAt: Date;
@@ -53,25 +39,17 @@ export type ConsumeTokenStatus =
 
 export interface ConsumeTokenResult {
 	status: ConsumeTokenStatus;
-	/**
-	 * Populated for `"ok"`, `"reuse"`, `"revoked"` and `"expired"` when the
-	 * family is known, so callers can revoke state tied to it.
-	 */
+	/** Populated for `"ok"`, `"reuse"`, `"revoked"` and `"expired"` when the family is known, so callers can revoke state tied to it. */
 	family?: TokenFamily;
 	/**
-	 * Set to `true` when the token had already been consumed but was presented
-	 * inside the reuse grace window. The caller should issue a fresh token
-	 * without revoking the family (a lost response or a concurrent refresh, not
-	 * theft). Only ever set when a grace window is configured.
+	 * Set to `true` when the token had already been consumed but was presented inside the reuse grace window. The caller should issue a fresh token without revoking the family (a lost response or a concurrent refresh, not theft). Only ever set when a grace window is configured.
 	 */
 	graceReplay?: boolean;
 }
 
 export interface ConsumeTokenOptions {
 	/**
-	 * Overlap window in milliseconds. A token consumed less than this long ago
-	 * is accepted once more instead of triggering reuse handling. Overrides the
-	 * store-level `reuseGraceMs`. `0` (the default) keeps strict one-time use.
+	 * Overlap window in milliseconds. A token consumed less than this long ago is accepted once more instead of triggering reuse handling. Overrides the store-level `reuseGraceMs`. `0` (the default) keeps strict one-time use.
 	 */
 	graceMs?: number;
 }
@@ -85,62 +63,35 @@ export interface TokenFamilyStoreOptions {
 export const MAX_REUSE_GRACE_MS = 5 * 60_000;
 
 export interface TokenFamilyStore {
-	/**
-	 * Create a new token family for a user.
-	 * Call this once per login to anchor the refresh token chain.
-	 */
+	/** Creates a token family for a user. Call once per login to anchor the refresh token chain. */
 	createFamily(userId: string, absoluteExpiresAt: Date): Promise<TokenFamily>;
 
-	/**
-	 * Issue a new opaque refresh token tied to the given family.
-	 *
-	 * Returns the raw token string (only returned once — never stored in the
-	 * clear) and the token's individual expiry date.
-	 */
+	/** Issues an opaque refresh token in the family. The raw token is returned only once. */
 	issueToken(familyId: string, ttlMs: number): Promise<{ rawToken: string; expiresAt: Date }>;
 
 	/**
 	 * Consume a refresh token.
-	 *
-	 * - If the token is valid and unused, it is marked `used` and the caller
-	 *   should immediately call `issueToken` to rotate.
-	 * - If the token was already used, the **entire family is revoked** (reuse
-	 *   detection, token theft assumed), unless it was consumed within the
-	 *   grace window, in which case the result is `ok` with `graceReplay: true`.
+	 * - If the token was already used, the **entire family is revoked** (reuse detection, token theft assumed), unless it was consumed within the grace window, in which case the result is `ok` with `graceReplay: true`.
 	 * - If the token has expired or is not found, returns the appropriate status.
 	 */
 	consumeToken(rawToken: string, options?: ConsumeTokenOptions): Promise<ConsumeTokenResult>;
 
-	/**
-	 * Revoke all token families (and their tokens) for a user.
-	 * Used on logout, password change, or explicit session termination.
-	 */
+	/** Revokes all token families and their tokens for a user (logout, password change, session termination). */
 	revokeFamiliesForUser(userId: string): Promise<void>;
 
-	/**
-	 * Revoke a specific family by ID and all its tokens.
-	 */
+	/** Revokes one family and all its tokens. */
 	revokeFamily(familyId: string): Promise<void>;
 
-	/**
-	 * Check whether the absolute session timeout has been reached for a family.
-	 * Returns `true` when the family is still within its absolute timeout.
-	 */
+	/** Check whether the absolute session timeout has been reached for a family. Returns `true` when the family is still within its absolute timeout. */
 	isFamilyActive(family: TokenFamily): boolean;
 }
 
-// Factory
-
-/**
- * Create a `TokenFamilyStore` backed by the TheAuth database.
- */
+/** Creates a `TokenFamilyStore` backed by the TheAuth database. */
 export function createTokenFamilyStore(
 	db: Database,
 	storeOptions: TokenFamilyStoreOptions = {},
 ): TokenFamilyStore {
 	const defaultGraceMs = clampGrace(storeOptions.reuseGraceMs ?? 0);
-
-	// helpers
 
 	function rowToFamily(row: {
 		id: string;
@@ -159,17 +110,13 @@ export function createTokenFamilyStore(
 	}
 
 	/**
-	 * The `used` column holds 0 for unused tokens and the consumption time in
-	 * epoch seconds once consumed. Rows written before the grace window existed
-	 * hold 1, which reads as 1970 and therefore never falls inside a window.
+	 * The `used` column holds 0 for unused tokens and the consumption time in epoch seconds once consumed. Rows written before the grace window existed hold 1, which reads as 1970 and therefore never falls inside a window.
 	 */
 	function withinGrace(usedValue: number, nowMs: number, graceMs: number): boolean {
 		if (graceMs <= 0) return false;
 		const usedAtMs = usedValue * 1000;
 		return nowMs - usedAtMs <= graceMs;
 	}
-
-	// public API
 
 	async function createFamily(userId: string, absoluteExpiresAt: Date): Promise<TokenFamily> {
 		const id = generateId();
@@ -224,7 +171,6 @@ export function createTokenFamilyStore(
 		const row = rows[0];
 		if (!row) return { status: "not_found" };
 
-		// Fetch the family to check revocation and absolute timeout.
 		const familyRows = await db
 			.select()
 			.from(refreshTokenFamilies)
@@ -235,24 +181,20 @@ export function createTokenFamilyStore(
 
 		const family = rowToFamily(familyRow);
 
-		// Family has been explicitly revoked (e.g. previous reuse detection).
 		if (family.revoked) return { status: "revoked", family };
 
-		// Absolute timeout has passed — revoke the family and report expired.
 		if (family.absoluteExpiresAt <= now) {
 			await revokeFamily(family.id);
 			return { status: "expired", family };
 		}
 
-		// Individual token TTL has passed.
 		if (row.expiresAt <= now) return { status: "expired", family };
 
-		// Reuse detection: token has already been consumed.
 		if (row.used) {
 			if (withinGrace(Number(row.used), now.getTime(), graceMs)) {
 				return { status: "ok", family, graceReplay: true };
 			}
-			// A previously-used token was presented — assume token theft.
+			// A previously-used token was presented, assume token theft.
 			// Revoke the entire family immediately.
 			await revokeFamily(family.id);
 			return { status: "reuse", family };

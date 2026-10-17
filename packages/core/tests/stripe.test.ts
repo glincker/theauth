@@ -1,6 +1,4 @@
-/**
- * Tests for the Stripe payment integration module and plugin.
- */
+/** Tests for the Stripe payment integration module and plugin. */
 
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,8 +10,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import type { PluginContext, TheAuthPlugin } from "../src/plugin/types.js";
-
-// Test helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -43,12 +39,7 @@ function makeConfig(overrides: Partial<StripeConfig> = {}): StripeConfig {
 	};
 }
 
-// Webhook signature test helpers
-
-/**
- * Build a valid Stripe-Signature header for testing.
- * Uses Web Crypto API to match the production implementation.
- */
+/** Build a valid Stripe-Signature header for testing. Uses Web Crypto API to match the production implementation. */
 async function buildSignatureHeader(
 	payload: string,
 	secret: string,
@@ -70,8 +61,6 @@ async function buildSignatureHeader(
 		.join("");
 	return `t=${timestamp},v1=${sig}`;
 }
-
-// Mock fetch setup
 
 type FetchHandler = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
@@ -100,8 +89,6 @@ afterEach(() => {
 	fetchHandler = null;
 	vi.restoreAllMocks();
 });
-
-// Webhook signature verification
 
 describe("webhook signature verification", () => {
 	let db: Database;
@@ -178,8 +165,6 @@ describe("webhook signature verification", () => {
 	});
 });
 
-// Customer management
-
 describe("createCustomer", () => {
 	let db: Database;
 	let mod: StripeModule;
@@ -231,8 +216,6 @@ describe("getCustomerId", () => {
 		expect(id).toBeNull();
 	});
 });
-
-// createCheckoutSession
 
 describe("createCheckoutSession", () => {
 	let db: Database;
@@ -331,8 +314,6 @@ describe("createCheckoutSession", () => {
 	});
 });
 
-// createPortalSession
-
 describe("createPortalSession", () => {
 	it("returns a portal URL from Stripe", async () => {
 		const db = await createTestDb();
@@ -360,8 +341,6 @@ describe("createPortalSession", () => {
 		).rejects.toThrow(/No Stripe customer/);
 	});
 });
-
-// getSubscription
 
 describe("getSubscription", () => {
 	it("returns null when the user has no subscription data", async () => {
@@ -400,8 +379,6 @@ describe("getSubscription", () => {
 		expect(sub?.currentPeriodEnd.toISOString()).toBe(periodEnd.toISOString());
 	});
 });
-
-// Webhook event handling
 
 describe("handleWebhook event dispatch", () => {
 	let db: Database;
@@ -488,7 +465,6 @@ describe("handleWebhook event dispatch", () => {
 	});
 
 	it("customer.subscription.deleted clears subscription columns", async () => {
-		// Pre-seed subscription data
 		await db
 			.update(users)
 			.set({

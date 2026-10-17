@@ -1,9 +1,6 @@
 /**
  * W3C Verifiable Credential verification for TheAuth.
- *
- * Verifies credentials in both JWT and JSON-LD formats. Checks
- * signatures, expiry, and optional revocation status. Extracts
- * TheAuth-specific permissions from verified credentials.
+ * Verifies credentials in both JWT and JSON-LD formats. Extracts TheAuth-specific permissions from verified credentials.
  */
 
 import { compactVerify, importJWK, errors as joseErrors, jwtVerify } from "jose";
@@ -19,8 +16,6 @@ import type {
 } from "./types.js";
 import { VerifiableCredentialSchema, VerifiablePresentationSchema } from "./types.js";
 
-// Helpers
-
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
@@ -29,8 +24,6 @@ function getIssuerString(issuer: string | { id: string; name?: string }): string
 	if (typeof issuer === "string") return issuer;
 	return issuer.id;
 }
-
-// VC Verifier Interface
 
 export interface VCVerifier {
 	/** Verify a single credential (JWT string or JSON-LD object) */
@@ -47,14 +40,9 @@ export interface VCVerifier {
 	extractPermissions(vc: VerifiableCredential): ExtractedPermissions;
 }
 
-// Factory
-
 /**
  * Create a VC verifier that checks signatures, expiry, and revocation.
- *
  * The verifier accepts both JWT-encoded and JSON-LD credentials.
- * For JWT credentials, pass the compact JWS string. For JSON-LD
- * credentials with embedded proof, pass the credential object.
  */
 export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 	const { resolveDidKey, checkRevocationStatus } = config;
@@ -115,7 +103,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 				};
 			}
 
-			// Resolve key
 			const keyResult = await resolveKey(issuerDid, providedKey);
 			if (!keyResult.success) return keyResult;
 
@@ -136,7 +123,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 				issuer: issuerDid,
 			};
 
-			// Validate against schema
 			const parsed = VerifiableCredentialSchema.safeParse(credential);
 			if (!parsed.success) {
 				return {
@@ -147,7 +133,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 				};
 			}
 
-			// Check expiry
 			if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
 				return {
 					success: false,
@@ -155,7 +140,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 				};
 			}
 
-			// Check revocation
 			if (parsed.data.credentialStatus && checkRevocationStatus) {
 				const revoked = await checkRevocationStatus(parsed.data.credentialStatus);
 				if (revoked) {
@@ -198,7 +182,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 		vc: VerifiableCredential,
 		providedKey?: JsonWebKey,
 	): Promise<Result<VerifiedCredential>> {
-		// Validate schema
 		const parsed = VerifiableCredentialSchema.safeParse(vc);
 		if (!parsed.success) {
 			return {
@@ -227,14 +210,12 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 
 		const issuerDid = getIssuerString(credential.issuer);
 
-		// Resolve key
 		const keyResult = await resolveKey(issuerDid, providedKey);
 		if (!keyResult.success) return keyResult;
 
 		try {
 			const publicKey = await importJWK(keyResult.data, "EdDSA");
 
-			// Verify the JWS
 			const { payload } = await compactVerify(credential.proof.jws, publicKey);
 
 			// Compare signed content against current credential (minus proof)
@@ -249,7 +230,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 				};
 			}
 
-			// Check expiry
 			if (credential.expirationDate) {
 				const expiry = new Date(credential.expirationDate);
 				if (expiry <= new Date()) {
@@ -260,7 +240,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 				}
 			}
 
-			// Check revocation
 			if (credential.credentialStatus && checkRevocationStatus) {
 				const revoked = await checkRevocationStatus(credential.credentialStatus);
 				if (revoked) {
@@ -292,8 +271,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 		}
 	}
 
-	// Public API
-
 	async function verifyCredential(
 		vc: string | VerifiableCredential,
 		publicKeyJwk?: JsonWebKey,
@@ -311,7 +288,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 		let presentation: VerifiablePresentation;
 
 		if (typeof vp === "string") {
-			// JWT-encoded presentation
 			try {
 				const parts = vp.split(".");
 				if (parts.length !== 3 || !parts[1]) {
@@ -366,7 +342,6 @@ export function createVCVerifier(config: VCVerifierConfig = {}): VCVerifier {
 			presentation = vp;
 		}
 
-		// Validate schema
 		const parsed = VerifiablePresentationSchema.safeParse(presentation);
 		if (!parsed.success) {
 			return {

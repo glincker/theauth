@@ -1,6 +1,4 @@
-/**
- * Tests for the webhook delivery engine and signing module.
- */
+/** Tests for the webhook delivery engine and signing module. */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDeliveryEngine } from "../src/webhook/delivery.js";
@@ -12,8 +10,6 @@ import {
 	verify,
 } from "../src/webhook/signing.js";
 import type { WebhookEndpointConfig } from "../src/webhook/types.js";
-
-// Helpers
 
 const TEST_ENDPOINT: WebhookEndpointConfig = {
 	url: "https://hooks.example.com/auth",
@@ -469,7 +465,6 @@ describe("verify()", () => {
 	it("returns false for a replay outside the maxAgeSeconds window", async () => {
 		const secret = "s3cr3t";
 		const rawBody = JSON.stringify({ userId: "u1" });
-		// Timestamp 10 minutes ago
 		const oldTimestamp = String(Math.floor(Date.now() / 1000) - 600);
 		const headers = await buildWebhookHeaders(secret, rawBody, "user.signIn", "id1", oldTimestamp);
 
@@ -506,8 +501,6 @@ describe("verify()", () => {
 	});
 });
 
-// generateDeliveryId()
-
 describe("generateDeliveryId()", () => {
 	it("returns a 32-character lowercase hex string", () => {
 		const id = generateDeliveryId();
@@ -519,8 +512,6 @@ describe("generateDeliveryId()", () => {
 		expect(ids.size).toBe(100);
 	});
 });
-
-// webhooks() plugin factory
 
 describe("webhooks() plugin: dispatch", () => {
 	it("fires events to matching endpoints only", async () => {

@@ -6,10 +6,7 @@ import type { McpAccessToken, McpAuthContext, Result } from "./types.js";
 import { extractBasicAuth, hashToken, parseRequestBody } from "./utils.js";
 
 /**
- * Revoke one stored access token: tell the store and, when a jti denylist is
- * configured, deny the jti until the token would have expired on its own.
- * Without a denylist the JWT stays cryptographically valid until `exp`; see
- * the docs for what that means for resource servers.
+ * Revoke one stored access token: tell the store and, when a jti denylist is configured, deny the jti until the token would have expired on its own. Without a denylist the JWT stays cryptographically valid until `exp`; see the docs for what that means for resource servers.
  */
 export async function revokeStoredAccessToken(
 	ctx: McpAuthContext,
@@ -34,18 +31,7 @@ export async function revokeFamilyAndTokens(
 
 /**
  * RFC 7009 token revocation.
- *
- * POST /mcp/revoke
- *
- * The caller must authenticate as a client and can only revoke tokens issued
- * to that client. Unknown or foreign tokens still return success (the RFC
- * forbids revealing whether a token exists), they just are not touched.
- *
- * Client authentication: `client_secret_basic`, `client_secret_post`, none for
- * public clients, or `private_key_jwt` (`client_assertion` and
- * `client_assertion_type`). An assertion must be addressed to the revocation
- * endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted
- * once across the token and revocation endpoints.
+ * The caller must authenticate as a client and can only revoke tokens issued to that client. Unknown or foreign tokens still return success (the RFC forbids revealing whether a token exists), they just are not touched. An assertion must be addressed to the revocation endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted once across the token and revocation endpoints.
  */
 export async function handleRevocation(
 	ctx: McpAuthContext,

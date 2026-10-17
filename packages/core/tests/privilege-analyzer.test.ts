@@ -126,7 +126,7 @@ describe("createPrivilegeAnalyzer", () => {
 			const analyzer = createPrivilegeAnalyzer(db);
 			const agentId = await seedAgent(db);
 			await seedPermission(db, agentId, "mcp:github", ["read"]);
-			// No audit logs — permission was never used
+			// No audit logs, permission was never used
 
 			const result = await analyzer.analyzeAgent(agentId);
 
@@ -256,7 +256,6 @@ describe("createPrivilegeAnalyzer", () => {
 			const analyzer = createPrivilegeAnalyzer(db);
 			const agentId = await seedAgent(db);
 			await seedPermission(db, agentId, "mcp:slack", ["read"]);
-			// No usage
 
 			const result = await analyzer.analyzeAgent(agentId);
 
@@ -284,7 +283,7 @@ describe("createPrivilegeAnalyzer", () => {
 			const analyzer = createPrivilegeAnalyzer(db);
 			const agentId = await seedAgent(db);
 			await seedPermission(db, agentId, "mcp:github", ["read"]);
-			// Log from 60 days ago — beyond the default 30-day window
+			// Log from 60 days ago, beyond the default 30-day window
 			await seedAuditLog(db, agentId, "mcp:github", 60);
 
 			const since = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000); // last 10 days

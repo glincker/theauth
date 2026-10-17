@@ -1,6 +1,4 @@
-/**
- * Tests for SSO module (SAML 2.0 + OIDC).
- */
+/** Tests for SSO module (SAML 2.0 + OIDC). */
 
 import { createHash, createSign, generateKeyPairSync } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -23,8 +21,6 @@ import {
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -175,8 +171,6 @@ function encodeSamlResponse(xml: string): string {
 	return btoa(xml);
 }
 
-// XML Parser Tests
-
 describe("XML Parser: parseXml", () => {
 	it("parses a simple element", () => {
 		const node = parseXml("<root>hello</root>");
@@ -293,8 +287,6 @@ describe("XXE Prevention", () => {
 	});
 });
 
-// XML Query Helper Tests
-
 describe("XML query helpers", () => {
 	const xml = `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
 		<saml:Issuer>https://idp.example.com</saml:Issuer>
@@ -357,8 +349,6 @@ describe("XML query helpers", () => {
 	});
 });
 
-// SAML Namespace Variation Tests
-
 describe("SAML namespace variations", () => {
 	it("handles saml: prefix", () => {
 		const xml = buildTestSamlResponse({
@@ -390,8 +380,6 @@ describe("SAML namespace variations", () => {
 		expect(nameId).toBe("user@example.com");
 	});
 });
-
-// SAML Signature Verification Tests
 
 describe("SAML signature verification", () => {
 	it("verifies a valid RSA-SHA256 signature", async () => {
@@ -438,8 +426,6 @@ describe("SAML signature verification", () => {
 		expect(result).toBe(false);
 	});
 });
-
-// SAML Condition Validation Tests
 
 describe("SAML condition validation", () => {
 	let db: Database;
@@ -576,8 +562,6 @@ describe("SAML condition validation", () => {
 	});
 });
 
-// InResponseTo Validation Tests
-
 describe("SAML InResponseTo validation", () => {
 	let db: Database;
 
@@ -633,8 +617,6 @@ describe("SAML InResponseTo validation", () => {
 	});
 });
 
-// Encrypted Assertion Detection Tests
-
 describe("SAML encrypted assertion detection", () => {
 	let db: Database;
 
@@ -666,8 +648,6 @@ describe("SAML encrypted assertion detection", () => {
 		);
 	});
 });
-
-// Malformed XML Tests
 
 describe("Malformed XML handling", () => {
 	let db: Database;
@@ -730,8 +710,6 @@ describe("Malformed XML handling", () => {
 	});
 });
 
-// State Parameter Tests
-
 describe("State parameter", () => {
 	it("generateState produces a valid state token", async () => {
 		const state = await encodeState(300);
@@ -780,8 +758,6 @@ describe("State parameter", () => {
 	});
 });
 
-// Rate Limiting Tests
-
 describe("Rate limiting", () => {
 	it("blocks excessive SAML login attempts", async () => {
 		const db = await createTestDb();
@@ -804,7 +780,6 @@ describe("Rate limiting", () => {
 		const xml = buildTestSamlResponse({ email: "user@example.com" });
 		const encoded = encodeSamlResponse(xml);
 
-		// First two should work
 		await mod.handleSamlResponse(conn.id, encoded);
 		await mod.handleSamlResponse(conn.id, encoded);
 
@@ -814,8 +789,6 @@ describe("Rate limiting", () => {
 		);
 	});
 });
-
-// Audit Trail Tests
 
 describe("Audit trail", () => {
 	it("emits audit events for SAML login attempts", async () => {
@@ -862,9 +835,7 @@ describe("Audit trail", () => {
 		const xml = buildTestSamlResponse({ email: "user@example.com" }); // no signature
 		try {
 			await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml));
-		} catch {
-			// expected
-		}
+		} catch {}
 
 		expect(events.some((e) => e.type === "sso_login_failure")).toBe(true);
 	});
@@ -884,8 +855,6 @@ describe("Audit trail", () => {
 		expect(events.some((e) => e.type === "sso_connection_removed")).toBe(true);
 	});
 });
-
-// Connection CRUD Tests
 
 describe("SsoModule.createConnection", () => {
 	let db: Database;
@@ -1097,8 +1066,6 @@ describe("SsoModule.getOidcAuthUrl", () => {
 	});
 });
 
-// SsoError Tests
-
 describe("SsoError", () => {
 	it("has code and message properties", () => {
 		const err = new SsoError("TEST_CODE", "test message");
@@ -1108,8 +1075,6 @@ describe("SsoError", () => {
 		expect(err).toBeInstanceOf(Error);
 	});
 });
-
-// HTTP Handler Tests
 
 describe("SsoModule.handleRequest", () => {
 	let db: Database;

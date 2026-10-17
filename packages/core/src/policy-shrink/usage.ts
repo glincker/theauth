@@ -21,11 +21,7 @@ const CHAINS_PER_GRANT_CAP = 1000;
 const DISTINCT_CAP = 5000;
 
 /**
- * The agent's effective permissions as single-action grants. Own permissions
- * come first, then permissions delegated through active, unexpired chains,
- * which is the order `authorize()` tries them in. Rows are read without an
- * ORDER BY, like the engine's own lookup, so first-match attribution agrees with it. Expired or revoked
- * delegations are not included.
+ * The agent's effective permissions as single-action grants. Own permissions come first, then permissions delegated through active, unexpired chains, which is the order `authorize()` tries them in. Rows are read without an ORDER BY, like the engine's own lookup, so first-match attribution agrees with it. Expired or revoked delegations are not included.
  */
 export async function loadGrants(
 	db: Database,
@@ -71,9 +67,7 @@ interface UseState {
 }
 
 /**
- * Pure accumulator behind analyzeUsage. Feed it rows in any order, then call
- * `finish`. Matching gives the same first-match result as findMatchingPermission, the function the
- * engine uses, so a row is attributed to the same grant `authorize()` would pick.
+ * Pure accumulator behind analyzeUsage. Feed it rows in any order, then call `finish`. Matching gives the same first-match result as findMatchingPermission, the function the engine uses, so a row is attributed to the same grant `authorize()` would pick.
  */
 export function createUsageAccumulator(
 	agentId: string,
@@ -186,13 +180,8 @@ export function createUsageAccumulator(
 }
 
 /**
- * Compare what an agent is granted with what it actually did. Reads decision
- * rows in pages, so a long window does not load into memory at once.
- *
- * Permissions are split to one action each, so "read and write on X" shows up
- * as two entries and only the unused half is flagged. Only allowed rows count
- * as use. A denial for another cause (rate limit, time window, approval,
- * revoked agent) never counts as evidence that a grant is unused.
+ * Compare what an agent is granted with what it actually did. Reads decision rows in pages, so a long window does not load into memory at once.
+ * Permissions are split to one action each, so "read and write on X" shows up as two entries and only the unused half is flagged. Only allowed rows count as use. A denial for another cause (rate limit, time window, approval, revoked agent) never counts as evidence that a grant is unused.
  */
 export async function analyzeUsage(
 	db: Database,

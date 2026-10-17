@@ -1,6 +1,4 @@
-/**
- * Subject identifier validation, canonical keys and matching (RFC 9493).
- */
+/** Subject identifier validation, canonical keys and matching (RFC 9493). */
 
 import type { ComplexMember, SimpleSubject, SubjectIdentifier } from "./types.js";
 import { COMPLEX_MEMBERS } from "./types.js";
@@ -77,9 +75,7 @@ export function subjectKey(subject: SubjectIdentifier): string {
 }
 
 /**
- * Keys a stream's subject list is checked against for an event subject: the
- * subject itself, plus each member of a complex subject, so a stream that
- * follows a user also sees that user's session and device events.
+ * Keys a stream's subject list is checked against for an event subject: the subject itself, plus each member of a complex subject, so a stream that follows a user also sees that user's session and device events.
  */
 export function candidateKeys(subject: SubjectIdentifier): string[] {
 	const keys = [subjectKey(subject)];

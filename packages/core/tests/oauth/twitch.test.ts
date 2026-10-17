@@ -1,6 +1,4 @@
-/**
- * Tests for the Twitch OAuth provider.
- */
+/** Tests for the Twitch OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,8 +12,6 @@ const CLIENT_SECRET = "test-twitch-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USER_RAW = {
 	data: [
 		{
@@ -27,8 +23,6 @@ const CANNED_USER_RAW = {
 		},
 	],
 };
-
-// Provider construction
 
 describe("createTwitchProvider", () => {
 	it("creates a provider with id twitch", () => {
@@ -60,8 +54,6 @@ describe("createTwitchProvider", () => {
 	});
 });
 
-// Authorization URL
-
 describe("createTwitchProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
 		const provider = createTwitchProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
@@ -91,8 +83,6 @@ describe("createTwitchProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeTwitchProfile", () => {
 	it("maps Twitch helix user to OAuthUserInfo", () => {

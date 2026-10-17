@@ -6,8 +6,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 
-// Test harness
-
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
 	await createTables(db, "sqlite");
@@ -46,8 +44,6 @@ function makeModule(
 }
 
 const BASE_PERMS = [{ resource: "tool:browser", actions: ["navigate", "click"] }];
-
-// Session creation
 
 describe("createSession", () => {
 	let db: Database;
@@ -184,8 +180,6 @@ describe("createSession", () => {
 	});
 });
 
-// Token validation
-
 describe("validateSession", () => {
 	let db: Database;
 	let mod: EphemeralSessionModule;
@@ -257,8 +251,6 @@ describe("validateSession", () => {
 		expect(validated.data.auditGroupId).toBe(created.data.auditGroupId);
 	});
 });
-
-// Action consumption
 
 describe("consumeAction", () => {
 	let db: Database;
@@ -363,8 +355,6 @@ describe("consumeAction", () => {
 	});
 });
 
-// Session revocation
-
 describe("revokeSession", () => {
 	let db: Database;
 	let mod: EphemeralSessionModule;
@@ -404,8 +394,6 @@ describe("revokeSession", () => {
 		expect(result.error.code).toBe("SESSION_NOT_FOUND");
 	});
 });
-
-// Listing active sessions
 
 describe("listActiveSessions", () => {
 	let db: Database;
@@ -471,8 +459,6 @@ describe("listActiveSessions", () => {
 	});
 });
 
-// Cleanup
-
 describe("cleanupExpired", () => {
 	let db: Database;
 
@@ -483,7 +469,6 @@ describe("cleanupExpired", () => {
 
 	it("returns zero when there is nothing to clean up", async () => {
 		const mod = makeModule(db);
-		// Create a live session
 		await mod.createSession({ ownerId: "user-1", permissions: BASE_PERMS });
 
 		const result = await mod.cleanupExpired();
@@ -504,12 +489,11 @@ describe("cleanupExpired", () => {
 		db.update(schema.ephemeralSessions)
 			.set({ expiresAt: past })
 			.where(
-				// @ts-expect-error — accessing schema directly for test manipulation
+				// @ts-expect-error, accessing schema directly for test manipulation
 				schema.ephemeralSessions.id.equals ? undefined : undefined,
 			)
 			.run();
 
-		// Use drizzle directly
 		const { eq } = await import("drizzle-orm");
 		db.update(schema.ephemeralSessions)
 			.set({ expiresAt: past })
@@ -546,8 +530,6 @@ describe("cleanupExpired", () => {
 	});
 });
 
-// Audit grouping
-
 describe("audit grouping", () => {
 	let db: Database;
 
@@ -582,8 +564,6 @@ describe("audit grouping", () => {
 		expect(s1.data.auditGroupId).not.toBe(s2.data.auditGroupId);
 	});
 });
-
-// Auto-revoke on expiry/exhaustion
 
 describe("autoRevokeOnExpiry", () => {
 	let db: Database;
@@ -633,8 +613,6 @@ describe("autoRevokeOnExpiry", () => {
 	});
 });
 
-// maxActions enforcement edge cases
-
 describe("maxActions edge cases", () => {
 	let db: Database;
 	let mod: EphemeralSessionModule;
@@ -660,7 +638,6 @@ describe("maxActions edge cases", () => {
 			mod.consumeAction(created.data.token),
 		]);
 
-		// All three should succeed
 		for (const r of results) {
 			expect(r.success).toBe(true);
 		}

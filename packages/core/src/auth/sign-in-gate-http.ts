@@ -2,10 +2,7 @@
 
 import type { SignInGateDecision } from "./sign-in-gate-types.js";
 
-/**
- * Thrown by session-issuing modules when the gate does not allow a session.
- * Carries the decision so HTTP layers can answer with the challenge.
- */
+/** Thrown by session-issuing modules when the gate does not allow a session. Carries the decision so HTTP layers can answer with the challenge. */
 export class SignInGateError extends Error {
 	readonly code: "PASSWORD_RESET_REQUIRED" | "TWO_FACTOR_REQUIRED";
 	readonly decision: Exclude<SignInGateDecision, { action: "allow" }>;
@@ -26,9 +23,7 @@ export class SignInGateError extends Error {
 }
 
 /**
- * Standard HTTP answer for a gate error: 403 `PASSWORD_RESET_REQUIRED` with a
- * password-change challenge, or 200 `{ twoFactorRequired: true, ... }` with a
- * two-factor challenge. No session is ever included.
+ * Standard HTTP answer for a gate error: 403 `PASSWORD_RESET_REQUIRED` with a password-change challenge, or 200 `{ twoFactorRequired: true, ... }` with a two-factor challenge. No session is ever included.
  */
 export function signInGateResponse(err: SignInGateError): Response {
 	const decision = err.decision;
@@ -58,9 +53,7 @@ export function signInGateResponse(err: SignInGateError): Response {
 }
 
 /**
- * Redirect variant for browser flows (OAuth callback). The challenge travels
- * in the URL fragment so it is not sent to servers or logged in referrers:
- * `<location>#gate=two_factor_required&challenge=...&methods=totp`.
+ * Redirect variant for browser flows (OAuth callback). The challenge travels in the URL fragment so it is not sent to servers or logged in referrers: `<location>#gate=two_factor_required&challenge=...&methods=totp`.
  */
 export function signInGateRedirect(
 	location: string,

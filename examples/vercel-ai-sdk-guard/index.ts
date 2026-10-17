@@ -1,8 +1,5 @@
 /**
- * Guard Vercel AI SDK tools with theAuth.
- *
- * The script calls the guarded tools directly, the way the SDK does when a
- * model asks for a tool, so it needs no model and no API key.
+ * Guards Vercel AI SDK tools with theAuth. Calls the guarded tools directly, so no model or API key is needed.
  */
 import {
 	createTheAuth,

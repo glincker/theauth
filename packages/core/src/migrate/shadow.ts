@@ -27,10 +27,7 @@ export interface ShadowResult {
 	differs: boolean;
 }
 
-/**
- * Run both systems, enforce only the incumbent. The theauth answer is compared and
- * reported, never returned as the decision, and its failures never reach the caller.
- */
+/** Run both systems, enforce only the incumbent. The theauth answer is compared and reported, never returned as the decision, and its failures never reach the caller. */
 export function createShadow<I>(config: ShadowConfig<I>) {
 	const rate = config.sampleRate ?? 1;
 	const counts = { compared: 0, differences: 0, errors: 0 };

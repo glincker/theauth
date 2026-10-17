@@ -1,6 +1,5 @@
 /**
- * Tests for RedirectChain — the cookie-based redirect state manager.
- *
+ * Tests for RedirectChain, the cookie-based redirect state manager.
  * Covers:
  * - capture() stores request URL as origin
  * - capture() keeps existing origin on repeat calls (user refreshes sign-in page)
@@ -22,8 +21,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createRedirectChain } from "../src/redirect/chain.js";
 
-// Helpers
-
 /** Build a mock Request with the given URL and optional existing chain cookie. */
 function makeRequest(url: string, cookieValue?: string): Request {
 	const headers = new Headers();
@@ -40,8 +37,6 @@ function extractCookieValue(header: string): string {
 	return eqIdx === -1 ? "" : part.slice(eqIdx + 1);
 }
 
-// capture()
-
 describe("capture()", () => {
 	it("stores the request URL as the origin", () => {
 		const chain = createRedirectChain();
@@ -50,7 +45,6 @@ describe("capture()", () => {
 
 		expect(setCookie).toContain("theauth_redirect=");
 
-		// Parse it back
 		const cookieValue = extractCookieValue(setCookie);
 		const reqWithCookie = makeRequest("http://localhost/sign-in", cookieValue);
 		const origin = chain.getOrigin(reqWithCookie);
@@ -93,7 +87,6 @@ describe("capture()", () => {
 
 	it("respects custom excluded paths (exact match)", () => {
 		const chain = createRedirectChain({ excludePaths: ["/admin", "/api/"] });
-		// Exact match on /admin
 		const req = makeRequest("http://localhost/admin");
 		const setCookie = chain.capture(req);
 
@@ -118,32 +111,27 @@ describe("capture()", () => {
 	});
 });
 
-// push() and pop()
-
 describe("push() and pop()", () => {
 	it("pop() returns steps in order then the origin", () => {
-		// pop() re-parses the cookie on each call — to simulate a real multi-step
+		// pop() re-parses the cookie on each call, to simulate a real multi-step
 		// redirect sequence we build each "request" from the current in-memory state
 		// by using push() to build up the chain and reading the encoded cookie.
 		const chain = createRedirectChain({ cookie: { secure: false } });
 
-		// 1. Capture origin
 		const originReq = makeRequest("http://localhost/final-destination");
 		const c0 = extractCookieValue(chain.capture(originReq));
 		chain.parse(makeRequest("http://localhost/", c0));
 
-		// 2. Push two steps
 		chain.push("/step-one");
 		const c1 = extractCookieValue(chain.push("/step-two"));
 
-		// 3. First pop (step-one)
 		const r1 = chain.pop(makeRequest("http://localhost/", c1));
 		expect(r1.url).toBe("/step-one");
 		expect(r1.done).toBe(false);
 		expect(r1.clearCookie).toBeNull();
 
 		// 4. After pop, currentState has step-one removed. Encode the mutated state
-		//    by re-serializing — we simulate the server writing back the updated cookie.
+		//    by re-serializing, we simulate the server writing back the updated cookie.
 		//    Since pop doesn't return an updated cookie, we push the remaining state
 		//    back to get a cookie reflecting only [step-two, origin].
 		//    Alternatively, build a new chain from scratch with just step-two + origin.
@@ -154,12 +142,10 @@ describe("push() and pop()", () => {
 		chain2.parse(makeRequest("http://localhost/", c2_0));
 		const c2_1 = extractCookieValue(chain2.push("/step-two"));
 
-		// 5. Pop step-two
 		const r2 = chain2.pop(makeRequest("http://localhost/", c2_1));
 		expect(r2.url).toBe("/step-two");
 		expect(r2.done).toBe(false);
 
-		// 6. Final pop — origin
 		const chain3 = createRedirectChain({ cookie: { secure: false } });
 		const c3_0 = extractCookieValue(
 			chain3.capture(makeRequest("http://localhost/final-destination")),
@@ -173,7 +159,6 @@ describe("push() and pop()", () => {
 
 	it("pop() returns defaultPath when chain is empty", () => {
 		const chain = createRedirectChain({ defaultPath: "/home" });
-		// No cookie set
 		const req = makeRequest("http://localhost/sign-in");
 		const result = chain.pop(req);
 
@@ -209,8 +194,6 @@ describe("push() and pop()", () => {
 		expect(state?.steps.length).toBe(2);
 	});
 });
-
-// peek()
 
 describe("peek()", () => {
 	it("returns next step without consuming it", () => {
@@ -248,8 +231,6 @@ describe("peek()", () => {
 	});
 });
 
-// getOrigin()
-
 describe("getOrigin()", () => {
 	it("returns the original URL", () => {
 		const chain = createRedirectChain({ cookie: { secure: false } });
@@ -271,8 +252,6 @@ describe("getOrigin()", () => {
 		expect(chain.getOrigin(req)).toBeNull();
 	});
 });
-
-// clear()
 
 describe("clear()", () => {
 	it("removes the chain by returning a Max-Age=0 cookie", () => {
@@ -302,8 +281,6 @@ describe("clear()", () => {
 		expect(result.done).toBe(true);
 	});
 });
-
-// Expiry
 
 describe("expiry", () => {
 	it("expired chains return defaultPath on pop()", () => {
@@ -408,8 +385,6 @@ describe("query params and hash preservation", () => {
 	});
 });
 
-// createEntry()
-
 describe("createEntry()", () => {
 	it("creates a valid entry from a URL string", () => {
 		const chain = createRedirectChain();
@@ -440,8 +415,6 @@ describe("createEntry()", () => {
 		expect(entry.path).toBe("/relative/path");
 	});
 });
-
-// Cookie attributes
 
 describe("cookie attributes", () => {
 	it("includes HttpOnly, Secure, SameSite by default", () => {

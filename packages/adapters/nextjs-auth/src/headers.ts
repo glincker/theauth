@@ -11,14 +11,8 @@ interface BuildAuthHeadersOptions {
 }
 
 /**
- * Builds HTTP headers for SERVER → backend calls.
- *
- * Includes: Content-Type, Origin, X-Client-Origin, X-Tenant-Domain,
- * Authorization Bearer (when withAuth), X-CSRF-Token + Cookie echo (when withCsrf).
- *
- * IMPORTANT: Do NOT use these in browser-side fetches. X-Client-Origin
- * triggers a CORS preflight that backends typically reject from browser
- * clients. Use buildClientHeaders() for client-side fetches instead.
+ * Headers for SERVER to backend calls. Do NOT use in browser fetches: X-Client-Origin triggers a
+ * CORS preflight that backends typically reject. Use buildClientHeaders() there instead.
  */
 export async function buildAuthHeaders<TUser>(
 	config: ResolvedAuthConfig<TUser>,
@@ -48,8 +42,7 @@ export async function buildAuthHeaders<TUser>(
 		const csrf = await getCsrfToken(config);
 		if (csrf) {
 			headers["X-CSRF-Token"] = csrf;
-			// Synthesise the non-prefixed cookie name for backends that compare via
-			// the Cookie header value directly (CSRF double-submit filter pattern).
+			// Also send the unprefixed cookie name for backends that compare the Cookie header directly.
 			headers.Cookie = `${config.cookies.sessionPrefix}-csrf=${csrf}`;
 		}
 	}
@@ -58,12 +51,8 @@ export async function buildAuthHeaders<TUser>(
 }
 
 /**
- * Builds HTTP headers for BROWSER → backend fetches.
- * Safe to import from "use client" components.
- *
- * Does NOT include Origin or X-Client-Origin — the browser sets Origin
- * automatically on cross-origin requests. Does NOT include auth headers —
- * the browser sends auth cookies automatically.
+ * Headers for BROWSER to backend fetches. Safe in "use client" components. Origin and auth
+ * headers are not set here: the browser sends them itself.
  */
 export function buildClientHeaders<TUser>(
 	config: ResolvedAuthConfig<TUser>,

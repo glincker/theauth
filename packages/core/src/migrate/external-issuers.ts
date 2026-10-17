@@ -80,9 +80,7 @@ export function validateIssuerConfig(c: ExternalIssuerConfig): string | null {
 }
 
 /**
- * Verify tokens from an incumbent IdP. The issuer is chosen by exact match on `iss`,
- * then signature, audience, expiry and algorithm are checked against that issuer only.
- * Keys are cached, and an unknown `kid` triggers one rate-limited refetch so rotation works.
+ * Verify tokens from an incumbent IdP. The issuer is chosen by exact match on `iss`, then signature, audience, expiry and algorithm are checked against that issuer only. Keys are cached, and an unknown `kid` triggers one rate-limited refetch so rotation works.
  */
 export function createExternalIssuers(
 	issuers: ExternalIssuerConfig[],

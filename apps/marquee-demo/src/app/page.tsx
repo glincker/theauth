@@ -232,8 +232,6 @@ export default function DemoPage() {
 	);
 }
 
-// Sub-components
-
 interface PanelProps {
 	number: number;
 	title: string;

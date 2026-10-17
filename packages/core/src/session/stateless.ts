@@ -1,21 +1,9 @@
 /**
- * Stateless (database-less) sessions for apps that delegate identity to an
- * external IdP.
- *
- * No user table, no session table. After the IdP login completes, the verified
- * identity goes into a signed cookie and the IdP tokens go into a separate
- * AES-GCM encrypted cookie. Both are chunked past 4096 bytes. `getAccessToken`
- * refreshes an expired access token through your IdP and re-seals the cookie.
- *
- * Trade-offs, stated plainly:
- * - A session cannot be revoked server side. Keep `maxAge` short, rotate the
- *   secret to kill everything, or plug `isRevoked` into a store you already
- *   have (a KV denylist fed by back-channel logout works well).
+ * Stateless (database-less) sessions for apps that delegate identity to an external IdP.
+ * After the IdP login completes, the verified identity goes into a signed cookie and the IdP tokens go into a separate AES-GCM encrypted cookie. `getAccessToken` refreshes an expired access token through your IdP and re-seals the cookie. Trade-offs, stated plainly:
+ * - A session cannot be revoked server side. Keep `maxAge` short, rotate the secret to kill everything, or plug `isRevoked` into a store you already have (a KV denylist fed by back-channel logout works well).
  * - The identity cookie is signed, not encrypted. Do not put secrets in it.
- * - Refresh tokens live in the browser, encrypted. Parallel `getAccessToken`
- *   calls for the same refresh token share one `refreshAccessToken` call within
- *   a process, so a rotating IdP sees a single use. Separate server instances
- *   (or separate browser tabs hitting different instances) can still race.
+ * - Refresh tokens live in the browser, encrypted. Parallel `getAccessToken` calls for the same refresh token share one `refreshAccessToken` call within a process, so a rotating IdP sees a single use. Separate server instances (or separate browser tabs hitting different instances) can still race.
  *
  * @example
  * ```typescript
@@ -87,31 +75,18 @@ export interface StatelessSessionsConfig {
 	chunking?: ChunkedCookieOptions;
 	/** Treat access tokens as expired this many ms early. Default 30000. */
 	expirySkewMs?: number;
-	/**
-	 * Exchange a refresh token for new tokens at your IdP. Without it,
-	 * `getAccessToken` fails once the access token expires.
-	 */
+	/** Exchange a refresh token for new tokens at your IdP. Without it, `getAccessToken` fails once the access token expires. */
 	refreshAccessToken?: (refreshToken: string) => Promise<Result<StatelessTokens>>;
 	/** Optional revocation check, e.g. a denylist keyed by `sub` or `sid`. */
 	isRevoked?: (identity: StatelessIdentity) => Promise<boolean>;
 	/**
-	 * Read token cookies written before the AAD binding existed (default: false).
-	 * A legacy cookie is not bound to the identity cookie, so a token cookie from
-	 * another user sealed under the same secret would be accepted. Turn this on
-	 * only while old cookies age out (`maxAge`); affected users otherwise sign in
-	 * again once.
+	 * Read token cookies written before the AAD binding existed (default: false). A legacy cookie is not bound to the identity cookie, so a token cookie from another user sealed under the same secret would be accepted. Turn this on only while old cookies age out (`maxAge`); affected users otherwise sign in again once.
 	 */
 	acceptLegacyTokenCookies?: boolean;
-	/**
-	 * Called with a deprecation message each time a legacy token cookie is read
-	 * (and upgraded). Wire it to your logger; the SDK never writes to the console.
-	 */
+	/** Called with a deprecation message each time a legacy token cookie is read (and upgraded). Wire it to your logger; the SDK never writes to the console. */
 	onDeprecation?: (message: string) => void;
 	/**
-	 * Run the central sign-in gate before cookies are issued. The identity's
-	 * `sub` is used as the gate user id, so this only helps when `sub` is your
-	 * local user id. `createSession` then fails with `TWO_FACTOR_REQUIRED` or
-	 * `PASSWORD_RESET_REQUIRED` and puts the challenge in `error.details`.
+	 * Run the central sign-in gate before cookies are issued. The identity's `sub` is used as the gate user id, so this only helps when `sub` is your local user id. `createSession` then fails with `TWO_FACTOR_REQUIRED` or `PASSWORD_RESET_REQUIRED` and puts the challenge in `error.details`.
 	 */
 	signInGate?: Pick<SignInGate, "evaluate">;
 	/** Gate method name used for `signInGate` (default: `social`). */

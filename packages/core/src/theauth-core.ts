@@ -75,10 +75,7 @@ import type {
 	TheAuthConfig,
 } from "./types.js";
 
-/**
- * Map an authorization denial reason string to a violation type.
- * Falls back to 'permission_denied' when no more specific match is found.
- */
+/** Maps a denial reason string to a violation type, defaulting to `permission_denied`. */
 function classifyViolation(reason: string | undefined): ViolationType {
 	const r = reason?.toLowerCase() ?? "";
 	if (r.includes("rate") || r.includes("rate_limited")) return "rate_limited";
@@ -102,17 +99,12 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	const db = await openDatabase(config.database);
 
-	// Automatically create tables unless the caller has opted out.
-	// Uses CREATE TABLE IF NOT EXISTS so it is safe to run every startup.
+	// CREATE TABLE IF NOT EXISTS keeps this safe on every startup.
 	if (!config.database.skipMigrations) {
 		await createTables(db, config.database.provider, config);
 	}
 
-	// Unified policy engine. Always instantiated so theauth.policy is
-	// available. Callers can tune it via config.policy (cache size, TTL,
-	// combine strategy, audit sampling). Zero-config uses safe defaults.
-	// Approval module (CIBA-style async human approval). Created first so the
-	// policy engine can open requests when evaluate() is called with openApproval.
+	// The policy engine can open approval requests, so the approval module is created first.
 	const approvalModule = createApprovalModule(config.approval ?? {}, db);
 	const policyEngine: PolicyEngine = createPolicyEngine({
 		db,
@@ -142,15 +134,12 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	const delegationModule = createDelegationModule({ db });
 
-	// Session manager – only created when the caller opts in via auth.session.
 	const sessionManager: SessionManager | null = config.auth?.session
 		? createSessionManager(config.auth.session, db)
 		: null;
 
-	// Central sign-in gate: forced password change, 2FA policy, trusted devices.
-	// Always created; only the forced password change is active without config.
-	// The gate only reads tables whose feature is enabled, mirroring the
-	// feature detection used when the tables are created.
+	// Always created. Without config, only the forced password change is active.
+	// It reads only tables whose feature is enabled, mirroring createTables feature detection.
 	const signInGate: SignInGate = createSignInGate({
 		db,
 		config: config.signInGate,
@@ -159,67 +148,51 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		usernameAccountsAvailable: !!config.username,
 	});
 
-	// Privilege analyzer — always available via theauth.analyzer.
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
 
-	// Lifecycle hooks from config.
 	const hooks = config.hooks ?? {};
 
 	const tenantModule = createTenantModule(db);
 
 	const policyModule = createPolicyModule(db);
 
-	// Trust module — graduated autonomy scoring
 	const trustModule = createTrustModule({}, db);
 
-	// DID module — W3C Decentralized Identifiers for agents
 	const didModule = createDidModule(db, config.did);
 
-	// Magic link — only created when the caller provides config.magicLink.
-	// Requires a session manager to issue sessions on verification.
 	const magicLinkModule: MagicLinkModule | null =
 		config.magicLink && sessionManager
 			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate)
 			: null;
 
-	// Email OTP — only created when the caller provides config.emailOtp.
-	// Requires a session manager to issue sessions on verification.
 	const emailOtpModule: EmailOtpModule | null =
 		config.emailOtp && sessionManager
 			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
 			: null;
 
-	// TOTP — only created when the caller provides config.totp.
 	const totpModule: TotpModule | null = config.totp ? createTotpModule(config.totp, db) : null;
 
-	// Passkey — only created when the caller provides config.passkey.
 	const passkeyModule: PasskeyModule | null = config.passkey
 		? createPasskeyModule(config.passkey, db)
 		: null;
 
-	// Org — only created when the caller provides config.org.
 	const orgModule: OrgModule | null = config.org ? createOrgModule(config.org, db) : null;
 
-	// SSO — only created when the caller provides config.sso.
 	const ssoModule: SsoModule | null = config.sso ? createSsoModule(config.sso, db) : null;
 
-	// Admin — only created when the caller provides config.admin.
 	const adminModule: AdminModule | null = config.admin
 		? createAdminModule(config.admin, db, sessionManager)
 		: null;
 
-	// API Keys — only created when the caller provides config.apiKeys.
 	const apiKeyManagerModule: ApiKeyManagerModule | null = config.apiKeys
 		? createApiKeyManagerModule(config.apiKeys, db)
 		: null;
 
-	// Username auth — only created when the caller provides config.username.
 	const usernameModule: UsernameAuthModule | null =
 		config.username && sessionManager
 			? createUsernameAuthModule(config.username, db, sessionManager, signInGate)
 			: null;
 
-	// Password reset — only created when caller provides config.passwordReset + username + session.
 	const oneTimeTokenModule = createOneTimeTokenModule({}, db);
 	const passwordResetModule: PasswordResetModule | null =
 		config.passwordReset && sessionManager
@@ -232,31 +205,25 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 				)
 			: null;
 
-	// Email verification — only created when caller provides config.emailVerification.
 	const emailVerificationModule: EmailVerificationModule | null = config.emailVerification
 		? createEmailVerificationModule(config.emailVerification, db, oneTimeTokenModule)
 		: null;
 
-	// Phone auth — only created when the caller provides config.phone.
 	const phoneModule: PhoneAuthModule | null =
 		config.phone && sessionManager
 			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate)
 			: null;
 
-	// Captcha — only created when the caller provides config.captcha.
 	const captchaModule: CaptchaModule | null = config.captcha
 		? createCaptchaModule(config.captcha)
 		: null;
 
-	// Redirect chain — always available (zero-config default).
 	const redirectChain: RedirectChainManager = createRedirectChain(config.redirects);
 
-	// Webhooks — only created when the caller provides config.webhooks.
 	const webhookModule: WebhookModule | null =
 		config.webhooks && config.webhooks.length > 0 ? createWebhookModule(config.webhooks) : null;
 
-	// Plugin system — runs after core modules so plugins can depend on them.
-	// Plugins may register endpoints, run migrations, and collect lifecycle hooks.
+	// Runs after core modules so plugins can depend on them.
 	assertSecondaryStorageConfig(config.secondaryStorage);
 	const secondaryStorage = createSecondaryStorageResolver(config.secondaryStorage, db);
 	const pluginRegistry = await initializePlugins(
@@ -268,19 +235,15 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		signInGate,
 	);
 
-	// Build an EndpointContext that plugins can use inside their handlers.
-	// We capture sessionManager in closure so it's available if configured.
 	const endpointCtx: EndpointContext = {
 		db,
 		trustedProxy: config.trustedProxy,
 		async getUser(request: Request): Promise<ResolvedUser | null> {
-			// 1. Try configured auth adapter first
 			if (authAdapter) {
 				const user = await authAdapter.resolveUser(request);
 				if (user) return user;
 			}
 
-			// 2. Fall back to session-based resolution
 			if (sessionManager) {
 				const token = extractToken(request);
 				if (!token) return null;
@@ -326,7 +289,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		trustedProxy: config.trustedProxy,
 	});
 
-	// Register core session endpoints when session manager is available
 	if (sessionManager) {
 		pluginRegistry.endpoints.push({
 			method: "POST",
@@ -342,7 +304,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 						await sessionManager.revoke(session.id);
 					}
 				} catch {
-					// Token invalid — still clear the cookie
+					// Invalid token: still clear the cookie.
 				}
 
 				return new Response(JSON.stringify({ success: true }), {
@@ -374,13 +336,11 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		});
 	}
 
-	// Authorize: look up agent, check own permissions then delegated permissions
 	async function authorize(
 		agentId: string,
 		request: AuthorizeRequest,
 		context?: RequestContext,
 	): Promise<AuthorizeResult> {
-		// beforeAuthorize hook — may block the request before any DB work
 		if (hooks.beforeAuthorize) {
 			const verdict = await hooks.beforeAuthorize({
 				agentId,
@@ -424,9 +384,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
 
-		// First check the agent's own permissions
-		// Denial rows are deferred: a delegated fallback may overturn the denial,
-		// and each path writing its own row would orphan the first auditId.
+		// Denial rows are deferred: a delegated fallback may overturn this denial,
+		// and writing one row per path would orphan the first auditId.
 		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, {
 			deferDenialAudit: true,
 		});
@@ -436,21 +395,18 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		if (ownResult.allowed) {
 			finalResult = ownResult;
 		} else {
-			// If own permissions deny, check effective permissions from delegation chains
 			const delegatedPerms = await delegationModule.getEffectivePermissions(agentId);
 
 			if (delegatedPerms.length === 0) {
 				finalResult = ownResult;
 			} else {
-				// Build a synthetic agent view with delegated permissions merged in
 				const agentWithDelegated = { ...agent, permissions: delegatedPerms };
 				const delegatedResult = await permissionEngine.authorize(
 					agentWithDelegated,
 					enrichedRequest,
 					{ deferDenialAudit: true },
 				);
-				// Both denied — return the original denial so the message references the agent by name
-				// A failed approvalId is the more specific reason, so it is kept.
+				// Both denied: keep the original denial, unless an approval failure is more specific.
 				const approvalDenied = delegatedResult.reason?.startsWith("APPROVAL_") === true;
 				finalResult = delegatedResult.allowed || approvalDenied ? delegatedResult : ownResult;
 			}
@@ -461,9 +417,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			await permissionEngine.auditDenial(agent, enrichedRequest, finalResult);
 		}
 
-		// afterAuthorize hook
-		// Fire-and-forget: a throwing or rejecting hook must not surface as an
-		// unhandled rejection or change the authorization result.
+		// Fire-and-forget: a throwing hook must not change the authorization result.
 		void Promise.resolve()
 			.then(() =>
 				hooks.afterAuthorize?.({
@@ -481,7 +435,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 				// Hook failures are the caller's concern; the SDK has no logger to report to.
 			});
 
-		// onViolation hook when the request was denied
 		if (!finalResult.allowed) {
 			void Promise.resolve()
 				.then(() =>
@@ -493,15 +446,12 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 						reason: finalResult.reason ?? "Authorization denied",
 					}),
 				)
-				.catch(() => {
-					// See afterAuthorize above.
-				});
+				.catch(() => {});
 		}
 
 		return finalResult;
 	}
 
-	// Authorize by token: validate token then check permissions
 	async function authorizeByToken(
 		token: string,
 		request: AuthorizeRequest,
@@ -528,7 +478,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		return permissionEngine.authorize(agent, enrichedRequest);
 	}
 
-	// Delegate: verify parent permissions then create chain
 	async function delegate(input: DelegateInput): Promise<DelegationChain> {
 		const parentAgent = await agentModule.get(input.fromAgent);
 		if (!parentAgent) throw new Error(`Parent agent "${input.fromAgent}" not found`);
@@ -538,7 +487,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		return delegationModule.delegate(input);
 	}
 
-	// Agent facade with hooks wired in
 	const agentProxy = {
 		async create(
 			...args: Parameters<typeof agentModule.create>
@@ -584,15 +532,9 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		validateToken: agentModule.validateToken,
 	};
 
-	// MCP server registry
-	// Uses the theauth_mcp_servers table (defined in db/schema.ts).
+	// Backed by the theauth_mcp_servers table (defined in db/schema.ts).
 	const mcpRegistry = {
-		/**
-		 * Register a new MCP tool server.
-		 *
-		 * Persists the server entry to the `theauth_mcp_servers` table.
-		 * The returned record includes the generated `id` and `createdAt`.
-		 */
+		/** Registers an MCP tool server. The returned record includes the generated `id` and `createdAt`. */
 		async register(input: McpServerInput): Promise<McpServer> {
 			const now = new Date();
 			const id = generateId();
@@ -619,9 +561,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			};
 		},
 
-		/**
-		 * List all registered MCP servers (active and inactive).
-		 */
+		/** Lists all registered MCP servers, active or not. */
 		async list(): Promise<McpServer[]> {
 			const rows = await db.select().from(mcpServers);
 			return rows.map((row) => ({
@@ -634,9 +574,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			}));
 		},
 
-		/**
-		 * Get a single MCP server by ID. Returns null when not found.
-		 */
+		/** Gets one MCP server by ID, or null when not found. */
 		async get(id: string): Promise<McpServer | null> {
 			const rows = await db.select().from(mcpServers).where(eq(mcpServers.id, id));
 			const row = rows[0];
@@ -676,33 +614,18 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			replayAgent: (agentId: string, opts?: Parameters<typeof auditModule.replayAgent>[1]) =>
 				auditModule.replayAgent(agentId, opts),
 		},
-		/**
-		 * MCP server registration.
-		 *
-		 * Register and look up MCP tool servers. Uses the `theauth_mcp_servers`
-		 * database table — no separate in-memory store needed.
-		 */
+		/** MCP server registration, backed by the `theauth_mcp_servers` table. */
 		mcp: mcpRegistry,
 		/** Per-feature secondary storage (rate limits, device codes, ...). */
 		secondaryStorage,
-		/**
-		 * Least-privilege analyzer.
-		 *
-		 * Compare agent permissions against actual audit log usage to surface
-		 * wildcards, unused grants, and over-permissioned identities.
-		 */
+		/** Least-privilege analyzer: compares granted permissions against audit log usage. */
 		analyzer: {
 			analyzeAgent: privilegeAnalyzer.analyzeAgent,
 			analyzeAll: privilegeAnalyzer.analyzeAll,
 			getSummary: privilegeAnalyzer.getSummary,
 		},
 		/**
-		 * Human auth integration.
-		 *
-		 * `resolveUser` extracts the authenticated human from an inbound HTTP
-		 * request via the configured adapter.  `session` is a full session
-		 * manager (create / validate / revoke) when `auth.session` was passed
-		 * to `createTheAuth()`.
+		 * Human auth integration. `session` is only available when `auth.session` was passed to `createTheAuth()`.
 		 *
 		 * @example
 		 * ```typescript
@@ -721,53 +644,22 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			},
 			session: sessionManager,
 		},
-		/**
-		 * Resolve a human user from an incoming HTTP request.
-		 *
-		 * @deprecated Use `theauth.auth.resolveUser(request)` instead.
-		 */
+		/** @deprecated Use `theauth.auth.resolveUser(request)` instead. */
 		async resolveUser(request: Request): Promise<ResolvedUser | null> {
 			if (!authAdapter) return null;
 			return authAdapter.resolveUser(request);
 		},
-		/** Direct database access for advanced usage */
 		db,
-		/**
-		 * Multi-tenant isolation.
-		 *
-		 * Create and manage tenants (organizations) that share a single
-		 * TheAuth instance with full data isolation. Agents can be scoped
-		 * to a tenant via `tenantId`.
-		 */
+		/** Multi-tenant isolation: tenants (organizations) share one instance with isolated data. */
 		tenant: tenantModule,
-		/**
-		 * Agent execution budget policies.
-		 *
-		 * Set spending caps (token cost, call counts) per agent, user, or
-		 * tenant. Exceeded policies trigger a configurable action: warn,
-		 * throttle, block, or revoke.
-		 */
+		/** Per-agent, per-user or per-tenant spending caps. Exceeded policies warn, throttle, block or revoke. */
 		policies: policyModule,
-		/**
-		 * CIBA-style async human approval flows.
-		 *
-		 * Create pending approval requests, notify humans via webhook or
-		 * custom handler, and resolve them with approve / deny.
-		 */
+		/** Async human approval flows (CIBA-style): create requests, notify humans, approve or deny. */
 		approval: approvalModule,
-		/**
-		 * Graduated autonomy trust scoring.
-		 *
-		 * Compute and persist 0-100 trust scores derived from audit history,
-		 * mapped to five levels: untrusted, limited, standard, trusted, elevated.
-		 */
+		/** Graduated autonomy trust scores (0-100) derived from audit history. */
 		trust: trustModule,
 		/**
-		 * W3C Decentralized Identifiers (DID) for agents.
-		 *
-		 * Generate did:key or did:web identities, sign payloads, and verify
-		 * signatures. Private keys are never stored — they are returned to
-		 * the caller on generation and must be stored securely.
+		 * W3C Decentralized Identifiers for agents. Private keys are returned on generation and never stored.
 		 *
 		 * @example
 		 * ```typescript
@@ -778,10 +670,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		did: didModule,
 		/**
-		 * Magic link (passwordless email) authentication.
-		 *
-		 * Null when `magicLink` config was not provided or `auth.session` is not
-		 * configured (sessions are required to issue tokens on verification).
+		 * Magic link authentication. Null unless `magicLink` and `auth.session` are configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -792,10 +681,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		magicLink: magicLinkModule,
 		/**
-		 * Email OTP (one-time password) authentication.
-		 *
-		 * Null when `emailOtp` config was not provided or `auth.session` is not
-		 * configured.
+		 * Email OTP authentication. Null unless `emailOtp` and `auth.session` are configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -805,9 +691,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		emailOtp: emailOtpModule,
 		/**
-		 * TOTP two-factor authentication.
-		 *
-		 * Null when `totp` config was not provided.
+		 * TOTP two-factor authentication. Null unless `totp` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -823,31 +707,27 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		totp: totpModule,
 		/**
-		 * Passkey / WebAuthn authentication.
-		 *
-		 * Null when `passkey` config was not provided.
+		 * Passkey (WebAuthn) authentication. Null unless `passkey` is configured.
 		 *
 		 * @example
 		 * ```typescript
-		 * // Registration — step 1: get options, send to browser
+		 * // Registration, step 1: get options, send to browser
 		 * const options = await theauth.passkey.getRegistrationOptions(userId, userName);
 		 *
-		 * // Registration — step 2: verify browser response
+		 * // Registration, step 2: verify browser response
 		 * const { credential } = await theauth.passkey.verifyRegistration(userId, response);
 		 *
-		 * // Authentication — step 1: get options
+		 * // Authentication, step 1: get options
 		 * const options = await theauth.passkey.getAuthenticationOptions(userId);
 		 *
-		 * // Authentication — step 2: verify browser response
+		 * // Authentication, step 2: verify browser response
 		 * const result = await theauth.passkey.verifyAuthentication(response);
 		 * if (result) console.log('Authenticated user:', result.userId);
 		 * ```
 		 */
 		passkey: passkeyModule,
 		/**
-		 * Organizations + RBAC.
-		 *
-		 * Null when `org` config was not provided.
+		 * Organizations and RBAC. Null unless `org` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -857,9 +737,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		org: orgModule,
 		/**
-		 * SSO (SAML 2.0 + OIDC) enterprise authentication.
-		 *
-		 * Null when `sso` config was not provided.
+		 * SSO (SAML 2.0 and OIDC) enterprise authentication. Null unless `sso` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -869,9 +747,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		sso: ssoModule,
 		/**
-		 * Admin module.
-		 *
-		 * Null when `admin` config was not provided.
+		 * Admin module. Null unless `admin` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -881,9 +757,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		admin: adminModule,
 		/**
-		 * API key management.
-		 *
-		 * Null when `apiKeys` config was not provided.
+		 * API key management. Null unless `apiKeys` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -893,10 +767,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		apiKeys: apiKeyManagerModule,
 		/**
-		 * Username + password authentication.
-		 *
-		 * Null when `username` config was not provided or `auth.session` is not
-		 * configured (sessions are required to issue tokens on sign-in/up).
+		 * Username and password authentication. Null unless `username` and `auth.session` are configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -906,10 +777,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		username: usernameModule,
 		/**
-		 * Password reset (forgot password + reset password).
-		 *
-		 * Null when `passwordReset` config was not provided or `auth.session`
-		 * is not configured.
+		 * Password reset. Null unless `passwordReset` and `auth.session` are configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -924,9 +792,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		passwordReset: passwordResetModule,
 		/**
-		 * Email address verification.
-		 *
-		 * Null when `emailVerification` config was not provided.
+		 * Email address verification. Null unless `emailVerification` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -941,19 +807,10 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 * ```
 		 */
 		emailVerification: emailVerificationModule,
-		/**
-		 * One-time tokens (email verify, password reset, invitations, custom).
-		 *
-		 * Always available. Used internally by password reset but exposed for
-		 * custom flows (email verification, invitation links, etc.).
-		 */
+		/** One-time tokens for email verification, password reset, invitations and custom flows. */
 		oneTimeTokens: oneTimeTokenModule,
 		/**
-		 * Session freshness enforcement for sensitive operations.
-		 *
-		 * Use as middleware before password changes, passkey registration,
-		 * billing updates, or any action that requires a recently-authenticated
-		 * session rather than an auto-refreshed one.
+		 * Session freshness guard for sensitive operations that need a recent login, not an auto-refreshed session.
 		 *
 		 * @example
 		 * ```typescript
@@ -965,10 +822,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			config.sessionFreshness,
 		) as SessionFreshnessModule,
 		/**
-		 * Phone number (SMS OTP) authentication.
-		 *
-		 * Null when `phone` config was not provided or `auth.session` is not
-		 * configured.
+		 * Phone (SMS OTP) authentication. Null unless `phone` and `auth.session` are configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -978,9 +832,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		phone: phoneModule,
 		/**
-		 * Captcha integration (reCAPTCHA, hCaptcha, Cloudflare Turnstile).
-		 *
-		 * Null when `captcha` config was not provided.
+		 * Captcha (reCAPTCHA, hCaptcha, Turnstile). Null unless `captcha` is configured.
 		 *
 		 * @example
 		 * ```typescript
@@ -990,9 +842,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		captcha: captchaModule,
 		/**
-		 * Webhook system.
-		 *
-		 * Null when `webhooks` config was not provided or the array is empty.
+		 * Webhooks. Null unless `webhooks` has at least one entry.
 		 *
 		 * @example
 		 * ```typescript
@@ -1001,19 +851,15 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		webhooks: webhookModule,
 		/**
-		 * Redirect chain manager.
-		 *
-		 * Capture the user's original destination before auth redirects, push
-		 * intermediate steps (onboarding, email verification), and pop them
-		 * back in order. Cookie-based, works across page transitions and tabs.
+		 * Redirect chain for returning users to their original destination after auth steps. Cookie-based.
 		 *
 		 * @example
 		 * ```typescript
-		 * // In auth middleware — save where the user was going
+		 * // In auth middleware, save where the user was going
 		 * const setCookie = theauth.redirects.capture(request);
 		 * return new Response(null, { status: 302, headers: { Location: '/sign-in', 'Set-Cookie': setCookie } });
 		 *
-		 * // After sign-in — send user to their original destination
+		 * // After sign-in, send user to their original destination
 		 * const { url, clearCookie } = theauth.redirects.pop(request);
 		 * const headers: Record<string, string> = { Location: url };
 		 * if (clearCookie) headers['Set-Cookie'] = clearCookie;
@@ -1022,11 +868,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 */
 		redirects: redirectChain,
 		/**
-		 * Unified policy engine.
-		 *
-		 * Single decision point that combines RBAC role expansion, ABAC constraint
-		 * evaluation, and ReBAC graph queries. Backed by a process-local LRU cache
-		 * with deterministic invalidation.
+		 * Unified policy engine (RBAC, ABAC and ReBAC) with a process-local LRU cache and deterministic invalidation.
 		 *
 		 * @example
 		 * ```typescript
@@ -1050,11 +892,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 			stats: policyEngine.stats,
 		},
 		/**
-		 * Plugin system.
-		 *
-		 * Route incoming HTTP requests through plugin-registered endpoints,
-		 * retrieve all endpoints for adapter mounting, or access plugin-provided
-		 * context values.
+		 * Plugin system: route requests through plugin endpoints and read plugin context.
 		 *
 		 * @example
 		 * ```typescript
@@ -1073,21 +911,14 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 				if (hooked instanceof Response) return hooked;
 				return pluginRouter.handle(hooked, basePath, endpointCtx);
 			},
-			/**
-			 * Run plugin `onRequest` hooks (rate limiting, etc.) for a request that
-			 * TheAuth does not route itself, such as `/mcp/token`. Returns a Response
-			 * to send back when a hook blocked the request, otherwise the request.
-			 */
+			/** Runs plugin `onRequest` hooks for requests TheAuth does not route itself, such as `/mcp/token`. */
 			runRequestHooks,
-			/** Get all endpoints registered by plugins (for framework adapter mounting). */
 			getEndpoints() {
 				return pluginRouter.getEndpoints();
 			},
-			/** Get the merged plugin context (values returned from plugin init). */
 			getContext(): Record<string, unknown> {
 				return { ...pluginRegistry.pluginContext };
 			},
-			/** Access the raw plugin registry (hooks, migrations, etc.). */
 			registry: pluginRegistry,
 		},
 	};

@@ -1,5 +1,3 @@
-// Upstream request and response handling: header hygiene, body limit, timeout.
-
 /** Headers that describe one hop only (RFC 9110 section 7.6.1). */
 const HOP_BY_HOP = [
 	"connection",
@@ -30,7 +28,6 @@ export const DEFAULT_UPSTREAM_TIMEOUT_MS = 30_000;
 
 type StreamingInit = RequestInit & { duplex: "half" };
 
-/** Remove hop-by-hop headers, including any the Connection header names. */
 export function stripHopByHop(headers: Headers): void {
 	const named = (headers.get("connection") ?? "")
 		.split(",")
@@ -39,7 +36,6 @@ export function stripHopByHop(headers: Headers): void {
 	for (const name of [...HOP_BY_HOP, ...named]) headers.delete(name);
 }
 
-/** Parse and check the upstream URL once, at startup. */
 export function parseUpstream(upstream: string): URL {
 	let url: URL;
 	try {
@@ -131,11 +127,7 @@ export function buildUpstreamRequest(
 	return new Request(target.toString(), init);
 }
 
-/**
- * Fetch with a timeout that covers only the wait for response headers. Once
- * the upstream starts answering, the stream is left alone so SSE and long
- * streamable HTTP responses are never cut by this timer.
- */
+/** Timeout covers only the wait for response headers, so SSE and long streams are not cut. */
 export async function fetchUpstream(
 	upstreamRequest: (signal: AbortSignal) => Request,
 	clientSignal: AbortSignal,

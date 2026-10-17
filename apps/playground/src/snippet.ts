@@ -1,5 +1,4 @@
-// Emits the guardTool snippet equivalent to a playground run. Names come from
-// packages/core/src/agent-tools/guard.ts, taint/labels.ts and theauth.ts.
+// Emits the guardTool snippet matching a playground run.
 
 import type { PlaygroundPolicy, ToolCall } from "./presets.js";
 

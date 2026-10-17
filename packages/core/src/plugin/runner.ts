@@ -19,10 +19,7 @@ export interface PluginRegistry {
 
 /**
  * Run plugin migrations against the database.
- *
- * Follows the same pattern as createTables() — raw DDL executed against the
- * underlying driver.  Only CREATE TABLE IF NOT EXISTS statements should be
- * passed here; plugins are responsible for making their DDL idempotent.
+ * Only CREATE TABLE IF NOT EXISTS statements should be passed here; plugins are responsible for making their DDL idempotent.
  */
 async function runMigrations(
 	db: Database,
@@ -81,12 +78,8 @@ async function runMigrations(
 }
 
 /**
- * Initialize all plugins and collect their endpoints, migrations, and hooks
- * into a single registry.
- *
- * Calls each plugin's `init()` in registration order.  Migrations collected
- * during init are executed before the registry is returned so that any
- * subsequent requests can immediately use plugin tables.
+ * Initialize all plugins and collect their endpoints, migrations, and hooks into a single registry.
+ * Migrations collected during init are executed before the registry is returned so that any subsequent requests can immediately use plugin tables.
  */
 export async function initializePlugins(
 	plugins: TheAuthPlugin[],
@@ -133,7 +126,6 @@ export async function initializePlugins(
 			}
 		}
 
-		// Collect lifecycle hooks
 		if (plugin.hooks) {
 			if (plugin.hooks.onRequest) {
 				registry.hooks.onRequest.push(plugin.hooks.onRequest);

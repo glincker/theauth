@@ -4,8 +4,6 @@ import { createEventStreamModule, EVENT_TYPES } from "../src/auth/event-stream.j
 import * as schema from "../src/db/schema.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// Helpers
-
 async function createTestDb() {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -81,8 +79,6 @@ async function drainStream(response: Response, timeoutMs = 200): Promise<string>
 	reader.cancel();
 	return result;
 }
-
-// Tests
 
 describe("event stream: response headers", () => {
 	let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -397,7 +393,7 @@ describe("event stream: type filtering", () => {
 
 	it("ignores unknown type values in filter", async () => {
 		const stream = createEventStreamModule({ db, requireAuth: false });
-		// unknown types should be stripped — with no valid types remaining, no filter is applied
+		// unknown types should be stripped, with no valid types remaining, no filter is applied
 		const resp = stream.handleRequest(
 			makeSseRequest({ searchParams: { types: "audit,invalid-type" } }),
 		);
@@ -457,7 +453,6 @@ describe("event stream: replay", () => {
 		const evt = makeEvent({ id: "replay-test", type: "audit" });
 		stream.emit(evt);
 
-		// Wait for persistence
 		await new Promise<void>((r) => setTimeout(r, 30));
 
 		const result = await stream.replay(past);

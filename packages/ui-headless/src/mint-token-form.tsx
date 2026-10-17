@@ -34,7 +34,6 @@ type Part = "form" | "field" | "input" | "abilities" | "submit" | "secret" | "er
 
 export interface MintTokenFormProps {
 	labels: MintTokenFormLabels;
-	/** Abilities the host lets the user pick from. */
 	abilities: AbilityOption[];
 	expiries?: ExpiryOption[];
 	kind?: ApiTokenKind;

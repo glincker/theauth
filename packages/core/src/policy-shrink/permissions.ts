@@ -61,10 +61,7 @@ export function splitPermission(p: Permission): Permission[] {
 	return [...new Set(p.actions)].map((a) => withExtras(p.resource, [a], p));
 }
 
-/**
- * Merge single-action permissions that share resource and extras into one
- * permission each, at the position of the first occurrence.
- */
+/** Merge single-action permissions that share resource and extras into one permission each, at the position of the first occurrence. */
 export function compactPermissions(atoms: Permission[]): Permission[] {
 	const out: Permission[] = [];
 	const at = new Map<string, number>();
@@ -83,9 +80,7 @@ export function compactPermissions(atoms: Permission[]): Permission[] {
 }
 
 /**
- * True when `outer` allows every (action, resource) that `inner` allows.
- * Built on the engine's matchResource and matchAction, so a wildcard in
- * `inner` is only covered by an equal or broader wildcard in `outer`.
+ * True when `outer` allows every (action, resource) that `inner` allows. Built on the engine's matchResource and matchAction, so a wildcard in `inner` is only covered by an equal or broader wildcard in `outer`.
  */
 export function covers(outer: Permission, inner: Permission): boolean {
 	return (
@@ -115,12 +110,7 @@ function firstSegment(resource: string): string {
 }
 
 /**
- * First-match lookup over a fixed permission list, equal to `findMatchingPermission` but
- * without a scan of every permission per row. A pattern whose first segment is not `*` can
- * only match resources with that same first segment, so permissions are bucketed by it;
- * patterns that start with `*` (or are not strings) go in a shared list. Each candidate is
- * still decided by the engine's own `matchResource` and `matchAction`, and the lowest index
- * wins, so results are identical to the linear scan. Answers are memoized per pair.
+ * First-match lookup over a fixed permission list, equal to `findMatchingPermission` but without a scan of every permission per row. A pattern whose first segment is not `*` can only match resources with that same first segment, so permissions are bucketed by it; patterns that start with `*` (or are not strings) go in a shared list. Each candidate is still decided by the engine's own `matchResource` and `matchAction`, and the lowest index wins, so results are identical to the linear scan. Answers are memoized per pair.
  */
 export function createGrantMatcher(
 	permissions: readonly Permission[],

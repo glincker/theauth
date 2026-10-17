@@ -1,6 +1,4 @@
-/**
- * Tests for API key management.
- */
+/** Tests for API key management. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ApiKeyManagerModule } from "../src/auth/api-key-manager.js";
@@ -9,8 +7,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -25,8 +21,6 @@ async function seedUser(db: Database, id: string, email: string): Promise<void> 
 
 const USER_ID = "user_key_test_001";
 const PERMISSIONS = ["agents:read", "agents:write"];
-
-// Suite
 
 describe("ApiKeyManagerModule.create", () => {
 	let db: Database;

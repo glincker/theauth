@@ -1,17 +1,5 @@
 /**
- * Email verification module for TheAuth.
- *
- * Handles the full email address verification flow: generating single-use
- * tokens, sending verification emails, and marking user addresses as verified
- * in the database. Composes the one-time token module so tokens are stored as
- * SHA-256 hashes and consumed on first use.
- *
- * Security properties:
- * - Tokens are 256-bit random, stored as SHA-256 hashes (never in plaintext).
- * - Single-use: consumed on first validation.
- * - Configurable TTL (default 24 hours).
- * - Outstanding verify tokens are revoked after successful verification.
- * - Sending to an already-verified address returns success without sending.
+ * Email verification: single-use verification tokens, sent by email and consumed on confirmation.
  *
  * @example
  * ```typescript
@@ -46,84 +34,38 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
 
-// Re-export shared types
-
 export type { AuthError, Result, TheAuthError };
 
-// Public types
-
 export interface EmailVerificationConfig {
-	/**
-	 * Callback to send the verification email.
-	 *
-	 * TheAuth generates the token and constructs the verify URL. Your job is
-	 * to deliver it (Resend, SES, SMTP, Postmark, whatever you use).
-	 */
+	/** Sends the verification email. TheAuth builds the token and verify URL; you deliver the email. */
 	sendVerificationEmail: (email: string, token: string, verifyUrl: string) => Promise<void>;
 
-	/**
-	 * Base URL for the verify page in your app.
-	 *
-	 * The token is appended as `?token=<token>`. Example:
-	 * `https://app.example.com/verify-email` produces
-	 * `https://app.example.com/verify-email?token=abc123...`
-	 */
+	/** Verify page URL in your app. The token is appended as `?token=<token>`. */
 	verifyUrl: string;
 
-	/**
-	 * Token TTL in seconds. Default: 86400 (24 hours).
-	 */
+	/** Token TTL in seconds. Default: 86400 (24 hours). */
 	tokenTtlSeconds?: number;
 
-	/**
-	 * When true, call `sendVerification` automatically after sign-up.
-	 * Default: false.
-	 *
-	 * The caller is still responsible for calling `sendVerification` directly
-	 * if this is false. This flag is informational — TheAuth uses it to
-	 * signal intent to integrations (e.g. the username module).
-	 */
+	/** Send a verification email automatically after sign-up. Default: false. The caller still handles errors. */
 	autoVerifyOnSignUp?: boolean;
 }
 
 export interface EmailVerificationModule {
-	/**
-	 * Create a verification token and send the verification email.
-	 *
-	 * Returns `{ sent: true }` when the email was dispatched.
-	 * Returns `{ sent: false }` when the email is already verified — no
-	 * email is sent and no token is created in that case.
-	 */
+	/** Creates a verification token and sends the email. Returns `{ sent: true }` when dispatched. */
 	sendVerification(userId: string, email: string): Promise<Result<{ sent: boolean }>>;
 
-	/**
-	 * Validate a verification token and mark the user's email as verified.
-	 *
-	 * The token is consumed on success. All outstanding verify tokens for
-	 * the address are revoked after successful verification.
-	 */
+	/** Validates a verification token and marks the email verified. The token is consumed on success. */
 	verify(token: string): Promise<Result<{ userId: string; email: string }>>;
 
-	/**
-	 * Check whether a user's email address has been verified.
-	 */
+	/** Checks whether a user's email address has been verified. */
 	isVerified(userId: string): Promise<boolean>;
 
-	/**
-	 * Handle HTTP requests for email verification endpoints.
-	 *
-	 * - POST /auth/verify-email/send    — { userId, email }
-	 * - POST /auth/verify-email/confirm — { token }
-	 */
+	/** Handles the email verification HTTP endpoints (see the route list in the module header). */
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// Constants
-
 const DEFAULT_TOKEN_TTL_SECONDS = 86400; // 24 hours
 const TOKEN_PURPOSE = "email-verify" as const;
-
-// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -136,16 +78,12 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// Factory
-
 export function createEmailVerificationModule(
 	config: EmailVerificationConfig,
 	db: Database,
 	tokenModule: OneTimeTokenModule,
 ): EmailVerificationModule {
 	const tokenTtl = config.tokenTtlSeconds ?? DEFAULT_TOKEN_TTL_SECONDS;
-
-	// sendVerification
 
 	async function sendVerification(
 		userId: string,
@@ -160,7 +98,6 @@ export function createEmailVerificationModule(
 
 		const normalizedEmail = normalizeEmail(email);
 
-		// Check if already verified — no need to send again.
 		const userRows = await db
 			.select({ id: users.id, emailVerified: users.emailVerified })
 			.from(users)
@@ -175,10 +112,8 @@ export function createEmailVerificationModule(
 			return { success: true, data: { sent: false } };
 		}
 
-		// Revoke any outstanding verify tokens for this email before issuing a new one.
 		await tokenModule.revokeTokens(normalizedEmail, TOKEN_PURPOSE);
 
-		// Create the verification token
 		const tokenResult = await tokenModule.createToken({
 			purpose: TOKEN_PURPOSE,
 			identifier: normalizedEmail,
@@ -198,22 +133,18 @@ export function createEmailVerificationModule(
 		try {
 			await config.sendVerificationEmail(normalizedEmail, tokenResult.data.token, verifyUrl);
 		} catch (err) {
-			// Swallow send errors — the token is already created.
-			// The caller can retry or the user can request another email.
+			// Send errors are swallowed: the token exists, and the user can request another email.
 			void err;
 		}
 
 		return { success: true, data: { sent: true } };
 	}
 
-	// verify
-
 	async function verify(token: string): Promise<Result<{ userId: string; email: string }>> {
 		if (typeof token !== "string" || token.trim() === "") {
 			return { success: false, error: makeError("INVALID_INPUT", "token must not be empty") };
 		}
 
-		// Validate and consume the token
 		const validation = await tokenModule.validateToken(token, TOKEN_PURPOSE);
 		if (!validation.success) {
 			return {
@@ -227,7 +158,6 @@ export function createEmailVerificationModule(
 		const email = validation.data.identifier;
 		const userId = validation.data.metadata?.userId as string | undefined;
 
-		// Resolve the user — prefer userId from token metadata, fall back to email lookup.
 		let resolvedUserId: string;
 
 		if (userId) {
@@ -245,19 +175,15 @@ export function createEmailVerificationModule(
 			resolvedUserId = user.id;
 		}
 
-		// Mark email as verified
 		await db
 			.update(users)
 			.set({ emailVerified: 1, updatedAt: new Date() })
 			.where(eq(users.id, resolvedUserId));
 
-		// Revoke any remaining verify tokens for this email
 		await tokenModule.revokeTokens(email, TOKEN_PURPOSE);
 
 		return { success: true, data: { userId: resolvedUserId, email } };
 	}
-
-	// isVerified
 
 	async function isVerified(userId: string): Promise<boolean> {
 		const rows = await db
@@ -268,8 +194,6 @@ export function createEmailVerificationModule(
 		const user = rows[0];
 		return user?.emailVerified === 1;
 	}
-
-	// handleRequest
 
 	const HANDLED_PATHS = new Set(["/auth/verify-email/send", "/auth/verify-email/confirm"]);
 

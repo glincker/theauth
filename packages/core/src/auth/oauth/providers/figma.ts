@@ -1,33 +1,19 @@
 /**
  * Figma OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://www.figma.com/oauth
- * - Token:         https://api.figma.com/v1/oauth/token
- * - UserInfo:      https://api.figma.com/v1/me
- *
  * Notes:
  * - PKCE S256 is supported by Figma's OAuth implementation.
- * - The `file_read` scope is the minimum required for sign-in; it grants
- *   read access to files, projects, and user information.
- * - The email address is always returned; Figma accounts always have one.
- *
- * Docs: https://www.figma.com/developers/api#authentication
+ * - The `file_read` scope is the minimum required for sign-in; it grants read access to files, projects, and user information.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://www.figma.com/oauth";
 const TOKEN_URL = "https://api.figma.com/v1/oauth/token";
 const USER_INFO_URL = "https://api.figma.com/v1/me";
 
 export const DEFAULT_FIGMA_SCOPES = ["file_read"];
-
-// Raw response shapes
 
 interface FigmaTokenResponse {
 	access_token: string;
@@ -42,8 +28,6 @@ interface FigmaUserResponse {
 	handle?: string;
 	img_url?: string;
 }
-
-// Profile normalisation
 
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as FigmaUserResponse;
@@ -64,8 +48,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Factory
 
 /**
  * Create a Figma OAuth provider instance.
@@ -173,8 +155,6 @@ export function createFigmaProvider(config: OAuthProviderConfig): OAuthProvider 
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

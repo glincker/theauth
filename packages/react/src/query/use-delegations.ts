@@ -4,7 +4,6 @@ import { unwrap, useTheAuthGoClient } from "./client-context.js";
 import { authKeys } from "./keys.js";
 import type { RevokeAgentInput } from "./use-agents.js";
 
-/** The signed-in user's delegation grants to agents. */
 export function useDelegations() {
 	const client = useTheAuthGoClient();
 	const qc = useQueryClient();

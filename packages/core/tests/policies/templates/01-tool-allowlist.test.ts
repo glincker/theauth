@@ -1,6 +1,4 @@
-/**
- * Tests for template 01 — tool allowlist.
- */
+/** Tests for template 01, tool allowlist. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { toolAllowlistPermissions } from "../../../../../docs/policies/templates/01-tool-allowlist/policy.js";

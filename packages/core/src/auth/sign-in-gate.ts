@@ -1,26 +1,8 @@
 /**
  * Central sign-in gate.
- *
- * Every path that issues a session (username, email/password, magic link,
- * OAuth callback, passkey, phone, email OTP, one tap, device) calls the gate once the primary credential has been
- * verified. The gate answers one question: may a session be issued now?
- *
- * Outcomes:
- *   - `allow`: issue the session.
- *   - `password_change_required`: the account is flagged for a forced password
- *     change. A signed challenge is returned so the user can complete the
- *     change flow without a session.
- *   - `two_factor_required`: the account has a second factor enabled, the
- *     sign-in method is listed in `require2faFor`, and no valid trusted device
- *     cookie was presented. A signed challenge is returned; exchange it with a
- *     code through `completeTwoFactor`.
- *
- * Challenges are stateless HMAC-signed tokens (default TTL 5 minutes). Attempt
- * counting and single-use tracking are per process (in memory).
- *
- * Trusted devices are bound to a random cookie secret issued after a
- * successful second factor, never to request headers alone, so a spoofed
- * user-agent cannot skip 2FA.
+ * Every path that issues a session (username, email/password, magic link, OAuth callback, passkey, phone, email OTP, one tap, device) calls the gate once the primary credential has been verified.
+ * - `password_change_required`: the account is flagged for a forced password change.
+ * - `two_factor_required`: the account has a second factor enabled, the sign-in method is listed in `require2faFor`, and no valid trusted device cookie was presented. Challenges are stateless HMAC-signed tokens (default TTL 5 minutes). Trusted devices are bound to a random cookie secret issued after a successful second factor, never to request headers alone, so a spoofed user-agent cannot skip 2FA.
  */
 
 import { eq } from "drizzle-orm";
@@ -70,8 +52,6 @@ export type {
 } from "./sign-in-gate-types.js";
 export { SIGN_IN_METHODS } from "./sign-in-gate-types.js";
 
-// Pure evaluation
-
 export interface EvaluateSignInGateInput {
 	user: SignInGateUser;
 	method: SignInMethod;
@@ -87,10 +67,7 @@ export interface EvaluateSignInGateInput {
 export type RawGateOutcome = "allow" | "password_change_required" | "two_factor_required";
 
 /**
- * Decide the outcome from already-resolved facts. Forced password change wins
- * over 2FA (the change flow re-evaluates the gate afterwards). A forced change
- * only blocks methods other than `password` when the user actually has a
- * password credential, so social-only accounts cannot be locked out.
+ * Decide the outcome from already-resolved facts. Forced password change wins over 2FA (the change flow re-evaluates the gate afterwards). A forced change only blocks methods other than `password` when the user actually has a password credential, so social-only accounts cannot be locked out.
  */
 export function evaluateSignInGate(input: EvaluateSignInGateInput): RawGateOutcome {
 	if (input.user.mustChangePassword && input.hasPasswordCredential) {
@@ -105,8 +82,6 @@ export function evaluateSignInGate(input: EvaluateSignInGateInput): RawGateOutco
 	}
 	return "allow";
 }
-
-// Challenge tokens
 
 type ChallengePurpose = "password_change" | "two_factor";
 
@@ -150,8 +125,6 @@ function isMethod(value: unknown): value is SignInMethod {
 	return typeof value === "string" && (SIGN_IN_METHODS as readonly string[]).includes(value);
 }
 
-// Factory
-
 export interface CreateSignInGateOptions {
 	db: Database;
 	config?: SignInGateConfig;
@@ -159,16 +132,9 @@ export interface CreateSignInGateOptions {
 	sessionSecret?: string;
 	/** TOTP module to read enrollment from. Defaults to a module over `db`. */
 	totp?: TotpModule;
-	/**
-	 * Whether the TOTP tables exist. The built-in TOTP factor is only
-	 * registered when true, so the gate never queries a missing table.
-	 * Defaults to true for callers that create every table.
-	 */
+	/** Whether the TOTP tables exist. The built-in TOTP factor is only registered when true, so the gate never queries a missing table. Defaults to true for callers that create every table. */
 	totpAvailable?: boolean;
-	/**
-	 * Whether the username account table exists. The built-in password
-	 * credential check is skipped when false. Defaults to true.
-	 */
+	/** Whether the username account table exists. The built-in password credential check is skipped when false. Defaults to true. */
 	usernameAccountsAvailable?: boolean;
 }
 

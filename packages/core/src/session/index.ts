@@ -35,7 +35,6 @@ export type {
 	ValidateSessionResult,
 } from "./manager.js";
 export { createCookieSessionManager } from "./manager.js";
-// Multi-session support
 export type { MultiSessionConfig, MultiSessionModule, SessionInfo } from "./multi-session.js";
 export {
 	buildSessionMetadata,

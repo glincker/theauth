@@ -4,11 +4,7 @@ import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js
 
 export type PolicyEffect = "permit" | "deny" | "indeterminate" | "escalate";
 
-/**
- * Tri-state outcome of a runtime check. "escalate" means the action is not
- * refused but must not run until a human approves (or the actor steps up).
- * `PolicyDecision.allowed` is true only for "allow".
- */
+/** Tri-state outcome of a runtime check. "escalate" means the action is not refused but must not run until a human approves (or the actor steps up). `PolicyDecision.allowed` is true only for "allow". */
 export type PolicyOutcome = "allow" | "deny" | "escalate";
 
 /** What a risk tier demands before the action may run. */
@@ -66,10 +62,7 @@ export interface PolicyDecisionSubject {
 	agentId?: string;
 	userId?: string;
 	orgId?: string;
-	/**
-	 * Owner the request claims the agent acts for. When set, evaluate() denies
-	 * unless it equals the agent's ownerId.
-	 */
+	/** Owner the request claims the agent acts for. When set, evaluate() denies unless it equals the agent's ownerId. */
 	ownerId?: string;
 }
 
@@ -77,10 +70,7 @@ export interface PolicyEvaluationContext {
 	ip?: string;
 	risk?: RiskContext;
 	arguments?: Record<string, unknown>;
-	/**
-	 * Provenance labels per argument name ("*" for the whole call). Checked against
-	 * `PolicyEngineConfig.taint` and written to the audit record's input_provenance.
-	 */
+	/** Provenance labels per argument name ("*" for the whole call). Checked against `PolicyEngineConfig.taint` and written to the audit record's input_provenance. */
 	provenance?: ProvenanceMap;
 	timestamp?: Date;
 	[key: string]: unknown;
@@ -91,10 +81,7 @@ export interface EvaluateInput {
 	action: string;
 	resource: string;
 	context?: PolicyEvaluationContext;
-	/**
-	 * Id of an approved approval request. When the decision would escalate for
-	 * approval, evaluate() spends this request (single use) and allows instead.
-	 */
+	/** Id of an approved approval request. When the decision would escalate for approval, evaluate() spends this request (single use) and allows instead. */
 	approvalId?: string;
 }
 
@@ -128,10 +115,7 @@ export interface PolicyDecision {
 	taint?: TaintVerdict;
 }
 
-/**
- * Input shape for constructing a PolicyDecision by hand. `decision` and
- * `allowed` are optional and recomputed from `effect` by makeDecision().
- */
+/** Input shape for constructing a PolicyDecision by hand. `decision` and `allowed` are optional and recomputed from `effect` by makeDecision(). */
 export type PolicyDecisionInput = Omit<PolicyDecision, "decision" | "allowed"> &
 	Partial<Pick<PolicyDecision, "decision" | "allowed">>;
 
@@ -176,10 +160,7 @@ export interface PolicyEngineConfig {
 	policyVersion?: string;
 }
 
-/**
- * Error codes returned in PolicyDecision.reason when the decision was not
- * a clean PERMIT or DENY from a matched permission.
- */
+/** Error codes returned in PolicyDecision.reason when the decision was not a clean PERMIT or DENY from a matched permission. */
 export const POLICY_ERROR_CODES = {
 	INVALID_INPUT: "POLICY_INVALID_INPUT",
 	SUBJECT_NOT_FOUND: "POLICY_SUBJECT_NOT_FOUND",

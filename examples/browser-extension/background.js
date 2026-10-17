@@ -1,10 +1,8 @@
-// Copy packages/extension/dist/index.js to vendor/theauth-extension.js first
-// (run `pnpm --filter @glinr/theauth-extension build`). No bundler is needed
-// because the package is a single ES module with no dependencies.
+// Copy packages/extension/dist/index.js to vendor/theauth-extension.js first (pnpm --filter @glinr/theauth-extension build).
+// Single ES module with no dependencies, so no bundler is needed.
 import { createExtensionAuth, exposeAuthToBackground } from "./vendor/theauth-extension.js";
 
-// Replace these with your authorization server and a registered public client.
-// Register the value of chrome.identity.getRedirectURL() as its redirect URI.
+// Use your authorization server and a registered public client. Register chrome.identity.getRedirectURL() as its redirect URI.
 const auth = createExtensionAuth({
 	issuer: "https://auth.example.com",
 	clientId: "REPLACE_WITH_CLIENT_ID",

@@ -1,6 +1,4 @@
-/**
- * Tests for phone number (SMS OTP) authentication.
- */
+/** Tests for phone number (SMS OTP) authentication. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PhoneAuthModule } from "../src/auth/phone.js";
@@ -99,7 +97,6 @@ describe("PhoneAuthModule.verifyCode", () => {
 	it("returns null for expired code", async () => {
 		const { mod } = makeModule(db, { codeExpiry: 1 });
 		await mod.sendCode("+14155551234");
-		// Back-date the expiry
 		db.update(phoneVerifications)
 			.set({ expiresAt: new Date(Date.now() - 2000) })
 			.run();

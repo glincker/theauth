@@ -1,8 +1,6 @@
 /**
  * OpenAPI 3.1 specification generator for TheAuth REST API.
- *
- * This generates the spec that enables auto-generated SDKs
- * for Python, Go, Java, Rust, etc. via OpenAPI codegen tools.
+ * This generates the spec that enables auto-generated SDKs for Python, Go, Java, Rust, etc.
  */
 
 export interface OpenAPISpec {
@@ -55,9 +53,7 @@ interface SchemaObject {
 	nullable?: boolean;
 }
 
-/**
- * Generate the full OpenAPI 3.1 specification for the TheAuth REST API.
- */
+/** Generate the full OpenAPI 3.1 specification for the TheAuth REST API. */
 export function generateOpenAPISpec(options?: { baseUrl?: string; version?: string }): OpenAPISpec {
 	const baseUrl = options?.baseUrl ?? "http://localhost:3000";
 	const version = options?.version ?? "0.0.1";

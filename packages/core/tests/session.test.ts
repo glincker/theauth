@@ -1,6 +1,4 @@
-/**
- * Tests for the session manager.
- */
+/** Tests for the session manager. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../src/db/database.js";
@@ -9,8 +7,6 @@ import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
-
-// Test helpers
 
 const TEST_SECRET = "a-test-secret-that-is-at-least-32-chars-long!!";
 const TEST_USER_ID = "user-session-test";
@@ -32,8 +28,6 @@ async function createTestDb(): Promise<Database> {
 
 	return db;
 }
-
-// Suite
 
 describe("createSessionManager", () => {
 	it("throws when the secret is shorter than 32 characters", () => {

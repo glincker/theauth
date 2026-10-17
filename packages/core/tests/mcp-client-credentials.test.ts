@@ -1,7 +1,4 @@
-/**
- * client_credentials grant: opt in, confidential clients only, scope-limited,
- * principal mapping, DPoP binding, and private_key_jwt client authentication.
- */
+/** client_credentials grant: opt in, confidential clients only, scope-limited, principal mapping, DPoP binding, and private_key_jwt client authentication. */
 import { describe, expect, it } from "vitest";
 import type { McpConfig } from "../src/mcp/types.js";
 import type { Harness } from "./mcp-test-harness.js";

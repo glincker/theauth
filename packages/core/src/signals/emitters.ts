@@ -1,10 +1,6 @@
 /**
  * Opt-in bridges from existing TheAuth security paths to SSF events.
- *
- * Nothing is emitted unless you pass one of these callbacks into the matching
- * config (`session.onRevoke`, `admin.onAdminAction`, `passwordReset.onPasswordChanged`,
- * `totp.onChange`, `passkey.onCredentialChange`). Failures are swallowed so a
- * receiver outage never blocks a sign-out or password change.
+ * Nothing is emitted unless you pass one of these callbacks into the matching config (`session.onRevoke`, `admin.onAdminAction`, `passwordReset.onPasswordChanged`, `totp.onChange`, `passkey.onCredentialChange`). Failures are swallowed so a receiver outage never blocks a sign-out or password change.
  */
 
 import type { AdminAuditEntry } from "../auth/admin.js";

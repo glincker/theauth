@@ -1,17 +1,12 @@
 import type { McpAuthContext, McpClient, Result } from "./types.js";
 
 /**
- * Request normalisation shared by the authorization endpoint and the grants:
- * resource indicators (RFC 8707), scopes and redirect URIs. The strict rules
- * apply unless `McpConfig.lenientClients` switches a relaxation on.
+ * Request normalisation shared by the authorization endpoint and the grants: resource indicators (RFC 8707), scopes and redirect URIs. The strict rules apply unless `McpConfig.lenientClients` switches a relaxation on.
  */
 
 const DEFAULT_SCOPES = ["openid", "profile", "email", "offline_access"];
 
-/**
- * Resources this server issues tokens for: `allowedResources` when set, else
- * the single `resource`. Empty when neither is configured.
- */
+/** Resources this server issues tokens for: `allowedResources` when set, else the single `resource`. Empty when neither is configured. */
 export function configuredResources(ctx: McpAuthContext): string[] {
 	const allowed = ctx.config.allowedResources;
 	if (allowed && allowed.length > 0) return allowed;
@@ -45,11 +40,7 @@ function pathAudienceMatches(configured: string, requested: string): boolean {
 	return rPath.startsWith(prefix);
 }
 
-/**
- * The configured resource a requested value maps to under `pathAudience`, or
- * the value unchanged. Never throws and never widens: only configured
- * resources can be returned in place of the request.
- */
+/** The configured resource a requested value maps to under `pathAudience`, or the value unchanged. Never throws and never widens: only configured resources can be returned in place of the request. */
 export function canonicalizeResource(ctx: McpAuthContext, requested: string): string {
 	if (!ctx.config.lenientClients?.pathAudience) return requested;
 	const configured = configuredResources(ctx);
@@ -60,11 +51,7 @@ export function canonicalizeResource(ctx: McpAuthContext, requested: string): st
 	return matches[0] ?? requested;
 }
 
-/**
- * Resolve the `resource` of a request to the canonical resource to bind a
- * token to. A missing value is only accepted under `optionalResource`, and
- * only when exactly one resource is configured.
- */
+/** Resolve the `resource` of a request to the canonical resource to bind a token to. A missing value is only accepted under `optionalResource`, and only when exactly one resource is configured. */
 export function resolveResource(
 	ctx: McpAuthContext,
 	requested: string | undefined,
@@ -98,9 +85,7 @@ export function resolveResource(
 }
 
 /**
- * Check requested scopes against the supported set. Strict mode rejects any
- * unknown scope. With `dropUnknownScopes` they are dropped, and the request
- * only fails when scopes were asked for and none remain.
+ * Check requested scopes against the supported set. Strict mode rejects any unknown scope. With `dropUnknownScopes` they are dropped, and the request only fails when scopes were asked for and none remain.
  */
 export function filterRequestedScopes(ctx: McpAuthContext, requested: string[]): Result<string[]> {
 	const supported = supportedScopes(ctx);
@@ -127,10 +112,7 @@ function isLoopbackHost(ctx: McpAuthContext, hostname: string): boolean {
 	return hostname === "localhost" && ctx.config.lenientClients?.loopbackAllowLocalhost === true;
 }
 
-/**
- * Redirect URI check: exact match against the registered URIs, plus the
- * loopback port relaxation when `loopbackAnyPort` is on.
- */
+/** Redirect URI check: exact match against the registered URIs, plus the loopback port relaxation when `loopbackAnyPort` is on. */
 export function redirectUriAllowed(
 	ctx: McpAuthContext,
 	client: Pick<McpClient, "redirectUris">,

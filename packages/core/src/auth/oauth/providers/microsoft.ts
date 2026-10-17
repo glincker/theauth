@@ -1,34 +1,19 @@
 /**
  * Microsoft identity platform (Entra ID / Azure AD) OAuth 2.0 / OIDC provider.
- *
- * Endpoints (common tenant — works for personal accounts and work/school):
- * - Authorization: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
- * - Token:         https://login.microsoftonline.com/common/oauth2/v2.0/token
- * - UserInfo:      https://graph.microsoft.com/v1.0/me
- *
  * Notes:
  * - PKCE S256 is supported and required for public clients.
  * - `User.Read` is a Microsoft Graph permission, not a standard OIDC scope.
- *   It grants access to the `/me` endpoint.
- * - The `id` field on the Graph `/me` response is the Entra object ID, which
- *   is stable across tenant changes and is safe to use as a primary key.
- * - For single-tenant apps, replace `common` with the tenant ID or domain.
- *
- * Docs: https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+ * - The `id` field on the Graph `/me` response is the Entra object ID, which is stable across tenant changes and is safe to use as a primary key.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
 const TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const USER_INFO_URL = "https://graph.microsoft.com/v1.0/me";
 const DEFAULT_SCOPES = ["openid", "profile", "email", "User.Read"];
-
-// Raw response shapes
 
 interface MicrosoftTokenResponse {
 	access_token: string;
@@ -47,8 +32,6 @@ interface MicrosoftUserResponse {
 	mail?: string;
 	userPrincipalName?: string;
 }
-
-// Factory
 
 /**
  * Create a Microsoft identity platform OAuth provider instance.
@@ -182,8 +165,6 @@ export function createMicrosoftProvider(config: OAuthProviderConfig): OAuthProvi
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

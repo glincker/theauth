@@ -5,8 +5,6 @@ import { createApiKeyManagerModule } from "./api-key-manager.js";
 
 export type { ApiKeyManagerConfig };
 
-// Plugin factory
-
 export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 	return {
 		id: "theauth-api-key",
@@ -16,7 +14,7 @@ export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 
 			// POST /auth/api-keys
 			// Creates a new API key for the authenticated user. Returns the full
-			// key once — it is never stored in plaintext and cannot be retrieved again.
+			// key once, it is never stored in plaintext and cannot be retrieved again.
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/api-keys",
@@ -64,7 +62,7 @@ export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 			});
 
 			// GET /auth/api-keys
-			// Lists all API keys for the authenticated user (hashes and prefixes only —
+			// Lists all API keys for the authenticated user (hashes and prefixes only,
 			// full keys are never returned after creation).
 			ctx.addEndpoint({
 				method: "GET",
@@ -122,7 +120,7 @@ export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 
 			// POST /auth/api-keys/:id/rotate
 			// Revokes the existing key and issues a new one with identical settings.
-			// Returns the new key once — the same one-time-display rule applies.
+			// Returns the new key once, the same one-time-display rule applies.
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/api-keys/:id/rotate",

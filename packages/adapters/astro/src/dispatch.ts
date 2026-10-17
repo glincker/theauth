@@ -14,8 +14,6 @@ import { isProtectedAdapterPath } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 import { z } from "zod";
 
-// Zod Validation Schemas
-
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
 	allowedArgPatterns: z.array(z.string()).optional(),
@@ -80,8 +78,6 @@ interface AuditExportScopeOptions {
 	userId?: string;
 }
 
-// Response Helpers
-
 function ok<T>(data: T, status = 200): Response {
 	return new Response(JSON.stringify({ data }), {
 		status,
@@ -100,10 +96,7 @@ function errorResponse(code: string, message: string, status: number): Response 
 	});
 }
 
-/**
- * Return the machine-readable code of a typed core DelegationError, else null.
- * Structural check so adapters do not need a runtime import of core.
- */
+/** Structural check so adapters avoid a runtime import of core. */
 function delegationErrorCode(err: unknown): string | null {
 	if (err instanceof Error && err.name === "DelegationError") {
 		const code = (err as Error & { code?: unknown }).code;
@@ -146,8 +139,6 @@ function validationError(issues: z.ZodIssue[]): Response {
 	return badRequest(`Validation failed: ${message}`);
 }
 
-// MCP CORS Headers
-
 const MCP_CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -182,8 +173,6 @@ function mcpNoStore<T>(data: T, status = 200): Response {
 	});
 }
 
-// URL Parsing Helpers
-
 /** Client IP comes from the guard (trusted proxy rules), never from raw headers. */
 function extractRequestContext(
 	request: Request,
@@ -208,8 +197,6 @@ async function parseJsonBody(
 		return { success: false, response: badRequest("Invalid JSON body") };
 	}
 }
-
-// Route Handlers
 
 async function handleAgentList(
 	request: Request,
@@ -645,14 +632,9 @@ async function handleDashboardStats(
 	}
 }
 
-// Route Dispatcher
-
 /**
- * Dispatches an incoming Web API Request to the correct TheAuth handler based
- * on the request's pathname (relative to the catch-all segment base).
- *
- * The `basePath` is the URL prefix before the catch-all segment, e.g.
- * `/api/theauth`. Segments after that prefix are used to match routes.
+ * Dispatches a Web API Request by pathname, relative to the catch-all segment base.
+ * `basePath` is the URL prefix before the catch-all segment, e.g. `/api/theauth`.
  */
 export async function dispatch(
 	request: Request,
@@ -673,12 +655,9 @@ export async function dispatch(
 		if (refused) return refused;
 	}
 
-	// Management routes (agents, delegations, audit, dashboard, authorize)
-	// require an authenticated caller.
-	// The resolved scope limits the default session resolver to the caller's
-	// own resources; a custom resolver (or the local-dev opt-out) gets an
-	// unrestricted scope. A guard that opts out of authentication reports no
-	// protected paths but still resolves an open scope for management routes.
+	// Management routes need an authenticated caller. The resolved scope limits the default
+	// session resolver to the caller's own resources; a custom resolver or the local-dev opt-out
+	// gets an unrestricted scope.
 	let scope: AdapterScope | null = null;
 	if (guard.isProtected(pathname) || isProtectedAdapterPath(pathname)) {
 		const resolved = await guard.resolve(request);
@@ -686,14 +665,11 @@ export async function dispatch(
 		scope = resolved.scope;
 	}
 
-	// MCP OPTIONS preflight
 	if (method === "OPTIONS") {
 		if (pathname.startsWith("/mcp/") || pathname.startsWith("/.well-known/")) {
 			return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
 		}
 	}
-
-	// MCP / well-known
 
 	if (pathname === "/.well-known/oauth-authorization-server" && method === "GET") {
 		if (!mcp) return notFound("MCP module not configured");
@@ -775,15 +751,12 @@ export async function dispatch(
 		}
 	}
 
-	// Agents
-
 	if (pathname === "/agents") {
 		if (method === "GET") return handleAgentList(request, theauth, scope);
 		if (method === "POST") return handleAgentCreate(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
-	// /agents/:id/rotate
 	const rotateMatch = /^\/agents\/([^/]+)\/rotate$/.exec(pathname);
 	if (rotateMatch) {
 		const id = rotateMatch[1];
@@ -792,7 +765,6 @@ export async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// /agents/:id
 	const agentMatch = /^\/agents\/([^/]+)$/.exec(pathname);
 	if (agentMatch) {
 		const id = agentMatch[1];
@@ -802,8 +774,6 @@ export async function dispatch(
 		if (method === "DELETE") return handleAgentRevoke(id, theauth, scope);
 		return methodNotAllowed();
 	}
-
-	// Authorization
 
 	if (pathname === "/authorize") {
 		if (method === "POST") return handleAuthorize(request, theauth, scope, guard);
@@ -815,14 +785,11 @@ export async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// Delegations
-
 	if (pathname === "/delegations") {
 		if (method === "POST") return handleDelegationCreate(request, theauth, scope);
 		return methodNotAllowed();
 	}
 
-	// /delegations/:id
 	const delegationMatch = /^\/delegations\/([^/]+)$/.exec(pathname);
 	if (delegationMatch) {
 		const id = delegationMatch[1];
@@ -831,8 +798,6 @@ export async function dispatch(
 		if (method === "GET") return handleDelegationList(id, theauth, scope);
 		return methodNotAllowed();
 	}
-
-	// Audit
 
 	if (pathname === "/audit/export") {
 		if (method === "GET") return handleAuditExport(request, theauth, scope);
@@ -843,8 +808,6 @@ export async function dispatch(
 		if (method === "GET") return handleAuditQuery(request, theauth, scope);
 		return methodNotAllowed();
 	}
-
-	// Dashboard
 
 	if (pathname === "/dashboard/stats") {
 		if (method === "GET") return handleDashboardStats(theauth, scope);
@@ -860,8 +823,6 @@ export async function dispatch(
 		if (method === "GET") return handleAuditQuery(request, theauth, scope);
 		return methodNotAllowed();
 	}
-
-	// Plugin Endpoints
 
 	const pluginResponse = await theauth.plugins.handleRequest(request, basePath);
 	if (pluginResponse !== null) {

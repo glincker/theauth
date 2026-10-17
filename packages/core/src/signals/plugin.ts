@@ -1,6 +1,4 @@
-/**
- * `sharedSignals()` plugin: mounts the SSF transmitter and/or receiver.
- */
+/** `sharedSignals()` plugin: mounts the SSF transmitter and/or receiver. */
 
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { EmissionBridge } from "./emitters.js";
@@ -19,10 +17,7 @@ export interface SharedSignalsConfig {
 	receiver?: ReceiverConfig & {
 		/** Path the push endpoint is mounted at. Default `/ssf/receive`. */
 		path?: string;
-		/**
-		 * Revoke local sessions on session-revoked, sessions-revoked and
-		 * account-disabled. Default true when a session manager is configured.
-		 */
+		/** Revoke local sessions on session-revoked, sessions-revoked and account-disabled. Default true when a session manager is configured. */
 		revokeSessions?: boolean;
 		resolveUserId?: DefaultHandlersOptions["resolveUserId"];
 		onRevoked?: DefaultHandlersOptions["onRevoked"];

@@ -33,10 +33,7 @@ export function normalizeProvenance(raw: unknown): ProvenanceMap | undefined {
 	return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/**
- * Record which rule produced a match. The index is non-enumerable so the verdict that is
- * stored in the audit row (and hashed into it) keeps its exact shape.
- */
+/** Record which rule produced a match. The index is non-enumerable so the verdict that is stored in the audit row (and hashed into it) keeps its exact shape. */
 function match(m: TaintMatch, ruleIndex: number): TaintMatch {
 	Object.defineProperty(m, "ruleIndex", { value: ruleIndex, enumerable: false });
 	return m;
@@ -65,10 +62,7 @@ function check(
 	}
 }
 
-/**
- * Evaluate the taint rules for one call. Returns undefined when no provenance was supplied
- * and no rule is strict, so behavior with no labels is unchanged.
- */
+/** Evaluate the taint rules for one call. Returns undefined when no provenance was supplied and no rule is strict, so behavior with no labels is unchanged. */
 export function evaluateTaint(
 	config: TaintConfig | undefined,
 	call: { resource: string; action: string; provenance: ProvenanceMap | undefined },
@@ -118,9 +112,7 @@ function describe(verdict: TaintVerdict): string {
 }
 
 /**
- * Apply a taint verdict to a decision. Deny decisions pass through. A violation downgrades an
- * allow to an escalate (or deny), upgrades an escalate to a deny when the rule says deny, and
- * leaves an existing escalate in place. The verdict is attached as `decision.taint`.
+ * Apply a taint verdict to a decision. Deny decisions pass through. A violation downgrades an allow to an escalate (or deny), upgrades an escalate to a deny when the rule says deny, and leaves an existing escalate in place. The verdict is attached as `decision.taint`.
  */
 export function applyTaint(
 	decision: PolicyDecision,

@@ -1,6 +1,4 @@
-/**
- * Signed audit checkpoints, inclusion proofs, consistency proofs and receipts.
- */
+/** Signed audit checkpoints, inclusion proofs, consistency proofs and receipts. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

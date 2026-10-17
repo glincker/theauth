@@ -55,22 +55,14 @@ export interface GuardOptions<A = unknown, C = unknown> {
 	/** Derive risk attributes (amount, currency, dataClass, irreversible) from the args. */
 	risk?: (args: A) => RiskContext | undefined;
 	/**
-	 * Id of an approved request to spend on this call, for the retry after a human approved
-	 * a ToolApprovalRequiredError. It is single use and must match this agent, action and
-	 * resource, so return it only for the call that was approved.
+	 * Id of an approved request to spend on this call, for the retry after a human approved a ToolApprovalRequiredError. It is single use and must match this agent, action and resource, so return it only for the call that was approved.
 	 */
 	approvalId?: (ctx: C | undefined, args: A) => string | undefined;
 	/**
-	 * Provenance labels of the arguments, e.g. `{ recipient: ["untrusted_web"] }`. Use the key
-	 * "*" for labels that cover the whole call. Merged with labels read from `tracker` and from
-	 * values tagged with `tainted()`. With none of these, the call is evaluated as before.
+	 * Provenance labels of the arguments, e.g. `{ recipient: ["untrusted_web"] }`. Use the key "*" for labels that cover the whole call. Merged with labels read from `tracker` and from values tagged with `tainted()`. With none of these, the call is evaluated as before.
 	 */
 	provenance?: ProvenanceMap | ((args: A, ctx: C | undefined) => ProvenanceMap | undefined);
-	/**
-	 * Tracker that reads labels off the arguments and registers this tool's result as
-	 * `tool_output:<name>` (plus the labels of its arguments), so the output flows into
-	 * the arguments of later guarded calls.
-	 */
+	/** Tracker that reads labels off the arguments and registers this tool's result as `tool_output:<name>` (plus the labels of its arguments), so the output flows into the arguments of later guarded calls. */
 	tracker?: ProvenanceTracker;
 	/** Open an approval request when the decision escalates. Default true. */
 	openApproval?: boolean;
@@ -127,10 +119,7 @@ function unwrapArgs(callArgs: unknown[]): unknown[] {
 }
 
 /**
- * Wrap a tool so `execute` only runs when `theauth.policy.evaluate` allows it.
- * Returns a new object with every other property of the tool preserved.
- * Deny throws ToolDeniedError, escalate throws ToolApprovalRequiredError, and
- * any failure of the check throws ToolGuardFailedError. `execute` runs only on allow.
+ * Wrap a tool so `execute` only runs when `theauth.policy.evaluate` allows it. Returns a new object with every other property of the tool preserved. Deny throws ToolDeniedError, escalate throws ToolApprovalRequiredError, and any failure of the check throws ToolGuardFailedError. `execute` runs only on allow.
  */
 export function guardTool<T extends GuardableTool>(
 	theauth: PolicyHost,
@@ -225,11 +214,7 @@ export function guardTool<T extends GuardableTool>(
 	return { ...tool, execute: guarded } as T;
 }
 
-/**
- * Guard several tools with the same options. Accepts an array of named tools or
- * a record keyed by tool name (the Vercel AI SDK shape). For a record the key is
- * the tool name. Returns the same shape.
- */
+/** Guard several tools with the same options. Accepts an array of named tools or a record keyed by tool name (the Vercel AI SDK shape). For a record the key is the tool name. Returns the same shape. */
 export function guardTools<T extends GuardableTool>(
 	theauth: PolicyHost,
 	options: GuardOptions<ArgsOf<T>, CtxOf<T>>,

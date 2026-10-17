@@ -1,10 +1,6 @@
 /**
  * Push delivery (RFC 8935) with SSRF-safe URL validation.
- *
- * Reuses the https, port, credential, blocked-host and private-address checks
- * of the MCP safe fetcher. The URL is validated when a stream is configured and
- * again at every delivery attempt, so a hostname that later resolves to a
- * private address is not contacted.
+ * Reuses the https, port, credential, blocked-host and private-address checks of the MCP safe fetcher. The URL is validated when a stream is configured and again at every delivery attempt, so a hostname that later resolves to a private address is not contacted.
  */
 
 import type { DnsResolver } from "../mcp/safe-fetch.js";
@@ -68,10 +64,7 @@ export interface PushOptions extends UrlGuardOptions {
 
 /**
  * POST one SET. Never throws.
- *
- * 2xx is success. 408, 429 and 5xx and network errors are retryable. Other
- * statuses (including RFC 8935 `400` error responses) and redirects are
- * permanent. A URL that fails the SSRF check is permanent.
+ * Other statuses (including RFC 8935 `400` error responses) and redirects are permanent. A URL that fails the SSRF check is permanent.
  */
 export async function pushSet(
 	url: string,

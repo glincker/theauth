@@ -22,10 +22,7 @@ async function readJson<T>(res: Response): Promise<T | null> {
 	}
 }
 
-/**
- * Sign in with a passkey: fetch the challenge, let the platform authenticator
- * sign it, and trade the assertion for a session.
- */
+/** Fetches the challenge, signs it with the platform authenticator, and exchanges it for a session. */
 export async function runPasskeySignIn(
 	base: string,
 	authenticator: PasskeyAuthenticator,
@@ -85,7 +82,6 @@ export async function runPasskeySignIn(
 	}
 }
 
-/** Add a passkey to the signed-in user. */
 export async function runPasskeyRegistration(
 	base: string,
 	authenticator: PasskeyAuthenticator,

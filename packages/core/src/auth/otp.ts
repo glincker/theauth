@@ -1,15 +1,6 @@
 /**
  * Unified one-time-password service for email and SMS.
- *
- * One service covers sign-in, email verification, password reset and 2FA
- * step-up. Codes are scoped by purpose and identifier, stored only as a keyed
- * hash, compared in constant time, and protected by a resend cooldown plus an
- * attempt lockout. State lives in a SecondaryStorage (memory by default, use
- * redis, KV or database storage for multi-instance deployments).
- *
- * Cooldown and attempt counting are read-modify-write on the storage, so two
- * simultaneous requests can race. The lockout still bounds guessing because a
- * code is deleted once the limit is reached.
+ * One service covers sign-in, email verification, password reset and 2FA step-up. Codes are scoped by purpose and identifier, stored only as a keyed hash, compared in constant time, and protected by a resend cooldown plus an attempt lockout. State lives in a SecondaryStorage (memory by default, use redis, KV or database storage for multi-instance deployments). Cooldown and attempt counting are read-modify-write on the storage, so two simultaneous requests can race. The lockout still bounds guessing because a code is deleted once the limit is reached.
  */
 
 import {

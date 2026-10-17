@@ -1,8 +1,6 @@
 import type { TheAuth, TrustedProxyConfig } from "@glinr/theauth";
 import type { McpAuthModule } from "@glinr/theauth/mcp";
 
-// Gateway Configuration
-
 export interface CorsConfig {
 	/** Allowed origins. Use '*' to allow all. Default: '*' */
 	origins?: string | string[];
@@ -17,9 +15,7 @@ export interface CorsConfig {
 }
 
 export interface RateLimitConfig {
-	/** Window duration in milliseconds */
 	windowMs: number;
-	/** Maximum requests allowed within the window */
 	max: number;
 }
 
@@ -30,7 +26,6 @@ export interface GatewayPolicy {
 	method?: string | string[];
 	/** Whether to require a valid auth token. Default: true */
 	requireAuth?: boolean;
-	/** Permissions required for access */
 	requiredPermissions?: Array<{
 		resource: string;
 		actions: string[];
@@ -41,24 +36,18 @@ export interface GatewayPolicy {
 	 * the gateway has no `mcp` block, so a policy cannot silently do nothing.
 	 */
 	requiredScopes?: string[];
-	/** Per-policy rate limit override */
 	rateLimit?: RateLimitConfig;
 	/** Mark this path as public (no auth required, overrides requireAuth) */
 	public?: boolean;
 }
 
 export interface GatewayConfig {
-	/** URL of the upstream service to proxy to */
 	upstream: string;
 	/** Base path prefix for all proxied routes. Default: '/' */
 	basePath?: string;
-	/** TheAuth instance */
 	theauth: TheAuth;
-	/** Path-based access policies */
 	policies?: GatewayPolicy[];
-	/** CORS configuration */
 	cors?: CorsConfig;
-	/** Global rate limit (per agent or IP) */
 	rateLimit?: RateLimitConfig;
 	/** Record an audit entry for every request. Default: true */
 	audit?: boolean;
@@ -106,30 +95,20 @@ export interface GatewayMcpConfig {
 	 * and the `resource` in the metadata document.
 	 */
 	resource: string;
-	/** Scopes every non-public request must carry. */
 	requiredScopes?: string[];
-	/** Override the metadata URL put in `WWW-Authenticate`. */
 	resourceMetadataUrl?: string;
 }
 
-// Gateway Public Interface
-
 export interface Gateway {
-	/** Handle a Web API Request and return a Response */
 	handleRequest(request: Request): Promise<Response>;
-	/** Start a standalone HTTP server on the given port */
 	listen(port: number): Promise<void>;
-	/** Shut down the standalone HTTP server */
 	close(): Promise<void>;
 }
-
-// Internal Types
 
 export interface ResolvedIdentity {
 	agentId: string;
 	ownerId: string;
 	token: string;
-	/** How the caller authenticated. */
 	kind: "agent-token" | "mcp";
 	/** Set in MCP mode when the token carries an agent claim. */
 	mcpAgentId?: string;

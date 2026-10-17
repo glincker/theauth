@@ -93,10 +93,7 @@ function errorResponse(code: string, message: string, status: number): Response 
 	});
 }
 
-/**
- * Return the machine-readable code of a typed core DelegationError, else null.
- * Structural check so adapters do not need a runtime import of core.
- */
+/** Structural check so adapters avoid a runtime import of core. */
 function delegationErrorCode(err: unknown): string | null {
 	if (err instanceof Error && err.name === "DelegationError") {
 		const code = (err as Error & { code?: unknown }).code;
@@ -629,11 +626,8 @@ async function handleDashboardStats(theauth: TheAuth, scope: AdapterScope): Prom
 // Route Dispatcher
 
 /**
- * Dispatches an incoming Web API Request to the correct TheAuth handler based
- * on the request's pathname (relative to the catch-all segment base).
- *
- * The `basePath` is the URL prefix before the `[...theauth]` segment, e.g.
- * `/api/theauth`. Segments after that prefix are used to match routes.
+ * Dispatches a Web API Request by pathname, relative to the `[...theauth]` base.
+ * `basePath` is the URL prefix before that segment, e.g. `/api/theauth`.
  */
 async function dispatch(
 	request: Request,
@@ -643,7 +637,6 @@ async function dispatch(
 	guard: AdapterGuard,
 ): Promise<Response> {
 	const url = new URL(request.url);
-	// Normalise pathname relative to the adapter base
 	const raw = url.pathname;
 	const relative = raw.startsWith(basePath) ? raw.slice(basePath.length) : raw;
 	// Ensure leading slash
@@ -656,11 +649,10 @@ async function dispatch(
 		if (refused) return refused;
 	}
 
-	// Management routes (agents, delegations, audit, dashboard, authorize)
-	// require an authenticated caller.
+	// Management routes need an authenticated caller.
 	let scope: AdapterScope | null = null;
-	// The guard resolves the caller once and returns what they may touch. With
-	// `allowUnauthenticated` it still returns a scope (unrestricted).
+	// The guard resolves the caller once and returns the scope they may touch
+	// (unrestricted under `allowUnauthenticated`).
 	if (isProtectedAdapterPath(pathname)) {
 		const resolved = await guard.resolve(request);
 		if (!resolved.ok) return resolved.response;
@@ -767,7 +759,6 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// /agents/:id/rotate
 	const rotateMatch = /^\/agents\/([^/]+)\/rotate$/.exec(pathname);
 	if (rotateMatch) {
 		const id = rotateMatch[1];
@@ -777,7 +768,6 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// /agents/:id
 	const agentMatch = /^\/agents\/([^/]+)$/.exec(pathname);
 	if (agentMatch) {
 		const id = agentMatch[1];
@@ -810,7 +800,6 @@ async function dispatch(
 		return methodNotAllowed();
 	}
 
-	// /delegations/:id
 	const delegationMatch = /^\/delegations\/([^/]+)$/.exec(pathname);
 	if (delegationMatch) {
 		const id = delegationMatch[1];
@@ -868,9 +857,6 @@ async function dispatch(
 // Adapter Factory
 
 export interface TheAuthNextjsOptions extends AdapterSecurityOptions {
-	/**
-	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
-	 */
 	mcp?: McpAuthModule;
 	/**
 	 * The URL path prefix before the `[...auth]` catch-all segment.

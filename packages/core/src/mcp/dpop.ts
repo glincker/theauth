@@ -40,10 +40,7 @@ export async function computeAth(accessToken: string): Promise<string> {
 	return toBase64Url(await sha256Raw(accessToken));
 }
 
-/**
- * Normalize an `htu` for comparison: scheme, host and path only. Query and
- * fragment are dropped as RFC 9449 section 4.3 requires.
- */
+/** Normalize an `htu` for comparison: scheme, host and path only. Query and fragment are dropped as RFC 9449 section 4.3 requires. */
 export function normalizeHtu(value: string): string | null {
 	try {
 		const url = new URL(value);
@@ -53,15 +50,9 @@ export function normalizeHtu(value: string): string | null {
 	}
 }
 
-// Nonces
-
 const NONCE_CURRENT = "dpop:nonce:current";
 
-/**
- * The nonce to hand out now. One nonce is current at a time and rotates when
- * it expires; a retired nonce is still accepted for one more lifetime so a
- * client mid-request is not bounced twice.
- */
+/** The nonce to hand out now. One nonce is current at a time and rotates when it expires; a retired nonce is still accepted for one more lifetime so a client mid-request is not bounced twice. */
 export async function getCurrentDpopNonce(ctx: McpAuthContext): Promise<string> {
 	const storage = getDpopStorage(ctx);
 	const ttl = ctx.config.dpop?.nonceTtlSeconds ?? DEFAULT_NONCE_TTL;
@@ -79,8 +70,6 @@ async function isValidNonce(ctx: McpAuthContext, nonce: unknown): Promise<boolea
 	}
 	return (await getDpopStorage(ctx).get(`dpop:nonce:v:${nonce}`)) !== null;
 }
-
-// Proof verification
 
 export interface VerifyDpopProofInput {
 	/** The `DPoP` header value. */
@@ -111,11 +100,7 @@ function fail(message: string, details?: Record<string, unknown>): Result<Verifi
 
 /**
  * Verify a DPoP proof JWT (RFC 9449 section 4.3).
- *
- * Checks, in order: header (`typ`, `alg`, public `jwk`), signature, `htm`,
- * `htu`, `iat` window (any `exp`/`nbf` is also honored), `ath`, nonce, then records the `jti`. The replay cache
- * is written last so a rejected proof never consumes a `jti`, which keeps a
- * `use_dpop_nonce` retry possible with a fresh proof.
+ * Checks, in order: header (`typ`, `alg`, public `jwk`), signature, `htm`, `htu`, `iat` window (any `exp`/`nbf` is also honored), `ath`, nonce, then records the `jti`. The replay cache is written last so a rejected proof never consumes a `jti`, which keeps a `use_dpop_nonce` retry possible with a fresh proof.
  */
 export async function verifyDpopProof(
 	ctx: McpAuthContext,

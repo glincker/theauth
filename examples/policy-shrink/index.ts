@@ -1,10 +1,6 @@
 /**
- * Policy shrink demo. Runs in memory, no model and no API key.
- *
- * It gives one agent a broad set of permissions, replays a realistic mix of
- * calls through authorize() so real decision rows are written, then asks what
- * the agent actually used, proposes a smaller set and checks the proposal
- * against the recorded decisions.
+ * Policy shrink demo, in memory. Replays calls through authorize() so real decision rows are written, then
+ * proposes a smaller permission set and checks it against the recorded decisions.
  */
 import {
 	analyzeUsage,

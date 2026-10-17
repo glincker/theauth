@@ -1,9 +1,4 @@
-/**
- * Factory functions for creating mock TheAuth entities in tests.
- *
- * Each factory fills in sensible defaults so you only need to specify
- * the fields relevant to the behaviour under test.
- */
+/** Factories for mock TheAuth entities. Each fills sensible defaults, so pass only the fields under test. */
 
 import type {
 	TheAuthAgent,
@@ -11,8 +6,6 @@ import type {
 	TheAuthSession,
 	TheAuthUser,
 } from "@glinr/theauth-react";
-
-// ID generation
 
 /** Generates a deterministic-looking UUID-style ID without crypto dependencies. */
 function makeId(prefix: string): string {
@@ -22,13 +15,10 @@ function makeId(prefix: string): string {
 	return `${prefix}_${hex}`;
 }
 
-// Counter used to produce unique-looking values across a single test run.
 let _counter = 0;
 function nextCount(): number {
 	return ++_counter;
 }
-
-// User factory
 
 /**
  * Creates a mock `TheAuthUser` with realistic defaults.
@@ -47,8 +37,6 @@ export function createMockUser(overrides?: Partial<TheAuthUser>): TheAuthUser {
 	};
 }
 
-// Session factory
-
 /**
  * Creates a mock `TheAuthSession`. Generates a user automatically unless
  * `user` is provided in `overrides`.
@@ -66,8 +54,6 @@ export function createMockSession(overrides?: Partial<TheAuthSession>): TheAuthS
 	};
 }
 
-// Permission factory
-
 /**
  * Creates a mock `TheAuthPermission`.
  *
@@ -81,8 +67,6 @@ export function createMockPermission(overrides?: Partial<TheAuthPermission>): Th
 		...overrides,
 	};
 }
-
-// Agent factory
 
 /**
  * Creates a mock `TheAuthAgent` with sensible defaults.

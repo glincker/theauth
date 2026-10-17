@@ -9,7 +9,6 @@ import {
 	withOverride,
 } from "./shared.js";
 
-/** The execution context Mastra passes as the second argument of `execute`. */
 export interface MastraToolContextLike {
 	/** Present while a tool can pause for input. Resumed runs see `resumeData`. */
 	suspend?: (payload: unknown) => Promise<unknown>;

@@ -1,6 +1,4 @@
-/**
- * Tests for username + password authentication.
- */
+/** Tests for username + password authentication. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { UsernameAuthModule } from "../src/auth/username.js";

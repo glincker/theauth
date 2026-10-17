@@ -1,13 +1,6 @@
 /**
  * Webhook system for TheAuth.
- *
- * Fires signed HTTP POST requests to configured endpoints when auth events
- * occur. Payloads are signed with HMAC-SHA256 and sent with
- * `X-TheAuth-Event`, `X-TheAuth-Signature`, and `X-TheAuth-Timestamp` headers.
- *
- * Delivery is fire-and-forget with exponential backoff retries (1s, 2s, 4s).
- * Failed deliveries after all retries are silently dropped so they never block
- * the auth operation that triggered them.
+ * Failed deliveries after all retries are silently dropped so they never block the auth operation that triggered them.
  *
  * @example
  * ```typescript
@@ -27,8 +20,6 @@
 
 import { hmacSha256 } from "../crypto/web-crypto.js";
 
-// Public types
-
 export type WebhookEvent =
 	| "user.created"
 	| "user.deleted"
@@ -46,7 +37,7 @@ export type WebhookEvent =
 export interface WebhookConfig {
 	/** Destination URL for the webhook POST request. */
 	url: string;
-	/** HMAC signing secret — keep this private. */
+	/** HMAC signing secret, keep this private. */
 	secret: string;
 	/** Events this endpoint subscribes to. */
 	events: WebhookEvent[];
@@ -57,15 +48,13 @@ export interface WebhookConfig {
 }
 
 export interface WebhookModule {
-	/** Fire a webhook for an event. Non-blocking — retries happen in background. */
+	/** Fire a webhook for an event. Non-blocking, retries happen in background. */
 	emit: (event: WebhookEvent, payload: Record<string, unknown>) => void;
 	/** Register an additional webhook endpoint at runtime. */
 	addEndpoint: (config: WebhookConfig) => void;
 	/** Return a copy of all configured endpoints. */
 	listEndpoints: () => WebhookConfig[];
 }
-
-// Helpers
 
 async function signPayload(secret: string, timestamp: string, body: string): Promise<string> {
 	const data = `${timestamp}.${body}`;
@@ -125,8 +114,6 @@ async function deliverWithRetry(
 	}
 }
 
-// Factory
-
 export function createWebhookModule(configs: WebhookConfig[]): WebhookModule {
 	const endpoints: WebhookConfig[] = [...configs];
 
@@ -136,7 +123,7 @@ export function createWebhookModule(configs: WebhookConfig[]): WebhookModule {
 
 		for (const endpoint of endpoints) {
 			if (!endpoint.events.includes(event)) continue;
-			// Fire and forget — intentionally not awaited
+			// Fire and forget, intentionally not awaited
 			void deliverWithRetry(endpoint, event, body, timestamp);
 		}
 	}

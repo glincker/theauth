@@ -1,25 +1,15 @@
 /**
  * Client IP resolution that does not trust spoofable headers by default.
- *
- * A Web `Request` carries no socket address, so the only place a client IP can
- * come from is a header, and any header can be forged unless a proxy you
- * control overwrites it. The default here is to trust nothing and return
- * `null`; opt in with the shape of your deployment.
+ * A Web `Request` carries no socket address, so the only place a client IP can come from is a header, and any header can be forged unless a proxy you control overwrites it. The default here is to trust nothing and return `null`; opt in with the shape of your deployment.
  */
 
 export interface TrustedProxyConfig {
 	/**
-	 * Number of reverse proxies you operate in front of the app. With
-	 * `x-forwarded-for: a, b, c` and `trustedProxyCount: 1` the client is `c`
-	 * (the entry your nearest proxy appended), not `a` (client controlled).
-	 * Default 0: forwarded headers are ignored.
+	 * Number of reverse proxies you operate in front of the app. With `x-forwarded-for: a, b, c` and `trustedProxyCount: 1` the client is `c` (the entry your nearest proxy appended), not `a` (client controlled). Default 0: forwarded headers are ignored.
 	 */
 	trustedProxyCount?: number;
 	/**
-	 * A single header your edge sets and overwrites, such as `cf-connecting-ip`
-	 * (Cloudflare), `x-real-ip` (nginx) or `fly-client-ip`. Takes precedence over
-	 * `trustedProxyCount`. Only set it when the app is reachable solely through
-	 * that edge.
+	 * A single header your edge sets and overwrites, such as `cf-connecting-ip` (Cloudflare), `x-real-ip` (nginx) or `fly-client-ip`. Takes precedence over `trustedProxyCount`. Only set it when the app is reachable solely through that edge.
 	 */
 	trustedHeader?: string;
 }

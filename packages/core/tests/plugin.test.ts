@@ -8,8 +8,6 @@ import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../src/plug
 import { createTheAuth } from "../src/theauth.js";
 import type { TheAuthConfig } from "../src/types.js";
 
-// Shared helpers
-
 const testDbConfig = { provider: "sqlite" as const, url: ":memory:" };
 const baseConfig: TheAuthConfig = { database: testDbConfig };
 
@@ -38,8 +36,6 @@ function makeRequest(method: string, url: string, body?: unknown): Request {
 		body: body ? JSON.stringify(body) : undefined,
 	});
 }
-
-// initializePlugins
 
 describe("initializePlugins", () => {
 	let db: Database;
@@ -145,7 +141,7 @@ describe("initializePlugins", () => {
 		expect(registry.migrations).toHaveLength(1);
 		expect(registry.migrations[0]).toContain("plugin_test_table");
 
-		// The table should now exist — insert a row to confirm.
+		// The table should now exist, insert a row to confirm.
 		const anyDb = db as any;
 		const run = typeof anyDb.run === "function" ? anyDb.run.bind(anyDb) : null;
 		if (run) {
@@ -194,8 +190,6 @@ describe("initializePlugins", () => {
 		expect(registry.hooks.onRequest[1]).toBe(handlerB);
 	});
 });
-
-// createPluginRouter
 
 describe("createPluginRouter", () => {
 	let db: Database;
@@ -373,7 +367,7 @@ describe("createPluginRouter", () => {
 	});
 });
 
-// createTheAuth with plugins — end-to-end
+// createTheAuth with plugins, end-to-end
 
 describe("createTheAuth with plugins", () => {
 	it("initializes plugins and exposes the plugins API", async () => {
@@ -401,12 +395,10 @@ describe("createTheAuth with plugins", () => {
 		// Plugin context should be accessible
 		expect(theauth.plugins.getContext()).toEqual({ ready: true });
 
-		// Endpoints should be registered
 		const endpoints = theauth.plugins.getEndpoints();
 		expect(endpoints).toHaveLength(1);
 		expect(endpoints[0]?.path).toBe("/ping");
 
-		// Requests should be routed
 		const response = await theauth.plugins.handleRequest(
 			makeRequest("GET", "http://localhost/ping"),
 		);

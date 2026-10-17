@@ -1,7 +1,4 @@
-/**
- * Tests for the HTTP surface of the OTP service: the otpRoutes plugin, the
- * opt-in two-factor OTP method, and code-based password reset.
- */
+/** Tests for the HTTP surface of the OTP service: the otpRoutes plugin, the opt-in two-factor OTP method, and code-based password reset. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { createOneTimeTokenModule } from "../src/auth/one-time-token.js";

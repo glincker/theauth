@@ -1,21 +1,12 @@
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
-// Config
-
 export interface ConsoleConfig {
-	/**
-	 * Custom logger function. Defaults to console.log.
-	 * Swap to a no-op in test environments where you want silence.
-	 */
+	/** Custom logger function. Defaults to console.log. Swap to a no-op in test environments where you want silence. */
 	logger?: (message: string) => void;
 }
 
-// Provider
-
 /**
- * Development / testing email provider that logs emails to stdout instead of
- * actually delivering them. No API keys or network calls needed.
- *
+ * Development / testing email provider that logs emails to stdout instead of actually delivering them. No API keys or network calls needed.
  * This is the recommended default provider for local development.
  */
 export function consoleProvider(config: ConsoleConfig = {}): EmailProvider {

@@ -1,7 +1,4 @@
-/**
- * The OAuth callback must honor the sign-in gate: a required second factor
- * blocks session issuance and hands the challenge back in the URL fragment.
- */
+/** The OAuth callback must honor the sign-in gate: a required second factor blocks session issuance and hands the challenge back in the URL fragment. */
 
 import { describe, expect, it } from "vitest";
 import { oauth } from "../src/auth/oauth/plugin.js";

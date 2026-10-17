@@ -1,6 +1,4 @@
-/**
- * Permission keys, splitting and the grant matcher's memo limit.
- */
+/** Permission keys, splitting and the grant matcher's memo limit. */
 
 import { describe, expect, it } from "vitest";
 import {

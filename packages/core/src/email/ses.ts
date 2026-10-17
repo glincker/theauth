@@ -29,11 +29,7 @@ async function signingKey(secret: string, date: string, region: string): Promise
 	return hmacSha256Raw(kService, "aws4_request");
 }
 
-/**
- * Email provider backed by Amazon SES v2 (SendEmail). Requests are signed with
- * SigV4 using Web Crypto, so there is no AWS SDK dependency and it runs on edge
- * runtimes.
- */
+/** Email provider backed by Amazon SES v2 (SendEmail). Requests are signed with SigV4 using Web Crypto, so there is no AWS SDK dependency and it runs on edge runtimes. */
 export function ses(config: SesConfig): EmailProvider {
 	if (!config.region || !config.accessKeyId || !config.secretAccessKey) {
 		throw new Error("[theauth/email] ses: region, accessKeyId and secretAccessKey are required.");

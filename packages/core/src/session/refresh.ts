@@ -1,17 +1,5 @@
 /**
- * Session refresh endpoint handler for TheAuth.
- *
- * Implements `POST /auth/refresh`:
- * 1. Extracts the refresh token from an httpOnly cookie or the request body.
- * 2. Validates the token (TTL, reuse detection, absolute timeout).
- * 3. Issues a new short-lived access token (signed JWT).
- * 4. Rotates the refresh token (one-time use — the old one is consumed).
- * 5. Records the rotation in the audit log.
- *
- * Token family tracking (via `createTokenFamilyStore`) provides reuse
- * detection: if an attacker uses a stolen refresh token after the legitimate
- * user has already rotated it, the entire family is revoked and both parties
- * are forced to re-authenticate.
+ * Session refresh endpoint (`POST /auth/refresh`) with refresh token rotation and reuse detection.
  *
  * @example
  * ```typescript
@@ -42,14 +30,9 @@ import { getCookie, serializeCookie, serializeCookieDeletion } from "./cookie.js
 import type { TokenFamily } from "./token-family.js";
 import { createTokenFamilyStore } from "./token-family.js";
 
-// Duration parsing
-
 const DURATION_RE = /^(\d+)(ms|s|m|h|d)$/;
 
-/**
- * Parse a human-readable duration string into milliseconds.
- * Supports: `ms`, `s`, `m`, `h`, `d`.
- */
+/** Parses a duration string such as `15m` or `30d` into milliseconds. */
 function parseDurationMs(duration: string): number {
 	const m = DURATION_RE.exec(duration);
 	if (!m) throw new Error(`Invalid duration: "${duration}"`);
@@ -71,94 +54,51 @@ function parseDurationMs(duration: string): number {
 	}
 }
 
-// Types
-
 export interface RefreshSessionConfig {
-	/**
-	 * Short-lived access token lifetime.
-	 * Parsed duration string, e.g. `"15m"`.
-	 * Defaults to `"15m"`.
-	 */
+	/** Access token lifetime as a duration string. Default: `"15m"`. */
 	accessTokenTTL?: string;
 
-	/**
-	 * Long-lived refresh token lifetime.
-	 * Parsed duration string, e.g. `"30d"`.
-	 * Defaults to `"30d"`.
-	 */
+	/** Refresh token lifetime as a duration string. Default: `"30d"`. */
 	refreshTokenTTL?: string;
 
-	/**
-	 * When `true` (default), each use of a refresh token rotates it: the old
-	 * token is invalidated and a new one is issued.
-	 */
+	/** Rotate the refresh token on each use, invalidating the old one. Default: true. */
 	rotateRefreshTokens?: boolean;
 
-	/**
-	 * Maximum session lifetime regardless of how many times the token is
-	 * refreshed.  Parsed duration string, e.g. `"90d"`.
-	 * Defaults to `"90d"`.
-	 */
+	/** Max session lifetime across all refreshes, as a duration string. Default: `"90d"`. */
 	absoluteTimeout?: string;
 
-	/**
-	 * When `true` (default), presenting an already-used refresh token triggers
-	 * reuse detection and revokes the entire token family.
-	 */
+	/** On reuse of an already-used refresh token, revoke the whole token family. Default: true. */
 	reuseDetection?: boolean;
 
-	/**
-	 * Overlap window for a refresh token that was just rotated, e.g. `"10s"`.
-	 * A client that lost the rotation response, or two tabs refreshing at once,
-	 * can present the old token again inside this window and get a fresh pair
-	 * instead of having the family revoked. Capped at 5 minutes.
-	 * Defaults to off (strict one-time use).
-	 */
+	/** Overlap window for a just-rotated refresh token, e.g. `"10s"`. Covers lost responses and parallel tabs. */
 	reuseGracePeriod?: string;
 
-	/**
-	 * Name of the httpOnly cookie that carries the refresh token.
-	 * Defaults to `"theauth_refresh"`.
-	 */
+	/** Cookie name for the refresh token. Default: `"theauth_refresh"`. */
 	refreshCookieName?: string;
 
-	/**
-	 * Name of the httpOnly cookie that carries the access token (when cookie
-	 * transport is used for the access token too).
-	 * Defaults to `"theauth_access"`.
-	 */
+	/** Cookie name for the access token when cookies carry it too. Default: `"theauth_access"`. */
 	accessCookieName?: string;
 }
 
 export interface SessionRefresherConfig {
-	/** Signing secret — at least 32 characters. */
+	/** Signing secret, at least 32 characters. */
 	secret: string;
-	/** Refresh / rotation settings. */
 	session?: RefreshSessionConfig;
-	/** Drizzle database instance. */
 	db: Database;
 }
 
-/** The payload embedded in the short-lived access token JWT. */
 export interface AccessTokenPayload {
-	/** User ID. */
 	sub: string;
-	/** Token family ID — used for server-side token binding. */
 	familyId: string;
-	/** Token type discriminator. */
 	type: "access";
 }
 
 export interface RefreshResult {
 	/** Signed access token JWT. */
 	accessToken: string;
-	/** Raw opaque refresh token (only returned once — store in httpOnly cookie). */
 	refreshToken: string;
-	/** Expiry date of the new access token. */
 	accessTokenExpiresAt: Date;
-	/** Expiry date of the new refresh token. */
 	refreshTokenExpiresAt: Date;
-	/** The token family these tokens belong to. */
 	family: TokenFamily;
 }
 
@@ -171,42 +111,22 @@ export type RefreshError =
 	| "absolute_timeout";
 
 export interface RefreshHandleResult {
-	/** HTTP Response ready to return to the caller. */
 	response: Response;
-	/** Populated on success. */
 	result?: RefreshResult;
-	/** Populated on failure. */
 	error?: RefreshError;
 }
 
 export interface SessionRefresher {
-	/**
-	 * Low-level refresh — takes a raw refresh token string directly.
-	 *
-	 * Returns `RefreshResult` on success or throws a `RefreshTokenError`.
-	 */
+	/** Refreshes from a raw refresh token string. Throws `RefreshTokenError` on validation failure. */
 	refresh(rawRefreshToken: string): Promise<RefreshResult>;
 
-	/**
-	 * High-level HTTP handler.
-	 *
-	 * Extracts the refresh token from the `Cookie` header (preferred) or the
-	 * JSON request body, calls `refresh()`, and returns a `Response` with
-	 * appropriate `Set-Cookie` headers.
-	 */
+	/** HTTP handler. Reads the refresh token from the Cookie header (preferred) or the JSON body. */
 	handleRequest(request: Request): Promise<RefreshHandleResult>;
 
-	/**
-	 * Issue an initial refresh token for a user (called once on login).
-	 *
-	 * Returns the access token, refresh token, and their expiry dates.
-	 */
+	/** Issues the initial refresh token for a user (called once on login). */
 	issueInitial(userId: string): Promise<RefreshResult>;
 
-	/**
-	 * Revoke all refresh token families for a user (e.g. on logout or
-	 * password change).
-	 */
+	/** Revokes all refresh token families for a user (logout, password change). */
 	revokeAll(userId: string): Promise<void>;
 }
 
@@ -221,19 +141,13 @@ export class RefreshTokenError extends Error {
 	}
 }
 
-// Defaults
-
 const DEFAULT_ACCESS_TOKEN_TTL = "15m";
 const DEFAULT_REFRESH_TOKEN_TTL = "30d";
 const DEFAULT_ABSOLUTE_TIMEOUT = "90d";
 const DEFAULT_REFRESH_COOKIE = "theauth_refresh";
 const DEFAULT_ACCESS_COOKIE = "theauth_access";
 
-// Factory
-
-/**
- * Create a `SessionRefresher` backed by the TheAuth database.
- */
+/** Creates a `SessionRefresher` backed by the TheAuth database. */
 export function createSessionRefresher(config: SessionRefresherConfig): SessionRefresher {
 	if (!config.secret || config.secret.length < 32) {
 		throw new Error("SessionRefresher: secret must be at least 32 characters.");
@@ -251,8 +165,6 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 	const keyBytes = new TextEncoder().encode(config.secret);
 	const graceMs = sessionCfg.reuseGracePeriod ? parseDurationMs(sessionCfg.reuseGracePeriod) : 0;
 	const families = createTokenFamilyStore(config.db, { reuseGraceMs: graceMs });
-
-	// helpers
 
 	async function signAccessToken(
 		userId: string,
@@ -317,8 +229,6 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 		};
 	}
 
-	// public API
-
 	async function issueInitial(userId: string): Promise<RefreshResult> {
 		const now = Date.now();
 		const absoluteExpiresAt = new Date(now + absoluteTtlMs);
@@ -347,45 +257,37 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 						"Refresh token reuse detected — session revoked.",
 					);
 				}
-				// reuseDetection disabled: treat as expired.
 				throw new RefreshTokenError("token_expired", "Refresh token has already been used.");
 
 			case "ok": {
 				// consumeResult.family is defined when status is "ok".
 				const family = consumeResult.family as TokenFamily;
 
-				// Double-check absolute timeout (also enforced in consumeToken but
-				// guard here too for clarity).
+				// Also enforced in consumeToken; checked again here as a guard.
 				if (!families.isFamilyActive(family)) {
 					throw new RefreshTokenError("absolute_timeout", "Session absolute timeout reached.");
 				}
 
 				if (!rotate) {
-					// Rotation disabled: still issue a new access token but reuse
-					// the same family with a fresh refresh token.
+					// Rotation disabled: issue a new access token on the same family.
 					return buildRefreshResult(family);
 				}
 
-				// Normal rotation path: issue new access + refresh tokens.
 				return buildRefreshResult(family);
 			}
 		}
 	}
 
 	async function handleRequest(request: Request): Promise<RefreshHandleResult> {
-		// 1. Extract refresh token — cookie preferred, then JSON body.
 		const cookieHeader = request.headers.get("cookie") ?? "";
 		let rawToken = getCookie(cookieHeader, refreshCookieName);
 
 		if (!rawToken) {
-			// Fall back to request body (for non-browser clients).
 			try {
 				const body = (await request.clone().json()) as Record<string, unknown>;
 				const candidate = body.refreshToken;
 				if (typeof candidate === "string") rawToken = candidate;
-			} catch {
-				// Not JSON — ignore.
-			}
+			} catch {}
 		}
 
 		if (!rawToken) {
@@ -398,7 +300,6 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 			};
 		}
 
-		// 2. Perform the refresh.
 		let result: RefreshResult;
 		try {
 			result = await refresh(rawToken);
@@ -410,7 +311,6 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 				"Content-Type": "application/json",
 			};
 
-			// Clear the stale refresh cookie on failure.
 			if (code === "token_reuse" || code === "family_revoked" || code === "absolute_timeout") {
 				headers["Set-Cookie"] = buildDeleteRefreshCookie();
 			}
@@ -424,7 +324,6 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 			};
 		}
 
-		// 3. Build response with new cookies.
 		const headers = new Headers({ "Content-Type": "application/json" });
 		headers.append(
 			"Set-Cookie",

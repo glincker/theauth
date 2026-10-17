@@ -1,22 +1,12 @@
 /**
  * TOTP two-factor authentication for TheAuth.
- *
- * Implements RFC 6238 (TOTP) and RFC 4226 (HOTP) from scratch using
- * the Web Crypto API — no external dependencies.
- *
- * Flow:
- *   1. `setup(userId)`  — generate secret + backup codes (not yet active)
- *   2. `enable(userId, code)` — verify the code, flip enabled = true
- *   3. `verify(userId, code)` — called on each login after password check
- *   4. `disable(userId, code)` — verify then delete the record
+ * Implements RFC 6238 (TOTP) and RFC 4226 (HOTP) from scratch using the Web Crypto API, no external dependencies. `setup(userId)`, generate secret + backup codes (not yet active) 2. `enable(userId, code)`, verify the code, flip enabled = true 3. `verify(userId, code)`, called on each login after password check 4. `disable(userId, code)`, verify then delete the record
  */
 
 import { eq } from "drizzle-orm";
 import { hmacSha1Raw, randomBytes, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { totpRecords } from "../db/schema.js";
-
-// Public types
 
 export interface TotpConfig {
 	/** App name shown in authenticator apps (default: "TheAuth") */
@@ -27,10 +17,7 @@ export interface TotpConfig {
 	backupCodeCount?: number;
 	/** Accept codes from adjacent time periods for clock drift (default: 1) */
 	window?: number;
-	/**
-	 * Called after 2FA is enabled or disabled. Used to emit a Shared Signals
-	 * credential-change event. Errors are swallowed.
-	 */
+	/** Called after 2FA is enabled or disabled. Used to emit a Shared Signals credential-change event. Errors are swallowed. */
 	onChange?: (userId: string, change: "enabled" | "disabled") => void | Promise<void>;
 }
 
@@ -59,8 +46,6 @@ export interface TotpModule {
 	/** Handle HTTP request */
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
-
-// Internal types
 
 interface BackupCodeEntry {
 	hash: string;
@@ -133,7 +118,6 @@ async function generateTotp(secret: Uint8Array, time: number, period: number): P
 	// HMAC-SHA1(secret, counterBuffer)
 	const digest = await hmacSha1Raw(secret, counterBuffer);
 
-	// Dynamic truncation
 	const offset = (digest[19] ?? 0) & 0xf;
 	const code =
 		((((digest[offset] ?? 0) & 0x7f) << 24) |
@@ -161,14 +145,10 @@ async function verifyTotp(
 	return false;
 }
 
-// Secret generation
-
 function generateSecret(): string {
 	const bytes = randomBytes(20);
 	return base32Encode(bytes);
 }
-
-// Backup codes
 
 const BACKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I confusion
 
@@ -201,8 +181,6 @@ async function generateBackupCodes(
 	return { plain, hashed };
 }
 
-// HTTP helpers
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
 		status,
@@ -218,15 +196,11 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 	}
 }
 
-// Module factory
-
 export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 	const appName = config.appName ?? "TheAuth";
 	const period = config.period ?? 30;
 	const backupCodeCount = config.backupCodeCount ?? 10;
 	const window = config.window ?? 1;
-
-	// setup
 
 	async function setup(userId: string): Promise<TotpSetup> {
 		const secretStr = generateSecret();
@@ -272,8 +246,6 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		}
 	}
 
-	// enable
-
 	async function enable(userId: string, code: string): Promise<{ enabled: boolean }> {
 		const rows = await db.select().from(totpRecords).where(eq(totpRecords.userId, userId));
 
@@ -298,8 +270,6 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { enabled: true };
 	}
 
-	// verify
-
 	async function verify(
 		userId: string,
 		code: string,
@@ -311,13 +281,11 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 			return { valid: false };
 		}
 
-		// Try TOTP first
 		const secretBytes = base32Decode(record.secret);
 		if (await verifyTotp(secretBytes, code, period, window)) {
 			return { valid: true };
 		}
 
-		// Try backup codes
 		const codeHash = await hashBackupCode(code.toUpperCase());
 		const backupCodes = record.backupCodes as BackupCodeEntry[];
 		const matchIndex = backupCodes.findIndex((b) => b.hash === codeHash && !b.used);
@@ -337,8 +305,6 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { valid: true, usedBackupCode: true };
 	}
 
-	// disable
-
 	async function disable(userId: string, code: string): Promise<{ disabled: boolean }> {
 		const result = await verify(userId, code);
 		if (!result.valid) {
@@ -350,8 +316,6 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		return { disabled: true };
 	}
 
-	// isEnabled
-
 	async function isEnabled(userId: string): Promise<boolean> {
 		const rows = await db
 			.select({ enabled: totpRecords.enabled })
@@ -360,8 +324,6 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 
 		return rows[0]?.enabled === true;
 	}
-
-	// regenerateBackupCodes
 
 	async function regenerateBackupCodes(
 		userId: string,
@@ -381,8 +343,6 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 
 		return { backupCodes: plain };
 	}
-
-	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);

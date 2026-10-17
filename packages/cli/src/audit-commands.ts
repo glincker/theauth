@@ -1,7 +1,5 @@
 /**
  * `theauth audit verify` and `theauth audit replay`.
- *
- * Kept in its own file so bin.ts only needs one import and one switch case.
  * The commands open the database read-only in spirit: they never run
  * migrations and never write.
  */

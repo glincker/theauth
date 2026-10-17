@@ -1,6 +1,3 @@
-// Plugin
-
-// Composables
 export {
 	useAgents,
 	useSession,
@@ -18,7 +15,6 @@ export {
 	useRequiredContext,
 } from "./plugin.js";
 
-// Types
 export type {
 	ActionResult,
 	AuthAgent,

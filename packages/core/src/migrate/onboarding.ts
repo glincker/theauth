@@ -9,10 +9,7 @@ export interface OnboardingConfig {
 	rollout: Rollout;
 	/** Create the theauth account on first sight. Off by default. */
 	jit?: boolean;
-	/**
-	 * Link to an existing theauth account with the same email. Only happens when the
-	 * incumbent says the email is verified. Off by default.
-	 */
+	/** Link to an existing theauth account with the same email. Only happens when the incumbent says the email is verified. Off by default. */
 	linkVerifiedEmail?: boolean;
 	/** Replace default user creation, e.g. to create an agent identity. */
 	provision?: (identity: ExternalIdentity) => Promise<{ id: string }>;
@@ -39,11 +36,7 @@ export interface LoginInput {
 	password?: string;
 }
 
-/**
- * The login hook. Call it after the incumbent has authenticated the user. It never throws
- * and never fails the login: every problem becomes `action: "failed"` and the incumbent
- * keeps serving that user.
- */
+/** The login hook. Call it after the incumbent has authenticated the user. It never throws and never fails the login: every problem becomes `action: "failed"` and the incumbent keeps serving that user. */
 export function createLoginOnboarding(config: OnboardingConfig) {
 	const { issuers, store, rollout } = config;
 

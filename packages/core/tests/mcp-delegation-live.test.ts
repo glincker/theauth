@@ -1,8 +1,4 @@
-/**
- * Opt-in live delegation check: the `act` chain of an access token is walked
- * against live link records, so revoking a parent grant stops tokens minted
- * down the chain before they expire.
- */
+/** Opt-in live delegation check: the `act` chain of an access token is walked against live link records, so revoking a parent grant stops tokens minted down the chain before they expire. */
 import { describe, expect, it } from "vitest";
 import type { McpDelegationLink, McpDelegationStore } from "../src/mcp/types.js";
 import { addClient, basicAuth, codeFlow, makeHarness, tokenRequest } from "./mcp-test-harness.js";

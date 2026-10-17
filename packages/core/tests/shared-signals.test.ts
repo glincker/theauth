@@ -124,8 +124,6 @@ describe("subjects", () => {
 	});
 });
 
-// Transmitter
-
 type Fetch = typeof fetch;
 
 async function makeTransmitter(
@@ -506,8 +504,6 @@ describe("transmitter: push delivery", () => {
 	});
 });
 
-// Receiver
-
 describe("receiver", () => {
 	const audience = "https://rp.example";
 	const make = (extra: Partial<Parameters<typeof createReceiver>[0]> = {}) =>
@@ -658,8 +654,6 @@ describe("receiver", () => {
 		expect(out.setErrs.bad?.err).toBeDefined();
 	});
 });
-
-// Wiring
 
 describe("plugin wiring", () => {
 	it("mounts a receiver endpoint and reports verification state", async () => {

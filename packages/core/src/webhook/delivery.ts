@@ -1,16 +1,6 @@
 /**
  * Webhook delivery engine with exponential backoff retry.
- *
- * Retry policy:
- *   - 5xx responses  → retry (transient server error)
- *   - 4xx responses  → no retry (permanent client error)
- *   - Network errors → retry
- *   - Timeout        → retry (next attempt gets its own timeout budget)
- *
- * Delivery status lifecycle:
- *   pending → success  (first attempt succeeded)
- *   pending → failed   (attempt failed, more retries remain)
- *   pending → exhausted (all attempts failed)
+ * Delivery status lifecycle: pending → success  (first attempt succeeded) pending → failed   (attempt failed, more retries remain) pending → exhausted (all attempts failed)
  */
 
 import { buildWebhookHeaders, currentTimestamp, generateDeliveryId } from "./signing.js";
@@ -33,8 +23,6 @@ function backoffDelay(attempt: number, baseMs: number): number {
 	// attempt is 0-based: 0 → baseMs, 1 → baseMs * 4, 2 → baseMs * 16
 	return baseMs * BACKOFF_EXPONENT ** attempt;
 }
-
-// Factory
 
 /**
  * Create a delivery engine with the given retry configuration.
@@ -116,7 +104,7 @@ export function createDeliveryEngine(retryConfig: RetryConfig = {}): DeliveryEng
 					return record;
 				}
 
-				// 4xx — permanent failure, do not retry
+				// 4xx, permanent failure, do not retry
 				if (response.status >= 400 && response.status < 500) {
 					record.attempts.push(attempt);
 					record.status = "failed";
@@ -124,16 +112,15 @@ export function createDeliveryEngine(retryConfig: RetryConfig = {}): DeliveryEng
 					return record;
 				}
 
-				// 5xx — transient, continue loop
+				// 5xx, transient, continue loop
 			} catch (err) {
 				attempt.error = err instanceof Error ? err.message : "Unknown error";
-				// Network/timeout errors — continue loop
+				// Network/timeout errors, continue loop
 			}
 
 			record.attempts.push(attempt);
 		}
 
-		// All attempts exhausted
 		record.status = "exhausted";
 		record.updatedAt = Date.now();
 		return record;

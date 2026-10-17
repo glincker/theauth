@@ -5,8 +5,7 @@ import { createOAuthProxyModule } from "./oauth-proxy.js";
 
 export interface OAuthProxyPluginConfig extends OAuthProxyConfig {
 	/**
-	 * Provider instances to make available for the proxy.
-	 * Keys are the provider IDs used in the `provider` query parameter.
+	 * Provider instances to make available for the proxy. Keys are the provider IDs used in the `provider` query parameter.
 	 *
 	 * @example
 	 * ```typescript
@@ -41,7 +40,6 @@ export function oauthProxy(config: OAuthProxyPluginConfig): TheAuthPlugin {
 			// Delegate all matching requests to the module. The module owns
 			// route matching, rate limiting, and response construction.
 
-			// GET /auth/oauth-proxy/start
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/oauth-proxy/start",
@@ -64,7 +62,6 @@ export function oauthProxy(config: OAuthProxyPluginConfig): TheAuthPlugin {
 				},
 			});
 
-			// GET /auth/oauth-proxy/callback
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/oauth-proxy/callback",

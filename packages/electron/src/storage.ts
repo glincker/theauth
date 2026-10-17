@@ -3,10 +3,7 @@ import * as path from "node:path";
 import type { ElectronSafeStorage } from "./electron-api.js";
 import { getElectronApi } from "./electron-api.js";
 
-// Types
-
 export interface ElectronStorageConfig {
-	/** File name for the session data. Defaults to "theauth-session.json". */
 	fileName?: string;
 	/** Optional additional encryption key applied on top of safeStorage. */
 	encryptionKey?: string;
@@ -18,8 +15,6 @@ export interface SecureStorage {
 	remove(key: string): Promise<void>;
 	clear(): Promise<void>;
 }
-
-// XOR cipher for optional encryptionKey
 
 function xorWithKey(data: Uint8Array, key: string): Uint8Array {
 	if (key.length === 0) return data;
@@ -51,8 +46,6 @@ function base64ToUint8Array(base64: string): Uint8Array {
 	return bytes;
 }
 
-// Storage file helpers
-
 type StorageMap = Record<string, string>;
 
 function readStorageFile(filePath: string): StorageMap {
@@ -73,8 +66,6 @@ function writeStorageFile(filePath: string, data: StorageMap): void {
 	fs.mkdirSync(dir, { recursive: true });
 	fs.writeFileSync(filePath, JSON.stringify(data), "utf8");
 }
-
-// Factory
 
 /**
  * Creates a SecureStorage adapter backed by Electron's safeStorage API.

@@ -20,8 +20,7 @@ interface AgentModuleConfig {
 }
 
 /**
- * Generate a secure agent token.
- * Returns { token, hash, prefix } where:
+ * Generate a secure agent token. Returns { token, hash, prefix } where:
  * - token: the full token (given to the agent, never stored)
  * - hash: SHA-256 hash (stored in DB)
  * - prefix: first 8 chars (for identification in logs/UI)
@@ -51,10 +50,7 @@ function parseTokenExpiry(expiry: string): Date {
 	return new Date(now + value * (multipliers[unit as string] ?? 0));
 }
 
-/**
- * Create the agent identity module.
- * Handles CRUD operations for AI agent identities.
- */
+/** Create the agent identity module. Handles CRUD operations for AI agent identities. */
 export function createAgentModule(config: AgentModuleConfig) {
 	const { db, maxPerUser, tokenExpiry } = config;
 	const delegation = createDelegationModule({ db });
@@ -77,7 +73,6 @@ export function createAgentModule(config: AgentModuleConfig) {
 		const now = new Date();
 		const expires = input.expiresAt ?? parseTokenExpiry(tokenExpiry);
 
-		// Insert agent
 		await db.insert(agents).values({
 			id,
 			ownerId: input.ownerId,
@@ -93,7 +88,6 @@ export function createAgentModule(config: AgentModuleConfig) {
 			updatedAt: now,
 		});
 
-		// Insert permissions
 		if (input.permissions.length > 0) {
 			await db.insert(permissions).values(
 				input.permissions.map((p) => ({
@@ -221,11 +215,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	/**
-	 * Revoke an agent, then every active delegation chain where it is source or
-	 * target (and their child chains). The agent is revoked first so a failure
-	 * part way leaves the agent unusable. One `agent.cascade.revoked` audit row
-	 * lists the revoked chain ids. Calling it again revokes nothing new and
-	 * writes no row.
+	 * Revoke an agent, then every active delegation chain where it is source or target (and their child chains). The agent is revoked first so a failure part way leaves the agent unusable. One `agent.cascade.revoked` audit row lists the revoked chain ids. Calling it again revokes nothing new and writes no row.
 	 */
 	async function revoke(agentId: string): Promise<{ revokedDelegations: string[] }> {
 		const existing = await get(agentId);
@@ -269,10 +259,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	/**
-	 * Look up an agent by token and say why it was refused when it was.
-	 * `rejected` is set only when the token matches a known agent that is
-	 * revoked or expired, so the caller can record the denied attempt. An
-	 * unknown token yields `{ agent: null }` with no `rejected`.
+	 * Look up an agent by token and say why it was refused when it was. `rejected` is set only when the token matches a known agent that is revoked or expired, so the caller can record the denied attempt. An unknown token yields `{ agent: null }` with no `rejected`.
 	 */
 	async function resolveToken(token: string): Promise<{
 		agent: AgentIdentity | null;
@@ -283,7 +270,6 @@ export function createAgentModule(config: AgentModuleConfig) {
 		const agent = rows[0];
 		if (!agent) return { agent: null };
 
-		// Check status
 		if (agent.status !== "active") {
 			return {
 				agent: null,
@@ -295,7 +281,6 @@ export function createAgentModule(config: AgentModuleConfig) {
 			};
 		}
 
-		// Check expiry
 		if (agent.expiresAt && agent.expiresAt < new Date()) {
 			await db
 				.update(agents)
@@ -307,7 +292,6 @@ export function createAgentModule(config: AgentModuleConfig) {
 			};
 		}
 
-		// Update last active
 		await db.update(agents).set({ lastActiveAt: new Date() }).where(eq(agents.id, agent.id));
 
 		const perms = await db.select().from(permissions).where(eq(permissions.agentId, agent.id));
@@ -329,10 +313,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 		};
 	}
 
-	/**
-	 * Validate an agent token and return the agent identity.
-	 * Used internally by the authorization engine.
-	 */
+	/** Validate an agent token and return the agent identity. Used internally by the authorization engine. */
 	async function validateToken(token: string): Promise<AgentIdentity | null> {
 		return (await resolveToken(token)).agent;
 	}

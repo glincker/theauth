@@ -2,8 +2,6 @@ import { useCallback, useContext, useState } from "react";
 import { TheAuthExpoContext } from "./provider.js";
 import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
 
-// Guards
-
 function useRequiredContext(hookName: string) {
 	const ctx = useContext(TheAuthExpoContext);
 	if (!ctx) {
@@ -12,31 +10,16 @@ function useRequiredContext(hookName: string) {
 	return ctx;
 }
 
-// useSession
-
-/**
- * Returns the current session, loading state, and a manual refresh function.
- */
 export function useSession() {
 	const { session, isLoading, refresh } = useRequiredContext("useSession");
 	return { session, isLoading, refresh };
 }
 
-// useUser
-
-/**
- * Returns the current user, loading state, and authentication status.
- */
 export function useUser() {
 	const { user, isLoading, isAuthenticated } = useRequiredContext("useUser");
 	return { user, isLoading, isAuthenticated };
 }
 
-// useSignIn
-
-/**
- * Returns a signIn function plus local loading and error state.
- */
 export function useSignIn() {
 	const { signIn } = useRequiredContext("useSignIn");
 	const [isLoading, setIsLoading] = useState(false);
@@ -59,12 +42,7 @@ export function useSignIn() {
 	return { signIn: execute, isLoading, error };
 }
 
-// useSocialSignIn
-
-/**
- * Returns a signInWithProvider function plus local loading and error state.
- * Needs `social` in the provider config.
- */
+/** Needs `social` in the provider config. */
 export function useSocialSignIn() {
 	const { signInWithProvider } = useRequiredContext("useSocialSignIn");
 	const [isLoading, setIsLoading] = useState(false);
@@ -85,12 +63,7 @@ export function useSocialSignIn() {
 	return { signInWithProvider: execute, isLoading, error };
 }
 
-// usePasskeys
-
-/**
- * Passkey sign-in and registration with local loading and error state.
- * Needs `passkeys` in the provider config.
- */
+/** Needs `passkeys` in the provider config. */
 export function usePasskeys() {
 	const { signInWithPasskey, registerPasskey } = useRequiredContext("usePasskeys");
 	const [isLoading, setIsLoading] = useState(false);
@@ -117,11 +90,6 @@ export function usePasskeys() {
 	return { signInWithPasskey: signIn, registerPasskey: register, isLoading, error };
 }
 
-// useSignUp
-
-/**
- * Returns a signUp function plus local loading and error state.
- */
 export function useSignUp() {
 	const { signUp } = useRequiredContext("useSignUp");
 	const [isLoading, setIsLoading] = useState(false);
@@ -144,17 +112,10 @@ export function useSignUp() {
 	return { signUp: execute, isLoading, error };
 }
 
-// useSignOut
-
-/**
- * Returns a signOut function.
- */
 export function useSignOut() {
 	const { signOut } = useRequiredContext("useSignOut");
 	return { signOut };
 }
-
-// useAgents
 
 interface AgentApiResponse {
 	data: TheAuthAgent[];
@@ -186,12 +147,7 @@ function extractError(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-/**
- * Manages agent identity records for a given user.
- *
- * Sends the session token via Authorization header (not cookies) to work
- * correctly in React Native environments.
- */
+/** Sends the session token in the Authorization header, not cookies, for React Native. */
 export function useAgents(basePath: string) {
 	const { user, session } = useRequiredContext("useAgents");
 	const base = basePath.replace(/\/$/, "");
@@ -233,7 +189,6 @@ export function useAgents(basePath: string) {
 		}
 	}, [base, user, authHeaders]);
 
-	// Load once when user is available
 	const [loaded, setLoaded] = useState(false);
 	if (user && !loaded) {
 		setLoaded(true);

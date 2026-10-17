@@ -89,9 +89,7 @@ export async function runLogout(args: AuthArgs): Promise<number> {
 				method: "POST",
 				headers: { authorization: `${cred.tokenType} ${cred.accessToken}` },
 			});
-		} catch {
-			// Offline logout still clears the local token.
-		}
+		} catch {}
 	}
 	const removed = await clearCredential(serverUrl);
 	stdout.write(removed ? `Logged out of ${serverUrl}.\n` : `Not logged in to ${serverUrl}.\n`);

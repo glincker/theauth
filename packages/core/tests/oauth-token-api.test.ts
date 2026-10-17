@@ -1,7 +1,4 @@
-/**
- * Social token API: getAccessToken with refresh, encryption at rest,
- * listAccounts / unlinkAccount guard, and the plugin routes.
- */
+/** Social token API: getAccessToken with refresh, encryption at rest, listAccounts / unlinkAccount guard, and the plugin routes. */
 
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

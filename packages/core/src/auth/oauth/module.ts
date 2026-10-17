@@ -1,17 +1,6 @@
 /**
  * OAuth module factory.
- *
- * Provides three operations on top of any configured set of providers:
- *
- * 1. `getAuthorizationUrl` — generate a PKCE-protected authorization URL and
- *    persist the state + code verifier to the database.
- * 2. `handleCallback` — validate state, exchange the code, fetch user info,
- *    and create or return an existing linked account.
- * 3. `linkAccount` — manually link provider tokens to an existing user.
- * 4. `findLinkedUser` — look up which user owns a provider account.
- *
- * All state operations use the `theauth_oauth_states` table; all account links
- * use the `theauth_oauth_accounts` table — both defined in `./schema.ts`.
+ * `getAuthorizationUrl`, generate a PKCE-protected authorization URL and persist the state + code verifier to the database.
  */
 
 import { and, eq, lt } from "drizzle-orm";
@@ -33,8 +22,6 @@ import type {
 // Defaults
 
 const DEFAULT_STATE_TTL_SECONDS = 600; // 10 minutes
-
-// Factory
 
 /**
  * Create an OAuth module bound to a database instance.
@@ -66,8 +53,6 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	const nowMs = config.now ?? Date.now;
 	const sealer = createTokenSealer(config.tokenEncryption);
 	const tokenApi = createTokenApi(db, config, sealer);
-
-	// helpers
 
 	function getProvider(providerId: string) {
 		const provider = config.providers[providerId];
@@ -104,8 +89,6 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		return null;
 	}
 
-	// module operations
-
 	async function getAuthorizationUrl(
 		providerId: string,
 		redirectUri: string,
@@ -141,7 +124,6 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		const provider = getProvider(providerId);
 		const now = new Date(nowMs());
 
-		// 1. Validate and consume the state
 		const stateRows = await db.select().from(oauthStates).where(eq(oauthStates.state, state));
 
 		const stateRow = stateRows[0];
@@ -162,7 +144,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			throw new Error("OAuth callback: state has expired. Restart the authorization flow.");
 		}
 
-		// Consume the state — delete before network calls to prevent replay attacks.
+		// Consume the state, delete before network calls to prevent replay attacks.
 		// The delete is the claim: a concurrent callback with the same state gets no row back.
 		const consumed = await db
 			.delete(oauthStates)
@@ -172,13 +154,10 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			throw new Error("OAuth callback: unknown or already-used state value.");
 		}
 
-		// 2. Exchange authorization code for tokens
 		const tokens = await provider.exchangeCode(code, stateRow.codeVerifier, redirectUri);
 
-		// 3. Fetch user profile
 		const userInfo = await provider.getUserInfo(tokens.accessToken);
 
-		// 4. Create or update the linked account
 		const existingRows = await db
 			.select()
 			.from(oauthAccounts)
@@ -222,7 +201,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			};
 		}
 
-		// New link — we do NOT create the theauth_users row here.  That is the
+		// New link, we do NOT create the theauth_users row here.  That is the
 		// caller's responsibility because they may want to look up an existing
 		// user by email, collect extra profile fields, enforce tenant rules, etc.
 		const accountId = generateId();
@@ -232,7 +211,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			id: accountId,
 			// userId will be set by the caller via linkAccount once they know the
 			// theauth user ID.  We use a placeholder that foreign-key-checks will
-			// reject on real databases — callers MUST call linkAccount.
+			// reject on real databases, callers MUST call linkAccount.
 			userId: "__pending__",
 			provider: providerId,
 			providerAccountId: userInfo.id,
@@ -264,7 +243,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		const now = new Date(nowMs());
 		const expiresAt = tokens.expiresIn ? new Date(now.getTime() + tokens.expiresIn * 1000) : null;
 
-		// Upsert — if a pending row exists (from handleCallback) update it;
+		// Upsert, if a pending row exists (from handleCallback) update it;
 		// otherwise insert fresh.
 		const existingRows = await db
 			.select()
@@ -350,16 +329,14 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 	/**
 	 * Delete all expired state entries.
-	 *
-	 * Call this periodically (e.g. from a cron job) to prevent unbounded
-	 * growth of the `theauth_oauth_states` table.
+	 * from a cron job) to prevent unbounded growth of the `theauth_oauth_states` table.
 	 */
 	async function pruneExpiredStates(): Promise<number> {
 		const now = new Date(nowMs());
 		const result = await db.delete(oauthStates).where(lt(oauthStates.expiresAt, now));
 
 		// Drizzle returns the raw driver result; rowsAffected is driver-specific.
-		// Return 0 as a safe fallback — the prune still ran.
+		// Return 0 as a safe fallback, the prune still ran.
 		return (result as { rowsAffected?: number }).rowsAffected ?? 0;
 	}
 
@@ -372,7 +349,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		listAccounts: tokenApi.listAccounts,
 		unlinkAccount: tokenApi.unlinkAccount,
 		// Exposed as an extension beyond the OAuthModule interface for
-		// maintenance convenience — callers can destructure it directly.
+		// maintenance convenience, callers can destructure it directly.
 		pruneExpiredStates,
 	} as OAuthModule & { pruneExpiredStates: () => Promise<number> };
 }

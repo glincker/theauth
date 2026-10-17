@@ -1,6 +1,4 @@
-// Scenario logic. Everything here is the real theAuth code: createTheAuth with the
-// in-memory SQLite (sql.js) store, guardTool, tainted(), the policy engine, and the
-// signed audit checkpoint, inclusion proof and receipt APIs.
+// Scenario logic running the real theAuth code: createTheAuth on in-memory sql.js, guardTool, tainted(), policy, and signed audit checkpoints and receipts.
 
 import type {
 	Checkpoint,

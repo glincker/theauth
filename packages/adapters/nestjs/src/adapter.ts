@@ -16,8 +16,6 @@ import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
-// Zod Validation Schemas
-
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
 	allowedArgPatterns: z.array(z.string()).optional(),
@@ -74,8 +72,6 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// Response Helpers
-
 function sendOk<T>(res: Response, data: T, status = 200): void {
 	res.status(status).json({ data });
 }
@@ -92,10 +88,7 @@ function sendError(res: Response, code: string, message: string, status: number)
 	res.status(status).json({ error: { code, message } });
 }
 
-/**
- * Return the machine-readable code of a typed core DelegationError, else null.
- * Structural check so adapters do not need a runtime import of core.
- */
+/** Structural check so adapters avoid a runtime import of core. */
 function delegationErrorCode(err: unknown): string | null {
 	if (err instanceof Error && err.name === "DelegationError") {
 		const code = (err as Error & { code?: unknown }).code;
@@ -124,8 +117,6 @@ function sendValidationError(res: Response, issues: z.ZodIssue[]): void {
 	const message = issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
 	sendBadRequest(res, `Validation failed: ${message}`);
 }
-
-// MCP CORS Helpers
 
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -162,8 +153,6 @@ function routeParam(req: Request, name: string): string {
 	const val = req.params[name];
 	return Array.isArray(val) ? (val[0] ?? "") : (val ?? "");
 }
-
-// Web Request Builder
 
 /** Re-encode the framework-parsed body as URL-encoded or JSON text. */
 function encodeParsedBody(req: Request): string | null {
@@ -207,25 +196,15 @@ function buildWebRequest(req: Request, withBody = true): globalThis.Request {
 	});
 }
 
-// TheAuth NestJS Options
-
 export interface TheAuthNestjsOptions extends AdapterSecurityOptions {
-	/** The TheAuth instance */
 	theauth: TheAuth;
-	/** Optional MCP OAuth 2.1 module */
 	mcp?: McpAuthModule;
 }
 
 /** @deprecated Use `TheAuthNestjsOptions` instead. Will be removed in a future major version. */
 export type AuthNestjsOptions = TheAuthNestjsOptions;
 
-// Express Router Builder
-
-/**
- * Build the Express Router with all TheAuth routes.
- * Used internally by `TheAuthModule` and can also be used directly in
- * Express-backed NestJS apps via `app.use`.
- */
+/** Express Router with all TheAuth routes, used by `TheAuthModule` and by Express-backed Nest apps. */
 export function buildTheAuthRouter(
 	auth: TheAuth,
 	mcp?: McpAuthModule,
@@ -252,7 +231,6 @@ export function buildTheAuthRouter(
 		if (!scope) sendDenial(res, noScope);
 		return scope;
 	};
-	/** Run `proceed` only when the caller may act on `agentId`. */
 	const withAgent = (res: Response, agentId: string, proceed: () => void): void => {
 		const scope = requireScope(res);
 		if (!scope) return;
@@ -266,7 +244,6 @@ export function buildTheAuthRouter(
 				if (!res.headersSent) sendDenial(res, noScope);
 			});
 	};
-	/** Run `proceed` only when the caller may act on delegation chain `chainId`. */
 	const withChain = (res: Response, chainId: string, proceed: () => void): void => {
 		const scope = requireScope(res);
 		if (!scope) return;
@@ -315,8 +292,6 @@ export function buildTheAuthRouter(
 			})
 			.catch(next);
 	});
-
-	// Agent REST API
 
 	router.post("/agents", (req: Request, res: Response) => {
 		const parsed = CreateAgentSchema.safeParse(req.body);
@@ -449,8 +424,6 @@ export function buildTheAuthRouter(
 		});
 	});
 
-	// Authorization
-
 	router.post("/authorize", (req: Request, res: Response) => {
 		const parsed = AuthorizeSchema.safeParse(req.body);
 		if (!parsed.success) {
@@ -499,8 +472,6 @@ export function buildTheAuthRouter(
 			sendValidationError(res, parsed.error.issues);
 			return;
 		}
-		// Forwarded headers are only honored through `trustedProxy`. `req.ip` is
-		// the socket peer unless the host enabled Express's own `trust proxy`.
 		const ip = guard.clientIp(buildWebRequest(req)) ?? req.ip ?? undefined;
 		const userAgent =
 			(Array.isArray(req.headers["user-agent"])
@@ -525,8 +496,6 @@ export function buildTheAuthRouter(
 				sendInternalError(res, message);
 			});
 	});
-
-	// Delegation
 
 	router.post("/delegations", (req: Request, res: Response) => {
 		const parsed = DelegateSchema.safeParse(req.body);
@@ -587,8 +556,6 @@ export function buildTheAuthRouter(
 				});
 		});
 	});
-
-	// Audit
 
 	router.get("/audit", (req: Request, res: Response) => {
 		const filter: AuditFilter = {};
@@ -675,8 +642,6 @@ export function buildTheAuthRouter(
 				sendInternalError(res, message);
 			});
 	});
-
-	// Dashboard API
 
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
 		const scope = requireScope(res);
@@ -789,8 +754,6 @@ export function buildTheAuthRouter(
 			});
 	});
 
-	// MCP OAuth 2.1 Endpoints
-
 	router.options("/.well-known/*path", (_req: Request, res: Response) => {
 		setMcpCors(res);
 		res.status(204).end();
@@ -902,14 +865,11 @@ export function buildTheAuthRouter(
 			});
 	});
 
-	// Plugin Endpoints
-
 	for (const endpoint of auth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
-			// req.baseUrl is the prefix the router was mounted under; the plugin
-			// router needs it to strip the mount point before matching.
+			// The plugin router must strip the mount point (req.baseUrl) before matching.
 			auth.plugins
 				.handleRequest(webReq, req.baseUrl)
 				.then((response) => {
@@ -938,8 +898,6 @@ export function buildTheAuthRouter(
 
 	return router;
 }
-
-// NestJS Middleware Factory
 
 /**
  * Returns an Express-compatible middleware function that mounts all TheAuth

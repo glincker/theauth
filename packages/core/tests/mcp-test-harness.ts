@@ -1,7 +1,4 @@
-/**
- * Shared fixtures for the MCP grant tests (client_credentials, token exchange,
- * jwt-bearer, lenient clients, CIMD). In-memory storage, real module instances.
- */
+/** Shared fixtures for the MCP grant tests (client_credentials, token exchange, jwt-bearer, lenient clients, CIMD). In-memory storage, real module instances. */
 import type { JWK } from "jose";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createInMemoryJtiDenylist } from "../src/mcp/memory-stores.js";

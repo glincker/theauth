@@ -10,10 +10,7 @@ export type RefreshOutcome =
 	  }
 	| { ok: false; reauth: boolean };
 
-/**
- * RFC 6749 section 6 refresh. Response bodies are parsed but never logged or
- * echoed in errors, since failures can still contain token material.
- */
+/** RFC 6749 section 6 refresh. Response bodies are parsed but never logged or echoed in errors, since failures can still contain token material. */
 export async function refreshTokens(
 	cfg: VaultProviderConfig,
 	refreshToken: string,

@@ -1,34 +1,16 @@
 /**
  * Reddit OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://www.reddit.com/api/v1/authorize
- * - Token:         https://www.reddit.com/api/v1/access_token
- * - UserInfo:      https://oauth.reddit.com/api/v1/me
- *
  * Notes:
- * - Reddit's token endpoint uses HTTP Basic authentication (client_id as the
- *   username, client_secret as the password) rather than posting credentials
- *   in the request body.
- * - The `identity` scope grants access to the user's Reddit account info.
- * - Reddit does not expose the user's email address via OAuth; the `name`
- *   field (Reddit username) is the stable identifier.
- * - The UserInfo endpoint requires a descriptive `User-Agent` header. Reddit
- *   blocks requests with generic agents (e.g., "python-requests"). Format:
- *   `platform:app_id:version (by /u/username)`.
- * - Avatar URLs (`icon_img`) include query parameters; strip them when storing
- *   to avoid caching issues.
- * - PKCE is supported but Reddit also accepts flows without it for server-side
- *   apps; TheAuth uses PKCE S256 consistently.
- *
- * Docs: https://www.reddit.com/dev/api/oauth
+ * - Reddit's token endpoint uses HTTP Basic authentication (client_id as the username, client_secret as the password) rather than posting credentials in the request body.
+ * - Reddit does not expose the user's email address via OAuth; the `name` field (Reddit username) is the stable identifier.
+ * - The UserInfo endpoint requires a descriptive `User-Agent` header.
+ * - Avatar URLs (`icon_img`) include query parameters; strip them when storing to avoid caching issues.
+ * - PKCE is supported but Reddit also accepts flows without it for server-side apps; TheAuth uses PKCE S256 consistently.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
-
-// Constants
 
 const AUTHORIZATION_URL = "https://www.reddit.com/api/v1/authorize";
 const TOKEN_URL = "https://www.reddit.com/api/v1/access_token";
@@ -37,8 +19,6 @@ const DEFAULT_USER_AGENT = "web:theauth-oauth:v1 (by /u/theauth)";
 
 export const DEFAULT_REDDIT_SCOPES = ["identity"];
 const DEFAULT_SCOPES = DEFAULT_REDDIT_SCOPES;
-
-// Raw response shapes
 
 interface RedditTokenResponse {
 	access_token: string;
@@ -53,8 +33,6 @@ interface RedditUserResponse {
 	name: string;
 	icon_img?: string;
 }
-
-// Factory
 
 /**
  * Create a Reddit OAuth provider instance.
@@ -168,7 +146,7 @@ export function createRedditProvider(config: OAuthProviderConfig): OAuthProvider
 
 		return {
 			id: data.id,
-			// No email — caller must handle the undefined case.
+			// No email, caller must handle the undefined case.
 			email: undefined,
 			name: data.name,
 			avatar,
@@ -196,8 +174,6 @@ export function createRedditProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as RedditUserResponse;
 
@@ -221,8 +197,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Helpers
 
 function stripQueryParams(url: string): string {
 	try {

@@ -14,10 +14,7 @@ function hhmm(value: string): number {
 	return Number(h) * 60 + Number(m);
 }
 
-/**
- * Combine a parent's constraints with the ones requested for a child so the
- * result is never looser than the parent's. A child can only add restrictions.
- */
+/** Combine a parent's constraints with the ones requested for a child so the result is never looser than the parent's. A child can only add restrictions. */
 export function narrowConstraints(
 	parent: PermissionConstraints | undefined,
 	child: PermissionConstraints | undefined,

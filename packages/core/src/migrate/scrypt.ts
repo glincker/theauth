@@ -1,7 +1,4 @@
-/**
- * scrypt (RFC 7914) on top of WebCrypto PBKDF2. Pure JS so it runs on Workers, Deno and Bun.
- * It is slower than native scrypt, which is fine for the one-time check on first login.
- */
+/** scrypt (RFC 7914) on top of WebCrypto PBKDF2. Pure JS so it runs on Workers, Deno and Bun. It is slower than native scrypt, which is fine for the one-time check on first login. */
 
 const MAX_MEMORY_BYTES = 256 * 1024 * 1024;
 

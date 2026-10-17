@@ -5,9 +5,7 @@ import type { EndpointContext, PluginEndpoint } from "./types.js";
 
 /**
  * Match a URL pathname against a route pattern that may contain colon params.
- *
- * Returns a record of captured param values when matched, or null when the
- * pattern does not match the path.
+ * Returns a record of captured param values when matched, or null when the pattern does not match the path.
  *
  * @example
  * matchPath('/auth/verify/:token', '/auth/verify/abc123')
@@ -28,11 +26,10 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
 		if (patternPart === undefined || pathPart === undefined) return null;
 
 		if (patternPart.startsWith(":")) {
-			// Colon param — capture the value
+			// Colon param, capture the value
 			const paramName = patternPart.slice(1);
 			params[paramName] = decodeURIComponent(pathPart);
 		} else if (patternPart !== pathPart) {
-			// Literal segment mismatch
 			return null;
 		}
 	}
@@ -40,13 +37,7 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
 	return params;
 }
 
-/**
- * Create a plugin router that matches requests to registered plugin endpoints.
- *
- * The router strips `basePath` from the request URL before matching so plugins
- * register paths relative to the mount point (e.g. `/auth/sign-in` instead
- * of `/api/theauth/auth/sign-in`).
- */
+/** Create a plugin router that matches requests to registered plugin endpoints. */
 export function createPluginRouter(
 	endpoints: PluginEndpoint[],
 	options: { trustedProxy?: TrustedProxyConfig } = {},
@@ -107,7 +98,6 @@ export function createPluginRouter(
 				const params = matchPath(endpoint.path, pathname);
 				if (params === null) continue;
 
-				// Rate limit enforcement
 				if (endpoint.metadata?.rateLimit) {
 					const { window: windowSec, max } = endpoint.metadata.rateLimit;
 					// Forwarded headers are only honoured when `trustedProxy` is configured.
@@ -118,7 +108,6 @@ export function createPluginRouter(
 					}
 				}
 
-				// Auth enforcement
 				if (endpoint.metadata?.requireAuth) {
 					const user = await endpointCtx.getUser(request);
 					if (!user) {

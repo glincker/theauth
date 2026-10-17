@@ -1,16 +1,7 @@
 /**
  * HMAC-SHA256 webhook signing using the Web Crypto API.
- *
- * Edge-compatible — no Node.js `crypto` module required.
- *
- * Signature format: `sha256=<64-char-hex>`
- *
- * The signed message is: `${timestamp}.${rawBody}`
- * where `timestamp` is a Unix second string. This binds the signature to a
- * point in time so consumers can reject replays outside their tolerance window.
+ * Edge-compatible, no Node.js `crypto` module required. This binds the signature to a point in time so consumers can reject replays outside their tolerance window.
  */
-
-// Low-level helpers
 
 function toHex(bytes: Uint8Array): string {
 	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -33,8 +24,6 @@ async function computeHmac(key: CryptoKey, message: string): Promise<string> {
 	return toHex(new Uint8Array(sig));
 }
 
-// Signing headers
-
 export interface WebhookHeaders {
 	"X-TheAuth-Signature": string;
 	"X-TheAuth-Timestamp": string;
@@ -42,15 +31,7 @@ export interface WebhookHeaders {
 	"X-TheAuth-Delivery-Id": string;
 }
 
-/**
- * Generate all four required webhook headers for a single delivery.
- *
- * @param secret     - Endpoint signing secret
- * @param rawBody    - Serialised JSON payload (the exact string sent as body)
- * @param event      - Event type string
- * @param deliveryId - Unique delivery ID (pass `generateDeliveryId()`)
- * @param timestamp  - Unix seconds as a string (pass `currentTimestamp()`)
- */
+/** Generate all four required webhook headers for a single delivery. */
 export async function buildWebhookHeaders(
 	secret: string,
 	rawBody: string,
@@ -69,36 +50,20 @@ export async function buildWebhookHeaders(
 	};
 }
 
-// Public helpers
-
-/**
- * Generate a cryptographically random delivery ID (32 hex chars / 128 bits).
- */
+/** Generate a cryptographically random delivery ID (32 hex chars / 128 bits). */
 export function generateDeliveryId(): string {
 	const bytes = new Uint8Array(16);
 	crypto.getRandomValues(bytes);
 	return toHex(bytes);
 }
 
-/**
- * Current Unix timestamp in whole seconds, as a string.
- * Used for `X-TheAuth-Timestamp`.
- */
+/** Current Unix timestamp in whole seconds, as a string. Used for `X-TheAuth-Timestamp`. */
 export function currentTimestamp(): string {
 	return String(Math.floor(Date.now() / 1000));
 }
 
-// Verification helper for consumers
-
 /**
  * Verify a webhook signature received by your endpoint.
- *
- * @param secret         - The shared secret for this endpoint
- * @param rawBody        - The raw request body string (do NOT parse first)
- * @param signature      - The `X-TheAuth-Signature` header value (`sha256=…`)
- * @param timestamp      - The `X-TheAuth-Timestamp` header value
- * @param maxAgeSeconds  - Reject requests older than this (default: 300 = 5 min)
- * @returns true if the signature is valid and the request is not a replay
  *
  * @example
  * ```typescript
@@ -132,13 +97,11 @@ export async function verify({
 	const age = Math.floor(Date.now() / 1000) - ts;
 	if (age > maxAgeSeconds || age < -60) return false;
 
-	// Signature check
 	if (!signature.startsWith("sha256=")) return false;
 	const key = await importHmacKey(secret);
 	const expectedHex = await computeHmac(key, `${timestamp}.${rawBody}`);
 	const expected = `sha256=${expectedHex}`;
 
-	// Constant-time comparison
 	if (expected.length !== signature.length) return false;
 	const enc = new TextEncoder();
 	const a = enc.encode(expected);

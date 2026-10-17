@@ -1,10 +1,6 @@
 /**
  * Browser and edge safe entry: `@glinr/theauth/browser`.
- *
- * Exposes the agent-security core (guardTool, taint labels, policy engine, signed audit
- * checkpoints and receipts) and a `createTheAuth` that never loads a Node-only driver
- * (pg, mysql2, better-sqlite3, libsql, nodemailer, node:zlib, node:fs). The caller
- * supplies the sql.js WASM loader for SQLite, or a D1 binding.
+ * Exposes the agent-security core (guardTool, taint labels, policy engine, signed audit checkpoints and receipts) and a `createTheAuth` that never loads a Node-only driver (pg, mysql2, better-sqlite3, libsql, nodemailer, node:zlib, node:fs).
  */
 
 import type { SqlJsLoader } from "./db/database-browser.js";

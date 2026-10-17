@@ -1,11 +1,6 @@
 /**
  * Multi-session support for TheAuth.
- *
- * Allows users to maintain multiple concurrent sessions (phone, laptop, tablet)
- * with optional per-user session caps. When the cap is reached, the oldest
- * session is evicted automatically (configurable).
- *
- * Uses the existing `theauth_sessions` table — no additional schema required.
+ * Uses the existing `theauth_sessions` table, no additional schema required.
  *
  * @example
  * ```typescript
@@ -29,8 +24,6 @@ import { resolveClientIp } from "../auth/client-ip.js";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { SessionManager } from "./session.js";
-
-// Public types
 
 export interface MultiSessionConfig {
 	/** Max concurrent sessions per user (default: 10) */
@@ -61,15 +54,10 @@ export interface MultiSessionModule {
 	getSessionCount(userId: string): Promise<number>;
 	/**
 	 * Enforce the session cap before creating a new session.
-	 *
-	 * Call this before `sessionManager.create()`. If the cap is reached:
-	 * - `evict-oldest` deletes the oldest session and resolves.
 	 * - `reject` throws a `MultiSessionLimitError`.
 	 */
 	enforceSessionLimit(userId: string): Promise<void>;
 }
-
-// Errors
 
 export class MultiSessionLimitError extends Error {
 	readonly code = "SESSION_LIMIT_REACHED";
@@ -78,17 +66,11 @@ export class MultiSessionLimitError extends Error {
 	}
 }
 
-// User-Agent parsing
-
-/**
- * Extract a short device description from a User-Agent string.
- * Returns strings like "Chrome on macOS", "Safari on iOS", "Firefox on Windows".
- * Falls back to "Unknown" when the UA cannot be parsed.
- */
+/** Extract a short device description from a User-Agent string. Returns strings like "Chrome on macOS", "Safari on iOS", "Firefox on Windows". Falls back to "Unknown" when the UA cannot be parsed. */
 function parseUserAgent(ua: string | undefined | null): string | undefined {
 	if (!ua) return undefined;
 
-	// OS detection (order matters — iOS before macOS)
+	// OS detection (order matters, iOS before macOS)
 	let os: string;
 	if (/iphone|ipad|ipod/i.test(ua)) {
 		os = "iOS";
@@ -104,7 +86,6 @@ function parseUserAgent(ua: string | undefined | null): string | undefined {
 		os = "Unknown OS";
 	}
 
-	// Browser / client detection
 	let browser: string;
 	if (/edg\//i.test(ua)) {
 		browser = "Edge";
@@ -126,8 +107,6 @@ function parseUserAgent(ua: string | undefined | null): string | undefined {
 
 	return `${browser} on ${os}`;
 }
-
-// Helpers
 
 function rowToSessionInfo(row: {
 	id: string;
@@ -159,8 +138,6 @@ function rowToSessionInfo(row: {
 		...(ip !== undefined && { ip }),
 	};
 }
-
-// Factory
 
 export function createMultiSessionModule(
 	config: MultiSessionConfig,
@@ -245,8 +222,7 @@ export function createMultiSessionModule(
 // Utility: enrich session metadata with device info from a Request
 
 /**
- * Build metadata to pass to `sessionManager.create()` that includes
- * device info extracted from the incoming request.
+ * Build metadata to pass to `sessionManager.create()` that includes device info extracted from the incoming request.
  *
  * @example
  * ```typescript

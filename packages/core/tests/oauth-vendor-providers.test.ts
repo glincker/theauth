@@ -1,14 +1,7 @@
 /**
- * Tests for the vendor providers built on the extended generic factory:
- * Linear, Kick, Vercel, PayPal and Kakao. Every test uses a mocked fetch.
- *
- * Quirks under test:
- * - Linear: comma separated scopes, GraphQL POST userinfo.
+ * Tests for the vendor providers built on the extended generic factory: Linear, Kick, Vercel, PayPal and Kakao. Every test uses a mocked fetch.
  * - Kick: PKCE required, profile nested in a `data` array.
  * - Vercel: POST userinfo, standard OIDC claims, email_verified honored.
- * - PayPal: Basic auth at the token endpoint, no PKCE, `flowEntry=static`,
- *   email taken from the `emails` array when `email` is absent.
- * - Kakao: comma separated scopes, numeric id, email nested under kakao_account.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";

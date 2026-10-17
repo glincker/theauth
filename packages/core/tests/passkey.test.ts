@@ -1,6 +1,4 @@
-/**
- * Passkey / WebAuthn tests.
- */
+/** Passkey / WebAuthn tests. */
 
 import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
@@ -10,8 +8,6 @@ import { decodeCbor } from "../src/auth/cbor.js";
 import { createPasskeyModule, PASSKEY_ERROR, PasskeyError } from "../src/auth/passkey.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
-
-// Helpers
 
 async function makeDb() {
 	const sqlite = new Database(":memory:");
@@ -53,8 +49,6 @@ async function seedUser(db: ReturnType<typeof makeDb>, userId: string): Promise<
 		updatedAt: now,
 	});
 }
-
-// CBOR decoder tests
 
 describe("decodeCbor", () => {
 	it("decodes unsigned integers", () => {
@@ -177,8 +171,6 @@ describe("decodeCbor", () => {
 	});
 });
 
-// Registration options tests
-
 describe("getRegistrationOptions", () => {
 	it("returns correct rpId and rpName", async () => {
 		const db = await makeDb();
@@ -267,8 +259,6 @@ describe("getRegistrationOptions", () => {
 	});
 });
 
-// Authentication options tests
-
 describe("getAuthenticationOptions", () => {
 	it("returns correct rpId", async () => {
 		const db = await makeDb();
@@ -323,8 +313,6 @@ describe("getAuthenticationOptions", () => {
 		expect(matching[0]?.type).toBe("authentication");
 	});
 });
-
-// listCredentials tests
 
 describe("listCredentials", () => {
 	it("returns empty array for user with no credentials", async () => {
@@ -394,8 +382,6 @@ describe("listCredentials", () => {
 	});
 });
 
-// removeCredential tests
-
 describe("removeCredential", () => {
 	it("removes the matching credential", async () => {
 		const db = await makeDb();
@@ -442,8 +428,6 @@ describe("removeCredential", () => {
 		expect(remaining).toHaveLength(1);
 	});
 });
-
-// Challenge expiry tests
 
 describe("challenge expiry", () => {
 	it("verifyRegistration rejects an expired challenge", async () => {
@@ -546,7 +530,6 @@ describe("challenge replay prevention", () => {
 		const db = await makeDb();
 		const mod = createPasskeyModule(makeConfig(), db);
 
-		// Insert a valid challenge
 		await db.insert(schema.passkeyChallenges).values({
 			id: "ch-replay",
 			challenge: "replay-challenge",
@@ -634,9 +617,7 @@ describe("challenge replay prevention", () => {
 					signature: toBase64Url(new Uint8Array(64)),
 				},
 			});
-		} catch {
-			// Expected
-		}
+		} catch {}
 
 		// Second attempt should fail with CHALLENGE_NOT_FOUND
 		try {
@@ -657,8 +638,6 @@ describe("challenge replay prevention", () => {
 		}
 	});
 });
-
-// Origin mismatch tests
 
 describe("origin validation", () => {
 	it("verifyRegistration rejects wrong origin", async () => {
@@ -847,8 +826,6 @@ describe("clientData type validation", () => {
 	});
 });
 
-// signCount rollback detection
-
 describe("signCount rollback detection", () => {
 	it("rejects authentication when signCount does not increase", async () => {
 		const db = await makeDb();
@@ -868,7 +845,6 @@ describe("signCount rollback detection", () => {
 			lastUsedAt: now,
 		});
 
-		// Insert a valid challenge
 		await db.insert(schema.passkeyChallenges).values({
 			id: "ch-counter",
 			challenge: "counter-challenge",
@@ -921,15 +897,12 @@ describe("signCount rollback detection", () => {
 	});
 });
 
-// User verification enforcement
-
 describe("user verification enforcement", () => {
 	it("rejects registration when UV required but not set", async () => {
 		const db = await makeDb();
 		const config = { ...makeConfig(), userVerification: "required" as const };
 		const mod = createPasskeyModule(config, db);
 
-		// Insert a valid challenge
 		await db.insert(schema.passkeyChallenges).values({
 			id: "ch-uv",
 			challenge: "uv-challenge",
@@ -1019,14 +992,11 @@ describe("user verification enforcement", () => {
 	});
 });
 
-// Error code coverage
-
 describe("error codes", () => {
 	it("verifyAuthentication throws CREDENTIAL_NOT_FOUND for unknown credential", async () => {
 		const db = await makeDb();
 		const mod = createPasskeyModule(makeConfig(), db);
 
-		// Insert a valid challenge
 		await db.insert(schema.passkeyChallenges).values({
 			id: "ch-nocred",
 			challenge: "nocred-challenge",
@@ -1124,8 +1094,6 @@ describe("error codes", () => {
 		}
 	});
 });
-
-// handleRequest route dispatch tests
 
 describe("handleRequest", () => {
 	it("returns null for unrelated routes", async () => {

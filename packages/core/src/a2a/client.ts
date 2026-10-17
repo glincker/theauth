@@ -1,10 +1,4 @@
-/**
- * A2A client for TheAuth.
- *
- * Discovers remote agents via /.well-known/agent.json and communicates
- * with them through JSON-RPC over HTTP. Supports message send, task
- * retrieval, cancellation, and SSE streaming.
- */
+/** A2A client for TheAuth. */
 
 import { generateId } from "../crypto/web-crypto.js";
 import type {
@@ -25,8 +19,6 @@ import {
 	A2A_WELL_KNOWN_PATH,
 	A2AAgentCardSchema,
 } from "./types.js";
-
-// Create A2A Client
 
 /**
  * Create an A2A client that can discover and call remote A2A agents.
@@ -251,9 +243,7 @@ export function createA2AClient(config: A2AClientConfig): A2AClient {
 						if (data === "[DONE]") return;
 						try {
 							yield JSON.parse(data) as A2AStreamEvent;
-						} catch {
-							// Skip malformed SSE lines
-						}
+						} catch {}
 					}
 				}
 			}

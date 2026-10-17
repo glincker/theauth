@@ -26,36 +26,18 @@ function readDelegationChain(act: McpActorClaim | undefined): McpDelegationHop[]
 }
 
 /**
- * Validate an MCP access token (JWT).
- *
- * Performs:
- * 1. JWT signature verification (HS256, or ES256/EdDSA via the JWKS)
- * 2. Expiry check
- * 3. Issuer validation
- * 4. Audience validation (token must be bound to `expectedAudience`, required)
- * 5. Revocation check against the configured jti denylist, if any
- * 6. Scope validation (optional - checks all required scopes are present)
- * 7. Live delegation check of the `act` chain, if a delegation store is configured
- * 8. DPoP binding: a token with `cnf.jkt` is refused unless the caller passes
- *    `presentedDpopJkt` (the thumbprint of a verified proof) and it matches.
- *    A bound token therefore never validates as a plain bearer token.
- *
- * Target: < 5ms with cached keys (per CLAUDE.md performance rule).
+ * Validates an MCP access token (JWT): signature (HS256, or ES256/EdDSA via the JWKS), audience,
+ * revocation, scopes, and DPoP binding. A token with `cnf.jkt` is refused unless the caller passes
+ * a matching `presentedDpopJkt`, so a bound token never validates as a plain bearer token.
  */
 export async function validateAccessToken(
 	ctx: McpAuthContext,
 	token: string,
 	options?: {
 		requiredScopes?: string[];
-		/**
-		 * The canonical URI of this resource server. Required: a token minted for
-		 * another resource must never be accepted here.
-		 */
+		/** The canonical URI of this resource server. Required: a token minted for another resource must never be accepted here. */
 		expectedAudience?: string;
-		/**
-		 * Thumbprint of the DPoP key whose proof the caller already verified for
-		 * this request, or null/undefined for a bearer presentation.
-		 */
+		/** Thumbprint of the DPoP key whose proof the caller already verified for this request, or null/undefined for a bearer presentation. */
 		presentedDpopJkt?: string | null;
 	},
 ): Promise<Result<McpSession>> {
@@ -80,7 +62,6 @@ export async function validateAccessToken(
 		};
 	}
 
-	// Verify JWT
 	let payload: McpTokenPayload;
 	try {
 		payload = (await verifyAccessJwt(ctx, token, {
@@ -105,7 +86,6 @@ export async function validateAccessToken(
 		};
 	}
 
-	// Validate required fields exist
 	if (!payload.sub || !payload.client_id || !payload.jti) {
 		return {
 			success: false,
@@ -197,7 +177,6 @@ export async function validateAccessToken(
 		};
 	}
 
-	// Scope validation
 	const tokenScopes = payload.scope ? payload.scope.split(" ") : [];
 	const requiredScopes = options?.requiredScopes ?? [];
 
@@ -217,10 +196,8 @@ export async function validateAccessToken(
 		}
 	}
 
-	// Determine resource from audience
 	const resource = Array.isArray(audience) ? (audience[0] ?? null) : audience;
 
-	// Build session
 	const session: McpSession = {
 		userId: payload.sub,
 		clientId: payload.client_id,
@@ -247,22 +224,10 @@ export async function validateAccessToken(
 /**
  * MCP auth middleware.
  *
- * Extracts the Bearer token from the Authorization header, validates it,
- * and returns the session.  This is the primary entry point for protecting
- * MCP resource server endpoints.
- *
- * Pattern inspired by better-auth's `withMcpAuth()`, adapted to TheAuth's
- * functional Result-based API.
- *
- * Usage:
+ * @example
  * ```typescript
- * const result = await withMcpAuth(ctx, request, {
- *   expectedAudience: 'https://mcp.example.com',
- *   requiredScopes: ['read'],
- * });
- * if (!result.success) {
- *   return new Response(JSON.stringify(result.error), { status: 401 });
- * }
+ * const result = await withMcpAuth(ctx, request, { expectedAudience: 'https://mcp.example.com', requiredScopes: ['read'] });
+ * if (!result.success) return new Response(JSON.stringify(result.error), { status: 401 });
  * const session = result.data;
  * ```
  */
@@ -307,11 +272,8 @@ export async function withMcpAuth(
 }
 
 /**
- * Build a 401 Unauthorized response in the JSON-RPC format expected
- * by MCP clients.
- *
- * Includes the WWW-Authenticate header pointing to the protected
- * resource metadata document, as required by the MCP spec.
+ * Build a 401 Unauthorized response in the JSON-RPC format expected by MCP clients.
+ * Includes the WWW-Authenticate header pointing to the protected resource metadata document, as required by the MCP spec.
  */
 export function buildUnauthorizedResponse(
 	ctx: McpAuthContext,

@@ -1,7 +1,5 @@
 /**
  * `theauth migrate plan | import | verify | status`.
- *
- * Own file so bin.ts needs one import and one switch case. Output never contains
  * emails, names or hashes: only counts, source ids in the diff, and error codes.
  */
 

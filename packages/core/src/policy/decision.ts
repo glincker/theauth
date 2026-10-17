@@ -11,11 +11,7 @@ export function outcomeOf(effect: PolicyEffect): PolicyOutcome {
 	return "deny";
 }
 
-/**
- * Build a PolicyDecision from hand-assembled fields. `decision` and `allowed`
- * are optional on input and always recomputed from `effect`, so a caller can
- * never produce an inconsistent object.
- */
+/** Build a PolicyDecision from hand-assembled fields. `decision` and `allowed` are optional on input and always recomputed from `effect`, so a caller can never produce an inconsistent object. */
 export function makeDecision(input: PolicyDecisionInput): PolicyDecision {
 	const outcome = outcomeOf(input.effect);
 	return { ...input, decision: outcome, allowed: outcome === "allow" };

@@ -30,9 +30,7 @@ export interface TaintRule extends TaintLabelRule {
 	/** Escalation tier name. Default "taint". */
 	tier?: string;
 	/**
-	 * How `require` treats an argument that carries no labels. "allow" (default) skips the
-	 * check, so a call with no provenance behaves as before. "violate" fails closed: an
-	 * unlabeled argument counts as missing every required label.
+	 * How `require` treats an argument that carries no labels. "allow" (default) skips the check, so a call with no provenance behaves as before. "violate" fails closed: an unlabeled argument counts as missing every required label.
 	 */
 	unlabeled?: "allow" | "violate";
 }
@@ -43,10 +41,7 @@ export interface TaintConfig {
 
 export interface TaintMatch {
 	rule: string;
-	/**
-	 * Position of the matching rule in `TaintConfig.rules` (rule ids need not be unique).
-	 * Non-enumerable: it is not serialized and does not appear in stored verdicts.
-	 */
+	/** Position of the matching rule in `TaintConfig.rules` (rule ids need not be unique). Non-enumerable: it is not serialized and does not appear in stored verdicts. */
 	ruleIndex?: number;
 	kind: "forbid" | "require";
 	/** Argument name, or "*" for a call-level rule. */

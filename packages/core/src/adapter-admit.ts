@@ -1,8 +1,4 @@
-/**
- * Request admission for the framework adapters: tiered rate limiting and a
- * cross-site check for cookie-authenticated writes. Runs before
- * authentication so an anonymous flood is refused cheaply.
- */
+/** Request admission for the framework adapters: tiered rate limiting and a cross-site check for cookie-authenticated writes. Runs before authentication so an anonymous flood is refused cheaply. */
 
 import type { TrustedProxyConfig } from "./auth/client-ip.js";
 import { resolveClientIp } from "./auth/client-ip.js";
@@ -18,26 +14,16 @@ export interface AdapterRateLimitOptions {
 	mutation?: RateLimitConfig;
 	/** GET routes, including the dashboard. Default 300 per 60s. */
 	read?: RateLimitConfig;
-	/**
-	 * Return true to leave a request out of rate limiting, e.g. a health check
-	 * or traffic from your own network. The cross-site check still applies.
-	 */
+	/** Return true to leave a request out of rate limiting, e.g. a health check or traffic from your own network. The cross-site check still applies. */
 	skip?: (request: Request, relativePath: string) => boolean;
-	/**
-	 * Replace the default client key (the client IP, or a credential digest when
-	 * the IP is unknown). Return null to fall back to the default for a request.
-	 */
+	/** Replace the default client key (the client IP, or a credential digest when the IP is unknown). Return null to fall back to the default for a request. */
 	key?: (request: Request) => string | null;
 }
 
 export interface AdapterAdmitOptions {
 	/** `false` turns rate limiting off (for example when a gateway already does it). */
 	rateLimit?: false | AdapterRateLimitOptions;
-	/**
-	 * Origins allowed to send cookie-authenticated writes, e.g.
-	 * `["https://app.example.com"]`. The request's own origin is always allowed.
-	 * Set this when a proxy rewrites the `Host` header.
-	 */
+	/** Origins allowed to send cookie-authenticated writes, e.g. `["https://app.example.com"]`. The request's own origin is always allowed. Set this when a proxy rewrites the `Host` header. */
 	trustedOrigins?: string[];
 	/** `false` turns the cross-site check off. */
 	csrf?: boolean;
@@ -126,12 +112,7 @@ const DEFAULT_LIMITS: Record<Tier, RateLimitConfig> = {
 
 type Tier = "strict" | "mutation" | "read";
 
-/**
- * @param store Shared counter store (the `rateLimit` secondary storage). Counts
- * are then enforced across instances. Without it each process counts alone.
- * A store failure lets the request through, so an outage there never takes
- * authentication down with it.
- */
+/** are then enforced across instances. Without it each process counts alone. A store failure lets the request through, so an outage there never takes authentication down with it. */
 export function createAdapterAdmission(
 	options: AdapterAdmitOptions | undefined,
 	proxy: TrustedProxyConfig | undefined,

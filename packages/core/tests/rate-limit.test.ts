@@ -1,6 +1,4 @@
-/**
- * Tests for the rateLimit() plugin, MemoryStore, and KVStore.
- */
+/** Tests for the rateLimit() plugin, MemoryStore, and KVStore. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RateLimitConfig } from "../src/auth/rate-limit.js";
@@ -13,8 +11,6 @@ import type { RateLimitStore } from "../src/auth/stores/types.js";
 // Forwarded headers are untrusted by default; these tests simulate one proxy.
 const rateLimit = (config: RateLimitConfig = {}) =>
 	baseRateLimit({ trustedProxyCount: 1, ...config });
-
-// Helpers
 
 function makeRequest(path: string, ip?: string, extraHeaders?: Record<string, string>): Request {
 	const headers: Record<string, string> = { ...extraHeaders };
@@ -30,7 +26,7 @@ async function runHook(
 	return plugin.hooks?.onRequest?.(request);
 }
 
-// rateLimit() plugin — basic allow / deny
+// rateLimit() plugin, basic allow / deny
 
 describe("rateLimit() plugin — allow and deny", () => {
 	it("returns undefined (pass-through) for paths outside /auth/", async () => {
@@ -108,7 +104,7 @@ describe("rateLimit() plugin — allow and deny", () => {
 	});
 });
 
-// rateLimit() plugin — per-endpoint config
+// rateLimit() plugin, per-endpoint config
 
 describe("rateLimit() plugin — per-endpoint config", () => {
 	it("uses signIn limit for /auth/sign-in", async () => {
@@ -170,7 +166,6 @@ describe("rateLimit() plugin — per-endpoint config", () => {
 			signUp: { window: "1m", max: 1 },
 		});
 
-		// Use up signIn limit
 		await runHook(plugin, makeRequest("/auth/sign-in", "11.0.0.1"));
 		const signInBlocked = await runHook(plugin, makeRequest("/auth/sign-in", "11.0.0.1"));
 		expect((signInBlocked as Response).status).toBe(429);
@@ -191,7 +186,7 @@ describe("rateLimit() plugin — per-endpoint config", () => {
 	});
 });
 
-// rateLimit() plugin — key extraction
+// rateLimit() plugin, key extraction
 
 describe("rateLimit() plugin — key extraction", () => {
 	it("isolates counters per IP", async () => {
@@ -216,14 +211,14 @@ describe("rateLimit() plugin — key extraction", () => {
 
 		await runHook(plugin, tenantA);
 
-		// Same tenant — should be blocked
+		// Same tenant, should be blocked
 		const blockedA = await runHook(
 			plugin,
 			makeRequest("/auth/sign-in", undefined, { "x-tenant-id": "tenant-a" }),
 		);
 		expect((blockedA as Response).status).toBe(429);
 
-		// Different tenant — should pass
+		// Different tenant, should pass
 		const passB = await runHook(plugin, tenantB);
 		expect(passB).toBeUndefined();
 	});
@@ -239,7 +234,7 @@ describe("rateLimit() plugin — key extraction", () => {
 	});
 });
 
-// rateLimit() plugin — custom onLimit
+// rateLimit() plugin, custom onLimit
 
 describe("rateLimit() plugin — custom onLimit", () => {
 	it("calls custom onLimit with retryAfter when limit exceeded", async () => {
@@ -261,7 +256,7 @@ describe("rateLimit() plugin — custom onLimit", () => {
 	});
 });
 
-// rateLimit() plugin — window parsing
+// rateLimit() plugin, window parsing
 
 describe("rateLimit() plugin — window string parsing", () => {
 	it.each([
@@ -274,12 +269,10 @@ describe("rateLimit() plugin — window string parsing", () => {
 
 		const plugin = rateLimit({ default: { window, max: 1 } });
 
-		// Use the slot
 		await runHook(plugin, makeRequest("/auth/sign-in", "40.0.0.1"));
 		const blocked = await runHook(plugin, makeRequest("/auth/sign-in", "40.0.0.1"));
 		expect((blocked as Response).status).toBe(429);
 
-		// Advance past the window
 		vi.advanceTimersByTime(expectedMs + 100);
 
 		// Should be allowed again
@@ -298,7 +291,7 @@ describe("rateLimit() plugin — window string parsing", () => {
 	});
 });
 
-// rateLimit() plugin — store option
+// rateLimit() plugin, store option
 
 describe("rateLimit() plugin — pluggable store", () => {
 	it("accepts 'memory' string to use MemoryStore", async () => {
@@ -327,8 +320,6 @@ describe("rateLimit() plugin — pluggable store", () => {
 		expect(calls[0]?.windowMs).toBe(60_000);
 	});
 });
-
-// MemoryStore
 
 describe("MemoryStore", () => {
 	let store: MemoryStore;
@@ -392,8 +383,6 @@ describe("MemoryStore", () => {
 		await expect(store.reset("nonexistent")).resolves.toBeUndefined();
 	});
 });
-
-// KVStore
 
 describe("KVStore", () => {
 	/** Simple in-memory mock of a Cloudflare KV namespace */
@@ -475,7 +464,6 @@ describe("KVStore", () => {
 
 	it("handles corrupted KV value gracefully by starting a new window", async () => {
 		const kv = makeKVMock();
-		// Pre-seed with invalid JSON
 		await kv.put("kv-corrupt", "not-json", { expirationTtl: 3600 });
 
 		const store = new KVStore(kv);
@@ -499,7 +487,6 @@ describe("concurrent requests", () => {
 	it("MemoryStore: parallel increments are serialised correctly", async () => {
 		const store = new MemoryStore();
 
-		// Fire 5 concurrent increments
 		const results = await Promise.all([
 			store.increment("concurrent-key", 60_000),
 			store.increment("concurrent-key", 60_000),
@@ -516,7 +503,7 @@ describe("concurrent requests", () => {
 	it("rateLimit plugin: concurrent requests over the limit are all blocked", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 2 } });
 
-		// 5 concurrent requests for the same IP — first 2 pass, rest get 429
+		// 5 concurrent requests for the same IP, first 2 pass, rest get 429
 		const results = await Promise.all(
 			Array.from({ length: 5 }, () => runHook(plugin, makeRequest("/auth/sign-in", "99.0.0.1"))),
 		);

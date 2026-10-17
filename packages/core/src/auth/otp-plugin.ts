@@ -1,17 +1,8 @@
 /**
  * HTTP routes for the unified OTP service.
- *
  * Opt-in: nothing is mounted unless you register the plugin.
- *
  * - `POST /auth/code/send`   body `{ purpose?, channel?, identifier }`
- * - `POST /auth/code/verify` body `{ purpose?, identifier, code }`
- *
- * Responses are enumeration safe. Send answers `202 { sent: true }` for every
- * well formed request, whether or not a code went out (cooldown, lockout,
- * delivery failure and `canSend` refusals are not distinguishable). Verify
- * answers `400` with one message for every wrong, expired or unknown code, and
- * `429` only after the identifier is locked, which does not depend on whether
- * an account exists.
+ * - `POST /auth/code/verify` body `{ purpose?, identifier, code }` Responses are enumeration safe. Send answers `202 { sent: true }` for every well formed request, whether or not a code went out (cooldown, lockout, delivery failure and `canSend` refusals are not distinguishable). Verify answers `400` with one message for every wrong, expired or unknown code, and `429` only after the identifier is locked, which does not depend on whether an account exists.
  */
 
 import { json, parseBody } from "../plugin/helpers.js";
@@ -21,26 +12,16 @@ import type { OtpChannel, OtpPurpose } from "./otp-senders.js";
 
 export interface OtpRoutesConfig {
 	service: OtpService;
-	/**
-	 * Purposes reachable over HTTP. Default `["sign-in", "verify-email"]`.
-	 * `reset-password` and `two-factor` are better served by their own modules,
-	 * which bind the code to an account.
-	 */
+	/** Purposes reachable over HTTP. Default `["sign-in", "verify-email"]`. `reset-password` and `two-factor` are better served by their own modules, which bind the code to an account. */
 	purposes?: OtpPurpose[];
 	/** Channel used when the request does not name one. Default `"email"`. */
 	defaultChannel?: OtpChannel;
-	/**
-	 * Return false to silently skip delivery (for example when no account owns
-	 * the identifier). The caller still sees the normal 202.
-	 */
+	/** Return false to silently skip delivery (for example when no account owns the identifier). The caller still sees the normal 202. */
 	canSend?: (
 		input: { purpose: OtpPurpose; channel: OtpChannel; identifier: string },
 		request: Request,
 	) => boolean | Promise<boolean>;
-	/**
-	 * Runs after a code verifies. Whatever it returns is merged into the 200
-	 * body, so this is where you open a session or mark an email verified.
-	 */
+	/** Runs after a code verifies. Whatever it returns is merged into the 200 body, so this is where you open a session or mark an email verified. */
 	onVerified?: (
 		input: { purpose: OtpPurpose; identifier: string },
 		request: Request,

@@ -1,6 +1,4 @@
-/**
- * Tests for the Admin module.
- */
+/** Tests for the Admin module. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AdminModule } from "../src/auth/admin.js";
@@ -11,8 +9,6 @@ import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
-
-// Helpers
 
 const SESSION_SECRET = "test-admin-secret-that-is-at-least-32-chars!!";
 const ADMIN_USER_ID = "user_admin_001";
@@ -29,8 +25,6 @@ async function seedUser(db: Database, id: string, email: string, name?: string):
 	const now = new Date();
 	await db.insert(users).values({ id, email, name: name ?? null, createdAt: now, updatedAt: now });
 }
-
-// Suite
 
 describe("AdminModule.isAdmin", () => {
 	let db: Database;
@@ -198,7 +192,6 @@ describe("AdminModule.impersonate", () => {
 		expect(result.session.token).toBeTruthy();
 		expect(result.session.expiresAt).toBeInstanceOf(Date);
 
-		// Validate the session
 		const session = await sessionManager.validate(result.session.token);
 		expect(session?.userId).toBe(TARGET_USER_ID);
 		expect(session?.metadata?.impersonating).toBe(true);
@@ -283,7 +276,6 @@ describe("AdminModule.banUser agent revocation", () => {
 
 		await mod.banUser(TARGET_USER_ID, "Bad behavior");
 
-		// Agent should be revoked
 		const agentRows = await db.select().from(agents).where(eq(agents.id, "agent_test_001"));
 		expect(agentRows[0]?.status).toBe("revoked");
 	});

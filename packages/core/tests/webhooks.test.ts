@@ -1,13 +1,9 @@
-/**
- * Tests for the webhook system.
- */
+/** Tests for the webhook system. */
 
 import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebhookModule } from "../src/auth/webhooks.js";
 import { createWebhookModule } from "../src/auth/webhooks.js";
-
-// Helpers
 
 function waitForEmit(): Promise<void> {
 	// 100ms gives the fire-and-forget delivery enough headroom to flush even

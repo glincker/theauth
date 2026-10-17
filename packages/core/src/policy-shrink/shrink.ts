@@ -21,20 +21,8 @@ interface Group {
 }
 
 /**
- * Turn a usage analysis into a smaller permission set. Pure and deterministic:
- * the same analysis and options always give the same output, ordered as the
- * granted list was.
- *
- * A permission is kept when it has at least `minObservations` allowed calls, or
- * when its only traffic was denied for another cause (an attempt, so removing it
- * would hide the problem). Everything else is removed.
- *
- * With `generalize`, observed sibling resources under one parent are merged into
- * `parent:*`, but only when each merged resource was actually used, an existing
- * grant already covers the wildcard (the result is never broader than today),
- * and the wildcard matches no resource that was denied for lack of a grant. The
- * wildcard still admits unobserved siblings inside that existing grant, which is
- * why it is off by default and every merge is listed in `rewrites`.
+ * Turn a usage analysis into a smaller permission set. Pure and deterministic: the same analysis and options always give the same output, ordered as the granted list was.
+ * A permission is kept when it has at least `minObservations` allowed calls, or when its only traffic was denied for another cause (an attempt, so removing it would hide the problem). With `generalize`, observed sibling resources under one parent are merged into `parent:*`, but only when each merged resource was actually used, an existing grant already covers the wildcard (the result is never broader than today), and the wildcard matches no resource that was denied for lack of a grant. The wildcard still admits unobserved siblings inside that existing grant, which is why it is off by default and every merge is listed in `rewrites`.
  */
 export function suggestShrink(analysis: UsageAnalysis, opts: ShrinkOptions = {}): ShrinkSuggestion {
 	const min = wholeOr(opts.minObservations, 1, 1);

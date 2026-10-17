@@ -1,23 +1,13 @@
 /**
  * Native app sign-in for the OAuth plugin (RFC 8252 with PKCE).
- *
- * The app opens the authorize route in the system browser with its own
- * redirect URI and a PKCE challenge. The provider callback finishes in that
- * browser, then redirects to the app with a short-lived single-use code. The
- * session token never appears in a URL: the app trades the code, plus the
- * PKCE verifier that never left the device, for the session at the exchange
- * route.
+ * The session token never appears in a URL: the app trades the code, plus the PKCE verifier that never left the device, for the session at the exchange route.
  */
 
 import { verifyS256 } from "../../mcp/utils.js";
 import type { OneTimeTokenModule } from "../one-time-token.js";
 
 export interface MobileOAuthConfig {
-	/**
-	 * App redirect URIs the browser may be sent back to, matched exactly:
-	 * a custom scheme (`myapp://auth/callback`) or an https app link. Without
-	 * this the mobile flow is off.
-	 */
+	/** App redirect URIs the browser may be sent back to, matched exactly: a custom scheme (`myapp://auth/callback`) or an https app link. Without this the mobile flow is off. */
 	redirectUris: string[];
 	/** Seconds the exchange code stays valid. Default 60. */
 	codeTtlSeconds?: number;

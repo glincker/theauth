@@ -5,21 +5,15 @@ import { createTheAuth } from "../../core/src/theauth.js";
 import { createGateway } from "../src/gateway.js";
 import type { Gateway } from "../src/types.js";
 
-// Mock Upstream
-
 const UPSTREAM = "http://upstream.test";
 
-/**
- * Intercept fetch calls so tests never hit a real server.
- * Returns a factory that lets each test define the desired upstream response.
- */
+/** Intercepts fetch so tests never hit a real server. Each test sets the upstream response. */
 function mockFetch(responseFactory: () => Response) {
 	const spy = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
 		const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 		if (new URL(url).origin === new URL(UPSTREAM).origin) {
 			return Promise.resolve(responseFactory());
 		}
-		// Pass through anything else (shouldn't happen in tests)
 		return Promise.reject(new Error(`Unexpected fetch to ${url}`));
 	});
 	return spy;
@@ -31,8 +25,6 @@ function upstreamOk(body = '{"ok":true}', status = 200): Response {
 		headers: { "Content-Type": "application/json" },
 	});
 }
-
-// Test Helpers
 
 async function createTestTheAuth(): Promise<TheAuth> {
 	const theauth = await createTheAuth({
@@ -96,8 +88,6 @@ function makeRequest(
 	});
 }
 
-// Test Suite
-
 describe("TheAuth Gateway", () => {
 	let theauth: TheAuth;
 	let gateway: Gateway;
@@ -111,8 +101,6 @@ describe("TheAuth Gateway", () => {
 	afterEach(() => {
 		fetchSpy.mockRestore();
 	});
-
-	// Health Check
 
 	describe("health check", () => {
 		it("returns 200 with status ok at /_theauth/health", async () => {
@@ -131,8 +119,6 @@ describe("TheAuth Gateway", () => {
 			expect(fetchSpy).not.toHaveBeenCalled();
 		});
 	});
-
-	// Auth Enforcement
 
 	describe("auth enforcement", () => {
 		it("rejects requests with no token (401)", async () => {
@@ -171,8 +157,6 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// Public Paths
-
 	describe("public path bypass", () => {
 		it("allows unauthenticated access to public paths", async () => {
 			gateway = createGateway({
@@ -204,8 +188,6 @@ describe("TheAuth Gateway", () => {
 			expect(res.status).toBe(200);
 		});
 	});
-
-	// Permission Checks
 
 	describe("permission checks", () => {
 		it("allows access when agent has the required permission", async () => {
@@ -254,8 +236,6 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// Path Glob Matching
-
 	describe("path glob matching", () => {
 		it("matches single-level wildcard /*", async () => {
 			gateway = createGateway({
@@ -299,8 +279,6 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// Method Matching
-
 	describe("method matching", () => {
 		it("applies policy only to the specified method", async () => {
 			gateway = createGateway({
@@ -333,8 +311,6 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// Multiple Policies
-
 	describe("multiple policies", () => {
 		it("uses the first matching policy", async () => {
 			gateway = createGateway({
@@ -349,8 +325,6 @@ describe("TheAuth Gateway", () => {
 			expect((await gateway.handleRequest(makeRequest("/api/private"))).status).toBe(401);
 		});
 	});
-
-	// Rate Limiting
 
 	describe("rate limiting", () => {
 		it("enforces global rate limit", async () => {
@@ -429,18 +403,15 @@ describe("TheAuth Gateway", () => {
 				});
 			});
 
-			// Use the same theauth instance for agent1 only
 			gateway = createGateway({
 				upstream: UPSTREAM,
 				theauth,
 				rateLimit: { windowMs: 60_000, max: 1 },
 			});
 
-			// agent1 uses their 1 request
 			expect(
 				(await gateway.handleRequest(makeRequest("/api/data", { token: agent1.token }))).status,
 			).toBe(200);
-			// agent1 is now limited
 			expect(
 				(await gateway.handleRequest(makeRequest("/api/data", { token: agent1.token }))).status,
 			).toBe(429);
@@ -449,8 +420,6 @@ describe("TheAuth Gateway", () => {
 			void agent2;
 		});
 	});
-
-	// CORS
 
 	describe("CORS", () => {
 		it("adds CORS headers to proxied responses", async () => {
@@ -499,8 +468,6 @@ describe("TheAuth Gateway", () => {
 			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
 		});
 	});
-
-	// Header Forwarding
 
 	describe("header forwarding", () => {
 		it("forwards custom headers to upstream", async () => {
@@ -582,8 +549,6 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// Error Handling
-
 	describe("upstream error handling", () => {
 		it("returns 502 when upstream is unreachable", async () => {
 			fetchSpy.mockRejectedValue(new Error("ECONNREFUSED"));
@@ -611,8 +576,6 @@ describe("TheAuth Gateway", () => {
 			expect(res.status).toBe(500);
 		});
 	});
-
-	// Proxy Behaviour
 
 	describe("proxy behaviour", () => {
 		it("forwards request path and query string to upstream", async () => {
@@ -671,8 +634,6 @@ describe("TheAuth Gateway", () => {
 		});
 	});
 
-	// Audit Trail
-
 	describe("audit trail", () => {
 		it("records audit entries for allowed requests", async () => {
 			const { token } = await createTestAgent(theauth);
@@ -690,9 +651,7 @@ describe("TheAuth Gateway", () => {
 
 			await gateway.handleRequest(makeRequest("/api/data", { token }));
 
-			// Without audit, the only log entries would come from the initial agent creation
 			const entries = await theauth.audit.query({ limit: 100 });
-			// There may be 0 gateway-specific entries - just verify no crash
 			expect(Array.isArray(entries)).toBe(true);
 		});
 	});

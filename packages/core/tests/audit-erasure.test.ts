@@ -1,6 +1,4 @@
-/**
- * Erasure (GDPR deleteUser) against the audit hash chain.
- */
+/** Erasure (GDPR deleteUser) against the audit hash chain. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

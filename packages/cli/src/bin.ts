@@ -132,7 +132,6 @@ async function handleMigrateCommand(): Promise<void> {
 async function handleDashboard(): Promise<void> {
 	const args = argv.slice(2);
 
-	// --port or --port=3100
 	const portFlag = args.find((a) => a === "--port" || a.startsWith("--port="));
 	const portStr = portFlag
 		? portFlag.includes("=")
@@ -147,7 +146,6 @@ async function handleDashboard(): Promise<void> {
 		return;
 	}
 
-	// --static flag: use old static-only server (user has their own API)
 	const isStatic = args.includes("--static");
 
 	if (isStatic) {
@@ -159,7 +157,6 @@ async function handleDashboard(): Promise<void> {
 			: "http://localhost:3000";
 		await startDashboardServer({ port, apiUrl });
 	} else {
-		// Default: full demo server with in-memory DB + seed data
 		await startDemoServer({ port });
 	}
 }

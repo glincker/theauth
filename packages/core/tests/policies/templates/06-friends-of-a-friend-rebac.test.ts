@@ -1,6 +1,4 @@
-/**
- * Tests for template 06 — ReBAC document sharing.
- */
+/** Tests for template 06, ReBAC document sharing. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { rebacDocPermission } from "../../../../../docs/policies/templates/06-friends-of-a-friend-rebac/policy.js";
@@ -77,7 +75,6 @@ describe("template 06 — ReBAC document sharing", () => {
 			objectType: "doc",
 			objectId: "42",
 		});
-		// No tuple for outsider-bot
 	});
 
 	it("allows viewer-bot to read the document (tuple exists)", async () => {

@@ -15,7 +15,6 @@ async function createTestTheAuth() {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({
@@ -474,7 +473,7 @@ describe("createTheAuth", () => {
 				permissions: [{ resource: "test:*", actions: ["read"] }],
 			});
 
-			// Insert two old audit entries directly — dated 10 days ago
+			// Insert two old audit entries directly, dated 10 days ago
 			const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 			theauth.db
 				.insert(schema.auditLogs)
@@ -506,20 +505,20 @@ describe("createTheAuth", () => {
 				])
 				.run();
 
-			// Perform a recent authorization — this entry should survive cleanup
+			// Perform a recent authorization, this entry should survive cleanup
 			await theauth.authorize(agent.id, { action: "read", resource: "test:data" });
 
 			const before = await theauth.audit.query({ agentId: agent.id });
 			expect(before).toHaveLength(3);
 
-			// Cleanup with a large retention window — nothing deleted
+			// Cleanup with a large retention window, nothing deleted
 			const noneDeleted = await theauth.audit.cleanup({ retentionDays: 9999 });
 			expect(noneDeleted.deleted).toBe(0);
 
 			const afterKeep = await theauth.audit.query({ agentId: agent.id });
 			expect(afterKeep).toHaveLength(3);
 
-			// Cleanup with 5-day retention — the two 10-day-old entries should be deleted
+			// Cleanup with 5-day retention, the two 10-day-old entries should be deleted
 			const someDeleted = await theauth.audit.cleanup({ retentionDays: 5 });
 			expect(someDeleted.deleted).toBe(2);
 

@@ -1,18 +1,6 @@
 /**
  * Owner scoping for the adapter management routes.
- *
- * When an adapter runs with the default session resolver, a signed-in user is
- * only allowed to act on their own agents, delegations and audit rows. When
- * the host passed its own `authenticate` resolver (or opted out of
- * authentication for local development) the scope is unrestricted and every
- * check passes, which keeps the host's explicit trust decision intact.
- *
- * The scope is built once per request by `AdapterGuard.resolve`. Adapters only
- * need to call the matching check before a handler touches a resource.
- *
- * Every check fails closed: if ownership cannot be determined the answer is a
- * denial. Resources the caller does not own are reported as "not found" so the
- * routes do not reveal which ids exist.
+ * When an adapter runs with the default session resolver, a signed-in user is only allowed to act on their own agents, delegations and audit rows. When the host passed its own `authenticate` resolver (or opted out of authentication for local development) the scope is unrestricted and every check passes, which keeps the host's explicit trust decision intact. The scope is built once per request by `AdapterGuard.resolve`. Adapters only need to call the matching check before a handler touches a resource. Every check fails closed: if ownership cannot be determined the answer is a denial. Resources the caller does not own are reported as "not found" so the routes do not reveal which ids exist.
  */
 
 import type { TheAuth } from "./theauth.js";
@@ -30,11 +18,7 @@ export type ScopeResult<T> = { ok: true; value: T } | { ok: false; denial: Scope
 
 /** What the signed-in caller may touch on the management routes. */
 export interface AdapterScope {
-	/**
-	 * True when the caller is limited to their own resources (default session
-	 * resolver). False when the host supplied `authenticate` or disabled
-	 * authentication, in which case every check below passes.
-	 */
+	/** True when the caller is limited to their own resources (default session resolver). False when the host supplied `authenticate` or disabled authentication, in which case every check below passes. */
 	readonly restricted: boolean;
 	/** The caller id when restricted, otherwise null. */
 	readonly ownerId: string | null;
@@ -50,10 +34,7 @@ export interface AdapterScope {
 	scopeAuditFilter(filter: AuditFilter): ScopeResult<AuditFilter>;
 	/** `GET /audit/export`: pin the user filter to the caller. */
 	scopeAuditExport(options: AuditExportOptions): ScopeResult<AuditExportOptions>;
-	/**
-	 * `GET /dashboard/stats`: the user id the aggregate must be limited to, or
-	 * undefined when the caller may see the whole instance.
-	 */
+	/** `GET /dashboard/stats`: the user id the aggregate must be limited to, or undefined when the caller may see the whole instance. */
 	statsOwnerId(): string | undefined;
 }
 

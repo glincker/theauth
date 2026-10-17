@@ -1,17 +1,5 @@
 /**
  * Relationship-Based Access Control (ReBAC) engine for TheAuth.
- *
- * Inspired by Google Zanzibar. Models authorization as a graph of typed
- * relationships between subjects (users, agents, teams) and objects
- * (orgs, workspaces, projects, documents). Permission checks traverse the
- * graph, following both direct relationships and parent-child inheritance.
- *
- * Key ideas:
- * - Resources live in a hierarchy (org > workspace > project > document).
- * - Relationships connect subjects to objects with a named relation.
- * - Permission rules define how relations compose. An "editor" implicitly
- *   has "viewer" access; a "viewer" on a workspace inherits "viewer" on
- *   child projects.
  * - Graph traversal is depth-limited to prevent runaway queries.
  */
 
@@ -21,8 +9,6 @@ import type { Database } from "../db/database.js";
 import { rebacRelationships, rebacResources } from "../db/schema.js";
 import type { Result } from "../mcp/types.js";
 
-// Public types
-
 export interface ReBACConfig {
 	/** Maximum graph traversal depth for permission checks (default: 10). */
 	maxDepth?: number;
@@ -30,12 +16,7 @@ export interface ReBACConfig {
 	permissionRules?: Record<string, PermissionRuleSet>;
 }
 
-/**
- * Defines how relations map to permissions for a given resource type.
- *
- * `implies` — relation X implies relation Y (e.g. editor implies viewer).
- * `inherits` — permission P on this resource's parent also grants P here.
- */
+/** Defines how relations map to permissions for a given resource type. */
 export interface PermissionRuleSet {
 	/** Which relations imply which other relations on the same object. */
 	implies?: Record<string, string[]>;
@@ -111,10 +92,7 @@ export interface ReBACModule {
 		objectId: string,
 	): Promise<Result<void>>;
 
-	/**
-	 * Check whether a subject has a permission on an object.
-	 * Returns the relationship path when access is granted.
-	 */
+	/** Check whether a subject has a permission on an object. Returns the relationship path when access is granted. */
 	check(params: CheckParams): Promise<Result<CheckResult>>;
 
 	/** List all object IDs of a given type that a subject can access with a permission. */
@@ -172,8 +150,6 @@ const DEFAULT_PERMISSION_RULES: Record<string, PermissionRuleSet> = {
 	},
 };
 
-// Helpers
-
 function ok<T>(data: T): Result<T> {
 	return { success: true, data };
 }
@@ -216,8 +192,6 @@ function rowToRelationship(row: {
 	};
 }
 
-// Module factory
-
 export function createReBACModule(config: ReBACConfig, db: Database): ReBACModule {
 	const maxDepth = config.maxDepth ?? 10;
 	const rules: Record<string, PermissionRuleSet> = {
@@ -225,12 +199,8 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 		...config.permissionRules,
 	};
 
-	// Helpers
-
 	/**
-	 * Get all relations that effectively grant `permission` on resource type
-	 * `objectType`. E.g. asking for "viewer" on a "document" returns
-	 * ["viewer", "editor", "owner"] because editor and owner imply viewer.
+	 * Get all relations that effectively grant `permission` on resource type `objectType`. E.g. asking for "viewer" on a "document" returns ["viewer", "editor", "owner"] because editor and owner imply viewer.
 	 */
 	function getGrantingRelations(objectType: string, permission: string): string[] {
 		const ruleSet = rules[objectType];
@@ -245,9 +215,7 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 		return [...granting];
 	}
 
-	/**
-	 * Check whether permission is inherited from parent for a given type.
-	 */
+	/** Check whether permission is inherited from parent for a given type. */
 	function shouldInherit(objectType: string, permission: string): boolean {
 		const ruleSet = rules[objectType];
 		if (!ruleSet?.inheritFromParent) return false;
@@ -255,9 +223,7 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 		return ruleSet.inheritFromParent.includes(permission);
 	}
 
-	/**
-	 * Recursively check access. Returns a path of readable steps if granted.
-	 */
+	/** Recursively check access. Returns a path of readable steps if granted. */
 	async function checkAccess(
 		subjectType: string,
 		subjectId: string,
@@ -277,7 +243,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 		}
 		visited.add(visitKey);
 
-		// 1. Direct relationship check (including implied relations)
 		const grantingRelations = getGrantingRelations(objectType, permission);
 		for (const rel of grantingRelations) {
 			const rows = await db
@@ -300,7 +265,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 			}
 		}
 
-		// 2. Inheritance: check parent resource
 		if (shouldInherit(objectType, permission)) {
 			const resourceRows = await db
 				.select()
@@ -331,8 +295,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 
 		return { allowed: false };
 	}
-
-	// Public API
 
 	const createResource: ReBACModule["createResource"] = async (node) => {
 		// Validate parent exists if specified
@@ -382,7 +344,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 			await db.delete(rebacRelationships).where(eq(rebacRelationships.id, row.id));
 		}
 
-		// Delete child resources
 		const children = await db
 			.select()
 			.from(rebacResources)
@@ -391,7 +352,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 			await deleteResource(child.type, child.id);
 		}
 
-		// Delete the resource itself
 		await db
 			.delete(rebacResources)
 			.where(and(eq(rebacResources.id, id), eq(rebacResources.type, type)));
@@ -411,7 +371,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 	};
 
 	const addRelationship: ReBACModule["addRelationship"] = async (rel) => {
-		// Check for duplicate
 		const existing = await db
 			.select()
 			.from(rebacRelationships)
@@ -487,7 +446,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 	const listObjects: ReBACModule["listObjects"] = async (params) => {
 		const grantingRelations = getGrantingRelations(params.objectType, params.permission);
 
-		// Collect directly-related objects
 		const objectIds = new Set<string>();
 
 		for (const rel of grantingRelations) {
@@ -607,7 +565,6 @@ export function createReBACModule(config: ReBACConfig, db: Database): ReBACModul
 			);
 
 		const all = [...asSubject, ...asObject].map(rowToRelationship);
-		// Deduplicate by id
 		const seen = new Set<string>();
 		const unique: Relationship[] = [];
 		for (const r of all) {

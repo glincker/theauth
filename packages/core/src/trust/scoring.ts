@@ -62,10 +62,6 @@ function rowToScore(row: typeof trustScores.$inferSelect): TrustScore {
 /**
  * Create the graduated autonomy trust scoring module.
  *
- * Scores are derived from audit log history — success rate, denial rate,
- * agent age, total call volume, and anomaly count all feed into a 0-100
- * score mapped to five trust levels.
- *
  * @example
  * ```typescript
  * const trust = createTrustModule({}, db);
@@ -119,13 +115,11 @@ export function createTrustModule(config: TrustConfig, db: Database) {
 			);
 		}).length;
 
-		// Last violation timestamp
 		const violationLogs = allLogs
 			.filter((r) => r.result === "denied")
 			.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 		const lastViolation = violationLogs[0]?.timestamp.toISOString();
 
-		// Score formula
 		let score = 50;
 		score += Math.min(25, Math.floor(allowed / 100)); // +1 per 100 successful calls, max +25
 		score -= denied * 5; // -5 per denial
@@ -145,7 +139,6 @@ export function createTrustModule(config: TrustConfig, db: Database) {
 			lastViolation,
 		};
 
-		// Upsert into trust_scores table
 		const existingRows = await db
 			.select({ agentId: trustScores.agentId })
 			.from(trustScores)

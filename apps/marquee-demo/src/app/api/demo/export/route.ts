@@ -1,10 +1,6 @@
 /**
- * POST /api/demo/export
- * Step 5: Export the audit trail as a signed JSON file.
- *
- * The vc/audit-export.ts module (exportAuditAsVC) does not yet exist in this
- * branch; it is shipping in a parallel PR (v3/vc-audit-export).
- * TODO(v3): replace signedExport() with importaed exportAuditAsVC once that PR merges.
+ * POST /api/demo/export (step 5): exports the audit trail as a signed JSON file.
+ * TODO(v3): replace signedExport() with exportAuditAsVC once the vc/audit-export PR merges.
  */
 
 import { NextResponse } from "next/server";
@@ -55,8 +51,7 @@ function buildSignedExport(
 		proof: {
 			type: "TheAuthSimulatedProof",
 			created: now,
-			// TODO(v3): replace with real Ed25519Signature2020 from exportAuditAsVC
-			// once packages/core/src/vc/audit-export.ts lands in v3/vc-audit-export.
+			// TODO(v3): swap for a real Ed25519Signature2020 once exportAuditAsVC lands.
 			note: "Proof stub, full VC signing ships in v3/vc-audit-export PR",
 		},
 	};

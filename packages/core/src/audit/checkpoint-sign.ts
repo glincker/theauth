@@ -1,7 +1,4 @@
-/**
- * Ed25519 signing and verification for checkpoints, through Web Crypto (the same
- * runtime support as the rest of core: Node 20+, Workers, Deno, Bun).
- */
+/** Ed25519 signing and verification for checkpoints, through Web Crypto (the same runtime support as the rest of core: Node 20+, Workers, Deno, Bun). */
 
 import { fromBase64Url, fromHex, toBase64Url, toHex } from "../crypto/web-crypto.js";
 import { canonicalJson } from "./chain.js";
@@ -128,10 +125,7 @@ export function isWellFormedCheckpoint(cp: unknown): cp is Checkpoint {
 }
 
 /**
- * Verify a checkpoint signature. Rejects any algorithm other than Ed25519 and
- * any keyId that none of the supplied keys carries, so a checkpoint cannot pick
- * the key or the algorithm it is checked with. Pass several keys to cover key
- * rotation.
+ * Verify a checkpoint signature. Rejects any algorithm other than Ed25519 and any keyId that none of the supplied keys carries, so a checkpoint cannot pick the key or the algorithm it is checked with. Pass several keys to cover key rotation.
  */
 export async function verifyCheckpoint(
 	checkpoint: Checkpoint,

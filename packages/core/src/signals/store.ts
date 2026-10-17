@@ -1,6 +1,4 @@
-/**
- * Persistence for streams, subject lists and the outbox of signed SETs.
- */
+/** Persistence for streams, subject lists and the outbox of signed SETs. */
 
 import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { generateId, sha256 } from "../crypto/web-crypto.js";

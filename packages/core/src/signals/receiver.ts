@@ -1,7 +1,4 @@
-/**
- * Shared Signals receiver: verifies incoming SETs, rejects replays, and
- * dispatches events to handlers. Push endpoint per RFC 8935.
- */
+/** Shared Signals receiver: verifies incoming SETs, rejects replays, and dispatches events to handlers. Push endpoint per RFC 8935. */
 
 import type { JWK, JWTVerifyGetKey } from "jose";
 import { createLocalJWKSet } from "jose";
@@ -35,10 +32,7 @@ export interface ReceiverConfig {
 	/** Your audience value; SETs must name it. */
 	audience: string;
 	/**
-	 * Key source, first match wins: `verificationKey`, static `jwks`, or
-	 * discovery. Discovery fetches `${issuer}/.well-known/ssf-configuration`
-	 * (or `configurationUrl`) and then its `jwks_uri`, through the SSRF-safe
-	 * fetcher.
+	 * Key source, first match wins: `verificationKey`, static `jwks`, or discovery. Discovery fetches `${issuer}/.well-known/ssf-configuration` (or `configurationUrl`) and then its `jwks_uri`, through the SSRF-safe fetcher.
 	 */
 	verificationKey?: VerifyKey;
 	jwks?: { keys: JWK[] };

@@ -1,7 +1,4 @@
-/**
- * Pluggable delivery for one-time codes. A sender gets a fully formed message
- * (channel, recipient, code, purpose) and is responsible only for delivery.
- */
+/** Pluggable delivery for one-time codes. A sender gets a fully formed message (channel, recipient, code, purpose) and is responsible only for delivery. */
 
 import type { EmailProvider } from "../email/types.js";
 
@@ -114,8 +111,6 @@ export function twilioOtpSender(config: TwilioSenderConfig): OtpSender {
 		},
 	};
 }
-
-// Console (development)
 
 export function consoleOtpSender(logger?: (line: string) => void): OtpSender {
 	// biome-ignore lint/suspicious/noConsole: the console sender exists to print codes in development

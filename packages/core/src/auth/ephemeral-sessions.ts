@@ -1,14 +1,6 @@
 /**
  * Ephemeral agent sessions for TheAuth.
- *
- * Short-lived, auto-expiring agent credentials for single-task use. Designed
- * for computer-use agents (Claude, GPT with browsing, operator loops) that
- * should not hold persistent tokens across invocations.
- *
- * Each session spins up a temporary agent, issues a bounded bearer token, and
- * tracks how many actions have been consumed. When the TTL lapses or the
- * action budget is exhausted the token becomes invalid and the underlying
- * agent is automatically revoked.
+ * Designed for computer-use agents (Claude, GPT with browsing, operator loops) that should not hold persistent tokens across invocations.
  *
  * @example
  * ```typescript
@@ -39,8 +31,6 @@ import { agents, ephemeralSessions, permissions } from "../db/schema.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 import type { Permission } from "../types.js";
 
-// Config
-
 export interface EphemeralSessionConfig {
 	db: Database;
 	/** Default TTL for sessions in seconds (default: 300 = 5 min) */
@@ -52,8 +42,6 @@ export interface EphemeralSessionConfig {
 	/** Group all actions under a shared audit session ID (default: true) */
 	auditGrouping?: boolean;
 }
-
-// Public types
 
 export interface CreateEphemeralSessionInput {
 	ownerId: string;
@@ -69,7 +57,7 @@ export interface CreateEphemeralSessionInput {
 export interface EphemeralSession {
 	sessionId: string;
 	agentId: string;
-	/** Bearer token — shown once, never stored in plain text */
+	/** Bearer token, shown once, never stored in plain text */
 	token: string;
 	expiresAt: Date;
 	maxActions: number | null;
@@ -98,8 +86,6 @@ export interface EphemeralSessionModule {
 	cleanupExpired(): Promise<Result<{ count: number }>>;
 }
 
-// Zod validation
-
 const CreateEphemeralSessionSchema = z.object({
 	ownerId: z.string().min(1),
 	name: z.string().optional(),
@@ -116,8 +102,6 @@ const CreateEphemeralSessionSchema = z.object({
 	maxActions: z.number().int().positive().optional(),
 	metadata: z.record(z.unknown()).optional(),
 });
-
-// Helpers
 
 async function generateSessionToken(): Promise<{ token: string; hash: string }> {
 	const hex = randomBytesHex(32);
@@ -138,8 +122,6 @@ function fail<T>(code: string, message: string, details?: Record<string, unknown
 	return { success: false, error: err(code, message, details) };
 }
 
-// Module factory
-
 export function createEphemeralSessionModule(
 	config: EphemeralSessionConfig,
 ): EphemeralSessionModule {
@@ -150,8 +132,6 @@ export function createEphemeralSessionModule(
 		autoRevokeOnExpiry = true,
 		auditGrouping = true,
 	} = config;
-
-	// createSession
 
 	async function createSession(
 		input: CreateEphemeralSessionInput,
@@ -165,7 +145,6 @@ export function createEphemeralSessionModule(
 
 		const { ownerId, name, permissions: perms, ttlSeconds, maxActions, metadata } = parsed.data;
 
-		// Validate owner exists
 		const ownerRows = await db
 			.select({ id: agents.ownerId })
 			.from(agents)
@@ -173,7 +152,7 @@ export function createEphemeralSessionModule(
 			.limit(1);
 
 		// We allow creation for any ownerId (the caller asserts ownership). If the
-		// users table is checked it would need an import of users — callers are
+		// users table is checked it would need an import of users, callers are
 		// responsible for passing a valid owner. We do verify TTL bounds here.
 		void ownerRows; // intentional no-op; owner is caller-asserted
 
@@ -196,7 +175,6 @@ export function createEphemeralSessionModule(
 		const { token, hash: tokenHash } = await generateSessionToken();
 		const tokenPrefix = token.slice(0, 14); // "kveph_" + 8 chars
 
-		// Insert a temporary agent
 		await db.insert(agents).values({
 			id: agentId,
 			ownerId,
@@ -258,8 +236,6 @@ export function createEphemeralSessionModule(
 		});
 	}
 
-	// validateSession
-
 	async function validateSession(token: string): Promise<Result<EphemeralSessionValidateResult>> {
 		const hash = await sha256(token);
 		const rows = await db
@@ -275,7 +251,6 @@ export function createEphemeralSessionModule(
 
 		const now = new Date();
 
-		// Check expiry first
 		if (row.expiresAt < now) {
 			if (row.status === "active") {
 				await markExpired(row.id, row.agentId);
@@ -305,8 +280,6 @@ export function createEphemeralSessionModule(
 			auditGroupId: row.auditGroupId,
 		});
 	}
-
-	// consumeAction
 
 	async function consumeAction(
 		token: string,
@@ -341,7 +314,6 @@ export function createEphemeralSessionModule(
 
 		const nextActionsUsed = row.actionsUsed + 1;
 
-		// Check budget before committing
 		if (row.maxActions !== null && nextActionsUsed > row.maxActions) {
 			await db
 				.update(ephemeralSessions)
@@ -356,7 +328,6 @@ export function createEphemeralSessionModule(
 			return fail("SESSION_EXHAUSTED", "Session action budget has been exhausted");
 		}
 
-		// Determine next status
 		const isNowExhausted = row.maxActions !== null && nextActionsUsed >= row.maxActions;
 		const nextStatus = isNowExhausted ? "exhausted" : "active";
 
@@ -376,8 +347,6 @@ export function createEphemeralSessionModule(
 
 		return ok({ actionsRemaining });
 	}
-
-	// revokeSession
 
 	async function revokeSession(sessionId: string): Promise<Result<void>> {
 		const rows = await db
@@ -409,8 +378,6 @@ export function createEphemeralSessionModule(
 
 		return ok(undefined);
 	}
-
-	// listActiveSessions
 
 	async function listActiveSessions(ownerId: string): Promise<Result<EphemeralSession[]>> {
 		const now = new Date();
@@ -464,8 +431,6 @@ export function createEphemeralSessionModule(
 		return ok({ count });
 	}
 
-	// Internal helpers
-
 	async function markExpired(sessionId: string, agentId: string): Promise<void> {
 		const now = new Date();
 		await db
@@ -490,8 +455,6 @@ export function createEphemeralSessionModule(
 		cleanupExpired,
 	};
 }
-
-// Row mapper
 
 function rowToSession(row: {
 	id: string;

@@ -1,9 +1,5 @@
 /**
- * Cookie-aware session manager for TheAuth.
- *
- * Wraps the lower-level `createSessionManager` with cookie serialization and
- * optional CSRF protection so callers work with `Request`/`Response` objects
- * directly rather than managing raw tokens and headers themselves.
+ * Cookie-aware session manager: wraps `createSessionManager` with cookie handling and optional cookie cache.
  *
  * @example
  * ```typescript
@@ -44,139 +40,70 @@ import { createSessionCookieCache } from "./cookie-cache.js";
 import type { Session, SessionConfig, SessionManager } from "./session.js";
 import { createSessionManager } from "./session.js";
 
-// Types
-
 export interface CookieSessionConfig extends SessionConfig {
-	/**
-	 * Name of the session cookie.
-	 * Defaults to `"theauth_session"`.
-	 */
+	/** Session cookie name. Default: `"theauth_session"`. */
 	sessionName?: string;
 
-	/**
-	 * Additional cookie attributes applied when setting the session cookie.
-	 * `maxAge` is derived from `SessionConfig.maxAge` when not explicitly set.
-	 */
+	/** Extra cookie attributes. `maxAge` comes from `SessionConfig.maxAge` unless set. */
 	cookieOptions?: Omit<CookieOptions, "maxAge">;
 
-	/**
-	 * When `true`, `validateSession` automatically refreshes the session
-	 * expiry on every successful validation.  Defaults to `true`.
-	 */
+	/** Refresh the session expiry on every successful validation. Default: true. */
 	autoRefresh?: boolean;
 
-	/**
-	 * Opt-in signed cookie cache. When set, a valid cache cookie answers
-	 * `validateSession` without a database read, at the cost of revocation lag
-	 * up to the cache `maxAge`. Off by default.
-	 */
+	/** Opt-in signed cookie cache. Revocation can lag by up to the cache `maxAge`. Off by default. */
 	cookieCache?: Omit<SessionCookieCacheConfig, "secret">;
 }
 
 export interface CreateSessionResult {
-	/** The persisted session record. */
 	session: Session;
-	/** Ready-to-use `Set-Cookie` header value. */
 	setCookieHeader: string;
 	/** `Set-Cookie` values for the cookie cache. Only set when `cookieCache` is configured. */
 	cacheCookieHeaders?: string[];
 }
 
 export interface ValidateSessionResult {
-	/** The valid session, or `null` when the cookie is absent/invalid/expired. */
 	session: Session | null;
-	/**
-	 * When `autoRefresh` is enabled and the session was valid, the refreshed
-	 * `Set-Cookie` header to forward to the client. `null` otherwise.
-	 */
+	/** Refreshed `Set-Cookie` to forward when `autoRefresh` extended a valid session. Otherwise null. */
 	refreshCookieHeader: string | null;
-	/**
-	 * `Set-Cookie` values to forward after a database read, to (re)seed the
-	 * cookie cache. Only set when `cookieCache` is configured and the cache was
-	 * missing or stale.
-	 */
+	/** Cache cookies to forward after a DB read reseeds the cache. Only set when `cookieCache` is configured. */
 	cacheCookieHeaders?: string[];
-	/** True when the session came from the cookie cache without a database read. */
 	fromCache?: boolean;
 }
 
 export interface CookieSessionManager {
-	/**
-	 * Create a new session for the given user and return the session record
-	 * together with a `Set-Cookie` header string ready to attach to a response.
-	 */
+	/** Creates a session and returns the record plus a ready-to-send `Set-Cookie` header. */
 	createSession(userId: string, metadata?: Record<string, unknown>): Promise<CreateSessionResult>;
 
-	/**
-	 * Parse the `Cookie` header, look up the session in the database, and
-	 * verify it has not expired.
-	 *
-	 * When `autoRefresh` is enabled the session is extended on each valid
-	 * request and a new `Set-Cookie` header is returned for forwarding.
-	 *
-	 * @param cookieHeader Raw value of the `Cookie` request header.
-	 */
+	/** Parses the Cookie header and looks up the session. Extends expiry when `autoRefresh` is on. */
 	validateSession(cookieHeader: string): Promise<ValidateSessionResult>;
 
-	/**
-	 * Extend the session expiry to `now + maxAge`.
-	 *
-	 * Returns the updated session and a fresh `Set-Cookie` header.
-	 * Returns `null` when the session does not exist.
-	 */
+	/** Extends the session expiry to `now + maxAge`. Returns null when the session does not exist. */
 	refreshSession(
 		sessionId: string,
 	): Promise<{ session: Session; setCookieHeader: string; cacheCookieHeaders?: string[] } | null>;
 
-	/**
-	 * Delete a session by ID (server-side) and return a deletion cookie that
-	 * will clear the browser cookie on the next response.
-	 */
+	/** Deletes a session server-side and returns a cookie that clears the browser cookie. */
 	revokeSession(sessionId: string): Promise<{ deleteCookieHeader: string }>;
 
-	/**
-	 * Revoke all sessions for the given user.
-	 *
-	 * Returns a deletion cookie header for clearing the current browser cookie.
-	 */
+	/** Revokes all sessions for a user and returns a cookie that clears the current browser cookie. */
 	revokeAllSessions(userId: string): Promise<{ deleteCookieHeader: string }>;
 
-	/**
-	 * List all non-expired sessions for a user, newest first.
-	 */
+	/** Lists non-expired sessions for a user, newest first. */
 	listSessions(userId: string): Promise<Session[]>;
 
-	/**
-	 * Build a `Set-Cookie` header that deletes the session cookie on the client
-	 * without any database operation.  Useful in error paths.
-	 */
+	/** Builds a cookie that clears the session cookie without any DB operation (useful in error paths). */
 	buildLogoutCookie(): string;
 
-	/**
-	 * All `Set-Cookie` deletions for a sign-out: the session cookie plus the
-	 * cache cookie and its chunks when `cookieCache` is configured.
-	 */
+	/** All sign-out cookie deletions: the session cookie, plus cache cookies when `cookieCache` is set. */
 	buildLogoutCookies(cookieHeader?: string): string[];
 
-	/** Expose the underlying low-level session manager for advanced usage. */
 	raw: SessionManager;
 }
-
-// Constants
 
 const DEFAULT_SESSION_NAME = "theauth_session";
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-// Factory
-
-/**
- * Create a cookie-aware session manager.
- *
- * Internally delegates all DB operations to `createSessionManager`.
- *
- * @param config Cookie-aware session configuration.
- * @param db     Drizzle database instance from `createDatabase()`.
- */
+/** Creates a cookie-aware session manager that delegates DB operations to `createSessionManager`. */
 export function createCookieSessionManager(
 	config: CookieSessionConfig,
 	db: Database,
@@ -190,7 +117,6 @@ export function createCookieSessionManager(
 		? createSessionCookieCache({ ...config.cookieCache, secret: config.secret })
 		: null;
 
-	// Base cookie attributes shared across all cookie operations.
 	const baseCookieOpts: CookieOptions = {
 		httpOnly: true,
 		sameSite: "lax",
@@ -207,8 +133,6 @@ export function createCookieSessionManager(
 		const { maxAge: _omit, ...rest } = baseCookieOpts;
 		return serializeCookieDeletion(sessionName, rest);
 	}
-
-	// public API
 
 	async function createSession(
 		userId: string,
@@ -239,7 +163,6 @@ export function createCookieSessionManager(
 			return { session: null, refreshCookieHeader: null };
 		}
 
-		// Auto-refresh: extend expiry and return a fresh cookie.
 		if (autoRefresh) {
 			const refreshed = await refreshInternal(session.id);
 			if (refreshed) {
@@ -264,10 +187,7 @@ export function createCookieSessionManager(
 		};
 	}
 
-	/**
-	 * Build cache cookies. An oversized payload is not an auth failure: skip the
-	 * cache and the request falls back to database reads.
-	 */
+	/** Builds cache cookies. An oversized payload only skips the cache; it is not an auth failure. */
 	async function seedCache(
 		session: Session,
 		token: string,
@@ -294,9 +214,7 @@ export function createCookieSessionManager(
 	async function refreshInternal(
 		sessionId: string,
 	): Promise<{ session: Session; token: string; setCookieHeader: string } | null> {
-		// Look up the session row directly via the shared `db` instance.
-		// `raw.validate()` is token-based so we cannot use it here — only the
-		// sessionId is available at this call site.
+		// Looked up directly: raw.validate() is token-based, and only the sessionId is available here.
 
 		const rows = await db
 			.select()

@@ -1,10 +1,5 @@
 /**
- * One-time token module for TheAuth.
- *
- * Issues single-use tokens for email verification, password resets,
- * invitations, and custom flows. The raw token is returned to the caller
- * once and never persisted — only a SHA-256 hash is stored. Tokens are
- * invalidated on first use or when they expire.
+ * One-time tokens for email verification, password reset, invitations and custom flows.
  *
  * @example
  * ```typescript
@@ -35,11 +30,7 @@ import type { Database } from "../db/database.js";
 import { oneTimeTokens } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
-// Re-export shared types for callers that import from this module
-
 export type { AuthError, Result, TheAuthError };
-
-// Public types
 
 /** Token purpose discriminator. Use 'custom' for any application-specific flow. */
 export type OneTimeTokenPurpose = "email-verify" | "password-reset" | "invitation" | "custom";
@@ -69,33 +60,21 @@ export interface RevokeTokensResult {
 }
 
 export interface OneTimeTokenModule {
-	/**
-	 * Create a new one-time token.
-	 *
-	 * Returns the raw token (hex string) exactly once. Store it in your email
-	 * or link — it cannot be recovered from the database afterwards.
-	 */
+	/** Creates a one-time token. Returns the raw token (hex) exactly once. */
 	createToken(input: CreateTokenInput): Promise<Result<{ token: string; expiresAt: Date }>>;
 
 	/**
 	 * Validate a token and mark it as used.
-	 *
-	 * Fails when the token is unknown, already used, expired, or belongs to a
-	 * different purpose. On success the token is consumed immediately.
+	 * Fails when the token is unknown, already used, expired, or belongs to a different purpose.
 	 */
 	validateToken(token: string, purpose: string): Promise<Result<ValidateTokenResult>>;
 
 	/**
 	 * Revoke all active tokens for an identifier, optionally scoped to a purpose.
-	 *
-	 * Useful for invalidating outstanding password-reset links when a user
-	 * changes their password through another flow, or for cleaning up on account
-	 * deletion.
+	 * Useful for invalidating outstanding password-reset links when a user changes their password through another flow, or for cleaning up on account deletion.
 	 */
 	revokeTokens(identifier: string, purpose?: string): Promise<Result<RevokeTokensResult>>;
 }
-
-// Zod validation schemas
 
 const PURPOSE_VALUES = ["email-verify", "password-reset", "invitation", "custom"] as const;
 
@@ -106,12 +85,8 @@ const createTokenInputSchema = z.object({
 	ttlSeconds: z.number().int().positive().optional(),
 });
 
-// Constants
-
 const DEFAULT_TTL_SECONDS = 3600; // 1 hour
 const TOKEN_BYTE_LENGTH = 32; // 256-bit token — 64 hex chars when encoded
-
-// Internal helpers
 
 async function hashToken(raw: string): Promise<string> {
 	return sha256(raw);
@@ -125,21 +100,15 @@ function makeError(code: string, message: string, details?: Record<string, unkno
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 
-// Factory
-
 /**
  * Create a one-time token module backed by the provided database.
- *
- * The module is stateless — no in-memory caches — so multiple instances
- * sharing the same database are safe.
+ * The module is stateless, no in-memory caches, so multiple instances sharing the same database are safe.
  */
 export function createOneTimeTokenModule(
 	config: OneTimeTokenConfig,
 	db: Database,
 ): OneTimeTokenModule {
 	const defaultTtl = config.defaultTtlSeconds ?? DEFAULT_TTL_SECONDS;
-
-	// createToken
 
 	async function createToken(
 		input: CreateTokenInput,
@@ -183,8 +152,6 @@ export function createOneTimeTokenModule(
 			};
 		}
 	}
-
-	// validateToken
 
 	async function validateToken(
 		token: string,
@@ -267,8 +234,6 @@ export function createOneTimeTokenModule(
 		};
 	}
 
-	// revokeTokens
-
 	async function revokeTokens(
 		identifier: string,
 		purpose?: string,
@@ -320,7 +285,7 @@ export function createOneTimeTokenModule(
 			}
 
 			// Mark all matched tokens as used (soft-revoke). Re-use the same
-			// clause — `now` is still valid since this is synchronous within the
+			// clause, `now` is still valid since this is synchronous within the
 			// same try block.
 			await db.update(oneTimeTokens).set({ used: true }).where(whereClause);
 

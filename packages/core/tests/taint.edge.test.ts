@@ -1,7 +1,4 @@
-/**
- * Edge cases for taint labels and the taint rule evaluator: prototype-named keys,
- * depth limits, cycles, eviction and duplicate rule ids.
- */
+/** Edge cases for taint labels and the taint rule evaluator: prototype-named keys, depth limits, cycles, eviction and duplicate rule ids. */
 
 import { describe, expect, it } from "vitest";
 import { applyTaint, evaluateTaint, normalizeProvenance } from "../src/policy/taint.js";

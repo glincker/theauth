@@ -1,6 +1,3 @@
-// Provider + context
-
-// Hooks
 export {
 	useAgents,
 	usePasskeys,
@@ -28,7 +25,6 @@ export { runSocialSignIn } from "./social.js";
 export type { SecureStoreLike } from "./storage.js";
 export { createMemoryStorage, createSecureStoreStorage } from "./storage.js";
 
-// Types
 export type {
 	ActionResult,
 	AppStateLike,

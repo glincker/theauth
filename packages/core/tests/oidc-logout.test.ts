@@ -1,6 +1,4 @@
-/**
- * Tests for OIDC provider logout wiring and the RP-side session revoker.
- */
+/** Tests for OIDC provider logout wiring and the RP-side session revoker. */
 
 import * as jose from "jose";
 import { beforeEach, describe, expect, it } from "vitest";

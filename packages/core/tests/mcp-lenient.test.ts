@@ -1,7 +1,4 @@
-/**
- * `lenientClients`: opt-in compatibility for real-world MCP clients, plus the
- * step-up upgrade URL regression.
- */
+/** `lenientClients`: opt-in compatibility for real-world MCP clients, plus the step-up upgrade URL regression. */
 import { describe, expect, it } from "vitest";
 import type { McpConfig } from "../src/mcp/types.js";
 import { computeS256Challenge, generateSecureToken } from "../src/mcp/utils.js";

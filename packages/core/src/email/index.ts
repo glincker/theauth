@@ -1,7 +1,4 @@
-// Types
-
 export type { ConsoleConfig } from "./console.js";
-// Providers
 export { consoleProvider } from "./console.js";
 export type { PostmarkConfig } from "./postmark.js";
 export { postmark } from "./postmark.js";
@@ -13,7 +10,6 @@ export type { SesConfig } from "./ses.js";
 export { ses } from "./ses.js";
 export type { SmtpConfig } from "./smtp.js";
 export { smtp } from "./smtp.js";
-// Templates
 export type {
 	EmailTemplate,
 	EmailTemplateConfig,

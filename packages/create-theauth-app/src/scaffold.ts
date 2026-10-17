@@ -22,18 +22,14 @@ const DB_PACKAGE_VERSION: Record<string, string> = {
 const WORKSPACE_PLACEHOLDER = "__WORKSPACE__";
 
 /**
- * Versions of the @glinr/* packages this release of the scaffolder was built
- * against. `template-versions.json` is generated at build time by
- * `scripts/sync-template-versions.mjs`. In the monorepo (dev and tests) the
- * file may not exist, so fall back to reading the workspace package.json files.
+ * Versions of the @glinr/* packages this release was built against, generated at build time
+ * by `scripts/sync-template-versions.mjs`. Missing in the monorepo, so the workspace is read instead.
  */
 export async function loadWorkspaceVersions(): Promise<Record<string, string>> {
 	const generated = join(__dirname, "..", "template-versions.json");
 	try {
 		return JSON.parse(await readFile(generated, "utf-8")) as Record<string, string>;
-	} catch {
-		// not built yet, read the workspace
-	}
+	} catch {}
 	const packagesDir = join(__dirname, "..", "..");
 	const versions: Record<string, string> = {};
 	for (const group of [packagesDir, join(packagesDir, "adapters")]) {
@@ -45,9 +41,7 @@ export async function loadWorkspaceVersions(): Promise<Record<string, string>> {
 					await readFile(join(group, entry.name, "package.json"), "utf-8"),
 				) as { name?: string; version?: string };
 				if (pkg.name?.startsWith("@glinr/") && pkg.version) versions[pkg.name] = pkg.version;
-			} catch {
-				// not a package directory
-			}
+			} catch {}
 		}
 	}
 	return versions;
@@ -75,9 +69,6 @@ export function resolveWorkspaceRanges(
 	return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
-/**
- * Replace all known placeholders in a string.
- */
 function replacePlaceholders(
 	content: string,
 	appName: string,
@@ -139,7 +130,6 @@ export async function scaffold(opts: ScaffoldOptions): Promise<void> {
 	const templatesDir = join(__dirname, "..", "templates");
 	const templateSrc = join(templatesDir, opts.template);
 
-	// Verify template exists
 	const templateStat = await stat(templateSrc).catch(() => null);
 	if (!templateStat?.isDirectory()) {
 		throw new Error(`Template "${opts.template}" not found at ${templateSrc}`);

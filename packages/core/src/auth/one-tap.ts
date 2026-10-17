@@ -1,21 +1,6 @@
 /**
  * Google One Tap authentication for TheAuth.
- *
- * Verifies a Google ID token (issued by the Google Identity Services JS
- * library) server-side via Google's public JWKS endpoint. No Google SDK
- * required. Uses `jose` for JWT verification — the same library used
- * elsewhere in TheAuth.
- *
- * Flow:
- * 1. Front-end includes the Google Identity Services script and mounts the
- *    One Tap prompt.
- * 2. On sign-in the browser POSTs the `credential` (ID token) to
- *    POST /auth/one-tap/callback.
- * 3. This module verifies the token, finds or creates the user, and returns
- *    a session.
- *
- * CSRF: Google's JS library sets a `g_csrf_token` cookie and includes the
- * same value in the POST body. Both must match.
+ * Verifies a Google ID token (issued by the Google Identity Services JS library) server-side via Google's public JWKS endpoint. No Google SDK required. Uses `jose` for JWT verification, the same library used elsewhere in TheAuth. This module verifies the token, finds or creates the user, and returns a session. Both must match.
  *
  * @example
  * ```typescript
@@ -43,13 +28,11 @@ import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// Constants
-
 const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"] as const;
 const DEFAULT_CSRF_COOKIE_NAME = "g_csrf_token";
 
-// Lazily created — jose caches JWKS internally after first fetch.
+// Lazily created, jose caches JWKS internally after first fetch.
 let cachedJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 function getJwks(): ReturnType<typeof createRemoteJWKSet> {
@@ -58,8 +41,6 @@ function getJwks(): ReturnType<typeof createRemoteJWKSet> {
 	}
 	return cachedJwks;
 }
-
-// Public types
 
 export interface OneTapConfig {
 	/** Google OAuth client ID */
@@ -82,23 +63,14 @@ export interface GoogleUser {
 }
 
 export interface OneTapModule {
-	/**
-	 * Verify a Google ID token and return the decoded user claims.
-	 * Throws if the token is invalid, expired, or issued for the wrong audience.
-	 */
+	/** Verify a Google ID token and return the decoded user claims. Throws if the token is invalid, expired, or issued for the wrong audience. */
 	verify(idToken: string): Promise<GoogleUser>;
 	/**
 	 * Handle the POST callback from Google's JS library.
-	 *
-	 * Expects `application/x-www-form-urlencoded` with `credential` and
-	 * `g_csrf_token` fields (plus the matching CSRF cookie). Returns a JSON
-	 * response with `{ user, session }` on success or null when the path does
-	 * not match (allowing fall-through to other handlers).
+	 * Returns a JSON response with `{ user, session }` on success or null when the path does not match (allowing fall-through to other handlers).
 	 */
 	handleRequest(request: Request): Promise<Response | null>;
 }
-
-// Errors
 
 export class OneTapVerifyError extends Error {
 	constructor(
@@ -109,8 +81,6 @@ export class OneTapVerifyError extends Error {
 		this.name = "OneTapVerifyError";
 	}
 }
-
-// Google JWT payload shape
 
 interface GoogleIdTokenPayload {
 	sub: string;
@@ -126,8 +96,6 @@ interface GoogleIdTokenPayload {
 	iat: number;
 }
 
-// Factory
-
 export function createOneTapModule(
 	config: OneTapConfig,
 	db: Database,
@@ -138,8 +106,6 @@ export function createOneTapModule(
 	const autoCreateUser = config.autoCreateUser ?? true;
 	const csrfCookieName = config.csrfCookieName ?? DEFAULT_CSRF_COOKIE_NAME;
 	const callbackPath = "/auth/one-tap/callback";
-
-	// verify
 
 	async function verify(idToken: string): Promise<GoogleUser> {
 		let payload: GoogleIdTokenPayload;
@@ -178,8 +144,6 @@ export function createOneTapModule(
 		};
 	}
 
-	// findOrCreate user
-
 	async function findOrCreateUser(googleUser: GoogleUser): Promise<{ id: string; email: string }> {
 		// Look up by email first.
 		const existing = await db
@@ -211,8 +175,6 @@ export function createOneTapModule(
 		return { id, email: googleUser.email };
 	}
 
-	// CSRF helpers
-
 	function getCsrfCookie(request: Request): string | null {
 		const cookieHeader = request.headers.get("cookie") ?? "";
 		for (const part of cookieHeader.split(";")) {
@@ -226,8 +188,6 @@ export function createOneTapModule(
 		}
 		return null;
 	}
-
-	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
@@ -301,8 +261,6 @@ export function createOneTapModule(
 
 	return { verify, handleRequest };
 }
-
-// Helpers
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {

@@ -1,9 +1,6 @@
 /**
  * Human auth adapter system for TheAuth.
- *
- * Lets TheAuth plug into existing auth providers (better-auth, Auth.js,
- * Clerk, or a custom resolver) so that human user identity can be resolved
- * from an incoming HTTP request before agent operations are performed.
+ * Lets TheAuth plug into existing auth providers (better-auth, Auth.js, Clerk, or a custom resolver) so that human user identity can be resolved from an incoming HTTP request before agent operations are performed.
  *
  * @example
  * ```typescript
@@ -19,7 +16,6 @@
  * ```
  */
 
-// Email delivery adapters
 export type {
 	PostmarkConfig,
 	ResendConfig,
@@ -30,12 +26,10 @@ export type {
 export { postmark, resend, sendgrid, ses, smtp } from "../email/index.js";
 export * from "../storage/index.js";
 export type { BearerAuthOptions } from "./adapters/bearer.js";
-// Built-in adapters
 export { bearerAuth } from "./adapters/bearer.js";
 export { customAuth } from "./adapters/custom.js";
 export type { HeaderAuthOptions } from "./adapters/header.js";
 export { headerAuth } from "./adapters/header.js";
-// Additional user/session fields plugin
 export type {
 	AdditionalFieldsConfig,
 	AdditionalFieldsModule,
@@ -43,12 +37,9 @@ export type {
 	ValidationResult,
 } from "./additional-fields.js";
 export { additionalFields, createAdditionalFieldsModule } from "./additional-fields.js";
-// Admin module
 export type { AdminConfig, AdminModule, AdminUser } from "./admin.js";
 export { createAdminModule } from "./admin.js";
-// Admin plugin (TheAuthPlugin wrapper)
 export { admin } from "./admin-plugin.js";
-// Agent registration tokens
 export type {
 	AgentRegistrationConfig,
 	AgentRegistrationEvent,
@@ -62,12 +53,10 @@ export type {
 export { createAgentRegistrationModule } from "./agent-registration.js";
 export type { AgentRegistrationPluginConfig } from "./agent-registration-plugin.js";
 export { agentRegistration } from "./agent-registration-plugin.js";
-// Anonymous auth
 export type { AnonymousAuthConfig, AnonymousAuthModule } from "./anonymous.js";
 export { createAnonymousAuthModule } from "./anonymous.js";
 // Anonymous auth plugin (TheAuthPlugin wrapper)
 export { anonymousAuth } from "./anonymous-plugin.js";
-// API key management
 export type { ApiKey, ApiKeyManagerConfig, ApiKeyManagerModule } from "./api-key-manager.js";
 export { createApiKeyManagerModule } from "./api-key-manager.js";
 // API key plugin (TheAuthPlugin wrapper)
@@ -77,7 +66,6 @@ export type { CaptchaConfig, CaptchaModule, CaptchaVerifyResult } from "./captch
 export { createCaptchaModule } from "./captcha.js";
 export type { TrustedProxyConfig } from "./client-ip.js";
 export { resolveClientIp } from "./client-ip.js";
-// Cost attribution and observability
 export type {
 	BudgetCheckResult,
 	CostAlert,
@@ -87,7 +75,6 @@ export type {
 	RecordCostInput,
 } from "./cost-attribution.js";
 export { createCostAttributionModule } from "./cost-attribution.js";
-// Custom session fields plugin
 export type { CustomSessionConfig, CustomSessionModule } from "./custom-session.js";
 export { createCustomSessionModule, customSession } from "./custom-session.js";
 // OAuth Device Authorization Grant (RFC 8628)
@@ -108,12 +95,10 @@ export {
 	DeviceAuthError,
 	deviceAuth,
 } from "./device-auth.js";
-// Email OTP
 export type { EmailOtpConfig, EmailOtpModule } from "./email-otp.js";
 export { createEmailOtpModule } from "./email-otp.js";
 // Email OTP plugin (TheAuthPlugin wrapper)
 export { emailOtp } from "./email-otp-plugin.js";
-// Email verification
 export type { EmailVerificationConfig, EmailVerificationModule } from "./email-verification.js";
 export { createEmailVerificationModule } from "./email-verification.js";
 // Ephemeral sessions (short-lived agent credentials for computer-use agents)
@@ -125,7 +110,6 @@ export type {
 	EphemeralSessionValidateResult,
 } from "./ephemeral-sessions.js";
 export { createEphemeralSessionModule } from "./ephemeral-sessions.js";
-// SSE event streaming
 export type {
 	EventStreamConfig,
 	EventStreamModule,
@@ -171,7 +155,6 @@ export { createFederationModule } from "./federation.js";
 // GDPR module (right to erasure + right to portability)
 export type { DeleteOptions, DeleteResult, GdprModule, UserDataExport } from "./gdpr.js";
 export { createGdprModule } from "./gdpr.js";
-// GDPR plugin (TheAuthPlugin wrapper)
 export { gdpr } from "./gdpr-plugin.js";
 // Have I Been Pwned password checking
 export type { HibpConfig, HibpModule } from "./hibp.js";
@@ -185,7 +168,6 @@ export type {
 	VerifiedSession,
 } from "./jwt-session.js";
 export { createJwtSessionModule } from "./jwt-session.js";
-// Last login method tracking
 export type {
 	LastLoginConfig,
 	LastLoginModule,
@@ -194,7 +176,6 @@ export type {
 	RecordLoginInput,
 } from "./last-login.js";
 export { createLastLoginModule } from "./last-login.js";
-// Magic link (passwordless email)
 export type { MagicLinkConfig, MagicLinkModule } from "./magic-link.js";
 export { createMagicLinkModule } from "./magic-link.js";
 // Magic link plugin (TheAuthPlugin wrapper)
@@ -251,7 +232,6 @@ export type {
 	UserInfoClaims,
 } from "./oidc-provider.js";
 export { createOidcProviderModule } from "./oidc-provider.js";
-// Google One Tap
 export type { GoogleUser, OneTapConfig, OneTapModule } from "./one-tap.js";
 export { createOneTapModule, OneTapVerifyError } from "./one-tap.js";
 // Google One Tap plugin (TheAuthPlugin wrapper)
@@ -312,10 +292,8 @@ export type {
 	TwilioSenderConfig,
 } from "./otp-senders.js";
 export { consoleOtpSender, emailOtpSender, twilioOtpSender } from "./otp-senders.js";
-// Passkey / WebAuthn authentication
 export type { PasskeyConfig, PasskeyCredential, PasskeyModule } from "./passkey.js";
 export { createPasskeyModule } from "./passkey.js";
-// Passkey plugin (TheAuthPlugin wrapper)
 export { passkey } from "./passkey-plugin.js";
 export type { PasskeyTwoFactorFactor, PasskeyTwoFactorOptions } from "./passkey-second-factor.js";
 export { createPasskeyTwoFactorFactor } from "./passkey-second-factor.js";
@@ -325,10 +303,8 @@ export { createPasswordResetModule } from "./password-reset.js";
 // Phone number (SMS OTP) authentication
 export type { PhoneAuthConfig, PhoneAuthModule } from "./phone.js";
 export { createPhoneAuthModule } from "./phone.js";
-// Polar payment integration
 export type { PolarConfig, PolarModule, PolarSubscription } from "./polar.js";
 export { createPolarModule } from "./polar.js";
-// Polar plugin (TheAuthPlugin wrapper)
 export { polar } from "./polar-plugin.js";
 // rateLimit plugin (TheAuthPlugin wrapper with per-endpoint limits and pluggable store)
 export type {
@@ -342,7 +318,7 @@ export { withRateLimit } from "./rate-limit-middleware.js";
 // Rate limiting for auth endpoints (lower-level primitives)
 export type { RateLimitConfig, RateLimiter, RateLimitResult } from "./rate-limiter.js";
 export { createRateLimiter } from "./rate-limiter.js";
-// Relationship-Based Access Control (ReBAC) — Zanzibar-inspired
+// Relationship-Based Access Control (ReBAC), Zanzibar-inspired
 export type {
 	CheckParams,
 	CheckResult,
@@ -359,9 +335,7 @@ export { createReBACModule } from "./rebac.js";
 // SCIM 2.0 directory sync (RFC 7644)
 export type { ScimConfig, ScimGroup, ScimModule, ScimUser } from "./scim.js";
 export { createScimModule } from "./scim.js";
-// SCIM plugin (TheAuthPlugin wrapper)
 export { scim } from "./scim-plugin.js";
-// TOTP two-factor authentication
 export type {
 	CreateSignInGateOptions,
 	EvaluateSignInGateInput,
@@ -401,9 +375,7 @@ export type {
 export { createSsoModule, SSO_ERROR, SsoError } from "./sso.js";
 export type { KVNamespace } from "./stores/kv.js";
 export { KVStore, kvStore } from "./stores/kv.js";
-// Rate limiting stores
 export { MemoryStore } from "./stores/memory.js";
-// Stripe payment integration
 export type {
 	CheckoutOptions,
 	StripeConfig,
@@ -411,12 +383,10 @@ export type {
 	SubscriptionInfo,
 } from "./stripe.js";
 export { createStripeModule } from "./stripe.js";
-// Stripe plugin (TheAuthPlugin wrapper)
 export { stripe } from "./stripe-plugin.js";
 export type { TotpConfig, TotpModule, TotpSetup } from "./totp.js";
 export { createTotpModule } from "./totp.js";
 export type { TwoFactorConfig, TwoFactorOtpConfig } from "./totp-plugin.js";
-// TOTP plugin (TheAuthPlugin wrapper)
 export { twoFactor } from "./totp-plugin.js";
 // Trusted device windows for 2FA
 export type { TrustedDevice, TrustedDeviceConfig, TrustedDeviceModule } from "./trusted-device.js";
@@ -428,6 +398,5 @@ export type { AuthAdapter, ResolvedUser } from "./types.js";
 // Username + password authentication
 export type { UsernameAuthConfig, UsernameAuthModule } from "./username.js";
 export { createUsernameAuthModule } from "./username.js";
-// Webhook system
 export type { WebhookConfig, WebhookEvent, WebhookModule } from "./webhooks.js";
 export { createWebhookModule } from "./webhooks.js";

@@ -1,8 +1,6 @@
 /**
  * Tests for the policy decision combiner.
- *
- * Covers deny-overrides (default) and permit-overrides strategies, empty
- * input, and field passthrough from the winning partial.
+ * Covers deny-overrides (default) and permit-overrides strategies, empty input, and field passthrough from the winning partial.
  */
 
 import { describe, expect, it } from "vitest";
@@ -91,8 +89,6 @@ describe("combine, deny-overrides", () => {
 	});
 });
 
-// permit-overrides
-
 describe("combine, permit-overrides", () => {
 	it("mixed [permit, deny] returns permit", () => {
 		const partials: PartialDecision[] = [
@@ -124,8 +120,6 @@ describe("combine, permit-overrides", () => {
 		expect(result.reason).toBe(POLICY_ERROR_CODES.NO_MATCHING_PERMISSION);
 	});
 });
-
-// Field passthrough
 
 describe("combine, field passthrough", () => {
 	it("matchedPermissionId from winning partial appears on result", () => {

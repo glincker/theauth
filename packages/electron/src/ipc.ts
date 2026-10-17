@@ -1,14 +1,10 @@
 import { getElectronApi } from "./electron-api.js";
 import type { SecureStorage } from "./storage.js";
 
-// IPC channel names
-
 const CHANNEL_GET = "theauth:storage:get";
 const CHANNEL_SET = "theauth:storage:set";
 const CHANNEL_REMOVE = "theauth:storage:remove";
 const CHANNEL_CLEAR = "theauth:storage:clear";
-
-// Request/response types
 
 interface StorageGetRequest {
 	key: string;
@@ -27,14 +23,9 @@ interface StorageGetResponse {
 	value: string | null;
 }
 
-// Main process side
-
 /**
- * Registers IPC handlers in the main process so the renderer can securely
- * access storage without needing direct Node.js access.
- *
- * Call this once from your main process entry point after creating your
- * SecureStorage instance via createElectronStorage().
+ * Registers IPC handlers in the main process so the renderer can reach storage without Node.js access.
+ * Call once after createElectronStorage().
  */
 export function setupTheAuthIpc(storage: SecureStorage): void {
 	const { ipcMain } = getElectronApi();
@@ -66,13 +57,8 @@ export function setupTheAuthIpc(storage: SecureStorage): void {
 	});
 }
 
-// Renderer process side
-
 /**
- * Creates a SecureStorage implementation that delegates all operations to the
- * main process via IPC. Use this in the renderer process in place of a direct
- * storage adapter so that Node.js APIs and encryption stay in the main process.
- *
+ * Creates a SecureStorage that delegates all operations to the main process over IPC.
  * Requires contextIsolation to be enabled and the IPC channels to be exposed
  * via a preload script, or for contextIsolation to be disabled (not recommended).
  */
@@ -101,8 +87,6 @@ export function createIpcStorage(): SecureStorage {
 		},
 	};
 }
-
-// Preload bridge helper
 
 /**
  * The IPC channel names exposed for use in a preload script with contextBridge.

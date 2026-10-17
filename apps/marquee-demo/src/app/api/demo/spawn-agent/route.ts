@@ -1,6 +1,5 @@
 /**
- * POST /api/demo/spawn-agent
- * Step 2: Spawn an agent with read-only access to the "calendar" mock tool.
+ * POST /api/demo/spawn-agent (step 2): spawns an agent with read-only access to the "calendar" mock tool.
  */
 
 import { NextResponse } from "next/server";

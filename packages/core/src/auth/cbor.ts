@@ -1,19 +1,9 @@
 /**
  * Minimal CBOR decoder (RFC 7049) for WebAuthn attestation objects.
- *
- * Handles the subset of CBOR used by authenticators:
- *   Major type 0 -- unsigned integer
- *   Major type 1 -- negative integer
- *   Major type 2 -- byte string
- *   Major type 3 -- text string
- *   Major type 4 -- array
- *   Major type 5 -- map
- *   Major type 7 -- simple values (true, false, null, float)
- *
  * Security limits:
- *   - Maximum input size: 1 MB
- *   - Maximum nesting depth: 32
- *   - Indefinite-length items are rejected
+ * - Maximum input size: 1 MB
+ * - Maximum nesting depth: 32
+ * - Indefinite-length items are rejected
  */
 
 /** Maximum CBOR input size in bytes (1 MB). */
@@ -76,7 +66,6 @@ function decodeItem(state: DecoderState): unknown {
 
 	switch (majorType) {
 		case 0: {
-			// Unsigned integer
 			return readUint(state, additionalInfo);
 		}
 
@@ -87,7 +76,6 @@ function decodeItem(state: DecoderState): unknown {
 		}
 
 		case 2: {
-			// Byte string
 			if (additionalInfo === 31) {
 				throw new Error("CBOR: indefinite-length byte strings are not supported");
 			}
@@ -96,7 +84,6 @@ function decodeItem(state: DecoderState): unknown {
 		}
 
 		case 3: {
-			// Text string
 			if (additionalInfo === 31) {
 				throw new Error("CBOR: indefinite-length text strings are not supported");
 			}
@@ -106,7 +93,6 @@ function decodeItem(state: DecoderState): unknown {
 		}
 
 		case 4: {
-			// Array
 			if (additionalInfo === 31) {
 				throw new Error("CBOR: indefinite-length arrays are not supported");
 			}
@@ -124,7 +110,6 @@ function decodeItem(state: DecoderState): unknown {
 		}
 
 		case 5: {
-			// Map
 			if (additionalInfo === 31) {
 				throw new Error("CBOR: indefinite-length maps are not supported");
 			}
@@ -144,7 +129,6 @@ function decodeItem(state: DecoderState): unknown {
 		}
 
 		case 7: {
-			// Simple values and floats
 			if (additionalInfo === 20) return false;
 			if (additionalInfo === 21) return true;
 			if (additionalInfo === 22) return null;
@@ -162,14 +146,12 @@ function decodeItem(state: DecoderState): unknown {
 				return val;
 			}
 			if (additionalInfo === 26) {
-				// IEEE 754 single-precision float
 				const b = readBytes(state, 4);
 				const buf = new ArrayBuffer(4);
 				new Uint8Array(buf).set(b);
 				return new DataView(buf).getFloat32(0, false);
 			}
 			if (additionalInfo === 27) {
-				// IEEE 754 double-precision float
 				const b = readBytes(state, 8);
 				const buf = new ArrayBuffer(8);
 				new Uint8Array(buf).set(b);
@@ -185,10 +167,6 @@ function decodeItem(state: DecoderState): unknown {
 
 /**
  * Decode a CBOR-encoded byte array into a JavaScript value.
- *
- * Maps are decoded as `Map<unknown, unknown>` to preserve numeric keys
- * (COSE keys use negative integers).
- *
  * Enforces size and depth limits to prevent denial of service.
  */
 export function decodeCbor(data: Uint8Array): unknown {

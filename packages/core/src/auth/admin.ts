@@ -1,9 +1,6 @@
 /**
  * Admin module for TheAuth.
  *
- * Global admin operations: user listing, banning, impersonation, and deletion.
- * Admin access is determined by the `adminUserIds` config list.
- *
  * @example
  * ```typescript
  * const theauth = await createTheAuth({
@@ -20,8 +17,6 @@ import { eq, like, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, sessions, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
-
-// Public types
 
 export interface AdminConfig {
 	/** User IDs that are global admins */
@@ -76,8 +71,6 @@ export interface AdminModule {
 // Internal row type (matches schema with ban columns)
 
 type UserRow = typeof users.$inferSelect;
-
-// Factory
 
 const DEFAULT_IMPERSONATION_TTL_SECONDS = 3600; // 1 hour
 
@@ -226,7 +219,6 @@ export function createAdminModule(
 	}
 
 	async function deleteUser(userId: string): Promise<void> {
-		// Revoke sessions first
 		await db.delete(sessions).where(eq(sessions.userId, userId));
 		// Mark agents as revoked to preserve audit trail
 		await db.update(agents).set({ status: "revoked" }).where(eq(agents.ownerId, userId));
@@ -279,8 +271,6 @@ export function createAdminModule(
 		await logAdminAction("system", "force_password_reset", userId);
 	}
 
-	// HTTP handler
-
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const { pathname } = url;
@@ -292,7 +282,6 @@ export function createAdminModule(
 				headers: { "Content-Type": "application/json" },
 			});
 
-		// GET /auth/admin/users
 		if (method === "GET" && pathname === "/auth/admin/users") {
 			const limit = url.searchParams.get("limit")
 				? Number(url.searchParams.get("limit"))
@@ -305,7 +294,6 @@ export function createAdminModule(
 			return json(result);
 		}
 
-		// GET /auth/admin/users/:id
 		const userMatch = /^\/auth\/admin\/users\/([^/]+)$/.exec(pathname);
 		if (method === "GET" && userMatch) {
 			const userId = decodeURIComponent(userMatch[1] ?? "");
@@ -314,23 +302,19 @@ export function createAdminModule(
 			return json(user);
 		}
 
-		// POST /auth/admin/users/:id/ban
 		const banMatch = /^\/auth\/admin\/users\/([^/]+)\/ban$/.exec(pathname);
 		if (method === "POST" && banMatch) {
 			const userId = decodeURIComponent(banMatch[1] ?? "");
 			let body: Record<string, unknown> = {};
 			try {
 				body = (await request.json()) as Record<string, unknown>;
-			} catch {
-				// body is optional
-			}
+			} catch {}
 			const reason = typeof body.reason === "string" ? body.reason : undefined;
 			const expiresAt = body.expiresAt ? new Date(body.expiresAt as string) : undefined;
 			await banUser(userId, reason, expiresAt);
 			return json({ success: true });
 		}
 
-		// POST /auth/admin/users/:id/unban
 		const unbanMatch = /^\/auth\/admin\/users\/([^/]+)\/unban$/.exec(pathname);
 		if (method === "POST" && unbanMatch) {
 			const userId = decodeURIComponent(unbanMatch[1] ?? "");
@@ -338,7 +322,6 @@ export function createAdminModule(
 			return json({ success: true });
 		}
 
-		// DELETE /auth/admin/users/:id
 		const deleteMatch = /^\/auth\/admin\/users\/([^/]+)$/.exec(pathname);
 		if (method === "DELETE" && deleteMatch) {
 			const userId = decodeURIComponent(deleteMatch[1] ?? "");
@@ -346,7 +329,6 @@ export function createAdminModule(
 			return json({ success: true });
 		}
 
-		// POST /auth/admin/impersonate/:userId
 		const impersonateMatch = /^\/auth\/admin\/impersonate\/([^/]+)$/.exec(pathname);
 		if (method === "POST" && impersonateMatch) {
 			const targetUserId = decodeURIComponent(impersonateMatch[1] ?? "");
@@ -368,7 +350,6 @@ export function createAdminModule(
 			}
 		}
 
-		// POST /auth/admin/stop-impersonation
 		if (method === "POST" && pathname === "/auth/admin/stop-impersonation") {
 			const auth = request.headers.get("Authorization");
 			const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;

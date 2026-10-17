@@ -6,7 +6,6 @@ export interface StoredAccess {
 	accessToken: string;
 	tokenType: "Bearer" | "DPoP";
 	scope: string;
-	/** Epoch milliseconds. */
 	expiresAt: number;
 	idToken?: string;
 }

@@ -1,16 +1,6 @@
 /**
  * Keyed pseudonyms for the personal ids on an audit row.
- *
- * Version 2 chain rows hash a pseudonym of userId, agentId, subjectId, actorId
- * and approverId instead of the raw ids, and store the pseudonyms on the row
- * (id_pseudonyms). Erasure can then blank the raw columns and the row hash
- * stays valid.
- *
- * Tradeoff: a pseudonym is linkable by whoever holds the key, so it is
- * pseudonymization, not anonymization. Destroying the key would be an
- * additional erasure option. That is deliberately not implemented here (no key
- * shredding): the key is `audit.hmacKey` when configured, otherwise a random
- * per-installation secret kept in theauth_audit_secrets.
+ * Tradeoff: a pseudonym is linkable by whoever holds the key, so it is pseudonymization, not anonymization. That is deliberately not implemented here (no key shredding): the key is `audit.hmacKey` when configured, otherwise a random per-installation secret kept in theauth_audit_secrets.
  */
 
 import { eq } from "drizzle-orm";
@@ -60,9 +50,7 @@ async function readSecret(db: Database): Promise<string | undefined> {
 }
 
 /**
- * The key pseudonyms are computed with. `hmacKey` wins. Otherwise the
- * per-installation secret, created on first use when `create` is set; a
- * read-only caller (the verifier) gets undefined if none exists yet.
+ * The key pseudonyms are computed with. `hmacKey` wins. Otherwise the per-installation secret, created on first use when `create` is set; a read-only caller (the verifier) gets undefined if none exists yet.
  */
 export async function resolvePseudonymKey(
 	db: Database,
@@ -103,9 +91,7 @@ export async function computePseudonyms(
 }
 
 /**
- * Fields whose raw value is still present but does not match the stored
- * pseudonym, meaning the raw column was edited after the row was written.
- * Erased columns (null, or an anonymization placeholder) are skipped.
+ * Fields whose raw value is still present but does not match the stored pseudonym, meaning the raw column was edited after the row was written. Erased columns (null, or an anonymization placeholder) are skipped.
  */
 export async function pseudonymMismatches(
 	row: PseudonymSource & { idPseudonyms?: Record<string, string> | null },

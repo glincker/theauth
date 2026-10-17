@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrismaAdapter } from "../src/adapter.js";
 import type { TheAuthPrismaAdapter } from "../src/types.js";
 
-// Mock PrismaClient
-
 function makeModelMock() {
 	return {
 		findUnique: vi.fn(),
@@ -44,8 +42,6 @@ function createMockPrisma() {
 }
 
 type MockPrisma = ReturnType<typeof createMockPrisma>;
-
-// Test fixtures
 
 const NOW = new Date("2025-01-01T00:00:00Z");
 
@@ -126,8 +122,6 @@ const SESSION = {
 	createdAt: NOW,
 };
 
-// Tests
-
 describe("createPrismaAdapter", () => {
 	let prisma: MockPrisma;
 	let db: TheAuthPrismaAdapter;
@@ -136,8 +130,6 @@ describe("createPrismaAdapter", () => {
 		prisma = createMockPrisma();
 		db = createPrismaAdapter(prisma as any);
 	});
-
-	// Users
 
 	describe("users", () => {
 		it("findUserById calls findUnique with the correct where clause", async () => {
@@ -187,8 +179,6 @@ describe("createPrismaAdapter", () => {
 			expect(prisma.theAuthUser.delete).toHaveBeenCalledWith({ where: { id: "user-1" } });
 		});
 	});
-
-	// Agents
 
 	describe("agents", () => {
 		it("findAgentById returns the agent", async () => {
@@ -259,8 +249,6 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// Permissions
-
 	describe("permissions", () => {
 		it("findPermissionsByAgentId returns permissions list", async () => {
 			prisma.theAuthPermission.findMany.mockResolvedValue([PERMISSION]);
@@ -297,8 +285,6 @@ describe("createPrismaAdapter", () => {
 			expect(prisma.theAuthPermission.delete).toHaveBeenCalledWith({ where: { id: "perm-1" } });
 		});
 	});
-
-	// Audit logs
 
 	describe("audit logs", () => {
 		it("createAuditLog calls create with input", async () => {
@@ -358,8 +344,6 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// Sessions
-
 	describe("sessions", () => {
 		it("findSessionById returns session", async () => {
 			prisma.theAuthSession.findUnique.mockResolvedValue(SESSION);
@@ -391,8 +375,6 @@ describe("createPrismaAdapter", () => {
 			expect(prisma.theAuthSession.deleteMany).toHaveBeenCalled();
 		});
 	});
-
-	// Delegation chains
 
 	describe("delegation chains", () => {
 		const CHAIN = {
@@ -429,8 +411,6 @@ describe("createPrismaAdapter", () => {
 			expect(result.status).toBe("revoked");
 		});
 	});
-
-	// Organizations
 
 	describe("organizations", () => {
 		const ORG = {
@@ -484,8 +464,6 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// Trust scores
-
 	describe("trust scores", () => {
 		const TRUST = {
 			agentId: "agent-1",
@@ -510,8 +488,6 @@ describe("createPrismaAdapter", () => {
 			expect(result).toEqual(TRUST);
 		});
 	});
-
-	// Approval requests
 
 	describe("approval requests", () => {
 		const APPROVAL = {
@@ -549,8 +525,6 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// Transactions
-
 	describe("transactions", () => {
 		it("wraps the callback in prisma.$transaction", async () => {
 			prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -576,8 +550,6 @@ describe("createPrismaAdapter", () => {
 		});
 	});
 
-	// Rate limits
-
 	describe("rate limits", () => {
 		it("upsertRateLimit calls upsert with a derived id", async () => {
 			const RATE = { id: "xxx", agentId: "agent-1", resource: "mcp:*", windowStart: NOW, count: 5 };
@@ -592,8 +564,6 @@ describe("createPrismaAdapter", () => {
 			expect(result).toEqual(RATE);
 		});
 	});
-
-	// OAuth
 
 	describe("oauth", () => {
 		it("findOAuthClientById queries by clientId field", async () => {

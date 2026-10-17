@@ -1,9 +1,6 @@
 /**
  * Header-based auth adapter.
- *
- * Extracts the user ID from a trusted request header.  Designed for services
- * deployed behind an auth proxy (e.g. Nginx, Cloudflare Access, AWS ALB) that
- * injects a verified user-identity header before forwarding requests.
+ * Nginx, Cloudflare Access, AWS ALB) that injects a verified user-identity header before forwarding requests.
  *
  * @example Default header (`X-User-Id`)
  * ```typescript
@@ -24,18 +21,11 @@
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
 export interface HeaderAuthOptions {
-	/**
-	 * Name of the HTTP header that carries the user ID.
-	 * Defaults to `X-User-Id`.
-	 */
+	/** Name of the HTTP header that carries the user ID. Defaults to `X-User-Id`. */
 	header?: string;
 }
 
-/**
- * Create an `AuthAdapter` that extracts the user identity from a request header.
- *
- * Returns `null` when the header is absent or its value is empty.
- */
+/** Create an `AuthAdapter` that extracts the user identity from a request header. */
 export function headerAuth(options?: HeaderAuthOptions): AuthAdapter {
 	const headerName = options?.header ?? "X-User-Id";
 	// Normalise to lower-case for case-insensitive lookup via the Headers API.

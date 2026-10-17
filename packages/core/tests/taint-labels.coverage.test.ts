@@ -1,7 +1,4 @@
-/**
- * Label tagging and the tool-output tracker at their limits: entry and byte
- * budgets, truncation, substring bounds and option fallbacks.
- */
+/** Label tagging and the tool-output tracker at their limits: entry and byte budgets, truncation, substring bounds and option fallbacks. */
 
 import { describe, expect, it } from "vitest";
 import {

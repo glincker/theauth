@@ -3,10 +3,7 @@ import type { Permission } from "../types.js";
 /** Result values the audit log can hold. */
 export type DecisionResult = "allowed" | "denied" | "rate_limited" | "escalated";
 
-/**
- * The slice of an audit row the shrink tools need. Plain data, so the pure
- * functions can be driven by rows from a test, an export file or the database.
- */
+/** The slice of an audit row the shrink tools need. Plain data, so the pure functions can be driven by rows from a test, an export file or the database. */
 export interface DecisionRow {
 	id: string;
 	action: string;
@@ -80,10 +77,7 @@ export interface UsageAnalysis {
 	used: UsedPermission[];
 	/** Granted permissions with no allowed call in the window and no attempt either. */
 	unused: Permission[];
-	/**
-	 * Granted permissions that matched only denied calls for other causes (for
-	 * example a rate limit). Treated as in use: removing them would hide the attempt.
-	 */
+	/** Granted permissions that matched only denied calls for other causes (for example a rate limit). Treated as in use: removing them would hide the attempt. */
 	attemptedOnly: Permission[];
 	/** Distinct (action, resource) pairs denied for lack of a grant. Capped. */
 	deniedNoGrant: Array<{ action: string; resource: string }>;
@@ -103,9 +97,7 @@ export interface ShrinkOptions {
 	/** A permission needs at least this many allowed calls to be kept. Default 1. */
 	minObservations?: number;
 	/**
-	 * Merge sibling resources into a parent wildcard. Off by default. A merge happens
-	 * only when every merged resource was observed in use, the wildcard is already
-	 * covered by an existing grant, and it matches no resource that was denied for lack of a grant.
+	 * Merge sibling resources into a parent wildcard. Off by default. A merge happens only when every merged resource was observed in use, the wildcard is already covered by an existing grant, and it matches no resource that was denied for lack of a grant.
 	 */
 	generalize?: boolean;
 	/** Distinct observed siblings needed before they merge. Default 3. */

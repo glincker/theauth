@@ -16,8 +16,6 @@ import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
-// Zod Validation Schemas
-
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
 	allowedArgPatterns: z.array(z.string()).optional(),
@@ -74,8 +72,6 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// Response Helpers
-
 function sendOk<T>(res: Response, data: T, status = 200): void {
 	res.status(status).json({ data });
 }
@@ -92,10 +88,7 @@ function sendError(res: Response, code: string, message: string, status: number)
 	res.status(status).json({ error: { code, message } });
 }
 
-/**
- * Return the machine-readable code of a typed core DelegationError, else null.
- * Structural check so adapters do not need a runtime import of core.
- */
+/** Structural check so adapters avoid a runtime import of core. */
 function delegationErrorCode(err: unknown): string | null {
 	if (err instanceof Error && err.name === "DelegationError") {
 		const code = (err as Error & { code?: unknown }).code;
@@ -124,8 +117,6 @@ function sendValidationError(res: Response, issues: z.ZodIssue[]): void {
 	const message = issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
 	sendBadRequest(res, `Validation failed: ${message}`);
 }
-
-// MCP CORS Headers
 
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -163,8 +154,6 @@ function param(req: Request, name: string): string {
 	const val = req.params[name];
 	return Array.isArray(val) ? (val[0] ?? "") : (val ?? "");
 }
-
-// Helpers for building a Web-compatible Request from Express
 
 /** Re-encode the framework-parsed body as URL-encoded or JSON text. */
 function encodeParsedBody(req: Request): string | null {
@@ -208,8 +197,6 @@ function buildWebRequest(req: Request, withBody = true): globalThis.Request {
 	});
 }
 
-// Adapter Factory
-
 /**
  * Create an Express Router with all TheAuth REST API routes mounted.
  *
@@ -237,7 +224,6 @@ function buildWebRequest(req: Request, withBody = true): globalThis.Request {
  * ```
  */
 export interface TheAuthExpressOptions extends AdapterSecurityOptions {
-	/** MCP OAuth 2.1 module. When provided, MCP endpoints are enabled. */
 	mcp?: McpAuthModule;
 }
 
@@ -265,7 +251,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		if (!scope) sendDenial(res, noScope);
 		return scope;
 	};
-	/** Run `proceed` only when the caller may act on `agentId`. */
 	const withAgent = (res: Response, agentId: string, proceed: () => void): void => {
 		const scope = requireScope(res);
 		if (!scope) return;
@@ -279,7 +264,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 				if (!res.headersSent) sendDenial(res, noScope);
 			});
 	};
-	/** Run `proceed` only when the caller may act on delegation chain `chainId`. */
 	const withChain = (res: Response, chainId: string, proceed: () => void): void => {
 		const scope = requireScope(res);
 		if (!scope) return;
@@ -329,9 +313,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			.catch(next);
 	});
 
-	// Agent REST API
-
-	// POST /agents - create agent
 	router.post("/agents", (req: Request, res: Response) => {
 		const parsed = CreateAgentSchema.safeParse(req.body);
 		if (!parsed.success) {
@@ -358,7 +339,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// GET /agents - list agents
 	router.get("/agents", (req: Request, res: Response) => {
 		const filter: AgentFilter = {};
 		const { userId, status, type } = req.query;
@@ -385,7 +365,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// GET /agents/:id - get agent
 	router.get("/agents/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
 		withAgent(res, id, () => {
@@ -405,7 +384,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// PATCH /agents/:id - update agent
 	router.patch("/agents/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
 		withAgent(res, id, () => {
@@ -432,7 +410,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// DELETE /agents/:id - revoke agent
 	router.delete("/agents/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
 		withAgent(res, id, () => {
@@ -450,7 +427,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// POST /agents/:id/rotate - rotate token
 	router.post("/agents/:id/rotate", (req: Request, res: Response) => {
 		const id = param(req, "id");
 		withAgent(res, id, () => {
@@ -468,9 +444,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// Authorization
-
-	// POST /authorize - authorize action by agentId
 	router.post("/authorize", (req: Request, res: Response) => {
 		const parsed = AuthorizeSchema.safeParse(req.body);
 		if (!parsed.success) {
@@ -506,7 +479,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// POST /authorize/token - authorize by bearer token
 	router.post("/authorize/token", (req: Request, res: Response) => {
 		const authHeader = req.headers.authorization;
 		if (!authHeader?.startsWith("Bearer ")) {
@@ -520,8 +492,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			sendValidationError(res, parsed.error.issues);
 			return;
 		}
-		// Forwarded headers are only honored through `trustedProxy`. `req.ip` is
-		// the socket peer unless the host enabled Express's own `trust proxy`.
 		const ip = guard.clientIp(buildWebRequest(req)) ?? req.ip ?? undefined;
 		const userAgent =
 			(Array.isArray(req.headers["user-agent"])
@@ -547,9 +517,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// Delegation
-
-	// POST /delegations - create delegation
 	router.post("/delegations", (req: Request, res: Response) => {
 		const parsed = DelegateSchema.safeParse(req.body);
 		if (!parsed.success) {
@@ -580,7 +547,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// DELETE /delegations/:id - revoke delegation
 	router.delete("/delegations/:id", (req: Request, res: Response) => {
 		const id = param(req, "id");
 		withChain(res, id, () => {
@@ -598,7 +564,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// GET /delegations/:agentId - list chains for agent
 	router.get("/delegations/:agentId", (req: Request, res: Response) => {
 		const agentId = param(req, "agentId");
 		withAgent(res, agentId, () => {
@@ -612,9 +577,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		});
 	});
 
-	// Audit
-
-	// GET /audit - query audit logs
 	router.get("/audit", (req: Request, res: Response) => {
 		const filter: AuditFilter = {};
 		const { agentId, userId, since, until, actions, result, limit, offset } = req.query;
@@ -660,7 +622,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// GET /audit/export - export audit logs
 	router.get("/audit/export", (req: Request, res: Response) => {
 		const format = (req.query.format as string | undefined) ?? "json";
 		if (format !== "json" && format !== "csv") {
@@ -700,9 +661,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// MCP OAuth 2.1 Endpoints
-
-	// OPTIONS preflight for MCP/well-known routes
 	router.options("/.well-known/*path", (_req: Request, res: Response) => {
 		setMcpCors(res);
 		res.status(204).end();
@@ -713,7 +671,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		res.status(204).end();
 	});
 
-	// GET /.well-known/oauth-authorization-server
 	router.get("/.well-known/oauth-authorization-server", (_req: Request, res: Response) => {
 		if (!mcp) {
 			sendNotFound(res, "MCP module not configured");
@@ -723,7 +680,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		sendMcpOk(res, metadata);
 	});
 
-	// GET /.well-known/oauth-protected-resource
 	router.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
 		if (!mcp) {
 			sendNotFound(res, "MCP module not configured");
@@ -733,7 +689,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 		sendMcpOk(res, metadata);
 	});
 
-	// POST /mcp/register - dynamic client registration
 	router.post("/mcp/register", (req: Request, res: Response) => {
 		if (!mcp) {
 			sendNotFound(res, "MCP module not configured");
@@ -754,7 +709,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// GET /mcp/authorize - authorization endpoint
 	router.get("/mcp/authorize", (req: Request, res: Response) => {
 		if (!mcp) {
 			sendNotFound(res, "MCP module not configured");
@@ -789,7 +743,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// POST /mcp/token - token endpoint
 	router.post("/mcp/token", (req: Request, res: Response) => {
 		if (!mcp) {
 			sendNotFound(res, "MCP module not configured");
@@ -821,9 +774,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// Dashboard API
-
-	// GET /dashboard/stats
 	router.get("/dashboard/stats", (_req: Request, res: Response) => {
 		const scope = requireScope(res);
 		if (!scope) return;
@@ -868,7 +818,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// GET /dashboard/agents - agents with stats (same as GET /agents)
 	router.get("/dashboard/agents", (req: Request, res: Response) => {
 		const filter: AgentFilter = {};
 		const { userId, status, type } = req.query;
@@ -895,7 +844,6 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// GET /dashboard/audit - same as GET /audit
 	router.get("/dashboard/audit", (req: Request, res: Response) => {
 		const filter: AuditFilter = {};
 		const { agentId, userId, since, until, actions, result, limit, offset } = req.query;
@@ -941,14 +889,11 @@ export function theAuthExpress(theauth: TheAuth, options?: TheAuthExpressOptions
 			});
 	});
 
-	// Plugin Endpoints
-
 	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		router[method](endpoint.path, (req: Request, res: Response) => {
 			const webReq = buildWebRequest(req);
-			// req.baseUrl is the prefix the router was mounted under; the plugin
-			// router needs it to strip the mount point before matching.
+			// The plugin router must strip the mount point (req.baseUrl) before matching.
 			theauth.plugins
 				.handleRequest(webReq, req.baseUrl)
 				.then((response) => {

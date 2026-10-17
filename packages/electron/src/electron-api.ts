@@ -1,12 +1,8 @@
-// Electron API injection
-//
 // Modules that need Electron APIs call getElectronApi() to retrieve the live
 // bindings. In a real Electron process this resolves to the real electron
 // module; in tests it resolves to the mock set via setElectronApiForTesting().
 
 import type { SecureStorage } from "./storage.js";
-
-// Surface interfaces
 
 export interface ElectronSafeStorage {
 	isEncryptionAvailable(): boolean;
@@ -77,8 +73,6 @@ export interface ElectronApi {
 	ipcRenderer: ElectronIpcRenderer;
 }
 
-// Singleton
-
 let _override: ElectronApi | null = null;
 
 function loadElectron(): ElectronApi | null {
@@ -102,7 +96,7 @@ export function getElectronApi(): ElectronApi {
 }
 
 /**
- * For testing only — injects a mock Electron API so modules don't need a real
+ * For testing only: injects a mock Electron API so modules don't need a real
  * Electron runtime. Call setElectronApiForTesting(null) to reset.
  */
 export function setElectronApiForTesting(mock: ElectronApi | null): void {

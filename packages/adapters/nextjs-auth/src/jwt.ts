@@ -1,20 +1,16 @@
 /**
- * Minimal JWT utilities — works in Node.js, Edge runtime, and browser.
+ * Minimal JWT utilities. Works in Node.js, Edge runtime, and browser.
  * Does NOT verify signatures. Only used to read the `exp` claim for
  * proactive refresh decisions. The backend re-validates every request.
  */
 
-/**
- * Returns the unix-seconds `exp` claim from a JWT without verifying its
- * signature, or null if the token is malformed or has no exp claim.
- */
+/** Returns the unix-seconds `exp` claim without verifying the signature, or null if absent or malformed. */
 export function readJwtExp(token: string): number | null {
 	const parts = token.split(".");
 	if (parts.length !== 3) return null;
 	try {
 		const payload = parts[1];
 		if (!payload) return null;
-		// base64url → standard base64 → decode
 		const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
 		const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
 		const json = atob(padded);
@@ -26,9 +22,8 @@ export function readJwtExp(token: string): number | null {
 }
 
 /**
- * Returns true if the JWT will expire within `bufferS` seconds from now,
- * or has already expired. Returns false for tokens with no exp claim or
- * malformed tokens (let the backend reject them downstream).
+ * True if the JWT expires within `bufferS` seconds or has already expired. Malformed tokens return
+ * false, so the backend rejects them downstream.
  */
 export function isTokenExpiring(token: string, bufferS: number): boolean {
 	const exp = readJwtExp(token);

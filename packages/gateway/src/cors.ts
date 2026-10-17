@@ -6,10 +6,7 @@ const DEFAULT_HEADERS = ["Content-Type", "Authorization"];
 const MCP_HEADERS = ["Accept", "Mcp-Session-Id", "MCP-Protocol-Version", "Last-Event-ID", "DPoP"];
 const MCP_EXPOSED = "WWW-Authenticate, Mcp-Session-Id, DPoP-Nonce";
 
-/**
- * Build CORS headers from a CorsConfig.
- * Returns an empty object if no config is provided.
- */
+/** Builds CORS headers from a CorsConfig. Returns `{}` when none is configured. */
 export function buildCorsHeaders(
 	cors: CorsConfig | undefined,
 	requestOrigin: string | null,
@@ -51,9 +48,6 @@ export function buildCorsHeaders(
 	return result;
 }
 
-/**
- * Whether the request is a CORS preflight.
- */
 export function isPreflight(request: Request): boolean {
 	return request.method === "OPTIONS";
 }

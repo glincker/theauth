@@ -1,12 +1,7 @@
 import { importJWK, jwtVerify, SignJWT } from "jose";
 import type { SignedPayload, VerificationResult } from "./types.js";
 
-/**
- * Sign a payload as a compact JWS using the agent's DID private key.
- *
- * The JWT header embeds the DID as `iss` and the key fragment as `kid`.
- * Algorithm is always EdDSA (Ed25519).
- */
+/** Sign a payload as a compact JWS using the agent's DID private key. */
 export async function signPayload(
 	payload: Record<string, unknown>,
 	privateKeyJwk: JsonWebKey,
@@ -30,13 +25,7 @@ export async function signPayload(
 	};
 }
 
-/**
- * Verify a signed payload using a known public key JWK.
- *
- * Extracts the DID from the `iss` claim and returns the decoded payload
- * on success. Callers are responsible for resolving the correct public key
- * from the DID document before calling this function.
- */
+/** Verify a signed payload using a known public key JWK. */
 export async function verifyPayload(
 	jws: string,
 	publicKeyJwk: JsonWebKey,
@@ -72,9 +61,7 @@ export async function verifyPayload(
 
 /**
  * Create a verifiable presentation JWT.
- *
- * The presentation proves the agent's identity and lists the capabilities
- * they are asserting. It is audience-bound and short-lived by default.
+ * It is audience-bound and short-lived by default.
  */
 export async function createPresentation(options: {
 	agentId: string;
@@ -107,11 +94,7 @@ export async function createPresentation(options: {
 	return builder.sign(privateKey);
 }
 
-/**
- * Verify a presentation JWT and extract the claims.
- *
- * Returns the agentId, DID, and capabilities on success.
- */
+/** Verify a presentation JWT and extract the claims. */
 export async function verifyPresentation(
 	jwt: string,
 	publicKeyJwk: JsonWebKey,

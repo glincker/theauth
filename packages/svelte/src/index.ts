@@ -1,5 +1,3 @@
-// Stores
-
 export type {
 	AgentStore,
 	AgentStoreOptions,
@@ -14,7 +12,6 @@ export {
 	createTheAuthClient,
 } from "./stores.js";
 
-// Types
 export type {
 	ActionResult,
 	AuthAgent,

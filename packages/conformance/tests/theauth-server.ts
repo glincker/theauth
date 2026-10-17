@@ -1,7 +1,5 @@
 /**
- * In-process theauth MCP OAuth server for the conformance test. It wires the real
- * createMcpModule from packages/core to a Node http server using in-memory stores,
- * the same way core's own mcp-flow tests do, so the suite runs over real sockets.
+ * In-process theauth MCP OAuth server for the conformance tests: the real createMcpModule over a Node http server.
  */
 import type { IncomingMessage, Server } from "node:http";
 import { createServer } from "node:http";

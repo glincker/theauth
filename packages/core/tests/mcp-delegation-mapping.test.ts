@@ -1,7 +1,5 @@
 /**
- * Actor to agent id mapping for the live delegation check: token exchange sets
- * `act.sub` to a user or client id, so `resolveActorAgentId` maps each actor to
- * the agent id used in delegation records before the link lookup.
+ * Actor to agent id mapping for the live delegation check: token exchange sets `act.sub` to a user or client id, so `resolveActorAgentId` maps each actor to the agent id used in delegation records before the link lookup.
  */
 import { describe, expect, it } from "vitest";
 import { checkLiveDelegation } from "../src/mcp/delegation-check.js";

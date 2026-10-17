@@ -1,12 +1,8 @@
 import type { IncrResult, SecondaryStorage } from "./types.js";
 
 /**
- * The smallest Redis surface we need. ioredis, node-redis (v4+) and the Upstash
- * REST client all satisfy it structurally, so TheAuth has no Redis dependency.
- *
- * Methods are looked up by their lowercase name first and the camelCase name
- * node-redis uses second (`pexpire` / `pExpire`, `pttl` / `pTTL`, `psetex` /
- * `pSetEx`). Declare whichever your client has; at runtime either works.
+ * The smallest Redis surface we need. ioredis, node-redis (v4+) and the Upstash REST client all satisfy it structurally, so TheAuth has no Redis dependency.
+ * Methods are looked up by their lowercase name first and the camelCase name node-redis uses second (`pexpire` / `pExpire`, `pttl` / `pTTL`, `psetex` / `pSetEx`).
  */
 export interface RedisLikeClient {
 	get(key: string): Promise<string | null>;
@@ -40,11 +36,7 @@ function escapeGlob(prefix: string): string {
 
 /**
  * Redis-compatible storage (Redis, Valkey, Upstash, Dragonfly, KeyDB).
- *
- * `incr` is atomic: INCR is atomic on the server, and the TTL is applied right
- * after the key is created. If the process dies between INCR and PEXPIRE the
- * next caller sees a counter with no TTL (PTTL = -1) and repairs it, so a
- * counter can never become permanent.
+ * `incr` is atomic: INCR is atomic on the server, and the TTL is applied right after the key is created. If the process dies between INCR and PEXPIRE the next caller sees a counter with no TTL (PTTL = -1) and repairs it, so a counter can never become permanent.
  */
 export function redisStorage(client: RedisLikeClient): SecondaryStorage {
 	const pexpire = requireMethod(client, ["pexpire", "pExpire"]);

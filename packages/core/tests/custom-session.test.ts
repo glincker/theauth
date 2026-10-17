@@ -1,6 +1,4 @@
-/**
- * Tests for the custom session fields plugin.
- */
+/** Tests for the custom session fields plugin. */
 
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,8 +9,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { sessions, users } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
-
-// Helpers
 
 const SESSION_SECRET = "test-session-secret-for-custom-session-tests!!";
 
@@ -52,7 +48,7 @@ async function insertSession(
 	return id;
 }
 
-// createCustomSessionModule — getSessionFields
+// createCustomSessionModule, getSessionFields
 
 describe("CustomSessionModule.getSessionFields", () => {
 	let db: Database;
@@ -92,7 +88,7 @@ describe("CustomSessionModule.getSessionFields", () => {
 	});
 });
 
-// createCustomSessionModule — updateSessionFields
+// createCustomSessionModule, updateSessionFields
 
 describe("CustomSessionModule.updateSessionFields", () => {
 	let db: Database;
@@ -161,7 +157,7 @@ describe("CustomSessionModule.updateSessionFields", () => {
 	});
 });
 
-// customSession plugin — onSessionCreate hook (defaultFields + callback)
+// customSession plugin, onSessionCreate hook (defaultFields + callback)
 
 describe("customSession plugin — onSessionCreate hook", () => {
 	it("stores defaultFields in metadata.custom when a session is created via the hook", async () => {
@@ -249,8 +245,6 @@ describe("customSession plugin — onSessionCreate hook", () => {
 		expect(result).toBeUndefined();
 	});
 });
-
-// Plugin endpoints
 
 describe("customSession plugin endpoints", () => {
 	it("GET /auth/session/fields returns fields for a session", async () => {
@@ -431,7 +425,7 @@ describe("customSession plugin endpoints", () => {
 	});
 });
 
-// createSessionManager integration — custom fields round-trip
+// createSessionManager integration, custom fields round-trip
 
 describe("customSession — round-trip via SessionManager", () => {
 	it("can write and read back custom fields on a real session token", async () => {
@@ -442,10 +436,8 @@ describe("customSession — round-trip via SessionManager", () => {
 		const userId = await insertUser(db);
 		const { session } = await sessionManager.create(userId);
 
-		// No custom fields yet
 		expect(await mod.getSessionFields(session.id)).toBeNull();
 
-		// Write some fields
 		await mod.updateSessionFields(session.id, { plan: "enterprise", seats: 50 });
 
 		const fields = await mod.getSessionFields(session.id);

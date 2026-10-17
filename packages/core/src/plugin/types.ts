@@ -14,17 +14,12 @@ export interface PluginContext {
 	addEndpoint: (endpoint: PluginEndpoint) => void;
 	/** Register a DB migration (CREATE TABLE statement) */
 	addMigration: (sql: string) => void;
-	/** Shared session manager — null if auth.session not configured */
+	/** Shared session manager, null if auth.session not configured */
 	sessionManager: SessionManager | null;
-	/**
-	 * Per-feature secondary storage resolved from `createTheAuth({ secondaryStorage })`.
-	 * Optional so hand-built contexts in tests keep compiling; always set by createTheAuth.
-	 */
+	/** Per-feature secondary storage resolved from `createTheAuth({ secondaryStorage })`. Optional so hand-built contexts in tests keep compiling; always set by createTheAuth. */
 	secondaryStorage?: SecondaryStorageResolver;
 	/**
-	 * Central sign-in gate (forced password change, 2FA policy, trusted
-	 * devices). Session-issuing plugins call `signInGate.evaluate(...)` before
-	 * creating a session. Optional so hand-built contexts keep compiling.
+	 * Central sign-in gate (forced password change, 2FA policy, trusted devices). Session-issuing plugins call `signInGate.evaluate(...)` before creating a session. Optional so hand-built contexts keep compiling.
 	 */
 	signInGate?: SignInGate;
 }
@@ -39,10 +34,7 @@ export interface PluginEndpoint {
 	handler: (request: Request, context: EndpointContext) => Promise<Response>;
 	/** Optional metadata */
 	metadata?: {
-		/**
-		 * Rate limit for this endpoint. `window` is in seconds (not milliseconds),
-		 * `max` is the number of requests allowed per window per client IP.
-		 */
+		/** Rate limit for this endpoint. `window` is in seconds (not milliseconds), `max` is the number of requests allowed per window per client IP. */
 		rateLimit?: { window: number; max: number };
 		/** Whether this endpoint requires authentication */
 		requireAuth?: boolean;

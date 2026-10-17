@@ -10,8 +10,6 @@ import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 // Re-export the config type so callers can import from this file.
 export type { MagicLinkConfig };
 
-// Plugin factory
-
 export function magicLink(config: MagicLinkConfig): TheAuthPlugin {
 	return {
 		id: "theauth-magic-link",

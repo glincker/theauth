@@ -1,7 +1,4 @@
-/**
- * Taint rule evaluation for call-level labels, action filters and escalations
- * that are already in place.
- */
+/** Taint rule evaluation for call-level labels, action filters and escalations that are already in place. */
 
 import { describe, expect, it } from "vitest";
 import { applyTaint, evaluateTaint } from "../src/policy/taint.js";

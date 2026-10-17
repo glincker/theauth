@@ -3,8 +3,6 @@ import { join } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
-// Types
-
 type Framework = "hono" | "express" | "nextjs" | "fastify";
 type Database = "sqlite" | "postgres";
 
@@ -24,8 +22,6 @@ interface InitError {
 	success: false;
 	error: { code: string; message: string };
 }
-
-// Prompt helpers
 
 function printMenu(title: string, options: string[]): void {
 	stdout.write(`\n${title}\n`);
@@ -57,8 +53,6 @@ async function fileExists(path: string): Promise<boolean> {
 		return false;
 	}
 }
-
-// Template generators
 
 function configTemplate(answers: InitAnswers): string {
 	const dbConfig =
@@ -151,8 +145,6 @@ console.log("New token:", rotated.token);
 `;
 }
 
-// Main init flow
-
 export async function runInit(): Promise<InitResult | InitError> {
 	stdout.write("\nTheAuth — project setup\n");
 	stdout.write("─────────────────────────────────────\n");
@@ -160,21 +152,18 @@ export async function runInit(): Promise<InitResult | InitError> {
 	const rl = createInterface({ input: stdin, output: stdout });
 
 	try {
-		// Framework
 		const frameworks: Framework[] = ["hono", "express", "nextjs", "fastify"];
 		const frameworkLabels = ["Hono", "Express", "Next.js", "Fastify"];
 		printMenu("Which framework are you using?", frameworkLabels);
 		const fwIdx = await pickOne(rl, "Framework", frameworkLabels);
 		const framework = frameworks[fwIdx] as Framework;
 
-		// Database
 		const databases: Database[] = ["sqlite", "postgres"];
 		const dbLabels = ["SQLite (local file, no setup needed)", "PostgreSQL"];
 		printMenu("Which database?", dbLabels);
 		const dbIdx = await pickOne(rl, "Database", dbLabels);
 		const database = databases[dbIdx] as Database;
 
-		// Database URL
 		let dbUrlDefault: string;
 		let dbUrlPrompt: string;
 		if (database === "sqlite") {
@@ -191,12 +180,10 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		const answers: InitAnswers = { framework, database, dbUrl };
 
-		// Write files
 		const cwd = process.cwd();
 		const configPath = join(cwd, "theauth.config.ts");
 		const examplePath = join(cwd, "theauth.example.ts");
 
-		// Warn if files already exist
 		const [configExists, exampleExists] = await Promise.all([
 			fileExists(configPath),
 			fileExists(examplePath),
@@ -223,7 +210,6 @@ export async function runInit(): Promise<InitResult | InitError> {
 
 		rl.close();
 
-		// Print next steps
 		stdout.write("\n  Files written\n");
 		stdout.write(`  theauth.config.ts   — your TheAuth configuration\n`);
 		stdout.write(`  theauth.example.ts  — minimal agent + authorization example\n`);

@@ -1,6 +1,4 @@
-/**
- * Tests for template 02 — principal and delegated agent.
- */
+/** Tests for template 02, principal and delegated agent. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -54,7 +52,6 @@ describe("template 02 — principal and delegated agent", () => {
 		await seedAgent(db, "principal", "user-1");
 		await seedAgent(db, "delegate", "user-1");
 
-		// Seed principal direct permissions
 		for (let i = 0; i < principalPermissions.length; i++) {
 			const perm = principalPermissions[i];
 			if (!perm) continue;

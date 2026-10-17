@@ -12,9 +12,7 @@
 // - Token revocation (RFC 7009), issuer identification (RFC 9207)
 // - Optional ES256/EdDSA signing with JWKS and key rotation
 
-// Authorization endpoint
 export { handleAuthorize } from "./authorize.js";
-// private_key_jwt client authentication
 export { CLIENT_ASSERTION_ALGS, verifyClientAssertion } from "./client-assertion.js";
 // Client ID Metadata Documents and SSRF-safe fetching
 export {
@@ -22,9 +20,7 @@ export {
 	fetchClientMetadataDocument,
 	resolveClient,
 } from "./client-metadata.js";
-// Consent approval
 export { approveConsent } from "./consent.js";
-// Live delegation check
 export { createDbDelegationStore } from "./delegation-check.js";
 // DPoP (RFC 9449)
 export {
@@ -55,7 +51,6 @@ export {
 	type McpTrustedIssuer,
 	TOKEN_TYPE_ACCESS_TOKEN,
 } from "./grant-types.js";
-// Signing keys and JWKS
 export {
 	generateMcpSigningKey,
 	getJwks,
@@ -63,21 +58,17 @@ export {
 	toPublicJwk,
 } from "./keys.js";
 export { createInMemoryJtiDenylist, createInMemoryTokenFamilyStore } from "./memory-stores.js";
-// Metadata endpoints
 export {
 	getAuthorizationServerMetadata,
 	getProtectedResourceMetadata,
 } from "./metadata.js";
-// Dynamic Client Registration
 export { registerClient } from "./registration.js";
-// Resource server wrapper
 export {
 	type McpPrincipal,
 	type McpProtectedHandler,
 	type RequireMcpAuthOptions,
 	requireMcpAuth,
 } from "./require-mcp-auth.js";
-// Scope challenge helper
 export { requireScopes } from "./require-scopes.js";
 // Token revocation (RFC 7009)
 export { handleRevocation } from "./revocation.js";
@@ -88,13 +79,9 @@ export {
 	type SafeFetchResult,
 	safeFetchJson,
 } from "./safe-fetch.js";
-// Module factory
 export { createMcpModule, createMcpResponseHelpers } from "./server.js";
-// Step-up authorization
 export { buildStepUpResponse } from "./step-up.js";
-// Token endpoint
 export { handleTokenExchange } from "./token.js";
-// Types
 export type {
 	ApproveConsentParams,
 	AuthError,
@@ -128,13 +115,11 @@ export type {
 	Result,
 	TheAuthError,
 } from "./types.js";
-// Zod schemas
 export {
 	McpAuthorizeRequestSchema,
 	McpClientRegistrationSchema,
 	McpTokenRequestSchema,
 } from "./types.js";
-// Utilities (for adapter authors)
 export {
 	computeS256Challenge,
 	extractBasicAuth,
@@ -147,7 +132,6 @@ export {
 	verifyClientSecret,
 	verifyS256,
 } from "./utils.js";
-// Token validation & middleware
 export {
 	buildUnauthorizedResponse,
 	validateAccessToken,

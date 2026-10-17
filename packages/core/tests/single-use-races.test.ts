@@ -1,7 +1,4 @@
-/**
- * Concurrency tests: single-use credentials must be redeemable exactly once,
- * and attempt counters must not be bypassable by firing guesses in parallel.
- */
+/** Concurrency tests: single-use credentials must be redeemable exactly once, and attempt counters must not be bypassable by firing guesses in parallel. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmailOtpModule } from "../src/auth/email-otp.js";

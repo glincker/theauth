@@ -4,8 +4,6 @@ import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import type { ResolvedAuthConfig, SessionCacheEntry } from "./types.js";
 
-// Cookie read helpers (server-only)
-
 /** Returns the session access token, checking prefixed + unprefixed names. */
 export async function getSessionToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
 	const store = await cookies();
@@ -36,7 +34,7 @@ export async function hasSessionCookie<TUser>(config: ResolvedAuthConfig<TUser>)
 // cookie is fresher than cookieCacheMaxAgeMs we return it immediately.
 //
 // v0.1: plain JSON (no HMAC signing). The cookie is httpOnly+sameSite=lax so
-// it can only be set by the server — a passive attacker reading TLS can see
+// it can only be set by the server: a passive attacker reading TLS can see
 // it but cannot forge it (they'd need the access token anyway). An active
 // MITM could poison it, but that already requires breaking TLS. v0.2 will
 // add HMAC-SHA256 signing for defence-in-depth.
@@ -86,9 +84,7 @@ export async function clearSessionCache<TUser>(config: ResolvedAuthConfig<TUser>
 	try {
 		const store = await cookies();
 		store.delete(config.cookies.cacheName);
-	} catch {
-		// ignore
-	}
+	} catch {}
 }
 
 // Cookie write helpers (response-based, for Route Handlers + middleware)
@@ -99,10 +95,7 @@ interface SessionCookieValues {
 	refreshToken?: string;
 }
 
-/**
- * Writes all session cookies onto a NextResponse with consistent options.
- * Uses __Host- prefix in prod, plain names in dev.
- */
+/** Sets all session cookies on a NextResponse: __Host- prefix in prod, plain names in dev. */
 export function setSessionCookies<TUser>(
 	response: NextResponse,
 	{ accessToken, csrfToken, refreshToken }: SessionCookieValues,
@@ -132,10 +125,7 @@ export function setSessionCookies<TUser>(
 	}
 }
 
-/**
- * Clears all auth cookies on a NextResponse.
- * Deletes both __Host- prefixed and plain variants for clean migration.
- */
+/** Clears all auth cookies on a NextResponse, both __Host- and plain variants, for clean migration. */
 export function clearAllAuthCookies<TUser>(
 	response: NextResponse,
 	config: ResolvedAuthConfig<TUser>,

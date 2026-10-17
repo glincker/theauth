@@ -46,11 +46,7 @@ function constraintToTrace(step: ConstraintStep): TraceStep {
 	};
 }
 
-/**
- * Same walk as the real authorize path (permission engine): first matching
- * rule, then its constraints, with every step recorded. The rate counter is
- * read, never incremented.
- */
+/** Same walk as the real authorize path (permission engine): first matching rule, then its constraints, with every step recorded. The rate counter is read, never incremented. */
 async function evaluateSet(
 	db: Database | null,
 	agent: Pick<AgentIdentity, "id" | "name">,
@@ -174,9 +170,7 @@ export function createSimulator(config: { db: Database }) {
 	const costs = createCostAttributionModule(db);
 
 	/**
-	 * Answer "would this agent be allowed to do this?" without side effects.
-	 * It reads agents, permissions, chains, rate rows and cost rows. It never
-	 * writes audit rows, bumps rate counters, or records spend.
+	 * Answer "would this agent be allowed to do this?" without side effects. It reads agents, permissions, chains, rate rows and cost rows. It never writes audit rows, bumps rate counters, or records spend.
 	 */
 	async function simulate(input: SimulateInput): Promise<Result<SimulationResult>> {
 		if (!input.agentId && !input.claims) {
@@ -397,10 +391,7 @@ export function createSimulator(config: { db: Database }) {
 		return { success: true, data: cells };
 	}
 
-	/**
-	 * One row per (rule, action) the agent holds, from its own permissions and
-	 * active delegation chains, each run through simulate().
-	 */
+	/** One row per (rule, action) the agent holds, from its own permissions and active delegation chains, each run through simulate(). */
 	async function effectivePermissions(
 		agentId: string,
 		context?: SimulateInput["context"],

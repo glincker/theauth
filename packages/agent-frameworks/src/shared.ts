@@ -1,5 +1,4 @@
-// Pieces shared by every framework wrapper: the interrupt payload, the resume
-// value, a single-use grant store and `resumeAfterApproval`.
+// Shared by every framework wrapper: interrupt payload, resume value, grant store, resumeAfterApproval.
 
 import { ToolApprovalRequiredError } from "@glinr/theauth";
 
@@ -12,7 +11,6 @@ export interface ApprovalInterruptPayload {
 	requirement: "approval" | "step_up";
 	/** The pending request to approve with `theauth.approval.approve(id, approverId)`. */
 	approvalRequestId?: string;
-	/** The tool arguments the human is asked to approve. */
 	args: unknown;
 	message: string;
 }
@@ -74,10 +72,8 @@ function stableStringify(value: unknown): string {
 }
 
 /**
- * Remembers approved request ids until the matching retry spends them. Use it as the
- * guard's `approvalId` option for frameworks that retry in a fresh request (Vercel AI SDK,
- * OpenAI Agents SDK). Entries are keyed by tool name and arguments, and `approvalId` removes
- * the entry it returns, so one approval is offered once.
+ * Holds approved request ids until the matching retry spends them. Needed for frameworks that retry
+ * in a fresh request (Vercel AI SDK, OpenAI Agents SDK). Each approvalId is spent once.
  */
 export interface ApprovalGrants {
 	grant(toolName: string, args: unknown, approvalRequestId: string): void;

@@ -85,7 +85,6 @@ export interface MintApiTokenInput {
 	kind?: ApiTokenKind;
 	/** Names the agent or MCP client; used with kind "agent". */
 	agentName?: string;
-	/** Lifetime in seconds. */
 	expiresIn?: number;
 	/** Admin only: mint for a service account rather than the caller. */
 	serviceAccount?: boolean;
@@ -165,7 +164,6 @@ export interface GrantDelegationInput {
 	scope: string[];
 	resource: string;
 	maxDurationSeconds: number;
-	/** ISO 8601 timestamp. */
 	expiresAt?: string;
 }
 

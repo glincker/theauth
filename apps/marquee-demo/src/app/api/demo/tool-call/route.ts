@@ -1,7 +1,6 @@
 /**
- * POST /api/demo/tool-call
- * Step 3: Execute a mock calendar tool call through the TheAuth authorization engine.
- * The tool surface is simulated; the auth/audit is real.
+ * POST /api/demo/tool-call (step 3): runs a mock calendar tool call through the authorization engine.
+ * The tool surface is simulated; the auth and audit are real.
  */
 
 import { generateId } from "@glinr/theauth";
@@ -10,7 +9,6 @@ import { getSessionId } from "@/lib/cookie";
 import { getSession, setSession } from "@/lib/session-store";
 import { getTheAuth } from "@/lib/theauth-instance";
 
-// Mock calendar tool responses
 const MOCK_TOOLS: Record<string, (args: Record<string, unknown>) => unknown> = {
 	"calendar.list_events": (args) => ({
 		events: [
@@ -73,7 +71,6 @@ export async function POST(): Promise<NextResponse> {
 			return NextResponse.json({ error: "Complete step 2 first" }, { status: 400 });
 		}
 
-		// Determine which tool to call next in sequence
 		const callIndex = session.toolCalls.length;
 		if (callIndex >= TOOL_SEQUENCE.length) {
 			return NextResponse.json({ error: "All tool calls complete" }, { status: 400 });
@@ -104,7 +101,6 @@ export async function POST(): Promise<NextResponse> {
 
 		session.toolCalls.push(callRecord);
 
-		// Append a synthetic audit entry to the session's audit log
 		session.auditLog.push({
 			id: authResult.auditId || generateId(),
 			agentId: session.agentId ?? "unknown",

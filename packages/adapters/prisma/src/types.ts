@@ -1,6 +1,4 @@
-// Prisma model types mirroring the TheAuth schema
-// These are the plain object shapes returned from the adapter. They match
-// the Prisma model fields defined in schema.prisma.
+// Plain object shapes returned by the adapter, mirroring the models in schema.prisma.
 
 export interface PrismaUser {
 	id: string;
@@ -227,8 +225,6 @@ export interface PrismaApprovalRequest {
 	createdAt: Date;
 }
 
-// Filter / create inputs
-
 export interface AgentFilter {
 	ownerId?: string;
 	tenantId?: string;
@@ -306,17 +302,13 @@ export interface CreateSessionInput {
 	createdAt: Date;
 }
 
-// Main adapter interface
-
 export interface TheAuthPrismaAdapter {
-	// Users
 	findUserById(id: string): Promise<PrismaUser | null>;
 	findUserByEmail(email: string): Promise<PrismaUser | null>;
 	createUser(input: CreateUserInput): Promise<PrismaUser>;
 	updateUser(id: string, data: Partial<CreateUserInput>): Promise<PrismaUser>;
 	deleteUser(id: string): Promise<void>;
 
-	// Agents
 	findAgentById(id: string): Promise<PrismaAgent | null>;
 	findAgentByTokenHash(tokenHash: string): Promise<PrismaAgent | null>;
 	listAgents(filter?: AgentFilter): Promise<PrismaAgent[]>;
@@ -324,13 +316,11 @@ export interface TheAuthPrismaAdapter {
 	updateAgent(id: string, data: Partial<CreateAgentInput>): Promise<PrismaAgent>;
 	deleteAgent(id: string): Promise<void>;
 
-	// Permissions
 	findPermissionsByAgentId(agentId: string): Promise<PrismaPermission[]>;
 	createPermission(input: CreatePermissionInput): Promise<PrismaPermission>;
 	deletePermissionsByAgentId(agentId: string): Promise<void>;
 	deletePermission(id: string): Promise<void>;
 
-	// Delegation chains
 	findDelegationChain(id: string): Promise<PrismaDelegationChain | null>;
 	findDelegationChainsByAgent(agentId: string): Promise<PrismaDelegationChain[]>;
 	createDelegationChain(
@@ -341,17 +331,14 @@ export interface TheAuthPrismaAdapter {
 		data: Partial<PrismaDelegationChain>,
 	): Promise<PrismaDelegationChain>;
 
-	// Audit logs
 	createAuditLog(input: CreateAuditLogInput): Promise<PrismaAuditLog>;
 	queryAuditLogs(filter: AuditLogFilter): Promise<PrismaAuditLog[]>;
 
-	// Sessions
 	findSessionById(id: string): Promise<PrismaSession | null>;
 	createSession(input: CreateSessionInput): Promise<PrismaSession>;
 	deleteSession(id: string): Promise<void>;
 	deleteExpiredSessions(): Promise<number>;
 
-	// Rate limits
 	findRateLimit(
 		agentId: string,
 		resource: string,
@@ -364,14 +351,12 @@ export interface TheAuthPrismaAdapter {
 		count: number,
 	): Promise<PrismaRateLimit>;
 
-	// OAuth clients
 	findOAuthClientById(clientId: string): Promise<PrismaOAuthClient | null>;
 	createOAuthClient(
 		input: Omit<PrismaOAuthClient, "id"> & { id: string },
 	): Promise<PrismaOAuthClient>;
 	updateOAuthClient(clientId: string, data: Partial<PrismaOAuthClient>): Promise<PrismaOAuthClient>;
 
-	// OAuth access tokens
 	findOAuthAccessToken(accessToken: string): Promise<PrismaOAuthAccessToken | null>;
 	findOAuthRefreshToken(refreshToken: string): Promise<PrismaOAuthAccessToken | null>;
 	createOAuthAccessToken(
@@ -379,56 +364,47 @@ export interface TheAuthPrismaAdapter {
 	): Promise<PrismaOAuthAccessToken>;
 	revokeOAuthAccessToken(accessToken: string): Promise<void>;
 
-	// OAuth authorization codes
 	findOAuthAuthorizationCode(code: string): Promise<PrismaOAuthAuthorizationCode | null>;
 	createOAuthAuthorizationCode(
 		input: Omit<PrismaOAuthAuthorizationCode, "id"> & { id: string },
 	): Promise<PrismaOAuthAuthorizationCode>;
 	deleteOAuthAuthorizationCode(id: string): Promise<void>;
 
-	// MCP servers
 	findMcpServerByEndpoint(endpoint: string): Promise<PrismaMcpServer | null>;
 	listMcpServers(): Promise<PrismaMcpServer[]>;
 	createMcpServer(input: Omit<PrismaMcpServer, "id"> & { id: string }): Promise<PrismaMcpServer>;
 
-	// API keys
 	findApiKeyByHash(keyHash: string): Promise<PrismaApiKey | null>;
 	listApiKeysByUser(userId: string): Promise<PrismaApiKey[]>;
 	createApiKey(input: Omit<PrismaApiKey, "id"> & { id: string }): Promise<PrismaApiKey>;
 	updateApiKeyLastUsed(id: string, lastUsedAt: Date): Promise<void>;
 	deleteApiKey(id: string): Promise<void>;
 
-	// Organizations
 	findOrgById(id: string): Promise<PrismaOrganization | null>;
 	findOrgBySlug(slug: string): Promise<PrismaOrganization | null>;
 	createOrg(input: Omit<PrismaOrganization, "id"> & { id: string }): Promise<PrismaOrganization>;
 	deleteOrg(id: string): Promise<void>;
 
-	// Org members
 	findOrgMember(orgId: string, userId: string): Promise<PrismaOrgMember | null>;
 	listOrgMembers(orgId: string): Promise<PrismaOrgMember[]>;
 	createOrgMember(input: Omit<PrismaOrgMember, "id"> & { id: string }): Promise<PrismaOrgMember>;
 	deleteOrgMember(orgId: string, userId: string): Promise<void>;
 
-	// Org invitations
 	findOrgInvitation(id: string): Promise<PrismaOrgInvitation | null>;
 	createOrgInvitation(
 		input: Omit<PrismaOrgInvitation, "id"> & { id: string },
 	): Promise<PrismaOrgInvitation>;
 	updateOrgInvitation(id: string, data: Partial<PrismaOrgInvitation>): Promise<PrismaOrgInvitation>;
 
-	// JWT refresh tokens
 	findJwtRefreshToken(tokenHash: string): Promise<PrismaJwtRefreshToken | null>;
 	createJwtRefreshToken(
 		input: Omit<PrismaJwtRefreshToken, "id"> & { id: string },
 	): Promise<PrismaJwtRefreshToken>;
 	markJwtRefreshTokenUsed(id: string): Promise<void>;
 
-	// Trust scores
 	findTrustScore(agentId: string): Promise<PrismaTrustScore | null>;
 	upsertTrustScore(data: PrismaTrustScore): Promise<PrismaTrustScore>;
 
-	// Approval requests
 	findApprovalRequest(id: string): Promise<PrismaApprovalRequest | null>;
 	listPendingApprovals(agentId: string): Promise<PrismaApprovalRequest[]>;
 	createApprovalRequest(
@@ -439,7 +415,6 @@ export interface TheAuthPrismaAdapter {
 		data: Partial<PrismaApprovalRequest>,
 	): Promise<PrismaApprovalRequest>;
 
-	// Transactions
 	transaction<T>(fn: (adapter: TheAuthPrismaAdapter) => Promise<T>): Promise<T>;
 }
 

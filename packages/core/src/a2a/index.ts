@@ -11,7 +11,6 @@ export type {
 	SignAgentCardOptions,
 	VerifyAgentCardOptions,
 } from "./agent-card.js";
-// Agent Card management
 export {
 	createAgentCard,
 	signAgentCard,
@@ -25,7 +24,6 @@ export type { A2AServer } from "./server.js";
 // A2A server (accept incoming agent requests)
 export { createA2AServer } from "./server.js";
 
-// Types & schemas
 export type {
 	A2AAgentCapabilities,
 	A2AAgentCard,

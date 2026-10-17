@@ -1,6 +1,4 @@
-/**
- * Tests for the JWT session module.
- */
+/** Tests for the JWT session module. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,8 +8,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { jwtRefreshTokens, users } from "../src/db/schema.js";
-
-// Helpers
 
 const SAMPLE_USER = {
 	id: "user-abc-123",
@@ -50,7 +46,7 @@ async function generateRsaKeyPair(): Promise<{ privateKey: CryptoKey; publicKey:
 	return { privateKey: pair.privateKey, publicKey: pair.publicKey };
 }
 
-// createSession — HS256
+// createSession, HS256
 
 describe("JwtSessionModule.createSession (HS256)", () => {
 	let db: Database;
@@ -178,7 +174,7 @@ describe("JwtSessionModule.createSession (HS256)", () => {
 	});
 });
 
-// createSession — RS256
+// createSession, RS256
 
 describe("JwtSessionModule.createSession (RS256)", () => {
 	let db: Database;
@@ -203,8 +199,6 @@ describe("JwtSessionModule.createSession (RS256)", () => {
 		expect(verified.data.userId).toBe(SAMPLE_USER.id);
 	});
 });
-
-// verifySession
 
 describe("JwtSessionModule.verifySession", () => {
 	let db: Database;
@@ -307,8 +301,6 @@ describe("JwtSessionModule.verifySession", () => {
 	});
 });
 
-// refreshSession
-
 describe("JwtSessionModule.refreshSession", () => {
 	let db: Database;
 	let mod: JwtSessionModule;
@@ -406,8 +398,6 @@ describe("JwtSessionModule.refreshSession", () => {
 		expect(result.error.code).toBe("INVALID_INPUT");
 	});
 });
-
-// revokeSession
 
 describe("JwtSessionModule.revokeSession", () => {
 	let db: Database;

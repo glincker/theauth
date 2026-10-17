@@ -1,9 +1,6 @@
 /**
  * Tests for policy/rebac-bridge.ts.
- *
- * Verifies the bridge correctly maps policy-engine subject/resource shapes to
- * the ReBAC graph, handles wildcards and malformed inputs early, and surfaces
- * graph errors without leaking exceptions.
+ * Verifies the bridge correctly maps policy-engine subject/resource shapes to the ReBAC graph, handles wildcards and malformed inputs early, and surfaces graph errors without leaking exceptions.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -15,15 +12,11 @@ import type { RebacBridge } from "../src/policy/rebac-bridge.js";
 import { createRebacBridge } from "../src/policy/rebac-bridge.js";
 import type { PolicyDecisionSubject } from "../src/policy/types.js";
 
-// Helpers
-
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
 	await createTables(db, "sqlite");
 	return db;
 }
-
-// Suite
 
 describe("createRebacBridge", () => {
 	let db: Database;
@@ -44,8 +37,6 @@ describe("createRebacBridge", () => {
 			objectId: "doc-1",
 		});
 	});
-
-	// Wildcard / malformed resource
 
 	it("returns matched=false for wildcard resource 'doc:*'", async () => {
 		const subject: PolicyDecisionSubject = { userId: "user-1" };
@@ -79,8 +70,6 @@ describe("createRebacBridge", () => {
 		expect(result.matched).toBe(false);
 		expect(result.reason).toBe("rebac:wildcard-resource-not-supported");
 	});
-
-	// Invalid subject combinations
 
 	it("returns matched=false when subject has no identity fields set", async () => {
 		const subject: PolicyDecisionSubject = {};
@@ -197,8 +186,6 @@ describe("createRebacBridge", () => {
 		expect(result.matched).toBe(false);
 		expect(result.reason).toBe("rebac:no-tuple");
 	});
-
-	// Graph error handling
 
 	it("returns matched=false with graph-query-failed when db throws", async () => {
 		// Create a stub db that throws on select

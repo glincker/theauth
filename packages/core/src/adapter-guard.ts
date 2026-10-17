@@ -1,11 +1,6 @@
 /**
- * Shared authentication guard for the framework adapters (hono, express,
- * fastify, nestjs, nextjs, nuxt, sveltekit, astro, solidstart, tanstack).
- *
- * The adapters expose agent, delegation, audit and dashboard management
- * routes. Those must never be reachable anonymously, so every adapter builds
- * a guard with `createAdapterGuard` and fails closed when nothing can
- * authenticate a caller.
+ * Shared authentication guard for the framework adapters (hono, express, fastify, nestjs, nextjs, nuxt, sveltekit, astro, solidstart, tanstack).
+ * Those must never be reachable anonymously, so every adapter builds a guard with `createAdapterGuard` and fails closed when nothing can authenticate a caller.
  */
 
 import type { AdapterAdmitOptions } from "./adapter-admit.js";
@@ -25,37 +20,20 @@ export interface AdapterPrincipal {
 	[key: string]: unknown;
 }
 
-/**
- * Decide who is calling. Return a principal to allow the request or `null`
- * to reject it with 401. Throwing is treated as a rejection.
- */
+/** Decide who is calling. Return a principal to allow the request or `null` to reject it with 401. Throwing is treated as a rejection. */
 export type AdapterAuthResolver = (request: Request) => Promise<AdapterPrincipal | null>;
 
 /** Security options shared by every adapter. */
 export interface AdapterSecurityOptions extends AdapterAdmitOptions {
 	/**
-	 * Resolver for the management routes (`/agents`, `/delegations`, `/audit`,
-	 * `/dashboard`, `/authorize`). When omitted, the guard accepts a valid
-	 * session (cookie or `Authorization: Bearer <session token>`) and requires
-	 * `auth.session` to be configured on the TheAuth instance.
-	 *
-	 * With the default, any signed-in user is accepted, but each one is limited
-	 * to their own agents, delegations and audit rows (see `AdapterScope`).
-	 * Passing your own resolver is an explicit trust decision: every principal
-	 * it returns is treated as authorized for all management routes, so verify
-	 * ownership or admin rights inside the resolver.
+	 * Resolver for the management routes (`/agents`, `/delegations`, `/audit`, `/dashboard`, `/authorize`). When omitted, the guard accepts a valid session (cookie or `Authorization: Bearer <session token>`) and requires `auth.session` to be configured on the TheAuth instance.
+	 * With the default, any signed-in user is accepted, but each one is limited to their own agents, delegations and audit rows (see `AdapterScope`). Passing your own resolver is an explicit trust decision: every principal it returns is treated as authorized for all management routes, so verify ownership or admin rights inside the resolver.
 	 */
 	authenticate?: AdapterAuthResolver;
-	/**
-	 * Serve the management routes without authentication. Local development
-	 * only: a warning is logged on startup. Never enable this in production.
-	 */
+	/** Serve the management routes without authentication. Local development only: a warning is logged on startup. Never enable this in production. */
 	allowUnauthenticated?: boolean;
 	/**
-	 * How to find the client IP behind your proxies. Used for `ipAllowlist`
-	 * constraints and audit rows. Default: forwarded headers are ignored and the
-	 * IP is unknown, so an `ipAllowlist` constraint denies. Set
-	 * `trustedProxyCount` or `trustedHeader` to match your deployment.
+	 * How to find the client IP behind your proxies. Used for `ipAllowlist` constraints and audit rows. Default: forwarded headers are ignored and the IP is unknown, so an `ipAllowlist` constraint denies. Set `trustedProxyCount` or `trustedHeader` to match your deployment.
 	 */
 	trustedProxy?: TrustedProxyConfig;
 }
@@ -70,27 +48,17 @@ export interface AdapterGuard {
 	isProtected(relativePath: string): boolean;
 	/** Returns a 401 Response to send, or null when the request may proceed. */
 	check(request: Request): Promise<Response | null>;
-	/**
-	 * Authenticate the caller and return what they may touch. Prefer this over
-	 * `check` in handlers that need owner scoping, and call it once per request.
-	 */
+	/** Authenticate the caller and return what they may touch. Prefer this over `check` in handlers that need owner scoping, and call it once per request. */
 	resolve(request: Request): Promise<AdapterGuardResolution>;
 	/** Client IP through the configured trusted proxy rules, or null when unknown. */
 	clientIp(request: Request): string | null;
-	/**
-	 * Rate limit and cross-site check. Returns a 429 or 403 Response to send, or
-	 * null. Call it for every request, before `isProtected` or `resolve`.
-	 */
+	/** Rate limit and cross-site check. Returns a 429 or 403 Response to send, or null. Call it for every request, before `isProtected` or `resolve`. */
 	admit(request: Request, relativePath: string): Promise<Response | null>;
 }
 
 const PROTECTED_PREFIXES = ["/agents", "/delegations", "/audit", "/dashboard"];
 
-/**
- * Normalise a path for matching: strip query, decode, lowercase (some
- * frameworks route case-insensitively), collapse duplicate slashes and drop
- * the trailing slash.
- */
+/** Normalise a path for matching: strip query, decode, lowercase (some frameworks route case-insensitively), collapse duplicate slashes and drop the trailing slash. */
 function normalisePath(path: string): string {
 	const noQuery = path.split("?")[0] ?? "";
 	let decoded = noQuery;
@@ -134,9 +102,7 @@ function sessionResolver(theauth: TheAuth): AdapterAuthResolver | null {
 }
 
 /**
- * Build the guard for one adapter instance. Throws at construction when no
- * authentication is configured and `allowUnauthenticated` is not set, so a
- * misconfigured server refuses to start instead of serving open routes.
+ * Build the guard for one adapter instance. Throws at construction when no authentication is configured and `allowUnauthenticated` is not set, so a misconfigured server refuses to start instead of serving open routes.
  */
 export function createAdapterGuard(
 	theauth: TheAuth,

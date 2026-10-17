@@ -1,27 +1,9 @@
-// TheAuth Next.js App Router catch-all route.
-//
-// Mounts at /api/theauth/[...path] and forwards every request to the
-// theAuthNextjs adapter, which handles all TheAuth REST routes.
-//
-// Routes handled:
-//   GET/POST        /api/theauth/agents
-//   GET/PATCH/DELETE /api/theauth/agents/:id
-//   POST            /api/theauth/agents/:id/rotate
-//   POST            /api/theauth/authorize
-//   POST            /api/theauth/authorize/token
-//   POST            /api/theauth/delegations
-//   GET/DELETE      /api/theauth/delegations/:id
-//   GET             /api/theauth/audit
-//   GET             /api/theauth/audit/export
-//   GET             /api/theauth/dashboard/stats
-//   GET             /api/theauth/dashboard/agents
-//   GET             /api/theauth/dashboard/audit
+// Catch-all route. Every TheAuth REST path (agents, authorize, delegations, audit, dashboard) goes to theAuthNextjs.
 
 import { theAuthNextjs } from "@glinr/theauth-nextjs";
 import { getTheAuth } from "@/lib/theauth";
 
-// Build handlers lazily so the singleton is created on first request, not at
-// module evaluation time (which would run during the build step).
+// Lazy so the singleton is created on first request, not during the build step.
 async function getHandlers() {
 	const auth = await getTheAuth();
 	// Demo only: no authentication on the management routes. Real apps pass

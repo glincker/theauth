@@ -1,21 +1,11 @@
-/**
- * Cookie serialization and parsing utilities for TheAuth.
- *
- * Pure functions that work with Web API `Request`/`Response` objects and
- * raw header strings. No framework dependencies.
- */
-
-// Types
+/** Cookie serialization and parsing utilities for TheAuth. */
 
 export type SameSite = "strict" | "lax" | "none";
 
 export interface CookieOptions {
 	/** Prevents JavaScript access to the cookie. Default: true. */
 	httpOnly?: boolean;
-	/**
-	 * Restricts transmission to HTTPS. Default: true in production
-	 * (when `NODE_ENV === 'production'`), false otherwise.
-	 */
+	/** Restricts transmission to HTTPS. Default: true in production (when `NODE_ENV === 'production'`), false otherwise. */
 	secure?: boolean;
 	/** Controls cross-site sending. Default: 'lax'. */
 	sameSite?: SameSite;
@@ -44,15 +34,7 @@ const DEFAULT_OPTIONS: Required<
 	path: "/",
 };
 
-// Serialization
-
-/**
- * Serialize a cookie name/value pair into a `Set-Cookie` header string.
- *
- * @param name    Cookie name. Must be a valid cookie-name token.
- * @param value   Cookie value. Will be percent-encoded.
- * @param options Cookie attributes. Defaults to `httpOnly=true`, `secure`
- */
+/** Serialize a cookie name/value pair into a `Set-Cookie` header string. */
 export function serializeCookie(name: string, value: string, options?: CookieOptions): string {
 	validateCookieName(name);
 
@@ -84,10 +66,7 @@ export function serializeCookie(name: string, value: string, options?: CookieOpt
 	return parts.join("; ");
 }
 
-/**
- * Serialize a deletion cookie (zero Max-Age, past Expires) that will
- * instruct browsers to remove the named cookie.
- */
+/** Serialize a deletion cookie (zero Max-Age, past Expires) that will instruct browsers to remove the named cookie. */
 export function serializeCookieDeletion(
 	name: string,
 	options?: Omit<CookieOptions, "maxAge" | "expires">,
@@ -99,15 +78,9 @@ export function serializeCookieDeletion(
 	});
 }
 
-// Parsing
-
 /**
  * Parse a `Cookie` request header string into a name → value map.
- *
- * Values are percent-decoded. Unknown or malformed pairs are skipped
- * silently so that a single bad cookie does not break the entire request.
- *
- * @param header The raw value of the `Cookie` header (e.g. `"a=1; b=2"`).
+ * Unknown or malformed pairs are skipped silently so that a single bad cookie does not break the entire request.
  */
 export function parseCookies(header: string): Record<string, string> {
 	const result: Record<string, string> = {};
@@ -126,30 +99,22 @@ export function parseCookies(header: string): Record<string, string> {
 		try {
 			result[name] = decodeURIComponent(raw);
 		} catch {
-			// Malformed percent-encoding — skip this cookie.
+			// Malformed percent-encoding, skip this cookie.
 		}
 	}
 
 	return result;
 }
 
-/**
- * Extract a single cookie value from a `Cookie` header string.
- *
- * Returns `undefined` when the cookie is absent.
- */
+/** Extract a single cookie value from a `Cookie` header string. */
 export function getCookie(header: string, name: string): string | undefined {
 	return parseCookies(header)[name];
 }
 
-/**
- * Extract cookies from a Web API `Request` object.
- */
+/** Extract cookies from a Web API `Request` object. */
 export function parseCookiesFromRequest(request: Request): Record<string, string> {
 	return parseCookies(request.headers.get("cookie") ?? "");
 }
-
-// Internal helpers
 
 function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);
@@ -158,17 +123,14 @@ function capitalize(s: string): string {
 // RFC 6265 §4.1.1 separator characters (excluding control chars, handled separately)
 const COOKIE_NAME_SEPARATORS = /[\s()<>@,;:\\"/[\]?={}]/;
 
-/**
- * Validate that a cookie name follows RFC 6265 §4.1.1.
- * Throws for names containing control characters (0x00–0x1f, 0x7f) or separators.
- */
+/** Validate that a cookie name follows RFC 6265 §4.1.1. Throws for names containing control characters (0x00, 0x1f, 0x7f) or separators. */
 function validateCookieName(name: string): void {
 	if (!name) {
 		throw new Error(`Invalid cookie name: "${name}"`);
 	}
 	for (let i = 0; i < name.length; i++) {
 		const code = name.charCodeAt(i);
-		// Reject control characters (0x00–0x1f) and DEL (0x7f).
+		// Reject control characters (0x00, 0x1f) and DEL (0x7f).
 		if (code <= 31 || code === 127) {
 			throw new Error(`Invalid cookie name: "${name}"`);
 		}

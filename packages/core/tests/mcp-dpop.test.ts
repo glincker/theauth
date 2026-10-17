@@ -1,7 +1,5 @@
 /**
- * DPoP (RFC 9449) at the token endpoint and the resource server, plus the
- * requireMcpAuth wrapper: proof checks, replay, nonce flow, bearer downgrade,
- * refresh binding, challenges and the exposed principal.
+ * DPoP (RFC 9449) at the token endpoint and the resource server, plus the requireMcpAuth wrapper: proof checks, replay, nonce flow, bearer downgrade, refresh binding, challenges and the exposed principal.
  */
 
 import type { JWK, KeyLike } from "jose";
@@ -29,8 +27,6 @@ const REDIRECT = "https://app.theauth.test/callback";
 const RESOURCE = "https://mcp.theauth.test";
 const RS_URL = `${RESOURCE}/tools?cursor=1`;
 const USER = "user_1";
-
-// Harness
 
 interface Store {
 	clients: Map<string, McpClient>;
@@ -216,8 +212,6 @@ async function jwtPayload(token: string): Promise<Record<string, unknown>> {
 const echo = (_req: Request, p: McpPrincipal) =>
 	Response.json({ user: p.userId, scheme: p.scheme, jkt: p.dpopJkt, scopes: p.scopes });
 
-// Token endpoint
-
 describe("token endpoint with DPoP", () => {
 	let mcp: McpAuthModule;
 	let clientId: string;
@@ -381,8 +375,6 @@ describe("token endpoint with DPoP", () => {
 		});
 	});
 });
-
-// Resource server
 
 describe("requireMcpAuth with DPoP", () => {
 	let mcp: McpAuthModule;

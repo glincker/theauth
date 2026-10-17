@@ -1,40 +1,21 @@
 /**
  * Twitter / X OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://twitter.com/i/oauth2/authorize
- * - Token:         https://api.twitter.com/2/oauth2/token
- * - UserInfo:      https://api.twitter.com/2/users/me
- *
  * Notes:
- * - Twitter OAuth 2.0 (the v2 API) mandates PKCE S256 for all public clients.
- *   Confidential clients may omit PKCE but it is always safer to include it.
- * - The token exchange requires HTTP Basic auth (`client_id:client_secret`)
- *   rather than including credentials in the request body.
- * - The `/2/users/me` endpoint returns a minimal set of fields by default.
- *   Additional fields (profile_image_url, name) must be requested via the
- *   `user.fields` query parameter.
- * - Twitter does not return an email address through the standard OAuth 2.0
- *   flow. Email access requires a separate elevated API access application
- *   and the `tweet.read` scope alone does not grant it.
- * - User IDs are numeric strings and stable across username changes.
- *
- * Docs: https://developer.twitter.com/en/docs/authentication/oauth-2-0/authorization-code
+ * - Twitter OAuth 2.0 (the v2 API) mandates PKCE S256 for all public clients. Confidential clients may omit PKCE but it is always safer to include it.
+ * - The token exchange requires HTTP Basic auth (`client_id:client_secret`) rather than including credentials in the request body.
+ * - The `/2/users/me` endpoint returns a minimal set of fields by default. Additional fields (profile_image_url, name) must be requested via the `user.fields` query parameter.
+ * - Twitter does not return an email address through the standard OAuth 2.0 flow. Email access requires a separate elevated API access application and the `tweet.read` scope alone does not grant it.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://twitter.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
 const USER_INFO_URL = "https://api.twitter.com/2/users/me";
 const USER_FIELDS = "id,name,username,profile_image_url";
 const DEFAULT_SCOPES = ["users.read", "tweet.read"];
-
-// Raw response shapes
 
 interface TwitterTokenResponse {
 	access_token: string;
@@ -56,13 +37,9 @@ interface TwitterUserResponse {
 	errors?: Array<{ message: string; title: string }>;
 }
 
-// Factory
-
 /**
  * Create a Twitter / X OAuth provider instance.
- *
- * Twitter requires PKCE for all flows. The `clientSecret` is still needed for
- * the token exchange (sent as HTTP Basic auth).
+ * Twitter requires PKCE for all flows.
  *
  * @example
  * ```typescript
@@ -201,8 +178,6 @@ export function createTwitterProvider(config: OAuthProviderConfig): OAuthProvide
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

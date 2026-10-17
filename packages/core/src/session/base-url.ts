@@ -1,14 +1,6 @@
 /**
  * Per-request base URL resolution for multi-domain and preview deployments.
- *
- * A static `baseUrl` breaks as soon as one deployment answers on several
- * hostnames (custom domains, tenant subdomains, Vercel or Netlify previews).
- * This resolver derives the origin from the incoming request, but only when
- * the host matches an explicit allowlist, so a spoofed `Host` or
- * `X-Forwarded-Host` header can never steer redirect URIs, magic links or
- * callback URLs to an attacker's domain.
- *
- * Opt in only: nothing here runs unless you create a resolver.
+ * This resolver derives the origin from the incoming request, but only when the host matches an explicit allowlist, so a spoofed `Host` or `X-Forwarded-Host` header can never steer redirect URIs, magic links or callback URLs to an attacker's domain. Opt in only: nothing here runs unless you create a resolver.
  *
  * @example
  * ```typescript
@@ -25,10 +17,7 @@
 import type { Result } from "../mcp/types.js";
 
 export interface BaseUrlConfig {
-	/**
-	 * Static fallback origin, used when `allowedHosts` is not set or the request
-	 * host is not allowed. May include a path prefix.
-	 */
+	/** Static fallback origin, used when `allowedHosts` is not set or the request host is not allowed. May include a path prefix. */
 	baseUrl?: string;
 
 	/**
@@ -43,11 +32,7 @@ export interface BaseUrlConfig {
 	 */
 	allowedHosts?: string[];
 
-	/**
-	 * Read `X-Forwarded-Host` and `X-Forwarded-Proto` instead of the request
-	 * URL. Only turn this on when a proxy you control overwrites those headers.
-	 * Default: false.
-	 */
+	/** Read `X-Forwarded-Host` and `X-Forwarded-Proto` instead of the request URL. Only turn this on when a proxy you control overwrites those headers. Default: false. */
 	trustForwardedHeaders?: boolean;
 
 	/** Path appended to a dynamically resolved origin, e.g. `/api/auth`. */
@@ -57,9 +42,7 @@ export interface BaseUrlConfig {
 export interface BaseUrlResolver {
 	/**
 	 * Resolve the base URL for a request. Without trailing slash.
-	 *
-	 * Fails with `BASE_URL_UNRESOLVED` when no allowed host matched and no static
-	 * `baseUrl` is configured.
+	 * Fails with `BASE_URL_UNRESOLVED` when no allowed host matched and no static `baseUrl` is configured.
 	 */
 	resolve(request: Request): Result<string>;
 	/** Whether a bare host (`host` or `host:port`) passes the allowlist. */

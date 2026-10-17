@@ -1,20 +1,4 @@
-/**
- * Federated logout for OpenID Connect.
- *
- * Three pieces, each usable alone:
- *
- * - RP-initiated logout (OIDC RP-Initiated Logout 1.0). `buildEndSessionUrl`
- *   sends your user to the IdP's `end_session_endpoint`. `createEndSessionHandler`
- *   is the other side: an OP endpoint that validates `id_token_hint` and
- *   `post_logout_redirect_uri` and ends the session.
- * - Back-channel logout, receiving (OIDC Back-Channel Logout 1.0).
- *   `createBackChannelLogoutReceiver` verifies a `logout_token` POSTed by the
- *   IdP and tells you which `sub` or `sid` to sign out.
- * - Back-channel logout, sending. `sendBackChannelLogout` signs a logout token
- *   and POSTs it to a client's `backchannel_logout_uri`.
- *
- * Nothing here is wired in by default.
- */
+/** Federated logout for OpenID Connect: RP-initiated logout, the end-session endpoint, and back-channel logout. */
 
 import type { JWTVerifyGetKey, JWTVerifyOptions, JWTVerifyResult } from "jose";
 import { decodeJwt, jwtVerify, SignJWT } from "jose";
@@ -50,8 +34,6 @@ async function verifyWith(
 	return jwtVerify(token, getKey, options);
 }
 
-// RP-initiated logout: building the request
-
 export interface EndSessionUrlParams {
 	idTokenHint?: string;
 	postLogoutRedirectUri?: string;
@@ -61,11 +43,7 @@ export interface EndSessionUrlParams {
 	uiLocales?: string;
 }
 
-/**
- * Build the URL that sends the user agent to the IdP's end session endpoint.
- * `clientId` is required by some IdPs when `idTokenHint` is absent. The
- * endpoint must be https (or http on localhost for development).
- */
+/** Builds the URL that sends the user agent to the IdP's end session endpoint. */
 export function buildEndSessionUrl(
 	endSessionEndpoint: string,
 	params: EndSessionUrlParams,
@@ -98,8 +76,6 @@ export function buildEndSessionUrl(
 	return { success: true, data: url.toString() };
 }
 
-// RP-initiated logout: the OP endpoint
-
 export interface LogoutClient {
 	/** Exact-match allowlist for `post_logout_redirect_uri`. */
 	postLogoutRedirectUris: string[];
@@ -107,22 +83,15 @@ export interface LogoutClient {
 
 export interface EndSessionContext {
 	request: Request;
-	/** Verified `sub` from `id_token_hint`, when one was supplied. */
 	sub?: string;
-	/** Verified `sid` from `id_token_hint`. */
 	sid?: string;
-	/** Client the request is for (from the hint audience or `client_id`). */
 	clientId?: string;
 }
 
 export interface EndSessionHandlerConfig {
-	/** This provider's issuer. `id_token_hint` must carry it. */
 	issuer: string;
-	/** Key material that verifies tokens this provider issued. */
 	verificationKey: VerifyKey;
-	/** Look up a registered client. Return `null` when unknown. */
 	getClient: (clientId: string) => Promise<LogoutClient | null>;
-	/** End the provider session. Called once, after validation. */
 	endSession: (ctx: EndSessionContext) => Promise<void>;
 	/** Where to send the user when no valid `post_logout_redirect_uri` applies. */
 	defaultRedirectUri?: string;
@@ -136,12 +105,7 @@ export interface EndSessionHandler {
 
 /**
  * OP-side end session endpoint. Accepts GET (query) and POST (form).
- *
- * An expired `id_token_hint` is fine (the spec says so), a forged one is not.
- * `post_logout_redirect_uri` is only honored on exact match against the
- * client's registered list, and only when the client is known from a verified
- * hint or a `client_id` that resolves. Anything else ends the session and
- * shows `defaultRedirectUri` or a plain 200.
+ * An expired `id_token_hint` is fine (the spec says so), a forged one is not. `post_logout_redirect_uri` is only honored on exact match against the client's registered list, and only when the client is known from a verified hint or a `client_id` that resolves. Anything else ends the session and shows `defaultRedirectUri` or a plain 200.
  */
 export function createEndSessionHandler(config: EndSessionHandlerConfig): EndSessionHandler {
 	const algorithms = config.algorithms ?? ["RS256", "ES256", "EdDSA"];
@@ -249,8 +213,6 @@ export function createEndSessionHandler(config: EndSessionHandlerConfig): EndSes
 	return { handleRequest };
 }
 
-// Back-channel logout: receiving
-
 export interface LogoutTokenClaims {
 	iss: string;
 	sub?: string;
@@ -260,34 +222,19 @@ export interface LogoutTokenClaims {
 }
 
 export interface LogoutReplayStore {
-	/**
-	 * Record a `jti`. Resolve `true` if it is new, `false` if it was seen
-	 * before. Use a shared store (Redis, KV) when you run several instances.
-	 */
+	/** Records a `jti`: resolves `true` if it is new, `false` if seen before. Use a store shared across instances. */
 	markSeen(jti: string, ttlSeconds: number): Promise<boolean>;
 }
 
 export interface BackChannelLogoutReceiverConfig {
-	/** Issuer you trust logout tokens from. */
 	issuer: string;
-	/** Your client id at that IdP (the expected `aud`). */
 	clientId: string;
-	/** Verification key or JWKS resolver (`createRemoteJWKSet`). */
 	verificationKey: VerifyKey;
-	/**
-	 * Sign the user out. Throw to make the endpoint answer 400. Runs after
-	 * session revocation when `sessionManager` or `revokeSessions` is set, and
-	 * is required when neither is.
-	 */
+	/** Signs the user out. Throw to make the endpoint answer 400. Runs after session revocation. */
 	onLogout?: (claims: LogoutTokenClaims) => Promise<void>;
-	/**
-	 * Revoke local sessions for the claims. Defaults to a revoker built on
-	 * `sessionManager` (see `federated-logout-sessions.ts`) when that is set.
-	 */
+	/** Revokes local sessions for the claims. Defaults to a revoker built on `sessionManager`. */
 	revokeSessions?: SessionRevoker;
-	/** Session manager for the default revoker. */
 	sessionManager?: SessionRevokerOptions["sessionManager"];
-	/** Options for the default revoker (user mapping, sid lookup). */
 	sessionRevoker?: Omit<SessionRevokerOptions, "sessionManager">;
 	/** Accepted algorithms. Default `["RS256","ES256","EdDSA"]`. */
 	algorithms?: string[];
@@ -299,7 +246,6 @@ export interface BackChannelLogoutReceiverConfig {
 
 export interface BackChannelLogoutReceiver {
 	verifyLogoutToken(token: string): Promise<Result<LogoutTokenClaims>>;
-	/** POST handler for your `backchannel_logout_uri`. */
 	handleRequest(request: Request): Promise<Response>;
 }
 
@@ -401,13 +347,9 @@ export function createBackChannelLogoutReceiver(
 	return { verifyLogoutToken, handleRequest };
 }
 
-// Back-channel logout: sending
-
 export interface SendBackChannelLogoutParams {
 	issuer: string;
-	/** Client id of the receiving RP (becomes `aud`). */
 	clientId: string;
-	/** The RP's registered `backchannel_logout_uri`. */
 	backchannelLogoutUri: string;
 	sub?: string;
 	sid?: string;
@@ -418,18 +360,13 @@ export interface SendBackChannelLogoutParams {
 	ttlSeconds?: number;
 	/** Request timeout in ms. Default 5000. */
 	timeoutMs?: number;
-	/** Fetch override, e.g. one pinned to a validated address. */
 	fetchImpl?: typeof fetch;
-	/** DNS resolver for the private-address check. */
 	resolver?: DnsResolver;
 	/** Skip the https and private network checks. Development only. */
 	allowInsecure?: boolean;
 }
 
-/**
- * Sign a logout token and deliver it. Never throws. Fails closed on non-https
- * URLs and hosts that resolve to private addresses. Does not follow redirects.
- */
+/** Signs a logout token and delivers it. Never throws, and fails closed on non-https URLs. */
 export async function sendBackChannelLogout(
 	params: SendBackChannelLogoutParams,
 ): Promise<Result<{ status: number }>> {

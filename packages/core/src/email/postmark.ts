@@ -9,10 +9,7 @@ export interface PostmarkConfig {
 	messageStream?: string;
 }
 
-/**
- * Email provider backed by Postmark (https://postmarkapp.com).
- * Uses raw fetch(), no SDK dependency, edge-compatible.
- */
+/** Email provider backed by Postmark (https://postmarkapp.com). Uses raw fetch(), no SDK dependency, edge-compatible. */
 export function postmark(config: PostmarkConfig): EmailProvider {
 	if (!config.serverToken) {
 		throw new Error(

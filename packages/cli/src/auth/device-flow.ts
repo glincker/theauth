@@ -23,7 +23,6 @@ export interface DeviceFlowOptions {
 	save?: boolean;
 	cache?: TokenCacheOptions;
 	signal?: AbortSignal;
-	/** Injected for tests. */
 	fetch?: typeof fetch;
 	sleep?: (ms: number) => Promise<void>;
 }
@@ -71,7 +70,6 @@ const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
  * Run the RFC 8628 device flow against a TheAuth server: request a code, show
  * it, poll until the user approves, and (by default) save the token.
  *
- * Usable from any CLI or MCP client:
  *
  * ```ts
  * const { accessToken } = await loginWithDeviceFlow({ serverUrl: "https://app.example.com/api/theauth" });

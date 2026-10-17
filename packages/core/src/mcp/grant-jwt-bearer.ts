@@ -11,13 +11,8 @@ import { issueGrantToken } from "./token-issue.js";
 import type { McpAuthContext, McpTokenResponse, Result } from "./types.js";
 
 /**
- * RFC 7523 jwt-bearer redemption of an Identity Assertion JWT Authorization
- * Grant (ID-JAG, `typ: oauth-id-jag+jwt`) from a configured trusted issuer.
- *
- * Checks: header `typ` and algorithm allowlist, issuer trust, signature
- * against the issuer's JWKS, `aud` equal to this server's issuer, `client_id`
- * equal to the authenticated client, a short `exp - iat`, `jti` single use,
- * and a subject mapping callback. No refresh token is issued.
+ * RFC 7523 jwt-bearer redemption of an Identity Assertion JWT Authorization Grant (ID-JAG, `typ: oauth-id-jag+jwt`) from a configured trusted issuer.
+ * No refresh token is issued.
  */
 
 const DEFAULT_ALGS = ["ES256", "ES384", "EdDSA", "PS256", "RS256"];
@@ -58,7 +53,6 @@ export async function handleJwtBearerGrant(
 	if (!authenticated.success) return authenticated;
 	const client = authenticated.data;
 
-	// Header and issuer
 	const algs = config.algs ?? DEFAULT_ALGS;
 	let alg: string | undefined;
 	let unverified: JWTPayload;
@@ -75,7 +69,6 @@ export async function handleJwtBearerGrant(
 	const trusted = config.trustedIssuers.find((i) => i.issuer === unverified.iss);
 	if (!trusted) return grantError("Assertion issuer is not trusted");
 
-	// Signature and claims
 	const skew = config.clockSkewSeconds ?? DEFAULT_SKEW;
 	const fetchOptions: SafeFetchOptions = {
 		...(config.resolver ? { resolver: config.resolver } : {}),
@@ -175,7 +168,6 @@ export async function handleJwtBearerGrant(
 	const resource = resolveResource(ctx, data.resource ?? claimResource);
 	if (!resource.success) return resource;
 
-	// Subject mapping
 	const userId = await config.mapSubject({
 		issuer: trusted.issuer,
 		subject: payload.sub,

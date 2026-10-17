@@ -3,10 +3,7 @@ import type { DidDocument, DidKeyPair, DidWebConfig } from "./types.js";
 
 /**
  * Build a did:web DID string from a config and agent ID.
- *
- * Spec: https://w3c-ccg.github.io/did-method-web/
- *   did:web:example.com              → root document
- *   did:web:example.com:agents:123   → path-based document
+ * Spec: https://w3c-ccg.github.io/did-method-web/ did:web:example.com              → root document did:web:example.com:agents:123   → path-based document
  */
 function buildDidWeb(config: DidWebConfig, agentId: string): string {
 	const domain = config.domain.replace(/\//g, ":");
@@ -19,9 +16,6 @@ function buildDidWeb(config: DidWebConfig, agentId: string): string {
 
 /**
  * Generate a did:web identity for an agent.
- *
- * Internally generates an Ed25519 key pair and builds a DID document
- * using the did:web identifier derived from the domain config.
  * The private key is returned to the caller and must be stored securely.
  */
 export async function generateDidWeb(config: DidWebConfig, agentId: string): Promise<DidKeyPair> {
@@ -39,18 +33,12 @@ export async function generateDidWeb(config: DidWebConfig, agentId: string): Pro
 	};
 }
 
-/**
- * Get the HTTPS URL where a did:web document should be hosted.
- *
- * did:web:example.com              → https://example.com/.well-known/did.json
- * did:web:example.com:agents:123   → https://example.com/agents/123/did.json
- */
+/** Get the HTTPS URL where a did:web document should be hosted. */
 export function getDidWebUrl(did: string): string {
 	if (!did.startsWith("did:web:")) {
 		throw new Error(`Not a did:web identifier: ${did}`);
 	}
 
-	// Strip the method prefix
 	const methodSpecific = did.slice("did:web:".length);
 	const parts = methodSpecific.split(":");
 
@@ -70,9 +58,7 @@ export function getDidWebUrl(did: string): string {
 
 /**
  * Resolve a did:web by fetching the DID document from the web.
- *
  * Returns null if the fetch fails or the document is malformed.
- * In production, callers should add caching and error handling.
  */
 export async function resolveDidWeb(did: string): Promise<DidDocument | null> {
 	let url: string;
@@ -91,7 +77,7 @@ export async function resolveDidWeb(did: string): Promise<DidDocument | null> {
 
 		const doc = (await response.json()) as DidDocument;
 
-		// Basic sanity check — must have @context and id
+		// Basic sanity check, must have @context and id
 		if (!doc["@context"] || !doc.id) return null;
 
 		return doc;

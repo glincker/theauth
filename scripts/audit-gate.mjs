@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 /**
- * Fails when `pnpm audit --prod` reports a high or critical advisory that is
- * not listed in scripts/audit-allowlist.json. Run from the pre-push hook so a
- * vulnerable dependency is caught before CI is.
- *
- * Allowlist entries need a reason and a review date. An entry whose date has
- * passed fails the gate, so exceptions do not outlive their reason.
+ * Fails when `pnpm audit --prod` reports a high or critical advisory missing from scripts/audit-allowlist.json.
+ * Allowlist entries need a reason and a review date; an expired entry fails the gate.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";

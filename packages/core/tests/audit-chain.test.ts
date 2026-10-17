@@ -1,6 +1,4 @@
-/**
- * Tamper-evident audit chain: append, verify, replay, export.
- */
+/** Tamper-evident audit chain: append, verify, replay, export. */
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

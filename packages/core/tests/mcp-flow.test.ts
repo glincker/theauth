@@ -1,10 +1,6 @@
 /**
  * MCP OAuth 2.1 End-to-End Integration Tests
- *
- * Exercises the full OAuth 2.1 authorization code flow using in-memory
- * storage — no database required.  Each test group builds on real module
- * instances returned by createMcpModule(), so the tests cover the full
- * stack from HTTP Request objects down through JWT signing/verification.
+ * Exercises the full OAuth 2.1 authorization code flow using in-memory storage, no database required. Each test group builds on real module instances returned by createMcpModule(), so the tests cover the full stack from HTTP Request objects down through JWT signing/verification.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMcpModule } from "../src/mcp/server.js";
@@ -18,16 +14,12 @@ import type {
 } from "../src/mcp/types.js";
 import { computeS256Challenge, generateSecureToken } from "../src/mcp/utils.js";
 
-// Shared constants
-
 const ISSUER = "https://auth.theauth.test";
 const BASE_URL = "https://auth.theauth.test/api/auth";
 const SIGNING_SECRET = "test-signing-secret-at-least-32-chars-long!!";
 const REDIRECT_URI = "https://app.theauth.test/callback";
 const TEST_USER_ID = "user_01HXYZ";
 const RESOURCE = "https://mcp.theauth.test";
-
-// In-memory store factory
 
 interface InMemoryStore {
 	clients: Map<string, McpClient>;
@@ -184,8 +176,6 @@ async function runFullAuthCodeFlow(
 	return tokenResult.data;
 }
 
-// Tests
-
 describe("MCP OAuth 2.1 end-to-end flow", () => {
 	let store: InMemoryStore;
 	let mcp: McpAuthModule;
@@ -194,8 +184,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		store = createInMemoryStore();
 		mcp = createMcpModuleWithStore(store);
 	});
-
-	// 1. Metadata
 
 	describe("1 · metadata endpoints", () => {
 		it("authorization server metadata has all required RFC 8414 fields", () => {
@@ -226,8 +214,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(meta.scopes_supported).toContain("openid");
 		});
 	});
-
-	// 2. Dynamic client registration
 
 	describe("2 · dynamic client registration (RFC 7591)", () => {
 		it("registers a public client and returns client_id without client_secret", async () => {
@@ -331,8 +317,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// 3. Authorization code flow with PKCE
-
 	describe("3 · authorization code flow with PKCE", () => {
 		it("issues an authorization code for a valid request", async () => {
 			const reg = await registerPublicClient(mcp);
@@ -434,7 +418,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 
 			const code = authorizeResult.data.code;
 
-			// First exchange succeeds
 			const first = await mcp.token(
 				buildTokenRequest({
 					grant_type: "authorization_code",
@@ -461,8 +444,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(second.error.code).toBe("INVALID_GRANT");
 		});
 	});
-
-	// 4. Token validation
 
 	describe("4 · token validation", () => {
 		it("validates a freshly issued access token", async () => {
@@ -598,8 +579,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// 5. Refresh token flow
-
 	describe("5 · refresh token flow", () => {
 		it("exchanges a refresh_token for a new access_token", async () => {
 			const reg = await registerPublicClient(mcp);
@@ -632,7 +611,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			const first = await runFullAuthCodeFlow(mcp, reg.client_id);
 			const oldRefreshToken = first.refresh_token as string;
 
-			// First refresh succeeds
 			const firstRefresh = await mcp.token(
 				buildTokenRequest({
 					grant_type: "refresh_token",
@@ -692,8 +670,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(result.error.code).toBe("INVALID_GRANT");
 		});
 	});
-
-	// 6. withMcpAuth middleware
 
 	describe("6 · withMcpAuth middleware", () => {
 		it("returns a valid session for a request bearing a valid token", async () => {
@@ -796,8 +772,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(result.success).toBe(false);
 		});
 	});
-
-	// 7. Authorization error cases
 
 	describe("7 · authorization error cases", () => {
 		it("rejects authorize with unknown client_id", async () => {
@@ -911,8 +885,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 	});
 
-	// 8. Token-exchange error cases
-
 	describe("8 · token-exchange error cases", () => {
 		it("rejects token exchange with wrong code_verifier", async () => {
 			const reg = await registerPublicClient(mcp);
@@ -987,7 +959,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 					grant_type: "authorization_code",
 					code: "any-code",
 					redirect_uri: REDIRECT_URI,
-					// client_id omitted
 					code_verifier: generateSecureToken(43),
 				}),
 			);
@@ -1122,8 +1093,6 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(tokenResult.error.code).toBe("INVALID_CLIENT");
 		});
 	});
-
-	// 9. createMcpModule config validation
 
 	describe("9 · createMcpModule config validation", () => {
 		it("throws when issuer is missing", () => {

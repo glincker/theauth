@@ -10,14 +10,7 @@ interface PermissionEngineConfig {
 	auditAll: boolean;
 }
 
-/**
- * Create the permission/authorization engine.
- *
- * This remains the public entry point used by adapters. The constraint and
- * matching primitives now live in policy/abac.ts so the new unified policy
- * engine can reuse them. A follow-on patch rewires this function to delegate
- * to policy/engine.ts; today it still performs direct-permission evaluation.
- */
+/** Create the permission/authorization engine. */
 export function createPermissionEngine(config: PermissionEngineConfig) {
 	const { db, auditAll } = config;
 
@@ -117,13 +110,8 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 	}
 
 	/**
-	 * Record a denial that happened before permission evaluation, such as a
-	 * revoked or expired agent. Respects `auditAll` and goes through the same
-	 * writer, so the agent's hash chain stays valid.
-	 *
-	 * Never throws: a failed audit write must not turn a denial into an
-	 * exception. On failure the denial stands and `auditId` is empty, meaning
-	 * no row was written.
+	 * Record a denial that happened before permission evaluation, such as a revoked or expired agent. Respects `auditAll` and goes through the same writer, so the agent's hash chain stays valid.
+	 * Never throws: a failed audit write must not turn a denial into an exception. On failure the denial stands and `auditId` is empty, meaning no row was written.
 	 */
 	async function recordDenial(
 		target: { agentId: string; ownerId: string },
@@ -154,9 +142,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 	}
 
 	/**
-	 * Write the one audit row for a denial whose write was deferred with
-	 * `deferDenialAudit`. Uses the result's own `auditId`, so the id the caller
-	 * returns always points at a row. Respects `auditAll`; never throws.
+	 * Write the one audit row for a denial whose write was deferred with `deferDenialAudit`. Uses the result's own `auditId`, so the id the caller returns always points at a row. Respects `auditAll`; never throws.
 	 */
 	async function auditDenial(
 		agent: AgentIdentity,

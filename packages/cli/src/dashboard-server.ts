@@ -8,14 +8,10 @@ import { createRequire } from "node:module";
 import { extname, join, resolve, sep } from "node:path";
 import { env, stdout } from "node:process";
 
-// Options
-
 export interface DashboardServerOptions {
 	port: number;
 	apiUrl: string;
 }
-
-// MIME Types
 
 const MIME_TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",
@@ -39,10 +35,7 @@ function getMimeType(filePath: string): string {
 	return MIME_TYPES[ext] ?? "application/octet-stream";
 }
 
-// Dist Dir Resolution
-
 function resolveDashboardDistDir(): string {
-	// Try resolving from the @glinr/theauth-dashboard package first
 	try {
 		const require = createRequire(import.meta.url);
 		const pkgPath = require.resolve("@glinr/theauth-dashboard/package.json");
@@ -51,9 +44,7 @@ function resolveDashboardDistDir(): string {
 		if (existsSync(distDir)) {
 			return distDir;
 		}
-	} catch {
-		// Package not found on node_modules path — try relative paths
-	}
+	} catch {}
 
 	// Fallback: look relative to this file (monorepo layout)
 	const candidates = [
@@ -76,23 +67,17 @@ function resolveDashboardDistDir(): string {
 	);
 }
 
-// HTML Injection
-
 async function readIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const indexPath = join(distDir, "index.html");
 	const html = await readFile(indexPath, "utf-8");
 
-	// Inject the API URL as a global before any other scripts load
 	const injection = `<script>window.__THEAUTH_API_URL__ = ${JSON.stringify(apiUrl)};</script>`;
 
-	// Prefer injecting right before </head>; fall back to prepend
 	if (html.includes("</head>")) {
 		return html.replace("</head>", `${injection}</head>`);
 	}
 	return injection + html;
 }
-
-// Static File Handler
 
 function send404(res: ServerResponse): void {
 	res.writeHead(404, { "Content-Type": "text/plain" });
@@ -147,8 +132,6 @@ export function serveStatic(root: string, pathname: string, res: ServerResponse)
 	createReadStream(target).pipe(res);
 	return true;
 }
-
-// Auth
 
 function sendJson(res: ServerResponse, status: number, body: Record<string, unknown>): void {
 	const payload = JSON.stringify(body);
@@ -267,8 +250,6 @@ export function handleAuthRequest(
 	return true;
 }
 
-// Server
-
 export async function startDashboardServer(options: DashboardServerOptions): Promise<void> {
 	const { port, apiUrl } = options;
 
@@ -280,20 +261,17 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 
 	const distDir = resolveDashboardDistDir();
 
-	// Pre-read and patch index.html once at startup
 	const indexHtml = await readIndexHtml(distDir, apiUrl);
 	const indexHtmlBuffer = Buffer.from(indexHtml, "utf-8");
 
 	function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 		const rawUrl = req.url ?? "/";
-		// Strip query string and decode
 		const pathname = decodePathname(rawUrl.split("?")[0] ?? "/");
 		if (pathname === null) {
 			sendJson(res, 400, { code: "BAD_REQUEST", message: "Malformed request path." });
 			return;
 		}
 
-		// Auth endpoint — handled before static files
 		if (handleAuthRequest(req, res, dashboardSecret)) return;
 
 		// SPA: serve index.html for navigation routes (no file extension)
@@ -308,7 +286,6 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 			return;
 		}
 
-		// Static asset, falling back to index.html for unknown paths (SPA catch-all)
 		if (serveStatic(distDir, pathname, res)) return;
 		res.writeHead(200, {
 			"Content-Type": "text/html; charset=utf-8",

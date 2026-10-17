@@ -118,13 +118,12 @@ export function createDiscoveryModule(db: Database) {
 
 		let cards = rows.map(rowToCard);
 
-		// Filter by protocol membership (JSON column — filter in application layer)
+		// Filter by protocol membership (JSON column, so filtered in the application layer)
 		if (query.protocols && query.protocols.length > 0) {
 			const wantedProtocols = new Set(query.protocols);
 			cards = cards.filter((c) => c.protocols.some((p) => wantedProtocols.has(p)));
 		}
 
-		// Filter by capability name membership
 		if (query.capabilities && query.capabilities.length > 0) {
 			const wantedCaps = new Set(query.capabilities);
 			cards = cards.filter((c) => c.capabilities.some((cap) => wantedCaps.has(cap.name)));

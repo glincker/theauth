@@ -1,7 +1,4 @@
-/**
- * Taint-aware tool guard: provenance labels flow into tool arguments and policy
- * restricts which labels may reach which tools. Real in-memory createTheAuth.
- */
+/** Taint-aware tool guard: provenance labels flow into tool arguments and policy restricts which labels may reach which tools. Real in-memory createTheAuth. */
 
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";

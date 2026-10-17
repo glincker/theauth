@@ -1,6 +1,4 @@
-/**
- * Tests for template 04 — budget-gated agent.
- */
+/** Tests for template 04, budget-gated agent. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import {

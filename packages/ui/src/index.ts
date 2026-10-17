@@ -1,4 +1,3 @@
-// Components
 export { AuthCard } from "./components/auth-card.js";
 export { ForgotPassword } from "./components/forgot-password.js";
 export { OAuthButtons } from "./components/oauth-buttons.js";
@@ -25,14 +24,11 @@ export {
 	TwitchIcon,
 	TwitterIcon,
 } from "./icons/oauth-icons.js";
-// Types
 export type {
 	AuthCardClassNames,
-	// Component props
 	AuthCardProps,
 	AvatarSlotProps,
 	ButtonSlotProps,
-	// Class name overrides
 	ClassNameOverride,
 	DividerSlotProps,
 	ErrorSlotProps,
@@ -43,7 +39,6 @@ export type {
 	LinkSlotProps,
 	OAuthButtonsClassNames,
 	OAuthButtonsProps,
-	// OAuth
 	OAuthProviderMeta,
 	PasskeyClientLike,
 	SharedSlots,

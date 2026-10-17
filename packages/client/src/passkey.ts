@@ -20,16 +20,13 @@ export interface PasskeyClientOptions {
 	fetch?: typeof fetch;
 	/** Send cookies. Default `"include"`. */
 	credentials?: RequestCredentials;
-	/** Extra headers on every call. */
 	headers?: HeadersInit;
 }
 
 export interface PasskeySignInOptions {
 	/** Limit to one user's credentials. Not needed for discoverable passkeys. */
 	userId?: string;
-	/** Use conditional UI (autofill) instead of a modal prompt. */
 	conditional?: boolean;
-	/** Abort a pending prompt, e.g. when the form unmounts. */
 	signal?: AbortSignal;
 }
 
@@ -49,12 +46,9 @@ export interface PasskeySession {
 }
 
 export interface PasskeyClient {
-	/** WebAuthn is available in this browser. */
 	isSupported(): boolean;
-	/** The browser can show passkeys in an autofill dropdown. */
 	isConditionalAvailable(): Promise<boolean>;
 	signIn(options?: PasskeySignInOptions): Promise<PasskeyResult<PasskeySession>>;
-	/** Add a passkey to the signed-in user. */
 	register(deviceName?: string): Promise<PasskeyResult<{ credentialId: string }>>;
 }
 

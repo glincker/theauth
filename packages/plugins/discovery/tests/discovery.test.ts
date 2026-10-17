@@ -16,7 +16,6 @@ async function createTestTheAuth(): Promise<TheAuth> {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(users)
 		.values({
@@ -50,7 +49,7 @@ describe("discovery – agent capability cards", () => {
 	});
 
 	afterEach(() => {
-		// In-memory SQLite — no teardown needed
+		// In-memory SQLite, so there is nothing to tear down
 	});
 
 	it("registers a capability card", async () => {

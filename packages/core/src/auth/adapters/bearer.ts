@@ -1,9 +1,6 @@
 /**
  * JWT bearer-token auth adapter.
- *
- * Verifies a JWT from the `Authorization: Bearer <token>` header using a
- * symmetric secret (HS256/HS384/HS512).  Extracts `sub`, `email`, `name`, and
- * `picture` from the payload and returns them as a `ResolvedUser`.
+ * Verifies a JWT from the `Authorization: Bearer <token>` header using a symmetric secret (HS256/HS384/HS512).
  *
  * @example
  * ```typescript
@@ -21,13 +18,8 @@ import { jwtVerify } from "jose";
 import { z } from "zod";
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
-// Options schema
-
 const BearerAuthOptionsSchema = z.object({
-	/**
-	 * Secret used to verify HS256/HS384/HS512 tokens.
-	 * Must be at least 32 characters.
-	 */
+	/** Secret used to verify HS256/HS384/HS512 tokens. Must be at least 32 characters. */
 	secret: z.string().min(1, "secret is required"),
 	/** Expected `iss` claim.  Omit to skip issuer validation. */
 	issuer: z.string().optional(),
@@ -37,7 +29,7 @@ const BearerAuthOptionsSchema = z.object({
 
 export type BearerAuthOptions = z.infer<typeof BearerAuthOptionsSchema>;
 
-// Payload schema – only the fields TheAuth cares about
+// Payload schema, only the fields TheAuth cares about
 
 const JwtPayloadSchema = z.object({
 	sub: z.string(),
@@ -48,17 +40,12 @@ const JwtPayloadSchema = z.object({
 	image: z.string().optional(),
 });
 
-// Factory
-
 /**
- * Create an `AuthAdapter` that validates a JWT from the `Authorization: Bearer`
- * header and maps its claims to a `ResolvedUser`.
- *
+ * Create an `AuthAdapter` that validates a JWT from the `Authorization: Bearer` header and maps its claims to a `ResolvedUser`.
  * Returns `null` when:
  * - No `Authorization` header is present
  * - The header does not use the `Bearer` scheme
- * - The JWT signature is invalid, the token is expired, or claims do not match
- *   the configured `issuer` / `audience`
+ * - The JWT signature is invalid, the token is expired, or claims do not match the configured `issuer` / `audience`
  */
 export function bearerAuth(options: BearerAuthOptions): AuthAdapter {
 	const parsed = BearerAuthOptionsSchema.parse(options);

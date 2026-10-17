@@ -5,10 +5,6 @@ import { cx } from "../utils.js";
 import { AuthCard } from "./auth-card.js";
 import { DefaultButton, DefaultError } from "./defaults.js";
 
-// Default slots
-
-// Component
-
 export function TwoFactorVerify({
 	classNames,
 	components,

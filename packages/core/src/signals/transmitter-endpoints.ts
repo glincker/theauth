@@ -1,7 +1,5 @@
 /**
- * HTTP endpoints for the Shared Signals transmitter (SSF 1.0 section 8 and
- * RFC 8936 polling). Built with `defineEndpoint` so inputs are validated by
- * zod and the shapes are available to the typed client.
+ * HTTP endpoints for the Shared Signals transmitter (SSF 1.0 section 8 and RFC 8936 polling). Built with `defineEndpoint` so inputs are validated by zod and the shapes are available to the typed client.
  */
 
 import { z } from "zod";

@@ -1,7 +1,4 @@
-/**
- * Stateless (database-less) sessions: signed identity cookie, encrypted token
- * cookie, chunking, refresh single flight and tamper resistance.
- */
+/** Stateless (database-less) sessions: signed identity cookie, encrypted token cookie, chunking, refresh single flight and tamper resistance. */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StatelessIdentity, StatelessTokens } from "../src/session/stateless.js";

@@ -14,8 +14,6 @@ import type {
 
 const SESSION_KEY = "theauth_session";
 
-// Context
-
 export const TheAuthExpoContext = createContext<TheAuthContextValue | null>(null);
 
 /** @deprecated Use `TheAuthExpoContext` instead. Will be removed in a future major version. */
@@ -32,8 +30,6 @@ export function useTheAuthContext(): TheAuthContextValue {
 /** @deprecated Use `useTheAuthContext` instead. Will be removed in a future major version. */
 export const useAuthContext = useTheAuthContext;
 
-// Provider
-
 export interface TheAuthExpoProviderProps {
 	config: TheAuthExpoConfig;
 	children: ReactNode;
@@ -46,10 +42,9 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
-	// Strip trailing slash from basePath once
 	const base = config.basePath.replace(/\/$/, "");
 
-	// Storage adapter — stable ref so callbacks don't re-create on each render
+	// Stable storage ref so callbacks don't re-create on each render
 	const storageRef = useRef<TheAuthStorage>(config.storage ?? createMemoryStorage());
 
 	// Every request goes through this, so a DPoP or pinned fetch applies everywhere.
@@ -58,12 +53,9 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		fetchRef.current = config.fetch ?? fetch;
 	}, [config.fetch]);
 
-	// Keep storage ref in sync when config changes
 	useEffect(() => {
 		storageRef.current = config.storage ?? createMemoryStorage();
 	}, [config.storage]);
-
-	// Fetch session from server (using stored token)
 
 	const fetchSession = useCallback(async (): Promise<void> => {
 		const token = await storageRef.current.getItem(SESSION_KEY);
@@ -91,7 +83,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		}
 	}, [base]);
 
-	// Fetch session on mount
 	useEffect(() => {
 		setIsLoading(true);
 		void fetchSession().finally(() => {
@@ -102,8 +93,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const refresh = useCallback(async (): Promise<void> => {
 		await fetchSession();
 	}, [fetchSession]);
-
-	// Sign in
 
 	const signIn = useCallback(
 		async (email: string, password: string): Promise<ActionResult> => {
@@ -140,8 +129,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		[base],
 	);
 
-	// Sign up
-
 	const signUp = useCallback(
 		async (email: string, password: string, name?: string): Promise<ActionResult> => {
 			try {
@@ -177,8 +164,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		[base],
 	);
 
-	// Social sign-in
-
 	const socialConfig = config.social;
 	const signInWithProvider = useCallback(
 		async (provider: string): Promise<ActionResult> => {
@@ -193,8 +178,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		},
 		[base, socialConfig],
 	);
-
-	// Passkeys
 
 	const passkeys = config.passkeys;
 	const signInWithPasskey = useCallback(
@@ -221,8 +204,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		[base, passkeys],
 	);
 
-	// Refresh when the app returns to the foreground
-
 	const appState = config.appState;
 	useEffect(() => {
 		if (!appState) return;
@@ -231,8 +212,6 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		});
 		return () => sub.remove();
 	}, [appState, fetchSession]);
-
-	// Sign out
 
 	const signOut = useCallback(async (): Promise<void> => {
 		const token = await storageRef.current.getItem(SESSION_KEY);
@@ -268,9 +247,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	return <TheAuthExpoContext.Provider value={value}>{children}</TheAuthExpoContext.Provider>;
 }
 
-// Deprecated aliases
-// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
-// removed in a future major version.
+// Backward-compat aliases for the pre-rebrand API.
 
 /** @deprecated Use `TheAuthExpoProvider` instead. Will be removed in a future major version. */
 export const AuthExpoProvider = TheAuthExpoProvider;

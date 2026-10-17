@@ -8,12 +8,7 @@ export type SqlJsLoader = () => Promise<SqlJsStatic>;
 
 /**
  * Open a database without importing any Node-only driver.
- *
- * - `sqlite` runs in memory on the sql.js WASM build the caller supplies. File URLs are
- *   not read or written here; persistence is the caller's concern.
- * - `d1` uses a Cloudflare D1 binding.
- *
- * Postgres, MySQL and native SQLite are rejected: use the root export on Node.
+ * File URLs are not read or written here; persistence is the caller's concern. Postgres, MySQL and native SQLite are rejected: use the root export on Node.
  */
 export function createBrowserDatabaseOpener(
 	loadSqlJs?: SqlJsLoader,

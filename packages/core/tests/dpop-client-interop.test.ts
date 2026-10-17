@@ -1,7 +1,4 @@
-/**
- * Interop: the @glinr/theauth-client DPoP helper against the real MCP
- * authorization server and resource-server guard (nonce retry, ath, htu).
- */
+/** Interop: the @glinr/theauth-client DPoP helper against the real MCP authorization server and resource-server guard (nonce retry, ath, htu). */
 
 import { describe, expect, it } from "vitest";
 import { createDPoPClient } from "../../client/src/dpop.js";
@@ -25,8 +22,6 @@ const REDIRECT = "https://app.theauth.test/callback";
 const RESOURCE = "https://mcp.theauth.test";
 const RS_URL = `${RESOURCE}/tools?cursor=1`;
 const USER = "user_1";
-
-// Harness
 
 interface Store {
 	clients: Map<string, McpClient>;
