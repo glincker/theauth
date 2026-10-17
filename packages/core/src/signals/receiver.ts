@@ -10,6 +10,7 @@ import type { SecondaryStorage } from "../storage/types.js";
 import type { VerifyKey } from "./set.js";
 import { verifySet } from "./set.js";
 import { parseSubject } from "./subjects.js";
+import { trimTrailingSlashes } from "./trim-slash.js";
 import type { SecurityEventToken, SubjectIdentifier } from "./types.js";
 import { SET_MEDIA_TYPE } from "./types.js";
 
@@ -109,7 +110,7 @@ export function createReceiver(config: ReceiverConfig): Receiver {
 		}
 		const configUrl =
 			config.configurationUrl ??
-			`${config.issuer.replace(/\/+$/, "")}/.well-known/ssf-configuration`;
+			`${trimTrailingSlashes(config.issuer)}/.well-known/ssf-configuration`;
 		const meta = await safeFetchJson(configUrl, { maxBytes: 64 * 1024, ...config.fetchOptions });
 		if (!meta.ok || typeof meta.json !== "object" || meta.json === null)
 			return cachedJwks?.keys ?? null;

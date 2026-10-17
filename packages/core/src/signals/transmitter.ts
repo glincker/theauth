@@ -9,6 +9,7 @@ import { signSet } from "./set.js";
 import type { SignalsStore } from "./store.js";
 import { createSignalsStore } from "./store.js";
 import { candidateKeys } from "./subjects.js";
+import { trimTrailingSlashes } from "./trim-slash.js";
 import type {
 	DeliveryMethod,
 	EventPayload,
@@ -136,7 +137,7 @@ export function createTransmitter(config: TransmitterConfig): Transmitter {
 	const alg = config.signingAlgorithm ?? DEFAULT_ALG;
 	const kid = config.keyId ?? "theauth-ssf-1";
 	const eventsSupported = config.eventsSupported ?? [...SUPPORTED_EVENT_TYPES];
-	const endpointBaseUrl = (config.endpointBaseUrl ?? `${config.issuer}/ssf`).replace(/\/+$/, "");
+	const endpointBaseUrl = trimTrailingSlashes(config.endpointBaseUrl ?? `${config.issuer}/ssf`);
 	const d = config.delivery ?? {};
 	const maxAttempts = d.maxAttempts ?? 5;
 	const sleep = d.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));

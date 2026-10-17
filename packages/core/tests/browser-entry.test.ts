@@ -24,7 +24,7 @@ const NODE_ONLY = [
 const SPEC = /(?:from\s*|import\s*\(\s*|import\s+|require\(\s*)["']([^"']+)["']/g;
 
 function resolveLocal(from: string, spec: string): string {
-	return join(dirname(from), spec.replace(/\.js$/, ".ts")).replace(/\/index\.ts$/, "/index.ts");
+	return join(dirname(from), spec.replace(/\.js$/, ".ts"));
 }
 
 /** Walk every static and dynamic specifier reachable from the browser entry. */
