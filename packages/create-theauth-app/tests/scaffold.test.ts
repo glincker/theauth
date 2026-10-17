@@ -267,3 +267,51 @@ describe("scaffold: dependency versions", () => {
 		}
 	});
 });
+
+describe("scaffold – cloudflare-workers", () => {
+	const dirs: string[] = [];
+
+	afterEach(async () => {
+		await Promise.all(dirs.map((d) => rm(d, { recursive: true, force: true })));
+		dirs.length = 0;
+	});
+
+	async function scaffoldWorkers(appName: string): Promise<string> {
+		const targetDir = randomDir();
+		dirs.push(targetDir);
+		await scaffold({
+			targetDir,
+			template: "cloudflare-workers",
+			appName,
+			dbDriver: "sql.js",
+			dbUrl: "",
+		});
+		return targetDir;
+	}
+
+	it("writes the worker, wrangler config and dev vars example", async () => {
+		const targetDir = await scaffoldWorkers("edge-app");
+		expect(await fileExists(join(targetDir, "src", "worker.ts"))).toBe(true);
+		expect(await fileExists(join(targetDir, "wrangler.toml"))).toBe(true);
+		expect(await fileExists(join(targetDir, ".dev.vars.example"))).toBe(true);
+		expect(await fileExists(join(targetDir, ".gitignore"))).toBe(true);
+		const wrangler = await readFile(join(targetDir, "wrangler.toml"), "utf-8");
+		expect(wrangler).toContain('name = "edge-app"');
+		expect(wrangler).toContain('binding = "DB"');
+	});
+
+	it("pins @glinr packages and leaves no placeholders", async () => {
+		const targetDir = await scaffoldWorkers("pin-edge");
+		const pkg = JSON.parse(await readFile(join(targetDir, "package.json"), "utf-8")) as {
+			name: string;
+			dependencies: Record<string, string>;
+		};
+		expect(pkg.name).toBe("pin-edge");
+		expect(pkg.dependencies["@glinr/theauth"]).toMatch(/^\^\d/);
+		expect(pkg.dependencies["@glinr/theauth-hono"]).toMatch(/^\^\d/);
+		for (const file of await collectFiles(targetDir)) {
+			const text = await readFile(file, "utf-8");
+			for (const ph of PLACEHOLDERS) expect(text).not.toContain(ph);
+		}
+	});
+});

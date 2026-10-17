@@ -1,9 +1,6 @@
 import type { Permission } from "../types.js";
 
-/**
- * Pre-built permission templates for common access patterns.
- * Use these as starting points when creating agents.
- */
+/** Pre-built permission templates for common access patterns. Use these as starting points when creating agents. */
 export const permissionTemplates = {
 	/** Read-only access to all resources */
 	readonly: [{ resource: "*", actions: ["read"] }] satisfies Permission[],
@@ -50,10 +47,7 @@ export const permissionTemplates = {
 
 export type PermissionTemplateName = keyof typeof permissionTemplates;
 
-/**
- * Get a permission template by name.
- * Returns a fresh copy of the permissions array.
- */
+/** Get a permission template by name. Returns a fresh copy of the permissions array. */
 export function getPermissionTemplate(name: PermissionTemplateName): Permission[] {
 	return JSON.parse(JSON.stringify(permissionTemplates[name])) as Permission[];
 }

@@ -1,21 +1,6 @@
 /**
  * Passkey as a second factor for the central sign-in gate.
- *
- * The gate hands a `code` string to every enabled factor. For this factor the
- * code is a WebAuthn assertion (the `PublicKeyCredential` JSON the browser
- * produced), sent as a JSON string or as base64url encoded JSON. The assertion
- * is verified by the passkey module, which also consumes the one-time
- * WebAuthn challenge, and must come from a credential owned by the user the
- * gate challenge was issued for.
- *
- * Flow:
- *   1. A primary sign-in answers `twoFactorRequired` with `methods: ["passkey"]`.
- *   2. The client asks for WebAuthn options for that user:
- *      `factor.getOptions(userId)` (or the passkey module's
- *      `getAuthenticationOptions(userId)`), signs the challenge with the
- *      authenticator, and
- *   3. posts `{ challenge, factor: "passkey", code: JSON.stringify(assertion) }`
- *      to `/auth/sign-in/two-factor`.
+ * The assertion is verified by the passkey module, which also consumes the one-time WebAuthn challenge, and must come from a credential owned by the user the gate challenge was issued for. A primary sign-in answers `twoFactorRequired` with `methods: ["passkey"]`.
  *
  * @example
  * ```typescript
@@ -38,10 +23,7 @@ import type { TwoFactorFactor } from "./sign-in-gate-types.js";
 type Assertion = Parameters<PasskeyModule["verifyAuthentication"]>[0];
 
 export interface PasskeyTwoFactorFactor extends TwoFactorFactor {
-	/**
-	 * WebAuthn request options (challenge, allowCredentials) for the user the
-	 * gate challenge belongs to. Call this before the browser prompt.
-	 */
+	/** WebAuthn request options (challenge, allowCredentials) for the user the gate challenge belongs to. Call this before the browser prompt. */
 	getOptions(userId: string): ReturnType<PasskeyModule["getAuthenticationOptions"]>;
 }
 
@@ -89,10 +71,7 @@ function parseAssertion(code: string): Assertion | null {
 }
 
 /**
- * Build a `TwoFactorFactor` backed by a passkey module. Enabled for users who
- * have at least one registered passkey. Verification fails closed: any parse
- * or WebAuthn error, or an assertion from another user's credential, is a
- * wrong code.
+ * Build a `TwoFactorFactor` backed by a passkey module. Enabled for users who have at least one registered passkey. Verification fails closed: any parse or WebAuthn error, or an assertion from another user's credential, is a wrong code.
  */
 export function createPasskeyTwoFactorFactor(
 	passkey: PasskeyModule,

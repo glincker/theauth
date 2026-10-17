@@ -46,8 +46,14 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
 		throw new ConfigError("THEAUTH_API_URL must start with http:// or https://");
 	}
 	return {
-		apiUrl: rawUrl.replace(/\/+$/, ""),
+		apiUrl: trimTrailingSlashes(rawUrl),
 		apiKey,
 		timeoutMs: positiveInt("THEAUTH_TIMEOUT_MS", env.THEAUTH_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
 	};
+}
+
+function trimTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+	return value.slice(0, end);
 }

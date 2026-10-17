@@ -10,11 +10,7 @@ import { createAgentRegistrationModule } from "./agent-registration.js";
 import type { ResolvedUser } from "./types.js";
 
 export interface AgentRegistrationPluginConfig {
-	/**
-	 * Decide whether a signed-in user is an admin. Admins can mint, list and
-	 * revoke tokens for any owner. Everyone else can only manage their own.
-	 * Default: nobody is admin.
-	 */
+	/** Decide whether a signed-in user is an admin. Admins can mint, list and revoke tokens for any owner. Everyone else can only manage their own. Default: nobody is admin. */
 	isAdmin?: (user: ResolvedUser) => boolean | Promise<boolean>;
 	defaultExpiresInSeconds?: number;
 	maxExpiresInSeconds?: number;

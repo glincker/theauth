@@ -1,13 +1,6 @@
 /**
  * GDPR plugin for TheAuth.
- *
- * Exposes three self-service endpoints that authenticated users can call
- * to exercise their data rights under GDPR Articles 17 and 20.
- *
- * Endpoints:
- *   GET    /auth/gdpr/export     – download a JSON export of all personal data
- *   DELETE /auth/gdpr/delete     – permanently delete the account
- *   POST   /auth/gdpr/anonymize  – strip PII but keep the account shell
+ * Endpoints: GET    /auth/gdpr/export, download a JSON export of all personal data DELETE /auth/gdpr/delete, permanently delete the account POST   /auth/gdpr/anonymize, strip PII but keep the account shell
  *
  * @example
  * ```typescript
@@ -24,8 +17,6 @@
 import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import { createGdprModule } from "./gdpr.js";
-
-// Plugin factory
 
 export function gdpr(): TheAuthPlugin {
 	return {

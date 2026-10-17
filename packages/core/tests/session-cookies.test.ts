@@ -1,6 +1,4 @@
-/**
- * Tests for cookie utilities, CSRF protection, and the cookie-aware session manager.
- */
+/** Tests for cookie utilities, CSRF protection, and the cookie-aware session manager. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "../src/db/database.js";
@@ -17,8 +15,6 @@ import {
 import { generateCsrfToken, validateCsrfToken, validateOrigin } from "../src/session/csrf.js";
 import type { CookieSessionManager } from "../src/session/manager.js";
 import { createCookieSessionManager } from "../src/session/manager.js";
-
-// Shared test helpers
 
 const TEST_SECRET = "a-test-secret-that-is-at-least-32-chars-long!!";
 const TEST_USER_ID = "user-cookie-test";
@@ -39,8 +35,6 @@ async function createTestDb(): Promise<Database> {
 
 	return db;
 }
-
-// Cookie utilities
 
 describe("serializeCookie", () => {
 	it("produces the expected base string with defaults", () => {
@@ -177,8 +171,6 @@ describe("parseCookiesFromRequest", () => {
 	});
 });
 
-// CSRF utilities
-
 describe("generateCsrfToken", () => {
 	it("returns a non-empty string", () => {
 		const token = generateCsrfToken();
@@ -288,8 +280,6 @@ describe("validateOrigin", () => {
 		expect(result.valid).toBe(false);
 	});
 });
-
-// Cookie-aware session manager
 
 describe("CookieSessionManager — createSession", () => {
 	let db: Database;

@@ -5,8 +5,6 @@ import { cx } from "../utils.js";
 import { AuthCard } from "./auth-card.js";
 import { DefaultButton, DefaultError, DefaultInput } from "./defaults.js";
 
-// Default slots
-
 function DefaultLink({ href, children, className, onClick }: LinkSlotProps): ReactNode {
 	return (
 		<a
@@ -28,8 +26,6 @@ function DefaultLink({ href, children, className, onClick }: LinkSlotProps): Rea
 		</a>
 	);
 }
-
-// Component
 
 export function ForgotPassword({
 	classNames,

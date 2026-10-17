@@ -1,8 +1,6 @@
 import type { TheAuthConfig } from "../types.js";
 import type { Database, DatabaseConfig } from "./database.js";
 
-// Feature flag types
-
 interface EnabledFeatures {
 	core: true; // always
 	session: boolean;
@@ -116,46 +114,25 @@ function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures {
 	};
 }
 
-// Per-provider DDL helpers
-
 interface TaggedStatement {
 	feature: keyof EnabledFeatures;
 	sql: string;
 }
 
-/**
- * Returns CREATE TABLE statements for all TheAuth tables, adapted to the
- * target SQL dialect, tagged with the feature that requires them.
- *
- * Dialect differences handled here:
- * - **Timestamps** – SQLite stores as INTEGER (Unix ms); Postgres uses
- *   TIMESTAMPTZ; MySQL uses DATETIME(3).
- * - **JSON columns** – SQLite stores as TEXT; Postgres uses JSONB;
- *   MySQL uses JSON.
- * - **Booleans** – SQLite stores as INTEGER (0/1); Postgres uses BOOLEAN;
- *   MySQL uses TINYINT(1).
- * - **Auto-increment** – Not used here (IDs are application-generated UUIDs /
- *   nanoids), so no SERIAL vs AUTO_INCREMENT difference applies.
- */
+/** Returns CREATE TABLE statements for all TheAuth tables, adapted to the target SQL dialect, each tagged with its feature. */
 function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[] {
 	const isPostgres = provider === "postgres";
 	const isMysql = provider === "mysql";
 
-	// Timestamp column type
 	const ts = isPostgres ? "TIMESTAMPTZ" : isMysql ? "DATETIME(3)" : "INTEGER";
-	// Nullable timestamp (same type, just no NOT NULL)
 	const tsNull = ts;
-	// JSON column type
 	const json = isPostgres ? "JSONB" : isMysql ? "JSON" : "TEXT";
-	// Boolean column type
 	const bool = isPostgres ? "BOOLEAN" : isMysql ? "TINYINT(1)" : "INTEGER";
-	// IF NOT EXISTS is universally supported
 	const ifne = "IF NOT EXISTS";
 	/** Indexed text columns need a bounded type on MySQL. */
 	const vc = isMysql ? "VARCHAR(191)" : "TEXT";
 
 	return [
-		// theauth_users
 		{
 			feature: "core",
 			sql: `CREATE TABLE ${ifne} theauth_users (
@@ -188,7 +165,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_tenants  (must come before theauth_agents – agents FK to tenants)
 		{
 			feature: "tenant",
 			sql: `CREATE TABLE ${ifne} theauth_tenants (
@@ -202,7 +178,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_agents
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_agents (
@@ -222,7 +197,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_permissions
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_permissions (
@@ -236,7 +210,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_delegation_chains
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_delegation_chains (
@@ -252,7 +225,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_audit_logs
 		{
 			feature: "audit",
 			sql: `CREATE TABLE ${ifne} theauth_audit_logs (
@@ -284,7 +256,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_audit_secrets: pseudonym key for audit rows when audit.hmacKey is unset
 		{
 			feature: "audit",
 			sql: `CREATE TABLE ${ifne} theauth_audit_secrets (
@@ -307,7 +278,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 					},
 				]),
 
-		// theauth_rate_limits
 		{
 			feature: "rateLimit",
 			sql: `CREATE TABLE ${ifne} theauth_rate_limits (
@@ -319,7 +289,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_mcp_servers
 		{
 			feature: "mcp",
 			sql: `CREATE TABLE ${ifne} theauth_mcp_servers (
@@ -335,7 +304,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_sessions
 		{
 			feature: "session",
 			sql: `CREATE TABLE ${ifne} theauth_sessions (
@@ -347,7 +315,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oauth_clients
 		{
 			feature: "oauth",
 			sql: `CREATE TABLE ${ifne} theauth_oauth_clients (
@@ -368,7 +335,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oauth_access_tokens
 		{
 			feature: "oauth",
 			sql: `CREATE TABLE ${ifne} theauth_oauth_access_tokens (
@@ -385,7 +351,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oauth_authorization_codes
 		{
 			feature: "oauth",
 			sql: `CREATE TABLE ${ifne} theauth_oauth_authorization_codes (
@@ -403,7 +368,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oauth_accounts (provider account linking)
 		{
 			feature: "oauth",
 			sql: `CREATE TABLE ${ifne} theauth_oauth_accounts (
@@ -419,7 +383,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oauth_states (PKCE state for CSRF protection)
 		{
 			feature: "oauth",
 			sql: `CREATE TABLE ${ifne} theauth_oauth_states (
@@ -432,7 +395,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_budget_policies
 		{
 			feature: "budget",
 			sql: `CREATE TABLE ${ifne} theauth_budget_policies (
@@ -448,7 +410,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_agent_cards  (A2A discovery)
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_agent_cards (
@@ -467,7 +428,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_approval_requests  (CIBA async approval flows)
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_approval_requests (
@@ -486,7 +446,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_trust_scores  (graduated autonomy scoring)
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_trust_scores (
@@ -498,7 +457,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_organizations
 		{
 			feature: "org",
 			sql: `CREATE TABLE ${ifne} theauth_organizations (
@@ -512,7 +470,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_org_members
 		{
 			feature: "org",
 			sql: `CREATE TABLE ${ifne} theauth_org_members (
@@ -525,7 +482,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_org_invitations
 		{
 			feature: "org",
 			sql: `CREATE TABLE ${ifne} theauth_org_invitations (
@@ -540,7 +496,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_org_roles
 		{
 			feature: "org",
 			sql: `CREATE TABLE ${ifne} theauth_org_roles (
@@ -552,7 +507,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_passkey_credentials  (WebAuthn / FIDO2 passkeys)
 		{
 			feature: "passkey",
 			sql: `CREATE TABLE ${ifne} theauth_passkey_credentials (
@@ -568,7 +522,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_passkey_challenges  (short-lived WebAuthn challenges)
 		{
 			feature: "passkey",
 			sql: `CREATE TABLE ${ifne} theauth_passkey_challenges (
@@ -581,7 +534,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_one_time_tokens  (email verify, password reset, invitation)
 		{
 			feature: "oneTimeToken",
 			sql: `CREATE TABLE ${ifne} theauth_one_time_tokens (
@@ -596,7 +548,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_secondary_storage  (database adapter for SecondaryStorage)
 		{
 			feature: "secondaryStorage",
 			sql: `CREATE TABLE ${ifne} theauth_secondary_storage (
@@ -607,7 +558,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_agent_registration_tokens  (one-time agent self-registration)
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_agent_registration_tokens (
@@ -631,7 +581,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_agent_dids  (W3C Decentralized Identifiers per agent)
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_agent_dids (
@@ -644,7 +593,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_vault_connections / theauth_vault_consents (outbound token vault)
 		{
 			feature: "tokenVault",
 			sql: `CREATE TABLE ${ifne} theauth_vault_connections (
@@ -680,7 +628,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_ssf_streams / subjects / outbox (Shared Signals transmitter)
 		{
 			feature: "sharedSignals",
 			sql: `CREATE TABLE ${ifne} theauth_ssf_streams (
@@ -728,7 +675,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_magic_links  (passwordless email login)
 		{
 			feature: "magicLink",
 			sql: `CREATE TABLE ${ifne} theauth_magic_links (
@@ -741,7 +687,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_email_otps  (one-time password login)
 		{
 			feature: "emailOtp",
 			sql: `CREATE TABLE ${ifne} theauth_email_otps (
@@ -754,7 +699,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_totp  (TOTP two-factor authentication)
 		{
 			feature: "totp",
 			sql: `CREATE TABLE ${ifne} theauth_totp (
@@ -767,7 +711,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_sso_connections  (SAML 2.0 / OIDC enterprise SSO)
 		{
 			feature: "sso",
 			sql: `CREATE TABLE ${ifne} theauth_sso_connections (
@@ -781,7 +724,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_api_keys  (static bearer tokens with permission scopes)
 		{
 			feature: "apiKey",
 			sql: `CREATE TABLE ${ifne} theauth_api_keys (
@@ -797,7 +739,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_username_accounts  (username + password auth)
 		{
 			feature: "username",
 			sql: `CREATE TABLE ${ifne} theauth_username_accounts (
@@ -810,7 +751,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_phone_verifications  (SMS OTP)
 		{
 			feature: "phone",
 			sql: `CREATE TABLE ${ifne} theauth_phone_verifications (
@@ -823,7 +763,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_trusted_devices  (skip 2FA on trusted devices for a window)
 		{
 			feature: "device",
 			sql: `CREATE TABLE ${ifne} theauth_trusted_devices (
@@ -836,7 +775,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_login_history  (last-login method tracking per user)
 		{
 			feature: "loginHistory",
 			sql: `CREATE TABLE ${ifne} theauth_login_history (
@@ -854,7 +792,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_login_history (user_id, timestamp DESC)`,
 		},
 
-		// theauth_oidc_clients  (OIDC Provider — registered relying parties)
 		{
 			feature: "oidcProvider",
 			sql: `CREATE TABLE ${ifne} theauth_oidc_clients (
@@ -872,7 +809,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oidc_auth_codes  (OIDC Provider — authorization codes)
 		{
 			feature: "oidcProvider",
 			sql: `CREATE TABLE ${ifne} theauth_oidc_auth_codes (
@@ -891,7 +827,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oidc_refresh_tokens  (OIDC Provider — refresh tokens)
 		{
 			feature: "oidcProvider",
 			sql: `CREATE TABLE ${ifne} theauth_oidc_refresh_tokens (
@@ -906,7 +841,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oidc_logout_clients  (OIDC Provider: logout URIs per client)
 		{
 			feature: "oidcProvider",
 			sql: `CREATE TABLE ${ifne} theauth_oidc_logout_clients (
@@ -917,7 +851,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_oidc_sessions  (OIDC Provider: sid index for logout fan-out)
 		{
 			feature: "oidcProvider",
 			sql: `CREATE TABLE ${ifne} theauth_oidc_sessions (
@@ -941,7 +874,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_oidc_sessions (session_id)`,
 		},
 
-		// theauth_cost_events  (per-agent cost attribution)
 		{
 			feature: "audit",
 			sql: `CREATE TABLE ${ifne} theauth_cost_events (
@@ -968,7 +900,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_cost_events (delegation_chain_id)`,
 		},
 
-		// theauth_ephemeral_sessions  (short-lived agent credentials)
 		{
 			feature: "agent",
 			sql: `CREATE TABLE ${ifne} theauth_ephemeral_sessions (
@@ -996,7 +927,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_ephemeral_sessions (expires_at)`,
 		},
 
-		// theauth_jwt_refresh_tokens  (JWT session plugin — general purpose)
 		{
 			feature: "jwt",
 			sql: `CREATE TABLE ${ifne} theauth_jwt_refresh_tokens (
@@ -1014,7 +944,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_jwt_refresh_tokens (user_id)`,
 		},
 
-		// theauth_stream_events  (persisted SSE events for replay)
 		{
 			feature: "audit",
 			sql: `CREATE TABLE ${ifne} theauth_stream_events (
@@ -1037,7 +966,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_stream_events (type, timestamp DESC)`,
 		},
 
-		// theauth_rebac_resources  (ReBAC resource hierarchy)
 		{
 			feature: "rebac",
 			sql: `CREATE TABLE ${ifne} theauth_rebac_resources (
@@ -1054,7 +982,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_rebac_resources (parent_id, parent_type)`,
 		},
 
-		// theauth_rebac_relationships  (Zanzibar-style subject-relation-object tuples)
 		{
 			feature: "rebac",
 			sql: `CREATE TABLE ${ifne} theauth_rebac_relationships (
@@ -1083,7 +1010,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_rebac_relationships (subject_type, subject_id, relation, object_type, object_id)`,
 		},
 
-		// theauth_federation_instances  (trusted remote TheAuth instances)
 		{
 			feature: "federation",
 			sql: `CREATE TABLE ${ifne} theauth_federation_instances (
@@ -1098,7 +1024,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 )`,
 		},
 
-		// theauth_federation_tokens  (issued/received federation tokens)
 		{
 			feature: "federation",
 			sql: `CREATE TABLE ${ifne} theauth_federation_tokens (
@@ -1125,7 +1050,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_federation_tokens (source_instance_id)`,
 		},
 
-		// theauth_refresh_token_families  (token rotation / reuse detection)
 		{
 			feature: "jwt",
 			sql: `CREATE TABLE ${ifne} theauth_refresh_token_families (
@@ -1142,7 +1066,6 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   ON theauth_refresh_token_families (user_id)`,
 		},
 
-		// theauth_refresh_tokens  (individual one-time-use tokens per family)
 		{
 			feature: "jwt",
 			sql: `CREATE TABLE ${ifne} theauth_refresh_tokens (
@@ -1162,22 +1085,9 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 	];
 }
 
-// Public API
-
 /**
  * Create TheAuth tables if they do not already exist.
- *
- * Uses `CREATE TABLE IF NOT EXISTS` so it is safe to call on every startup.
- * Tables are created in dependency order (no forward-reference FK issues).
- *
- * When `config` is provided, only tables required by the configured features
- * are created. When omitted, all tables are created (backward-compatible
- * behaviour for callers that do not pass a config).
- *
- * @param db       Drizzle database instance returned by `createDatabase()`.
- * @param provider The database provider used to build the correct DDL syntax.
- * @param config   Optional TheAuthConfig used to determine which feature tables
- *                 to create. When absent, all tables are created.
+ * Uses `CREATE TABLE IF NOT EXISTS` so it is safe to call on every startup. When `config` is provided, only tables required by the configured features are created. When omitted, all tables are created (backward-compatible behaviour for callers that do not pass a config).
  *
  * @example
  * ```typescript
@@ -1188,12 +1098,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
 /** Prefix used by tables created before the rename to TheAuth. Only used to upgrade existing databases in place. */
 const LEGACY_TABLE_PREFIX = "ka" + "vach_";
 
-/**
- * Builds statements that rename pre-existing legacy tables to their current names so
- * upgrading a database keeps its data. Each statement fails harmlessly when the legacy
- * table is absent (fresh database) or the new table already exists, so callers run them
- * tolerantly before the CREATE TABLE statements.
- */
+/** Renames tables created under the legacy prefix so upgrades keep their data. */
 function buildLegacyRenames(provider: DatabaseConfig["provider"], statements: string[]): string[] {
 	const names = new Set<string>();
 	for (const sql of statements) {
@@ -1208,7 +1113,6 @@ function buildLegacyRenames(provider: DatabaseConfig["provider"], statements: st
 	});
 }
 
-/** Resolves a function that runs one raw DDL statement against the underlying driver. */
 function resolveExecutor(
 	db: Database,
 	provider: DatabaseConfig["provider"],
@@ -1218,19 +1122,16 @@ function resolveExecutor(
 
 	if (provider === "sqlite" || provider === "sqlite-native") {
 		const session = anyDb.session;
-		// better-sqlite3 (sqlite-native) exposes session.client.exec()
 		if (session?.client?.exec) {
 			return async (sql) => {
 				session.client.exec(`${sql};`);
 			};
 		}
-		// sql.js (default sqlite) exposes session.client.run()
 		if (session?.client?.run) {
 			return async (sql) => {
 				session.client.run(sql);
 			};
 		}
-		// Fallback via drizzle run() (works for both sql.js and better-sqlite3)
 		return async (sql) => {
 			await anyDb.run(sql);
 		};
@@ -1309,11 +1210,7 @@ export async function createTables(
 	}
 }
 
-/**
- * Adds consumed_at to an approval requests table created before approvals
- * became single use. Fresh tables already have it, so "already exists" is
- * ignored, the same way upgradeAuditChainColumns does it.
- */
+/** Adds consumed_at to approval tables created before approvals became single use. */
 async function upgradeApprovalColumns(
 	run: (sql: string) => Promise<void>,
 	provider: DatabaseConfig["provider"],
@@ -1328,14 +1225,7 @@ async function upgradeApprovalColumns(
 	}
 }
 
-/**
- * Adds the hash chain columns, the accountability columns (hash_version, subject_id,
- * actor_id, policy_version, approver_id, delegation_chain, input_provenance, id_pseudonyms) and the fork guard index to an audit table that
- * was created before they existed. Fresh tables already have them, so every
- * statement here is allowed to fail with "already exists" and is ignored.
- * SQLite and MySQL have no ADD COLUMN IF NOT EXISTS, so tolerance is the
- * idempotency mechanism there; Postgres uses the native clause.
- */
+/** Adds the hash chain and accountability columns to audit tables created before them. */
 async function upgradeAuditChainColumns(
 	run: (sql: string) => Promise<void>,
 	provider: DatabaseConfig["provider"],

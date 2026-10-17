@@ -172,8 +172,6 @@ export function NotionIcon(props: IconProps) {
 	);
 }
 
-// Provider metadata with icons
-
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderMeta> = {
 	google: { id: "google", name: "Google", icon: <GoogleIcon />, color: "#4285F4" },
 	github: { id: "github", name: "GitHub", icon: <GitHubIcon />, color: "#24292e" },

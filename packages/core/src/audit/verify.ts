@@ -19,10 +19,7 @@ export interface VerifyAuditChainOptions {
 	/** Limit the check to one agent's chain. */
 	agentId?: string;
 	/**
-	 * A chain head you saved earlier (for example from an export manifest).
-	 * If the chain is now shorter than this, or has a different hash at that
-	 * seq, the check reports truncation. Without an anchor, deleting the newest
-	 * rows of a chain cannot be detected.
+	 * A chain head you saved earlier (for example from an export manifest). If the chain is now shorter than this, or has a different hash at that seq, the check reports truncation. Without an anchor, deleting the newest rows of a chain cannot be detected.
 	 */
 	expectedHeads?: ChainHead[];
 }
@@ -60,10 +57,7 @@ export interface VerifyAuditChainResult {
 	/** Rows in range with no hash (written before the chain was enabled, or by a writer that skips it). Erasure side records are not counted. */
 	unchained: number;
 	/**
-	 * Rows that were erased on purpose (GDPR) and are accounted for by an
-	 * `audit.erasure` record: version 1 rows whose ids were rewritten, rows
-	 * deleted from the middle of a chain, and version 2 rows whose raw ids were
-	 * blanked. These are reported here, never as tamper.
+	 * Rows that were erased on purpose (GDPR) and are accounted for by an `audit.erasure` record: version 1 rows whose ids were rewritten, rows deleted from the middle of a chain, and version 2 rows whose raw ids were blanked. These are reported here, never as tamper.
 	 */
 	erased: number;
 	firstBreak?: ChainBreak;
@@ -80,10 +74,7 @@ function rangeConditions(opts: VerifyAuditChainOptions) {
 	return c;
 }
 
-/**
- * Walk each agent's chain and report the first broken link. "First" is by agent
- * (in agent id order) and then by seq, so the result is deterministic.
- */
+/** Walk each agent's chain and report the first broken link. "First" is by agent (in agent id order) and then by seq, so the result is deterministic. */
 export async function verifyAuditChain(
 	db: Database,
 	opts: VerifyAuditChainOptions,
@@ -222,10 +213,7 @@ async function verifyAgentChain(
 }
 
 /**
- * Checkpoint rows are ordinary chained rows, so their own hash is checked in
- * the main walk. This only compares the recorded last-deleted hash against the
- * first surviving row. Chains cleaned before checkpoints existed have none and
- * are accepted as before.
+ * Checkpoint rows are ordinary chained rows, so their own hash is checked in the main walk. This only compares the recorded last-deleted hash against the first surviving row. Chains cleaned before checkpoints existed have none and are accepted as before.
  */
 async function checkCheckpointLink(
 	db: Database,
@@ -315,10 +303,7 @@ async function loadErasures(db: Database): Promise<VerifyContext["erasures"]> {
 	return { byId, bySeq };
 }
 
-/**
- * Rows between prev and row that an erasure record accounts for, if they link
- * prev to row without a gap in the hashes. Undefined means the gap is real.
- */
+/** Rows between prev and row that an erasure record accounts for, if they link prev to row without a gap in the hashes. Undefined means the gap is real. */
 function bridgeErased(prev: AuditRow, row: AuditRow, ctx: VerifyContext): number | undefined {
 	if (prev.chainSeq === null) return undefined;
 	let expectedPrev = prev.hash;

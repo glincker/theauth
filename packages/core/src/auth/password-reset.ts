@@ -1,18 +1,5 @@
 /**
- * Password reset module for TheAuth.
- *
- * Composes the one-time token module with the username auth module to provide
- * a complete forgot-password and reset-password flow. The caller supplies an
- * email-sending callback; TheAuth handles token generation, validation,
- * password hashing, and session revocation.
- *
- * Security properties:
- * - Tokens are 256-bit random, stored as SHA-256 hashes (never in plaintext).
- * - Single-use: consumed on first validation.
- * - Configurable TTL (default 1 hour).
- * - All existing sessions are revoked on successful reset.
- * - Email enumeration resistant: always returns success, even for unknown emails.
- * - Outstanding reset tokens are revoked when a new one is requested.
+ * Forgot-password and reset-password flows, built on the one-time token and username modules.
  *
  * @example
  * ```typescript
@@ -32,7 +19,7 @@
  *   },
  * });
  *
- * // Forgot password (always succeeds — no email enumeration)
+ * // Forgot password (always succeeds, no email enumeration)
  * await theauth.passwordReset.requestReset('alice@example.com');
  *
  * // Reset password (from the link in the email)
@@ -52,73 +39,31 @@ import type { OtpService } from "./otp.js";
 import type { OtpChannel } from "./otp-senders.js";
 import type { SignInGate } from "./sign-in-gate.js";
 
-// Re-export shared types
-
 export type { AuthError, Result, TheAuthError };
 
-// Public types
-
 export interface PasswordResetConfig {
-	/**
-	 * Callback to send the password reset email.
-	 *
-	 * TheAuth generates the token and constructs the reset URL. Your job is
-	 * to deliver it (Resend, SES, SMTP, Postmark, whatever you use).
-	 *
-	 * The function should not throw for unknown emails. TheAuth already
-	 * handles that by silently succeeding.
-	 */
+	/** Sends the reset email. TheAuth builds the token and reset URL; you deliver the email. */
 	sendResetEmail: (email: string, token: string, resetUrl: string) => Promise<void>;
 
-	/**
-	 * Base URL for the reset page in your app.
-	 *
-	 * The token is appended as `?token=<token>`. Example:
-	 * `https://app.example.com/reset-password` produces
-	 * `https://app.example.com/reset-password?token=abc123...`
-	 */
+	/** Reset page URL. The token is appended as `?token=<token>`. */
 	resetUrl: string;
 
-	/**
-	 * Token TTL in seconds. Default: 3600 (1 hour).
-	 *
-	 * Keep this short. Password reset tokens are high-value targets.
-	 */
+	/** Token TTL in seconds. Default: 3600 (1 hour). Keep it short: reset tokens are high-value targets. */
 	tokenTtlSeconds?: number;
 
-	/**
-	 * Revoke all existing sessions on successful password reset.
-	 * Default: true.
-	 *
-	 * If someone's password was compromised, you want to kick out the
-	 * attacker's sessions too.
-	 */
+	/** Revoke all sessions on reset. Default: true, so an attacker holding a stolen session is kicked out too. */
 	revokeSessionsOnReset?: boolean;
 
-	/**
-	 * Called after a password was changed by a reset. Used to emit a Shared
-	 * Signals credential-change event. Errors are swallowed.
-	 */
+	/** Called after a reset changes the password (emits a Shared Signals credential-change event). Errors are swallowed. */
 	onPasswordChanged?: (userId: string) => void | Promise<void>;
 
-	/**
-	 * Minimum password length for the new password.
-	 * Default: 8 (matches username module default).
-	 */
+	/** Minimum new password length. Default: 8 (matches the username module). */
 	minPasswordLength?: number;
 
-	/**
-	 * Maximum password length for the new password.
-	 * Default: 128 (matches username module default).
-	 */
+	/** Maximum new password length. Default: 128 (matches the username module). */
 	maxPasswordLength?: number;
 
-	/**
-	 * Optional code-based reset. When set, `requestResetOtp` and
-	 * `resetPasswordWithOtp` work and these routes are served:
-	 * `POST /auth/forgot-password/otp` and `POST /auth/reset-password/otp`.
-	 * The link flow above is unchanged.
-	 */
+	/** Optional code-based reset. When set, requestResetOtp and resetPasswordWithOtp are served on the `/otp` routes. */
 	otp?: {
 		service: OtpService;
 		/** Delivery channel for the identifier (the account email). Default `"email"`. */
@@ -127,34 +72,16 @@ export interface PasswordResetConfig {
 }
 
 export interface PasswordResetModule {
-	/**
-	 * Request a password reset for the given email.
-	 *
-	 * Always returns success to prevent email enumeration. If the email
-	 * is not associated with any account, nothing happens (no email sent).
-	 */
+	/** Requests a reset for an email. Always succeeds to prevent enumeration; no email is sent for unknown accounts. */
 	requestReset(email: string): Promise<Result<{ sent: boolean }>>;
 
-	/**
-	 * Reset a password using a token from the reset email.
-	 *
-	 * Validates the token, updates the password hash, and optionally
-	 * revokes all sessions. The token is consumed on success.
-	 */
+	/** Resets a password using a token from the reset email. The token is consumed on success. */
 	resetPassword(token: string, newPassword: string): Promise<Result<{ userId: string }>>;
 
-	/**
-	 * Send a reset code instead of a link. Requires `config.otp`. Enumeration
-	 * safe like `requestReset`: unknown emails and accounts without a password
-	 * return success with `sent: false`.
-	 */
+	/** Sends a reset code instead of a link. Requires `config.otp`. Enumeration-safe like requestReset. */
 	requestResetOtp(email: string): Promise<Result<{ sent: boolean }>>;
 
-	/**
-	 * Reset a password with the emailed code. Same password rules, session
-	 * revocation and flag clearing as `resetPassword`. The code is consumed on
-	 * a match, and the generic `INVALID_CODE` error covers every failure.
-	 */
+	/** Resets a password with the emailed code. The code is consumed on a match. */
 	resetPasswordWithOtp(
 		email: string,
 		code: string,
@@ -163,23 +90,18 @@ export interface PasswordResetModule {
 
 	/**
 	 * Handle HTTP requests for password reset endpoints.
-	 *
-	 * - POST /auth/forgot-password — { email }
-	 * - POST /auth/reset-password  — { token, password }
+	 * - POST /auth/forgot-password, { email }
+	 * - POST /auth/reset-password, { token, password }
 	 * - POST /auth/forgot-password/otp: { email } (only with `config.otp`)
 	 * - POST /auth/reset-password/otp: { email, code, password } (only with `config.otp`)
 	 */
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// Constants
-
 const DEFAULT_TOKEN_TTL_SECONDS = 3600; // 1 hour
 const DEFAULT_MIN_PASSWORD = 8;
 const DEFAULT_MAX_PASSWORD = 128;
 const TOKEN_PURPOSE = "password-reset" as const;
-
-// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -191,8 +113,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 		headers: { "Content-Type": "application/json" },
 	});
 }
-
-// Factory
 
 export function createPasswordResetModule(
 	config: PasswordResetConfig,
@@ -216,8 +136,6 @@ export function createPasswordResetModule(
 		return null;
 	}
 
-	// requestReset
-
 	async function requestReset(email: string): Promise<Result<{ sent: boolean }>> {
 		if (typeof email !== "string" || email.trim() === "") {
 			return { success: false, error: makeError("INVALID_INPUT", "email must not be empty") };
@@ -225,7 +143,6 @@ export function createPasswordResetModule(
 
 		const normalizedEmail = normalizeEmail(email);
 
-		// Look up user by email. If not found, return success (no enumeration).
 		const userRows = await db
 			.select({ id: users.id, email: users.email })
 			.from(users)
@@ -245,14 +162,11 @@ export function createPasswordResetModule(
 			.where(eq(usernameAccounts.userId, user.id));
 
 		if (!accountRows[0]) {
-			// User exists but doesn't use password auth. Silent success.
 			return { success: true, data: { sent: false } };
 		}
 
-		// Revoke any outstanding reset tokens for this email before issuing a new one.
 		await tokenModule.revokeTokens(normalizedEmail, TOKEN_PURPOSE);
 
-		// Create the reset token
 		const tokenResult = await tokenModule.createToken({
 			purpose: TOKEN_PURPOSE,
 			identifier: normalizedEmail,
@@ -269,21 +183,16 @@ export function createPasswordResetModule(
 
 		const resetUrl = `${config.resetUrl}?token=${tokenResult.data.token}`;
 
-		// Send the email asynchronously. Don't await — don't reveal timing differences
-		// between "email exists" and "email doesn't exist" to the caller.
-		// But we do want to catch errors for logging, so we use void + catch.
+		// Not awaited, so response timing does not reveal whether the email exists.
 		try {
 			await config.sendResetEmail(normalizedEmail, tokenResult.data.token, resetUrl);
 		} catch (err) {
-			// Swallow error — the token is already created.
-			// The caller can retry or the user can request another reset.
+			// Email failures are swallowed: the token exists and the user can request another reset.
 			void err;
 		}
 
 		return { success: true, data: { sent: true } };
 	}
-
-	// resetPassword
 
 	async function resetPassword(
 		token: string,
@@ -298,7 +207,6 @@ export function createPasswordResetModule(
 			return { success: false, error: makeError("INVALID_PASSWORD", passwordError) };
 		}
 
-		// Validate and consume the token
 		const validation = await tokenModule.validateToken(token, TOKEN_PURPOSE);
 		if (!validation.success) {
 			return {
@@ -320,14 +228,11 @@ export function createPasswordResetModule(
 		userId: string | undefined,
 		newPassword: string,
 	): Promise<Result<{ userId: string }>> {
-		// Look up the user's username account
 		let accountUserId: string;
 
 		if (userId) {
-			// We stored the userId in token metadata — use it directly
 			accountUserId = userId;
 		} else {
-			// Fallback: look up by email
 			const userRows = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
 
 			const user = userRows[0];
@@ -340,7 +245,6 @@ export function createPasswordResetModule(
 			accountUserId = user.id;
 		}
 
-		// Verify the username account exists
 		const accountRows = await db
 			.select({ userId: usernameAccounts.userId })
 			.from(usernameAccounts)
@@ -356,14 +260,12 @@ export function createPasswordResetModule(
 			};
 		}
 
-		// Hash the new password and update
 		const newHash = await pbkdf2Hash(newPassword);
 		await db
 			.update(usernameAccounts)
 			.set({ passwordHash: newHash, updatedAt: new Date() })
 			.where(eq(usernameAccounts.userId, accountUserId));
 
-		// Clear the forcePasswordReset flag if set
 		await db
 			.update(users)
 			.set({ forcePasswordReset: 0, updatedAt: new Date() })
@@ -372,12 +274,10 @@ export function createPasswordResetModule(
 		// A new password invalidates every trusted-device 2FA bypass.
 		if (signInGate) await signInGate.onPasswordChanged(accountUserId);
 
-		// Revoke all sessions if configured (default: true)
 		if (revokeOnReset) {
 			await sessionManager.revokeAll(accountUserId);
 		}
 
-		// Revoke any remaining reset tokens for this email
 		await tokenModule.revokeTokens(email, TOKEN_PURPOSE);
 
 		if (config.onPasswordChanged) {
@@ -390,8 +290,6 @@ export function createPasswordResetModule(
 
 		return { success: true, data: { userId: accountUserId } };
 	}
-
-	// OTP variant (opt-in via config.otp)
 
 	const otpConfig = config.otp;
 
@@ -468,8 +366,6 @@ export function createPasswordResetModule(
 		}
 		return result;
 	}
-
-	// handleRequest
 
 	const HANDLED_PATHS = new Set(["/auth/forgot-password", "/auth/reset-password"]);
 	if (otpConfig) {

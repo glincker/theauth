@@ -1,7 +1,6 @@
 import type { TranslationKeys } from "../i18n.js";
 
 export const en: TranslationKeys = {
-	// Auth errors
 	"auth.invalidCredentials": "Invalid email or password.",
 	"auth.emailNotVerified": "Please verify your email address before signing in.",
 	"auth.accountLocked": "Your account has been locked. Contact support to unlock it.",
@@ -13,18 +12,15 @@ export const en: TranslationKeys = {
 	"auth.tokenInvalid": "This link is invalid or has already been used.",
 	"auth.unauthorized": "You are not authorized to perform this action.",
 
-	// Agent errors
 	"agent.notFound": "Agent not found.",
 	"agent.revoked": "This agent's access has been revoked.",
 	"agent.limitExceeded": "Agent limit reached for this account.",
 	"agent.permissionDenied": "Agent does not have permission to perform this action.",
 
-	// 2FA
 	"twoFactor.invalidCode": "Invalid verification code. Check your authenticator app and try again.",
 	"twoFactor.alreadyEnabled": "Two-factor authentication is already enabled on this account.",
 	"twoFactor.notEnabled": "Two-factor authentication is not enabled on this account.",
 
-	// Email subjects
 	"email.verification.subject": "Verify your email address",
 	"email.passwordReset.subject": "Reset your password",
 	"email.magicLink.subject": "Your sign-in link",
@@ -32,7 +28,6 @@ export const en: TranslationKeys = {
 	"email.invitation.subject": "You have been invited to join {{orgName}}",
 	"email.welcome.subject": "Welcome to {{appName}}",
 
-	// General
 	"general.serverError": "Something went wrong. Try again later.",
 	"general.badRequest": "The request could not be processed.",
 	"general.notFound": "The requested resource was not found.",

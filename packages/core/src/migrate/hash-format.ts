@@ -21,10 +21,7 @@ export function detectHash(value: string): LegacyHash | null {
 	return null;
 }
 
-/**
- * One string per hash so any text column can hold it. bcrypt and argon2 are stored
- * as they came. Others: `algorithm$param$param$saltB64$hashB64`.
- */
+/** One string per hash so any text column can hold it. bcrypt and argon2 are stored as they came. Others: `algorithm$param$param$saltB64$hashB64`. */
 export function encodeLegacyHash(h: LegacyHash): string {
 	if (h.algorithm === "bcrypt" || h.algorithm === "argon2") return h.hash;
 	const p = h.params ?? {};

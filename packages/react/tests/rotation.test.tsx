@@ -7,8 +7,6 @@ import { TheAuthProvider } from "../src/context.js";
 import { useRotateSession, useUser } from "../src/hooks.js";
 import type { ExternalAuthConfig, RotateResult } from "../src/types.js";
 
-// Probe
-
 type Snapshot = {
 	rotate: ReturnType<typeof useRotateSession>;
 	user: ReturnType<typeof useUser>;
@@ -57,7 +55,6 @@ const baseConfig = (overrides: Partial<ExternalAuthConfig> = {}): ExternalAuthCo
 	loginPath: "/auth/github",
 	logoutPath: "/auth/logout",
 	refreshPath: "/auth/refresh",
-	// Tight retry timings keep the test suite fast.
 	retry: {
 		maxRetries: 3,
 		initialDelayMs: 5,
@@ -87,8 +84,6 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-// Tests
-
 describe("@glinr/theauth-react v0.5 rotation", () => {
 	it("single-flights concurrent rotateSession calls", async () => {
 		let refreshCalls = 0;
@@ -117,7 +112,6 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		);
 		await flush();
 
-		// Fire two rotations back-to-back without awaiting between them.
 		let r1: RotateResult | undefined;
 		let r2: RotateResult | undefined;
 		await act(async () => {
@@ -225,7 +219,7 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		render(
 			<TheAuthProvider
 				external={baseConfig({
-					// Lead = 1s — schedule should fire ~4s after the first rotation.
+					// Lead is 1s, so the schedule should fire about 4s after the first rotation.
 					proactiveRefreshLeadMs: 1_000,
 				})}
 			>
@@ -233,8 +227,7 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 			</TheAuthProvider>,
 		);
 
-		// Drain the /me + initial proactive rotation kicked off by the user-load
-		// effect.
+		// Drain the initial proactive rotation kicked off by the user-load effect.
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(50);
 		});
@@ -242,8 +235,7 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 		const initialCalls = refreshCalls;
 		expect(initialCalls).toBeGreaterThanOrEqual(1);
 
-		// Fast-forward to just past the scheduled proactive trigger. The lead
-		// is 1s, expiry is 5s out, so the timer should fire at ~4s.
+		// Advance past the scheduled trigger (1s lead, 5s expiry, so it fires near 4s).
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(5_000);
 		});
@@ -252,14 +244,10 @@ describe("@glinr/theauth-react v0.5 rotation", () => {
 	});
 
 	it("is a no-op on the server (rotateSession returns network_error without window)", async () => {
-		// Build a minimal context value by exercising the same code path the
-		// ManagedProvider uses when rotation isn't configured. We assert the
-		// shape of the returned RotateResult — i.e. SSR cannot crash.
+		// The RotateResult shape must not crash in SSR (managed, no refreshPath).
 		const { useRotateSession: hookUnderTest } = await import("../src/hooks.js");
 		const { TheAuthProvider: P } = await import("../src/context.js");
 
-		// Render in the JSDOM env but with no refreshPath — equivalent to
-		// SSR/managed mode behavior at the rotation boundary.
 		render(
 			<P>
 				<Probe />

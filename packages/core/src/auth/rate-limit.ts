@@ -1,9 +1,5 @@
 /**
- * rateLimit() plugin for TheAuth.
- *
- * Wraps auth endpoints with configurable per-IP (and per-agent) throttling.
- * Intercepts requests via the onRequest lifecycle hook before any handler
- * runs, keeping the limiting logic decoupled from individual endpoints.
+ * rateLimit() plugin: per-endpoint, per-IP or per-client rate limits for auth endpoints.
  *
  * @example
  * ```typescript
@@ -34,14 +30,11 @@ import { resolveClientIp } from "./client-ip.js";
 import { MemoryStore } from "./stores/memory.js";
 import type { RateLimitStore } from "./stores/types.js";
 
-// Re-export so consumers can import the interface from this module.
 export type { RateLimitStore };
 
-/** Per-endpoint rate limit configuration */
 export interface EndpointLimit {
 	/** Duration string: "15m", "1h", "30s", "1d" */
 	window: string;
-	/** Maximum number of requests allowed within the window */
 	max: number;
 }
 
@@ -49,13 +42,9 @@ export interface EndpointLimit {
 export type RateLimitKeyBy = "ip" | "client_id" | "ip+client_id";
 
 export interface RateLimitConfig extends TrustedProxyConfig {
-	/** Limit for POST /auth/sign-in */
 	signIn?: EndpointLimit;
-	/** Limit for POST /auth/sign-up */
 	signUp?: EndpointLimit;
-	/** Limit for POST /auth/password-reset */
 	passwordReset?: EndpointLimit;
-	/** Limit for POST /auth/agent/authorize */
 	agentAuthorize?: EndpointLimit;
 	/** Limit for POST /mcp/token. Default 60 per minute. `false` disables. */
 	mcpToken?: EndpointLimit | false;
@@ -69,34 +58,15 @@ export interface RateLimitConfig extends TrustedProxyConfig {
 	deviceAuthorize?: EndpointLimit | false;
 	/** Fallback limit applied to all other /auth/* paths */
 	default?: EndpointLimit;
-	/**
-	 * What to key counters on. "client_id" reads the OAuth client_id from the
-	 * query string, a form or JSON body, or HTTP Basic auth, and falls back to
-	 * the IP when absent. "ip+client_id" counts the pair. Default "ip".
-	 */
+	/** What to key counters on: `ip`, `client_id`, or `ip+client_id`. */
 	keyBy?: RateLimitKeyBy;
-	/**
-	 * Storage backend.
-	 * Pass "memory" or omit to use the built-in in-memory store.
-	 * Pass any RateLimitStore or SecondaryStorage. When omitted the plugin uses
-	 * `secondaryStorage.rateLimit` from createTheAuth (memory by default).
-	 */
+	/** Storage backend. Pass `"memory"` (or omit) for the built-in store, or any RateLimitStore or SecondaryStorage. */
 	store?: "memory" | RateLimitStore | SecondaryStorage;
-	/**
-	 * Extract the client part of the rate-limit key from the request.
-	 * Defaults to the IP from `trustedHeader` / `trustedProxyCount`, or the
-	 * shared "unknown" bucket when neither is set (forwarded headers are NOT
-	 * trusted by default because clients can forge them).
-	 */
+	/** Extracts the client part of the rate-limit key from the request. Defaults to the IP from `trustedProxy`. */
 	keyExtractor?: (request: Request) => string;
-	/**
-	 * Custom response factory called when a limit is exceeded.
-	 * Defaults to a JSON 429 response with Retry-After header.
-	 */
+	/** Custom response when a limit is exceeded. Defaults to a JSON 429 response. */
 	onLimit?: (request: Request, retryAfter: number) => Response;
 }
-
-// Helpers
 
 /** Parse a window string like "15m", "1h", "30s", "1d" into milliseconds */
 function parseWindowMs(window: string): number {
@@ -168,9 +138,7 @@ async function extractClientId(request: Request): Promise<string | null> {
 			const decoded = atob(auth.slice(6).trim());
 			const user = decoded.split(":")[0];
 			if (user) return decodeURIComponent(user).slice(0, 128);
-		} catch {
-			// malformed header: ignore
-		}
+		} catch {}
 	}
 
 	if (request.method !== "POST") return null;
@@ -186,9 +154,7 @@ async function extractClientId(request: Request): Promise<string | null> {
 			const id = (parsed as Record<string, unknown>).client_id;
 			if (typeof id === "string" && id) return id.slice(0, 128);
 		}
-	} catch {
-		// unreadable or truncated body: no client id
-	}
+	} catch {}
 	return null;
 }
 
@@ -205,7 +171,6 @@ function defaultOnLimit(_request: Request, retryAfter: number): Response {
 	);
 }
 
-/** Map auth endpoint path suffixes to config keys */
 type EndpointKey =
 	| "signIn"
 	| "signUp"
@@ -248,8 +213,6 @@ function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit 
 	}
 	return pathname.includes("/auth/") ? config.default : undefined;
 }
-
-// Plugin factory
 
 export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 	// Parse every configured window once, so a bad value fails at startup and
@@ -328,7 +291,6 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 					const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
 					const response = onLimitFn(request, Math.max(retryAfterSeconds, 1));
 
-					// Clone and augment the response with rate limit headers
 					const headers = new Headers(response.headers);
 					headers.set("X-RateLimit-Limit", String(limit.max));
 					headers.set("X-RateLimit-Remaining", "0");
@@ -341,10 +303,7 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 					});
 				}
 
-				// Under the limit — let the request through but we can't attach headers
-				// to the request itself. Headers on successful responses are attached by
-				// callers that wrap individual handlers. The plugin approach intercepts
-				// at the request level, so we pass through.
+				// Under the limit: let the request through. Headers can only be attached to the response.
 				return undefined;
 			},
 		},

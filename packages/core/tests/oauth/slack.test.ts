@@ -1,6 +1,4 @@
-/**
- * Tests for the Slack OAuth / OIDC provider.
- */
+/** Tests for the Slack OAuth / OIDC provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,8 +12,6 @@ const CLIENT_SECRET = "test-slack-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USERINFO_RAW = {
 	ok: true,
 	sub: "U01ABC123DE",
@@ -24,8 +20,6 @@ const CANNED_USERINFO_RAW = {
 	picture: "https://avatars.slack-edge.com/carol.jpg",
 	"https://slack.com/user_id": "U01ABC123DE",
 };
-
-// Provider construction
 
 describe("createSlackProvider", () => {
 	it("creates a provider with id slack", () => {
@@ -57,8 +51,6 @@ describe("createSlackProvider", () => {
 	});
 });
 
-// Authorization URL
-
 describe("createSlackProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and openid scopes", async () => {
 		const provider = createSlackProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
@@ -88,8 +80,6 @@ describe("createSlackProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeSlackProfile", () => {
 	it("maps Slack OIDC userinfo to OAuthUserInfo", () => {

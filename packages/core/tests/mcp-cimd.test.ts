@@ -1,7 +1,4 @@
-/**
- * Client ID Metadata Documents: private_key_jwt support, Cache-Control driven
- * refresh and the failed-fetch negative cache.
- */
+/** Client ID Metadata Documents: private_key_jwt support, Cache-Control driven refresh and the failed-fetch negative cache. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cimdCacheSeconds } from "../src/mcp/client-metadata.js";
 import { computeS256Challenge, generateSecureToken } from "../src/mcp/utils.js";

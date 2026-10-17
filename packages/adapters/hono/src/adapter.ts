@@ -16,8 +16,6 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 
-// Zod Validation Schemas
-
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
 	allowedArgPatterns: z.array(z.string()).optional(),
@@ -74,8 +72,6 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// Response Helpers
-
 function ok<T>(data: T, status = 200) {
 	return new Response(JSON.stringify({ data }), {
 		status,
@@ -94,10 +90,7 @@ function errorResponse(code: string, message: string, status: number) {
 	});
 }
 
-/**
- * Return the machine-readable code of a typed core DelegationError, else null.
- * Structural check so adapters do not need a runtime import of core.
- */
+/** Structural check so adapters avoid a runtime import of core. */
 function delegationErrorCode(err: unknown): string | null {
 	if (err instanceof Error && err.name === "DelegationError") {
 		const code = (err as Error & { code?: unknown }).code;
@@ -126,8 +119,6 @@ function validationError(issues: z.ZodIssue[]) {
 	const message = issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
 	return badRequest(`Validation failed: ${message}`);
 }
-
-// MCP CORS Headers
 
 const MCP_CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
@@ -163,14 +154,9 @@ function mcpNoStore<T>(data: T, status = 200) {
 	});
 }
 
-// Mount-prefix handling
-
 /**
- * Work out the prefix a parent app added with `app.route("/x", ...)`.
- *
- * Plugin endpoint paths have no wildcards, so the request path always has the
- * same number of segments as the endpoint pattern plus the mount prefix.
- * Whatever precedes the last N segments is the prefix.
+ * Plugin endpoint paths have no wildcards, so the mount prefix is whatever precedes
+ * the last N segments of the request path.
  */
 function mountPrefix(requestPath: string, endpointPath: string): string {
 	const reqSegments = requestPath.split("/").filter(Boolean);
@@ -178,8 +164,6 @@ function mountPrefix(requestPath: string, endpointPath: string): string {
 	const extra = reqSegments.length - endpointSegments.length;
 	return extra > 0 ? `/${reqSegments.slice(0, extra).join("/")}` : "";
 }
-
-// Adapter Factory
 
 /**
  * Create a Hono app with all TheAuth REST API routes mounted.
@@ -207,7 +191,6 @@ function mountPrefix(requestPath: string, endpointPath: string): string {
  * ```
  */
 export interface TheAuthHonoOptions extends AdapterSecurityOptions {
-	/** MCP OAuth 2.1 module. When provided, MCP endpoints are enabled. */
 	mcp?: McpAuthModule;
 }
 
@@ -218,11 +201,9 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	// Fails closed at construction when nothing can authenticate callers.
 	const guard = createAdapterGuard(theauth, options, "theAuthHono");
 
-	// Management routes (agents, delegations, audit, dashboard, authorize)
-	// require an authenticated caller. The guard is registered per route
-	// pattern, so it keeps working when a parent app mounts this one with
-	// `app.route("/x", ...)`.
-	// Rate limit and cross-site check run first, on every route.
+	// Management routes need an authenticated caller. Guards are registered per route pattern
+	// so they keep working when a parent app mounts this one. Rate limit and cross-site check
+	// run first, on every route.
 	app.use("*", async (c, next): Promise<Response | undefined> => {
 		const refused = await guard.admit(c.req.raw, c.req.path);
 		if (refused) return c.newResponse(refused.body, refused);
@@ -241,9 +222,8 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		await next();
 		return undefined;
 	};
-	// What the caller may touch. With the default session resolver this is
-	// the caller's own resources; with a custom `authenticate` it is
-	// unrestricted. A missing scope (a route that skipped the guard) is a denial.
+	// Default session resolver limits this to the caller's own resources. A custom `authenticate`
+	// is unrestricted. A missing scope (a route that skipped the guard) is a denial.
 	const scopeOf = (c: Context): AdapterScope | null => scopes.get(c.req.raw) ?? null;
 	const refuse = (c: Context, denial: ScopeDenial) => {
 		const res = errorResponse(denial.code, denial.message, denial.status);
@@ -257,9 +237,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 	}
 	app.use("/authorize", requireCaller);
 
-	// Agent REST API
-
-	// POST /agents - create agent
 	app.post("/agents", async (c) => {
 		let body: unknown;
 		try {
@@ -292,7 +269,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /agents - list agents
 	app.get("/agents", async (c) => {
 		const userId = c.req.query("userId");
 		const statusRaw = c.req.query("status");
@@ -323,7 +299,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /agents/:id - get agent
 	app.get("/agents/:id", async (c) => {
 		const id = c.req.param("id");
 		const scope = scopeOf(c);
@@ -345,7 +320,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// PATCH /agents/:id - update agent
 	app.patch("/agents/:id", async (c) => {
 		const id = c.req.param("id");
 		const scope = scopeOf(c);
@@ -383,7 +357,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// DELETE /agents/:id - revoke agent
 	app.delete("/agents/:id", async (c) => {
 		const id = c.req.param("id");
 		const scope = scopeOf(c);
@@ -404,7 +377,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// POST /agents/:id/rotate - rotate token
 	app.post("/agents/:id/rotate", async (c) => {
 		const id = c.req.param("id");
 		const scope = scopeOf(c);
@@ -426,9 +398,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Authorization
-
-	// POST /authorize - authorize action by agentId
 	app.post("/authorize", async (c) => {
 		let body: unknown;
 		try {
@@ -471,7 +440,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// POST /authorize/token - authorize by bearer token
 	app.post("/authorize/token", async (c) => {
 		const authHeader = c.req.header("Authorization");
 		if (!authHeader?.startsWith("Bearer ")) {
@@ -517,9 +485,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Delegation
-
-	// POST /delegations - create delegation
 	app.post("/delegations", async (c) => {
 		let body: unknown;
 		try {
@@ -561,7 +526,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// DELETE /delegations/:id - revoke delegation
 	app.delete("/delegations/:id", async (c) => {
 		const id = c.req.param("id");
 		const scope = scopeOf(c);
@@ -582,7 +546,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /delegations/:agentId - list chains for agent
 	app.get("/delegations/:agentId", async (c) => {
 		const agentId = c.req.param("agentId");
 		const scope = scopeOf(c);
@@ -600,9 +563,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Audit
-
-	// GET /audit - query audit logs
 	app.get("/audit", async (c) => {
 		const filter: AuditFilter = {};
 
@@ -654,7 +614,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /audit/export - export audit logs
 	app.get("/audit/export", async (c) => {
 		const format = c.req.query("format") ?? "json";
 		if (format !== "json" && format !== "csv") {
@@ -697,9 +656,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// MCP OAuth 2.1 Endpoints
-
-	// OPTIONS preflight for MCP routes
 	app.options("/mcp/*", (_c) => {
 		return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
 	});
@@ -708,7 +664,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
 	});
 
-	// GET /.well-known/oauth-authorization-server
 	app.get("/.well-known/oauth-authorization-server", (c) => {
 		if (!mcp) {
 			const res = notFound("MCP module not configured");
@@ -718,7 +673,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		return c.newResponse(mcpOk(metadata).body, mcpOk(metadata));
 	});
 
-	// GET /.well-known/oauth-protected-resource
 	app.get("/.well-known/oauth-protected-resource", (c) => {
 		if (!mcp) {
 			const res = notFound("MCP module not configured");
@@ -728,7 +682,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		return c.newResponse(mcpOk(metadata).body, mcpOk(metadata));
 	});
 
-	// POST /mcp/register - dynamic client registration
 	app.post("/mcp/register", async (c) => {
 		if (!mcp) {
 			const res = notFound("MCP module not configured");
@@ -756,7 +709,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /mcp/authorize - authorization endpoint
 	app.get("/mcp/authorize", async (c) => {
 		if (!mcp) {
 			const res = notFound("MCP module not configured");
@@ -788,7 +740,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// POST /mcp/token - token endpoint
 	app.post("/mcp/token", async (c) => {
 		if (!mcp) {
 			const res = notFound("MCP module not configured");
@@ -818,9 +769,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Dashboard API
-
-	// GET /dashboard/stats
 	app.get("/dashboard/stats", async (c) => {
 		const scope = scopeOf(c);
 		if (!scope) return noScope(c);
@@ -868,7 +816,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /dashboard/agents - agents with stats
 	app.get("/dashboard/agents", async (c) => {
 		const userId = c.req.query("userId");
 		const statusRaw = c.req.query("status");
@@ -899,7 +846,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// GET /dashboard/audit - same as GET /audit
 	app.get("/dashboard/audit", async (c) => {
 		const filter: AuditFilter = {};
 
@@ -951,9 +897,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Password Reset
-
-	// POST /auth/forgot-password - request a reset link
 	app.post("/auth/forgot-password", async (c) => {
 		if (!theauth.passwordReset) {
 			const res = notFound("Password reset not configured");
@@ -971,7 +914,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// POST /auth/reset-password - confirm a reset with token + new password
 	app.post("/auth/reset-password", async (c) => {
 		if (!theauth.passwordReset) {
 			const res = notFound("Password reset not configured");
@@ -989,9 +931,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Email Verification
-
-	// POST /auth/verify-email/send - send a verification email
 	app.post("/auth/verify-email/send", async (c) => {
 		if (!theauth.emailVerification) {
 			const res = notFound("Email verification not configured");
@@ -1009,7 +948,6 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// POST /auth/verify-email/confirm - confirm with token
 	app.post("/auth/verify-email/confirm", async (c) => {
 		if (!theauth.emailVerification) {
 			const res = notFound("Email verification not configured");
@@ -1027,13 +965,10 @@ export function theAuthHono(theauth: TheAuth, options?: TheAuthHonoOptions): Hon
 		}
 	});
 
-	// Plugin Endpoints
-
 	for (const endpoint of theauth.plugins.getEndpoints()) {
 		const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 		app[method](endpoint.path, async (c) => {
-			// Strip whatever prefix a parent app mounted us under so the plugin
-			// router sees the path it registered.
+			// Strip the parent app's mount prefix so the plugin router sees its registered path.
 			const prefix = mountPrefix(c.req.path, endpoint.path);
 			const response = await theauth.plugins.handleRequest(c.req.raw, prefix);
 			return c.newResponse(response?.body ?? null, response ?? new Response(null, { status: 404 }));

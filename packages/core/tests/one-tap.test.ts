@@ -1,6 +1,4 @@
-/**
- * Tests for Google One Tap authentication.
- */
+/** Tests for Google One Tap authentication. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OneTapModule } from "../src/auth/one-tap.js";
@@ -10,8 +8,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
-
-// Token-signing helpers
 
 // We bypass the remote JWKS entirely by mocking the jose module at the
 // module boundary. The mock replaces `createRemoteJWKSet` with a function
@@ -70,8 +66,6 @@ async function makeIdToken(overrides: {
 	return jwt.sign(TEST_SECRET);
 }
 
-// Mock jose's createRemoteJWKSet
-
 // We mock the entire jose module so that createRemoteJWKSet returns a local
 // verifier backed by our test secret instead of fetching Google's JWKS.
 vi.mock("jose", async (importOriginal) => {
@@ -88,8 +82,6 @@ vi.mock("jose", async (importOriginal) => {
 		}),
 	};
 });
-
-// Test helpers
 
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-chars!!";
 
@@ -164,7 +156,7 @@ describe("OneTapModule.verify", () => {
 
 	it("rejects a token missing the email claim", async () => {
 		// Override email to empty string and sign manually so the claim is present
-		// but empty — jose won't prevent that at sign time.
+		// but empty, jose won't prevent that at sign time.
 		const jwt = new SignJWT({ sub: "uid-123", email: "", email_verified: true, name: "No Mail" })
 			.setProtectedHeader({ alg: "HS256" })
 			.setAudience(VALID_CLIENT_ID)
@@ -200,7 +192,7 @@ describe("OneTapModule.verify", () => {
 	});
 });
 
-// Suite: handleRequest() — routing + CSRF
+// Suite: handleRequest(), routing + CSRF
 
 describe("OneTapModule.handleRequest — routing and CSRF", () => {
 	let db: Database;
@@ -213,7 +205,6 @@ describe("OneTapModule.handleRequest — routing and CSRF", () => {
 	});
 
 	it("returns null for a GET request", async () => {
-		// GET requests cannot have a body, so construct without the helper.
 		const req = new Request("https://app.example.com/auth/one-tap/callback", {
 			method: "GET",
 		});
@@ -233,7 +224,6 @@ describe("OneTapModule.handleRequest — routing and CSRF", () => {
 		const req = new Request("https://app.example.com/auth/one-tap/callback", {
 			method: "POST",
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
-			// no cookie
 			body: new URLSearchParams({ credential: token, g_csrf_token: "abc" }).toString(),
 		});
 		const response = await mod.handleRequest(req);
@@ -279,7 +269,7 @@ describe("OneTapModule.handleRequest — routing and CSRF", () => {
 	});
 });
 
-// Suite: handleRequest() — user flows
+// Suite: handleRequest(), user flows
 
 describe("OneTapModule.handleRequest — user flows", () => {
 	let db: Database;

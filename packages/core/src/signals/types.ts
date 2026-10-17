@@ -1,8 +1,4 @@
-/**
- * Shared types for OpenID Shared Signals Framework 1.0 (SSF), CAEP and RISC.
- */
-
-// Event type URIs
+/** Shared types for OpenID Shared Signals Framework 1.0 (SSF), CAEP and RISC. */
 
 export const SSF_VERIFICATION_EVENT =
 	"https://schemas.openid.net/secevent/ssf/event-type/verification";
@@ -91,8 +87,6 @@ export interface ComplexSubject {
 
 export type SubjectIdentifier = SimpleSubject | ComplexSubject;
 
-// Events
-
 /** Event payload: claims inside `events[<uri>]`. `subject` and `event_timestamp` are filled by the emitter. */
 export type EventPayload = Record<string, unknown>;
 
@@ -110,8 +104,6 @@ export interface SecurityEventToken {
 	txn?: string;
 	toe?: number;
 }
-
-// Streams
 
 export type StreamStatus = "enabled" | "paused" | "disabled";
 

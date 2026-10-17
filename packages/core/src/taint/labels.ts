@@ -14,9 +14,7 @@ const MAX_DEPTH = 64;
 /** Most nodes (objects, arrays and leaves) one walk visits before it stops and marks the value unverified. */
 const MAX_NODES = 250_000;
 /**
- * Label added when a value is too deep or too large to scan in full. A rule that forbids
- * `unverified:*` (or `*`), or that requires a label, then acts on it: nothing hidden deep
- * inside a value can slip past a taint rule.
+ * Label added when a value is too deep or too large to scan in full. A rule that forbids `unverified:*` (or `*`), or that requires a label, then acts on it: nothing hidden deep inside a value can slip past a taint rule.
  */
 export const UNVERIFIED_DEPTH_LABEL = "unverified:depth";
 const objectLabels = new WeakMap<object, ReadonlySet<string>>();
@@ -45,10 +43,7 @@ function toSet(labels: LabelInput): Set<string> {
 	return new Set(list.filter((l): l is string => typeof l === "string" && l.length > 0));
 }
 
-/**
- * Tag a value with labels. An object is tagged in place (the same reference is returned,
- * labels merge with any it already had). A primitive is returned as a TaintedValue.
- */
+/** Tag a value with labels. An object is tagged in place (the same reference is returned, labels merge with any it already had). A primitive is returned as a TaintedValue. */
 export function tainted<T extends object>(value: T, labels: LabelInput): T;
 export function tainted<T extends Primitive>(value: T, labels: LabelInput): TaintedValue<T>;
 export function tainted(value: unknown, labels: LabelInput): unknown {
@@ -80,9 +75,7 @@ export function setOwn<T>(target: Record<string, T>, key: string, value: T): voi
 }
 
 /**
- * Walk a value with an explicit stack (no recursion, so depth cannot overflow the call
- * stack). Calls `visit` for every node once. Returns true when the walk was cut short by
- * the depth limit or the node budget, so the caller can fail closed.
+ * Walk a value with an explicit stack (no recursion, so depth cannot overflow the call stack). Calls `visit` for every node once. Returns true when the walk was cut short by the depth limit or the node budget, so the caller can fail closed.
  */
 function walk(root: unknown, visit: (node: unknown) => void): boolean {
 	const seen = new Set<object>();
@@ -128,10 +121,7 @@ function collectLabels(value: unknown, into: Set<string>): void {
 	if (cut) into.add(UNVERIFIED_DEPTH_LABEL);
 }
 
-/**
- * Labels carried by a value, including labels of anything nested inside it. A value too
- * deep or too large to scan in full also carries `unverified:depth`.
- */
+/** Labels carried by a value, including labels of anything nested inside it. A value too deep or too large to scan in full also carries `unverified:depth`. */
 export function labelsOf(value: unknown): string[] {
 	const out = new Set<string>();
 	collectLabels(value, out);
@@ -139,9 +129,7 @@ export function labelsOf(value: unknown): string[] {
 }
 
 /**
- * Union of labels. A string array is read as a list of labels. Anything else is
- * read as a value (see labelsOf). A derived value is as sensitive as its most
- * sensitive source, so the union is the safe default.
+ * Union of labels. A string array is read as a list of labels. Anything else is read as a value (see labelsOf). A derived value is as sensitive as its most sensitive source, so the union is the safe default.
  */
 export function deriveLabels(...sources: unknown[]): string[] {
 	const out = new Set<string>();
@@ -179,25 +167,17 @@ export function mergeProvenance(...maps: Array<ProvenanceMap | undefined>): Prov
 }
 
 export interface ProvenanceTrackerOptions {
-	/**
-	 * Also match an argument string that appears inside a tracked string (for example an
-	 * address lifted out of a fetched page). Heuristic. Default true.
-	 */
+	/** Also match an argument string that appears inside a tracked string (for example an address lifted out of a fetched page). Heuristic. Default true. */
 	substringMatch?: boolean;
 	/** Shortest string the tracker will remember or match by substring. Default 4. */
 	minTextLength?: number;
 	/** Most tracked strings kept, oldest dropped first. Default 1000. */
 	maxTextEntries?: number;
 	/**
-	 * Total size of tracked strings kept, in UTF-16 code units (about bytes for ASCII), oldest
-	 * dropped first. A single string larger than this is kept as its first `maxTextBytes`
-	 * code units only. Default 1048576 (1 MiB).
+	 * Total size of tracked strings kept, in UTF-16 code units (about bytes for ASCII), oldest dropped first. A single string larger than this is kept as its first `maxTextBytes` code units only. Default 1048576 (1 MiB).
 	 */
 	maxTextBytes?: number;
-	/**
-	 * Longest argument string that is searched for inside tracked strings. Longer ones are
-	 * matched against whole tracked strings only. Default 65536.
-	 */
+	/** Longest argument string that is searched for inside tracked strings. Longer ones are matched against whole tracked strings only. Default 65536. */
 	maxSubstringLength?: number;
 }
 
@@ -208,9 +188,7 @@ function positiveInt(value: number | undefined, fallback: number): number {
 }
 
 /**
- * Remembers labels for tool outputs so they can flow into later calls. Objects are tagged
- * in place, strings are remembered by content. Loses nothing across JSON: a string the
- * model copies verbatim into an argument is still found.
+ * Remembers labels for tool outputs so they can flow into later calls. Objects are tagged in place, strings are remembered by content. Loses nothing across JSON: a string the model copies verbatim into an argument is still found.
  */
 export class ProvenanceTracker {
 	private readonly texts = new Map<string, Set<string>>();

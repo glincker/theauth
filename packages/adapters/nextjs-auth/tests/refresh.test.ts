@@ -2,17 +2,9 @@ import type { MockInstance } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
-// We test the refresh logic in isolation by mocking:
-//   1. The `next/headers` cookies store (via vi.mock)
-//   2. global.fetch
-//
-// The actual refreshSession() function imports server-only and cookies() from
-// next/headers — we mock both at the module level.
-
-// Mock server-only so the import doesn't throw in Node test env.
+// refreshSession is tested in isolation: next/headers cookies() and global fetch are mocked.
 vi.mock("server-only", () => ({}));
 
-// Provide a minimal mock cookies store.
 const mockCookieStore = {
 	get: vi.fn(),
 	set: vi.fn(),
@@ -23,7 +15,6 @@ vi.mock("next/headers", () => ({
 	cookies: vi.fn().mockResolvedValue(mockCookieStore),
 }));
 
-// Import after mocks are set up.
 const { refreshSession } = await import("../src/refresh.js");
 
 const config = createAuthConfig({
@@ -74,7 +65,6 @@ describe("refreshSession", () => {
 		expect(typeof result?.csrfToken).toBe("string");
 		expect(result?.csrfToken.length).toBeGreaterThan(0);
 
-		// Verify cookies were written
 		expect(mockCookieStore.set).toHaveBeenCalledWith(
 			config.cookies.sessionName,
 			"new-access-token",
@@ -100,7 +90,6 @@ describe("refreshSession", () => {
 		const result = await refreshSession(config);
 
 		expect(result).toBeNull();
-		// All session cookies should be cleared
 		expect(mockCookieStore.delete).toHaveBeenCalledWith("__Host-glinr-token");
 		expect(mockCookieStore.delete).toHaveBeenCalledWith("glinr-token");
 		expect(mockCookieStore.delete).toHaveBeenCalledWith("__Host-glinr-csrf");

@@ -5,8 +5,6 @@ import type { TheAuth } from "../../../core/src/theauth.js";
 import { createTheAuth } from "../../../core/src/theauth.js";
 import { theAuthHono } from "../src/adapter.js";
 
-// Test Setup
-
 async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -19,7 +17,6 @@ async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({
@@ -34,8 +31,6 @@ async function createTestApp(): Promise<{ app: Hono; theauth: TheAuth }> {
 	const app = theAuthHono(theauth, { allowUnauthenticated: true });
 	return { app, theauth };
 }
-
-// Helpers
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
@@ -65,8 +60,6 @@ async function createTestAgent(
 	return { id: body.data.id, token: body.data.token };
 }
 
-// Tests
-
 describe("Hono adapter", () => {
 	let app: Hono;
 	let theauth: TheAuth;
@@ -74,8 +67,6 @@ describe("Hono adapter", () => {
 	beforeEach(async () => {
 		({ app, theauth } = await createTestApp());
 	});
-
-	// Agent CRUD
 
 	describe("POST /agents", () => {
 		it("creates an agent and returns a token", async () => {
@@ -259,7 +250,6 @@ describe("Hono adapter", () => {
 
 			expect(res.status).toBe(204);
 
-			// Verify the agent is revoked
 			const getRes = await app.request(`/agents/${id}`);
 			const body = (await getRes.json()) as { data: { status: string } };
 			expect(body.data.status).toBe("revoked");
@@ -290,8 +280,6 @@ describe("Hono adapter", () => {
 			expect(res.status).toBe(404);
 		});
 	});
-
-	// Authorization
 
 	describe("POST /authorize", () => {
 		it("allows an authorized action", async () => {
@@ -430,8 +418,6 @@ describe("Hono adapter", () => {
 		});
 	});
 
-	// Delegation
-
 	describe("POST /delegations", () => {
 		it("creates a delegation chain", async () => {
 			const { id: fromId } = await createTestAgent(app, {
@@ -550,15 +536,12 @@ describe("Hono adapter", () => {
 		});
 	});
 
-	// Audit
-
 	describe("GET /audit", () => {
 		it("returns audit logs after an authorization check", async () => {
 			const { id } = await createTestAgent(app, {
 				permissions: [{ resource: "mcp:github", actions: ["read"] }],
 			});
 
-			// Trigger an authorization to generate an audit entry
 			await app.request("/authorize", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -646,8 +629,6 @@ describe("Hono adapter", () => {
 			expect(body.error.code).toBe("BAD_REQUEST");
 		});
 	});
-
-	// Dashboard
 
 	describe("GET /dashboard/stats", () => {
 		it("returns agent and audit stats", async () => {

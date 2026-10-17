@@ -1,16 +1,7 @@
 /**
  * Default session revocation for the back-channel logout receiver.
- *
- * A logout token names a `sub` and/or a `sid`. This maps them to local
- * sessions and revokes them through the session manager.
- *
  * - `sub` only: every session of the mapped user.
- * - `sub` + `sid`: sessions of that user whose metadata `sid` matches.
- * - `sid` only: needs `findSessionsBySid`, because sessions are indexed by
- *   user. Without it the receiver answers 400 so the IdP knows it was not done.
- *
- * Record the IdP `sid` on the local session at login time:
- * `sessionManager.create(userId, { sid })`.
+ * - `sid` only: needs `findSessionsBySid`, because sessions are indexed by user. Without it the receiver answers 400 so the IdP knows it was not done.
  */
 
 import type { Session, SessionManager } from "../session/session.js";
@@ -19,10 +10,7 @@ import type { LogoutTokenClaims } from "./federated-logout.js";
 export interface SessionRevokerOptions {
 	/** Local session manager. Defaults: `list` and `revoke` are used. */
 	sessionManager: Pick<SessionManager, "list" | "revoke">;
-	/**
-	 * Map the IdP `sub` to a local user id. Default: the `sub` is the local
-	 * user id. Return null when the user is unknown (nothing to revoke).
-	 */
+	/** Map the IdP `sub` to a local user id. Default: the `sub` is the local user id. Return null when the user is unknown (nothing to revoke). */
 	resolveUserId?: (claims: LogoutTokenClaims) => Promise<string | null>;
 	/** Find local sessions by IdP `sid` when no `sub` is present. */
 	findSessionsBySid?: (sid: string) => Promise<Session[]>;

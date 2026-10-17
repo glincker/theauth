@@ -1,26 +1,9 @@
 /**
  * Kick OAuth 2.1 provider.
- *
- * Endpoints:
- * - Authorization: https://id.kick.com/oauth/authorize
- * - Token:         https://id.kick.com/oauth/token
- * - Profile:       https://api.kick.com/public/v1/users
- *
  * Notes:
  * - PKCE with S256 is required.
- * - Client credentials go in the form body.
- * - The `user:read` scope is needed for the profile call, which returns
- *   `{ data: [{ user_id, name, email, profile_picture }] }`. `user_id` is a
- *   number and is stringified.
- * - The profile call is on a different host (`api.kick.com`) from the auth
- *   server (`id.kick.com`). Without a user id in the query it returns the
- *   token owner.
- * - Kick does not say whether the email is verified, so `emailVerified`
- *   stays unset.
+ * - Kick does not say whether the email is verified, so `emailVerified` stays unset.
  * - User tokens come with a refresh token.
- *
- * Docs: https://docs.kick.com/getting-started/generating-tokens-oauth2-flow
- *       https://docs.kick.com/apis/users
  */
 
 import type { OAuthProvider, OAuthProviderConfig } from "../types.js";

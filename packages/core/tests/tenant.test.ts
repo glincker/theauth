@@ -15,7 +15,6 @@ async function createTestTheAuth() {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({

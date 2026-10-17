@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Builds the branded isometric docs diagrams. Run: node scripts/build-diagrams.mjs
-// Each SVG carries its own title, one line explanation and theauth.dev, so it
-// still makes sense when it is found on its own (search, social, slides).
+// SVGs carry their own title and URL so they still make sense when shared alone.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -114,7 +113,6 @@ function scene(X, Y, caption) {
 		const z0 = base;
 		const z1 = base + hh;
 		const pad = 0.28;
-		// contact shadow and accent glow on the platform
 		const sh = [
 			P(x - pad + 0.25, y - pad + 0.25, z0),
 			P(x + w + pad + 0.25, y - pad + 0.25, z0),
@@ -144,11 +142,9 @@ function scene(X, Y, caption) {
 				"#3d5058",
 			),
 		);
-		// bevel highlight on the near top edges
 		out.push(
 			`<polyline points="${pts([P(x, y + d, z1), P(x + w, y + d, z1), P(x + w, y, z1)])}" fill="none" stroke="#52666f" stroke-width="1.2"/>`,
 		);
-		// glowing base edge
 		out.push(
 			`<polyline points="${pts([P(x, y + d, z0 + 0.1), P(x + w, y + d, z0 + 0.1), P(x + w, y, z0 + 0.1)])}" fill="none" stroke="${accent}" stroke-width="1.8" opacity=".95"/>`,
 		);
@@ -166,8 +162,6 @@ function scene(X, Y, caption) {
 		return { top: P(x + w / 2, y + d / 2, z1), front: P(x + w, y + d, z0), rect: r };
 	}
 
-	// Routes are lifted pipes: a soft shadow on the plate, thin stems at the
-	// ends, a rounded pipe with a highlight, and a flowing dash on top.
 	function route(path, color = C.teal, z = 0.95) {
 		const lift = path.map(([x, y]) => P(x, y, z));
 		const flat = path.map(([x, y]) => P(x + 0.18, y + 0.18, base + 0.02));
@@ -195,7 +189,6 @@ function scene(X, Y, caption) {
 		);
 	}
 
-	// A dashed bubble on the platform that groups related nodes.
 	function group(x1, y1, x2, y2, label, color = C.teal) {
 		const q = [P(x1, y1, base), P(x2, y1, base), P(x2, y2, base), P(x1, y2, base)];
 		out.push(
@@ -215,8 +208,7 @@ function scene(X, Y, caption) {
 		callouts.push({ x, y, n, text, dy, dx });
 	}
 
-	// Place pills and callouts after everything is known. Each one tries
-	// candidate spots until it clears every node, bubble and label.
+	// Tags go last, each trying candidate spots until it clears every node, bubble and label.
 	function placeTags() {
 		const boxes = obstacles.map((o) => ({ ...o }));
 		const res = [];
@@ -399,8 +391,7 @@ ${lines.map((l, i) => `<text x="24" y="${H - BAND + 56 + i * 20}" font-size="14.
 
 const BUILD = join(dirname(fileURLToPath(import.meta.url)), ".diagram-build");
 const exportsList = [];
-// SVGs are only the source. The docs ship JPEGs rendered by Chrome, so the
-// vector files are not published and every browser shows the same picture.
+// Vector sources stay unpublished: the docs ship Chrome-rendered JPEGs so every browser matches.
 function save(dir, name, s) {
 	const svg = s.svg();
 	mkdirSync(BUILD, { recursive: true });
@@ -464,7 +455,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	];
 };
 
-// shared signals: overview
 {
 	const s = scene(10, 10, {
 		title: "Shared signals with theAuth",
@@ -515,7 +505,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("shared-signals", "theauth-shared-signals-overview", s);
 }
 
-// shared signals: lifecycle
 {
 	const s = scene(10, 10, {
 		title: "Shared signals event lifecycle",
@@ -556,7 +545,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("shared-signals", "theauth-shared-signals-lifecycle", s);
 }
 
-// shared signals: push vs poll
 {
 	const s = scene(10, 10, {
 		title: "Push and poll delivery",
@@ -587,7 +575,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("shared-signals", "theauth-shared-signals-push-poll", s);
 }
 
-// quickstart: add theAuth to an existing app
 {
 	const s = scene(10, 10, {
 		title: "Add theAuth to an existing app",
@@ -638,7 +625,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("diagrams", "theauth-add-to-existing-app", s);
 }
 
-// dpop
 {
 	const s = scene(10, 10, {
 		title: "DPoP sender-constrained tokens",
@@ -687,7 +673,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("diagrams", "theauth-dpop-token-binding", s);
 }
 
-// session hardening: bound stateless cookies
 {
 	const s = scene(10, 10, {
 		title: "Stateless sessions bound to the user",
@@ -738,7 +723,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("diagrams", "theauth-stateless-session-binding", s);
 }
 
-// oidc provider
 {
 	const s = scene(10, 10, {
 		title: "theAuth as an OpenID Connect provider",
@@ -781,7 +765,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("diagrams", "theauth-oidc-provider-flow", s);
 }
 
-// adapters: one core
 {
 	const s = scene(10, 10, {
 		title: "One core, every framework",
@@ -827,7 +810,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("diagrams", "theauth-adapters-one-core", s);
 }
 
-// theauth add
 {
 	const s = scene(10, 10, {
 		title: "theauth add copies components into your app",
@@ -869,7 +851,6 @@ const along = ([ax, ay], [bx, by], gap = 1.15) => {
 	save("diagrams", "theauth-add-components-cli", s);
 }
 
-// shared chain builder for the four-step flows below
 function chain(s, cs, spec, labels, callouts) {
 	const boxes = cs.map((c, i) => s.cuboid(...box(...c, 1.6), spec[i].h, spec[i]));
 	for (let i = 0; i < cs.length - 1; i++)
@@ -884,7 +865,6 @@ const FOUR = [
 	[8.7, 1.3],
 ];
 
-// web oauth sign-in
 {
 	const s = scene(10, 10, {
 		title: "Social sign-in on the web",
@@ -935,7 +915,6 @@ const FOUR = [
 	save("diagrams", "theauth-mobile-oauth-sign-in", s);
 }
 
-// browser extension
 {
 	const s = scene(10, 10, {
 		title: "Sign-in for a browser extension",
@@ -958,7 +937,6 @@ const FOUR = [
 	save("diagrams", "theauth-browser-extension-sign-in", s);
 }
 
-// cli device flow
 {
 	const s = scene(10, 10, {
 		title: "Sign-in for a command line tool",

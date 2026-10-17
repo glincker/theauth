@@ -14,18 +14,12 @@ import { generateDidWeb, resolveDidWeb } from "./web-method.js";
 
 /**
  * Create the DID module.
- *
- * Provides W3C DID generation (did:key and did:web), storage of the public
- * key + DID document in the database, and signing / verification helpers.
- * Private keys are never stored — they are returned to the caller on
- * generation and must be stored securely elsewhere.
+ * Provides W3C DID generation (did:key and did:web), storage of the public key + DID document in the database, and signing / verification helpers. Private keys are never stored, they are returned to the caller on generation and must be stored securely elsewhere.
  */
 export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 	/**
 	 * Generate a did:key identity for an agent.
-	 *
-	 * Stores the public key and DID document in `theauth_agent_dids`.
-	 * Returns the private key to the caller — it is not persisted.
+	 * Returns the private key to the caller, it is not persisted.
 	 */
 	async function generateKey(
 		agentId: string,
@@ -57,9 +51,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 
 	/**
 	 * Generate a did:web identity for an agent.
-	 *
 	 * Requires `config.web` to be set with a domain.
-	 * Stores the public key and DID document in `theauth_agent_dids`.
 	 */
 	async function generateWeb(
 		agentId: string,
@@ -94,12 +86,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 		return { agentDid, privateKeyJwk: keyPair.privateKeyJwk };
 	}
 
-	/**
-	 * Resolve any DID to its DID document.
-	 *
-	 * - did:key  → resolved locally from the identifier encoding
-	 * - did:web  → fetched from the HTTPS well-known URL
-	 */
+	/** Resolve any DID to its DID document. */
 	async function resolve(did: string): Promise<DidDocument | null> {
 		if (did.startsWith("did:key:")) {
 			return resolveDidKey(did);
@@ -110,9 +97,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 		return null;
 	}
 
-	/**
-	 * Get the stored DID record for an agent, or null if none exists.
-	 */
+	/** Get the stored DID record for an agent, or null if none exists. */
 	async function getAgentDid(agentId: string): Promise<AgentDid | null> {
 		const rows = await db.select().from(agentDids).where(eq(agentDids.agentId, agentId));
 		const row = rows[0];
@@ -128,11 +113,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 		};
 	}
 
-	/**
-	 * Sign a payload using the private key provided by the caller.
-	 *
-	 * The agent's stored DID is used as the issuer (`iss` claim).
-	 */
+	/** Sign a payload using the private key provided by the caller. */
 	async function sign(
 		agentId: string,
 		payload: Record<string, unknown>,
@@ -147,10 +128,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 
 	/**
 	 * Verify a JWS signature.
-	 *
-	 * When `did` is provided, the public key is looked up from the database.
-	 * Otherwise the caller must provide a public key JWK directly — use the
-	 * lower-level `verifyPayload()` from signing.ts in that case.
+	 * Otherwise the caller must provide a public key JWK directly, use the lower-level `verifyPayload()` from signing.ts in that case.
 	 */
 	async function verify(jws: string, did?: string): Promise<VerificationResult> {
 		if (!did) {
@@ -173,9 +151,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 		return verifyPayload(jws, publicKeyJwk);
 	}
 
-	/**
-	 * Create a verifiable presentation JWT for an agent.
-	 */
+	/** Create a verifiable presentation JWT for an agent. */
 	async function createPresentationForAgent(options: {
 		agentId: string;
 		privateKeyJwk: JsonWebKey;
@@ -198,12 +174,7 @@ export function createDidModule(db: Database, config?: { web?: DidWebConfig }) {
 		});
 	}
 
-	/**
-	 * Verify a presentation JWT.
-	 *
-	 * Looks up the public key from the stored DID document in the database.
-	 * The DID is extracted from the `iss` claim in the JWT header.
-	 */
+	/** Verify a presentation JWT. */
 	async function verifyPresentationForAgent(
 		jwt: string,
 	): Promise<VerificationResult & { capabilities?: string[] }> {

@@ -1,7 +1,4 @@
-/**
- * Social token API: `getAccessToken` with refresh on expiry, `listAccounts`
- * and `unlinkAccount`, on top of `theauth_oauth_accounts`.
- */
+/** Social token API: `getAccessToken` with refresh on expiry, `listAccounts` and `unlinkAccount`, on top of `theauth_oauth_accounts`. */
 
 import { and, eq, ne } from "drizzle-orm";
 import type { Database } from "../../db/database.js";

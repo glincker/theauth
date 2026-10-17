@@ -6,6 +6,7 @@ export type {
 	CorsConfig,
 	Gateway,
 	GatewayConfig,
+	GatewayMcpConfig,
 	GatewayPolicy,
 	RateLimitConfig,
 	ResolvedIdentity,

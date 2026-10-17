@@ -134,8 +134,6 @@ describe("did:web – generation and URL construction", () => {
 	});
 });
 
-// Signing and verification
-
 describe("signPayload / verifyPayload", () => {
 	it("signs and verifies a payload roundtrip", async () => {
 		const { did, publicKeyJwk, privateKeyJwk } = await generateDidKey();
@@ -175,8 +173,6 @@ describe("signPayload / verifyPayload", () => {
 		expect(result.valid).toBe(false);
 	});
 });
-
-// Presentations
 
 describe("createPresentation / verifyPresentation", () => {
 	it("creates and verifies a presentation JWT roundtrip", async () => {
@@ -257,8 +253,6 @@ describe("createPresentation / verifyPresentation", () => {
 		expect(payload.exp - payload.iat).toBeCloseTo(60, -1);
 	});
 });
-
-// Database integration (DID module)
 
 describe("DID module – database storage", () => {
 	let theauth: TheAuth;

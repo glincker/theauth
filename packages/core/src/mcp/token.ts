@@ -18,19 +18,11 @@ import type {
 import { McpTokenRequestSchema } from "./types.js";
 import { extractBasicAuth, hashToken, parseRequestBody, verifyS256 } from "./utils.js";
 
-/**
- * Resolve client credentials from the request.
- *
- * Supports:
- * - HTTP Basic Authentication (client_secret_basic)
- * - Body parameters (client_secret_post)
- * - No auth (public clients, token_endpoint_auth_method = "none")
- */
+/** Resolve client credentials from the request. */
 function resolveClientCredentials(
 	request: Request,
 	body: Record<string, string>,
 ): { clientId: string; clientSecret: string | null } | null {
-	// Try Basic auth first
 	const basicAuth = extractBasicAuth(request);
 	if (basicAuth) {
 		return { clientId: basicAuth[0], clientSecret: basicAuth[1] };
@@ -49,10 +41,7 @@ function resolveClientCredentials(
 }
 
 /**
- * Check the DPoP proof on a token request (RFC 9449 section 5). Returns the
- * key thumbprint to bind the grant to, or null for a plain bearer request.
- * Runs before any grant is consumed so a `use_dpop_nonce` retry can reuse
- * the same authorization code.
+ * Check the DPoP proof on a token request (RFC 9449 section 5). Returns the key thumbprint to bind the grant to, or null for a plain bearer request. Runs before any grant is consumed so a `use_dpop_nonce` retry can reuse the same authorization code.
  */
 async function resolveTokenDpop(
 	ctx: McpAuthContext,
@@ -84,25 +73,13 @@ function tokenEndpointUrl(ctx: McpAuthContext): string {
 }
 
 /**
- * Handle the OAuth 2.1 token endpoint.
- *
- * POST /mcp/token
- *
- * Grant types:
- * 1. authorization_code - Exchange auth code + PKCE verifier for tokens
- * 2. refresh_token - Refresh an expired access token
- * 3. client_credentials - opt in via `McpConfig.clientCredentials`
- * 4. urn:ietf:params:oauth:grant-type:token-exchange - opt in via `McpConfig.tokenExchange`
- * 5. urn:ietf:params:oauth:grant-type:jwt-bearer - opt in via `McpConfig.jwtBearer`
- *
- * Clients authenticate with client_secret_basic, client_secret_post,
- * private_key_jwt (`client_assertion`), or not at all when public.
+ * Handles the OAuth 2.1 token endpoint: `authorization_code` (with PKCE) and `refresh_token` grants.
+ * Clients authenticate with client_secret_basic, client_secret_post, private_key_jwt, or not at all when public.
  */
 export async function handleTokenExchange(
 	ctx: McpAuthContext,
 	request: Request,
 ): Promise<Result<McpTokenResponse>> {
-	// Parse body
 	const body = await parseRequestBody(request);
 
 	// private_key_jwt: the assertion names the client
@@ -128,7 +105,6 @@ export async function handleTokenExchange(
 		assertionVerified = true;
 	}
 
-	// Resolve client credentials
 	const credentials = resolveClientCredentials(request, body);
 	if (!credentials) {
 		return {
@@ -191,9 +167,7 @@ export async function handleTokenExchange(
 	}
 }
 
-/**
- * authorization_code grant: exchange code + PKCE verifier for tokens.
- */
+/** authorization_code grant: exchange code + PKCE verifier for tokens. */
 async function handleAuthorizationCodeGrant(
 	ctx: McpAuthContext,
 	data: Extract<McpTokenRequestParsed, { grant_type: "authorization_code" }>,
@@ -268,7 +242,6 @@ async function handleAuthorizationCodeGrant(
 
 	const resource = authCode.resource;
 
-	// Issue tokens
 	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
 		ctx,
 		authCode.userId,
@@ -305,7 +278,6 @@ async function handleAuthorizationCodeGrant(
 
 	await ctx.storeToken(tokenRecord);
 
-	// Build response
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",

@@ -4,8 +4,6 @@ import type { Database } from "../db/database.js";
 import { agents, budgetPolicies, costEvents } from "../db/schema.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 
-// Types
-
 export interface CostAttributionConfig {
 	/** ISO 4217 currency code, default 'USD' */
 	currency?: string;
@@ -65,8 +63,6 @@ export interface CostAttributionModule {
 	cleanup(options?: { retentionDays?: number }): Promise<Result<{ deleted: number }>>;
 }
 
-// Helpers
-
 function ok<T>(data: T): Result<T> {
 	return { success: true, data };
 }
@@ -88,8 +84,6 @@ function rowToEventCost(row: CostEventRow): number {
 	// costUsd is stored as integer microdollars (×1_000_000) to avoid float drift
 	return row.costMicros / 1_000_000;
 }
-
-// Module factory
 
 export function createCostAttributionModule(
 	db: Database,
@@ -157,7 +151,7 @@ export function createCostAttributionModule(
 				await fireAlerts(input.agentId, dailySpend, "24h");
 			}
 
-			// Check against budget policies — fire budget_exceeded if over limit
+			// Check against budget policies, fire budget_exceeded if over limit
 			if (config.onAlert) {
 				const budgetResult = await checkBudget(input.agentId);
 				if (budgetResult.success && !budgetResult.data.withinBudget) {
@@ -194,7 +188,6 @@ export function createCostAttributionModule(
 			const costUsd = rowToEventCost(row);
 			totalCostUsd += costUsd;
 
-			// By tool
 			const existing = toolMap.get(row.tool) ?? { costUsd: 0, callCount: 0 };
 			toolMap.set(row.tool, {
 				costUsd: existing.costUsd + costUsd,
@@ -363,7 +356,6 @@ export function createCostAttributionModule(
 				return ok({ withinBudget: true, spent, limit: null, remaining: null });
 			}
 
-			// Compute monthly spend
 			const now = new Date();
 			const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 			const spendRows = await db

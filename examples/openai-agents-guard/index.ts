@@ -1,8 +1,5 @@
 /**
- * Guard OpenAI Agents SDK tools with theAuth.
- *
- * The script invokes the tools the way the SDK runner does when the model asks
- * for one, so it needs no model and no API key.
+ * Guards OpenAI Agents SDK tools with theAuth. Invokes the tools the way the runner does, so no model or API key is needed.
  */
 
 import { createTheAuth, guardTool, replayAgent, ToolGuardError, users } from "@glinr/theauth";

@@ -16,3 +16,7 @@ pnpm dev
 - `POST /api/theauth/sign-in` - Sign in
 - `GET /api/theauth/session` - Get current session
 - `POST /api/theauth/sign-out` - Sign out
+
+## Deploy
+
+This example is a Node server that uses `better-sqlite3`, so it cannot run on Cloudflare Workers and has no deploy button. To deploy theAuth with Hono on Cloudflare, use [examples/cloudflare-workers](../cloudflare-workers).

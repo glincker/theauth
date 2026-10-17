@@ -31,11 +31,6 @@ const DEFAULT_CODE_TTL = 600; // 10 minutes
 /**
  * Create the MCP authorization server module.
  *
- * This is the main factory that wires up all MCP OAuth 2.1 endpoints
- * into a single module.  The caller provides storage callbacks (how to
- * persist clients, codes, and tokens) and user resolution (how to identify
- * the currently authenticated user).
- *
  * @example
  * ```typescript
  * const mcp = createMcpModule({
@@ -83,7 +78,6 @@ export function createMcpModule(params: {
 	revokeTokenFamily?: McpAuthContext["revokeTokenFamily"];
 	resolveUserId: McpAuthContext["resolveUserId"];
 }): McpAuthModule {
-	// Validate required config
 	const config = params.config;
 	if (!config.issuer) {
 		throw new Error("McpConfig.issuer is required");
@@ -217,12 +211,7 @@ export function createMcpModule(params: {
 	};
 }
 
-/**
- * Create HTTP Response helpers for framework adapters.
- *
- * These take Result types and produce standard Response objects
- * with proper status codes, cache-control headers, and CORS.
- */
+/** Create HTTP Response helpers for framework adapters. */
 export function createMcpResponseHelpers(ctx: McpAuthContext) {
 	const corsHeaders = {
 		"Access-Control-Allow-Origin": "*",

@@ -1,7 +1,4 @@
-/**
- * RFC 8693 token exchange: subject and actor validation, scope narrowing,
- * audience policy, nested `act`, chain depth, revocation and DPoP.
- */
+/** RFC 8693 token exchange: subject and actor validation, scope narrowing, audience policy, nested `act`, chain depth, revocation and DPoP. */
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { createMcpModule } from "../src/mcp/server.js";

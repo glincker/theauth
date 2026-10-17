@@ -37,15 +37,12 @@ export interface EmailAuthConfig {
 	 * from `ctx.signInGate`; pass it explicitly when using `createEmailAuth`.
 	 */
 	signInGate?: EmailSignInGate;
-	/** Concurrent session limit applied to sessions this module creates. */
 	sessionLimit?: EmailSessionLimit;
 	/** Send verification email. You provide the transport. */
 	sendVerificationEmail: (email: string, token: string, url: string) => Promise<void>;
-	/** Send password reset email. */
 	sendResetEmail: (email: string, token: string, url: string) => Promise<void>;
 	/** Base URL for verification/reset links (e.g., "https://app.example.com") */
 	appUrl: string;
-	/** Password requirements */
 	password?: {
 		minLength?: number; // default: 8
 		maxLength?: number; // default: 128
@@ -90,34 +87,24 @@ export interface SignInInput {
 }
 
 export interface EmailAuthModule {
-	/** Register a new user */
 	signUp: (input: SignUpInput) => Promise<{ user: EmailUser; token: string }>;
-	/** Sign in with email and password */
 	signIn: (
 		input: SignInInput,
 		context?: { request?: Request },
 	) => Promise<{ user: EmailUser; session: { token: string; expiresAt: Date } }>;
-	/** Verify email with token */
 	verifyEmail: (token: string) => Promise<{ verified: boolean }>;
-	/** Request password reset */
 	requestReset: (email: string) => Promise<void>;
-	/** Reset password with token */
 	resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean }>;
-	/** Change password (authenticated) */
 	changePassword: (
 		userId: string,
 		currentPassword: string,
 		newPassword: string,
 	) => Promise<{ success: boolean }>;
-	/** Get user by ID */
 	getUser: (userId: string) => Promise<EmailUser | null>;
-	/** Get user by email */
 	getUserByEmail: (email: string) => Promise<EmailUser | null>;
-	/** Handle HTTP request (route to appropriate handler) */
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-/** Internal row type for theauth_email_accounts */
 export interface EmailAccountRow {
 	id: string;
 	userId: string;

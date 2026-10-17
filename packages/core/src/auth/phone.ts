@@ -1,9 +1,6 @@
 /**
  * Phone number (SMS OTP) authentication for TheAuth.
- *
- * Generates a short numeric code, hashes it with SHA-256 before storage, and
- * calls the caller-provided `sendSms` function. On verification the hash is
- * compared in constant time to prevent timing attacks.
+ * On verification the hash is compared in constant time to prevent timing attacks.
  *
  * @example
  * ```typescript
@@ -27,8 +24,6 @@ import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// Public types
-
 export interface PhoneAuthConfig {
 	/** Called to deliver the OTP code to the user via SMS. */
 	sendSms: (phoneNumber: string, code: string) => Promise<void>;
@@ -38,10 +33,7 @@ export interface PhoneAuthConfig {
 	codeExpiry?: number;
 	/** Max verification attempts before code is invalidated (default: 5) */
 	maxAttempts?: number;
-	/**
-	 * Minimum seconds between sends to the same number (default: 0, disabled).
-	 * A send inside the window returns `{ sent: false, retryAfter }`.
-	 */
+	/** Minimum seconds between sends to the same number (default: 0, disabled). A send inside the window returns `{ sent: false, retryAfter }`. */
 	resendCooldownSeconds?: number;
 }
 
@@ -49,11 +41,7 @@ export interface PhoneAuthModule {
 	/** Send a one-time code to the phone number. */
 	sendCode: (phoneNumber: string) => Promise<{ sent: boolean; retryAfter?: number }>;
 	/**
-	 * Verify the code for the given phone number.
-	 * Returns null when the code is wrong, expired, or attempts exceeded.
-	 * Throws `SignInGateError` when the sign-in gate requires a forced password
-	 * change or a second factor first (gate method `phone`; the code is
-	 * consumed, finish with the challenge on the error).
+	 * Verify the code for the given phone number. Returns null when the code is wrong, expired, or attempts exceeded. Throws `SignInGateError` when the sign-in gate requires a forced password change or a second factor first (gate method `phone`; the code is consumed, finish with the challenge on the error).
 	 */
 	verifyCode: (
 		phoneNumber: string,
@@ -65,11 +53,8 @@ export interface PhoneAuthModule {
 	} | null>;
 	/**
 	 * Handle an incoming HTTP request.
-	 *
-	 * - `POST /auth/phone/send-code`  – JSON body `{ phoneNumber: string }`
-	 * - `POST /auth/phone/verify`     – JSON body `{ phoneNumber: string; code: string }`
-	 *
-	 * Returns null when the path does not match.
+	 * Routes `POST /auth/phone/send-code` (JSON body `{ phoneNumber }`) and `POST /auth/phone/verify`
+	 * (JSON body `{ phoneNumber, code }`). Returns null when the path does not match.
 	 */
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
@@ -79,8 +64,6 @@ export interface PhoneAuthModule {
 const DEFAULT_CODE_LENGTH = 6;
 const DEFAULT_CODE_EXPIRY_SECONDS = 300;
 const DEFAULT_MAX_ATTEMPTS = 5;
-
-// Helpers
 
 async function hashCode(code: string): Promise<string> {
 	return sha256(code);
@@ -118,8 +101,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// Factory
-
 export function createPhoneAuthModule(
 	config: PhoneAuthConfig,
 	db: Database,
@@ -154,8 +135,6 @@ export function createPhoneAuthModule(
 
 		return { id, phone };
 	}
-
-	// public API
 
 	async function sendCode(phoneNumber: string): Promise<{ sent: boolean; retryAfter?: number }> {
 		const phone = normalisePhone(phoneNumber);
@@ -214,7 +193,7 @@ export function createPhoneAuthModule(
 
 		if (record.attempts >= maxAttempts) return null;
 
-		// Increment attempts before checking — prevents timing probes
+		// Increment attempts before checking, prevents timing probes
 		await db
 			.update(phoneVerifications)
 			.set({ attempts: record.attempts + 1 })
@@ -222,7 +201,7 @@ export function createPhoneAuthModule(
 
 		if (!(await codesEqual(record.codeHash, code))) return null;
 
-		// Code verified — remove record to prevent re-use
+		// Code verified, remove record to prevent re-use
 		await db.delete(phoneVerifications).where(eq(phoneVerifications.id, record.id));
 
 		const user = await findOrCreateUser(phone);

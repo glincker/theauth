@@ -12,7 +12,6 @@ interface WebExtensionGlobal {
 	runtime?: RuntimeLike;
 }
 
-/** `browser` (Firefox, Safari) when present, else `chrome`. */
 export function webExtensionGlobal(): WebExtensionGlobal | undefined {
 	const g = globalThis as unknown as { browser?: WebExtensionGlobal; chrome?: WebExtensionGlobal };
 	return g.browser ?? g.chrome;

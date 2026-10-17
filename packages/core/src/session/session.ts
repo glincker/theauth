@@ -1,13 +1,5 @@
 /**
- * Session management for TheAuth.
- *
- * Provides signed JWT session tokens backed by a `theauth_sessions` database
- * table.  Each token carries the session ID as its `sub` claim; the full
- * session record (including metadata and expiry) lives in the database so
- * it can be revoked server-side at any time.
- *
- * Tokens are signed with HS256 via `jose` – the same library used for agent
- * JWT tokens elsewhere in TheAuth.
+ * Session management: signed JWT session tokens backed by the `theauth_sessions` table.
  *
  * @example
  * ```typescript
@@ -34,37 +26,18 @@ import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import { MultiSessionLimitError } from "./multi-session.js";
 
-// Public types
-
 export interface SessionConfig {
 	/** Signing secret for session tokens. Must be at least 32 characters. */
 	secret: string;
-	/**
-	 * Session lifetime in seconds.
-	 * Defaults to 604 800 (7 days).
-	 */
+	/** Session lifetime in seconds. Default: 604800 (7 days). */
 	maxAge?: number;
-	/**
-	 * Name of the cookie used to transport the session token.
-	 * Defaults to `theauth_session`.
-	 */
+	/** Cookie name for the session token. Default: `theauth_session`. */
 	cookieName?: string;
-	/**
-	 * Maximum concurrent (non-expired) sessions per user. Unset means no limit.
-	 * Impersonation sessions are neither counted nor limited.
-	 */
+	/** Maximum concurrent (non-expired) sessions per user. Unset means no limit. */
 	maxConcurrent?: number;
-	/**
-	 * What to do when `maxConcurrent` is reached on a new session.
-	 * `evict-oldest` (default) revokes the oldest sessions, `reject` makes
-	 * `create()` throw a `MultiSessionLimitError`.
-	 */
+	/** What to do at `maxConcurrent`. `evict-oldest` (default) revokes the oldest session. */
 	onLimit?: "evict-oldest" | "reject";
-	/**
-	 * Called after sessions are revoked (explicit revoke, revokeAll or limit
-	 * eviction). Used to fan out back-channel logout. Failures are swallowed so
-	 * they never block revocation.
-	 */
+	/** Called after sessions are revoked (explicit revoke, revokeAll, or limit eviction). */
 	onRevoke?: (revoked: Session[]) => Promise<void> | void;
 }
 
@@ -77,66 +50,34 @@ export interface Session {
 }
 
 export interface CreateSessionOptions {
-	/**
-	 * A session this one replaces (refresh). It is ignored when `maxConcurrent`
-	 * is applied, so a refresh at the cap does not evict another device.
-	 */
+	/** A session this one replaces (refresh). It is ignored when `maxConcurrent` is applied, so a refresh at the cap does not evict another device. */
 	replacing?: string;
 }
 
 export interface SessionManager {
-	/**
-	 * Create a new session for the given user.
-	 *
-	 * Persists the session to `theauth_sessions` and returns both the
-	 * session record and a signed JWT that the client should store (e.g. in a
-	 * `Set-Cookie` header).
-	 */
+	/** Creates a session for a user, persists it, and returns the record with its token. */
 	create(
 		userId: string,
 		metadata?: Record<string, unknown>,
 		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }>;
 
-	/**
-	 * Validate a session token.
-	 *
-	 * Verifies the JWT signature, checks the database record exists, and
-	 * confirms the session has not expired.  Returns `null` for any failure.
-	 */
+	/** Validates a session token: verifies the JWT and checks that the database record exists. */
 	validate(token: string): Promise<Session | null>;
 
-	/**
-	 * Revoke a single session by its ID.
-	 *
-	 * The session is deleted from the database; any token that encoded this
-	 * session ID will fail `validate()` immediately.
-	 */
+	/** Revokes a single session by ID. The row is deleted, so its token stops working. */
 	revoke(sessionId: string): Promise<void>;
 
-	/**
-	 * Revoke all sessions for a user (e.g. on password change or account deletion).
-	 */
+	/** Revokes all sessions for a user (e.g. on password change or account deletion). */
 	revokeAll(userId: string): Promise<void>;
 
-	/**
-	 * List all active sessions for a user, ordered by creation time descending.
-	 */
+	/** Lists active sessions for a user, newest first. */
 	list(userId: string): Promise<Session[]>;
 }
 
-// Default values
-
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-// Factory
-
-/**
- * Create a `SessionManager` backed by the `theauth_sessions` database table.
- *
- * @param config Session configuration (secret, maxAge, cookieName).
- * @param db     The Drizzle database instance from `createDatabase()`.
- */
+/** Creates a `SessionManager` backed by the `theauth_sessions` table. */
 export function createSessionManager(config: SessionConfig, db: Database): SessionManager {
 	if (!config.secret || config.secret.length < 32) {
 		throw new Error("SessionManager: secret must be at least 32 characters.");
@@ -149,8 +90,6 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			? Math.floor(config.maxConcurrent)
 			: undefined;
 	const onLimit = config.onLimit ?? "evict-oldest";
-
-	// helpers
 
 	function rowToSession(row: {
 		id: string;
@@ -168,12 +107,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		};
 	}
 
-	// public API
-
-	/**
-	 * Apply `maxConcurrent` before a new session is inserted. Evicts the oldest
-	 * active sessions (leaving room for the new one) or rejects.
-	 */
+	/** Applies `maxConcurrent` before a new session is inserted, evicting the oldest active sessions. */
 	async function enforceLimit(
 		userId: string,
 		metadata?: Record<string, unknown>,
@@ -226,11 +160,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		}
 	}
 
-	/**
-	 * Count-then-insert is racy: concurrent sign-ins can all pass the pre-check.
-	 * After the insert, recount and drop sessions beyond the cap. A newcomer that
-	 * lost the race removes itself and throws.
-	 */
+	/** Count-then-insert is racy: concurrent sign-ins can all pass the pre-check. After the insert, recount and drop sessions beyond the cap. A newcomer that lost the race removes itself and throws. */
 	async function reconcileLimit(
 		userId: string,
 		newId: string,
@@ -338,7 +268,6 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		// Belt-and-suspenders: also check DB expiry (token expiry is the same but
 		// allows for clock skew during revokeAll / manual deletion flows).
 		if (row.expiresAt <= now) {
-			// Clean up expired row opportunistically.
 			await db.delete(sessions).where(eq(sessions.id, sessionId));
 			return null;
 		}
@@ -370,8 +299,6 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			.from(sessions)
 			.where(and(eq(sessions.userId, userId)));
 
-		// Filter out expired sessions (they may not have been cleaned up yet)
-		// and sort newest first.
 		return rows
 			.filter((row) => row.expiresAt > now)
 			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

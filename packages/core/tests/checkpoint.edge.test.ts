@@ -1,8 +1,4 @@
-/**
- * Edge cases for signed checkpoints and proofs: hostile sizes and indexes must
- * come back as a verdict, never a throw, and boundary timestamps must be
- * handled inclusively.
- */
+/** Edge cases for signed checkpoints and proofs: hostile sizes and indexes must come back as a verdict, never a throw, and boundary timestamps must be handled inclusively. */
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";

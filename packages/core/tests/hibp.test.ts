@@ -1,23 +1,14 @@
-/**
- * Tests for the Have I Been Pwned password checking module.
- *
- * fetch is mocked throughout — no real network calls are made.
- */
+/** Tests for the Have I Been Pwned password checking module. */
 
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHibpModule, HibpApiError, HibpBreachedError } from "../src/auth/hibp.js";
 
-// Helpers
-
 function sha1Upper(input: string): string {
 	return createHash("sha1").update(input, "utf8").digest("hex").toUpperCase();
 }
 
-/**
- * Build a fake HIBP range response body where the given password appears
- * `count` times, plus a handful of unrelated suffixes.
- */
+/** Build a fake HIBP range response body where the given password appears `count` times, plus a handful of unrelated suffixes. */
 function buildRangeBody(password: string, count: number): string {
 	const hash = sha1Upper(password);
 	const suffix = hash.slice(5);
@@ -51,8 +42,6 @@ describe("createHibpModule", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
-
-	// check
 
 	describe("check()", () => {
 		it("returns breach count for a compromised password", async () => {
@@ -114,8 +103,6 @@ describe("createHibpModule", () => {
 		});
 	});
 
-	// enforce
-
 	describe("enforce()", () => {
 		it("throws HibpBreachedError when password is breached (threshold=0)", async () => {
 			const password = "hunter2";
@@ -136,13 +123,13 @@ describe("createHibpModule", () => {
 
 		it("respects a custom threshold", async () => {
 			const password = "common-password";
-			// 5 breaches — below threshold of 10, should pass
+			// 5 breaches, below threshold of 10, should pass
 			mockFetch(buildRangeBody(password, 5));
 
 			const hibp = createHibpModule({ threshold: 10 });
 			await expect(hibp.enforce(password)).resolves.toBeUndefined();
 
-			// 15 breaches — above threshold, should throw
+			// 15 breaches, above threshold, should throw
 			mockFetch(buildRangeBody(password, 15));
 			await expect(hibp.enforce(password)).rejects.toThrow(HibpBreachedError);
 		});
@@ -161,8 +148,6 @@ describe("createHibpModule", () => {
 			}
 		});
 	});
-
-	// error handling
 
 	describe("API error handling", () => {
 		it("returns 0 on network error when onError is 'allow' (default)", async () => {
@@ -245,7 +230,6 @@ describe("createHibpModule", () => {
 			const hash = sha1Upper(password);
 			const suffix = hash.slice(5);
 
-			// Return suffix in lowercase
 			const body = `${suffix.toLowerCase()}:3\n`;
 
 			mockFetch(body);

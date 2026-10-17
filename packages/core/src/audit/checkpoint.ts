@@ -1,9 +1,6 @@
 /**
- * Signed audit checkpoints (a transparency-log style signed tree head) with
- * inclusion and consistency proofs. See docs/audit-checkpoints.mdx.
- *
- * Shape follows RFC 6962 (Certificate Transparency): a Merkle tree over the
- * chained audit rows, a signed tree head, audit paths and consistency proofs.
+ * Signed audit checkpoints (a transparency-log style signed tree head) with inclusion and consistency proofs. See docs/audit-checkpoints.mdx.
+ * Shape follows RFC 6962 (Certificate Transparency): a Merkle tree over the chained audit rows, a signed tree head, audit paths and consistency proofs.
  */
 
 import { constantTimeEqual } from "../crypto/web-crypto.js";
@@ -122,9 +119,7 @@ export async function createCheckpoint(
 }
 
 /**
- * Rebuild the first `checkpoint.size` leaves and confirm they still hash to the
- * checkpoint root. A mismatch means the log was rewritten, shrunk, or a row
- * landed inside the covered range after the checkpoint.
+ * Rebuild the first `checkpoint.size` leaves and confirm they still hash to the checkpoint root. A mismatch means the log was rewritten, shrunk, or a row landed inside the covered range after the checkpoint.
  */
 async function leavesMatching(
 	db: Database,
@@ -215,9 +210,7 @@ export async function verifyInclusionProof(
 }
 
 /**
- * Prove that `newer` extends `older` without rewriting any earlier row. Takes a
- * database handle because the tree itself lives there; a checkpoint holds only
- * the root. Fails if the log no longer matches either checkpoint.
+ * Prove that `newer` extends `older` without rewriting any earlier row. Takes a database handle because the tree itself lives there; a checkpoint holds only the root. Fails if the log no longer matches either checkpoint.
  */
 export async function createConsistencyProof(
 	db: Database,

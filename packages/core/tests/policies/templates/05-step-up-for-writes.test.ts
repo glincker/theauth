@@ -1,6 +1,4 @@
-/**
- * Tests for template 05 — step-up approval for writes.
- */
+/** Tests for template 05, step-up approval for writes. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { stepUpPermissions } from "../../../../../docs/policies/templates/05-step-up-for-writes/policy.js";

@@ -5,16 +5,8 @@ import type { APIRoute } from "astro";
 import { dispatch } from "./dispatch.js";
 
 export interface TheAuthAstroOptions extends AdapterSecurityOptions {
-	/**
-	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
-	 */
 	mcp?: McpAuthModule;
-	/**
-	 * The URL path prefix before the `[...path]` catch-all segment.
-	 * Defaults to `/api/theauth`.
-	 *
-	 * @example `/api/auth`
-	 */
+	/** URL path prefix before the catch-all segment. Defaults to `/api/theauth`. */
 	basePath?: string;
 }
 
@@ -71,8 +63,7 @@ export function theAuthAstro(auth: TheAuth, options?: TheAuthAstroOptions): TheA
 	// Fails closed at construction when nothing can authenticate callers.
 	const guard = createAdapterGuard(auth, options, "theAuthAstro");
 
-	// Astro APIRoute receives a context whose `request` property is a standard
-	// Web API Request, so we can pass it directly to dispatch.
+	// The Astro context already hands over a Web API Request, so it goes straight to dispatch.
 	const handler: APIRoute = ({ request }) => dispatch(request, auth, mcp, basePath, guard);
 
 	return {

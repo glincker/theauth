@@ -15,9 +15,7 @@ for (const group of [packagesDir, join(packagesDir, "adapters")]) {
 		try {
 			const pkg = JSON.parse(readFileSync(join(group, entry.name, "package.json"), "utf-8"));
 			if (pkg.name?.startsWith("@glinr/") && pkg.version) versions[pkg.name] = pkg.version;
-		} catch {
-			// not a package directory
-		}
+		} catch {}
 	}
 }
 

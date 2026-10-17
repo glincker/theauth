@@ -1,6 +1,4 @@
-/**
- * Leaf construction, receipt key resolution and paging of the checkpoint leaf set.
- */
+/** Leaf construction, receipt key resolution and paging of the checkpoint leaf set. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

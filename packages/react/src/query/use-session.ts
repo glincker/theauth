@@ -5,7 +5,6 @@ import { authKeys } from "./keys.js";
 
 const HTTP_UNAUTHORIZED = 401;
 
-/** Resolves to the signed-in user, or null when there is no valid session. */
 export function useSession() {
 	const client = useTheAuthGoClient();
 	return useQuery<GoUser | null>({
@@ -40,7 +39,6 @@ export function useLogout() {
 	});
 }
 
-/** The caller's own sessions, plus revoke one, revoke all others, and revoke the current one. */
 export function useSessions() {
 	const client = useTheAuthGoClient();
 	const qc = useQueryClient();

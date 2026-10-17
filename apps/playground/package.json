@@ -1,0 +1,24 @@
+{
+  "name": "playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Static in-browser playground for the theAuth taint guard, policy engine and signed audit receipts",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@glinr/theauth": "workspace:*",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.7",
+    "vitest": "^4.1.11"
+  }
+}

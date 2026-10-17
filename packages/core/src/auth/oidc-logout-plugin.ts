@@ -2,10 +2,7 @@ import type { TheAuthPlugin } from "../plugin/types.js";
 import type { OidcProviderModule } from "./oidc-provider.js";
 
 /**
- * Mounts the OIDC end session endpoint (GET and POST) at the path advertised
- * as `end_session_endpoint`. The provider must have been created with
- * `config.logout`; otherwise this plugin throws at init so the mistake is
- * visible instead of silently serving no logout route.
+ * Mounts the OIDC end session endpoint (GET and POST) at the path advertised as `end_session_endpoint`. The provider must have been created with `config.logout`; otherwise this plugin throws at init so the mistake is visible instead of silently serving no logout route.
  */
 export function oidcLogout(provider: OidcProviderModule): TheAuthPlugin {
 	return {

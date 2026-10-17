@@ -1,35 +1,16 @@
 /**
  * GitLab OAuth 2.0 provider.
- *
- * Endpoints (gitlab.com — self-managed instances replace the base URL):
- * - Authorization: https://gitlab.com/oauth/authorize
- * - Token:         https://gitlab.com/oauth/token
- * - UserInfo:      https://gitlab.com/api/v4/user
- *
- * Notes:
- * - PKCE S256 is supported.
- * - The `read_user` scope grants access to the `/api/v4/user` endpoint which
- *   returns the authenticated user's profile including email.
- * - GitLab user IDs are integers; they are converted to strings for the
- *   TheAuth normalized format.
- * - For self-managed GitLab instances, override the URLs by providing a
- *   custom base URL and constructing the provider accordingly.
- *
- * Docs: https://docs.gitlab.com/ee/api/oauth2.html
+ * Notes: - PKCE S256 is supported.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://gitlab.com/oauth/authorize";
 const TOKEN_URL = "https://gitlab.com/oauth/token";
 const USER_INFO_URL = "https://gitlab.com/api/v4/user";
 const DEFAULT_SCOPES = ["read_user"];
-
-// Raw response shapes
 
 interface GitLabTokenResponse {
 	access_token: string;
@@ -48,8 +29,6 @@ interface GitLabUserResponse {
 	avatar_url?: string;
 	state?: string;
 }
-
-// Factory
 
 /**
  * Create a GitLab OAuth provider instance.
@@ -179,8 +158,6 @@ export function createGitlabProvider(config: OAuthProviderConfig): OAuthProvider
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

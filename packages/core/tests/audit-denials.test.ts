@@ -1,7 +1,4 @@
-/**
- * Denials that happen before permission evaluation (revoked or expired agent,
- * revoked or expired token) still leave an audit row for the known agent.
- */
+/** Denials that happen before permission evaluation (revoked or expired agent, revoked or expired token) still leave an audit row for the known agent. */
 
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";

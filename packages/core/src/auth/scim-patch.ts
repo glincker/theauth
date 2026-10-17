@@ -1,36 +1,13 @@
 /**
  * SCIM 2.0 PATCH operation engine (RFC 7644 §3.5.2).
- *
- * Parses PATCH path expressions of the form:
- *
- *   PATH = attrPath [ "[" valFilter "]" ] [ "." attrPath ]
- *
- * Examples:
- *   displayName
- *   name.givenName
- *   emails
- *   emails[type eq "work"]
- *   emails[type eq "work"].value
- *   urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department
- *
- * The engine mutates a plain JS object representing a SCIM resource.
- * Downstream code maps the mutated object back to the database row.
- *
  * Security posture:
- *
- *  - Reject unknown operation types — only add/replace/remove per §3.5.2.
- *  - Reject mutation of immutable attributes (id, meta.created, schemas)
- *    with `scimType=mutability` errors.
- *  - Cap the number of operations per request to defend against
- *    request-amplification DoS; caller passes the cap.
- *  - Never evaluate user-provided code — the path parser and the filter
- *    evaluator are both pure AST walkers.
+ * - Reject unknown operation types, only add/replace/remove per §3.5.2.
+ * - Reject mutation of immutable attributes (id, meta.created, schemas) with `scimType=mutability` errors.
+ * - Never evaluate user-provided code, the path parser and the filter evaluator are both pure AST walkers.
  */
 
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, parseFilter, ScimFilterError } from "./scim-filter.js";
-
-// Types
 
 export type PatchOpKind = "add" | "replace" | "remove";
 
@@ -73,17 +50,12 @@ const IMMUTABLE_PATHS = new Set<string>([
 	"meta.resourcetype",
 ]);
 
-// Path parser
-
 // Keys that reach a prototype when used as a property name on a plain object.
 // The path and the value of a PATCH operation are supplied by the SCIM client,
 // so none of them may be used to walk or assign through these.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
-/**
- * Write an own data property. `defineProperty` with the key "__proto__" creates
- * a plain property and never reaches the prototype, unlike `obj[key] = value`.
- */
+/** Write an own data property. `defineProperty` with the key "__proto__" creates a plain property and never reaches the prototype, unlike `obj[key] = value`. */
 function setOwn(target: MutableResource, key: string, value: unknown): void {
 	Object.defineProperty(target, key, {
 		value,
@@ -131,7 +103,7 @@ function parseUnchecked(raw: string): PatchPath {
 	// Split on the first '[' to separate attr vs value filter.
 	const bracketIdx = raw.indexOf("[");
 
-	// No value filter — simple dotted path.
+	// No value filter, simple dotted path.
 	if (bracketIdx === -1) {
 		const { schemaUrn, parts } = splitSchemaUrn(raw);
 		if (parts.length === 0) throw new ScimPatchError("Empty PATCH path", "invalidPath");
@@ -204,15 +176,10 @@ function splitSchemaUrn(raw: string): { schemaUrn?: string; parts: string[] } {
 	return { schemaUrn, parts: tail.split(".").filter((p) => p.length > 0) };
 }
 
-// Operation applicator
-
 export interface ApplyPatchOptions {
 	/** Maximum number of operations. Default 1000. Exceeding this throws `tooMany`. */
 	maxOperations?: number;
-	/**
-	 * Extra paths to reject. Base reserved list already covers `id`, `schemas`,
-	 * `meta`, etc. Pass lower-cased dotted paths.
-	 */
+	/** Extra paths to reject. Base reserved list already covers `id`, `schemas`, `meta`, etc. Pass lower-cased dotted paths. */
 	readonlyPaths?: string[];
 }
 
@@ -220,8 +187,6 @@ type MutableResource = Record<string, unknown>;
 
 /**
  * Apply a list of PATCH operations to a resource in place.
- *
- * Mutates `resource`. Return value is the same reference, for chaining.
  *
  * @throws ScimPatchError on unknown ops, invalid paths, mutability violations,
  */
@@ -248,7 +213,7 @@ export function applyPatchOps(
 		}
 
 		if (!rawOp.path) {
-			// No path — value is a partial object merged into the resource root.
+			// No path, value is a partial object merged into the resource root.
 			if (op === "remove") {
 				throw new ScimPatchError("PATCH remove requires a path", "noTarget");
 			}
@@ -350,7 +315,7 @@ function applyToResource(
 			);
 			return;
 		}
-		// add / replace — apply `value` to each matching element.
+		// add / replace, apply `value` to each matching element.
 		for (const item of arr) {
 			if (!evaluateFilter(path.valueFilter as FilterAst, item)) continue;
 			if (path.subPath && path.subPath.length > 0) {
@@ -367,7 +332,7 @@ function applyToResource(
 		return;
 	}
 
-	// No value filter — simple add/replace/remove.
+	// No value filter, simple add/replace/remove.
 	if (op === "remove") {
 		if (path.subPath && path.subPath.length > 0) {
 			deleteDeep(currentBase, path.subPath);

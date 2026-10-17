@@ -1,6 +1,4 @@
-/**
- * recordAuditEvent stays non-blocking but no longer fails silently.
- */
+/** recordAuditEvent stays non-blocking but no longer fails silently. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

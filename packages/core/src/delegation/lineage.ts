@@ -19,11 +19,7 @@ export interface DelegationLineage {
 
 const MAX_WALK = 16;
 
-/**
- * Walk active, unexpired inbound delegations upward to the root agent. When an
- * agent has several inbound chains the earliest created one is followed, so the
- * result is deterministic.
- */
+/** Walk active, unexpired inbound delegations upward to the root agent. When an agent has several inbound chains the earliest created one is followed, so the result is deterministic. */
 export async function resolveLineage(db: Database, agentId: string): Promise<DelegationLineage> {
 	const now = new Date();
 	const path = [agentId];

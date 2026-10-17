@@ -1,16 +1,7 @@
-// Runs the sdk test suite through turbo.
-//
-// Two test files call `pnpm build` in beforeAll and rewrite dist/. When they run in
-// parallel with other packages that import the same dist (react, cli, ...), those
-// packages fail at random. They are excluded from the parallel phase and run one by
-// one afterwards, so every test still runs.
-//
-// Usage: node scripts/run-tests.mjs [--affected]
-//   --affected  only packages changed since THEAUTH_BASE (default origin/main), plus their dependents
-// Env:
-//   THEAUTH_TEST_CONCURRENCY  turbo concurrency (default 4 in CI, 2 locally)
-//   THEAUTH_BASE              git base ref for --affected (default origin/main)
-//   THEAUTH_DRY_RUN=1         print the commands instead of running them
+// Runs the sdk test suite through turbo. Two test files rewrite dist/ in beforeAll, so they
+// run serially after the parallel phase instead of racing other packages that import dist.
+// Usage: node scripts/run-tests.mjs [--affected] (changed packages plus dependents, vs THEAUTH_BASE)
+// Env: THEAUTH_TEST_CONCURRENCY, THEAUTH_BASE (default origin/main), THEAUTH_DRY_RUN=1 prints commands only.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,7 +13,6 @@ const BASE = process.env.THEAUTH_BASE || "origin/main";
 const CONCURRENCY = process.env.THEAUTH_TEST_CONCURRENCY || (process.env.CI ? "4" : "2");
 const DRY = process.env.THEAUTH_DRY_RUN === "1";
 
-// Files that rebuild dist/ and must not overlap with other tests.
 const SERIAL_FILES = ["tests/build-artifacts.test.ts", "tests/cli.test.ts"];
 
 const scope = AFFECTED ? [`--filter=...[${BASE}]`] : [];

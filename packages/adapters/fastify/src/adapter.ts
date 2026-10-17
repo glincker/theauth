@@ -15,8 +15,6 @@ import type { McpAuthModule } from "@glinr/theauth/mcp";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 
-// Zod Validation Schemas
-
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
 	allowedArgPatterns: z.array(z.string()).optional(),
@@ -73,8 +71,6 @@ const DelegateSchema = z.object({
 	maxDepth: z.number().int().positive().optional(),
 });
 
-// Response Helpers
-
 function sendOk<T>(reply: FastifyReply, data: T, status = 200): FastifyReply {
 	return reply.status(status).header("Content-Type", "application/json").send({ data });
 }
@@ -95,10 +91,7 @@ function sendError(
 		.send({ error: { code, message } });
 }
 
-/**
- * Return the machine-readable code of a typed core DelegationError, else null.
- * Structural check so adapters do not need a runtime import of core.
- */
+/** Structural check so adapters avoid a runtime import of core. */
 function delegationErrorCode(err: unknown): string | null {
 	if (err instanceof Error && err.name === "DelegationError") {
 		const code = (err as Error & { code?: unknown }).code;
@@ -127,8 +120,6 @@ function sendValidationError(reply: FastifyReply, issues: z.ZodIssue[]): Fastify
 	const message = issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
 	return sendBadRequest(reply, `Validation failed: ${message}`);
 }
-
-// MCP CORS Headers
 
 const MCP_CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -187,8 +178,6 @@ function toWebRequest(request: FastifyRequest): Request {
 	});
 }
 
-// Audit Filter Builder
-
 function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 	const q = query as Record<string, string | undefined>;
 	const filter: AuditFilter = {};
@@ -223,26 +212,15 @@ function buildAuditFilter(query: FastifyRequest["query"]): AuditFilter {
 	return filter;
 }
 
-// Adapter Options
-
 export interface TheAuthFastifyOptions extends AdapterSecurityOptions {
-	/**
-	 * The MCP OAuth 2.1 module. When provided, MCP endpoints are enabled.
-	 */
 	mcp?: McpAuthModule;
 	/**
-	 * URL prefix to mount all routes under. Defaults to no prefix (routes are
-	 * registered directly on the provided FastifyInstance).
-	 *
-	 * Use Fastify's built-in prefix option when calling `fastify.register` instead:
-	 * `fastify.register(plugin, { prefix: '/api/theauth' })`
+	 * URL prefix to mount routes under. Prefer `fastify.register(plugin, { prefix })` instead.
 	 */
 }
 
 /** @deprecated Use `TheAuthFastifyOptions` instead. Will be removed in a future major version. */
 export type AuthFastifyOptions = TheAuthFastifyOptions;
-
-// Adapter Factory
 
 /**
  * Create a Fastify plugin that registers all TheAuth REST API routes.
@@ -288,8 +266,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 		const refuse = (reply: FastifyReply, denial: ScopeDenial): FastifyReply =>
 			sendError(reply, denial.code, denial.message, denial.status);
 
-		// Management routes (agents, delegations, audit, dashboard, authorize)
-		// require an authenticated caller. The hook is scoped to this plugin.
+		// Management routes need an authenticated caller. The hook is scoped to this plugin.
 		fastify.addHook("onRequest", async (request, reply) => {
 			const pathname = new URL(request.url, "http://localhost").pathname;
 			const prefix = fastify.prefix === "/" ? "" : fastify.prefix;
@@ -315,8 +292,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			scopes.set(request, resolved.scope);
 		});
 
-		// MCP OPTIONS preflight
-
 		fastify.options("/mcp/*", (_request, reply) => {
 			return reply.status(204).headers(MCP_CORS_HEADERS).send();
 		});
@@ -325,9 +300,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			return reply.status(204).headers(MCP_CORS_HEADERS).send();
 		});
 
-		// Agent REST API
-
-		// POST /agents
 		fastify.post("/agents", async (request, reply) => {
 			const parsed = CreateAgentSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
@@ -349,7 +321,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /agents
 		fastify.get("/agents", async (request, reply) => {
 			const q = request.query as Record<string, string | undefined>;
 			const filter: AgentFilter = {};
@@ -378,7 +349,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /agents/:id
 		fastify.get<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
 			const scope = scopeFor(request, reply);
@@ -395,7 +365,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// PATCH /agents/:id
 		fastify.patch<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
 			const scope = scopeFor(request, reply);
@@ -419,7 +388,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// DELETE /agents/:id
 		fastify.delete<{ Params: { id: string } }>("/agents/:id", async (request, reply) => {
 			const { id } = request.params;
 			const scope = scopeFor(request, reply);
@@ -436,7 +404,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// POST /agents/:id/rotate
 		fastify.post<{ Params: { id: string } }>("/agents/:id/rotate", async (request, reply) => {
 			const { id } = request.params;
 			const scope = scopeFor(request, reply);
@@ -453,9 +420,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// Authorization
-
-		// POST /authorize
 		fastify.post("/authorize", async (request, reply) => {
 			const parsed = AuthorizeSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
@@ -492,7 +456,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// POST /authorize/token
 		fastify.post("/authorize/token", async (request, reply) => {
 			const authHeader = request.headers.authorization;
 			if (!authHeader?.startsWith("Bearer ")) {
@@ -504,8 +467,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
 
 			try {
-				// Forwarded headers are only honored through `trustedProxy`. `request.ip`
-				// is the socket peer unless the host enabled Fastify's own `trustProxy`.
 				const ip = guard.clientIp(toWebRequest(request)) ?? request.ip ?? undefined;
 				const userAgent =
 					(Array.isArray(request.headers["user-agent"])
@@ -531,9 +492,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// Delegation
-
-		// POST /delegations
 		fastify.post("/delegations", async (request, reply) => {
 			const parsed = DelegateSchema.safeParse(request.body);
 			if (!parsed.success) return sendValidationError(reply, parsed.error.issues);
@@ -558,7 +516,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// DELETE /delegations/:id
 		fastify.delete<{ Params: { id: string } }>("/delegations/:id", async (request, reply) => {
 			const { id } = request.params;
 			const scope = scopeFor(request, reply);
@@ -575,7 +532,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /delegations/:agentId
 		fastify.get<{ Params: { agentId: string } }>(
 			"/delegations/:agentId",
 			async (request, reply) => {
@@ -594,9 +550,7 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			},
 		);
 
-		// Audit
-
-		// GET /audit/export — must be registered before /audit to avoid route shadowing
+		// Register /audit/export before /audit to avoid route shadowing.
 		fastify.get("/audit/export", async (request, reply) => {
 			const q = request.query as Record<string, string | undefined>;
 			const format = q.format ?? "json";
@@ -633,7 +587,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /audit
 		fastify.get("/audit", async (request, reply) => {
 			const filter = buildAuditFilter(request.query);
 			const scope = scopeFor(request, reply);
@@ -649,9 +602,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// Dashboard API
-
-		// GET /dashboard/stats
 		fastify.get("/dashboard/stats", async (request, reply) => {
 			const scope = scopeFor(request, reply);
 			if (!scope) return reply;
@@ -697,7 +647,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /dashboard/agents
 		fastify.get("/dashboard/agents", async (request, reply) => {
 			const q = request.query as Record<string, string | undefined>;
 			const filter: AgentFilter = {};
@@ -726,7 +675,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /dashboard/audit
 		fastify.get("/dashboard/audit", async (request, reply) => {
 			const filter = buildAuditFilter(request.query);
 			const scope = scopeFor(request, reply);
@@ -742,23 +690,18 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// MCP OAuth 2.1 Endpoints
-
-		// GET /.well-known/oauth-authorization-server
 		fastify.get("/.well-known/oauth-authorization-server", (_request, reply) => {
 			if (!mcp) return sendNotFound(reply, "MCP module not configured");
 			const metadata = mcp.getMetadata();
 			return sendMcpOk(reply, metadata);
 		});
 
-		// GET /.well-known/oauth-protected-resource
 		fastify.get("/.well-known/oauth-protected-resource", (_request, reply) => {
 			if (!mcp) return sendNotFound(reply, "MCP module not configured");
 			const metadata = mcp.getProtectedResourceMetadata();
 			return sendMcpOk(reply, metadata);
 		});
 
-		// POST /mcp/register
 		fastify.post("/mcp/register", async (request, reply) => {
 			if (!mcp) return sendNotFound(reply, "MCP module not configured");
 			try {
@@ -775,11 +718,9 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// GET /mcp/authorize
 		fastify.get("/mcp/authorize", async (request, reply) => {
 			if (!mcp) return sendNotFound(reply, "MCP module not configured");
 			try {
-				// Build a Web API Request from the Fastify request for MCP module compatibility
 				const url = `${request.protocol}://${request.hostname}${request.url}`;
 				const webRequest = new Request(url, {
 					method: "GET",
@@ -808,8 +749,6 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			}
 		});
 
-		// Plugin Endpoints
-
 		for (const endpoint of auth.plugins.getEndpoints()) {
 			const method = endpoint.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 			fastify[method](endpoint.path, async (request, reply) => {
@@ -837,11 +776,9 @@ export function theAuthFastify(auth: TheAuth, options?: TheAuthFastifyOptions) {
 			});
 		}
 
-		// POST /mcp/token
 		fastify.post("/mcp/token", async (request, reply) => {
 			if (!mcp) return sendNotFound(reply, "MCP module not configured");
 			try {
-				// Build a Web API Request from the Fastify request for MCP module compatibility
 				const url = `${request.protocol}://${request.hostname}${request.url}`;
 				const body = JSON.stringify(request.body);
 				const webRequest = new Request(url, {

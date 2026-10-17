@@ -1,9 +1,6 @@
 /**
  * Captcha integration for TheAuth.
- *
- * Supports reCAPTCHA v2/v3, hCaptcha, and Cloudflare Turnstile. All three
- * providers share the same verification pattern: POST form-encoded data with
- * `secret` and `response` (the client token) to a provider-specific endpoint.
+ * All three providers share the same verification pattern: POST form-encoded data with `secret` and `response` (the client token) to a provider-specific endpoint.
  *
  * @example
  * ```typescript
@@ -25,28 +22,17 @@
 import type { TrustedProxyConfig } from "./client-ip.js";
 import { resolveClientIp } from "./client-ip.js";
 
-// Public types
-
 export interface CaptchaConfig {
 	/** Captcha provider */
 	provider: "recaptcha" | "hcaptcha" | "turnstile";
 	/** Secret key from the provider dashboard */
 	secretKey: string;
-	/**
-	 * Auth endpoint names that require captcha verification.
-	 * Default: ['sign-up', 'sign-in', 'reset-password']
-	 */
+	/** Auth endpoint names that require captcha verification. Default: ['sign-up', 'sign-in', 'reset-password'] */
 	protectedEndpoints?: string[];
-	/**
-	 * Minimum score for reCAPTCHA v3 (0.0 to 1.0).
-	 * Requests scoring below this are rejected. Default: 0.5
-	 */
+	/** Minimum score for reCAPTCHA v3 (0.0 to 1.0). Requests scoring below this are rejected. Default: 0.5 */
 	minScore?: number;
 	/**
-	 * How to find the client IP behind your proxies, used as the captcha
-	 * `remoteip` in `middleware`. Default: forwarded headers are ignored and no
-	 * remote IP is sent. Set `trustedProxyCount` or `trustedHeader` to match
-	 * your deployment.
+	 * How to find the client IP behind your proxies, used as the captcha `remoteip` in `middleware`. Default: forwarded headers are ignored and no remote IP is sent. Set `trustedProxyCount` or `trustedHeader` to match your deployment.
 	 */
 	trustedProxy?: TrustedProxyConfig;
 }
@@ -60,22 +46,15 @@ export interface CaptchaVerifyResult {
 export interface CaptchaModule {
 	/** Verify a client-side captcha token. */
 	verify: (token: string, ip?: string) => Promise<CaptchaVerifyResult>;
-	/**
-	 * Check the captcha token from the request's `X-Captcha-Token` header.
-	 * Returns `{ valid: false }` when the header is missing or verification fails.
-	 */
+	/** Check the captcha token from the request's `X-Captcha-Token` header. Returns `{ valid: false }` when the header is missing or verification fails. */
 	middleware: (request: Request) => Promise<{ valid: boolean; error?: string }>;
 }
-
-// Provider endpoints
 
 const PROVIDER_URLS: Record<CaptchaConfig["provider"], string> = {
 	recaptcha: "https://www.google.com/recaptcha/api/siteverify",
 	hcaptcha: "https://hcaptcha.com/siteverify",
 	turnstile: "https://challenges.cloudflare.com/turnstile/v0/siteverify",
 };
-
-// Types for provider responses
 
 interface RecaptchaResponse {
 	success: boolean;
@@ -103,8 +82,6 @@ type ProviderResponse = RecaptchaResponse | HcaptchaResponse | TurnstileResponse
 
 // const DEFAULT_PROTECTED_ENDPOINTS = ["sign-up", "sign-in", "reset-password"];
 const DEFAULT_MIN_SCORE = 0.5;
-
-// Factory
 
 export function createCaptchaModule(config: CaptchaConfig): CaptchaModule {
 	const verifyUrl = PROVIDER_URLS[config.provider];
@@ -155,7 +132,6 @@ export function createCaptchaModule(config: CaptchaConfig): CaptchaModule {
 			return { success: false, error: `Captcha failed: ${codes}` };
 		}
 
-		// reCAPTCHA v3 score check
 		if (config.provider === "recaptcha" && "score" in data && data.score !== undefined) {
 			const score = data.score;
 			if (score < minScore) {

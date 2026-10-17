@@ -1,6 +1,4 @@
-/**
- * Tests for the SCIM 2.0 module.
- */
+/** Tests for the SCIM 2.0 module. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScimModule } from "../src/auth/scim.js";
@@ -9,8 +7,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { sessions, users } from "../src/db/schema.js";
-
-// Helpers
 
 const BEARER = "test-scim-token-secret";
 const BASE = "https://api.example.com";
@@ -50,8 +46,6 @@ async function json(res: Response): Promise<Record<string, unknown>> {
 	return res.json() as Promise<Record<string, unknown>>;
 }
 
-// Auth guard
-
 describe("SCIM bearer token auth", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -78,8 +72,6 @@ describe("SCIM bearer token auth", () => {
 		expect(res?.status).toBe(200);
 	});
 });
-
-// User provisioning
 
 describe("SCIM POST /scim/v2/Users", () => {
 	let db: Database;
@@ -155,8 +147,6 @@ describe("SCIM POST /scim/v2/Users", () => {
 	});
 });
 
-// User listing and filtering
-
 describe("SCIM GET /scim/v2/Users", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -213,8 +203,6 @@ describe("SCIM GET /scim/v2/Users", () => {
 	});
 });
 
-// User get by ID
-
 describe("SCIM GET /scim/v2/Users/:id", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -240,8 +228,6 @@ describe("SCIM GET /scim/v2/Users/:id", () => {
 		expect(body.scimType).toBe("noTarget");
 	});
 });
-
-// User replace (PUT)
 
 describe("SCIM PUT /scim/v2/Users/:id", () => {
 	let db: Database;
@@ -280,8 +266,6 @@ describe("SCIM PUT /scim/v2/Users/:id", () => {
 	});
 });
 
-// User PATCH
-
 describe("SCIM PATCH /scim/v2/Users/:id", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -305,14 +289,12 @@ describe("SCIM PATCH /scim/v2/Users/:id", () => {
 	});
 
 	it("reactivates a user via replace active=true", async () => {
-		// First deactivate
 		await mod.handleRequest(
 			req("PATCH", "/scim/v2/Users/u_patch_1", {
 				schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
 				Operations: [{ op: "replace", path: "active", value: false }],
 			}),
 		);
-		// Then reactivate
 		const res = await mod.handleRequest(
 			req("PATCH", "/scim/v2/Users/u_patch_1", {
 				schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
@@ -377,8 +359,6 @@ describe("SCIM PATCH /scim/v2/Users/:id", () => {
 	});
 });
 
-// User deprovisioning (DELETE)
-
 describe("SCIM DELETE /scim/v2/Users/:id", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -422,8 +402,6 @@ describe("SCIM DELETE /scim/v2/Users/:id", () => {
 	});
 });
 
-// Group CRUD
-
 describe("SCIM Groups", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -452,7 +430,6 @@ describe("SCIM Groups", () => {
 	});
 
 	it("lists groups", async () => {
-		// Create one first
 		await mod.handleRequest(
 			req("POST", "/scim/v2/Groups", {
 				schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
@@ -593,8 +570,6 @@ describe("SCIM Groups", () => {
 	});
 });
 
-// Discovery endpoints
-
 describe("SCIM ServiceProviderConfig", () => {
 	let db: Database;
 	let mod: ScimModule;
@@ -656,8 +631,6 @@ describe("SCIM ResourceTypes", () => {
 		expect(names).toContain("Group");
 	});
 });
-
-// Non-SCIM paths
 
 describe("SCIM handleRequest routing", () => {
 	let db: Database;

@@ -1,15 +1,11 @@
 /** Plugins the `add_plugin` tool can scaffold. Every snippet matches the real factory signature. */
 export interface CatalogPlugin {
-	/** Name accepted by `add_plugin`. */
 	id: string;
-	/** Factory exported by `importFrom`. */
 	factory: string;
 	importFrom: string;
-	/** Extra packages to install beyond @glinr/theauth. */
 	install: string[];
 	/** True when the plugin throws at init unless `auth.session.secret` is configured. */
 	needsSession: boolean;
-	/** Source of the entry to put in the `plugins` array. */
 	call: string;
 	docs: string;
 	summary: string;

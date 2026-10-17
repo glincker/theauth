@@ -1,17 +1,6 @@
-/**
- * In-memory mock auth server that mirrors the TheAuth `AuthAdapter`
- * interface without any network calls, database dependencies, or heavy imports.
- *
- * Use this in Node/server-side tests where you need to exercise code paths
- * that call `resolveUser`, `getUser`, or `syncUser`.
- */
+/** In-memory mock of the `AuthAdapter` interface. No network or DB, for Node tests of user resolution. */
 
-// Types
-
-/**
- * Minimal resolved user — matches `ResolvedUser` from `@glinr/theauth/auth`
- * exactly.  Redefined here so this package has zero runtime deps.
- */
+/** Mirrors `ResolvedUser` from `@glinr/theauth/auth`. Redefined so this package has no runtime deps. */
 export interface MockResolvedUser {
 	id: string;
 	email?: string;
@@ -20,10 +9,7 @@ export interface MockResolvedUser {
 	metadata?: Record<string, unknown>;
 }
 
-/**
- * Shape that mirrors the TheAuth `AuthAdapter` interface.
- * Assign this to any parameter typed `AuthAdapter` from `@glinr/theauth`.
- */
+/** Mirrors the `AuthAdapter` interface. Assignable to any `AuthAdapter` parameter. */
 export interface MockAuthAdapter {
 	resolveUser(request: Request): Promise<MockResolvedUser | null>;
 	getUser(userId: string): Promise<MockResolvedUser | null>;
@@ -31,38 +17,21 @@ export interface MockAuthAdapter {
 }
 
 export interface MockAuthServer extends MockAuthAdapter {
-	/** Add (or replace) a user in the in-memory store. */
 	addUser(user: MockResolvedUser): void;
-	/** Remove a user from the in-memory store by ID. */
 	removeUser(userId: string): void;
-	/** All users currently in the store. */
 	readonly users: ReadonlyMap<string, MockResolvedUser>;
-	/** Reset the store and clear the active session. */
 	reset(): void;
-	/**
-	 * Set which user ID will be returned by `resolveUser` on the next request.
-	 * Pass `null` to simulate an unauthenticated request.
-	 */
+	/** Sets the user ID `resolveUser` returns next. `null` simulates an unauthenticated request. */
 	setActiveUser(userId: string | null): void;
 }
 
-// Internal header
-
-/**
- * Setting this header on a `Request` object overrides the active user for
- * that specific request only.  Useful in unit tests that construct requests
- * directly.
- */
+/** Per-request override: this header on a `Request` wins over the active user. */
 export const MOCK_USER_ID_HEADER = "x-mock-theauth-user-id";
 
-// Factory
-
 /**
- * Creates a lightweight in-memory auth adapter for tests.
+ * Creates an in-memory auth adapter for tests.
  *
- * `resolveUser` checks the `x-mock-theauth-user-id` request header first (so
- * you can pass per-request user IDs without calling `setActiveUser`), then
- * falls back to whatever was set via `setActiveUser()`.
+ * `resolveUser` checks the `x-mock-theauth-user-id` header first, then the user set by `setActiveUser()`.
  *
  * @example
  * ```ts

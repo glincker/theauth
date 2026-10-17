@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap, useTheAuthGoClient } from "./client-context.js";
 import { authKeys } from "./keys.js";
 
-/** Whether TOTP is enrolled and how many recovery codes remain. */
 export function useTotpStatus() {
 	const client = useTheAuthGoClient();
 	return useQuery<TotpStatus>({

@@ -1,15 +1,5 @@
 /**
- * Agent identity federation for TheAuth.
- *
- * Allows an agent created in one TheAuth instance (Service A) to
- * authenticate at another TheAuth instance (Service B) without
- * re-registration. The agent's identity, trust score, permissions,
- * and delegation scope travel with the federation token.
- *
- * Federation tokens are short-lived JWTs signed by the source instance.
- * The target instance verifies them by fetching the source's public key
- * from `/.well-known/theauth-federation.json`. Optionally, a Verifiable
- * Credential can be embedded for offline verification.
+ * Agent identity federation: lets an agent from one TheAuth instance authenticate at another via signed tokens.
  *
  * @example
  * ```typescript
@@ -35,13 +25,9 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { Result, TheAuthError } from "../mcp/types.js";
 import { trimTrailingSlashes } from "../trim-slashes.js";
 
-// Constants
-
 const DEFAULT_TOKEN_TTL_SECONDS = 300;
 const WELL_KNOWN_PATH = "/.well-known/theauth-federation.json";
 const FEDERATION_TOKEN_TYPE = "theauth-federation+jwt";
-
-// Zod Schemas
 
 export const TrustLevelSchema = z.enum(["full", "limited", "verify-only"]);
 
@@ -64,8 +50,6 @@ export const FederationConfigSchema = z.object({
 	tokenTtlSeconds: z.number().int().positive().optional(),
 });
 
-// Public Types
-
 export type TrustLevel = z.infer<typeof TrustLevelSchema>;
 
 export interface TrustedInstance {
@@ -76,13 +60,10 @@ export interface TrustedInstance {
 }
 
 export interface FederationConfig {
-	/** Unique identifier for this TheAuth instance */
 	instanceId: string;
-	/** Public URL of this instance */
 	instanceUrl: string;
 	/** EdDSA private key for signing federation tokens */
 	signingKey: CryptoKey;
-	/** Pre-configured trusted instances */
 	trustedInstances?: TrustedInstance[];
 	/** Trust any TheAuth instance (dev mode only) */
 	autoTrust?: boolean;
@@ -91,60 +72,41 @@ export interface FederationConfig {
 }
 
 export interface FederationToken {
-	/** Signed JWT */
 	token: string;
-	/** Token expiration */
 	expiresAt: Date;
-	/** Agent this token was issued for */
 	agentId: string;
-	/** Source instance ID */
 	sourceInstance: string;
 }
 
 export interface FederatedAgent {
-	/** Agent ID from the source instance */
 	agentId: string;
-	/** Instance that issued this agent's identity */
 	sourceInstance: string;
-	/** Source instance URL */
 	sourceInstanceUrl: string;
-	/** Permissions carried by the token */
 	permissions: string[];
 	/** Trust level (0-1) from the source instance */
 	trustScore: number;
-	/** Delegation scope, if any */
 	delegationScope: string[];
-	/** When this token was verified */
 	verifiedAt: Date;
-	/** Embedded Verifiable Credential JWT, if present */
 	credential?: string;
 }
 
 export interface InstanceIdentity {
-	/** This instance's ID */
 	instanceId: string;
-	/** This instance's URL */
 	instanceUrl: string;
 	/** Public key in JWK format for verifying federation tokens */
 	publicKeyJwk: JsonWebKey;
-	/** Protocol version */
 	protocolVersion: string;
-	/** Supported features */
 	features: string[];
 }
 
 export interface IssueFederationTokenInput {
-	/** Agent ID to issue the token for */
 	agentId: string;
 	/** Optional target instance ID (audience restriction) */
 	targetInstance?: string;
-	/** Agent permissions to include in the token */
 	permissions?: string[];
 	/** Agent trust score (0-1) */
 	trustScore?: number;
-	/** Delegation scope */
 	delegationScope?: string[];
-	/** Optional VC JWT to embed */
 	credential?: string;
 }
 
@@ -158,57 +120,33 @@ export interface FederationWellKnown {
 }
 
 export interface FederationModule {
-	/** Issue a federation token for an agent to use at another service */
 	issueFederationToken(input: IssueFederationTokenInput): Promise<Result<FederationToken>>;
-	/** Verify a federation token from another TheAuth instance */
 	verifyFederationToken(token: string): Promise<Result<FederatedAgent>>;
 	/** Get this instance's identity (for the well-known endpoint) */
 	getInstanceIdentity(): Promise<InstanceIdentity>;
-	/** Add a trusted instance */
 	addTrustedInstance(instance: TrustedInstance): Result<void>;
-	/** Remove a trusted instance by ID */
 	removeTrustedInstance(instanceId: string): Result<void>;
-	/** List all trusted instances */
 	listTrustedInstances(): TrustedInstance[];
-	/** Discover another instance via its well-known URL */
 	discoverInstance(
 		url: string,
 		fetchFn?: typeof globalThis.fetch,
 	): Promise<Result<TrustedInstance>>;
 }
 
-// JWT Claims
-
 interface FederationJwtPayload {
-	/** Source instance ID */
 	theauth_instance: string;
-	/** Source instance URL */
 	theauth_instance_url: string;
-	/** Agent permissions */
 	permissions: string[];
-	/** Agent trust score */
 	trust_score: number;
-	/** Delegation scope */
 	delegation_scope: string[];
-	/** Embedded VC JWT */
 	credential?: string;
 }
-
-// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
 }
 
-// Factory
-
-/**
- * Create a federation module for cross-instance agent identity.
- *
- * The module signs short-lived JWTs that carry agent identity, permissions,
- * and trust score. Remote instances verify these tokens using the source's
- * public key, fetched from the well-known endpoint or pre-configured.
- */
+/** Creates a federation module that signs short-lived JWTs carrying agent identity. */
 export function createFederationModule(config: FederationConfig): FederationModule {
 	const parsed = FederationConfigSchema.safeParse(config);
 	if (!parsed.success) {
@@ -225,7 +163,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		tokenTtlSeconds = DEFAULT_TOKEN_TTL_SECONDS,
 	} = config;
 
-	// Mutable trust store
 	const trustedInstances = new Map<string, TrustedInstance>();
 	if (config.trustedInstances) {
 		for (const inst of config.trustedInstances) {
@@ -233,20 +170,16 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		}
 	}
 
-	// Cache the public JWK export
 	let publicJwkCache: JsonWebKey | undefined;
 
 	async function getPublicJwk(): Promise<JsonWebKey> {
 		if (!publicJwkCache) {
 			const exported = await jose.exportJWK(signingKey);
-			// Strip private components
 			const { d, ...publicComponents } = exported;
 			publicJwkCache = { ...publicComponents, alg: "EdDSA", use: "sig" };
 		}
 		return publicJwkCache;
 	}
-
-	// issueFederationToken
 
 	async function issueFederationToken(
 		input: IssueFederationTokenInput,
@@ -325,8 +258,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		}
 	}
 
-	// verifyFederationToken
-
 	async function verifyFederationToken(token: string): Promise<Result<FederatedAgent>> {
 		if (!token || token.trim() === "") {
 			return {
@@ -353,7 +284,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 			};
 		}
 
-		// Check trust
 		const trusted = trustedInstances.get(sourceInstanceId);
 		if (!trusted && !autoTrust) {
 			return {
@@ -366,7 +296,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 			};
 		}
 
-		// Get the public key
 		const publicKeyJwk: JsonWebKey | undefined = trusted?.publicKey;
 
 		// If no pre-configured key and we're in auto-trust, we need a key
@@ -391,7 +320,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 
 			const { payload } = await jose.jwtVerify(token, key, verifyOptions);
 
-			// Check audience if we're the target
 			if (payload.aud) {
 				const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
 				if (!audiences.includes(instanceId)) {
@@ -420,15 +348,12 @@ export function createFederationModule(config: FederationConfig): FederationModu
 			const delegationScope = claims.delegation_scope ?? [];
 			const credential = claims.credential;
 
-			// Apply trust level downgrade for 'limited' trust
 			const trustLevel = trusted?.trustLevel ?? "full";
 			if (trustLevel === "limited") {
-				// Downgrade: strip write permissions, cap trust score at 0.5
 				permissions = permissions.filter((p) => !p.includes("write") && !p.includes("admin"));
 			}
 
 			if (trustLevel === "verify-only") {
-				// Only verify identity, strip all permissions
 				permissions = [];
 			}
 
@@ -469,8 +394,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 		}
 	}
 
-	// getInstanceIdentity
-
 	async function getInstanceIdentity(): Promise<InstanceIdentity> {
 		const publicKeyJwk = await getPublicJwk();
 		return {
@@ -481,8 +404,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 			features: ["federation-tokens", "vc-embedding", "auto-discovery"],
 		};
 	}
-
-	// Trust management
 
 	function addTrustedInstance(instance: TrustedInstance): Result<void> {
 		const validated = TrustedInstanceSchema.safeParse(instance);
@@ -517,8 +438,6 @@ export function createFederationModule(config: FederationConfig): FederationModu
 	function listTrustedInstances(): TrustedInstance[] {
 		return [...trustedInstances.values()];
 	}
-
-	// Discovery
 
 	async function discoverInstance(
 		url: string,

@@ -12,8 +12,6 @@ const BASE_CONFIG: SiweConfig = {
 
 const VALID_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
-// Helpers
-
 async function _buildAndSign(
 	config: SiweConfig,
 	address = VALID_ADDRESS,
@@ -23,8 +21,6 @@ async function _buildAndSign(
 	const message = mod.buildMessage(address, nonce, 1);
 	return { message, nonce };
 }
-
-// generateNonce
 
 describe("generateNonce", () => {
 	it("returns a hex string", async () => {
@@ -49,8 +45,6 @@ describe("generateNonce", () => {
 		expect(nonce.length).toBeGreaterThanOrEqual(16);
 	});
 });
-
-// buildMessage
 
 describe("buildMessage", () => {
 	it("contains the domain header", () => {
@@ -108,7 +102,7 @@ describe("buildMessage", () => {
 	});
 });
 
-// verify — nonce lifecycle
+// verify, nonce lifecycle
 
 describe("verify — nonce lifecycle", () => {
 	it("succeeds with a valid nonce + message", async () => {
@@ -151,7 +145,7 @@ describe("verify — nonce lifecycle", () => {
 	});
 });
 
-// verify — message format validation
+// verify, message format validation
 
 describe("verify — message format validation", () => {
 	it("rejects a completely malformed message", async () => {
@@ -167,7 +161,7 @@ describe("verify — message format validation", () => {
 		const _nonce = await mod.generateNonce();
 		// Build message manually with wrong domain
 		const wrongDomainMod = createSiweModule({ ...BASE_CONFIG, domain: "evil.com" });
-		// We need a nonce in the verification module too — so use a fresh mod
+		// We need a nonce in the verification module too, so use a fresh mod
 		const verifyMod = createSiweModule(BASE_CONFIG);
 		const verifyNonce = await verifyMod.generateNonce();
 		const wrongMessage = wrongDomainMod.buildMessage(VALID_ADDRESS, verifyNonce, 1);
@@ -212,8 +206,6 @@ describe("verify — message format validation", () => {
 		await expect(mod.verify(message, "0xsig")).rejects.toThrow("Signature does not match address");
 	});
 });
-
-// handleRequest
 
 describe("handleRequest", () => {
 	it("GET /auth/siwe/nonce returns a nonce", async () => {

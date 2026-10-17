@@ -1,6 +1,5 @@
 /**
- * Singleton TheAuth instance for the marquee demo.
- * Uses in-memory SQLite, state resets on cold start (acceptable for a demo).
+ * Singleton TheAuth instance for the demo. In-memory SQLite, so state resets on cold start.
  */
 
 import type { TheAuth } from "@glinr/theauth";

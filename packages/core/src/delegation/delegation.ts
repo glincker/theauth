@@ -11,10 +11,7 @@ interface DelegationModuleConfig {
 	db: Database;
 }
 
-/**
- * Verify that delegated permissions are a subset of the parent's permissions.
- * A child agent cannot have more permissions than its parent.
- */
+/** Verify that delegated permissions are a subset of the parent's permissions. A child agent cannot have more permissions than its parent. */
 function isPermissionSubset(parentPerms: Permission[], childPerms: Permission[]): boolean {
 	for (const childPerm of childPerms) {
 		const parentMatch = parentPerms.find((p) => {
@@ -35,12 +32,7 @@ function isPermissionSubset(parentPerms: Permission[], childPerms: Permission[])
 	return true;
 }
 
-/**
- * Check if childResource is the same as or more specific than parentResource.
- * "mcp:github:*" contains "mcp:github:read"
- * "mcp:*" contains "mcp:github:*"
- * "*" contains everything
- */
+/** Check if childResource is the same as or more specific than parentResource. "mcp:github:*" contains "mcp:github:read" "mcp:*" contains "mcp:github:*" "*" contains everything */
 function isResourceSubset(parentResource: string, childResource: string): boolean {
 	if (parentResource === "*") return true;
 	if (parentResource === childResource) return true;
@@ -56,10 +48,7 @@ function isResourceSubset(parentResource: string, childResource: string): boolea
 	return parentParts.length <= childParts.length;
 }
 
-/**
- * Active, unexpired permissions delegated to an agent, constraints included.
- * The one merge source shared by auth.authorize, policy.evaluate and delegate().
- */
+/** Active, unexpired permissions delegated to an agent, constraints included. The one merge source shared by auth.authorize, policy.evaluate and delegate(). */
 export async function getDelegatedPermissions(
 	db: Database,
 	agentId: string,
@@ -74,10 +63,7 @@ export async function getDelegatedPermissions(
 		.flatMap((c) => (c.permissions as Permission[]).map((p) => ({ ...p })));
 }
 
-/**
- * Apply the parent's constraints (from the first parent permission covering the
- * child's) to each requested permission. Constraints only ever narrow.
- */
+/** Apply the parent's constraints (from the first parent permission covering the child's) to each requested permission. Constraints only ever narrow. */
 function inheritConstraints(parentPerms: Permission[], requested: Permission[]): Permission[] {
 	return requested.map((child) => {
 		const parent = parentPerms.find(
@@ -96,10 +82,7 @@ export type DelegationErrorCode =
 	| "DELEGATION_DEPTH_EXCEEDED"
 	| "DELEGATION_PARENT_REVOKED";
 
-/**
- * Typed error for delegation requests that are invalid by caller input.
- * Adapters map it to HTTP 400 using `code`.
- */
+/** Typed error for delegation requests that are invalid by caller input. Adapters map it to HTTP 400 using `code`. */
 export class DelegationError extends Error {
 	readonly code: DelegationErrorCode;
 
@@ -110,21 +93,13 @@ export class DelegationError extends Error {
 	}
 }
 
-/**
- * Create the delegation module.
- * Handles agent-to-agent permission delegation with chain tracking.
- */
+/** Create the delegation module. Handles agent-to-agent permission delegation with chain tracking. */
 export function createDelegationModule(config: DelegationModuleConfig) {
 	const { db } = config;
 
 	/**
 	 * Create a delegation from `input.fromAgent` to `input.toAgent`.
-	 *
-	 * The parent's authority is read from storage, never from the caller: its
-	 * own permission rows plus the active, unexpired chains that delegate to it.
-	 * The child's expiry is clamped to the parent's when the requested
-	 * permissions rely on an inbound chain, and the depth limit honors the
-	 * stricter `maxDepth` of any inbound chain.
+	 * The parent's authority is read from storage, never from the caller: its own permission rows plus the active, unexpired chains that delegate to it.
 	 */
 	async function delegate(input: DelegateInput): Promise<DelegationChain> {
 		const now = new Date();
@@ -259,11 +234,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		};
 	}
 
-	/**
-	 * Revoke a delegation chain. Revoking a parent chain also revokes all children.
-	 * Returns the ids of the chains that were active and are now revoked, this
-	 * one and its descendants.
-	 */
+	/** Revoke a delegation chain. Revoking a parent chain also revokes all children. Returns the ids of the chains that were active and are now revoked, this one and its descendants. */
 	async function revokeDelegation(chainId: string): Promise<string[]> {
 		const chain = await db
 			.select()
@@ -275,7 +246,6 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 
 		const revoked: string[] = chain[0].status === "active" ? [chainId] : [];
 
-		// Revoke this chain
 		await db
 			.update(delegationChains)
 			.set({ status: "revoked" })
@@ -298,10 +268,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		return revoked;
 	}
 
-	/**
-	 * Revoke every active chain where the agent is source or target, plus the
-	 * child chains that cascade from them. Returns the revoked chain ids.
-	 */
+	/** Revoke every active chain where the agent is source or target, plus the child chains that cascade from them. Returns the revoked chain ids. */
 	async function revokeAllForAgent(agentId: string): Promise<string[]> {
 		const rows = await db
 			.select()
@@ -326,17 +293,12 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		return revoked;
 	}
 
-	/**
-	 * Get the effective permissions for an agent, including delegated permissions.
-	 */
+	/** Get the effective permissions for an agent, including delegated permissions. */
 	async function getEffectivePermissions(agentId: string): Promise<Permission[]> {
 		return getDelegatedPermissions(db, agentId);
 	}
 
-	/**
-	 * List the delegation chains an agent created as the delegator (`fromAgentId`).
-	 * Inbound chains where the agent is the delegate are not included.
-	 */
+	/** List the delegation chains an agent created as the delegator (`fromAgentId`). Inbound chains where the agent is the delegate are not included. */
 	async function listChains(agentId: string): Promise<DelegationChain[]> {
 		const chains = await db
 			.select()

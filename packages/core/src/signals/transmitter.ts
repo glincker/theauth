@@ -1,8 +1,4 @@
-/**
- * Shared Signals transmitter: stream management, SET creation, push delivery
- * with retry, and the poll queue. HTTP wiring lives in
- * `transmitter-endpoints.ts`.
- */
+/** Shared Signals transmitter: stream management, SET creation, push delivery with retry, and the poll queue. HTTP wiring lives in `transmitter-endpoints.ts`. */
 
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -13,6 +9,7 @@ import { signSet } from "./set.js";
 import type { SignalsStore } from "./store.js";
 import { createSignalsStore } from "./store.js";
 import { candidateKeys } from "./subjects.js";
+import { trimTrailingSlashes } from "./trim-slash.js";
 import type {
 	DeliveryMethod,
 	EventPayload,
@@ -40,10 +37,7 @@ export interface TransmitterDeliveryConfig {
 	/** Per request timeout. Default 5000 ms. */
 	timeoutMs?: number;
 	/**
-	 * `background` (default) returns from `emit` once SETs are stored and runs
-	 * delivery in the background. `inline` awaits delivery and retries.
-	 * Serverless runtimes that freeze after the response should use `inline`
-	 * or call `processDue()` from a scheduled job.
+	 * `background` (default) returns from `emit` once SETs are stored and runs delivery in the background. `inline` awaits delivery and retries. Serverless runtimes that freeze after the response should use `inline` or call `processDue()` from a scheduled job.
 	 */
 	mode?: "background" | "inline";
 	fetchImpl?: typeof fetch;
@@ -67,10 +61,7 @@ export interface TransmitterConfig {
 	keyId?: string;
 	/** Where receivers fetch the public key. Default `${issuer}/.well-known/jwks.json`. */
 	jwksUri?: string;
-	/**
-	 * Authenticate a management or poll request. Return a stable id for the
-	 * receiver (used as stream owner and default audience) or null to refuse.
-	 */
+	/** Authenticate a management or poll request. Return a stable id for the receiver (used as stream owner and default audience) or null to refuse. */
 	authenticate: (request: Request) => Promise<{ id: string } | null>;
 	/** Event types this transmitter will deliver. Default: all CAEP and RISC types. */
 	eventsSupported?: string[];
@@ -146,7 +137,7 @@ export function createTransmitter(config: TransmitterConfig): Transmitter {
 	const alg = config.signingAlgorithm ?? DEFAULT_ALG;
 	const kid = config.keyId ?? "theauth-ssf-1";
 	const eventsSupported = config.eventsSupported ?? [...SUPPORTED_EVENT_TYPES];
-	const endpointBaseUrl = (config.endpointBaseUrl ?? `${config.issuer}/ssf`).replace(/\/+$/, "");
+	const endpointBaseUrl = trimTrailingSlashes(config.endpointBaseUrl ?? `${config.issuer}/ssf`);
 	const d = config.delivery ?? {};
 	const maxAttempts = d.maxAttempts ?? 5;
 	const sleep = d.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -258,8 +249,6 @@ export function createTransmitter(config: TransmitterConfig): Transmitter {
 		if (!fresh) return { ok: false, code: "not_found", message: "stream not found" };
 		return { ok: true, value: fresh };
 	}
-
-	// Delivery
 
 	async function attempt(
 		row: OutboxRow,

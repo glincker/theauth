@@ -16,25 +16,20 @@ import type {
 	UpdateAgentInput,
 } from "./types.js";
 
-// Client config
-
 export interface TheAuthClientOptions {
 	baseUrl: string;
 	/** Bearer token sent as `Authorization: Bearer <token>` on every request. */
 	token?: string;
-	/** Additional headers merged into every request. */
 	headers?: Record<string, string>;
 }
 
-// Authorize input (no agentId – passed as path param)
+// Authorize input, without agentId (passed as a path param)
 
 export interface AuthorizeRequest {
 	action: string;
 	resource: string;
 	arguments?: Record<string, unknown>;
 }
-
-// Client interface
 
 export interface TheAuthClient {
 	agents: {
@@ -66,8 +61,6 @@ export interface TheAuthClient {
 	};
 }
 
-// Internal helpers
-
 function buildQuery(params: Record<string, string | number | string[] | undefined>): string {
 	const parts: string[] = [];
 	for (const [key, value] of Object.entries(params)) {
@@ -82,8 +75,6 @@ function buildQuery(params: Record<string, string | number | string[] | undefine
 	}
 	return parts.length > 0 ? `?${parts.join("&")}` : "";
 }
-
-// Factory
 
 export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClient {
 	const base = options.baseUrl.replace(/\/$/, "");
@@ -116,12 +107,10 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			throw new TheAuthApiError({ code: "NETWORK_ERROR", message }, 0);
 		}
 
-		// 204 No Content — nothing to parse
 		if (response.status === 204) {
 			return undefined as unknown as T;
 		}
 
-		// Try to parse JSON body for both success and error cases
 		let body: unknown;
 		let parseOk = true;
 		try {
@@ -133,7 +122,6 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 		if (!response.ok) {
 			if (parseOk && body !== null && typeof body === "object") {
 				const errBody = body as Record<string, unknown>;
-				// Support both { code, message } and { error: { code, message } } shapes
 				const inner =
 					typeof errBody.error === "object" && errBody.error !== null
 						? (errBody.error as Record<string, unknown>)
@@ -204,8 +192,6 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 	}
 
 	return {
-		// Agents
-
 		agents: {
 			create(input: CreateAgentInput) {
 				return fetchJson<Agent>("/agents", {
@@ -249,8 +235,6 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			},
 		},
 
-		// Authorization
-
 		authorize(agentId: string, request: AuthorizeRequest) {
 			return fetchJson<AuthorizeResult>(`/agents/${encodeURIComponent(agentId)}/authorize`, {
 				method: "POST",
@@ -262,12 +246,9 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			return fetchJson<AuthorizeResult>("/authorize", {
 				method: "POST",
 				body: JSON.stringify(request),
-				// override the client-level token with the agent-specific token
 				extraHeaders: { Authorization: `Bearer ${token}` },
 			});
 		},
-
-		// Delegations
 
 		delegations: {
 			create(input: DelegateInput) {
@@ -291,8 +272,6 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 				return fetchJson<Permission[]>(`/delegations/${encodeURIComponent(agentId)}/permissions`);
 			},
 		},
-
-		// Audit
 
 		audit: {
 			query(filters?: AuditFilters) {
@@ -321,8 +300,6 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 			},
 		},
 
-		// MCP servers
-
 		mcp: {
 			register(input: RegisterMcpServerInput) {
 				return fetchJson<McpServer>("/mcp/servers", {
@@ -342,9 +319,7 @@ export function createTheAuthClient(options: TheAuthClientOptions): TheAuthClien
 	};
 }
 
-// Deprecated aliases
-// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
-// removed in a future major version.
+// Backward-compat aliases for the pre-rebrand API.
 
 /** @deprecated Use `TheAuthClientOptions` instead. Will be removed in a future major version. */
 export type AuthClientOptions = TheAuthClientOptions;

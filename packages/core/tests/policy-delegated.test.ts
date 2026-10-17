@@ -1,7 +1,4 @@
-/**
- * Delegated agents under policy.evaluate: shared permission merge, constraints
- * and root human carried through the chain, owner match, escalate auditing.
- */
+/** Delegated agents under policy.evaluate: shared permission merge, constraints and root human carried through the chain, owner match, escalate auditing. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

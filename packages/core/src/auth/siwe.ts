@@ -1,10 +1,5 @@
 /**
- * Sign In With Ethereum (SIWE) for TheAuth.
- *
- * Authenticates users by verifying an Ethereum wallet signature per EIP-4361.
- * Full secp256k1 recovery requires ethers or viem as peer deps — this module
- * validates message format and nonce integrity. Add a `verify` override via
- * `verifySignature` option when you want cryptographic proof.
+ * Sign In With Ethereum (EIP-4361): users authenticate by signing a message from their wallet.
  *
  * @example
  * ```typescript
@@ -28,40 +23,27 @@
 import { randomBytesHex } from "../crypto/web-crypto.js";
 import type { SecondaryStorage } from "../storage/types.js";
 
-// Public types
-
 export interface SiweConfig {
-	/** Your app's domain (e.g., "example.com") */
 	domain: string;
-	/** URI (e.g., "https://example.com") */
 	uri: string;
 	/** Statement shown in wallet (optional) */
 	statement?: string;
 	/** Nonce TTL in seconds (default: 300) */
 	nonceTtlSeconds?: number;
 	/**
-	 * Shared nonce storage. Pass `auth.secondaryStorage.for("nonces")` so a nonce
-	 * issued by one instance can be redeemed (exactly once) on another. Without
-	 * it nonces live in process memory, which breaks behind a load balancer.
+	 * Shared nonce storage. Pass `auth.secondaryStorage.for("nonces")` so a nonce issued by one instance can be redeemed (exactly once) on another. Without it nonces live in process memory, which breaks behind a load balancer.
 	 */
 	storage?: SecondaryStorage;
 	/**
-	 * Optional signature verifier. Called with the EIP-4361 message and
-	 * hex signature. Should return the recovered Ethereum address.
-	 * When omitted, the module trusts the address from the message body
-	 * (suitable for development; add viem/ethers recovery in production).
+	 * Optional signature verifier. Called with the EIP-4361 message and hex signature. Should return the recovered Ethereum address. When omitted, the module trusts the address from the message body (suitable for development; add viem/ethers recovery in production).
 	 */
 	verifySignature?: (message: string, signature: string) => Promise<string>;
 }
 
 export interface SiweModule {
-	/** Generate a nonce for the SIWE message */
 	generateNonce(): Promise<string>;
-	/** Build the EIP-4361 message for the wallet to sign */
 	buildMessage(address: string, nonce: string, chainId?: number): string;
-	/** Verify the signed message and return the Ethereum address */
 	verify(message: string, signature: string): Promise<{ address: string; chainId: number }>;
-	/** Handle full SIWE auth flow via HTTP */
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
@@ -69,8 +51,6 @@ export interface SiweVerifyResult {
 	address: string;
 	chainId: number;
 }
-
-// Internal types
 
 interface NonceEntry {
 	expiresAt: number;
@@ -87,12 +67,8 @@ interface ParsedSiweMessage {
 	statement?: string;
 }
 
-// Constants
-
 const DEFAULT_NONCE_TTL_SECONDS = 300;
 const SIWE_VERSION = "1";
-
-// Helpers
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -113,22 +89,16 @@ function generateHexNonce(byteLength = 16): string {
 	return randomBytesHex(byteLength);
 }
 
-/**
- * Parse an EIP-4361 message into its structured fields.
- * Returns null if the message does not match the expected format.
- */
+/** Parses an EIP-4361 message into its fields. Returns null if the message is malformed. */
 function parseSiweMessage(message: string): ParsedSiweMessage | null {
 	const lines = message.split("\n");
 	if (lines.length < 9) return null;
 
-	// Line 0: "${domain} wants you to sign in with your Ethereum account:"
 	const domainLine = lines[0] ?? "";
 	const domainMatch = /^(.+) wants you to sign in with your Ethereum account:$/.exec(domainLine);
 	if (!domainMatch) return null;
 	const domain = domainMatch[1] ?? "";
 
-	// Line 1: (blank)
-	// Line 2: Ethereum address
 	const address = lines[2]?.trim();
 	if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) return null;
 
@@ -142,7 +112,6 @@ function parseSiweMessage(message: string): ParsedSiweMessage | null {
 	if (lineAtIdx && !lineAtIdx.startsWith("URI:")) {
 		statement = lineAtIdx;
 		idx++;
-		// blank line after statement
 		if (lines[idx] === "") idx++;
 	}
 
@@ -181,12 +150,9 @@ function parseSiweMessage(message: string): ParsedSiweMessage | null {
 	};
 }
 
-// Factory
-
 export function createSiweModule(config: SiweConfig): SiweModule {
 	const nonceTtlMs = (config.nonceTtlSeconds ?? DEFAULT_NONCE_TTL_SECONDS) * 1000;
 
-	// In-memory nonce store: nonce -> expiry timestamp
 	const nonceStore = new Map<string, NonceEntry>();
 
 	const storage = config.storage;
@@ -257,22 +223,18 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 			throw new Error("Invalid SIWE message format");
 		}
 
-		// Domain check
 		if (parsed.domain !== config.domain) {
 			throw new Error(`Domain mismatch: expected ${config.domain}, got ${parsed.domain}`);
 		}
 
-		// URI check
 		if (parsed.uri !== config.uri) {
 			throw new Error(`URI mismatch: expected ${config.uri}, got ${parsed.uri}`);
 		}
 
-		// Version check
 		if (parsed.version !== SIWE_VERSION) {
 			throw new Error(`Unsupported SIWE version: ${parsed.version}`);
 		}
 
-		// Nonce check
 		const nonceState = await consumeNonce(parsed.nonce);
 		if (nonceState === "missing") {
 			throw new Error("Nonce not found or already used");
@@ -281,7 +243,6 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 			throw new Error("Nonce expired");
 		}
 
-		// Signature verification
 		let verifiedAddress: string;
 		if (config.verifySignature) {
 			verifiedAddress = await config.verifySignature(message, signature);
@@ -294,7 +255,6 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 			verifiedAddress = parsed.address;
 		}
 
-		// Normalise to checksum-style lowercase for comparison
 		if (verifiedAddress.toLowerCase() !== parsed.address.toLowerCase()) {
 			throw new Error("Signature does not match address");
 		}
@@ -306,13 +266,11 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 		const url = new URL(request.url);
 		const { method, pathname } = { method: request.method, pathname: url.pathname };
 
-		// GET /auth/siwe/nonce
 		if (method === "GET" && pathname.endsWith("/auth/siwe/nonce")) {
 			const nonce = await generateNonce();
 			return jsonResponse({ nonce });
 		}
 
-		// POST /auth/siwe/verify
 		if (method === "POST" && pathname.endsWith("/auth/siwe/verify")) {
 			const body = await parseBody(request);
 			const message = typeof body.message === "string" ? body.message : null;
@@ -339,8 +297,6 @@ export function createSiweModule(config: SiweConfig): SiweModule {
 	return { generateNonce, buildMessage, verify, handleRequest };
 }
 
-// Plugin factory
-
 import type { TheAuthPlugin } from "../plugin/types.js";
 
 export function siwe(config: SiweConfig): TheAuthPlugin {
@@ -350,7 +306,6 @@ export function siwe(config: SiweConfig): TheAuthPlugin {
 		async init(ctx): Promise<undefined> {
 			const mod = createSiweModule(config);
 
-			// GET /auth/siwe/nonce
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/siwe/nonce",
@@ -367,7 +322,6 @@ export function siwe(config: SiweConfig): TheAuthPlugin {
 				},
 			});
 
-			// POST /auth/siwe/verify
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/siwe/verify",

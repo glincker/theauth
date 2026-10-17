@@ -66,6 +66,11 @@
       "import": "./dist/standards/index.js",
       "default": "./dist/standards/index.js"
     },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js",
+      "default": "./dist/browser/index.js"
+    },
     "./signals": {
       "types": "./dist/signals/index.d.ts",
       "import": "./dist/signals/index.js",

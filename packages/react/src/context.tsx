@@ -20,8 +20,6 @@ import type {
 	TheAuthUser,
 } from "./types.js";
 
-// Context
-
 export const TheAuthContext = createContext<TheAuthContextValue | null>(null);
 
 export function useTheAuthContext(): TheAuthContextValue {
@@ -32,46 +30,18 @@ export function useTheAuthContext(): TheAuthContextValue {
 	return ctx;
 }
 
-// Provider props
-
 export interface TheAuthProviderProps {
 	children: ReactNode;
 	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */
 	basePath?: string;
 	/**
-	 * External auth mode - delegates authentication to an external API.
-	 * When set, TheAuth acts as a thin client:
-	 * - User is fetched from `external.apiUrl + external.mePath`
-	 * - Login redirects to `external.apiUrl + external.loginPath`
-	 * - Logout calls `external.apiUrl + external.logoutPath`
-	 * - No localStorage sessions - the external API manages auth via httpOnly cookies
-	 *
-	 * @example
-	 * ```tsx
-	 * <TheAuthProvider external={{
-	 *   apiUrl: "http://localhost:8080",
-	 *   loginPath: "/auth/github",
-	 *   mePath: "/api/auth/me",
-	 *   logoutPath: "/auth/logout",
-	 *   refreshPath: "/auth/refresh",
-	 * }}>
-	 * ```
+	 * Delegates authentication to an external API. Sessions live in httpOnly cookies,
+	 * not localStorage. Paths are joined onto `external.apiUrl`.
 	 */
 	external?: ExternalAuthConfig;
-	/**
-	 * Enable verbose console logging of auth state transitions
-	 * (mount, /me result, signIn, signOut, rotation start/success/failure,
-	 * proactive timer scheduling, online/offline events).
-	 *
-	 * Useful when integrating against a new backend. Defaults to `false`.
-	 *
-	 * Also enabled at runtime when `localStorage.DEBUG === "theauth"` so
-	 * consumers can flip it on without redeploying.
-	 */
+	/** Logs auth state transitions to the console. Also on when `localStorage.DEBUG === "theauth"`. */
 	debug?: boolean;
 }
-
-// Debug helper
 
 function resolveDebug(propDebug?: boolean): boolean {
 	if (propDebug) return true;
@@ -88,8 +58,6 @@ function makeLogger(enabled: boolean) {
 		if (!enabled) return;
 	};
 }
-
-// Provider
 
 export function TheAuthProvider({
 	children,
@@ -111,8 +79,6 @@ export function TheAuthProvider({
 		</ManagedProvider>
 	);
 }
-
-// Rotation defaults
 
 const DEFAULT_PROACTIVE_LEAD_MS = 120_000;
 const DEFAULT_RETRY: Required<RotateRetryConfig> = {
@@ -152,8 +118,6 @@ function makeNoopRotation(message: string): () => Promise<RotateResult> {
 		message,
 	});
 }
-
-// External auth provider
 
 function ExternalProvider({
 	children,
@@ -201,7 +165,6 @@ function ExternalProvider({
 		],
 	);
 
-	// Refs survive re-renders without invalidating callbacks.
 	const inFlightRef = useRef<Promise<RotateResult> | null>(null);
 	const proactiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const expiresAtRef = useRef<number | null>(null);
@@ -216,8 +179,6 @@ function ExternalProvider({
 		onSessionRotatedRef.current = config.onSessionRotated;
 		errorCodeMapRef.current = config.errorCodeMap;
 	}, [config.onAuthError, config.onSessionRotated, config.errorCodeMap]);
-
-	// /me bootstrap
 
 	const refresh = useCallback(async (): Promise<void> => {
 		if (typeof window === "undefined") {
@@ -248,8 +209,6 @@ function ExternalProvider({
 	useEffect(() => {
 		void refresh();
 	}, [refresh]);
-
-	// Rotation core
 
 	const mapServerCode = useCallback((raw: unknown): RotateErrorCode => {
 		if (typeof raw !== "string") return "unknown";
@@ -298,7 +257,7 @@ function ExternalProvider({
 					try {
 						parsed = (await res.json()) as { accessTokenExpiresAt?: string };
 					} catch {
-						// Tolerate empty body — server may rotate via cookies only.
+						// Tolerate empty body: server may rotate via cookies only.
 					}
 					const expiresAt = parsed.accessTokenExpiresAt
 						? new Date(parsed.accessTokenExpiresAt)
@@ -306,20 +265,17 @@ function ExternalProvider({
 					if (expiresAt && !Number.isNaN(expiresAt.getTime())) {
 						return { success: true, accessTokenExpiresAt: expiresAt };
 					}
-					// No usable expiry — still success, but we cannot schedule next.
+					// No usable expiry: still success, but the next rotation cannot be scheduled.
 					return {
 						success: true,
 						accessTokenExpiresAt: new Date(Date.now() + proactiveLeadMs * 5),
 					};
 				}
 
-				// Non-2xx — try to parse the canonical error envelope.
 				let body: { error?: unknown } = {};
 				try {
 					body = (await res.json()) as { error?: unknown };
-				} catch {
-					// ignore parse failure
-				}
+				} catch {}
 
 				if (res.status === 401) {
 					const code = mapServerCode(body.error);
@@ -376,9 +332,7 @@ function ExternalProvider({
 		[apiUrl, refreshPath, rotationEnabled, retryCfg, proactiveLeadMs, mapServerCode],
 	);
 
-	// Forward declaration via ref breaks the circular runRotation ↔ scheduleProactive
-	// dependency. The ref is assigned after runRotation is created (effect below);
-	// scheduleProactive reads the current rotation function at firing time.
+	// Forward ref breaks the runRotation <-> scheduleProactive cycle. Assigned after runRotation exists.
 	const runRotationRef = useRef<(() => Promise<RotateResult>) | null>(null);
 
 	const scheduleProactive = useCallback(
@@ -438,9 +392,7 @@ function ExternalProvider({
 				if (AUTH_ERROR_CODES.has(result.code)) {
 					try {
 						onAuthErrorRef.current?.(result.code);
-					} catch {
-						// ignore
-					}
+					} catch {}
 				}
 			}
 
@@ -455,13 +407,9 @@ function ExternalProvider({
 		}
 	}, [rotationEnabled, performAttempt, scheduleProactive, log]);
 
-	// Keep the forward-ref in sync so scheduleProactive's setTimeout can dispatch
-	// to the current rotation function across re-renders.
 	useEffect(() => {
 		runRotationRef.current = runRotation;
 	}, [runRotation]);
-
-	// Online / offline tracking
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -490,19 +438,14 @@ function ExternalProvider({
 		};
 	}, [rotationEnabled, runRotation, scheduleProactive, log]);
 
-	// Proactive bootstrap once user is loaded
-
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		if (!rotationEnabled) return;
 		if (!user) return;
-		// Proactive rotation is opt-out: setting `proactiveRefreshLeadMs: 0`
-		// disables the bootstrap rotation and the timer entirely.
+		// proactiveRefreshLeadMs: 0 disables bootstrap rotation and the timer.
 		if (proactiveLeadMs <= 0) return;
 
-		// If we already have a cached expiry (e.g. server-rendered), either
-		// rotate immediately when within the lead window or schedule the timer.
-		// Otherwise rotate once on mount to learn an expiry.
+		// Cached expiry: rotate now if inside the lead window, else schedule. No expiry: rotate once.
 		if (expiresAtRef.current) {
 			const ms = expiresAtRef.current - Date.now() - proactiveLeadMs;
 			if (ms <= 0) {
@@ -522,8 +465,6 @@ function ExternalProvider({
 		};
 	}, [user, rotationEnabled, proactiveLeadMs, runRotation, scheduleProactive]);
 
-	// Auth actions
-
 	const signIn = useCallback(async (): Promise<ActionResult> => {
 		log("signIn:redirect", { url: `${apiUrl}${loginPath}` });
 		if (typeof window !== "undefined") {
@@ -540,7 +481,7 @@ function ExternalProvider({
 				credentials: "include",
 			});
 		} catch {
-			// Best effort — clear client state regardless
+			// Best effort: clear client state regardless
 		}
 		if (proactiveTimerRef.current) {
 			clearTimeout(proactiveTimerRef.current);
@@ -557,7 +498,7 @@ function ExternalProvider({
 	}, [apiUrl, logoutPath, logoutMethod, config, log]);
 
 	const signUp = useCallback(async (): Promise<ActionResult> => {
-		// External auth doesn't support sign-up separately — redirect to login
+		// External auth has no separate sign-up, so redirect to login
 		if (typeof window !== "undefined") {
 			window.location.href = `${apiUrl}${loginPath}`;
 		}
@@ -583,8 +524,6 @@ function ExternalProvider({
 	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
 
-// Default user mapper
-
 function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 	return {
 		id: (data.user_id as string) ?? (data.id as string) ?? (data.sub as string) ?? "unknown",
@@ -593,8 +532,6 @@ function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 		image: (data.avatar as string | undefined) ?? (data.image as string | undefined),
 	};
 }
-
-// Managed (original) provider
 
 function ManagedProvider({
 	children,
@@ -612,7 +549,6 @@ function ManagedProvider({
 		typeof navigator !== "undefined" ? navigator.onLine : true,
 	);
 
-	// Strip trailing slash from basePath once
 	const base = basePath.replace(/\/$/, "");
 
 	const STORAGE_KEY = "theauth_session";
@@ -632,7 +568,6 @@ function ManagedProvider({
 		}
 	}, []);
 
-	// Restore session from localStorage on mount (only in browser)
 	useEffect(() => {
 		if (typeof window === "undefined") {
 			setIsLoading(false);
@@ -644,7 +579,6 @@ function ManagedProvider({
 		});
 	}, [fetchSession]);
 
-	// Track online/offline so the value is stable across providers.
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		const handleOnline = () => setIsOnline(true);
@@ -778,9 +712,7 @@ function ManagedProvider({
 	return <TheAuthContext.Provider value={value}>{children}</TheAuthContext.Provider>;
 }
 
-// Deprecated aliases
-// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
-// removed in a future major version.
+// Backward-compat aliases for the pre-rebrand API.
 
 /** @deprecated Use `TheAuthContext` instead. Will be removed in a future major version. */
 export const AuthContext = TheAuthContext;

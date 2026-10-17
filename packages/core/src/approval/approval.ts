@@ -58,16 +58,13 @@ async function notifyWebhook(url: string, approvalRequest: ApprovalRequest): Pro
 			}),
 		});
 	} catch {
-		// Webhook delivery failures are non-fatal — the request is already persisted.
+		// Webhook delivery failures are non-fatal, the request is already persisted.
 	}
 }
 
 /**
  * Create the CIBA-style async approval module.
- *
- * When a permission constraint fires `requireApproval`, callers can create a
- * pending request, notify a human via webhook or custom handler, and later
- * resolve it with `approve` / `deny`.
+ * When a permission constraint fires `requireApproval`, callers can create a pending request, notify a human via webhook or custom handler, and later resolve it with `approve` / `deny`.
  *
  * @example
  * ```typescript
@@ -126,7 +123,7 @@ export function createApprovalModule(config: ApprovalConfig, db: Database) {
 			createdAt: now,
 		};
 
-		// Notify asynchronously — do not await so caller is not blocked on webhook latency
+		// Notify asynchronously, do not await so caller is not blocked on webhook latency
 		if (config.webhookUrl) {
 			void notifyWebhook(config.webhookUrl, approvalRequest);
 		}

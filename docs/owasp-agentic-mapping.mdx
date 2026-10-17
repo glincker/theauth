@@ -1,0 +1,21 @@
+---
+title: "OWASP agentic AI top 10 mapped to theAuth"
+description: "Map each OWASP Top 10 for Agentic Applications risk to the theAuth feature that addresses it, and the limit where that feature stops short."
+---
+
+<Note>
+  Risk names follow a secondary reading of the OWASP Top 10 for Agentic Applications for 2026 (OWASP GenAI Security Project), without its numeric identifiers. Check the wording against the OWASP publication before you cite it in an audit. Feature links point to the TypeScript SDK docs. The Go threat model ([/go/security/threat-model](/go/security/threat-model)) uses its own categories and does not map to this list.
+</Note>
+
+| # | Risk | theAuth feature | Limit |
+| --- | --- | --- | --- |
+| 1 | Agent Goal Hijack | [Taint-aware tool guard](/taint-guard), [approval flows](/approval) | Tracks where an argument came from, not whether the plan is malicious |
+| 2 | Tool Misuse and Exploitation | [Permissions](/permissions), [rate limiting](/rate-limiting), MCP `requiredScopes` | Only tools you register are gated |
+| 3 | Identity and Privilege Abuse | [Agent identity](/agents), [token vault](/token-vault), [DPoP](/dpop), RFC 8707 audience checks | Unbound bearer tokens work for any holder; offline checks miss revocation |
+| 4 | Agentic Supply Chain Vulnerabilities | jwt-bearer accepts listed issuers only, [MCP registry](/publishing), lenient client options off by default | Third-party MCP servers and their code are not scanned |
+| 5 | Unexpected Code Execution | None. Withhold code-execution tools via [permissions](/permissions) | Does not inspect or sandbox code |
+| 6 | Memory and Context Poisoning | Taint labels, [audit trail](/audit) | Memory stores are yours; not scanned |
+| 7 | Insecure Inter-Agent Communication | Token exchange (RFC 8693) with an `act` chain, [delegation chains](/delegation) | Messages outside the token flow are not covered |
+| 8 | Cascading Failures | [Rate limiting](/rate-limiting), delegation depth limits, cascading revocation | Limits are per agent and per IP, not fleet-wide |
+| 9 | Human-Agent Trust Exploitation | [Approval flows](/approval), MCP `consentPage` | Cannot tell whether approval was informed; design the prompt yourself |
+| 10 | Rogue Agents | Revocation, [trust scoring](/trust), [anomaly detection](/anomaly) | Anomaly detection is limited; the page lists what is missing |

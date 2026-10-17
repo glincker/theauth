@@ -1,7 +1,4 @@
-/**
- * Passkey as a second factor: real ES256 assertions through the passkey
- * module, driven by the sign-in gate.
- */
+/** Passkey as a second factor: real ES256 assertions through the passkey module, driven by the sign-in gate. */
 
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";

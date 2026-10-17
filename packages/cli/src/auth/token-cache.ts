@@ -57,9 +57,7 @@ async function readFileSafe(path: string): Promise<CacheFile> {
 		if (parsed && typeof parsed === "object" && (parsed as CacheFile).version === 1) {
 			return parsed as CacheFile;
 		}
-	} catch {
-		// missing or corrupt: start empty
-	}
+	} catch {}
 	return { version: 1, servers: {} };
 }
 

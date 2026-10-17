@@ -1,5 +1,3 @@
-// Domain types
-
 export interface TheAuthUser {
 	id: string;
 	email?: string;
@@ -58,7 +56,5 @@ export interface CreateAgentInput {
 	expiresAt?: string;
 	metadata?: Record<string, unknown>;
 }
-
-// Result type
 
 export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };

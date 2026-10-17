@@ -1,8 +1,5 @@
 /**
- * Contract table for the generic-factory provider presets added in the
- * feature-gap pass. Every row must satisfy the same contract with a mocked
- * fetch: PKCE authorization URL, code exchange against the right token
- * endpoint, and userinfo mapped to a stable id and email.
+ * Contract table for the generic-factory provider presets. Every row must satisfy the same contract with a mocked fetch: PKCE authorization URL, code exchange against the right token endpoint, and userinfo mapped to a stable id and email.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";

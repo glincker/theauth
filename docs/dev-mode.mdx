@@ -1,0 +1,45 @@
+---
+title: "Dev mode: local agent auth server in one command"
+description: "Start a local theAuth server with npx theauth dev. It seeds a demo user, two agents, a delegation and a policy check in under a minute."
+icon: play
+---
+
+Start a local server with a demo user, a delegation and a policy check. No config, database or account is needed.
+
+```bash
+npx theauth dev
+```
+
+The server listens on `127.0.0.1` with an in-memory SQLite database. It seeds:
+
+1. A demo user, `demo@theauth.dev`.
+2. A `planner-agent` owned by that user, with read access to repos and write access to issues.
+3. A `worker-agent` that starts with no permissions of its own.
+4. A delegation from the planner to the worker that grants only `read` on `mcp:github:repos`.
+
+It then runs three guarded tool calls and prints each result:
+
+| Call | Result | Why |
+| --- | --- | --- |
+| worker reads a repo | allowed | The delegation covers it |
+| worker deletes a repo | denied | The delegation does not cover it |
+| planner writes an issue | allowed | The planner holds that grant itself |
+
+Every call lands in the audit log. The command verifies the audit hash chain and reports the count.
+
+## Command-line options
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `--port <n>` | `3100` | Also settable with the `THEAUTH_DEV_PORT` environment variable |
+| `--smoke` | off | Run the walkthrough, check the server answers, then exit with code 0 or 1 |
+
+## Dashboard
+
+When the dashboard build is present, the walkthrough prints a dashboard URL for browsing agents, delegations and audit entries. Without the build, only the API URL is printed and everything else still works. Try `curl http://localhost:3100/api/agents`.
+
+## Limits
+
+- Dev mode turns off authentication on the management routes and binds to localhost only. Do not expose it.
+- Data is in memory and is gone when the process exits. Press Ctrl+C to stop.
+- For a real setup, run `npx theauth init`.

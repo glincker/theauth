@@ -15,23 +15,20 @@ export interface TelemetrySpan {
 export interface TelemetryConfig {
 	/** Called for every authorization event */
 	onSpan?: (span: TelemetrySpan) => void;
-	/** Service name for spans */
 	serviceName?: string;
 	/** Whether to include arguments in span attributes */
 	includeArguments?: boolean;
 }
 
 function generateId(): string {
-	// Generate a 16-byte hex string (standard for OTel trace/span IDs)
 	return randomUUID().replace(/-/g, "").slice(0, 16);
 }
 
 /**
  * Create the telemetry module.
  *
- * Converts TheAuth events into OpenTelemetry-compatible span shapes and
- * delivers them via the user-supplied `onSpan` callback. No @opentelemetry
- * dependency — callers wire this into their own OTel SDK.
+ * Converts TheAuth events into OTel-shaped spans and passes them to the `onSpan` callback.
+ * No @opentelemetry dependency, so callers wire spans into their own OTel SDK.
  *
  * @example
  * ```typescript
@@ -54,9 +51,6 @@ export function createTelemetryModule(config: TelemetryConfig) {
 		config.onSpan?.(span);
 	}
 
-	/**
-	 * Convert an audit log entry into an OTel span and emit it.
-	 */
 	function emitAuthorizeSpan(entry: AuditEntry): void {
 		const startTime = new Date(entry.timestamp.getTime() - entry.durationMs);
 		const endTime = entry.timestamp;
@@ -98,9 +92,6 @@ export function createTelemetryModule(config: TelemetryConfig) {
 		});
 	}
 
-	/**
-	 * Emit a span for a delegation chain create or revoke event.
-	 */
 	function emitDelegationSpan(chain: DelegationChain, action: "create" | "revoke"): void {
 		const now = new Date();
 
@@ -126,9 +117,6 @@ export function createTelemetryModule(config: TelemetryConfig) {
 		});
 	}
 
-	/**
-	 * Emit a span for an agent lifecycle event (create, revoke, rotate).
-	 */
 	function emitAgentSpan(agent: AgentIdentity, action: "create" | "revoke" | "rotate"): void {
 		const now = new Date();
 

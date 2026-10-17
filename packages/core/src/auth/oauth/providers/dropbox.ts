@@ -1,36 +1,17 @@
 /**
  * Dropbox OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://www.dropbox.com/oauth2/authorize
- * - Token:         https://api.dropboxapi.com/oauth2/token
- * - UserInfo:      https://api.dropboxapi.com/2/users/get_current_account (POST)
- *
- * Notes:
- * - PKCE S256 is supported by Dropbox's OAuth 2.0 implementation (since 2021).
- * - The userinfo endpoint is a POST with an empty body (JSON null is the
- *   documented request body). No query params are needed.
- * - The `account_info.read` scope grants access to basic account info including
- *   email, name, and account ID.
- * - Dropbox account IDs start with "dbid:" and are stable across sessions.
- * - The `name` object contains `display_name`, `given_name`, `surname`, etc.
- *
- * Docs: https://developers.dropbox.com/oauth-guide
+ * Notes: - PKCE S256 is supported by Dropbox's OAuth 2.0 implementation (since 2021).
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://www.dropbox.com/oauth2/authorize";
 const TOKEN_URL = "https://api.dropboxapi.com/oauth2/token";
 const USER_INFO_URL = "https://api.dropboxapi.com/2/users/get_current_account";
 
 export const DEFAULT_DROPBOX_SCOPES = ["account_info.read"];
-
-// Raw response shapes
 
 interface DropboxTokenResponse {
 	access_token: string;
@@ -61,8 +42,6 @@ interface DropboxUserResponse {
 	profile_photo?: DropboxProfilePhoto;
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as DropboxUserResponse;
 
@@ -82,8 +61,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Factory
 
 /**
  * Create a Dropbox OAuth provider instance.
@@ -200,8 +177,6 @@ export function createDropboxProvider(config: OAuthProviderConfig): OAuthProvide
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

@@ -78,10 +78,7 @@ function rowToPolicy(row: {
 	};
 }
 
-/**
- * Check whether usage exceeds any defined limit.
- * Returns true when a limit is defined and the usage value meets or exceeds it.
- */
+/** Check whether usage exceeds any defined limit. Returns true when a limit is defined and the usage value meets or exceeds it. */
 function isExceeded(limits: BudgetLimits, usage: BudgetUsage): boolean {
 	if (limits.maxCallsPerDay !== undefined && usage.callsToday >= limits.maxCallsPerDay) return true;
 	if (limits.maxCallsPerMonth !== undefined && usage.callsThisMonth >= limits.maxCallsPerMonth)
@@ -193,19 +190,13 @@ export function createPolicyModule(db: Database) {
 		await db.delete(budgetPolicies).where(eq(budgetPolicies.id, policyId));
 	}
 
-	/**
-	 * Check whether an agent is within budget.
-	 *
-	 * Finds all active policies applicable to the agent (by agentId or global)
-	 * and evaluates current usage against each limit. Returns the first policy
-	 * that is exceeded, or `{ allowed: true }` when all are within limits.
-	 */
+	/** Check whether an agent is within budget. */
 	async function checkBudget(
 		agentId: string,
 		tokensCost?: number,
 	): Promise<{ allowed: boolean; reason?: string; policy?: BudgetPolicy }> {
 		// Fetch policies that apply: exact agent match or global (null agentId).
-		// Include both "active" and "triggered" — only "disabled" policies are skipped.
+		// Include both "active" and "triggered", only "disabled" policies are skipped.
 		const rows = await db
 			.select()
 			.from(budgetPolicies)
@@ -238,12 +229,7 @@ export function createPolicyModule(db: Database) {
 		return { allowed: true };
 	}
 
-	/**
-	 * Increment usage counters for an agent.
-	 *
-	 * Updates all active policies that apply to the given agent.
-	 * Also transitions policies to "triggered" status when a limit is breached.
-	 */
+	/** Increment usage counters for an agent. */
 	async function recordUsage(agentId: string, tokensCost?: number): Promise<void> {
 		const rows = await db
 			.select()

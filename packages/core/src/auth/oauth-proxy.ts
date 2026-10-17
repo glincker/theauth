@@ -1,25 +1,4 @@
-/**
- * OAuth proxy module for mobile apps.
- *
- * Mobile apps cannot safely store OAuth client secrets. This module acts as a
- * server-side intermediary: the mobile app redirects to the provider via
- * TheAuth, which holds the secret and exchanges the authorization code for
- * tokens on the app's behalf.
- *
- * Flow:
- *   1. Mobile app calls GET /auth/oauth-proxy/start?provider=google&redirect_uri=myapp://callback
- *   2. TheAuth validates redirect_uri, stores proxy state, returns provider auth URL.
- *   3. User authenticates with the provider in a browser.
- *   4. Provider redirects to TheAuth callback with code + state.
- *   5. TheAuth exchanges the code (using the server-held client secret), then
- *      redirects the mobile app to its custom scheme URL with tokens as query params.
- *
- * Security:
- *   - redirect_uri is validated against an explicit allowlist — no open redirects.
- *   - Proxy state is a random UUID stored in memory with a 10-minute TTL.
- *   - PKCE passthrough: the mobile app may supply a code_challenge; TheAuth
- *     forwards it to the provider and passes the verifier back via the callback.
- */
+/** OAuth proxy for mobile apps, which cannot safely hold OAuth client secrets. */
 
 import { generateId } from "../crypto/web-crypto.js";
 import type { TrustedProxyConfig } from "./client-ip.js";
@@ -29,22 +8,12 @@ import type { OAuthProvider } from "./oauth/types.js";
 import type { RateLimiter } from "./rate-limiter.js";
 import { createRateLimiter } from "./rate-limiter.js";
 
-// Public types
-
 export interface OAuthProxyConfig {
-	/**
-	 * Allowed redirect URIs for mobile apps (e.g. `"myapp://callback"`).
-	 * Only exact matches or scheme-prefix matches (when entry ends with `://`)
-	 * are allowed. No wildcards. This is an allowlist — anything not listed
-	 * will be rejected.
-	 */
+	/** Allowed redirect URIs for mobile apps (e.g. `myapp://callback`). Exact matches or scheme-only entries. */
 	allowedRedirectUris: string[];
 	/** Rate limit per IP. Defaults to 20 requests per 60 seconds. */
 	rateLimit?: { max: number; windowSeconds: number };
-	/**
-	 * How long a proxy state entry lives in seconds.
-	 * Defaults to 600 (10 minutes).
-	 */
+	/** How long a proxy state entry lives, in seconds. Default: 600. */
 	stateTtlSeconds?: number;
 	/** Trusted proxy setup for client IP resolution. Forwarded headers are ignored by default. */
 	trustedProxy?: TrustedProxyConfig;
@@ -58,18 +27,7 @@ export interface ProxyTokens {
 }
 
 export interface OAuthProxyModule {
-	/**
-	 * Start the proxy flow.
-	 *
-	 * Validates `redirectUri` against the allowlist, generates a PKCE verifier,
-	 * stores proxy state keyed by an opaque `proxyState` value, and returns the
-	 * provider authorization URL for the caller to redirect to.
-	 *
-	 * @param provider     Provider ID (must be in `providers` map).
-	 * @param redirectUri  Mobile app callback URI. Must be in `allowedRedirectUris`.
-	 * @param state        Optional caller-supplied state passed back on completion.
-	 * @param codeChallenge Optional PKCE code challenge from the mobile app (S256).
-	 */
+	/** Starts the proxy flow: validates `redirectUri` against the allowlist and generates PKCE. */
 	startFlow(
 		provider: string,
 		redirectUri: string,
@@ -77,15 +35,7 @@ export interface OAuthProxyModule {
 		codeChallenge?: string,
 	): Promise<{ authUrl: string; proxyState: string }>;
 
-	/**
-	 * Handle the provider callback.
-	 *
-	 * Looks up the stored proxy state, exchanges the code with the provider,
-	 * and returns the final redirect URL for the mobile app plus the raw tokens.
-	 *
-	 * @param code        Authorization code from the provider.
-	 * @param proxyState  The opaque state value returned by `startFlow`.
-	 */
+	/** Handles the provider callback: looks up the stored state and exchanges the code. */
 	handleCallback(
 		code: string,
 		proxyState: string,
@@ -95,21 +45,15 @@ export interface OAuthProxyModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// Internal state entry
-
 interface ProxyStateEntry {
 	provider: string;
 	redirectUri: string;
 	/** Caller's own state value (forwarded to the mobile app on completion). */
 	callerState: string | undefined;
-	/** PKCE verifier TheAuth generated for the provider exchange. */
 	serverCodeVerifier: string;
-	/** TheAuth's redirect URI pointing back to the callback endpoint. */
 	serverRedirectUri: string;
 	expiresAt: number;
 }
-
-// Helpers
 
 const DEFAULT_STATE_TTL_SECONDS = 600;
 const DEFAULT_RATE_LIMIT = { max: 20, windowSeconds: 60 };
@@ -117,9 +61,8 @@ const DEFAULT_RATE_LIMIT = { max: 20, windowSeconds: 60 };
 /** Returns true when `uri` is in the allowlist. */
 function isAllowedRedirectUri(uri: string, allowedRedirectUris: string[]): boolean {
 	for (const allowed of allowedRedirectUris) {
-		// Exact match.
 		if (uri === allowed) return true;
-		// Scheme-only entry (e.g. "myapp://") — allow any URI under that scheme.
+		// Scheme-only entry (e.g. `myapp://`) allows any URI under that scheme.
 		if (allowed.endsWith("://") && uri.startsWith(allowed)) return true;
 	}
 	return false;
@@ -132,8 +75,6 @@ function jsonError(message: string, status: number): Response {
 	});
 }
 
-// Factory
-
 export function createOAuthProxyModule(
 	config: OAuthProxyConfig,
 	providers: Record<string, OAuthProvider>,
@@ -144,13 +85,9 @@ export function createOAuthProxyModule(
 	const rl = config.rateLimit ?? DEFAULT_RATE_LIMIT;
 	const rateLimiter: RateLimiter = createRateLimiter({ max: rl.max, window: rl.windowSeconds });
 
-	// In-memory state store — keyed by opaque proxyState UUID.
 	const stateStore = new Map<string, ProxyStateEntry>();
 
-	// The TheAuth-side callback URL registered with the provider.
 	const serverCallbackUri = `${baseUrl.replace(/\/$/, "")}/auth/oauth-proxy/callback`;
-
-	// Periodic cleanup: prune expired entries whenever we write.
 
 	function pruneExpired(): void {
 		const now = Date.now();
@@ -160,8 +97,6 @@ export function createOAuthProxyModule(
 			}
 		}
 	}
-
-	// startFlow
 
 	async function startFlow(
 		providerId: string,
@@ -207,8 +142,6 @@ export function createOAuthProxyModule(
 		return { authUrl, proxyState };
 	}
 
-	// handleCallback
-
 	async function handleCallback(
 		code: string,
 		proxyState: string,
@@ -224,7 +157,7 @@ export function createOAuthProxyModule(
 			throw new OAuthProxyError("state_expired", "Proxy state has expired. Start the flow again.");
 		}
 
-		// Consume — delete before the network call to prevent replay.
+		// Consume, delete before the network call to prevent replay.
 		stateStore.delete(proxyState);
 
 		const provider = providers[entry.provider];
@@ -235,7 +168,6 @@ export function createOAuthProxyModule(
 			);
 		}
 
-		// Exchange the code using the server-held client secret.
 		const providerTokens = await provider.exchangeCode(
 			code,
 			entry.serverCodeVerifier,
@@ -252,7 +184,6 @@ export function createOAuthProxyModule(
 		if (providerTokens.expiresIn !== undefined) {
 			params.set("expires_in", String(providerTokens.expiresIn));
 		}
-		// Forward id_token if the provider included one in the raw response.
 		const rawIdToken = providerTokens.raw.id_token;
 		if (typeof rawIdToken === "string") {
 			params.set("id_token", rawIdToken);
@@ -274,13 +205,9 @@ export function createOAuthProxyModule(
 		return { redirectUrl, tokens };
 	}
 
-	// handleRequest
-
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const pathname = url.pathname.replace(/\/$/, "");
-
-		// GET /auth/oauth-proxy/start
 
 		if (request.method === "GET" && pathname.endsWith("/auth/oauth-proxy/start")) {
 			const ip = resolveClientIp(request, config.trustedProxy) ?? "unknown";
@@ -315,15 +242,13 @@ export function createOAuthProxyModule(
 			}
 		}
 
-		// GET /auth/oauth-proxy/callback
-
 		if (request.method === "GET" && pathname.endsWith("/auth/oauth-proxy/callback")) {
 			const code = url.searchParams.get("code");
 			const proxyState = url.searchParams.get("state");
 			const errorParam = url.searchParams.get("error");
 
 			if (errorParam) {
-				// Provider returned an error — we need to redirect the mobile app to
+				// Provider returned an error, we need to redirect the mobile app to
 				// an error state. Try to look up the state to find the redirect_uri.
 				const entry = proxyState ? stateStore.get(proxyState) : undefined;
 				if (entry) {
@@ -359,8 +284,6 @@ export function createOAuthProxyModule(
 
 	return { startFlow, handleCallback, handleRequest };
 }
-
-// Error class
 
 export class OAuthProxyError extends Error {
 	readonly code: string;

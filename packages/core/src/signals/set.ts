@@ -1,9 +1,4 @@
-/**
- * Security Event Token (RFC 8417) signing and verification.
- *
- * A SET is a signed JWT with header `typ: secevent+jwt`, no `exp`, and an
- * `events` claim keyed by event type URI.
- */
+/** Security Event Token (RFC 8417) signing and verification. */
 
 import type { JWK, JWTVerifyGetKey } from "jose";
 import { importJWK, jwtVerify, SignJWT } from "jose";
@@ -83,11 +78,7 @@ function typOk(typ: unknown): boolean {
 	return t === SET_JWT_TYP || t === `application/${SET_JWT_TYP}`;
 }
 
-/**
- * Verify signature, issuer, audience and shape. Error codes follow the
- * RFC 8935 `err` values (`invalid_key`, `invalid_issuer`, `invalid_audience`,
- * `invalid_request`).
- */
+/** Verify signature, issuer, audience and shape. Error codes follow the RFC 8935 `err` values (`invalid_key`, `invalid_issuer`, `invalid_audience`, `invalid_request`). */
 export async function verifySet(
 	token: string,
 	options: VerifySetOptions,

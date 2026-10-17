@@ -1,28 +1,13 @@
 /**
  * Atlassian OAuth 2.0 (3LO) provider.
- *
- * Endpoints:
- * - Authorization: https://auth.atlassian.com/authorize
- * - Token:         https://auth.atlassian.com/oauth/token
- * - UserInfo:      https://api.atlassian.com/me
- *
  * Notes:
  * - PKCE S256 is supported by Atlassian's OAuth 2.0 implementation.
- * - The `audience` parameter (`api.atlassian.com`) is required on the
- *   authorization URL. Without it, tokens will not be accepted by the
- *   Atlassian APIs.
- * - The `read:me` scope grants access to the user's identity (account ID,
- *   email, name, avatar). Add `offline_access` if refresh tokens are needed.
- * - Atlassian account IDs are in the format `557058:xxxxxxxx-xxxx-...`.
- *
- * Docs: https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/
+ * - The `audience` parameter (`api.atlassian.com`) is required on the authorization URL. Without it, tokens will not be accepted by the Atlassian APIs. Add `offline_access` if refresh tokens are needed.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
-
-// Constants
 
 const AUTHORIZATION_URL = "https://auth.atlassian.com/authorize";
 const TOKEN_URL = "https://auth.atlassian.com/oauth/token";
@@ -30,8 +15,6 @@ const USER_INFO_URL = "https://api.atlassian.com/me";
 const ATLASSIAN_AUDIENCE = "api.atlassian.com";
 
 export const DEFAULT_ATLASSIAN_SCOPES = ["read:me"];
-
-// Raw response shapes
 
 interface AtlassianTokenResponse {
 	access_token: string;
@@ -49,8 +32,6 @@ interface AtlassianUserResponse {
 	account_type?: string;
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as AtlassianUserResponse;
 
@@ -66,8 +47,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Factory
 
 /**
  * Create an Atlassian OAuth provider instance.
@@ -176,8 +155,6 @@ export function createAtlassianProvider(config: OAuthProviderConfig): OAuthProvi
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

@@ -1,7 +1,5 @@
 import type { EmailProvider, EmailSendOptions, EmailSendResult } from "./types.js";
 
-// Config
-
 export interface SmtpConfig {
 	/** SMTP hostname, e.g. "smtp.mailgun.org" */
 	host: string;
@@ -19,7 +17,7 @@ export interface SmtpConfig {
 }
 
 // Nodemailer peer-dep types (subset we need to avoid importing the package at
-// the type level — callers who install nodemailer get the real types).
+// the type level, callers who install nodemailer get the real types).
 
 interface NodemailerTransport {
 	sendMail(options: {
@@ -41,11 +39,8 @@ interface NodemailerModule {
 	}): NodemailerTransport;
 }
 
-// Provider
-
 /**
- * Email provider backed by SMTP via nodemailer (peer dependency).
- * Install `nodemailer` separately — it is NOT bundled with theauth.
+ * Email provider backed by SMTP via nodemailer (peer dependency). Install `nodemailer` separately, it is NOT bundled with theauth.
  *
  * @example
  * ```ts

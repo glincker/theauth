@@ -6,10 +6,7 @@ const SCRYPT_N = 16384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 
-/**
- * Hash a password using scrypt.
- * Returns a string in the format "salt:hash" (both hex-encoded).
- */
+/** Hashes with scrypt. Returns "salt:hash", both hex-encoded. */
 export function hashPassword(password: string): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const salt = randomBytes(16).toString("hex");
@@ -29,10 +26,7 @@ export function hashPassword(password: string): Promise<string> {
 	});
 }
 
-/**
- * Verify a password against a stored hash.
- * Uses timingSafeEqual to prevent timing attacks.
- */
+/** Verifies against a stored hash. Uses timingSafeEqual to prevent timing attacks. */
 export function verifyPassword(password: string, stored: string): Promise<boolean> {
 	return new Promise((resolve, reject) => {
 		const separatorIndex = stored.indexOf(":");
@@ -70,9 +64,6 @@ export function verifyPassword(password: string, stored: string): Promise<boolea
 	});
 }
 
-/**
- * Validate password meets the configured strength requirements.
- */
 export function validatePasswordStrength(
 	password: string,
 	config: PasswordConfig,

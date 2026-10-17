@@ -1,17 +1,6 @@
 /**
  * Erasure of personal ids from audit rows (GDPR deleteUser).
- *
- * Version 2 chain rows hash keyed pseudonyms of the ids (see pseudonym.ts), so
- * blanking the raw columns leaves their hashes valid and nothing else is
- * needed. Version 1 rows (released format, hash_version NULL or 1) hash the raw
- * agentId and userId, so rewriting those columns cannot keep the hash. For
- * those rows, and for rows deleted outright, an unchained `audit.erasure` side
- * record names each affected row with its stored hash and link, and the
- * verifier reports them as erased instead of as tamper.
- *
- * Tradeoff: the pseudonyms that stay on version 2 rows are linkable by whoever
- * holds the pseudonym key, so this is pseudonymization. Destroying the key is a
- * further option and is not implemented (no key shredding).
+ * Version 2 chain rows hash keyed pseudonyms of the ids (see pseudonym.ts), so blanking the raw columns leaves their hashes valid and nothing else is needed. Version 1 rows (released format, hash_version NULL or 1) hash the raw agentId and userId, so rewriting those columns cannot keep the hash. For those rows, and for rows deleted outright, an unchained `audit.erasure` side record names each affected row with its stored hash and link, and the verifier reports them as erased instead of as tamper. Destroying the key is a further option and is not implemented (no key shredding).
  */
 
 import { eq, inArray, sql } from "drizzle-orm";

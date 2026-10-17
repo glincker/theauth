@@ -1,9 +1,6 @@
 /**
  * Custom resolver auth adapter.
- *
- * Wraps an arbitrary resolver function as an `AuthAdapter`.  Use this when
- * you need to integrate with an auth provider that does not have a built-in
- * adapter (e.g. better-auth, Auth.js, Clerk, Supabase Auth, etc.).
+ * Use this when you need to integrate with an auth provider that does not have a built-in adapter (e.g.
  *
  * @example Clerk session cookie
  * ```typescript
@@ -45,9 +42,7 @@ import type { AuthAdapter, ResolvedUser } from "../types.js";
 
 /**
  * Create an `AuthAdapter` from a custom resolver function.
- *
- * The resolver receives the raw `Request` and must return either a
- * `ResolvedUser` or `null` (unauthenticated).
+ * The resolver receives the raw `Request` and must return either a `ResolvedUser` or `null` (unauthenticated).
  */
 export function customAuth(
 	resolver: (request: Request) => Promise<ResolvedUser | null>,

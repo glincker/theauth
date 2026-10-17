@@ -1,12 +1,8 @@
-/**
- * Tests for the OpenAPI spec generation plugin.
- */
+/** Tests for the OpenAPI spec generation plugin. */
 
 import { describe, expect, it } from "vitest";
 import type { EndpointGroup, OpenApiDocument, OpenApiOperation } from "../src/auth/openapi.js";
 import { createOpenApiModule } from "../src/auth/openapi.js";
-
-// Helpers
 
 function makeRequest(url: string): Request {
 	return new Request(url);
@@ -24,7 +20,7 @@ function collectOperations(doc: OpenApiDocument): OpenApiOperation[] {
 	return ops;
 }
 
-// generateSpec — defaults
+// generateSpec, defaults
 
 describe("OpenApiModule.generateSpec defaults", () => {
 	const mod = createOpenApiModule();
@@ -65,7 +61,7 @@ describe("OpenApiModule.generateSpec defaults", () => {
 	});
 });
 
-// generateSpec — custom config
+// generateSpec, custom config
 
 describe("OpenApiModule.generateSpec custom config", () => {
 	const mod = createOpenApiModule();
@@ -112,7 +108,7 @@ describe("OpenApiModule.generateSpec custom config", () => {
 	});
 });
 
-// generateSpec — include filter
+// generateSpec, include filter
 
 describe("OpenApiModule.generateSpec include filter", () => {
 	const mod = createOpenApiModule();
@@ -135,11 +131,8 @@ describe("OpenApiModule.generateSpec include filter", () => {
 		const include: EndpointGroup[] = ["auth", "api-keys"];
 		const spec = mod.generateSpec({ include });
 		const paths = Object.keys(spec.paths);
-		// auth paths present
 		expect(paths.some((p) => p.includes("/sign-in"))).toBe(true);
-		// api-keys paths present
 		expect(paths.some((p) => p.includes("/api-keys"))).toBe(true);
-		// others absent
 		expect(paths.some((p) => p.includes("/agents"))).toBe(false);
 		expect(paths.some((p) => p.includes("/admin/"))).toBe(false);
 	});
@@ -171,7 +164,7 @@ describe("OpenApiModule.generateSpec include filter", () => {
 	});
 });
 
-// generateSpec — security
+// generateSpec, security
 
 describe("OpenApiModule.generateSpec security", () => {
 	const mod = createOpenApiModule();
@@ -207,7 +200,7 @@ describe("OpenApiModule.generateSpec security", () => {
 	});
 });
 
-// generateSpec — schema validity
+// generateSpec, schema validity
 
 describe("OpenApiModule.generateSpec schemas", () => {
 	const mod = createOpenApiModule();
@@ -293,8 +286,6 @@ describe("OpenApiModule.generateSpec schemas", () => {
 		expect(tokenOp?.requestBody?.content["application/x-www-form-urlencoded"]).toBeDefined();
 	});
 });
-
-// handleRequest
 
 describe("OpenApiModule.handleRequest", () => {
 	const mod = createOpenApiModule();

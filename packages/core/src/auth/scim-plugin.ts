@@ -4,14 +4,8 @@ import { createScimModule } from "./scim.js";
 
 export type { ScimConfig };
 
-// Plugin factory
-
 /**
  * SCIM 2.0 directory sync plugin for TheAuth.
- *
- * Mounts SCIM endpoints under `/scim/v2/` so enterprise IdPs (Okta, Azure AD,
- * Google Workspace) can provision and deprovision users and groups.
- *
  * All endpoints require a static Bearer token supplied via `config.bearerToken`.
  *
  * @example
@@ -72,7 +66,7 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
-			// /Me — resolves the bearer to the calling user (RFC 7644 3.11)
+			// /Me, resolves the bearer to the calling user (RFC 7644 3.11)
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/scim/v2/Me",
@@ -82,7 +76,7 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
-			// /Bulk — unsupported, returns spec-compliant 501 (RFC 7644 3.7)
+			// /Bulk, unsupported, returns spec-compliant 501 (RFC 7644 3.7)
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/scim/v2/Bulk",
@@ -92,7 +86,6 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
-			// Users collection
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/scim/v2/Users",
@@ -111,7 +104,6 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
-			// Users by ID
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/scim/v2/Users/:id",
@@ -148,7 +140,6 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
-			// Groups collection
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/scim/v2/Groups",
@@ -167,7 +158,6 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 				},
 			});
 
-			// Groups by ID
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/scim/v2/Groups/:id",

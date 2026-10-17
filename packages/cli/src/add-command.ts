@@ -91,7 +91,6 @@ function bundledRegistryDir(): string | null {
 
 export type ItemLoader = (name: string) => Promise<RegistryItem>;
 
-/** Loads items from a folder, a base URL, or the bundled copy. */
 export function createLoader(registry: string | null): ItemLoader {
 	if (registry !== null && /^https?:\/\//.test(registry)) {
 		const base = registry.replace(/\/+$/, "");

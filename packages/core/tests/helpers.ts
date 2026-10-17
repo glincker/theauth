@@ -4,10 +4,7 @@ import { createTheAuth } from "../src/theauth.js";
 
 export type { TheAuth };
 
-/**
- * Create a test TheAuth instance with in-memory SQLite.
- * Tables are auto-created by createTheAuth. A seed user is inserted.
- */
+/** Create a test TheAuth instance with in-memory SQLite. Tables are auto-created by createTheAuth. A seed user is inserted. */
 export async function createTestTheAuth(options?: {
 	maxPerUser?: number;
 	auditAll?: boolean;
@@ -23,7 +20,6 @@ export async function createTestTheAuth(options?: {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({

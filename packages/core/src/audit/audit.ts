@@ -15,10 +15,7 @@ interface AuditModuleConfig {
 	hmacKey?: string;
 }
 
-/**
- * Create the audit log module.
- * Provides query and export capabilities for the immutable audit trail.
- */
+/** Create the audit log module. Provides query and export capabilities for the immutable audit trail. */
 export function createAuditModule(config: AuditModuleConfig) {
 	const { db, hmacKey } = config;
 
@@ -69,7 +66,6 @@ export function createAuditModule(config: AuditModuleConfig) {
 			return JSON.stringify(entries, null, 2);
 		}
 
-		// CSV format
 		const headers = [
 			"id",
 			"agentId",
@@ -105,14 +101,8 @@ export function createAuditModule(config: AuditModuleConfig) {
 	}
 
 	/**
-	 * Delete audit log entries older than the specified retention period.
-	 * Returns the count of deleted rows.
-	 *
-	 * With the chain enabled, each agent's chain loses only its oldest
-	 * contiguous run of expired rows, and a checkpoint row recording the last
-	 * deleted seq and hash is appended first so verification still links.
-	 * Expired rows that sit behind a newer row in seq order are kept until the
-	 * rows in front of them expire.
+	 * Delete audit log entries older than the specified retention period. Returns the count of deleted rows.
+	 * With the chain enabled, each agent's chain loses only its oldest contiguous run of expired rows, and a checkpoint row recording the last deleted seq and hash is appended first so verification still links. Expired rows that sit behind a newer row in seq order are kept until the rows in front of them expire.
 	 */
 	async function cleanup(options: {
 		retentionDays: number;

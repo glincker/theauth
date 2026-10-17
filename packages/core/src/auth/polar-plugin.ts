@@ -5,8 +5,6 @@ import { createPolarModule } from "./polar.js";
 
 export type { PolarConfig };
 
-// Plugin factory
-
 export function polar(config: PolarConfig): TheAuthPlugin {
 	return {
 		id: "theauth-polar",
@@ -83,7 +81,7 @@ export function polar(config: PolarConfig): TheAuthPlugin {
 			});
 
 			// POST /auth/polar/webhook
-			// Receives Polar webhook events. No session auth — verified by HMAC-SHA256 signature.
+			// Receives Polar webhook events. No session auth, verified by HMAC-SHA256 signature.
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/polar/webhook",

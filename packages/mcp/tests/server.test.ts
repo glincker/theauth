@@ -90,8 +90,11 @@ describe("tool registry", () => {
 			"check_permission",
 			"doctor",
 			"get_agent",
+			"get_approval_status",
 			"inspect_token",
 			"list_agents",
+			"list_delegations",
+			"list_sessions",
 			"query_audit",
 		]);
 		for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(true);

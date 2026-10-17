@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
-// We test the cookie name derivation and config resolution logic here.
-// The actual next/headers + NextResponse cookie helpers are integration-tested
-// against the Next.js runtime; unit tests mock-out those boundaries.
+// Tests cookie name derivation and config resolution. next/headers and NextResponse are mocked out.
 
 describe("createAuthConfig — cookie name resolution", () => {
 	it("uses __Host- prefix when isProd=true", () => {

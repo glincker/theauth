@@ -1,19 +1,6 @@
 /**
  * SCIM 2.0 filter parser and evaluator (RFC 7644 §3.4.2.2).
- *
- * Builds a filter AST from the grammar:
- *
- *   FILTER    = attrExp / logExp / valuePath / "not" "(" FILTER ")"
- *   valuePath = attrPath "[" valFilter "]"
- *   attrExp   = attrPath SP "pr"
- *             / attrPath SP compareOp SP compValue
- *   logExp    = FILTER SP ("and" / "or") SP FILTER
- *   compareOp = eq / ne / co / sw / ew / gt / lt / ge / le
- *   compValue = false / null / true / number / string
- *
- * The evaluator walks the AST against a plain JS object that represents a
- * SCIM resource. String equality is case-insensitive per §3.4.2.2. Date
- * comparisons work on ISO-8601 strings via lexical compare.
+ * FILTER    = attrExp / logExp / valuePath / "not" "(" FILTER ")" valuePath = attrPath "[" valFilter "]" attrExp   = attrPath SP "pr" / attrPath SP compareOp SP compValue logExp    = FILTER SP ("and" / "or") SP FILTER compareOp = eq / ne / co / sw / ew / gt / lt / ge / le compValue = false / null / true / number / string String equality is case-insensitive per §3.4.2.2.
  */
 
 export type CompOp = "eq" | "ne" | "co" | "sw" | "ew" | "gt" | "lt" | "ge" | "le";
@@ -40,8 +27,6 @@ export class ScimFilterError extends Error {
 		this.name = "ScimFilterError";
 	}
 }
-
-// Tokenizer
 
 type TokenKind =
 	| "lparen"
@@ -325,8 +310,6 @@ export function parseFilter(input: string): FilterAst {
 	return ast;
 }
 
-// Evaluator
-
 type Resource = Record<string, unknown>;
 
 /** Evaluate a filter AST against a single SCIM resource. */
@@ -347,7 +330,7 @@ export function evaluateFilter(ast: FilterAst, resource: Resource): boolean {
 	}
 }
 
-/** Convenience — parse and evaluate in one shot. */
+/** Convenience, parse and evaluate in one shot. */
 export function matchFilter(filter: string, resource: Resource): boolean {
 	return evaluateFilter(parseFilter(filter), resource);
 }
@@ -430,7 +413,7 @@ function compareScalar(raw: unknown, op: CompOp, target: FilterValue): boolean {
 		if (op === "ne") return target !== null;
 		return false;
 	}
-	// Type mismatch — only eq/ne are meaningful.
+	// Type mismatch, only eq/ne are meaningful.
 	if (op === "ne") return true;
 	return false;
 }

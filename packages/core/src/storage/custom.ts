@@ -11,9 +11,7 @@ export interface CustomSecondaryStorage {
 }
 
 /**
- * Build a SecondaryStorage from get/set/delete. When `incr` is omitted it is
- * synthesised from get + set, which is NOT atomic: concurrent callers can lose
- * counts. The result is marked `atomicIncr = false` so you can tell.
+ * Build a SecondaryStorage from get/set/delete. When `incr` is omitted it is synthesised from get + set, which is NOT atomic: concurrent callers can lose counts. The result is marked `atomicIncr = false` so you can tell.
  */
 export function defineSecondaryStorage(impl: CustomSecondaryStorage): SecondaryStorage {
 	const synthesised: SecondaryStorage["incr"] = async (key, ttlSeconds) => {

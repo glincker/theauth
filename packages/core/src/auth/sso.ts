@@ -1,20 +1,6 @@
 /**
- * SSO (SAML 2.0 + OIDC) authentication for TheAuth.
- *
- * Supports enterprise SSO via SAML 2.0 identity providers (Okta, Azure AD,
- * Google Workspace) and generic OIDC providers. Connections are linked to
- * organizations and routed by email domain.
- *
- * Security hardening:
- * - Proper XML parsing with namespace support (no regex)
- * - XXE prevention (entity expansion blocked)
- * - SAML condition validation (NotBefore, NotOnOrAfter, Audience, Destination)
- * - InResponseTo tracking (replay prevention)
- * - Signature digest verification
- * - OIDC nonce validation
- * - State parameter expiry
- * - Rate limiting on SSO login attempts
- * - Audit trail logging
+ * SAML 2.0 and OIDC enterprise SSO. Connections link to organizations and route by email domain.
+ * Security hardening: namespace-aware XML parsing, XXE blocking, SAML condition checks, InResponseTo replay tracking, signature digest checks, OIDC nonce and at_hash checks, state expiry, rate limiting and audit logging.
  *
  * @example
  * ```typescript
@@ -30,14 +16,11 @@
  * ```
  */
 
-import { deflateRaw } from "node:zlib";
 import { and, eq } from "drizzle-orm";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { generateId, randomBytesHex, sha256Raw, toHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { ssoConnections } from "../db/schema.js";
-
-// Error codes
 
 const SSO_ERROR = {
 	CONNECTION_NOT_FOUND: "SSO_CONNECTION_NOT_FOUND",
@@ -64,12 +47,8 @@ const SSO_ERROR = {
 	RATE_LIMITED: "SSO_RATE_LIMITED",
 } as const;
 
-// Public types
-
 export interface SsoConfig {
-	/** SAML Identity Provider configurations */
 	saml?: SamlProvider[];
-	/** OIDC Identity Provider configurations */
 	oidc?: OidcProvider[];
 	/** State parameter TTL in seconds (default: 300 = 5 minutes) */
 	stateTtlSeconds?: number;
@@ -77,7 +56,6 @@ export interface SsoConfig {
 	rateLimitMax?: number;
 	/** Rate limit window in seconds (default: 60) */
 	rateLimitWindowSeconds?: number;
-	/** Audit log callback */
 	onAuditEvent?: (event: SsoAuditEvent) => void;
 }
 
@@ -155,31 +133,19 @@ export interface SsoModule {
 		expectedNonce?: string,
 	) => Promise<{ user: { id: string; email: string; name?: string }; orgId: string }>;
 	handleRequest: (request: Request) => Promise<Response | null>;
-	/** Generate a state token with embedded timestamp for expiry checking */
 	generateState: () => Promise<string>;
-	/** Validate a state token has not expired */
 	validateState: (state: string) => Promise<boolean>;
 }
 
 // Minimal XML parser (no regex for structure)
 
-/**
- * Parsed XML node. This is a minimal representation that handles namespaces,
- * attributes, text content, and child nodes. Good enough for SAML responses
- * without pulling in a full XML library.
- */
+/** Minimal XML node (namespaces, attributes, text, children). Enough for SAML responses, not a general parser. */
 interface XmlNode {
-	/** Local name (without namespace prefix) */
 	localName: string;
-	/** Namespace prefix (empty string if none) */
 	prefix: string;
-	/** Full tag name as it appears in the XML (prefix:localName or localName) */
 	tagName: string;
-	/** Attributes as key-value pairs (attribute names include prefix if present) */
 	attributes: Map<string, string>;
-	/** Child nodes */
 	children: XmlNode[];
-	/** Text content (concatenated text nodes) */
 	textContent: string;
 	/** Raw inner XML (for signature verification) */
 	rawInnerXml: string;
@@ -197,38 +163,30 @@ class SsoError extends Error {
 	}
 }
 
-/**
- * Check for XXE attack patterns in XML. Rejects any DOCTYPE declarations
- * since SAML responses should never contain them.
- */
+/** Rejects XXE vectors (DOCTYPE, ENTITY, NUL character references). SAML responses never need them. */
 function checkXxe(xml: string): void {
-	// Reject any DOCTYPE declarations - SAML responses must not contain them
 	if (/<!DOCTYPE/i.test(xml)) {
 		throw new SsoError(
 			SSO_ERROR.SAML_XXE_DETECTED,
 			"XML contains DOCTYPE declaration which is not allowed in SAML responses",
 		);
 	}
-	// Reject entity declarations
 	if (/<!ENTITY/i.test(xml)) {
 		throw new SsoError(
 			SSO_ERROR.SAML_XXE_DETECTED,
 			"XML contains ENTITY declaration which is not allowed in SAML responses",
 		);
 	}
-	// Reject CDATA sections that could contain entity references
 	if (/&#x0*0;|&#0*0;/i.test(xml)) {
 		throw new SsoError(SSO_ERROR.SAML_XXE_DETECTED, "XML contains null character entity reference");
 	}
 }
 
-/** Strip XML comments from the input. */
 function stripXmlComments(xml: string): string {
 	let result = "";
 	let i = 0;
 	while (i < xml.length) {
 		if (xml[i] === "<" && xml[i + 1] === "!" && xml[i + 2] === "-" && xml[i + 3] === "-") {
-			// Find end of comment
 			const endIdx = xml.indexOf("-->", i + 4);
 			if (endIdx === -1) {
 				throw new SsoError(SSO_ERROR.SAML_XML_PARSE_ERROR, "Unterminated XML comment");
@@ -242,18 +200,15 @@ function stripXmlComments(xml: string): string {
 	return result;
 }
 
-/** Parse an attribute value, handling both single and double quotes. */
 function parseAttributes(attrString: string): Map<string, string> {
 	const attrs = new Map<string, string>();
 	let i = 0;
 	const s = attrString.trim();
 
 	while (i < s.length) {
-		// Skip whitespace
 		while (i < s.length && /\s/.test(s[i] as string)) i++;
 		if (i >= s.length) break;
 
-		// Read attribute name
 		let name = "";
 		while (i < s.length && s[i] !== "=" && !/\s/.test(s[i] as string)) {
 			name += s[i];
@@ -261,13 +216,11 @@ function parseAttributes(attrString: string): Map<string, string> {
 		}
 		if (!name) break;
 
-		// Skip whitespace around =
 		while (i < s.length && /\s/.test(s[i] as string)) i++;
 		if (i >= s.length || s[i] !== "=") break;
 		i++; // skip =
 		while (i < s.length && /\s/.test(s[i] as string)) i++;
 
-		// Read attribute value
 		const quote = s[i];
 		if (quote !== '"' && quote !== "'") break;
 		i++; // skip opening quote
@@ -275,7 +228,6 @@ function parseAttributes(attrString: string): Map<string, string> {
 		let value = "";
 		while (i < s.length && s[i] !== quote) {
 			if (s[i] === "&") {
-				// Handle basic XML entities
 				const entityEnd = s.indexOf(";", i);
 				if (entityEnd === -1) break;
 				const entity = s.substring(i, entityEnd + 1);
@@ -313,23 +265,17 @@ function parseAttributes(attrString: string): Map<string, string> {
 	return attrs;
 }
 
-/** Split a tag name into prefix and local name. */
 function splitTagName(tagName: string): { prefix: string; localName: string } {
 	const colonIdx = tagName.indexOf(":");
 	if (colonIdx === -1) return { prefix: "", localName: tagName };
 	return { prefix: tagName.substring(0, colonIdx), localName: tagName.substring(colonIdx + 1) };
 }
 
-/**
- * Parse XML into a tree of XmlNodes. This is a minimal parser that handles
- * the subset of XML found in SAML responses. It is NOT a general-purpose
- * XML parser.
- */
+/** Parses XML into an XmlNode tree. Covers only the subset found in SAML responses. */
 function parseXml(xml: string): XmlNode {
 	checkXxe(xml);
 	const cleaned = stripXmlComments(xml).trim();
 
-	// Find the first element
 	const rootResult = parseElement(cleaned, 0);
 	if (!rootResult) {
 		throw new SsoError(
@@ -348,13 +294,11 @@ interface ParseResult {
 function parseElement(xml: string, startIdx: number): ParseResult | null {
 	let i = startIdx;
 
-	// Skip whitespace and processing instructions
 	while (i < xml.length) {
 		while (i < xml.length && /\s/.test(xml[i] as string)) i++;
 		if (i >= xml.length) return null;
 
 		if (xml[i] === "<" && xml[i + 1] === "?") {
-			// Processing instruction - skip to ?>
 			const piEnd = xml.indexOf("?>", i + 2);
 			if (piEnd === -1) return null;
 			i = piEnd + 2;
@@ -366,7 +310,6 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 	if (i >= xml.length || xml[i] !== "<") return null;
 	i++; // skip <
 
-	// Read tag name
 	let tagName = "";
 	while (i < xml.length && xml[i] !== ">" && xml[i] !== "/" && !/\s/.test(xml[i] as string)) {
 		tagName += xml[i];
@@ -375,7 +318,6 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 
 	if (!tagName) return null;
 
-	// Read attributes
 	let attrString = "";
 	while (i < xml.length && xml[i] !== ">" && !(xml[i] === "/" && xml[i + 1] === ">")) {
 		attrString += xml[i];
@@ -385,7 +327,6 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 	const attributes = parseAttributes(attrString);
 	const { prefix, localName } = splitTagName(tagName);
 
-	// Self-closing tag?
 	if (xml[i] === "/" && xml[i + 1] === ">") {
 		const outerXml = xml.substring(startIdx, i + 2);
 		return {
@@ -408,13 +349,11 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 
 	const contentStart = i;
 
-	// Parse children and text content
 	const children: XmlNode[] = [];
 	let textContent = "";
 
 	while (i < xml.length) {
 		if (xml[i] === "<") {
-			// Check for CDATA
 			if (xml.substring(i, i + 9) === "<![CDATA[") {
 				const cdataEnd = xml.indexOf("]]>", i + 9);
 				if (cdataEnd === -1) {
@@ -425,9 +364,7 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 				continue;
 			}
 
-			// Check for closing tag
 			if (xml[i + 1] === "/") {
-				// Verify it matches our tag
 				const closeTagStart = i + 2;
 				let closeTagName = "";
 				let ci = closeTagStart;
@@ -435,7 +372,6 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 					closeTagName += xml[ci];
 					ci++;
 				}
-				// Skip whitespace before >
 				while (ci < xml.length && xml[ci] !== ">") ci++;
 
 				if (closeTagName === tagName) {
@@ -455,14 +391,12 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 						endIndex: ci + 1,
 					};
 				}
-				// Not our closing tag - error
 				throw new SsoError(
 					SSO_ERROR.SAML_XML_PARSE_ERROR,
 					`Mismatched closing tag: expected </${tagName}> but found </${closeTagName}>`,
 				);
 			}
 
-			// Child element
 			const childResult = parseElement(xml, i);
 			if (childResult) {
 				children.push(childResult.node);
@@ -471,7 +405,6 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 				i++;
 			}
 		} else {
-			// Text content - decode basic entities
 			let ch = xml[i] as string;
 			if (ch === "&") {
 				const entityEnd = xml.indexOf(";", i);
@@ -511,11 +444,7 @@ function parseElement(xml: string, startIdx: number): ParseResult | null {
 	throw new SsoError(SSO_ERROR.SAML_XML_PARSE_ERROR, `Unterminated element: <${tagName}>`);
 }
 
-// XML query helpers
-
-/**
- * Find the first descendant node matching a local name (namespace-agnostic).
- */
+/** Finds the first descendant with a matching local name (namespace-agnostic). */
 function findElement(node: XmlNode, localName: string): XmlNode | null {
 	if (node.localName === localName) return node;
 	for (const child of node.children) {
@@ -525,9 +454,7 @@ function findElement(node: XmlNode, localName: string): XmlNode | null {
 	return null;
 }
 
-/**
- * Find all descendant nodes matching a local name.
- */
+/** Finds all descendants with a matching local name. */
 function findAllElements(node: XmlNode, localName: string): XmlNode[] {
 	const results: XmlNode[] = [];
 	if (node.localName === localName) results.push(node);
@@ -537,15 +464,11 @@ function findAllElements(node: XmlNode, localName: string): XmlNode[] {
 	return results;
 }
 
-/**
- * Get the text content of a descendant element by local name.
- */
+/** Returns a descendant element's text content by local name. */
 function getElementText(node: XmlNode, localName: string): string | null {
 	const el = findElement(node, localName);
 	if (!el) return null;
-	// If the element has children with text, concatenate
 	if (el.textContent) return el.textContent;
-	// Check children for text nodes
 	if (el.children.length > 0) {
 		return (
 			el.children
@@ -557,9 +480,7 @@ function getElementText(node: XmlNode, localName: string): string | null {
 	return null;
 }
 
-/**
- * Get a SAML attribute value by Name from within an AttributeStatement.
- */
+/** Reads a SAML attribute value by Name from an AttributeStatement. */
 function getSamlAttributeValue(assertion: XmlNode, attributeName: string): string | null {
 	const attrStatement = findElement(assertion, "AttributeStatement");
 	if (!attrStatement) return null;
@@ -574,16 +495,12 @@ function getSamlAttributeValue(assertion: XmlNode, attributeName: string): strin
 	return null;
 }
 
-// SAML helpers
-
-function deflateRawAsync(input: string): Promise<Uint8Array> {
-	const encoder = new TextEncoder();
-	return new Promise((resolve, reject) => {
-		deflateRaw(encoder.encode(input), (err, result) => {
-			if (err) reject(err);
-			else resolve(new Uint8Array(result));
-		});
-	});
+async function deflateRawAsync(input: string): Promise<Uint8Array> {
+	// Web standard API (Node 18+, Workers, Deno, Bun, browsers): keeps node:zlib out of the graph.
+	const stream = new Blob([new TextEncoder().encode(input)])
+		.stream()
+		.pipeThrough(new CompressionStream("deflate-raw"));
+	return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
@@ -594,7 +511,6 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
-/** Build a SAML AuthnRequest and return the request ID + encoded request. */
 async function buildSamlAuthnRequest(
 	provider: SamlProvider,
 ): Promise<{ requestId: string; encoded: string }> {
@@ -608,11 +524,7 @@ async function buildSamlAuthnRequest(
 	return { requestId, encoded: encodeURIComponent(b64) };
 }
 
-// PEM / base64 helpers for Web Crypto
-
-/** Convert a PEM-encoded certificate or public key to an ArrayBuffer (DER). */
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-	// Strip headers and whitespace
 	const base64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
 	const binary = atob(base64);
 	const bytes = new Uint8Array(binary.length);
@@ -622,9 +534,7 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
 	return bytes.buffer as ArrayBuffer;
 }
 
-/** Convert a base64 string (standard or url-safe) to an ArrayBuffer. */
 function base64ToArrayBuffer(b64: string): ArrayBuffer {
-	// Normalize base64url to base64
 	let base64 = b64.replace(/-/g, "+").replace(/_/g, "/");
 	while (base64.length % 4 !== 0) base64 += "=";
 	const binary = atob(base64);
@@ -635,15 +545,7 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
 	return bytes.buffer as ArrayBuffer;
 }
 
-/**
- * Verify the XML signature on a SAML response or assertion.
- *
- * This verifies:
- * 1. The SignedInfo block exists and contains a Reference
- * 2. The digest of the referenced content matches the DigestValue
- * 3. The signature over SignedInfo is valid against the IdP certificate
- * 4. The signature algorithm is RSA-SHA256 or RSA-SHA1
- */
+/** Verifies the XML signature on a SAML response or assertion: referenced digest, then signature over SignedInfo. */
 async function verifySamlSignature(doc: XmlNode, certPem: string): Promise<boolean> {
 	const signatureNode = findElement(doc, "Signature");
 	if (!signatureNode) return false;
@@ -655,7 +557,6 @@ async function verifySamlSignature(doc: XmlNode, certPem: string): Promise<boole
 	const sigValue = sigValueNode.textContent.replace(/\s/g, "");
 	if (!sigValue) return false;
 
-	// Determine signature algorithm
 	const signatureMethodNode = findElement(signedInfoNode, "SignatureMethod");
 	const algorithm = signatureMethodNode?.attributes.get("Algorithm") ?? "";
 
@@ -665,11 +566,9 @@ async function verifySamlSignature(doc: XmlNode, certPem: string): Promise<boole
 	} else if (algorithm.includes("rsa-sha1") || algorithm.includes("RSA-SHA1")) {
 		nodeAlgo = "RSA-SHA1";
 	} else {
-		// Default to SHA256
 		nodeAlgo = "RSA-SHA256";
 	}
 
-	// Verify digest
 	const referenceNode = findElement(signedInfoNode, "Reference");
 	if (referenceNode) {
 		const digestValueNode = findElement(referenceNode, "DigestValue");
@@ -679,12 +578,10 @@ async function verifySamlSignature(doc: XmlNode, certPem: string): Promise<boole
 			const digestAlgo = digestMethodNode.attributes.get("Algorithm") ?? "";
 
 			const refUri = referenceNode.attributes.get("URI") ?? "";
-			// Find the referenced element (URI is #id)
 			const refId = refUri.startsWith("#") ? refUri.substring(1) : "";
 
 			let referencedContent = "";
 			if (refId) {
-				// Find the element with matching ID
 				const findById = (node: XmlNode): XmlNode | null => {
 					const id =
 						node.attributes.get("ID") ?? node.attributes.get("Id") ?? node.attributes.get("id");
@@ -730,12 +627,10 @@ async function verifySamlSignature(doc: XmlNode, certPem: string): Promise<boole
 		}
 	}
 
-	// Normalize certificate
 	const normalizedCert = certPem.includes("-----")
 		? certPem
 		: `-----BEGIN CERTIFICATE-----\n${certPem}\n-----END CERTIFICATE-----`;
 
-	// Verify signature over SignedInfo using Web Crypto
 	try {
 		const hashName: "SHA-256" | "SHA-1" = nodeAlgo === "RSA-SHA1" ? "SHA-1" : "SHA-256";
 		const certDer = pemToArrayBuffer(normalizedCert);
@@ -759,11 +654,8 @@ async function verifySamlSignature(doc: XmlNode, certPem: string): Promise<boole
 	}
 }
 
-/** Remove <Signature> element from XML string (for enveloped signature transform). */
 function removeSignatureFromXml(xml: string): string {
-	// Find and remove the Signature element - handles namespace prefixes
-	// This is one place where we use pattern matching on the raw XML string,
-	// but only for removal of a well-defined element, not for data extraction.
+	// The one place that pattern-matches raw XML, limited to removing a well-defined element.
 	let result = xml;
 	const sigOpenPatterns = [
 		/<ds:Signature\b[\s\S]*?<\/ds:Signature>/,
@@ -781,19 +673,7 @@ interface ParsedSamlResponse {
 	name?: string;
 }
 
-/**
- * Parse and validate a SAML response.
- *
- * Validates:
- * - Signature is present and valid
- * - Assertion exists (encrypted assertions are rejected with clear error)
- * - InResponseTo matches expected request ID (if provided)
- * - Destination matches our ACS URL
- * - Issuer matches configured IdP
- * - NotBefore / NotOnOrAfter conditions
- * - Audience restriction
- * - NameID is present
- */
+/** Parses and validates a SAML response: signature, assertion, InResponseTo, destination, issuer, conditions and audience. */
 async function parseSamlResponse(
 	samlResponse: string,
 	provider: SamlProvider,
@@ -801,7 +681,6 @@ async function parseSamlResponse(
 ): Promise<ParsedSamlResponse> {
 	const decoded = atob(samlResponse);
 
-	// Parse XML properly
 	let doc: XmlNode;
 	try {
 		doc = parseXml(decoded);
@@ -822,7 +701,6 @@ async function parseSamlResponse(
 		);
 	}
 
-	// Verify signature
 	const wantSigned = provider.wantAuthnResponseSigned !== false;
 	if (wantSigned) {
 		const signatureNode = findElement(doc, "Signature");
@@ -840,7 +718,6 @@ async function parseSamlResponse(
 		}
 	}
 
-	// Find Assertion
 	const assertion = findElement(doc, "Assertion");
 	if (!assertion) {
 		throw new SsoError(
@@ -858,7 +735,6 @@ async function parseSamlResponse(
 		);
 	}
 
-	// Validate Destination
 	const destination = doc.attributes.get("Destination");
 	if (destination && destination !== provider.callbackUrl) {
 		throw new SsoError(
@@ -867,9 +743,7 @@ async function parseSamlResponse(
 		);
 	}
 
-	// Validate Issuer (response level)
 	const responseIssuer = getElementText(doc, "Issuer");
-	// Also check assertion-level issuer
 	const assertionIssuer = getElementText(assertion, "Issuer");
 	const expectedEntityId = provider.entityId ?? provider.issuer;
 
@@ -885,7 +759,6 @@ async function parseSamlResponse(
 		);
 	}
 
-	// Validate Conditions
 	const conditions = findElement(assertion, "Conditions");
 	if (conditions) {
 		const clockSkewMs = (provider.clockSkewSeconds ?? 120) * 1000;
@@ -913,7 +786,6 @@ async function parseSamlResponse(
 			}
 		}
 
-		// Validate Audience
 		const audienceRestriction = findElement(conditions, "AudienceRestriction");
 		if (audienceRestriction) {
 			const audiences = findAllElements(audienceRestriction, "Audience");
@@ -929,7 +801,6 @@ async function parseSamlResponse(
 		}
 	}
 
-	// Also check SubjectConfirmationData for NotOnOrAfter
 	const subjectConfirmationData = findElement(assertion, "SubjectConfirmationData");
 	if (subjectConfirmationData) {
 		const scdNotOnOrAfter = subjectConfirmationData.attributes.get("NotOnOrAfter");
@@ -944,7 +815,6 @@ async function parseSamlResponse(
 			}
 		}
 
-		// Validate InResponseTo at subject level too
 		const scdInResponseTo = subjectConfirmationData.attributes.get("InResponseTo");
 		if (expectedRequestId && scdInResponseTo && scdInResponseTo !== expectedRequestId) {
 			throw new SsoError(
@@ -954,14 +824,12 @@ async function parseSamlResponse(
 		}
 	}
 
-	// Extract NameID
 	const nameIdText = getElementText(assertion, "NameID");
 	if (!nameIdText) {
 		throw new SsoError(SSO_ERROR.SAML_MISSING_NAMEID, "SAML Assertion does not contain a NameID");
 	}
 	const email = nameIdText.trim();
 
-	// Extract display name from common attribute names
 	const firstName =
 		getSamlAttributeValue(assertion, "firstName") ??
 		getSamlAttributeValue(assertion, "givenName") ??
@@ -983,8 +851,6 @@ async function parseSamlResponse(
 
 	return { email, name };
 }
-
-// OIDC helpers
 
 interface OidcDiscoveryResponse {
 	authorization_endpoint: string;
@@ -1012,8 +878,6 @@ interface OidcTokenResponse {
 	expires_in?: number;
 }
 
-// Rate limiter (in-memory sliding window)
-
 interface RateLimitEntry {
 	timestamps: number[];
 }
@@ -1037,7 +901,6 @@ class RateLimiter {
 			return true;
 		}
 
-		// Prune old timestamps
 		entry.timestamps = entry.timestamps.filter((t) => now - t < this.windowMs);
 		if (entry.timestamps.length >= this.maxAttempts) {
 			return false;
@@ -1047,7 +910,6 @@ class RateLimiter {
 		return true;
 	}
 
-	/** Clear stale entries to prevent memory leak. */
 	prune(): void {
 		const now = Date.now();
 		for (const [key, entry] of this.entries) {
@@ -1059,16 +921,11 @@ class RateLimiter {
 	}
 }
 
-// State token helpers
-
-/** Encode a timestamp into a state token for expiry checking. */
 async function encodeState(stateTtlSeconds: number): Promise<string> {
 	const now = Date.now();
 	const expires = now + stateTtlSeconds * 1000;
 	const random = randomBytesHex(16);
-	// Format: random.timestamp
 	const payload = `${random}.${expires}`;
-	// Simple integrity check using SHA-256 of the payload
 	const hashBytes = await sha256Raw(payload);
 	const hash = toHex(hashBytes).slice(0, 8);
 	return `${payload}.${hash}`;
@@ -1091,8 +948,6 @@ async function validateStateToken(state: string): Promise<boolean> {
 	return Date.now() < expires;
 }
 
-// Row mapper
-
 function rowToConnection(row: {
 	id: string;
 	orgId: string;
@@ -1113,8 +968,6 @@ function rowToConnection(row: {
 	};
 }
 
-// Factory
-
 export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	const samlProviders = new Map<string, SamlProvider>((config.saml ?? []).map((p) => [p.id, p]));
 	const oidcProviders = new Map<string, OidcProvider>((config.oidc ?? []).map((p) => [p.id, p]));
@@ -1125,7 +978,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	);
 	const auditLog = config.onAuditEvent ?? (() => {});
 
-	// Periodic cleanup of rate limiter entries (every 5 minutes)
 	const pruneInterval = setInterval(() => rateLimiter.prune(), 5 * 60 * 1000);
 	// Allow the process to exit without waiting for this timer
 	if (typeof pruneInterval === "object" && "unref" in pruneInterval) {
@@ -1233,7 +1085,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	): Promise<{ user: { id: string; email: string; name?: string }; orgId: string }> {
 		emitAudit({ type: "sso_login_attempt", connectionId, metadata: { protocol: "saml" } });
 
-		// Rate limit
 		if (!rateLimiter.check(`saml:${connectionId}`)) {
 			emitAudit({ type: "sso_login_failure", connectionId, error: "Rate limited" });
 			throw new SsoError(
@@ -1332,7 +1183,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	): Promise<{ user: { id: string; email: string; name?: string }; orgId: string }> {
 		emitAudit({ type: "sso_login_attempt", connectionId, metadata: { protocol: "oidc" } });
 
-		// Rate limit
 		if (!rateLimiter.check(`oidc:${connectionId}`)) {
 			emitAudit({ type: "sso_login_failure", connectionId, error: "Rate limited" });
 			throw new SsoError(
@@ -1359,7 +1209,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 		const discovery = await fetchOidcDiscovery(provider.issuer);
 		const authMethod = provider.tokenEndpointAuthMethod ?? "client_secret_post";
 
-		// Build token request
 		const params = new URLSearchParams({
 			grant_type: "authorization_code",
 			code,
@@ -1376,7 +1225,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			);
 			headers.Authorization = `Basic ${credentials}`;
 		} else {
-			// client_secret_post (default)
 			params.set("client_id", provider.clientId);
 			params.set("client_secret", provider.clientSecret);
 		}
@@ -1401,14 +1249,12 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 
 		const tokens = (await tokenRes.json()) as OidcTokenResponse;
 
-		// Verify id_token with JWKS
 		const jwks = createRemoteJWKSet(new URL(discovery.jwks_uri));
 		const { payload } = await jwtVerify(tokens.id_token, jwks, {
 			issuer: provider.issuer,
 			audience: provider.clientId,
 		});
 
-		// Validate nonce if expected
 		if (expectedNonce) {
 			const tokenNonce = payload.nonce as string | undefined;
 			if (tokenNonce !== expectedNonce) {
@@ -1425,7 +1271,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			}
 		}
 
-		// Validate at_hash if present
 		if (payload.at_hash && tokens.access_token) {
 			const atHash = payload.at_hash as string;
 			// at_hash is the base64url encoding of the left half of the hash of the access_token
@@ -1486,7 +1331,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 				headers: { "Content-Type": "application/json" },
 			});
 
-		// POST /auth/sso/connections
 		if (method === "POST" && pathname === "/auth/sso/connections") {
 			let body: unknown;
 			try {
@@ -1515,7 +1359,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			return json(conn, 201);
 		}
 
-		// GET /auth/sso/connections/:orgId
 		const listMatch = /^\/auth\/sso\/connections\/([^/]+)$/.exec(pathname);
 		if (method === "GET" && listMatch) {
 			const orgId = decodeURIComponent(listMatch[1] ?? "");
@@ -1523,7 +1366,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			return json(conns);
 		}
 
-		// DELETE /auth/sso/connections/:id
 		const deleteMatch = /^\/auth\/sso\/connections\/([^/]+)$/.exec(pathname);
 		if (method === "DELETE" && deleteMatch) {
 			const connId = decodeURIComponent(deleteMatch[1] ?? "");
@@ -1531,7 +1373,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			return json({ success: true });
 		}
 
-		// GET /auth/sso/saml/:connectionId (redirect to IdP)
 		const samlInitMatch = /^\/auth\/sso\/saml\/([^/]+)$/.exec(pathname);
 		if (method === "GET" && samlInitMatch) {
 			const connId = decodeURIComponent(samlInitMatch[1] ?? "");
@@ -1544,7 +1385,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			}
 		}
 
-		// POST /auth/sso/saml/:connectionId/acs
 		const samlAcsMatch = /^\/auth\/sso\/saml\/([^/]+)\/acs$/.exec(pathname);
 		if (method === "POST" && samlAcsMatch) {
 			const connId = decodeURIComponent(samlAcsMatch[1] ?? "");
@@ -1572,7 +1412,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			}
 		}
 
-		// GET /auth/sso/oidc/:connectionId (redirect to IdP)
 		const oidcInitMatch = /^\/auth\/sso\/oidc\/([^/]+)$/.exec(pathname);
 		if (method === "GET" && oidcInitMatch) {
 			const connId = decodeURIComponent(oidcInitMatch[1] ?? "");
@@ -1586,7 +1425,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			}
 		}
 
-		// GET /auth/sso/oidc/:connectionId/callback
 		const oidcCbMatch = /^\/auth\/sso\/oidc\/([^/]+)\/callback$/.exec(pathname);
 		if (method === "GET" && oidcCbMatch) {
 			const connId = decodeURIComponent(oidcCbMatch[1] ?? "");
@@ -1625,8 +1463,6 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	};
 }
 
-// Exported for testing
-
 export type { XmlNode };
 export {
 	checkXxe,
@@ -1642,8 +1478,6 @@ export {
 	validateStateToken,
 	verifySamlSignature,
 };
-
-// Internal helpers
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {
 	return uint8ArrayToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

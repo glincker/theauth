@@ -1,7 +1,6 @@
 /**
- * Edge-runtime safe middleware factory.
- * NO `server-only` import — this file must work in the Edge runtime.
- * NO `next/headers` import — cookies are read from NextRequest directly.
+ * Edge-runtime safe middleware factory. Must not import `server-only` or `next/headers`:
+ * cookies are read from NextRequest directly.
  */
 
 import type { NextRequest, NextResponse as NextResponseType } from "next/server";
@@ -10,7 +9,6 @@ import { generateCsrfToken } from "./csrf.js";
 import { isTokenExpiring } from "./jwt.js";
 import type { ResolvedAuthConfig } from "./types.js";
 
-// createAuthConfig is a pure function — safe to use in Edge runtime.
 export { createAuthConfig } from "./config.js";
 export { readJwtExp } from "./jwt.js";
 export type { AuthConfig, AuthSession, DefaultUser, ResolvedAuthConfig } from "./types.js";
@@ -74,7 +72,6 @@ export function withAuth<TUser>(
 
 		const response = NextResponse.next({ request: { headers: reqHeaders } });
 
-		// Read access token from request cookies (both __Host- and plain variants).
 		const { sessionPrefix } = config.cookies;
 		const accessToken =
 			req.cookies.get(`__Host-${sessionPrefix}-token`)?.value ??
@@ -83,10 +80,8 @@ export function withAuth<TUser>(
 
 		const needsRefresh = !accessToken || isTokenExpiring(accessToken, config.expiryRefreshBufferS);
 
-		// Start optimistically: any existing token (even an expiring one) counts as valid
-		// until we confirm otherwise. This prevents bouncing users to /signin on transient
-		// refresh failures (network blips, backend hiccups) when their token is still
-		// accepted by the backend for the expiryRefreshBufferS grace window.
+		// Optimistically treat an existing token (even an expiring one) as valid until refresh is
+		// confirmed, so transient refresh failures do not bounce users to /signin during the grace window.
 		let hasValidSession = Boolean(accessToken);
 
 		if (needsRefresh && refreshToken) {
@@ -102,7 +97,6 @@ export function withAuth<TUser>(
 			// hasValidSession=true and let the backend validate it downstream.
 		}
 
-		// Redirect unauthenticated users away from protected paths.
 		if (protectedPaths.length > 0 && !hasValidSession) {
 			const isProtected = protectedPaths.some(
 				(p) => pathname === p || pathname.startsWith(`${p}/`),

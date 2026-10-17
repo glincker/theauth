@@ -1,9 +1,5 @@
 /**
- * Signed audit checkpoints and a portable receipt.
- *
- * The operator signs a checkpoint of the audit log, mints a receipt for one
- * approval decision, and a counterparty verifies it offline with only the
- * public key. Needs the checkpoint exports wired into "@glinr/theauth".
+ * Signed audit checkpoints and portable receipts. Needs the checkpoint exports from "@glinr/theauth".
  */
 import {
 	createCheckpoint,

@@ -1,11 +1,6 @@
 /**
  * AES-256-GCM envelope encryption for vaulted tokens.
- *
- * Envelope format: `v1.<keyId>.<iv>.<ciphertext+tag>` (base64url segments).
- * The key id travels with the ciphertext so old rows stay readable while a new
- * key becomes active. Additional authenticated data (AAD) binds every envelope
- * to its row and column, so a ciphertext copied to another user's row fails to
- * decrypt.
+ * Additional authenticated data (AAD) binds every envelope to its row and column, so a ciphertext copied to another user's row fails to decrypt.
  */
 
 import { fromBase64Url, randomBytes, toBase64Url } from "../crypto/web-crypto.js";

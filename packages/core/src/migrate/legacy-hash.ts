@@ -4,10 +4,7 @@ import { scrypt } from "./scrypt.js";
 import type { LegacyHash, MigrationStore, Result } from "./types.js";
 import { err, ok } from "./types.js";
 
-/**
- * Verifiers for algorithms that need a library theauth does not ship (bcrypt, argon2).
- * Pass `bcryptjs.compare` or an argon2 `verify` wrapper here.
- */
+/** Verifiers for algorithms that need a library theauth does not ship (bcrypt, argon2). Pass `bcryptjs.compare` or an argon2 `verify` wrapper here. */
 export interface LegacyVerifiers {
 	bcrypt?: (password: string, hash: string) => Promise<boolean>;
 	argon2?: (password: string, hash: string) => Promise<boolean>;
@@ -109,10 +106,7 @@ export interface LazyVerifyOutcome {
 	rehashed: boolean;
 }
 
-/**
- * Verify a password on login and upgrade a legacy hash in place. A rehash or hook
- * failure never turns a correct password into a failed login.
- */
+/** Verify a password on login and upgrade a legacy hash in place. A rehash or hook failure never turns a correct password into a failed login. */
 export function createLazyPasswordMigrator(config: LazyMigratorConfig) {
 	const { store, verifiers, onLegacyHashAccepted } = config;
 	const rehash = config.rehash ?? ((pw: string) => pbkdf2Hash(pw));

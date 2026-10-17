@@ -1,0 +1,9 @@
+---
+description: Use when writing or reviewing auth, agent identity, delegation, tool guarding or MCP OAuth code that uses theAuth (@glinr/theauth)
+globs:
+alwaysApply: false
+---
+
+# theAuth
+
+Follow `AGENTS.md` in the repository root for wiring and security rules.

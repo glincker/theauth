@@ -1,0 +1,134 @@
+---
+title: MCP server gateway with OAuth 2.1 and RFC 9728
+description: Put a gateway in front of an MCP server to validate OAuth 2.1 and DPoP tokens, serve RFC 9728 metadata, and enforce scopes and agent permissions.
+icon: network-wired
+---
+
+```bash
+export THEAUTH_MCP_SIGNING_SECRET='the same 32+ character secret as your authorization server'
+
+npx @glinr/theauth-gateway \
+  --upstream http://127.0.0.1:3001 \
+  --mcp-resource https://mcp.example.com/mcp \
+  --mcp-issuer https://auth.example.com \
+  --mcp-scope mcp:read \
+  --port 3000
+```
+
+Needs an [MCP OAuth 2.1](/mcp) authorization server. The upstream never sees a client token.
+
+<Steps>
+<Step>
+
+### Set the signing secret
+
+Must match your authorization server's `signingSecret`. Pass it by environment variable, not on the command line.
+
+</Step>
+<Step>
+
+### Start the gateway
+
+`--mcp-resource` is the token audience: your authorization server must set it as `aud`. Terminate TLS in front and route the public URL to port 3000.
+
+</Step>
+<Step>
+
+### Check the challenge
+
+```bash
+curl -i -X POST http://localhost:3000/mcp -d '{}'
+# HTTP/1.1 401
+# WWW-Authenticate: Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"
+
+curl http://localhost:3000/.well-known/oauth-protected-resource/mcp
+```
+
+Clients then follow the challenge on their own.
+
+</Step>
+</Steps>
+
+## What MCP mode does
+
+| Feature | Behavior |
+|---------|----------|
+| Protected resource metadata | RFC 9728 at the well-known path and its path suffixed form. `resource` is the public MCP URL, `authorization_servers` your issuer. |
+| Token checks | Signature, issuer, expiry, audience (RFC 8707). Tokens for other resources are refused. DPoP-bound tokens work if your auth module has `dpop` enabled. |
+| Challenges | `WWW-Authenticate` carries `resource_metadata` and `error`. Scope shortfalls get `403 insufficient_scope`. |
+| Scopes | `requiredScopes`, gateway wide or per route. |
+| Agent policy | `requiredPermissions` for tokens with an `agent_id` claim. |
+| Origin check | Foreign `Origin` rejected (DNS rebinding protection). |
+| Streaming | SSE and streamable HTTP both ways, unbuffered. The client token is never forwarded upstream. |
+
+## Per route scopes and agent policy
+
+```json
+{
+  "upstream": "http://127.0.0.1:3001",
+  "mcp": {
+    "resource": "https://mcp.example.com/mcp",
+    "issuer": "https://auth.example.com",
+    "requiredScopes": ["mcp:read"]
+  },
+  "cors": { "origins": ["https://app.example.com"] },
+  "policies": [
+    { "path": "/mcp/admin/**", "requiredScopes": ["mcp:write"] },
+    {
+      "path": "/mcp",
+      "method": "POST",
+      "requiredPermissions": [{ "resource": "tools", "actions": ["call"] }],
+      "rateLimit": { "windowMs": 60000, "max": 120 }
+    }
+  ]
+}
+```
+
+```bash
+npx @glinr/theauth-gateway --config gateway.json --port 3000
+```
+
+`requiredPermissions` checks the agent in the `agent_id` claim, against the gateway's TheAuth database. No `agent_id` means 403. Use `requiredScopes` for tokens not tied to an agent.
+
+## Embedded mode
+
+For a same-process authorization server or a revocation list, pass the real module.
+
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule, createInMemoryJtiDenylist } from '@glinr/theauth/mcp';
+import { createGateway } from '@glinr/theauth-gateway';
+
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: 'https://auth.example.com',
+    baseUrl: 'https://auth.example.com/api/auth',
+    signingSecret: process.env.MCP_SIGNING_SECRET!,
+    jtiDenylist: createInMemoryJtiDenylist(),
+  },
+  // storage callbacks, see the MCP OAuth page
+});
+
+const gateway = createGateway({
+  upstream: 'http://127.0.0.1:3001',
+  theauth,
+  mcp: { auth: mcp, resource: 'https://mcp.example.com/mcp', requiredScopes: ['mcp:read'] },
+});
+await gateway.listen(3000);
+```
+
+Only `requireMcpAuth` and `getProtectedResourceMetadata` are used, so a shared-key validation module is enough. The CLI does this.
+
+## Limits
+
+- **Path level only.** Tool names sit in the unparsed JSON-RPC body. Enforce per tool rules upstream or split routes.
+- **The CLI cannot see revocations.** Tokens stay valid until `exp`. Use short lifetimes, or embedded mode with a shared `jtiDenylist`.
+- **HS256 shared secret.** Anyone holding it can mint tokens. The CLI does not fetch JWKS.
+- **Not an authorization server.** Registration, login, consent and issuing stay upstream.
+- **Well-known paths are shadowed.** Upstream `/.well-known/oauth-protected-resource` routes never run.
+- **Sessions are not bound to tokens.** `Mcp-Session-Id` passes through, and a second authenticated client that learns an ID could use it. Treat IDs as secrets.
+- **Audit only with `agent_id`.** Other OAuth tokens are enforced but not logged.
+- **Rate limits are in memory, per process.**
+- **HTTP only.** No TLS or WebSocket. The legacy stdio transport is out of scope.
+- **Not tested with a real MCP client.** Unit and local socket tests only. Add headers missing from the default list to `cors.headers`.

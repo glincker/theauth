@@ -1,11 +1,7 @@
 import type { AgentIdentity, CreateAgentInput } from "../types.js";
 
 export interface TheAuthHooks {
-	/**
-	 * Fires before authorize() — can block the request by returning
-	 * `{ allow: false, reason: '...' }`. Return `void` or `{ allow: true }`
-	 * to let the request proceed.
-	 */
+	/** Fires before authorize(), can block the request by returning `{ allow: false, reason: '...' }`. Return `void` or `{ allow: true }` to let the request proceed. */
 	beforeAuthorize?: (context: {
 		agentId: string;
 		action: string;
@@ -21,7 +17,7 @@ export interface TheAuthHooks {
 		result: { allowed: boolean; reason?: string; auditId: string };
 	}) => Promise<void>;
 
-	/** Fires before agent creation — return `{ allow: false }` to block. */
+	/** Fires before agent creation, return `{ allow: false }` to block. */
 	beforeAgentCreate?: (
 		input: CreateAgentInput,
 	) => Promise<{ allow: boolean; reason?: string } | undefined>;
@@ -32,9 +28,7 @@ export interface TheAuthHooks {
 	/** Fires when an agent is revoked. */
 	onAgentRevoke?: (agentId: string) => Promise<void>;
 
-	/**
-	 * Fires when a policy violation is detected (denied, rate-limited, etc.).
-	 */
+	/** Fires when a policy violation is detected (denied, rate-limited, etc.). */
 	onViolation?: (violation: {
 		type:
 			| "permission_denied"
@@ -59,10 +53,7 @@ export type ViolationType =
 	| "time_restricted"
 	| "approval_required";
 
-/**
- * Map an authorization denial reason string to a violation type.
- * Falls back to 'permission_denied' when no more specific match is found.
- */
+/** Map an authorization denial reason string to a violation type. Falls back to 'permission_denied' when no more specific match is found. */
 export function classifyViolation(reason: string | undefined): ViolationType {
 	const r = reason?.toLowerCase() ?? "";
 	if (r.includes("rate") || r.includes("rate_limited")) return "rate_limited";

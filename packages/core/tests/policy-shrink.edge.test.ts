@@ -1,7 +1,4 @@
-/**
- * Edge cases for policy shrink: empty and unicode resources, NaN options, duplicate
- * atoms, paging.
- */
+/** Edge cases for policy shrink: empty and unicode resources, NaN options, duplicate atoms, paging. */
 
 import { describe, expect, it } from "vitest";
 import type { Database } from "../src/db/database.js";
@@ -148,7 +145,6 @@ describe("policy-shrink edge cases", () => {
 	it("reads pages with a fractional size as whole numbers", async () => {
 		const limits: unknown[] = [];
 		for await (const _page of readDecisionRows(fakeDb(limits), "a1", { pageSize: 2.7 })) {
-			// no rows
 		}
 		expect(limits).toEqual([2]);
 	});
@@ -157,7 +153,6 @@ describe("policy-shrink edge cases", () => {
 		// A NaN page size must not reach LIMIT.
 		const limits: unknown[] = [];
 		for await (const _page of readDecisionRows(fakeDb(limits), "a1", { pageSize: Number.NaN })) {
-			// no rows
 		}
 		expect(Number.isSafeInteger(limits[0]) && (limits[0] as number) >= 1).toBe(true);
 	});

@@ -64,10 +64,7 @@ function summarize(v: VerifyAuditChainResult): ChainVerification {
 }
 
 /**
- * Ordered timeline of what one agent did: audit rows (actions and denials),
- * delegations it gave or received, approval requests and answers, and token
- * cost events. Only audit rows are covered by the hash chain, and the
- * verification block says so.
+ * Ordered timeline of what one agent did: audit rows (actions and denials), delegations it gave or received, approval requests and answers, and token cost events. Only audit rows are covered by the hash chain, and the verification block says so.
  */
 export async function replayAgent(
 	db: Database,
@@ -242,8 +239,6 @@ export async function replayAgent(
 	}
 }
 
-// Export
-
 export interface AuditChainExportOptions {
 	since?: Date;
 	until?: Date;
@@ -277,9 +272,7 @@ export interface AuditExport {
 const EXPORT_CAP = 100_000;
 
 /**
- * Export audit rows as JSONL (one canonical JSON object per line, oldest first
- * within each agent) plus a signed manifest. Timestamps are ISO strings; to
- * recompute a row hash outside this library, convert them back to epoch ms.
+ * Export audit rows as JSONL (one canonical JSON object per line, oldest first within each agent) plus a signed manifest. Timestamps are ISO strings; to recompute a row hash outside this library, convert them back to epoch ms.
  */
 export async function exportAudit(
 	db: Database,

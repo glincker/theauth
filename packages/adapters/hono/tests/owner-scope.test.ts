@@ -70,7 +70,6 @@ async function makeWorld(): Promise<World> {
 		permissions: READ_DOCS,
 		expiresAt: new Date(Date.now() + 3_600_000),
 	});
-	// One audit row per owner.
 	await auth.authorize(a1.id, { action: "read", resource: "docs" });
 	await auth.authorize(a2.id, { action: "read", resource: "docs" });
 	const bearer = (user: "u1" | "u2") => ({ Authorization: `Bearer ${tokens[user]}` });

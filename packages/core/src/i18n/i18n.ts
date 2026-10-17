@@ -1,9 +1,6 @@
 import { en } from "./locales/en.js";
 
-// Types
-
 export interface TranslationKeys {
-	// Auth errors
 	"auth.invalidCredentials": string;
 	"auth.emailNotVerified": string;
 	"auth.accountLocked": string;
@@ -14,18 +11,15 @@ export interface TranslationKeys {
 	"auth.tokenInvalid": string;
 	"auth.unauthorized": string;
 
-	// Agent errors
 	"agent.notFound": string;
 	"agent.revoked": string;
 	"agent.limitExceeded": string;
 	"agent.permissionDenied": string;
 
-	// 2FA
 	"twoFactor.invalidCode": string;
 	"twoFactor.alreadyEnabled": string;
 	"twoFactor.notEnabled": string;
 
-	// Email subjects
 	"email.verification.subject": string;
 	"email.passwordReset.subject": string;
 	"email.magicLink.subject": string;
@@ -33,7 +27,6 @@ export interface TranslationKeys {
 	"email.invitation.subject": string;
 	"email.welcome.subject": string;
 
-	// General
 	"general.serverError": string;
 	"general.badRequest": string;
 	"general.notFound": string;
@@ -57,8 +50,6 @@ export interface I18nModule {
 	getLocales(): string[];
 }
 
-// Implementation
-
 function interpolate(template: string, vars: Record<string, string>): string {
 	return template.replace(/\{\{(\w+)\}\}/g, (match, key: string): string => {
 		return Object.hasOwn(vars, key) ? (vars[key] ?? match) : `{{${key}}}`;
@@ -67,12 +58,7 @@ function interpolate(template: string, vars: Record<string, string>): string {
 
 /**
  * Resolve the best matching locale from the registry.
- *
- * Priority:
- * 1. Exact match (e.g. "en-US")
- * 2. Language prefix match (e.g. "en" when "en-US" is not registered)
- * 3. Default locale
- * 4. "en" hardcoded fallback
+ * "en" when "en-US" is not registered) 3. Default locale 4.
  */
 function resolveLocale(
 	requested: string,
@@ -92,7 +78,7 @@ function resolveLocale(
 export function createI18n(config: I18nConfig = {}): I18nModule {
 	const defaultLocale = config.defaultLocale ?? "en";
 
-	// Single Map — reads never mutate it (addLocale replaces the entry).
+	// Single Map, reads never mutate it (addLocale replaces the entry).
 	const registry = new Map<string, Partial<TranslationKeys>>();
 
 	// Always seed English built-ins first.

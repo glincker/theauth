@@ -10,13 +10,7 @@ import { generateAuthorizationCode } from "./utils.js";
 
 export type { ApproveConsentParams };
 
-/**
- * Issue an authorization code after a user has explicitly approved consent.
- *
- * Call this from your consent page handler after the user clicks "Allow".
- * The params should match what was passed to the consent page as query params
- * by `handleAuthorize`.
- */
+/** Issue an authorization code after a user has explicitly approved consent. */
 export async function approveConsent(
 	ctx: McpAuthContext,
 	params: ApproveConsentParams,
@@ -54,7 +48,6 @@ export async function approveConsent(
 		};
 	}
 
-	// Validate redirect_uri
 	if (!redirectUriAllowed(ctx, client, redirectUri)) {
 		return {
 			success: false,
@@ -76,7 +69,6 @@ export async function approveConsent(
 	if (!resolved.success) return resolved;
 	const canonicalResource = resolved.data;
 
-	// Normalise scopes
 	const effectiveScopes =
 		typeof scope === "string" ? scope.split(" ").filter(Boolean) : scope.filter(Boolean);
 

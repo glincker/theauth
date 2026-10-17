@@ -1,6 +1,4 @@
-/**
- * Tests for the Dropbox OAuth provider.
- */
+/** Tests for the Dropbox OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,8 +12,6 @@ const CLIENT_SECRET = "test-dropbox-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USER_RAW = {
 	account_id: "dbid:AAH4f99T0taONIb-OurWxbNQ6ywGRopQngc",
 	email: "frank@example.com",
@@ -28,8 +24,6 @@ const CANNED_USER_RAW = {
 	},
 	profile_photo_url: "https://dl-web.dropbox.com/account_photo/get/dbid:AAH4f99",
 };
-
-// Provider construction
 
 describe("createDropboxProvider", () => {
 	it("creates a provider with id dropbox", () => {
@@ -62,8 +56,6 @@ describe("createDropboxProvider", () => {
 	});
 });
 
-// Authorization URL
-
 describe("createDropboxProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and token_access_type=offline", async () => {
 		const provider = createDropboxProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
@@ -94,8 +86,6 @@ describe("createDropboxProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeDropboxProfile", () => {
 	it("maps Dropbox user to OAuthUserInfo", () => {

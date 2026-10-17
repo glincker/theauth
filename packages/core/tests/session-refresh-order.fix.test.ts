@@ -1,6 +1,4 @@
-/**
- * Session refresh creates the replacement first; maxConcurrent holds under races.
- */
+/** Session refresh creates the replacement first; maxConcurrent holds under races. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,12 +1,7 @@
 /**
  * Web Crypto API utilities for TheAuth.
- *
- * This module uses ONLY the Web Crypto API (globalThis.crypto) which is
- * available natively in Cloudflare Workers, Deno, Bun, and Node 20+.
- * No `node:crypto` imports are used, making the core package edge-compatible.
+ * This module uses ONLY the Web Crypto API (globalThis.crypto) which is available natively in Cloudflare Workers, Deno, Bun, and Node 20+.
  */
-
-// Encoding helpers
 
 const HEX_CHARS = "0123456789abcdef";
 
@@ -49,9 +44,7 @@ export function toBase64Url(bytes: Uint8Array): string {
 
 /** Decode a base64url string into a Uint8Array. */
 export function fromBase64Url(b64: string): Uint8Array {
-	// Restore standard base64
 	let base64 = b64.replace(/-/g, "+").replace(/_/g, "/");
-	// Add padding
 	while (base64.length % 4 !== 0) {
 		base64 += "=";
 	}
@@ -62,8 +55,6 @@ export function fromBase64Url(b64: string): Uint8Array {
 	}
 	return bytes;
 }
-
-// Random generation
 
 /** Generate a v4 UUID using the globally available crypto.randomUUID(). */
 export function generateId(): string {
@@ -82,8 +73,6 @@ export function randomBytesHex(length: number): string {
 	return toHex(randomBytes(length));
 }
 
-// Text encoding helper (internal)
-
 const TEXT_ENCODER = new TextEncoder();
 
 function toBytes(data: string | Uint8Array): ArrayBuffer {
@@ -96,8 +85,6 @@ function toBytes(data: string | Uint8Array): ArrayBuffer {
 	}
 	return (data.buffer as ArrayBuffer).slice(data.byteOffset, data.byteOffset + data.byteLength);
 }
-
-// Hashing
 
 /** SHA-256 hash, returns hex string. */
 export async function sha256(data: string | Uint8Array): Promise<string> {
@@ -116,8 +103,6 @@ export async function sha1(data: string | Uint8Array): Promise<string> {
 	const digest = await globalThis.crypto.subtle.digest("SHA-1", toBytes(data));
 	return toHex(new Uint8Array(digest));
 }
-
-// HMAC
 
 /** Import a secret key for HMAC operations. */
 export async function importHmacKey(
@@ -168,17 +153,13 @@ export async function hmacSha1Raw(key: Uint8Array, data: Uint8Array): Promise<Ui
 	return new Uint8Array(signature);
 }
 
-// PBKDF2 password hashing
-
 const PBKDF2_ITERATIONS = 100_000; // CF Workers caps at 100K; OWASP recommends 600K for Node.js
 const PBKDF2_KEY_LENGTH = 64; // bytes
 const PBKDF2_SALT_LENGTH = 32; // bytes
 
 /**
  * Hash a password using PBKDF2-SHA256.
- *
- * Returns a string in the format: `pbkdf2:iterations:salt_hex:hash_hex`
- * which is safe to store in the database.
+ * Returns a string in the format: `pbkdf2:iterations:salt_hex:hash_hex` which is safe to store in the database.
  */
 export async function pbkdf2Hash(
 	password: string,
@@ -214,11 +195,7 @@ export async function pbkdf2Hash(
 	return `pbkdf2:${actualIterations}:${toHex(actualSalt)}:${toHex(new Uint8Array(derived))}`;
 }
 
-/**
- * Verify a password against a stored PBKDF2 hash.
- *
- * Supports the `pbkdf2:iterations:salt:hash` format produced by `pbkdf2Hash`.
- */
+/** Verify a password against a stored PBKDF2 hash. */
 export async function pbkdf2Verify(password: string, stored: string): Promise<boolean> {
 	const parts = stored.split(":");
 	if (parts.length !== 4 || parts[0] !== "pbkdf2") {
@@ -257,12 +234,7 @@ export async function pbkdf2Verify(password: string, stored: string): Promise<bo
 	return constantTimeEqual(new Uint8Array(derived), storedHash);
 }
 
-// Constant-time comparison
-
-/**
- * Constant-time comparison of two Uint8Arrays.
- * Returns false immediately if lengths differ (length is not secret).
- */
+/** Constant-time comparison of two Uint8Arrays. Returns false immediately if lengths differ (length is not secret). */
 export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 	if (a.byteLength !== b.byteLength) {
 		return false;

@@ -3,8 +3,6 @@ import { withRateLimit } from "../src/auth/rate-limit-middleware.js";
 import { createRateLimiter } from "../src/auth/rate-limiter.js";
 import type { EndpointContext } from "../src/plugin/types.js";
 
-// Helpers
-
 function makeEndpointCtx(): EndpointContext {
 	return {
 		db: {} as EndpointContext["db"],
@@ -26,7 +24,7 @@ function makeRequest(ip?: string): Request {
 const TRUST_ONE = { trustedProxyCount: 1 };
 const OK_HANDLER = async () => new Response("ok", { status: 200 });
 
-// createRateLimiter — core behaviour
+// createRateLimiter, core behaviour
 
 describe("createRateLimiter", () => {
 	it("allows requests up to the configured max", () => {
@@ -77,10 +75,8 @@ describe("createRateLimiter", () => {
 		limiter.check("ip-x");
 		limiter.check("ip-x");
 
-		// ip-x is exhausted
 		expect(limiter.check("ip-x").allowed).toBe(false);
 
-		// ip-y is independent
 		expect(limiter.check("ip-y").allowed).toBe(true);
 	});
 
@@ -118,8 +114,6 @@ describe("createRateLimiter", () => {
 		vi.useRealTimers();
 	});
 });
-
-// withRateLimit middleware
 
 describe("withRateLimit", () => {
 	beforeEach(() => {
@@ -249,11 +243,11 @@ describe("withRateLimit", () => {
 		const r1 = await handler(makeTenantRequest("tenant-a"), ctx);
 		expect(r1.status).toBe(200);
 
-		// Different tenant — independent limit
+		// Different tenant, independent limit
 		const r2 = await handler(makeTenantRequest("tenant-b"), ctx);
 		expect(r2.status).toBe(200);
 
-		// Same tenant — now blocked
+		// Same tenant, now blocked
 		const r3 = await handler(makeTenantRequest("tenant-a"), ctx);
 		expect(r3.status).toBe(429);
 	});

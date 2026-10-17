@@ -1,9 +1,4 @@
-/**
- * Tests for the Notion OAuth provider.
- *
- * No network calls are made. Tests validate URL construction and profile
- * normalisation against canned responses.
- */
+/** Tests for the Notion OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -16,8 +11,6 @@ const CLIENT_ID = "test-notion-client-id";
 const CLIENT_SECRET = "test-notion-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
-
-// Canned responses
 
 const CANNED_TOKEN_RAW = {
 	access_token: "notion-access-token",
@@ -38,8 +31,6 @@ const CANNED_TOKEN_RAW = {
 		},
 	},
 };
-
-// Provider construction
 
 describe("createNotionProvider", () => {
 	it("creates a provider with id notion", () => {
@@ -68,8 +59,6 @@ describe("createNotionProvider", () => {
 		expect(DEFAULT_NOTION_SCOPES).toEqual([]);
 	});
 });
-
-// Authorization URL
 
 describe("createNotionProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, state, and owner=user", async () => {
@@ -107,8 +96,6 @@ describe("createNotionProvider — getAuthorizationUrl", () => {
 		expect(parsed.searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeNotionProfile", () => {
 	it("maps owner.user to OAuthUserInfo", () => {

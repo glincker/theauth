@@ -1,14 +1,9 @@
 /**
  * Tests for the third-party auth adapter integrations.
- *
  * Covers:
- * - betterAuthAdapter: resolves user via getSession, maps fields, handles null
- *   session, handles errors gracefully
- * - authJsAdapter: resolves user via getSession callback, maps optional fields,
- *   handles absent/missing id, handles errors gracefully
- * - clerkAdapter: resolves user via getUserIdFromRequest + getUser, assembles
- *   full name, picks primary email, handles missing user, handles errors at
- *   each step, exposes getUser for direct lookups
+ * - betterAuthAdapter: resolves user via getSession, maps fields, handles null session, handles errors gracefully
+ * - authJsAdapter: resolves user via getSession callback, maps optional fields, handles absent/missing id, handles errors gracefully
+ * - clerkAdapter: resolves user via getUserIdFromRequest + getUser, assembles full name, picks primary email, handles missing user, handles errors at each step, exposes getUser for direct lookups
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -19,13 +14,9 @@ import { betterAuthAdapter } from "../src/auth/adapters/better-auth.js";
 import type { ClerkAdapterOptions, ClerkUser } from "../src/auth/adapters/clerk.js";
 import { clerkAdapter } from "../src/auth/adapters/clerk.js";
 
-// Helpers
-
 function makeRequest(headers: Record<string, string> = {}): Request {
 	return new Request("https://example.com/api", { headers });
 }
-
-// betterAuthAdapter
 
 describe("betterAuthAdapter", () => {
 	function makeBetterAuth(
@@ -88,7 +79,7 @@ describe("betterAuthAdapter", () => {
 	});
 
 	it("returns null when session has no user", async () => {
-		// Cast to satisfy the narrow type – simulates a malformed response.
+		// Cast to satisfy the narrow type, simulates a malformed response.
 		const auth: BetterAuthInstance = {
 			api: {
 				getSession: vi.fn().mockResolvedValue({ user: null } as any),
@@ -108,13 +99,11 @@ describe("betterAuthAdapter", () => {
 
 	it("does not expose a getUser implementation", () => {
 		const adapter = betterAuthAdapter(makeBetterAuth(null));
-		// Optional method – absent on this adapter (better-auth has no public
+		// Optional method, absent on this adapter (better-auth has no public
 		// get-user-by-id on its api object).
 		expect(adapter.getUser).toBeUndefined();
 	});
 });
-
-// authJsAdapter
 
 describe("authJsAdapter", () => {
 	function makeAuthJsOptions(
@@ -189,8 +178,6 @@ describe("authJsAdapter", () => {
 		expect(await adapter.resolveUser(makeRequest())).toBeNull();
 	});
 });
-
-// clerkAdapter
 
 describe("clerkAdapter", () => {
 	function makeClerkUser(overrides: Partial<ClerkUser> = {}): ClerkUser {

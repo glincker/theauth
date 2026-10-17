@@ -36,7 +36,6 @@ export function readSkill(): string | null {
 	return null;
 }
 
-/** Split `---` frontmatter from the body. */
 export function splitFrontmatter(source: string): { description: string; body: string } {
 	const m = /^---\n([\s\S]*?)\n---\n?/.exec(source);
 	if (!m?.[1]) return { description: "", body: source };

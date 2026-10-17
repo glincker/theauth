@@ -2,8 +2,6 @@ import { useCallback, useContext, useState } from "react";
 import { TheAuthContext } from "./context.js";
 import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
 
-// Guards
-
 function useRequiredContext(hookName: string) {
 	const ctx = useContext(TheAuthContext);
 	if (!ctx) {
@@ -12,31 +10,16 @@ function useRequiredContext(hookName: string) {
 	return ctx;
 }
 
-// useSession
-
-/**
- * Returns the current session, loading state, and a manual refresh function.
- */
 export function useSession() {
 	const { session, isLoading, refresh } = useRequiredContext("useSession");
 	return { session, isLoading, refresh };
 }
 
-// useUser
-
-/**
- * Returns the current user, loading state, and authentication status.
- */
 export function useUser() {
 	const { user, isLoading, isAuthenticated } = useRequiredContext("useUser");
 	return { user, isLoading, isAuthenticated };
 }
 
-// useSignIn
-
-/**
- * Returns a signIn function plus local loading and error state.
- */
 export function useSignIn() {
 	const { signIn } = useRequiredContext("useSignIn");
 	const [isLoading, setIsLoading] = useState(false);
@@ -59,11 +42,6 @@ export function useSignIn() {
 	return { signIn: execute, isLoading, error };
 }
 
-// useSignUp
-
-/**
- * Returns a signUp function plus local loading and error state.
- */
 export function useSignUp() {
 	const { signUp } = useRequiredContext("useSignUp");
 	const [isLoading, setIsLoading] = useState(false);
@@ -86,26 +64,14 @@ export function useSignUp() {
 	return { signUp: execute, isLoading, error };
 }
 
-// useSignOut
-
-/**
- * Returns a signOut function.
- */
 export function useSignOut() {
 	const { signOut } = useRequiredContext("useSignOut");
 	return { signOut };
 }
 
-// useRotateSession
-
 /**
- * Convenience hook for the v0.5 rotation API. Mirrors the values exposed
- * on the context — `rotate` (single-flight), `status` (`idle | rotating |
- * error`), and `isOnline`.
- *
- * In managed mode (no `external.refreshPath`) `rotate()` resolves with
- * `{ success: false, code: "network_error" }` so call sites can stay
- * uniform across modes.
+ * In managed mode (no `external.refreshPath`) `rotate()` resolves with `network_error`
+ * so call sites stay uniform across modes.
  *
  * @example
  * ```tsx
@@ -120,8 +86,6 @@ export function useRotateSession() {
 	const { rotateSession, rotationStatus, isOnline } = useRequiredContext("useRotateSession");
 	return { rotate: rotateSession, status: rotationStatus, isOnline };
 }
-
-// useAgents
 
 interface AgentApiResponse {
 	data: TheAuthAgent[];
@@ -153,12 +117,7 @@ function extractError(body: unknown, fallback: string): string {
 	return fallback;
 }
 
-/**
- * Manages agent identity records for a given user.
- *
- * Fetches the agent list and exposes create, revoke, and rotate helpers.
- * All mutations refresh the list automatically.
- */
+/** Agent identity records for a user. Mutations refresh the list automatically. */
 export function useAgents(basePath = "/api/theauth") {
 	const { user } = useRequiredContext("useAgents");
 	const base = basePath.replace(/\/$/, "");
@@ -191,7 +150,6 @@ export function useAgents(basePath = "/api/theauth") {
 		}
 	}, [base, user]);
 
-	// Load once when user is available
 	const [loaded, setLoaded] = useState(false);
 	if (user && !loaded) {
 		setLoaded(true);

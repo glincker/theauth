@@ -1,7 +1,4 @@
-/**
- * A policy decision whose audit row cannot be written is counted, not lost
- * silently. The decision itself is still returned to the caller.
- */
+/** A policy decision whose audit row cannot be written is counted, not lost silently. The decision itself is still returned to the caller. */
 
 import { describe, expect, it } from "vitest";
 import { getAuditWriteFailures, setAuditWriteErrorHandler } from "../src/audit/record.js";

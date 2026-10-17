@@ -1,11 +1,6 @@
 /**
- * POST /api/demo/signup
- * Step 1: Register a user with a simulated passkey.
- *
- * In a production passkey flow, we would call navigator.credentials.create()
- * in the browser and verify the attestation here. For the demo we simulate
- * the passkey ceremony and create a real TheAuth session record so all
- * downstream steps use authentic data.
+ * POST /api/demo/signup (step 1). Simulates the passkey ceremony and creates a real session record.
+ * Production would call navigator.credentials.create() and verify the attestation here.
  */
 
 import { generateId } from "@glinr/theauth";

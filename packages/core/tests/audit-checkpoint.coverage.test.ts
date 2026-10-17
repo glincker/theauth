@@ -1,6 +1,4 @@
-/**
- * Error and edge paths of signed checkpoints, proofs, receipts, signing and the memory store.
- */
+/** Error and edge paths of signed checkpoints, proofs, receipts, signing and the memory store. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

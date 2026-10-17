@@ -18,9 +18,7 @@ function ref(row: DecisionRow): RowRef {
 }
 
 /**
- * Incremental replay of decision rows against a proposed permission set.
- * Matching only (action and resource, same first-match result as the engine's findMatchingPermission).
- * Constraints depend on live state, so they are not re-evaluated.
+ * Incremental replay of decision rows against a proposed permission set. Matching only (action and resource, same first-match result as the engine's findMatchingPermission). Constraints depend on live state, so they are not re-evaluated.
  */
 export function createReplay(proposed: Permission[], opts: VerifyOptions = {}) {
 	const max = wholeOr(opts.maxExamples, DEFAULT_EXAMPLES);
@@ -70,10 +68,7 @@ export function createReplay(proposed: Permission[], opts: VerifyOptions = {}) {
 }
 
 /**
- * Prove a proposed permission set against recorded decisions: does it still
- * allow every historical allow, and does it newly allow any call that was
- * denied for lack of a grant? Pure and deterministic. Rows are examined in
- * the order given.
+ * Prove a proposed permission set against recorded decisions: does it still allow every historical allow, and does it newly allow any call that was denied for lack of a grant? Pure and deterministic. Rows are examined in the order given.
  */
 export function verifyShrink(
 	rows: Iterable<DecisionRow>,
@@ -85,11 +80,7 @@ export function verifyShrink(
 	return replay.finish();
 }
 
-/**
- * Blast radius of any permission change: which recorded decisions of this
- * agent would flip if `proposed` were its permission set. Reads rows in pages.
- * Works for a shrink, a widening or a rewrite.
- */
+/** Blast radius of any permission change: which recorded decisions of this agent would flip if `proposed` were its permission set. Reads rows in pages. Works for a shrink, a widening or a rewrite. */
 export async function previewPolicyChange(
 	db: Database,
 	agentId: string,

@@ -1,13 +1,3 @@
-/**
- * Tests for @glinr/theauth-test-utils
- *
- * Covers:
- *   - factories: createMockUser, createMockSession, createMockAgent, createMockPermission
- *   - mock-server: createMockAuthServer — addUser, removeUser, resolveUser, getUser,
- *     syncUser, setActiveUser, header override, reset
- *   - assertions: expectAuthenticated, expectUnauthenticated, expectPermissionDenied
- */
-
 import type { ActionResult } from "@glinr/theauth-react";
 import { describe, expect, it } from "vitest";
 import {
@@ -22,8 +12,6 @@ import {
 	createMockUser,
 } from "../src/factories.js";
 import { createMockAuthServer, MOCK_USER_ID_HEADER } from "../src/mock-server.js";
-
-// Factories
 
 describe("createMockUser", () => {
 	it("returns a user with all required fields", () => {
@@ -116,8 +104,6 @@ describe("createMockAgent", () => {
 		expect(agent.permissions[0]?.resource).toBe("secrets");
 	});
 });
-
-// Mock auth server
 
 describe("createMockAuthServer", () => {
 	it("starts with an empty store", () => {
@@ -233,8 +219,6 @@ describe("createMockAuthServer", () => {
 		expect(b.users.size).toBe(0);
 	});
 });
-
-// Assertions
 
 describe("expectAuthenticated", () => {
 	it("does not throw for a success result", () => {

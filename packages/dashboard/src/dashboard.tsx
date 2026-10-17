@@ -5,6 +5,7 @@ import { AuthGate, LogoutButton } from "./components/auth-gate.js";
 import { Layout } from "./components/layout.js";
 import { ToastProvider } from "./components/toast.js";
 import { AgentsPage } from "./pages/agents.js";
+import { ApprovalsPage } from "./pages/approvals.js";
 import { AuditPage } from "./pages/audit.js";
 import { DelegationsPage } from "./pages/delegations.js";
 import { McpServersPage } from "./pages/mcp-servers.js";
@@ -49,6 +50,8 @@ function InnerDashboard({ apiUrl, onLogout, demo, theme, onThemeToggle }: InnerD
 				return <AgentsPage client={client} />;
 			case "users":
 				return <UsersPage client={client} onNavigate={setCurrentPage} />;
+			case "approvals":
+				return <ApprovalsPage client={client} />;
 			case "audit":
 				return <AuditPage client={client} />;
 			case "permissions":

@@ -29,9 +29,12 @@ async function main(): Promise<void> {
 		logger.error(message);
 		process.exit(1);
 	}
-	const server = createServer(client, logger, readVersion());
+	const allowWrites =
+		process.argv.includes("--allow-writes") || process.env.THEAUTH_ALLOW_WRITES === "1";
+	const actor = process.env.THEAUTH_MCP_ACTOR?.trim() || "theauth-mcp";
+	const server = createServer(client, logger, readVersion(), { allowWrites, actor });
 	await server.connect(new StdioServerTransport());
-	logger.info(`ready, API ${client.baseUrl}`);
+	logger.info(`ready, API ${client.baseUrl}, writes ${allowWrites ? "enabled" : "disabled"}`);
 }
 
 main().catch((error: unknown) => {

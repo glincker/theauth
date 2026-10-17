@@ -1,0 +1,59 @@
+{
+  "name": "@glinr/theauth-conformance",
+  "version": "0.1.0",
+  "description": "Black-box agent-auth conformance suite for any OAuth 2.1 or MCP authorization server or resource server, with a shields.io badge",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "theauth-conformance": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "tsup": "^8.4.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "oauth",
+    "oauth21",
+    "mcp",
+    "conformance",
+    "agent-auth",
+    "pkce",
+    "dpop",
+    "rfc8414",
+    "rfc9728",
+    "badge"
+  ],
+  "author": "TheAuth <support@glinr.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glincker/theauth.git",
+    "directory": "packages/conformance"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

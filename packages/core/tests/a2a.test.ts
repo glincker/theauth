@@ -21,8 +21,6 @@ import {
 	A2ATaskStateSchema,
 } from "../src/a2a/types.js";
 
-// Helpers
-
 function makeAgentCard(overrides?: Partial<A2AAgentCard>): A2AAgentCard {
 	return {
 		id: randomUUID(),
@@ -62,8 +60,6 @@ function makeTask(overrides?: Partial<A2ATask>): A2ATask {
 		...overrides,
 	};
 }
-
-// Agent Card Creation
 
 describe("A2A Agent Card", () => {
 	describe("createAgentCard", () => {
@@ -148,8 +144,6 @@ describe("A2A Agent Card", () => {
 			expect(card.metadata?.region).toBe("us-east-1");
 		});
 	});
-
-	// Agent Card Validation
 
 	describe("validateAgentCard", () => {
 		it("validates a correct agent card", () => {
@@ -246,7 +240,6 @@ describe("A2A Agent Card", () => {
 
 		it("returns error for invalid key", async () => {
 			const card = makeAgentCard();
-			// Pass an invalid key
 			const result = await signAgentCard({
 				card,
 				privateKey: { kty: "EC" } as jose.JWK,
@@ -325,8 +318,6 @@ describe("A2A Agent Card", () => {
 		});
 	});
 });
-
-// A2A Server
 
 describe("A2A Server", () => {
 	function createTestServer(options?: {
@@ -438,7 +429,6 @@ describe("A2A Server", () => {
 			const sendBody = await sendRes.json();
 			const taskId = sendBody.result.id;
 
-			// Now get the task
 			const getReq = jsonRpcRequest(A2A_METHODS.GET_TASK, { id: taskId });
 			const getRes = await server.handleRequest(getReq);
 			const getBody = await getRes.json();
@@ -484,14 +474,12 @@ describe("A2A Server", () => {
 				},
 			});
 
-			// Create a working task
 			const msg = makeMessage("Cancel me");
 			const sendReq = jsonRpcRequest(A2A_METHODS.SEND_MESSAGE, { message: msg });
 			const sendRes = await server.handleRequest(sendReq);
 			const sendBody = await sendRes.json();
 			const taskId = sendBody.result.id;
 
-			// Cancel it
 			const cancelReq = jsonRpcRequest(A2A_METHODS.CANCEL_TASK, { id: taskId });
 			const cancelRes = await server.handleRequest(cancelReq);
 			const cancelBody = await cancelRes.json();
@@ -508,13 +496,11 @@ describe("A2A Server", () => {
 
 		it("rejects cancel for already completed task", async () => {
 			const server = createTestServer();
-			// Create a completed task
 			const msg = makeMessage("Done");
 			const sendReq = jsonRpcRequest(A2A_METHODS.SEND_MESSAGE, { message: msg });
 			const sendRes = await server.handleRequest(sendReq);
 			const sendBody = await sendRes.json();
 
-			// Try to cancel
 			const cancelReq = jsonRpcRequest(A2A_METHODS.CANCEL_TASK, { id: sendBody.result.id });
 			const cancelRes = await server.handleRequest(cancelReq);
 			const cancelBody = await cancelRes.json();
@@ -694,7 +680,6 @@ describe("A2A Server", () => {
 				agentCard: card,
 				handler: {
 					onMessage: async () => makeTask(),
-					// No onMessageStream
 				},
 			});
 			const msg = makeMessage("Stream me");
@@ -707,8 +692,6 @@ describe("A2A Server", () => {
 		});
 	});
 });
-
-// A2A Client
 
 describe("A2A Client", () => {
 	// Create a mock fetch that delegates to a local A2A server
@@ -808,14 +791,12 @@ describe("A2A Client", () => {
 				fetch: mockFetch,
 			});
 
-			// Create a task first
 			const sendResult = await client.sendMessage({
 				message: makeMessage("Get me later"),
 			});
 			expect(sendResult.success).toBe(true);
 			if (!sendResult.success) return;
 
-			// Retrieve it
 			const getResult = await client.getTask({ id: sendResult.data.id });
 			expect(getResult.success).toBe(true);
 			if (getResult.success) {
@@ -928,8 +909,6 @@ describe("A2A Client", () => {
 		});
 	});
 });
-
-// Zod Schema Tests
 
 describe("A2A Zod Schemas", () => {
 	it("validates text parts", () => {

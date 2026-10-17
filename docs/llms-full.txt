@@ -753,6 +753,52 @@ The React hooks store sessions in `localStorage`. Make sure your app is wrapped 
 
 ---
 
+# Dev mode: local agent auth server in one command
+
+Source: https://docs.theauth.dev/dev-mode
+
+Start a local server with a demo user, a delegation and a policy check. No config, database or account is needed.
+
+```bash
+npx theauth dev
+```
+
+The server listens on `127.0.0.1` with an in-memory SQLite database. It seeds:
+
+1. A demo user, `demo@theauth.dev`.
+2. A `planner-agent` owned by that user, with read access to repos and write access to issues.
+3. A `worker-agent` that starts with no permissions of its own.
+4. A delegation from the planner to the worker that grants only `read` on `mcp:github:repos`.
+
+It then runs three guarded tool calls and prints each result:
+
+| Call | Result | Why |
+| --- | --- | --- |
+| worker reads a repo | allowed | The delegation covers it |
+| worker deletes a repo | denied | The delegation does not cover it |
+| planner writes an issue | allowed | The planner holds that grant itself |
+
+Every call lands in the audit log. The command verifies the audit hash chain and reports the count.
+
+## Command-line options
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `--port <n>` | `3100` | Also settable with the `THEAUTH_DEV_PORT` environment variable |
+| `--smoke` | off | Run the walkthrough, check the server answers, then exit with code 0 or 1 |
+
+## Dashboard
+
+When the dashboard build is present, the walkthrough prints a dashboard URL for browsing agents, delegations and audit entries. Without the build, only the API URL is printed and everything else still works. Try `curl http://localhost:3100/api/agents`.
+
+## Limits
+
+- Dev mode turns off authentication on the management routes and binds to localhost only. Do not expose it.
+- Data is in memory and is gone when the process exits. Press Ctrl+C to stop.
+- For a real setup, run `npx theauth init`.
+
+---
+
 # Works with
 
 Source: https://docs.theauth.dev/works-with
@@ -2243,21 +2289,17 @@ These are returned by the code, not invented for the docs. For the complete list
 
 ---
 
-# AI coding assistants
+# AI coding assistant setup with theAuth docs
 
 Source: https://docs.theauth.dev/ai-assistants
 
-If an AI assistant writes your auth code, give it the real docs and the real API. theAuth ships three things for that: an agent skill, a stdio MCP server in the CLI, and `llms.txt` files.
-
-## One command setup
-
-Run this in your project root:
+Give your assistant the real docs and API. One command sets it up.
 
 ```bash title="terminal"
 npx @glinr/theauth-cli init --agent
 ```
 
-It writes, for each assistant:
+It writes these files in your project root:
 
 | Assistant | Files |
 |---|---|
@@ -2265,13 +2307,9 @@ It writes, for each assistant:
 | Cursor | `.cursor/rules/theauth.mdc` and `.cursor/mcp.json` |
 | VS Code | `.vscode/mcp.json` |
 
-Options:
+`--target claude,cursor,vscode` limits the set (default: all three). `--dry-run` writes nothing. `--force` replaces existing files and `theauth` MCP entries.
 
-- `--target claude,cursor,vscode` limits the set. The default is all three.
-- `--dry-run` prints what would be written and writes nothing.
-- `--force` replaces files and `theauth` MCP entries that already exist.
-
-Existing files are left alone. Other servers in your MCP config are kept. A config file that is not plain JSON (for example one with comments) is skipped and reported, so add the entry by hand:
+Existing files are left alone and other MCP servers stay in place. A config that is not plain JSON (for example, one with comments) is skipped and reported. Add the entry by hand:
 
 ```json title=".mcp.json"
 {
@@ -2283,23 +2321,51 @@ Existing files are left alone. Other servers in your MCP config are kept. A conf
 
 VS Code uses `servers` with `"type": "stdio"` instead of `mcpServers`.
 
-## The MCP server
+## Run the theAuth MCP server
 
-`theauth mcp` starts a stdio MCP server. It speaks newline-delimited JSON-RPC on stdout and writes nothing else there. All tools are read-only.
+`theauth mcp` is a read-only stdio server.
 
 | Tool | What it does |
 |---|---|
-| `search_docs` | Ranked search over these docs, with a snippet and URL per hit. |
-| `get_doc` | Full text of one page by slug, for example `quickstart`. |
-| `add_plugin` | Install command, import and `plugins` entry for a plugin such as `magic-link`, `passkey` or `agent-registration`. It does not edit your files. |
-| `generate_schema` | The SQL tables theAuth creates for a feature set, built in memory as SQLite DDL. Needs `better-sqlite3`. Tables are created on startup either way. |
-| `inspect` | Summary of your local setup: installed `@glinr/theauth*` packages, database provider, plugins, whether agents and MCP are configured, and env var names. |
+| `search_docs` | Ranked search over these docs |
+| `get_doc` | Full text of one page by slug |
+| `add_plugin` | Install command and `plugins` entry. Edits no files. |
+| `generate_schema` | SQLite DDL, built in memory. Needs `better-sqlite3`. |
+| `inspect` | Setup summary. Env var names, never values. |
 
-`inspect` reads source files as text and never runs them. It reports env var names from `.env` files, never their values, and never echoes string literals from your config.
+## Skill and hosted docs
 
-## The skill
+The skill ([`SKILL.md`](https://github.com/glincker/theauth/blob/main/skills/theauth/SKILL.md)) covers install, plugins, agent identity, delegation and MCP auth. `init --agent` copies it into your project.
 
-The skill lives in the repository at [`skills/theauth/SKILL.md`](https://github.com/glincker/theauth/blob/main/skills/theauth/SKILL.md) and covers install, adapter choice, plugins, agent identity, delegation and MCP auth. Any tool that reads the `SKILL.md` format can use it directly. `init --agent` copies it into your project.
+The docs site serves a remote MCP server with a search tool over these docs. It needs no install:
+
+```bash title="terminal"
+claude mcp add --transport http theauth-docs https://docs.theauth.dev/mcp
+```
+
+For Cursor, VS Code, Codex and Gemini CLI, add the same URL as a remote (HTTP) server. Config file names change between releases, so check each tool's MCP docs. The Go docs are not part of this server.
+
+## Rule files
+
+Copy these from [`templates/ai-rules/`](https://github.com/glincker/theauth/tree/main/templates/ai-rules):
+
+| File | Copy to | Tool |
+|---|---|---|
+| `AGENTS.md` | `AGENTS.md` in your project root | Codex, Cursor, Copilot coding agent, Gemini CLI |
+| `.cursor/rules/theauth.mdc` | `.cursor/rules/theauth.mdc` | Cursor |
+| `CLAUDE.md` | Append to your `CLAUDE.md` | Claude Code |
+| `copilot-instructions.md` | `.github/copilot-instructions.md` | GitHub Copilot |
+
+Gemini CLI reads `GEMINI.md` by default. Copy `AGENTS.md` to `GEMINI.md`, or set `context.fileName` to `AGENTS.md` in `.gemini/settings.json`.
+
+The rules require:
+
+- Never log or commit tokens, secrets or `Authorization` headers.
+- Verify delegation with `authorize` or `policy.evaluate`. Never trust a claimed owner.
+- Keep policy deny by default. Treat `deny`, `escalate` and errors as do not run.
+- Wrap every agent tool with `guardTool` or `guardTools`.
+- Use DPoP for MCP tokens that leave your trust boundary.
+- Match redirect URIs exactly.
 
 ## llms.txt
 
@@ -2308,7 +2374,7 @@ For assistants that fetch context from URLs:
 - [`/llms.txt`](https://docs.theauth.dev/llms.txt): one line per page.
 - [`/llms-full.txt`](https://docs.theauth.dev/llms-full.txt): the full text of every page.
 
-Maintainers regenerate both from `docs/*.mdx` and `docs/docs.json` with `node scripts/generate-llms.mjs`. Add `--check` to fail when they are stale. The Go docs are not included.
+Regenerate with `node scripts/generate-llms.mjs`. Add `--check` to fail when they are stale. The Go docs are not included.
 
 ---
 
@@ -13314,6 +13380,35 @@ const { rotated } = await vault.rotateKeys();
 
 Once `rotateKeys()` reports zero on a second run, drop `k1` from the config.
 
+## Provider presets
+
+| Provider | Token URL | Refresh behavior | Quirk |
+|---|---|---|---|
+| github | `https://github.com/login/oauth/access_token` | Opt in | Tokens never expire unless token expiration is enabled; then 8 hour access, rotating refresh. |
+| google | `https://oauth2.googleapis.com/token` | Authorize params | Needs `access_type=offline` and `prompt=consent`; refresh token usually only on first consent. |
+| slack | `https://slack.com/api/oauth.v2.access` | Opt in | Rotation is per app and cannot be turned off; 12 hour access, single use refresh. |
+| linear | `https://api.linear.app/oauth/token` | Always | 24 hour access; every refresh rotates the refresh token. |
+| microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/token` | Scope | Request `offline_access` or no refresh token is issued. |
+| discord | `https://discord.com/api/oauth2/token` | Always | Basic auth; implicit and client credentials grants return no refresh token. |
+
+Notion and Atlassian are not preset because their token endpoints are documented with JSON bodies, which the vault refresh does not send.
+
+`providerPresets` and `resolveProviderPreset(id, { clientId, clientSecret })` return the URLs and `authStyle`; pass `authStyle` in the provider config to match.
+
+## Check a preset against the real provider
+
+Run one refresh grant with your own test credentials to confirm a preset works against the live provider. The script never prints token values.
+
+```bash
+PROVIDER=github CLIENT_ID=... CLIENT_SECRET=... REFRESH_TOKEN=... node scripts/smoke-token-vault-presets.mjs
+```
+
+Add `--dry-run` to print the request shape (URL, auth style, header names, body keys) with values masked. Nothing is sent.
+
+On success the output shows the HTTP status, whether an access token came back, `expires_in`, whether the provider rotated the refresh token, and the scope string. On failure it exits 1 and prints `error=<code>`, the provider's OAuth error code such as `invalid_grant`, never the response body.
+
+Run it by hand against a test app. CI never runs it.
+
 ## Not included
 
 RFC 8693 token exchange and an HTTP endpoint for agents to fetch tokens are not part of this release. `getAccessToken` is an in-process call. The older `theauth_oauth_accounts` table stores provider tokens in plaintext and is unchanged.
@@ -16055,6 +16150,42 @@ The column is part of the hash chain, so `verifyAuditChain` covers it. Labels ar
 
 ---
 
+# Browser playground for taint guard and policy
+
+Source: https://docs.theauth.dev/playground
+
+Try the same `guardTool`, taint labels and policy engine you ship, in a browser tab with no server. The store is in-memory SQLite (`sql.js`, WebAssembly) and signing uses WebCrypto Ed25519, so nothing leaves the page.
+
+```bash
+pnpm --filter playground dev
+pnpm --filter playground build
+```
+
+The build writes static files to `apps/playground/dist`. Host them anywhere.
+
+## Try the demo scenarios
+
+1. A poisoned web page tells the agent to email an attacker. The address carries the `untrusted_web` label, so the taint rule blocks the call.
+2. A 20 EUR payment stays under the limit and is allowed.
+3. A 5000 EUR payment reaches the `large-payment` risk tier and escalates to approval.
+4. Edit the policy JSON and run again.
+
+Each run shows the decision, the reason, the labels the engine saw, and a signed audit receipt. The page verifies the receipt: the Ed25519 signature on the checkpoint and the Merkle inclusion proof. Change one digit of the receipt and verification fails.
+
+## What runs for real
+
+The decision path uses the published `@glinr/theauth` code: `createTheAuth`, `guardTool`, `tainted`, the policy engine, `createCheckpoint`, `createReceipt` and `verifyReceipt`.
+
+## Copy the code
+
+The Copy code button emits a `guardTool` snippet for the scenario and policy you picked. See [Guard agent tools](/agent-tools) and [Taint guard](/taint-guard) for the API, and [Audit checkpoints](/audit-checkpoints) for receipts.
+
+## Limits
+
+- The app edge code points `sql.js` at its bundled `.wasm` file. It replaces server-only drivers (mail, Postgres, MySQL, `zlib`) with empty modules. Those paths are never called.
+
+---
+
 # Vercel AI SDK
 
 Source: https://docs.theauth.dev/vercel-ai-sdk
@@ -16370,6 +16501,93 @@ The repo has a runnable version at `examples/openai-agents-guard`. It needs no m
 - [Approval flows](/approval)
 - [Audit trail](/audit-trail)
 - [Agent accountability](/accountability)
+
+---
+
+# Guard LangGraph and Mastra agent tools
+
+Source: https://docs.theauth.dev/agent-frameworks
+
+`@glinr/theauth-agent-frameworks` wraps framework tools with `guardTool`. Allowed calls run, denied calls throw `ToolDeniedError`, and escalated calls pause for approval through the framework's own interrupt mechanism.
+
+```bash
+npm install @glinr/theauth-agent-frameworks @glinr/theauth
+```
+
+Framework packages are optional peer dependencies, so this install does not pull in LangChain or Mastra.
+
+Tested against `@langchain/langgraph` 1.5.1 (with `MemorySaver`, both a plain node and the prebuilt `ToolNode`) and `@mastra/core` 1.78.0 (a workflow step and an `Agent`). Other versions are likely to work but are not tested.
+
+## LangChain.js and LangGraph
+
+```ts
+import { Command, interrupt } from "@langchain/langgraph";
+import { guardLangChainTools } from "@glinr/theauth-agent-frameworks/langchain";
+
+const tools = guardLangChainTools(
+  theauth,
+  { agentId: agent.id, interrupt, risk: (args) => ({ amount: args.amount, currency: "USD" }) },
+  [lookupInvoice, refund],
+);
+```
+
+When `refund` escalates, the graph pauses. The interrupt value (`result.__interrupt__`) is an `ApprovalInterruptPayload` with the tool name, tier, arguments and `approvalRequestId`. Approve it, then resume the same thread:
+
+```ts
+await theauth.approval.approve(payload.approvalRequestId, approverId);
+await graph.invoke(new Command({ resume: { approved: true } }), config);
+```
+
+Resume with `{ approved: false }` to reject. The call then fails with `ToolDeniedError` (`APPROVAL_REJECTED`).
+
+## Mastra
+
+```ts
+import { guardMastraTools } from "@glinr/theauth-agent-frameworks/mastra";
+
+const tools = guardMastraTools(theauth, { agentId: agent.id }, { lookupInvoice, refund });
+```
+
+On escalation, the wrapper calls `context.suspend` with the approval payload. Give the tool a `resumeSchema` shaped like `{ approved: boolean, approvalRequestId?: string }` and resume with that data. The wrapper reads suspend and resume data under `context.agent` or `context.workflow`.
+
+Without `suspend` in the context, the wrapper throws `ToolApprovalRequiredError`. Set `onApprovalRequired: "throw"` to always throw. For Mastra versions before 1.0, which passed `{ context }` as the first argument to `execute`, set `legacyContextArg: true`.
+
+## Vercel AI SDK and OpenAI Agents SDK
+
+These need no wrapper. Use `guardTool` from `@glinr/theauth` as shown in [Vercel AI SDK](/vercel-ai-sdk) and [OpenAI Agents SDK](/openai-agents-sdk). Their runs end when a tool throws, and the retry arrives in a new request, so carry the approval across with the shared helpers:
+
+```ts
+import {
+  createApprovalGrants,
+  resumeAfterApproval,
+} from "@glinr/theauth-agent-frameworks";
+
+const grants = createApprovalGrants();
+const refund = guardTool(
+  theauth,
+  { agentId: agent.id, approvalId: grants.approvalIdFor("refund") },
+  refundTool,
+);
+
+// Later, in the handler that runs after the person decides:
+const result = await resumeAfterApproval(theauth, requestId, {
+  grants,
+  call: { toolName: "refund", args: heldArgs },
+});
+if (result.status === "approved") {
+  // Run the agent again. The next identical refund call spends the approval once.
+}
+```
+
+## Resume after approval
+
+`resumeAfterApproval` reads the request with `theauth.approval.get` and returns `approved` (with the `approvalId`), `pending`, `denied`, `expired` or `not_found`. Set `waitMs` to keep polling a pending request. With `grants` and `call`, an approved id is held until the matching retry spends it. The guard still checks agent, action and resource, and a second use is denied.
+
+## Limits
+
+- A LangGraph graph needs a checkpointer for interrupts. This is a LangGraph requirement.
+- A resumed LangGraph node restarts from the top, so the policy check runs again and can open a second pending request. The first interrupt's id is the one spent. The extra request expires on its own.
+- A call whose arguments carry a blocked taint label is denied before any approval opens. Guard options such as `tracker` and `provenance` pass through. See [Taint guard](/taint-guard).
 
 ---
 
@@ -18771,6 +18989,259 @@ The Go library has the same five switches as `ClientCompat` (`OptionalResource`,
 
 ---
 
+# OAuth 2.1 and MCP conformance test
+
+Source: https://docs.theauth.dev/conformance
+
+Black-box checks for any OAuth 2.1 authorization server or MCP resource server. Each check passes, fails or skips. No secrets needed.
+
+```bash
+npx @glinr/theauth-conformance https://auth.example.com
+```
+
+## Conformance command options
+
+```text
+theauth-conformance <url> [options]
+
+  --json                 Print the report as JSON
+  --badge <file>         Write a shields.io endpoint badge JSON file
+  --resource <url>       Protected MCP endpoint to probe for the 401 challenge
+  --client-id <id>       Use this client instead of registering one through DCR
+  --redirect-uri <uri>   Redirect URI registered for --client-id
+  --token <token>        Access token, only read to inspect its audience
+  --refresh-token <tok>  Refresh token for the rotation check (it gets consumed)
+  --timeout <ms>         Per-request timeout, default 10000
+  --verbose              Include evidence in the human report
+  --strict               Exit 1 on any failed check, not only MUST failures
+```
+
+The tool checks the `/.well-known` metadata paths for authorization servers and protected resources. Set `THEAUTH_CONFORMANCE_TOKEN` and `THEAUTH_CONFORMANCE_REFRESH_TOKEN` to keep tokens out of shell history.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | No MUST check failed |
+| `1` | A MUST check failed (any failed check with `--strict`) |
+| `2` | Usage error |
+
+## Checks
+
+Severity follows RFC 2119. A failed MUST turns the badge red. A failed SHOULD or MAY turns it yellow.
+
+| Check id | Severity | Spec | Verifies |
+| --- | --- | --- | --- |
+| `as-metadata` | must | RFC 8414 | Issuer matches, endpoints https |
+| `rs-metadata` | should | RFC 9728 | Names an authorization server |
+| `metadata-consistency` | must | RFC 9728, RFC 8414 | Issuer and scopes agree |
+| `pkce-s256-advertised` | must | OAuth 2.1, RFC 7636 | `S256` advertised, `plain` not |
+| `pkce-required` | must | OAuth 2.1, RFC 9700 | No `code_challenge` is refused |
+| `pkce-plain-rejected` | must | OAuth 2.1, RFC 7636 | `plain` method is refused |
+| `redirect-exact-match` | must | OAuth 2.1, RFC 9700 | Altered or foreign URI never followed |
+| `dcr-registration` | should | RFC 7591 | Public client registers (201) |
+| `dcr-validation` | must | RFC 7591 | Plain http and `javascript:` refused |
+| `refresh-garbage-rejected` | must | RFC 6749, OAuth 2.1 | Made-up refresh token refused |
+| `refresh-rotation` | must | OAuth 2.1, RFC 9700 | Rotates, old token refused, replay revokes |
+| `resource-indicator-audience` | must | RFC 8707 | JWT `aud` matches resource |
+| `token-exchange-rejects-garbage` | must | RFC 8693 | Made-up subject token refused |
+| `token-exchange-act-chain` | should | RFC 8693 | Nested `act` claims. Always skipped. |
+| `introspection-inactive` | must | RFC 7662 | Garbage token gives `active=false` |
+| `dpop-advertised` | may | RFC 9449 | Asymmetric algorithms only |
+| `dpop-enforced` | must | RFC 9449 | Garbage proof gets 401 |
+| `www-authenticate-resource-metadata` | must | RFC 9728, RFC 6750 | 401 has working `resource_metadata` |
+
+Skips are never faked into passes, and each one says why.
+
+## Skipped checks
+
+- Not advertised: DCR, token exchange, introspection, DPoP.
+- `refresh-rotation`: needs `--refresh-token` and `--client-id`. The test consumes the token.
+- `resource-indicator-audience`: needs `--token` (a JWT).
+- `token-exchange-act-chain`: needs a valid subject token and client credentials.
+- Introspection behind client authentication (401 or 403).
+- Negative authorize probes: the server never accepts a valid request, or shows a login page for the bad one. Skipped if the control request is rejected.
+
+## Badge
+
+`--badge out.json` writes a [shields.io endpoint](https://shields.io/badges/endpoint-badge):
+
+```json
+{
+  "schemaVersion": 1,
+  "label": "agent-auth",
+  "message": "13/13 passed, 5 skipped",
+  "color": "brightgreen"
+}
+```
+
+Host the JSON at a stable public URL and point shields at it:
+
+```markdown
+[![agent-auth conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fexample.com%2Fagent-auth-badge.json)](https://docs.theauth.dev/conformance)
+```
+
+Refresh it in CI with `npx @glinr/theauth-conformance https://auth.example.com --badge badge.json`.
+
+Only checks that ran count toward the message. Green: nothing failed. Yellow: only SHOULD or MAY failed. Red: a MUST failed. Grey (`not tested`): nothing could run.
+
+## Use in code
+
+```ts
+import { buildBadge, runSuite } from "@glinr/theauth-conformance";
+
+const report = await runSuite({ target: "https://auth.example.com", timeoutMs: 10000 });
+const badge = buildBadge(report);
+```
+
+## Tested against theAuth
+
+The package test runs the suite against the real MCP OAuth module from `@glinr/theauth` on a Node `http` server. Pinned result: 13 pass, 0 fail, 5 skipped (refresh rotation, audience, token exchange twice, introspection). A lax stub server must fail the checks.
+
+## Limits
+
+- A green badge means the server behaved correctly on these probes. It is not an audit.
+- Skips never count as passes.
+
+---
+
+# Admin MCP server for theAuth deployments
+
+Source: https://docs.theauth.dev/admin-mcp
+
+The `@glinr/theauth-mcp` server is read-only by default. Add `--allow-writes` (or set `THEAUTH_ALLOW_WRITES=1`) to register four write tools. Each write needs human approval.
+
+```json
+{
+  "mcpServers": {
+    "theauth-admin": {
+      "command": "npx",
+      "args": ["-y", "@glinr/theauth-mcp", "--allow-writes"],
+      "env": {
+        "THEAUTH_API_URL": "https://auth.example.com/api",
+        "THEAUTH_API_KEY": "...",
+        "THEAUTH_MCP_ACTOR": "ops-bot@example.com"
+      }
+    }
+  }
+}
+```
+
+## Embed as a library
+
+Host the server in your own process instead of spawning the CLI. Import from `@glinr/theauth-mcp`.
+
+```ts
+import { ApiClient, createLogger, createServer, loadConfig } from "@glinr/theauth-mcp";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const client = new ApiClient(loadConfig(process.env));
+const server = createServer(client, createLogger(), "1.0.0", { actor: "ops-bot@example.com" });
+await server.connect(new StdioServerTransport());
+```
+
+## Read tools
+
+Always registered: `list_agents`, `get_agent`, `list_delegations`, `list_sessions`, `query_audit`, `check_permission`, `inspect_token`, `doctor` and `get_approval_status`. Tokens and secret-looking fields are redacted.
+
+## Write tools
+
+| Tool | Effect |
+| --- | --- |
+| `revoke_agent` | Revoke an agent identity |
+| `revoke_delegation` | Revoke a delegation chain |
+| `rotate_key` | Rotate an agent credential. The new token is not shown to the client. |
+| `disable_user` | Disable a user and end its sessions |
+
+## Approval flow
+
+Writes use the [approval flow](/approval). No write runs on the first call.
+
+<Steps>
+
+<Step>
+
+### Request
+
+The client calls the tool with the target `id`. The server logs the request, opens an approval (for example `admin:revoke_agent` on `agent:abc`) and returns `{ "status": "pending", "approvalId": "..." }`.
+
+</Step>
+
+<Step>
+
+### Approve
+
+A human approves or denies through your normal approval channel.
+
+</Step>
+
+<Step>
+
+### Retry
+
+The client polls `get_approval_status`, or calls the same tool again with `approvalId`.
+
+</Step>
+
+<Step>
+
+### Run
+
+If the approval is approved and unexpired, the server spends it and runs the change. Otherwise nothing runs.
+
+</Step>
+
+</Steps>
+
+## Audit
+
+With `THEAUTH_MCP_ACTOR` set (default `theauth-mcp`), every call is logged as `admin_mcp.<tool>` with that actor. Writes log each step: requested, pending, executed, denied or failed.
+
+## Deployment routes
+
+Core ships these routes as an opt-in plugin, `adminApi`. It is off unless `enabled` is exactly `true`. When it is off, every route answers 404.
+
+```ts
+import { adminApi, createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  // ...
+  plugins: [
+    adminApi({
+      enabled: true,
+      adminUserIds: ["user_ops"],
+      systemAgentId: "agent_admin_mcp",
+      rateLimit: { max: 60, window: 60 },
+    }),
+  ],
+});
+```
+
+| Route | Backed by |
+| --- | --- |
+| `GET /delegations` | Delegation chains, filtered by `agentId` and `status` |
+| `DELETE /delegations/{id}` | `revokeDelegation` (cascades to child chains) |
+| `GET /sessions` | Sessions as one-way `ref`s, never ids or tokens |
+| `POST /users/{id}/disable` | Admin `banUser` (ends sessions, revokes agent tokens) |
+| `POST /approvals` | `approval.request` |
+| `GET /approvals?status=pending` | Pending, unexpired requests, newest first. `limit` up to 100. Arguments come back as JSON text cut at 2 KB. |
+| `GET /approvals/{id}` | `approval.get` |
+| `POST /approvals/{id}/approve` | Human decision. 403 `SELF_APPROVAL` for the opener, 409 if not pending or expired. |
+| `POST /approvals/{id}/deny` | Same rules as approve. |
+| `POST /approvals/{id}/consume` | `consumeApproval`. A replay or race is refused with 409. |
+| `POST /audit/events` | `recordAuditEvent`, secret-looking params redacted |
+
+## Limits
+
+- Calls need an `Authorization: Bearer` credential for a user in `adminUserIds`. Bad credentials get 401, other users get 403, and an empty list refuses everyone. Cookie-only requests are refused.
+- `systemAgentId` must be an existing agent. The `agentId` and `userId` the MCP server sends are labels and are ignored. The approval belongs to the calling admin.
+- Approval actions must look like `admin:<name>`. Only the admin who opened an approval can consume it. Approving is four-eyes: the admin who opened a request cannot approve or deny it (403 `SELF_APPROVAL`) unless `allowSelfApproval: true`. Each decision writes an `admin_api.approval.approve` or `.deny` audit event.
+- The dashboard Approvals page calls these routes, so it needs an app that serves `/api/approvals` with the signed-in admin's Bearer token. The `theauth dashboard` CLI server signs in with one shared secret, has no admin identity, and cannot use the page. A decision is audited after it is applied, so a failed audit write does not undo it.
+- An approval is single use and tied to one action and one resource.
+- If the audit write for a new request fails, the request is not opened.
+- Admins cannot disable themselves or other configured admins, unless `allowDisablingAdmins` is set.
+- Requests are rate limited per admin user. Ids, enums and body sizes are validated.
+
+---
+
 # DPoP and requireMcpAuth
 
 Source: https://docs.theauth.dev/dpop
@@ -18946,127 +19417,157 @@ The adapters' MCP CORS headers also allow the `DPoP` request header and expose `
 
 ---
 
-# Gateway
+# Reverse proxy gateway for AI agent auth
 
 Source: https://docs.theauth.dev/gateway
 
-## What the gateway does
-
-The theAuth Gateway is a standalone HTTP reverse proxy. Every request to your API or MCP server passes through it first. The gateway:
-
-- Validates Bearer tokens against a theAuth instance
-- Checks agent permissions before forwarding (for routes whose policy lists `requiredPermissions`)
-- Enforces global and per-route rate limits
-- Records audit entries for authenticated requests
-- Handles CORS preflight (when `cors` is configured)
-- Strips or forwards the Authorization header depending on your config
-
-The upstream service sees only clean, authenticated traffic. No SDK changes required on the upstream side.
-
-## When to use it
-
-Use the gateway when you want to add auth to something that doesn't have it. Common cases:
-
-- A local tool server or MCP server that accepts unauthenticated connections
-- A third-party API you're exposing to agents
-- A service you can't modify but need to wrap with auth
-- Staging environments where you want to restrict access
-
-If you own the upstream service and can add the theAuth SDK directly, that's more flexible. The gateway is best when you can't or don't want to touch upstream code.
-
-## Quick start
-
-The fastest path is the one-liner:
-
 ```bash
-npx @glinr/theauth-gateway --upstream http://localhost:8080
+npx @glinr/theauth-gateway --config gateway.json --database ./theauth.db --port 3000
 ```
 
-This starts a gateway on port 3000 that proxies all traffic to `http://localhost:8080`. Requests without a valid theAuth Bearer token are rejected with 401.
+Needs Node 20 or newer. For MCP servers, use [Gateway for MCP servers](/gateway-mcp).
 
-<Warning>
-The default `--database` is `:memory:`, a fresh empty SQLite database, so no agent token can validate against it and every protected request gets 401. For real use, point `--database` at the SQLite file your application uses (the CLI itself does not create the agent tables). The CLI supports SQLite only; use embedded mode for Postgres or MySQL.
-</Warning>
+<Steps>
+<Step>
 
-Check the health endpoint to confirm it's running:
+### Create an agent
 
-```bash
-curl http://localhost:3000/_theauth/health
-# {"status":"ok","upstream":"http://localhost:8080","timestamp":"..."}
+Create it in the gateway's SQLite file. Keep `agent.token`.
+
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: './theauth.db' },
+  agents: { enabled: true },
+});
+
+const agent = await theauth.agent.create({
+  ownerId: 'user-1', // must be an existing user id
+  name: 'support-bot',
+  type: 'autonomous',
+  permissions: [{ resource: 'api', actions: ['read'] }],
+});
+console.log(agent.token);
 ```
 
-## Configuration
+</Step>
+<Step>
 
-### CLI flags
-
-```bash
-npx @glinr/theauth-gateway \
-  --upstream http://localhost:8080 \
-  --port 4000 \
-  --database ./theauth.db \
-  --config gateway.json \
-  --strip-auth \
-  --no-audit
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--upstream`, `-u` | required (or `upstream` in the config file) | URL of the upstream service |
-| `--port`, `-p` | `3000` | Port the gateway listens on |
-| `--database`, `-d` | `:memory:` | SQLite database path for theAuth |
-| `--config`, `-c` | none | Path to a `gateway.json` config file |
-| `--strip-auth` | false | Remove the `Authorization` header before forwarding |
-| `--no-audit` | false | Disable audit trail recording |
-
-`--strip-auth` is the only way to strip the header from the CLI: the `stripAuthHeader` key in `gateway.json` is read but overridden by the flag's default of `false`. `audit` in the file works, and `--no-audit` overrides it.
-
-### gateway.json
-
-For more control, put your config in a JSON file and pass it with `--config`:
+### Write gateway.json
 
 ```json
 {
   "upstream": "http://localhost:8080",
-  "audit": true,
-  "stripAuthHeader": false,
-  "cors": {
-    "origins": ["https://app.example.com"],
-    "methods": ["GET", "POST", "PUT", "DELETE"],
-    "credentials": true
-  },
-  "rateLimit": {
-    "windowMs": 60000,
-    "max": 100
-  },
   "policies": [
+    { "path": "/health", "public": true },
     {
-      "path": "/health",
-      "public": true
-    },
-    {
-      "path": "/api/read/**",
+      "path": "/api/**",
       "method": "GET",
-      "requiredPermissions": [
-        { "resource": "api", "actions": ["read"] }
-      ]
+      "requiredPermissions": [{ "resource": "api", "actions": ["read"] }]
     },
     {
       "path": "/api/**",
-      "requiredPermissions": [
-        { "resource": "api", "actions": ["read", "write"] }
-      ],
-      "rateLimit": {
-        "windowMs": 60000,
-        "max": 20
-      }
+      "requiredPermissions": [{ "resource": "api", "actions": ["write"] }]
+    }
+  ],
+  "rateLimit": { "windowMs": 60000, "max": 100 }
+}
+```
+
+</Step>
+<Step>
+
+### Start and call
+
+Run the command at the top, then:
+
+```bash
+curl http://localhost:3000/api/items                                         # 401
+curl -H "Authorization: Bearer $AGENT_TOKEN" http://localhost:3000/api/items # proxied
+```
+
+</Step>
+</Steps>
+
+<Warning>
+The default `--database` is `:memory:`, so protected requests get 401. The CLI is SQLite only.
+</Warning>
+
+## Request order
+
+The first matching policy wins.
+
+| Step | Check | On failure |
+|------|-------|------------|
+| 1 | `/_theauth/health`, then CORS preflight | None |
+| 2 | First policy matching path glob and method | Still needs a token, but no permission check or route limit |
+| 3 | Agent token, unless `public` or `requireAuth: false` | 401, `WWW-Authenticate: Bearer` |
+| 4 | Global and policy rate limits | 429, `Retry-After` |
+| 5 | Every `requiredPermissions` pair | 403 |
+| 6 | Forward, then audit | None |
+
+Error codes: `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `PAYLOAD_TOO_LARGE`, `BAD_GATEWAY`, `GATEWAY_TIMEOUT`.
+
+## Always on
+
+| Behavior | Detail |
+|----------|--------|
+| Fixed upstream | Clients cannot pick a host. Only `http` and `https`, no embedded credentials. |
+| Tokens stripped (breaking) | `Authorization` and `DPoP` are removed. Keep them with `--forward-auth` or `stripAuthHeader: false`. |
+| Headers | Client `Forwarded`, `X-Forwarded-*` and `X-Real-IP` are dropped. `X-Forwarded-For` comes only from `trustedProxy`. |
+| Redirects | Not followed. Upstream `Location` is rewritten to the gateway. |
+| Body and timeout | Over `maxBodyBytes` gets 413. No headers within `upstreamTimeoutMs` gets 504. |
+| Streaming | SSE and streamable HTTP pass through. A disconnect cancels the upstream. |
+| 502 | Says only that the upstream is unreachable. |
+
+## CLI flags
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--upstream`, `-u` | required | Upstream URL |
+| `--port`, `-p` | `3000` | Listen port |
+| `--database`, `-d` | `:memory:` | SQLite path |
+| `--config`, `-c` | none | `gateway.json` path |
+| `--forward-auth` | off | Send `Authorization` upstream |
+| `--no-audit` | off | Audit off |
+| `--max-body-bytes` | `10485760` | Body cap, 10 MiB |
+| `--trusted-proxy-count` | `0` | Proxies in front |
+| `--trusted-header` | none | Edge header, such as `cf-connecting-ip` |
+| `--mcp-resource`, `--mcp-issuer`, `--mcp-scope` | none | [MCP mode](/gateway-mcp) |
+
+`--strip-auth` is still accepted and does nothing.
+
+## gateway.json
+
+```jsonc
+{
+  "upstream": "http://localhost:8080",         // required, http or https only
+  "audit": true,
+  "stripAuthHeader": true,                     // false keeps Authorization upstream
+  "maxBodyBytes": 5242880,                     // default 10485760 (10 MiB)
+  "upstreamTimeoutMs": 15000,                  // default 30000 (30 s for headers)
+  "cors": { "origins": ["https://app.example.com"], "credentials": true }, // unlisted callers never get the first origin
+  "rateLimit": { "windowMs": 60000, "max": 100 }, // per agent, or per client on anonymous routes
+  "trustedProxy": { "trustedProxyCount": 1 },
+  // "mcp" turns on MCP mode. "basePath" is accepted but has no effect on routing.
+  "policies": [
+    { "path": "/health", "public": true },     // micromatch: /api/* one level, /api/** any depth
+    {
+      "path": "/api/**",
+      // requiredPermissions checks the agent's own permissions only, not delegated ones
+      "requiredPermissions": [{ "resource": "api", "actions": ["read", "write"] }],
+      "rateLimit": { "windowMs": 60000, "max": 20 }
     }
   ]
 }
 ```
 
-### Embedded mode
+Policy fields: `path`, `method`, `public`, `requireAuth`, `requiredPermissions`, `requiredScopes` (MCP only), `rateLimit`. Validated on start.
 
-Use the gateway inside your own Node.js application without starting a separate process:
+## Embedded mode
+
+Pass a `createTheAuth()` instance as `theauth`. For Postgres or MySQL, use this mode.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -19080,163 +19581,170 @@ const theauth = await createTheAuth({
 const gateway = createGateway({
   upstream: 'http://localhost:8080',
   theauth,
-  audit: true,
-  cors: { origins: '*' },
-  rateLimit: { windowMs: 60_000, max: 100 },
   policies: [
-    { path: '/_health', public: true },
-    {
-      path: '/api/**',
-      requiredPermissions: [{ resource: 'api', actions: ['read'] }],
-    },
+    { path: '/health', public: true },
+    { path: '/api/**', requiredPermissions: [{ resource: 'api', actions: ['read'] }] },
   ],
 });
 
-// Start a standalone server
 await gateway.listen(3000);
 
-// Or use it as a handler in your existing server framework
-// (pass it a Web API Request, get back a Response)
+// Or mount it in your own server: Web Request in, Response out.
 const response = await gateway.handleRequest(request);
 ```
 
-## Policy rules
+## Docker and Kubernetes
 
-Policies are matched in order. The first policy whose `path` pattern and `method` (if set) match the incoming request wins. A request that matches no policy still requires a valid token, but no permission or per-route rate limit is applied.
+Run the gateway as a sidecar. Expose only its port.
 
-When `requiredPermissions` lists several entries or actions, the agent needs all of them (each `resource` and `action` pair is checked in turn with `authorizeByToken`). Only the agent's own permissions count here, not delegated ones.
-
-```typescript
-interface GatewayPolicy {
-  path: string;              // glob pattern, e.g. '/api/*', '/tools/**'
-  method?: string | string[]; // 'GET', ['GET', 'POST'], etc.
-  public?: boolean;          // skip auth entirely
-  requireAuth?: boolean;     // default true
-  requiredPermissions?: Array<{
-    resource: string;
-    actions: string[];
-  }>;
-  rateLimit?: {
-    windowMs: number;
-    max: number;
-  };
-}
+```dockerfile
+CMD ["npx", "@glinr/theauth-gateway", "--config", "/etc/gateway.json", "--database", "/data/theauth.db", "--port", "3000"]
 ```
 
-### Glob patterns
+## Limits
 
-Patterns use standard glob syntax via [micromatch](https://github.com/micromatch/micromatch):
+- **Direct upstream access bypasses it.** Bind the upstream to a private network.
+- **No body inspection.** Policies match method and path only.
+- **Paths match as the gateway sees them.** Test encoded paths such as `%2F`.
+- **HTTP only.** No TLS or WebSocket. Put a TLS proxy in front.
+- **Rate limits are in memory, per process.**
+- **Audit is not an access log.** It records a permission check, not the decision.
+- **Agent revocation is immediate.** MCP OAuth limits: [MCP page](/gateway-mcp#limits).
 
-| Pattern | Matches |
-|---------|---------|
-| `/api/*` | `/api/users`, `/api/items` (one level) |
-| `/api/**` | `/api/users`, `/api/v2/users/123` (any depth) |
-| `/health` | `/health` exactly |
-| `/**` | everything |
+---
 
-### Auth flow per request
+# MCP server gateway with OAuth 2.1 and RFC 9728
 
-1. Check if the path is `/_theauth/health`, serve locally, no upstream
-2. Handle CORS preflight (any `OPTIONS` request) if `cors` is configured; without `cors`, `OPTIONS` is treated like any other request
-3. Match the request against policies (path + method)
-4. If a Bearer token is present, validate it against theAuth (an invalid token just means no identity)
-5. Unless the matched policy is `public: true` or `requireAuth: false`, reject with 401 when there is no valid identity
-6. Check global rate limit (keyed by agent ID, or client IP when unauthenticated), reject with 429 and `Retry-After` if exceeded
-7. Check policy-level rate limit, reject with 429 if exceeded
-8. Check `requiredPermissions` if any (authenticated requests only), reject with 403 if insufficient
-9. Proxy the request to the upstream; an unreachable upstream returns 502
-10. Record an audit entry if `audit: true` (authenticated requests only)
-11. Return the upstream response with CORS headers merged in
+Source: https://docs.theauth.dev/gateway-mcp
 
-Gateway errors use `{ "error": { "code": "...", "message": "..." } }` with codes `UNAUTHORIZED`, `RATE_LIMITED`, `FORBIDDEN`, and `BAD_GATEWAY`.
+```bash
+export THEAUTH_MCP_SIGNING_SECRET='the same 32+ character secret as your authorization server'
 
-### How audit entries are written
+npx @glinr/theauth-gateway \
+  --upstream http://127.0.0.1:3001 \
+  --mcp-resource https://mcp.example.com/mcp \
+  --mcp-issuer https://auth.example.com \
+  --mcp-scope mcp:read \
+  --port 3000
+```
 
-The gateway has no audit writer of its own. For each authenticated request it calls `theauth.authorizeByToken` with the lowercased HTTP method as `action` and `gateway:<path>` as `resource`. The resulting entry's `result` therefore reflects whether the agent holds a matching permission for that resource, not whether the gateway allowed the request. Requests that were rejected, rate limited, or proxied successfully are all recorded this way, and the gateway's own reason text is not stored. Permission checks from `requiredPermissions` also write their own entries.
+Needs an [MCP OAuth 2.1](/mcp) authorization server. The upstream never sees a client token.
 
-## Integration with MCP servers
+<Steps>
+<Step>
 
-The gateway works well in front of MCP tool servers. Agents that have been issued theAuth tokens can call tools through the gateway, with permissions enforced per-route:
+### Set the signing secret
+
+Must match your authorization server's `signingSecret`. Pass it by environment variable, not on the command line.
+
+</Step>
+<Step>
+
+### Start the gateway
+
+`--mcp-resource` is the token audience: your authorization server must set it as `aud`. Terminate TLS in front and route the public URL to port 3000.
+
+</Step>
+<Step>
+
+### Check the challenge
+
+```bash
+curl -i -X POST http://localhost:3000/mcp -d '{}'
+# HTTP/1.1 401
+# WWW-Authenticate: Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"
+
+curl http://localhost:3000/.well-known/oauth-protected-resource/mcp
+```
+
+Clients then follow the challenge on their own.
+
+</Step>
+</Steps>
+
+## What MCP mode does
+
+| Feature | Behavior |
+|---------|----------|
+| Protected resource metadata | RFC 9728 at the well-known path and its path suffixed form. `resource` is the public MCP URL, `authorization_servers` your issuer. |
+| Token checks | Signature, issuer, expiry, audience (RFC 8707). Tokens for other resources are refused. DPoP-bound tokens work if your auth module has `dpop` enabled. |
+| Challenges | `WWW-Authenticate` carries `resource_metadata` and `error`. Scope shortfalls get `403 insufficient_scope`. |
+| Scopes | `requiredScopes`, gateway wide or per route. |
+| Agent policy | `requiredPermissions` for tokens with an `agent_id` claim. |
+| Origin check | Foreign `Origin` rejected (DNS rebinding protection). |
+| Streaming | SSE and streamable HTTP both ways, unbuffered. The client token is never forwarded upstream. |
+
+## Per route scopes and agent policy
 
 ```json
 {
-  "upstream": "http://localhost:3001",
+  "upstream": "http://127.0.0.1:3001",
+  "mcp": {
+    "resource": "https://mcp.example.com/mcp",
+    "issuer": "https://auth.example.com",
+    "requiredScopes": ["mcp:read"]
+  },
+  "cors": { "origins": ["https://app.example.com"] },
   "policies": [
+    { "path": "/mcp/admin/**", "requiredScopes": ["mcp:write"] },
     {
-      "path": "/tools/read-file",
+      "path": "/mcp",
       "method": "POST",
-      "requiredPermissions": [
-        { "resource": "filesystem", "actions": ["read"] }
-      ]
-    },
-    {
-      "path": "/tools/write-file",
-      "method": "POST",
-      "requiredPermissions": [
-        { "resource": "filesystem", "actions": ["write"] }
-      ]
-    },
-    {
-      "path": "/tools/**",
-      "requiredPermissions": [
-        { "resource": "mcp", "actions": ["call"] }
-      ]
+      "requiredPermissions": [{ "resource": "tools", "actions": ["call"] }],
+      "rateLimit": { "windowMs": 60000, "max": 120 }
     }
   ]
 }
 ```
 
-## Standalone vs embedded
-
-| | Standalone (CLI) | Embedded |
-|---|---|---|
-| Setup | `npx @glinr/theauth-gateway` | `createGateway(config)` |
-| Process | Separate process | In-process |
-| Framework | None required | Works with any framework |
-| Hot reload | Restart required | Your app's reload |
-| Use case | Quick wrap, Docker sidecar | Full control, custom middleware |
-
-In Docker, the standalone mode works as a sidecar:
-
-```dockerfile
-# Start your API
-CMD ["node", "server.js"]
-
-# Or start the gateway in front of it
-CMD ["npx", "@glinr/theauth-gateway", "--upstream", "http://localhost:8080", "--port", "3000", "--database", "/data/theauth.db"]
+```bash
+npx @glinr/theauth-gateway --config gateway.json --port 3000
 ```
 
-## Configuration reference
+`requiredPermissions` checks the agent in the `agent_id` claim, against the gateway's TheAuth database. No `agent_id` means 403. Use `requiredScopes` for tokens not tied to an agent.
 
-<ParamField path="upstream" type="string">URL of the upstream service to proxy to</ParamField>
-<ParamField path="basePath" type="string" default="&quot;/&quot;">Accepted in the config and in `gateway.json`, but not used by the gateway today: it has no effect on routing.</ParamField>
-<ParamField path="theauth" type="theAuth">theAuth instance created with createTheAuth()</ParamField>
-<ParamField path="policies" type="GatewayPolicy[]">Array of path-based access policies</ParamField>
-<ParamField path="cors" type="CorsConfig">CORS configuration</ParamField>
-<ParamField path="rateLimit" type="{ windowMs: number; max: number }">Global rate limit applied to all requests</ParamField>
-<ParamField path="audit" type="boolean" default="true">Record an audit entry for every request. Default: true</ParamField>
-<ParamField path="stripAuthHeader" type="boolean" default="false">Remove the Authorization header before forwarding to upstream. Default: false</ParamField>
+## Embedded mode
 
-<Info>
-  Rate limits are tracked in memory. If you run multiple gateway instances, each tracks limits independently. For distributed rate limiting, wrap the gateway with an external store or use a single gateway instance.
-</Info>
+For a same-process authorization server or a revocation list, pass the real module.
 
-## Related
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+import { createMcpModule, createInMemoryJtiDenylist } from '@glinr/theauth/mcp';
+import { createGateway } from '@glinr/theauth-gateway';
 
-<CardGroup cols={2}>
-  <Card title="MCP OAuth 2.1" href="/mcp" icon="globe">
-    The authorization server the gateway validates tokens against.
-  </Card>
-  <Card title="Rate limiting" href="/rate-limiting" icon="gauge">
-    Per-agent rate limits that complement the gateway's route-level limits.
-  </Card>
-  <Card title="Audit trail" href="/audit" icon="scroll">
-    How the gateway's per-request audit entries appear in the log.
-  </Card>
-  <Card title="Permissions" href="/permissions" icon="shield-halved">
-    Define the resource and action permissions that gateway policies check.
-  </Card>
-</CardGroup>
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: 'https://auth.example.com',
+    baseUrl: 'https://auth.example.com/api/auth',
+    signingSecret: process.env.MCP_SIGNING_SECRET!,
+    jtiDenylist: createInMemoryJtiDenylist(),
+  },
+  // storage callbacks, see the MCP OAuth page
+});
+
+const gateway = createGateway({
+  upstream: 'http://127.0.0.1:3001',
+  theauth,
+  mcp: { auth: mcp, resource: 'https://mcp.example.com/mcp', requiredScopes: ['mcp:read'] },
+});
+await gateway.listen(3000);
+```
+
+Only `requireMcpAuth` and `getProtectedResourceMetadata` are used, so a shared-key validation module is enough. The CLI does this.
+
+## Limits
+
+- **Path level only.** Tool names sit in the unparsed JSON-RPC body. Enforce per tool rules upstream or split routes.
+- **The CLI cannot see revocations.** Tokens stay valid until `exp`. Use short lifetimes, or embedded mode with a shared `jtiDenylist`.
+- **HS256 shared secret.** Anyone holding it can mint tokens. The CLI does not fetch JWKS.
+- **Not an authorization server.** Registration, login, consent and issuing stay upstream.
+- **Well-known paths are shadowed.** Upstream `/.well-known/oauth-protected-resource` routes never run.
+- **Sessions are not bound to tokens.** `Mcp-Session-Id` passes through, and a second authenticated client that learns an ID could use it. Treat IDs as secrets.
+- **Audit only with `agent_id`.** Other OAuth tokens are enforced but not logged.
+- **Rate limits are in memory, per process.**
+- **HTTP only.** No TLS or WebSocket. The legacy stdio transport is out of scope.
+- **Not tested with a real MCP client.** Unit and local socket tests only. Add headers missing from the default list to `cors.headers`.
 
 ---
 
@@ -23163,6 +23671,168 @@ export function SignInPage() {
 
 ---
 
+# Publish theAuth components and MCP server
+
+Source: https://docs.theauth.dev/publishing
+
+Install the React components with the shadcn CLI, or list the MCP server in the MCP Registry.
+
+## Install a component
+
+Run from your app root:
+
+```bash
+npx shadcn@latest add https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json
+```
+
+Several at once:
+
+```bash
+npx shadcn@latest add \
+  https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json \
+  https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-up.json
+```
+
+| Item | URL |
+| --- | --- |
+| `theauth-base` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json` |
+| `oauth-buttons` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/oauth-buttons.json` |
+| `sign-in` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json` |
+| `sign-up` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-up.json` |
+| `forgot-password` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/forgot-password.json` |
+| `two-factor-verify` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/two-factor-verify.json` |
+| `user-button` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/user-button.json` |
+
+The CLI also installs `registryDependencies`, such as `theauth-base`. Files land in `components/theauth/`. Import from `@glinr/theauth-react` and wrap your app in `TheAuthProvider`. These are the items `theauth add` installs. For packaged versions, see [UI components](/ui-components).
+
+## Rebuild the registry
+
+After changing a component:
+
+```bash
+node scripts/build-registry.mjs
+```
+
+Each item carries its file text in `content`. Source: `packages/ui/src/components`. `registry/registry.json` is an index with no content, so do not pass it to `shadcn add`. To check that every item has content:
+
+```bash
+node -e "for (const f of require('fs').readdirSync('registry')) if (f !== 'registry.json') { const d = require('./registry/' + f); if (!d.files.every((x) => x.content)) throw new Error(f); }"
+```
+
+## Publish to the MCP Registry
+
+The `@glinr/theauth-mcp` package ships `server.json` at `packages/mcp/server.json`. The Registry stores metadata only, so publish the npm package first.
+
+| Field | Required value |
+| --- | --- |
+| `name` in `server.json` | `io.github.glincker/theauth-mcp` |
+| `mcpName` in `packages/mcp/package.json` | Same as `name` |
+| `version` (top level and `packages[0]`) | On npm (currently `1.1.1`). No ranges or `latest`. |
+| `description` | At most 100 characters |
+| `$schema` | `https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json` |
+
+Bump both versions in `server.json` on every publish.
+
+<Steps>
+
+<Step>
+
+### Publish the npm package
+
+```bash
+npm publish --access public
+```
+
+</Step>
+
+<Step>
+
+### Install mcp-publisher
+
+```bash
+brew install mcp-publisher
+```
+
+On Linux, download the release tarball from `https://github.com/modelcontextprotocol/registry/releases/latest`.
+
+</Step>
+
+<Step>
+
+### Validate
+
+```bash
+cd packages/mcp
+mcp-publisher validate
+```
+
+</Step>
+
+<Step>
+
+### Log in
+
+```bash
+mcp-publisher login github
+```
+
+Open `https://github.com/login/device` and enter the code shown. You must be able to act for the `glincker` organization.
+
+</Step>
+
+<Step>
+
+### Publish
+
+```bash
+mcp-publisher publish
+```
+
+</Step>
+
+<Step>
+
+### Confirm
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.glincker/theauth-mcp"
+```
+
+</Step>
+
+</Steps>
+
+## Namespaces
+
+| Namespace | How it is verified |
+| --- | --- |
+| `io.github.<user or org>/name` | `mcp-publisher login github` |
+| `com.example/name` (reverse domain) | DNS TXT record or HTTP file, then `mcp-publisher login dns` or `login http` |
+
+For a domain namespace, make an Ed25519 key and publish the public key as a TXT record on the apex (or serve `v=MCPv1; k=ed25519; p=<PUBLIC_KEY>` at `https://example.com/.well-known/mcp-registry-auth`):
+
+```bash
+openssl genpkey -algorithm Ed25519 -out key.pem
+PUBLIC_KEY="$(openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64)"
+echo "example.com. IN TXT \"v=MCPv1; k=ed25519; p=${PUBLIC_KEY}\""
+PRIVATE_KEY="$(openssl pkey -in key.pem -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')"
+mcp-publisher login dns --domain example.com --private-key "${PRIVATE_KEY}"
+```
+
+## Common errors
+
+- "You do not have permission to publish this server": the `name` prefix does not match your login namespace.
+- "Invalid or expired Registry JWT token": run `mcp-publisher login github` again.
+- "Registry validation failed for package": `mcpName` is missing or differs from `name`, or the version is not on npm.
+
+## Limits
+
+- The Registry is in preview. Check its docs if a step fails.
+- On macOS, use Homebrew OpenSSL 3. The system `openssl` cannot make Ed25519 keys.
+- Changing the namespace means updating `name` and `mcpName` together.
+
+---
+
 # Admin dashboard
 
 Source: https://docs.theauth.dev/dashboard
@@ -25155,6 +25825,461 @@ Revokes every non-expired session for the user except `currentSessionId` and ret
     Erase or export user data on request.
   </Card>
 </CardGroup>
+
+---
+
+# OWASP agentic AI top 10 mapped to theAuth
+
+Source: https://docs.theauth.dev/owasp-agentic-mapping
+
+<Note>
+  Risk names follow a secondary reading of the OWASP Top 10 for Agentic Applications for 2026 (OWASP GenAI Security Project), without its numeric identifiers. Check the wording against the OWASP publication before you cite it in an audit. Feature links point to the TypeScript SDK docs. The Go threat model ([/go/security/threat-model](/go/security/threat-model)) uses its own categories and does not map to this list.
+</Note>
+
+| # | Risk | theAuth feature | Limit |
+| --- | --- | --- | --- |
+| 1 | Agent Goal Hijack | [Taint-aware tool guard](/taint-guard), [approval flows](/approval) | Tracks where an argument came from, not whether the plan is malicious |
+| 2 | Tool Misuse and Exploitation | [Permissions](/permissions), [rate limiting](/rate-limiting), MCP `requiredScopes` | Only tools you register are gated |
+| 3 | Identity and Privilege Abuse | [Agent identity](/agents), [token vault](/token-vault), [DPoP](/dpop), RFC 8707 audience checks | Unbound bearer tokens work for any holder; offline checks miss revocation |
+| 4 | Agentic Supply Chain Vulnerabilities | jwt-bearer accepts listed issuers only, [MCP registry](/publishing), lenient client options off by default | Third-party MCP servers and their code are not scanned |
+| 5 | Unexpected Code Execution | None. Withhold code-execution tools via [permissions](/permissions) | Does not inspect or sandbox code |
+| 6 | Memory and Context Poisoning | Taint labels, [audit trail](/audit) | Memory stores are yours; not scanned |
+| 7 | Insecure Inter-Agent Communication | Token exchange (RFC 8693) with an `act` chain, [delegation chains](/delegation) | Messages outside the token flow are not covered |
+| 8 | Cascading Failures | [Rate limiting](/rate-limiting), delegation depth limits, cascading revocation | Limits are per agent and per IP, not fleet-wide |
+| 9 | Human-Agent Trust Exploitation | [Approval flows](/approval), MCP `consentPage` | Cannot tell whether approval was informed; design the prompt yourself |
+| 10 | Rogue Agents | Revocation, [trust scoring](/trust), [anomaly detection](/anomaly) | Anomaly detection is limited; the page lists what is missing |
+
+---
+
+# Protect an MCP server with OAuth 2.1
+
+Source: https://docs.theauth.dev/use-cases/mcp-server-behind-oauth
+
+Every MCP request carries a token issued for this server and checked for audience and scope. theAuth issues the token and the MCP endpoint checks it, in one process.
+
+<Steps>
+
+<Step>
+
+### Create the authorization module
+
+Storage is passed as callbacks. The in-memory maps are for illustration; back them with your own database.
+
+```typescript title="auth.ts"
+import { createTheAuth } from "@glinr/theauth";
+import { createMcpModule } from "@glinr/theauth/mcp";
+import type { McpAccessToken, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
+
+const clients = new Map<string, McpClient>();
+const codes = new Map<string, McpAuthorizationCode>();
+const tokens = new Map<string, McpAccessToken>();
+const byRefreshToken = new Map<string, string>();
+
+const mcpStore = {
+  storeClient: async (client: McpClient) => {
+    clients.set(client.clientId, client);
+  },
+  findClient: async (clientId: string) => clients.get(clientId) ?? null,
+  storeAuthorizationCode: async (code: McpAuthorizationCode) => {
+    codes.set(code.code, code);
+  },
+  consumeAuthorizationCode: async (code: string) => {
+    const found = codes.get(code) ?? null;
+    if (found) codes.delete(code); // single use
+    return found;
+  },
+  storeToken: async (token: McpAccessToken) => {
+    tokens.set(token.accessToken, token);
+    if (token.refreshToken) byRefreshToken.set(token.refreshToken, token.accessToken);
+  },
+  findTokenByRefreshToken: async (refreshToken: string) => {
+    const accessToken = byRefreshToken.get(refreshToken);
+    return accessToken ? (tokens.get(accessToken) ?? null) : null;
+  },
+  revokeToken: async (accessToken: string) => {
+    tokens.delete(accessToken);
+  },
+  // Return the signed-in user id from your session, or null to send them to loginPage
+  resolveUserId: async (_request: Request) => null as string | null,
+};
+
+export const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  baseUrl: "https://auth.yourapp.com",
+  mcp: { enabled: true },
+});
+
+export const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: "https://auth.yourapp.com",
+    baseUrl: "https://auth.yourapp.com/api/theauth",
+    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+    resource: "https://mcp.yourapp.com/mcp", // this server's canonical URI (RFC 8707)
+    scopes: ["mcp:read", "mcp:execute"],
+    accessTokenTtl: 3600,
+    loginPage: "https://auth.yourapp.com/login",
+    allowedResources: ["https://mcp.yourapp.com/mcp"],
+  },
+  ...mcpStore,
+});
+```
+
+</Step>
+
+<Step>
+
+### Mount the OAuth endpoints
+
+The adapter serves the metadata routes, `POST /mcp/register`, `GET /mcp/authorize` and `POST /mcp/token`. The client then exchanges its code with the PKCE verifier and the resource. The full endpoint table is in [MCP OAuth 2.1](/mcp).
+
+```typescript title="server.ts"
+import { Hono } from "hono";
+import { theAuthHono } from "@glinr/theauth-hono";
+
+const app = new Hono();
+app.route("/api", theAuthHono(theauth, { mcp }));
+```
+
+```http
+POST /api/theauth/mcp/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&code=<code from the redirect>
+&code_verifier=<PKCE verifier>
+&redirect_uri=http://127.0.0.1:8976/callback
+&client_id=<client id>
+&resource=https://mcp.yourapp.com/mcp
+```
+
+</Step>
+
+<Step>
+
+### Wrap the MCP routes
+
+`requireMcpAuth` checks the signature, issuer, expiry and audience, then the scopes you name. It runs your handler only when all of those pass, and passes in the verified principal.
+
+```typescript title="server.ts"
+const listTools = mcp.requireMcpAuth(
+  async (_request, principal) => {
+    return Response.json({
+      tools: [{ name: "search_docs" }],
+      user: principal.userId,
+      client: principal.clientId,
+      scopes: principal.scopes,
+    });
+  },
+  { requiredScopes: ["mcp:read"] },
+);
+
+const callTool = mcp.requireMcpAuth(
+  async (request, principal) => {
+    const body = (await request.json()) as { name: string };
+    return Response.json({ ok: true, tool: body.name, by: principal.userId });
+  },
+  { requiredScopes: ["mcp:execute"] },
+);
+
+app.get("/mcp/tools", (c) => listTools(c.req.raw));
+app.post("/mcp/tools/call", (c) => callTool(c.req.raw));
+```
+
+The principal has `userId`, `clientId`, `agent`, `delegationChain`, `scopes`, `resource`, `tokenId` and `expiresAt`. Use `principal.userId` for ownership checks. Do not trust a user id from the request body.
+
+</Step>
+
+<Step>
+
+### Mount revocation
+
+The TypeScript adapters do not serve `/mcp/revoke` by default, so pass the request to `mcp.revoke` yourself.
+
+```typescript title="server.ts"
+app.post("/api/theauth/mcp/revoke", async (c) => {
+  await mcp.revoke(c.req.raw);
+  return c.body(null, 200);
+});
+```
+
+</Step>
+
+<Step>
+
+### Check the result
+
+A request with no token gets a 401 and a `WWW-Authenticate` challenge that points at the protected resource metadata. A valid token runs the handler.
+
+```bash
+curl -i https://mcp.yourapp.com/mcp/tools
+# HTTP/1.1 401
+# WWW-Authenticate: Bearer resource_metadata="https://mcp.yourapp.com/.well-known/oauth-protected-resource", ...
+
+curl -i -H "Authorization: Bearer $ACCESS_TOKEN" https://mcp.yourapp.com/mcp/tools
+# HTTP/1.1 200
+```
+
+</Step>
+
+</Steps>
+
+## What is enforced
+
+| Enforced | Not enforced |
+| --- | --- |
+| Signature, issuer, expiry and audience on every request | Revocation for locally validated JWTs, until the token expires |
+| Scopes per route (`requiredScopes`), 403 `insufficient_scope` on a miss | `/mcp/revoke` and `/mcp/jwks` are not served by default |
+| `resource` required by `middleware`, `validateToken` and `requireScopes` | A client that omits `resource` gets a token not bound to your server |
+| Token requests for resources outside `allowedResources` refused | Dynamic client registration is a compatibility path; the spec prefers [Client ID Metadata Documents](/mcp-client-compat) |
+| Optional DPoP binding (`dpop` config, see [DPoP](/dpop)) | `examples/mcp-server` uses `validateToken`, not `requireMcpAuth` |
+
+For agent tokens, set `tokenExchange` and `jtiDenylist` in the MCP config. See [MCP server grants](/mcp-grants). The Go version of this flow on SQLite is [OAuth 2.1 on SQLite](/use-cases/sqlite-oauth-server), which is Go only.
+
+---
+
+# GitHub Actions OIDC for CI agents (Go only)
+
+Source: https://docs.theauth.dev/use-cases/github-actions-oidc
+
+A GitHub Actions job exchanges its OIDC token for a short-lived theAuth access token, with no stored client secret.
+
+<Warning>
+  Go only. The TypeScript package has no GitHub helper, and its `jwtBearer` grant expects an ID-JAG assertion (`typ: oauth-id-jag+jwt`, a `client_id` claim and `aud` equal to the issuer). A raw GitHub OIDC token is refused. The full Go write-up is in [`go/docs/github-actions-oidc.md`](https://github.com/glincker/theauth/blob/main/go/docs/github-actions-oidc.md).
+</Warning>
+
+<Steps>
+
+<Step>
+
+### Request the job's OIDC token
+
+Grant `id-token: write` and request a token for your audience. GitHub signs claims that name the repository, branch, environment and workflow.
+
+```yaml title=".github/workflows/deploy.yml"
+name: deploy
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # lets the job request an OIDC token
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Get a GitHub OIDC token
+        run: |
+          AUD="https://auth.example.com/gh"
+          GH_TOKEN=$(curl -sS \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUD" | jq -r .value)
+          echo "::add-mask::$GH_TOKEN"
+          echo "GH_TOKEN=$GH_TOKEN" >> "$GITHUB_ENV"
+```
+
+</Step>
+
+<Step>
+
+### Exchange it for an access token
+
+Post the token to the theAuth token endpoint with the RFC 7523 `jwt-bearer` grant. Add `client_id=<agent client id>` to make the token act as an agent, so the agent's policy and rate limit apply.
+
+```bash
+ACCESS=$(curl -sS https://auth.example.com/oauth/token \
+  -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer \
+  --data-urlencode "assertion=$GH_TOKEN" \
+  -d resource=https://api.example.com/mcp \
+  -d scope=api.read | jq -r .access_token)
+echo "::add-mask::$ACCESS"
+echo "ACCESS_TOKEN=$ACCESS" >> "$GITHUB_ENV"
+```
+
+</Step>
+
+<Step>
+
+### Restrict the issuer (Go)
+
+`GitHubActionsIssuer` refuses to build an issuer with no restriction. Each of `Repository`, `RepositoryOwner`, `Refs` and `Environment` adds a matcher, and all matchers must pass. `SubjectMapper` maps GitHub's `sub` to a local user, because the built-in mapper expects a ULID.
+
+```go
+iss, err := theauth.GitHubActionsIssuer(theauth.GitHubActionsOptions{
+    Repository:    "acme/app",                  // exact owner/name
+    Refs:          []string{"refs/heads/main"}, // or one glob: "refs/heads/release/*"
+    Environment:   "production",
+    Audience:      "https://auth.example.com/gh",
+    SubjectMapper: myWorkflowMapper{},          // GitHub's sub is not a ULID
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+cfg.AuthorizationServer = &theauth.AuthorizationServerConfig{
+    Issuer:    "https://auth.example.com",
+    Resources: resources,
+    JWTBearer: &theauth.JWTBearerConfig{TrustedJWTIssuers: []theauth.TrustedJWTIssuer{iss}},
+}
+```
+
+If `Audience` is empty, the required `aud` is your authorization server issuer URL.
+
+</Step>
+
+<Step>
+
+### Check a denial
+
+A workflow that fails any matcher gets `invalid_grant` with the same description every time. Test it by running the workflow from a branch other than `main`. The operator sees the failed claim names in the audit log:
+
+```json
+{"action": "jwt_bearer.claims_denied",
+ "targetType": "jwt_issuer", "targetId": "https://token.actions.githubusercontent.com",
+ "metadata": {"issuer": "...", "failed_claims": ["repository", "ref"], "agent_id": "...", "agent_name": "..."}}
+```
+
+</Step>
+
+</Steps>
+
+## What is enforced
+
+| Enforced | Not enforced |
+| --- | --- |
+| Every matcher must pass | Tests sign with a local key. The GitHub request flow has not run against GitHub from the repository, so check it in your pipeline first. |
+| Constructor refuses an issuer with no restriction | Hand-built issuers: add the matchers yourself, or any public repository's workflow can log in |
+| Denial text never names the failed claim | Long jobs: compare duration with `AssertionMaxAge` (default 300 seconds) |
+| Audit event lists failed claim names only | Scope limits come from `scope` and `resource` on the exchange |
+| GitHub's environment protection rules (such as reviewers) run before the job, so the token is issued after approval | No TypeScript path |
+
+Claim names come from GitHub's live discovery document.
+
+---
+
+# OAuth 2.1 server on SQLite in one Go binary
+
+Source: https://docs.theauth.dev/use-cases/sqlite-oauth-server
+
+One Go binary and one SQLite file run an OAuth 2.1 authorization server that issues tokens for an MCP server.
+
+<Note>
+  Go library only. The TypeScript OAuth 2.1 server (`createMcpModule`) takes storage callbacks you write, see [MCP OAuth 2.1](/mcp). The full Go guide is [`go/docs/mcp-oauth-sqlite.md`](https://github.com/glincker/theauth/blob/main/go/docs/mcp-oauth-sqlite.md), and the store is documented in [SQLite storage](/go/guides/sqlite-storage).
+</Note>
+
+<Steps>
+
+<Step>
+
+### Register a public client
+
+Registration is closed unless configured. The client sends the user to `/oauth/authorize` with `code_challenge_method=S256` and `resource`, then exchanges the code at `/oauth/token`.
+
+```json
+{
+  "client_name": "Claude Code (e2e)",
+  "redirect_uris": ["http://127.0.0.1:8976/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+</Step>
+
+<Step>
+
+### Open the database and build the server
+
+You own the `*sql.DB`, so set the pragmas. `New` refuses a database without foreign keys. The busy timeout and immediate transactions make concurrent token requests wait, not fail with `database is locked`.
+
+```go
+db, err := sql.Open("sqlite",
+	"file:auth.db?_pragma=foreign_keys(1)&_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_txlock=immediate")
+if err != nil {
+	log.Fatal(err)
+}
+if err := sqlitestore.Migrate(ctx, db); err != nil { // applies every pending migration
+	log.Fatal(err)
+}
+store, err := sqlitestore.New(db)
+if err != nil {
+	log.Fatal(err)
+}
+
+a, err := theauth.New(theauth.Config{
+	Storage:       store,
+	BaseURL:       "https://auth.example.com",
+	EncryptionKey: key, // 32 bytes, seals the JWKS private keys
+	AuthorizationServer: &theauth.AuthorizationServerConfig{
+		Issuer: "https://auth.example.com",
+		Resources: []theauth.ProtectedResource{{
+			Identifier: "https://mcp.example.com/mcp",
+			Scopes:     []string{"files.read", "files.write"},
+		}},
+		RegistrationTokens:    []string{initialAccessToken},
+		AccessTokenRevocation: true,
+	},
+})
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+`Migrate` applies migrations 0001 to 0034. The OAuth tables start at 0020.
+
+</Step>
+
+<Step>
+
+### Protect the MCP routes
+
+`mcpresource` checks the bearer token on each request against the endpoints above. A request without a token gets a 401 that names the protected resource metadata URL. A token without the scope gets a 403 `insufficient_scope`.
+
+```go
+v := mcpresource.New("https://mcp.example.com/mcp",
+	mcpresource.WithJWKS("https://auth.example.com/oauth/jwks"),
+	mcpresource.WithIntrospection("https://auth.example.com/oauth/introspect", rsID, rsSecret),
+)
+mux.Handle("/mcp", v.Middleware(handler))
+mux.Handle("/write", v.Middleware(v.RequireScope("files.write")(writeHandler)))
+```
+
+</Step>
+
+<Step>
+
+### Serve the well-known paths
+
+The OAuth routes sit at the root of the handler you mount. If the issuer has a path, RFC 8414 and RFC 9728 clients request the well-known document under the origin root. Forward `/.well-known/` as well, or those URLs return 404.
+
+```go
+const prefix = "/api/v1/auth-lib"
+
+h := a.Handler() // build once: each call mounts new routes and rate-limit buckets
+mux := http.NewServeMux()
+mux.Handle(prefix+"/", http.StripPrefix(prefix, h))
+mux.Handle("/.well-known/", h) // no StripPrefix: the library matches the issuer path
+```
+
+</Step>
+
+</Steps>
+
+## What is enforced
+
+| Enforced | Not enforced |
+| --- | --- |
+| PKCE with S256, the only method the server accepts | A JWKS-only resource server accepts a revoked token until it expires. Use introspection or a revocation checker. |
+| Registration closed unless configured | One writer per file. Run one process per database file, and use Postgres or MySQL for several replicas. |
+| `New` refuses a database without foreign keys | Rate limiter, replay cache and CIMD cache live in process memory, so sharing one file across app servers is not supported. |
+| Signing keys sealed with `EncryptionKey` | A changed `EncryptionKey` makes stored keys unreadable, so existing tokens stop verifying. Back up the file and the key together. |
+| Restart keeps key IDs, active and revoked tokens, refresh tokens and unredeemed codes (tested) | Your code must call `a.Close()` on shutdown so the audit writer drains. |
+
+`mcpresource` is a separate module and can run in another process. Check module versions in the Go docs before you copy imports.
 
 ---
 

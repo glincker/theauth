@@ -4,12 +4,9 @@ import type { DidDocument, DidKeyPair, VerificationMethod } from "./types.js";
 // Bitcoin base58 alphabet (same as multibase base58btc)
 const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-/**
- * Encode a Uint8Array to base58btc string.
- * Implements Bitcoin's base58 encoding algorithm.
- */
+/** Encode a Uint8Array to base58btc string. Implements Bitcoin's base58 encoding algorithm. */
 function base58btcEncode(bytes: Uint8Array): string {
-	// Count leading zero bytes — each maps to '1' in base58
+	// Count leading zero bytes, each maps to '1' in base58
 	let leadingZeros = 0;
 	for (const byte of bytes) {
 		if (byte !== 0) break;
@@ -40,10 +37,7 @@ function base58btcEncode(bytes: Uint8Array): string {
 	return "1".repeat(leadingZeros) + result;
 }
 
-/**
- * Decode a base64url string to raw bytes (Uint8Array).
- * Works without Node.js Buffer — uses atob after padding normalisation.
- */
+/** Decode a base64url string to raw bytes (Uint8Array). Works without Node.js Buffer, uses atob after padding normalisation. */
 function base64urlToBytes(b64url: string): Uint8Array {
 	// Restore standard base64 padding and characters
 	const padded = b64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -59,20 +53,13 @@ function base64urlToBytes(b64url: string): Uint8Array {
 	return bytes;
 }
 
-/**
- * Derive the multibase-encoded did:key identifier from an Ed25519 public key.
- *
- * Encoding: base58btc(multicodec_ed25519_prefix || raw_public_key_bytes)
- * Ed25519 multicodec prefix: 0xed 0x01
- * The resulting multibase string is prefixed with 'z' (base58btc indicator).
- */
+/** Derive the multibase-encoded did:key identifier from an Ed25519 public key. */
 function publicKeyJwkToDidKey(publicKeyJwk: JsonWebKey): string {
 	if (!publicKeyJwk.x) {
 		throw new Error("Ed25519 JWK must have an 'x' parameter");
 	}
 	const rawKey = base64urlToBytes(publicKeyJwk.x);
 
-	// Ed25519 multicodec prefix
 	const prefix = new Uint8Array([0xed, 0x01]);
 	const multicodecKey = new Uint8Array(prefix.length + rawKey.length);
 	multicodecKey.set(prefix);
@@ -81,9 +68,7 @@ function publicKeyJwkToDidKey(publicKeyJwk: JsonWebKey): string {
 	return `did:key:z${base58btcEncode(multicodecKey)}`;
 }
 
-/**
- * Build a W3C DID Document for a did:key identifier.
- */
+/** Build a W3C DID Document for a did:key identifier. */
 export function buildDidDocument(did: string, publicKeyJwk: JsonWebKey): DidDocument {
 	const keyId = `${did}#${did.slice("did:key:".length)}`;
 
@@ -108,10 +93,7 @@ export function buildDidDocument(did: string, publicKeyJwk: JsonWebKey): DidDocu
 
 /**
  * Generate a new did:key identity using Ed25519.
- *
- * Returns the DID, key pair (JWK format), and auto-generated DID document.
- * The private key is returned to the caller and must be stored securely —
- * it is never persisted by TheAuth.
+ * The private key is returned to the caller and must be stored securely, it is never persisted by TheAuth.
  */
 export async function generateDidKey(): Promise<DidKeyPair> {
 	const { publicKey, privateKey } = await generateKeyPair("EdDSA", {
@@ -139,19 +121,13 @@ export async function generateDidKey(): Promise<DidKeyPair> {
 	};
 }
 
-/**
- * Resolve a did:key to its DID document.
- *
- * did:key is self-describing — the public key is embedded in the identifier
- * via multibase(multicodec(raw_key)), so resolution is purely local.
- * Returns null if the DID is malformed.
- */
+/** Resolve a did:key to its DID document. */
 export function resolveDidKey(did: string): DidDocument | null {
 	if (!did.startsWith("did:key:z")) return null;
 
 	// We reconstruct the DID document by building it from the DID itself.
 	// The public key bytes could be decoded, but for the document we only
-	// need the DID string and a placeholder JWK — the key ID references
+	// need the DID string and a placeholder JWK, the key ID references
 	// the full DID which encodes the key material.
 	//
 	// For a proper verifier, callers should use verifyPayload() which
@@ -162,7 +138,7 @@ export function resolveDidKey(did: string): DidDocument | null {
 		id: keyId,
 		type: "JsonWebKey2020",
 		controller: did,
-		// Public key JWK is not reconstructed here — callers who need to verify
+		// Public key JWK is not reconstructed here, callers who need to verify
 		// signatures supply the JWK separately via verifyPayload().
 		publicKeyJwk: { kty: "OKP", crv: "Ed25519" },
 	};

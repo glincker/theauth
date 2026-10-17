@@ -1,19 +1,5 @@
 /**
- * OAuth Device Authorization Grant (RFC 8628) for TheAuth.
- *
- * Built for CLIs, TVs and headless agents: the device asks for a short code,
- * a human approves it in a browser where they are already signed in, and the
- * device polls until it receives a token.
- *
- * Security properties:
- * - The device code is stored only as a SHA-256 hash.
- * - The approval endpoint takes the user from an authenticated session
- *   (`resolveUser` or the plugin's session), never from the request body.
- * - Guessing user codes is limited per approving user.
- * - `slow_down` is tracked in storage, so it holds across instances.
- * - A granted device code can be exchanged for a token exactly once.
- *
- * State lives in a `SecondaryStorage` (memory by default).
+ * OAuth Device Authorization Grant (RFC 8628) for CLIs, TVs and other input-constrained devices.
  *
  * @example
  * ```typescript
@@ -32,15 +18,11 @@ import { memoryStorage } from "../storage/memory.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import { SignInGateError, signInGateResponse } from "./sign-in-gate-http.js";
 
-// Public types
-
 export const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
-/** Credential handed to the device once the user approves. */
 export interface DeviceTokenGrant {
 	accessToken: string;
 	tokenType?: string;
-	/** Seconds until the access token expires. */
 	expiresIn?: number;
 	refreshToken?: string;
 }
@@ -57,29 +39,19 @@ export interface DeviceAuthConfig {
 	codeExpirySeconds?: number;
 	/** Polling interval in seconds (default: 5) */
 	pollIntervalSeconds?: number;
-	/** Verification URL shown to user */
 	verificationUri: string;
 	/** Where grants live. Default: process memory. The plugin wires `secondaryStorage.deviceCodes`. */
 	storage?: SecondaryStorage;
-	/**
-	 * Resolve the signed-in user for `POST /auth/device/authorize`. Required for
-	 * `handleRequest` to accept approvals; without it the endpoint answers 401.
-	 * The user id is never read from the request body.
-	 */
+	/** Resolve the signed-in user for `POST /auth/device/authorize`. Required for `handleRequest` to accept approvals; without it the endpoint answers 401. The user id is never read from the request body. */
 	resolveUser?: (request: Request) => Promise<{ id: string } | null>;
-	/**
-	 * Mint the credential returned to the device after approval. Throw a
-	 * `SignInGateError` to answer the poll with a gate challenge instead.
-	 */
+	/** Mint the credential returned to the device after approval. Throw a `SignInGateError` to answer the poll with a gate challenge instead. */
 	issueToken?: (userId: string, context: DeviceGrantContext) => Promise<DeviceTokenGrant>;
 	/** Wrong user codes one approving user may try per window (default: 5). */
 	userCodeAttemptLimit?: number;
 	/** Window for the attempt limit, seconds (default: 900). */
 	userCodeAttemptWindowSeconds?: number;
 	/**
-	 * Origins allowed to call the approval endpoint from a browser, in addition
-	 * to the origin of `verificationUri`. Requests with a different `Origin`
-	 * header are refused, which blocks cross-site approval (CSRF).
+	 * Origins allowed to call the approval endpoint from a browser, in addition to the origin of `verificationUri`. Requests with a different `Origin` header are refused, which blocks cross-site approval (CSRF).
 	 */
 	trustedOrigins?: string[];
 	/** Called after approve / deny / token issue. Wire it to your audit log. */
@@ -113,7 +85,6 @@ export type DeviceAuthStatus =
 	| { status: "denied" };
 
 export interface DeviceAuthModule {
-	/** Start device auth flow: returns device_code, user_code, verification_uri */
 	requestCode(request?: DeviceCodeRequest): Promise<DeviceCodeResponse>;
 	/** Check if user has authorized (does not consume the grant) */
 	checkAuthorization(deviceCode: string): Promise<DeviceAuthStatus>;
@@ -121,10 +92,7 @@ export interface DeviceAuthModule {
 	authorize(userCode: string, userId: string): Promise<void>;
 	/** Deny a user code. Pass the acting user id so failed guesses are rate limited per user. */
 	deny(userCode: string, actorId?: string): Promise<void>;
-	/**
-	 * Handle the three device endpoints. Returns null for other paths.
-	 * `opts.user` overrides `config.resolveUser` (the plugin passes its session user).
-	 */
+	/** Handle the three device endpoints. Returns null for other paths. `opts.user` overrides `config.resolveUser` (the plugin passes its session user). */
 	handleRequest(
 		request: Request,
 		opts?: { user?: { id: string } | null },
@@ -139,8 +107,6 @@ export class DeviceAuthError extends Error {
 		this.code = code;
 	}
 }
-
-// Internals
 
 type GrantState = "pending" | "authorized" | "denied";
 
@@ -178,7 +144,6 @@ function oauthError(error: string, description: string, status = 400, extra?: ob
 	return json({ error, error_description: description, ...extra }, status);
 }
 
-/** Read a JSON or form-encoded body into a flat string map. */
 async function parseBody(request: Request): Promise<Record<string, unknown>> {
 	try {
 		const type = request.headers.get("content-type") ?? "";
@@ -229,8 +194,6 @@ function buildCompleteUri(base: string, userCode: string): string {
 		return `${base}?user_code=${encodeURIComponent(userCode)}`;
 	}
 }
-
-// Factory
 
 export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModule {
 	const segmentLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
@@ -373,8 +336,6 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 		});
 	}
 
-	// HTTP handlers
-
 	async function handleCode(request: Request): Promise<Response> {
 		const body = await parseBody(request);
 		const res = await requestCode({ clientId: str(body.client_id), scope: str(body.scope, 512) });
@@ -513,15 +474,9 @@ export function createDeviceAuthModule(config: DeviceAuthConfig): DeviceAuthModu
 	return { requestCode, checkAuthorization, authorize, deny, handleRequest };
 }
 
-// Plugin factory
-
 export type DeviceAuthPluginConfig = Omit<DeviceAuthConfig, "resolveUser">;
 
-/**
- * Mount the device endpoints on TheAuth. Approval uses the signed-in session
- * user, state follows `secondaryStorage.deviceCodes`, and the device receives a
- * TheAuth session token when `auth.session` is configured.
- */
+/** Mounts the device endpoints on TheAuth. Approval uses the signed-in session user. */
 export function deviceAuth(config: DeviceAuthPluginConfig): TheAuthPlugin {
 	return {
 		id: "theauth-device-auth",

@@ -2,9 +2,7 @@ import type { MockInstance } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
-// Tests for graphqlWithRefresh UNAUTHENTICATED error code detection + retry.
-// Covers the case where the backend returns HTTP 200 with GraphQL errors that
-// carry extensions.code === "UNAUTHENTICATED" or "UNAUTHORIZED".
+// Covers HTTP 200 responses that carry UNAUTHENTICATED or UNAUTHORIZED GraphQL error codes.
 
 vi.mock("server-only", () => ({}));
 
@@ -42,7 +40,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 		vi.clearAllMocks();
 		fetchMock = vi.spyOn(global, "fetch");
 
-		// Provide a valid access token cookie so buildAuthHeaders doesn't bail.
 		const futureJwt = makeJwt({ sub: "user-1", exp: Math.floor(Date.now() / 1000) + 3600 });
 		mockCookieStore.get.mockImplementation((name: string) => {
 			if (name === "glinr-token" || name === "__Host-glinr-token") {
@@ -59,7 +56,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 	});
 
 	it("retries and returns data when backend returns HTTP 200 UNAUTHENTICATED then success", async () => {
-		// First call: HTTP 200 with UNAUTHENTICATED error
 		fetchMock.mockResolvedValueOnce(
 			new Response(
 				JSON.stringify({
@@ -74,7 +70,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			),
 		);
 
-		// Refresh call: success
 		fetchMock.mockResolvedValueOnce(
 			new Response(
 				JSON.stringify({ accessToken: "new-access-token", refreshToken: "new-refresh-token" }),
@@ -82,7 +77,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			),
 		);
 
-		// Second GraphQL call: success
 		fetchMock.mockResolvedValueOnce(
 			new Response(JSON.stringify({ data: { foo: "bar" } }), {
 				status: 200,
@@ -113,7 +107,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			),
 		);
 
-		// Refresh call: success
 		fetchMock.mockResolvedValueOnce(
 			new Response(JSON.stringify({ accessToken: "new-access-token" }), {
 				status: 200,
@@ -121,7 +114,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			}),
 		);
 
-		// Second GraphQL call: success
 		fetchMock.mockResolvedValueOnce(
 			new Response(JSON.stringify({ data: { user: { id: "42" } } }), {
 				status: 200,
@@ -138,7 +130,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 	});
 
 	it("throws GraphQLRequestError when UNAUTHENTICATED and refresh fails", async () => {
-		// First call: HTTP 200 with UNAUTHENTICATED error
 		fetchMock.mockResolvedValueOnce(
 			new Response(
 				JSON.stringify({
@@ -148,7 +139,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			),
 		);
 
-		// Refresh call: fails (401)
 		fetchMock.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
 
 		await expect(graphqlWithRefresh(config, "query { foo }")).rejects.toBeInstanceOf(
@@ -157,7 +147,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 	});
 
 	it("does NOT retry for non-auth GraphQL errors", async () => {
-		// First call: HTTP 200 with a regular (non-auth) error
 		fetchMock.mockResolvedValueOnce(
 			new Response(
 				JSON.stringify({
@@ -171,7 +160,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			GraphQLRequestError,
 		);
 
-		// Only 1 fetch — no refresh, no retry
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
@@ -184,7 +172,6 @@ describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
 			}),
 		);
 
-		// Refresh call: fails
 		fetchMock.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
 
 		const error = await graphqlWithRefresh(config, "query { foo }").catch((e: unknown) => e);

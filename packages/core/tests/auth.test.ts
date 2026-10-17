@@ -1,6 +1,4 @@
-/**
- * Tests for the human auth adapter system.
- */
+/** Tests for the human auth adapter system. */
 
 import { createSecretKey } from "node:crypto";
 import { SignJWT } from "jose";
@@ -10,8 +8,6 @@ import { customAuth } from "../src/auth/adapters/custom.js";
 import { headerAuth } from "../src/auth/adapters/header.js";
 import { usernameAccounts, users } from "../src/db/schema.js";
 import { createTheAuth } from "../src/theauth.js";
-
-// Helpers
 
 const TEST_SECRET = "super-secret-key-at-least-32-chars-long!!";
 
@@ -39,8 +35,6 @@ async function signJwt(
 
 	return builder.sign(secret);
 }
-
-// headerAuth
 
 describe("headerAuth", () => {
 	it("resolves user from default X-User-Id header", async () => {
@@ -84,13 +78,11 @@ describe("headerAuth", () => {
 
 	it("returns null when custom header is missing", async () => {
 		const adapter = headerAuth({ header: "X-Authenticated-User" });
-		// Only the default header is present – should not be picked up
+		// Only the default header is present, should not be picked up
 		const req = makeRequest({ "x-user-id": "user-abc" });
 		expect(await adapter.resolveUser(req)).toBeNull();
 	});
 });
-
-// bearerAuth
 
 describe("bearerAuth", () => {
 	it("resolves user from a valid HS256 JWT", async () => {
@@ -187,8 +179,6 @@ describe("bearerAuth", () => {
 	});
 });
 
-// customAuth
-
 describe("customAuth", () => {
 	it("calls the provided resolver and returns its result", async () => {
 		const resolver = vi.fn().mockResolvedValue({ id: "user-custom", email: "custom@example.com" });
@@ -250,7 +240,6 @@ describe("createTheAuth.resolveUser", () => {
 			database: { provider: "sqlite", url: ":memory:" },
 			auth: { adapter: headerAuth() },
 		});
-		// No X-User-Id header
 		const user = await theauth.resolveUser(makeRequest({}));
 		expect(user).toBeNull();
 	});

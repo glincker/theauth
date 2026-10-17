@@ -6,7 +6,7 @@ import { scaffold } from "./scaffold.js";
 
 type PackageManager = "pnpm" | "npm" | "yarn" | "bun";
 type DbDriver = "sql.js" | "pg";
-type Template = "next-saas" | "hono-mcp" | "expo-mobile";
+type Template = "next-saas" | "hono-mcp" | "cloudflare-workers" | "expo-mobile";
 
 function detectPackageManager(): PackageManager {
 	const ua = process.env.npm_config_user_agent ?? "";
@@ -30,11 +30,11 @@ function printNextSteps(targetDir: string, pm: PackageManager, template: Templat
 		? targetDir.slice(process.cwd().length + 1)
 		: targetDir;
 	const runCmd = pm === "npm" ? "npm run" : pm;
-	const steps = [
-		`cd ${rel}`,
-		`${pm} install`,
-		`cp .env.example .env   # then fill in THEAUTH_SECRET`,
-	];
+	const envStep =
+		template === "cloudflare-workers"
+			? `cp .dev.vars.example .dev.vars   # then fill in SESSION_SECRET`
+			: `cp .env.example .env   # then fill in THEAUTH_SECRET`;
+	const steps = [`cd ${rel}`, `${pm} install`, envStep];
 	if (template === "next-saas") {
 		steps.push(`${runCmd} db:push`);
 	}
@@ -77,6 +77,11 @@ export async function main(): Promise<void> {
 							hint: "Hono server · MCP OAuth 2.1",
 						},
 						{
+							value: "cloudflare-workers",
+							label: "Cloudflare Workers",
+							hint: "Hono on the edge · D1 database",
+						},
+						{
 							value: "expo-mobile",
 							label: `Expo mobile  ${yellow("(coming soon)")}`,
 							hint: "React Native · Expo Router",
@@ -96,14 +101,16 @@ export async function main(): Promise<void> {
 					],
 				}),
 
-			dbDriver: () =>
-				p.select<DbDriver>({
-					message: "Database",
-					options: [
-						{ value: "sql.js", label: "SQLite", hint: "local · zero config" },
-						{ value: "pg", label: "Postgres", hint: "pg driver · set DATABASE_URL" },
-					],
-				}),
+			dbDriver: ({ results }) =>
+				results.template === "cloudflare-workers"
+					? Promise.resolve("sql.js" as DbDriver)
+					: p.select<DbDriver>({
+							message: "Database",
+							options: [
+								{ value: "sql.js", label: "SQLite", hint: "local · zero config" },
+								{ value: "pg", label: "Postgres", hint: "pg driver · set DATABASE_URL" },
+							],
+						}),
 		},
 		{
 			onCancel() {
@@ -117,7 +124,7 @@ export async function main(): Promise<void> {
 
 	if (template === "expo-mobile") {
 		p.note(
-			`The ${bold(template)} template is not ready yet.\nPick ${bold("next-saas")} or ${bold("hono-mcp")} for now and stay tuned.`,
+			`The ${bold(template)} template is not ready yet.\nPick ${bold("next-saas")}, ${bold("hono-mcp")} or ${bold("cloudflare-workers")} for now and stay tuned.`,
 			yellow("Coming soon"),
 		);
 		exit(0);

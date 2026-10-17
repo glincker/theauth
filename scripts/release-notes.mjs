@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-// Builds GitHub release notes for a core version from the CHANGELOG files that changesets generates.
-// Usage: node scripts/release-notes.mjs <tag> [--prev <prevTag>] [--sha <commit>]
-//   <tag>   release tag, for example v0.6.0 (the version of packages/core)
-//   --prev  previous release tag (default: the highest earlier v* tag)
-//   --sha   commit the release is cut from (default: HEAD)
-// Output: Markdown on stdout. No dependencies.
+// Builds GitHub release notes for a core version from the changesets CHANGELOG files.
+// Usage: node scripts/release-notes.mjs <tag> [--prev <prevTag>] [--sha <commit>]. Markdown goes to stdout.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -40,7 +36,6 @@ const prev =
 		.pop();
 const prevSha = prev ? git("rev-list", "-n1", prev) : null;
 
-// All package.json files under packages/ (published ones only).
 const walk = (dir, out = []) => {
 	for (const name of readdirSync(dir)) {
 		if (name === "node_modules" || name === "dist") continue;
@@ -76,7 +71,6 @@ changed.sort((a, b) =>
 	a.name === "@glinr/theauth" ? -1 : b.name === "@glinr/theauth" ? 1 : a.name.localeCompare(b.name),
 );
 
-// A changelog section for one version: { "Major Changes": [entry...], ... }
 function section(dir, ver) {
 	const file = join(dir, "CHANGELOG.md");
 	let text;

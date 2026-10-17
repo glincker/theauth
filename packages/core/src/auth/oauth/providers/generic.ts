@@ -1,67 +1,30 @@
-/**
- * Generic OIDC provider factory.
- *
- * Builds a fully functional OAuthProvider from a minimal config. When an
- * OIDC issuer URL is supplied the factory constructs the standard
- * `/.well-known/openid-configuration` discovery URL. Explicit endpoint
- * overrides take precedence over discovery, so the factory works with
- * providers that do not implement RFC 8414.
- *
- * Spec references:
- * - OIDC Discovery: https://openid.net/specs/openid-connect-discovery-1_0.html
- * - RFC 8414 (OAuth 2.0 Authorization Server Metadata)
- */
+/** Generic OIDC provider factory: builds an OAuthProvider from a minimal config and an issuer. */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Config
-
 export interface GenericOIDCConfig {
-	/** Machine-readable provider ID, e.g. `'okta'`, `'auth0'`. */
 	id: string;
-	/** Human-readable display name, e.g. `'Okta'`. */
 	name: string;
 	/**
-	 * OIDC issuer URL. Used to derive the discovery document URL as
-	 * `${issuer}/.well-known/openid-configuration` when explicit endpoint
-	 * overrides are not provided.
+	 * OIDC issuer URL. Used to derive the discovery document URL as `${issuer}/.well-known/openid-configuration` when explicit endpoint overrides are not provided.
 	 *
 	 * @example "https://dev-12345678.okta.com"
 	 */
 	issuer: string;
-	/** OAuth application client ID. */
 	clientId: string;
-	/** OAuth application client secret. */
 	clientSecret: string;
-	/**
-	 * Scopes to request. Defaults to `['openid', 'email', 'profile']`.
-	 */
+	/** Scopes to request. Default: `['openid', 'email', 'profile']`. */
 	scopes?: string[];
-	/**
-	 * Replaces the built-in `['openid', 'email', 'profile']` baseline that
-	 * `scopes` is merged into. Use it for providers that reject or do not
-	 * define the OIDC scopes.
-	 */
+	/** Replaces the built-in `['openid', 'email', 'profile']` baseline that `scopes` is merged into. Use it for providers that reject or do not define the OIDC scopes. */
 	defaultScopes?: string[];
-	/**
-	 * Override the redirect URI registered with the provider.
-	 * When omitted the URI passed at call time is used.
-	 */
+	/** Override the redirect URI registered with the provider. Defaults to the URI passed at call time. */
 	redirectUri?: string;
-	// Optional endpoint overrides (skip discovery)
-	/** Authorization endpoint. Overrides discovery. */
 	authorizationUrl?: string;
-	/** Token endpoint. Overrides discovery. */
 	tokenUrl?: string;
-	/** UserInfo endpoint. Overrides discovery. */
 	userinfoUrl?: string;
-	/**
-	 * Map a non-OIDC userinfo response to a profile. Use for providers whose
-	 * userinfo has no `sub` or nests the profile. Return null when the response
-	 * is unusable. When omitted the standard OIDC claims are read.
-	 */
+	/** Maps a non-OIDC userinfo response to a profile. Use it for providers whose userinfo has no `sub`. */
 	mapProfile?: (raw: Record<string, unknown>) => {
 		id: string;
 		email: string;
@@ -76,26 +39,16 @@ export interface GenericOIDCConfig {
 	scopeSeparator?: string;
 	/** HTTP method for the userinfo request (default `GET`). */
 	userinfoMethod?: "GET" | "POST";
-	/**
-	 * Request body for the userinfo call, sent as `application/json`. Use it
-	 * for GraphQL endpoints. Only meaningful with `userinfoMethod: "POST"`.
-	 */
+	/** Request body for the userinfo call, sent as `application/json`. Use it for GraphQL endpoints. Only meaningful with `userinfoMethod: "POST"`. */
 	userinfoBody?: string;
-	/** Extra query parameters appended to the authorization URL. */
 	authorizationParams?: Record<string, string>;
-	/**
-	 * How client credentials reach the token endpoint: in the form body
-	 * (default) or in an `Authorization: Basic` header. Applies to refresh too.
-	 */
+	/** How client credentials reach the token endpoint: in the form body (default) or in an `Authorization: Basic` header. Applies to refresh too. */
 	tokenAuth?: "body" | "basic";
-	/**
-	 * Send the PKCE challenge and verifier (default `true`). Set `false` for
-	 * providers whose documentation does not describe PKCE.
-	 */
+	/** Send the PKCE challenge and verifier (default `true`). Set `false` for providers whose documentation does not describe PKCE. */
 	pkce?: boolean;
 }
 
-// Discovery cache — one entry per issuer, populated lazily at first use
+// One discovery entry per issuer, populated lazily at first use.
 
 interface DiscoveredEndpoints {
 	authorizationUrl: string;
@@ -141,8 +94,6 @@ function assertString(value: unknown, field: string, issuer: string): string {
 	return value;
 }
 
-// Raw response shapes
-
 interface OIDCTokenResponse {
 	access_token: string;
 	refresh_token?: string;
@@ -160,31 +111,11 @@ interface OIDCUserInfoResponse {
 	[key: string]: unknown;
 }
 
-// Factory
-
-/**
- * Create an OAuthProvider backed by a standard OIDC issuer.
- *
- * Endpoints are resolved from the issuer's discovery document on first use
- * and cached in memory for the lifetime of the process. Pass explicit
- * `authorizationUrl`, `tokenUrl`, and `userinfoUrl` to bypass discovery.
- *
- * @example
- * ```typescript
- * const okta = genericOIDC({
- *   id: "okta",
- *   name: "Okta",
- *   issuer: "https://dev-12345678.okta.com",
- *   clientId: process.env.OKTA_CLIENT_ID,
- *   clientSecret: process.env.OKTA_CLIENT_SECRET,
- * });
- * ```
- */
+/** Creates an OAuthProvider backed by a standard OIDC issuer. Endpoints are resolved on first use. */
 export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 	const defaultScopes = config.defaultScopes ?? ["openid", "email", "profile"];
 	const scopes = mergeScopes(defaultScopes, config.scopes);
 
-	/** Resolve endpoints: use explicit overrides first, then discover. */
 	async function resolveEndpoints(): Promise<DiscoveredEndpoints> {
 		if (config.authorizationUrl && config.tokenUrl && config.userinfoUrl) {
 			return {
@@ -364,8 +295,6 @@ export function genericOIDC(config: GenericOIDCConfig): OAuthProvider {
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

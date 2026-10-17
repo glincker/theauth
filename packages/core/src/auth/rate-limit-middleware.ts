@@ -1,7 +1,5 @@
 /**
- * Higher-order function that wraps a plugin endpoint handler with IP-based
- * rate limiting. When the limit is exceeded it responds with 429 and a
- * Retry-After header before the wrapped handler is ever called.
+ * Higher-order function that wraps a plugin endpoint handler with IP-based rate limiting. When the limit is exceeded it responds with 429 and a Retry-After header before the wrapped handler is ever called.
  */
 
 import type { PluginEndpoint } from "../plugin/types.js";
@@ -12,11 +10,7 @@ import type { RateLimiter } from "./rate-limiter.js";
 export interface RateLimitMiddlewareOptions extends TrustedProxyConfig {
 	/**
 	 * Derive the rate-limit key from the incoming request.
-	 *
-	 * Defaults to the client IP resolved with the same trusted-proxy rules as
-	 * `rateLimit()`: forwarded headers are ignored unless `trustedProxyCount` or
-	 * `trustedHeader` is set here or on `createTheAuth({ trustedProxy })`. With
-	 * nothing trusted every caller shares the "unknown" bucket (fail closed).
+	 * Defaults to the client IP resolved with the same trusted-proxy rules as `rateLimit()`: forwarded headers are ignored unless `trustedProxyCount` or `trustedHeader` is set here or on `createTheAuth({ trustedProxy })`. With nothing trusted every caller shares the "unknown" bucket (fail closed).
 	 */
 	keyExtractor?: (request: Request) => string;
 }

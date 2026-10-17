@@ -1,6 +1,5 @@
 /**
  * OpenID Shared Signals Framework 1.0 with CAEP and RISC events.
- *
  * - `signSet` / `verifySet`: Security Event Tokens (RFC 8417)
  * - `createTransmitter` and `createTransmitterEndpoints`: SSF transmitter
  * - `createReceiver`: SET verification, replay cache and handlers

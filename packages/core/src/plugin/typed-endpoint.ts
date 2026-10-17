@@ -1,11 +1,4 @@
-/**
- * Typed plugin endpoints.
- *
- * `defineEndpoint` validates path params, query and JSON body with zod before
- * the handler runs, and records the shapes in a type so a client can call the
- * route with full inference (see `createEndpointClient` in the client package).
- * The result is an ordinary `PluginEndpoint`, so `ctx.addEndpoint` takes it.
- */
+/** Typed plugin endpoints. */
 
 import type { z } from "zod";
 import type { EndpointContext, PluginEndpoint } from "./types.js";
@@ -154,10 +147,7 @@ export function defineEndpoint<
 	};
 }
 
-/**
- * Route map for a set of endpoints, keyed `"METHOD /path"`. Hand it to the
- * client package: `createEndpointClient<ApiOf<typeof endpoints>>(...)`.
- */
+/** Route map for a set of endpoints, keyed `"METHOD /path"`. Hand it to the client package: `createEndpointClient<ApiOf<typeof endpoints>>(...)`. */
 export type ApiOf<T extends readonly TypedEndpoint[]> = {
 	[E in T[number] as E extends { method: infer M extends string; path: infer P extends string }
 		? `${M} ${P}`

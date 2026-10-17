@@ -1,7 +1,4 @@
-/**
- * Guard paths the main guard tests do not reach: naming, resource and risk
- * callbacks, escalation without details, hook failures and argument unwrapping.
- */
+/** Guard paths the main guard tests do not reach: naming, resource and risk callbacks, escalation without details, hook failures and argument unwrapping. */
 
 import { describe, expect, it, vi } from "vitest";
 import {

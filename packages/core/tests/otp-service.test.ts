@@ -1,7 +1,4 @@
-/**
- * Tests for the unified OTP service, its senders, and the resend cooldown on
- * the email and phone modules.
- */
+/** Tests for the unified OTP service, its senders, and the resend cooldown on the email and phone modules. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmailOtpModule } from "../src/auth/email-otp.js";

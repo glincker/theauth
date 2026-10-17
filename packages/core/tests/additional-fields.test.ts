@@ -1,6 +1,4 @@
-/**
- * Tests for the additional user/session fields plugin.
- */
+/** Tests for the additional user/session fields plugin. */
 
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -11,8 +9,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { sessions, users } from "../src/db/schema.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -45,8 +41,6 @@ async function insertSession(db: Database, userId: string): Promise<string> {
 	});
 	return id;
 }
-
-// validate
 
 describe("AdditionalFieldsModule.validate", () => {
 	let mod: AdditionalFieldsModule;
@@ -92,7 +86,6 @@ describe("AdditionalFieldsModule.validate", () => {
 	});
 
 	it("returns valid: true with no schema configured", () => {
-		// No session schema defined
 		const result = mod.validate({ anything: true }, "session");
 		expect(result.valid).toBe(true);
 	});
@@ -103,8 +96,6 @@ describe("AdditionalFieldsModule.validate", () => {
 		expect(result.errors?.length).toBeGreaterThanOrEqual(2);
 	});
 });
-
-// getUserFields
 
 describe("AdditionalFieldsModule.getUserFields", () => {
 	let db: Database;
@@ -149,8 +140,6 @@ describe("AdditionalFieldsModule.getUserFields", () => {
 		expect(fields).toEqual({});
 	});
 });
-
-// setUserFields
 
 describe("AdditionalFieldsModule.setUserFields", () => {
 	let db: Database;
@@ -206,7 +195,7 @@ describe("AdditionalFieldsModule.setUserFields", () => {
 		// First write additional fields directly; they go under 'additionalFields' sub-key.
 		await mod.setUserFields(userId, { plan: "starter" });
 
-		// Then update plan via module — ensure earlier write is still there via a
+		// Then update plan via module, ensure earlier write is still there via a
 		// second module call, verifying the merge path.
 		await mod.setUserFields(userId, { plan: "pro" });
 
@@ -222,8 +211,6 @@ describe("AdditionalFieldsModule.setUserFields", () => {
 		expect(meta?.additionalFields).toEqual({ plan: "pro" });
 	});
 });
-
-// getSessionFields / setSessionFields
 
 describe("AdditionalFieldsModule.getSessionFields / setSessionFields", () => {
 	let db: Database;
@@ -266,8 +253,6 @@ describe("AdditionalFieldsModule.getSessionFields / setSessionFields", () => {
 		);
 	});
 });
-
-// Plugin endpoints
 
 describe("additionalFields plugin endpoints", () => {
 	it("GET /auth/users/fields returns user fields", async () => {

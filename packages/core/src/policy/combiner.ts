@@ -1,7 +1,5 @@
 /**
- * Policy decision combiner. Reduces a list of partial decisions from matched
- * permissions into a single PolicyDecision using a configurable strategy.
- *
+ * Policy decision combiner. Reduces a list of partial decisions from matched permissions into a single PolicyDecision using a configurable strategy.
  * Supported strategies:
  * - deny-overrides (default): any explicit DENY wins; else first PERMIT; else INDETERMINATE.
  * - permit-overrides: any explicit PERMIT wins; else first DENY; else INDETERMINATE.

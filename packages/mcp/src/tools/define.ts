@@ -2,10 +2,13 @@ import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/m
 import type { z } from "zod";
 import type { ApiClient } from "../client.js";
 import type { Logger } from "../logger.js";
+import type { AuditRecorder } from "./audit.js";
 
 export interface ToolContext {
 	client: ApiClient;
 	logger: Logger;
+	/** Present when the server runs in admin mode; every tool call is recorded through it. */
+	audit?: AuditRecorder;
 }
 
 export type Outcome = { ok: true; value: unknown } | { ok: false; code: string; message: string };
@@ -39,6 +42,12 @@ export function defineTool<Shape extends z.ZodRawShape>(spec: ToolSpec<Shape>): 
 			const callback = (async (args: z.objectOutputType<Shape, z.ZodTypeAny>) => {
 				try {
 					const outcome = await spec.run(args, ctx);
+					await ctx.audit?.record({
+						tool: spec.name,
+						mode: "read",
+						result: outcome.ok ? "ok" : "error",
+						params: args,
+					});
 					if (outcome.ok) {
 						return {
 							content: [{ type: "text" as const, text: JSON.stringify(outcome.value, null, 2) }],

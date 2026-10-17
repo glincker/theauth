@@ -25,11 +25,7 @@ function grantTypesSupported(ctx: McpAuthContext): string[] {
 	];
 }
 
-/**
- * Build OAuth 2.0 Authorization Server Metadata (RFC 8414).
- *
- * Returned at: GET /.well-known/oauth-authorization-server
- */
+/** Build OAuth 2.0 Authorization Server Metadata (RFC 8414). */
 export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMetadata {
 	const { issuer, baseUrl, scopes } = ctx.config;
 	const defaultScopes = ["openid", "profile", "email", "offline_access"];
@@ -67,14 +63,7 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 	};
 }
 
-/**
- * Build Protected Resource Metadata (RFC 9728).
- *
- * Returned at: GET /.well-known/oauth-protected-resource
- *
- * An MCP resource server (tool server) publishes this so clients can
- * discover which authorization server to use.
- */
+/** Build Protected Resource Metadata (RFC 9728). */
 export function getProtectedResourceMetadata(ctx: McpAuthContext): McpProtectedResourceMetadata {
 	const { issuer, baseUrl, scopes } = ctx.config;
 	const defaultScopes = ["openid", "profile", "email", "offline_access"];

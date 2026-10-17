@@ -30,8 +30,6 @@ describe("default English translations", () => {
 	});
 });
 
-// Variable interpolation
-
 describe("variable interpolation", () => {
 	it("replaces a single {{var}} placeholder", () => {
 		const i18n = createI18n();
@@ -73,8 +71,6 @@ describe("variable interpolation", () => {
 		expect(result).toBe("Trop de tentatives. Réessayez dans 60 secondes.");
 	});
 });
-
-// Custom locale
 
 describe("custom locale", () => {
 	it("uses custom translation when locale matches", () => {
@@ -146,8 +142,6 @@ describe("locale resolution fallback", () => {
 	});
 });
 
-// Missing key fallback
-
 describe("missing key fallback", () => {
 	it("returns the key string when no translation exists", () => {
 		const i18n = createI18n({
@@ -184,8 +178,6 @@ describe("missing key fallback", () => {
 	});
 });
 
-// addLocale at runtime
-
 describe("addLocale", () => {
 	it("registers a new locale and makes it immediately available", () => {
 		const i18n = createI18n();
@@ -218,8 +210,6 @@ describe("addLocale", () => {
 	});
 });
 
-// Built-in locale bundles
-
 describe("built-in locale bundles", () => {
 	const allLocales: Array<[string, Record<string, string>]> = [
 		["en", en],
@@ -249,8 +239,6 @@ describe("built-in locale bundles", () => {
 		}
 	});
 });
-
-// getLocales
 
 describe("getLocales", () => {
 	it("returns 'en' by default", () => {

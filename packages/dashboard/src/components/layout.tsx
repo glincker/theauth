@@ -4,6 +4,7 @@ import {
 	ChevronRight,
 	GitBranch,
 	LayoutDashboard,
+	ListChecks,
 	Moon,
 	ScrollText,
 	Server,
@@ -79,6 +80,12 @@ const NAV_ITEMS: NavItem[] = [
 		label: "MCP Servers",
 		icon: Server,
 		description: "Registered MCP servers",
+	},
+	{
+		id: "approvals",
+		label: "Approvals",
+		icon: ListChecks,
+		description: "Pending admin approvals",
 	},
 	{
 		id: "audit",

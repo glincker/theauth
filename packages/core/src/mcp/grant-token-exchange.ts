@@ -19,10 +19,8 @@ import { validateAccessToken } from "./validate.js";
 
 /**
  * RFC 8693 token exchange for access tokens issued by this server.
- *
  * Rules enforced here:
- * - the subject token (and actor token, when sent) must verify as an access
- *   token we issued, be unexpired and not be on the jti denylist;
+ * - the subject token (and actor token, when sent) must verify as an access token we issued, be unexpired and not be on the jti denylist;
  * - a DPoP-bound token can only be exchanged with a proof from the same key;
  * - scopes can narrow, never widen;
  * - the audience can change only to a configured resource;
@@ -168,7 +166,6 @@ export async function handleTokenExchangeGrant(
 		};
 	}
 
-	// Subject and actor tokens
 	const subject = await verifyOwnToken(ctx, data.subject_token, proofJkt, "subject_token");
 	if (!subject.success) return subject;
 	let actorSession: McpSession | null = null;
@@ -200,7 +197,6 @@ export async function handleTokenExchangeGrant(
 		resource = canonical;
 	}
 
-	// Delegation chain (nested act)
 	const maxDepth = config.maxChainDepth ?? DEFAULT_MAX_CHAIN_DEPTH;
 	const actorSub = actorSession?.userId ?? client.clientId;
 	const actorClientId = actorSession?.clientId ?? client.clientId;

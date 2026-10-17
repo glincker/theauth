@@ -1,35 +1,18 @@
 /**
  * Apple Sign In provider (OAuth 2.0 / OIDC).
- *
- * Endpoints:
- * - Authorization: https://appleid.apple.com/auth/authorize
- * - Token:         https://appleid.apple.com/auth/token
- *
  * Notes:
- * - Apple does not expose a dedicated UserInfo endpoint. Instead, it embeds
- *   user claims (email, name) in the `id_token` JWT on first authorization.
- *   On subsequent authorizations the `user` form-post field is absent — only
- *   the `id_token` carries the `sub` and `email` claims.
- * - PKCE S256 is supported and recommended.
- * - `response_mode` must be `form_post` when requesting the `name` scope,
- *   because Apple POSTs back a `user` JSON field alongside the code.
- * - The `name` scope only delivers user data on the *first* authorization.
- *   Store it immediately; subsequent logins will not include it.
- *
- * Docs: https://developer.apple.com/documentation/sign_in_with_apple/sign_in_with_apple_js/incorporating_sign_in_with_apple_into_other_platforms
+ * - Apple does not expose a dedicated UserInfo endpoint. On subsequent authorizations the `user` form-post field is absent, only the `id_token` carries the `sub` and `email` claims.
+ * - `response_mode` must be `form_post` when requesting the `name` scope, because Apple POSTs back a `user` JSON field alongside the code.
+ * - The `name` scope only delivers user data on the *first* authorization. Store it immediately; subsequent logins will not include it.
  */
 
 import { decodeJwt } from "jose";
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://appleid.apple.com/auth/authorize";
 const TOKEN_URL = "https://appleid.apple.com/auth/token";
 const DEFAULT_SCOPES = ["name", "email"];
-
-// Raw response shapes
 
 interface AppleTokenResponse {
 	access_token: string;
@@ -46,14 +29,9 @@ interface AppleIdTokenClaims {
 	is_private_email?: boolean | string;
 }
 
-// Factory
-
 /**
  * Create an Apple Sign In provider instance.
- *
- * Apple requires a JWT client secret (signed with your private key) rather
- * than a static secret. Generate the client secret JWT before passing it in
- * as `clientSecret`.
+ * Apple requires a JWT client secret (signed with your private key) rather than a static secret.
  *
  * @example
  * ```typescript
@@ -139,7 +117,7 @@ export function createAppleProvider(config: OAuthProviderConfig): OAuthProvider 
 			);
 		}
 
-		// Decode without verification here — signature verification should be
+		// Decode without verification here, signature verification should be
 		// done at the module layer using Apple's published JWKS if needed.
 		const claims = decodeJwt(idToken) as unknown as AppleIdTokenClaims;
 
@@ -180,8 +158,6 @@ export function createAppleProvider(config: OAuthProviderConfig): OAuthProvider 
 		getUserInfo: getUserInfo as OAuthProvider["getUserInfo"],
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

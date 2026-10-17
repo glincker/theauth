@@ -128,3 +128,15 @@ describe("resolveTrustedProxy", () => {
 		);
 	});
 });
+
+describe("upstream scheme", () => {
+	it("rejects non http upstreams in the file schema", async () => {
+		const { GatewayFileConfigSchema } = await import("../src/config-loader.js");
+		expect(GatewayFileConfigSchema.safeParse({ upstream: "file:///etc/passwd" }).success).toBe(
+			false,
+		);
+		expect(GatewayFileConfigSchema.safeParse({ upstream: "http://localhost:8080" }).success).toBe(
+			true,
+		);
+	});
+});

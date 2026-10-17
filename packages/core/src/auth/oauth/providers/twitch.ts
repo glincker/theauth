@@ -1,29 +1,14 @@
 /**
  * Twitch OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://id.twitch.tv/oauth2/authorize
- * - Token:         https://id.twitch.tv/oauth2/token
- * - UserInfo:      https://api.twitch.tv/helix/users
- *
  * Notes:
  * - PKCE S256 is supported by the Twitch OAuth 2.0 implementation.
  * - The `user:read:email` scope is required to receive the user's email address.
- * - The UserInfo endpoint (/helix/users) requires a `Client-ID` header in
- *   addition to the Bearer token. Without it the request returns 400.
- * - User data is nested under a `data` array; the authenticated user is always
- *   the first element.
- * - Profile image URLs are direct CDN links and may change when the user
- *   updates their profile picture.
- *
- * Docs: https://dev.twitch.tv/docs/authentication/
+ * - The UserInfo endpoint (/helix/users) requires a `Client-ID` header in addition to the Bearer token.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
-
-// Constants
 
 const AUTHORIZATION_URL = "https://id.twitch.tv/oauth2/authorize";
 const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
@@ -31,8 +16,6 @@ const USER_INFO_URL = "https://api.twitch.tv/helix/users";
 
 export const DEFAULT_TWITCH_SCOPES = ["user:read:email"];
 const DEFAULT_SCOPES = DEFAULT_TWITCH_SCOPES;
-
-// Raw response shapes
 
 interface TwitchTokenResponse {
 	access_token: string;
@@ -53,8 +36,6 @@ interface TwitchUser {
 interface TwitchUserResponse {
 	data: TwitchUser[];
 }
-
-// Factory
 
 /**
  * Create a Twitch OAuth provider instance.
@@ -187,8 +168,6 @@ export function createTwitchProvider(config: OAuthProviderConfig): OAuthProvider
 	};
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const body = raw as unknown as TwitchUserResponse;
 	const user = body.data?.[0];
@@ -211,8 +190,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

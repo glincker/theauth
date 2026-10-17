@@ -1,6 +1,4 @@
-/**
- * Tests for email providers.
- */
+/** Tests for email providers. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { consoleProvider } from "../src/email/console.js";
@@ -8,8 +6,6 @@ import { resend } from "../src/email/resend.js";
 import { sendgrid } from "../src/email/sendgrid.js";
 import { smtp } from "../src/email/smtp.js";
 import { createEmailTemplates } from "../src/email/templates.js";
-
-// Helpers
 
 const VALID_RESEND_KEY = "re_test_abc123";
 const VALID_SENDGRID_KEY = "SG.test_abc123";
@@ -20,8 +16,6 @@ const SAMPLE_OPTIONS = {
 	html: "<p>Hello</p>",
 	text: "Hello",
 };
-
-// Console provider
 
 describe("consoleProvider", () => {
 	it("returns an id on send", async () => {
@@ -79,8 +73,6 @@ describe("consoleProvider", () => {
 		await expect(provider.send(SAMPLE_OPTIONS)).resolves.toHaveProperty("id");
 	});
 });
-
-// Resend provider
 
 describe("resend provider — config validation", () => {
 	it("throws immediately when apiKey is empty string", () => {
@@ -176,8 +168,6 @@ describe("resend provider — send", () => {
 	});
 });
 
-// SendGrid provider
-
 describe("sendgrid provider — config validation", () => {
 	it("throws immediately when apiKey is empty string", () => {
 		expect(() => sendgrid({ apiKey: "" })).toThrow(/apiKey is required/);
@@ -266,8 +256,6 @@ describe("sendgrid provider — send", () => {
 	});
 });
 
-// SMTP provider
-
 describe("smtp provider — config validation", () => {
 	it("throws immediately when host is empty string", () => {
 		expect(() => smtp({ host: "", auth: { user: "u@example.com", pass: "secret" } })).toThrow(
@@ -305,7 +293,7 @@ describe("smtp provider — nodemailer peer dep missing", () => {
 	it("throws a helpful error when nodemailer is not installed", async () => {
 		// We cannot easily mock a failed dynamic import in vitest without
 		// vm mocking. Instead we verify that the smtp() factory itself does
-		// NOT throw — the error happens lazily at send time when the dynamic
+		// NOT throw, the error happens lazily at send time when the dynamic
 		// import is attempted. We therefore just confirm the provider is
 		// created successfully here; the send-time error is an integration
 		// concern tested separately.
@@ -360,23 +348,10 @@ describe("template overrides", () => {
 	});
 });
 
-// XSS / HTML escaping
-
 describe("HTML escaping in templates", () => {
 	/**
-	 * The template `html` helper encodes its title argument but the variable
-	 * interpolation inside body helpers (p, button, code) uses raw string
-	 * concatenation. We test that an escapeHtml utility is available and that
-	 * production templates guard against script injection via user-controlled
-	 * variables passed through the template system.
-	 *
-	 * The default templates use `vars.email`, `vars.url`, etc. directly in HTML
-	 * context — if the calling code supplies a pre-sanitized or URL-safe value
-	 * the built-in templates are safe. For custom templates, callers are
-	 * responsible for escaping.
-	 *
-	 * This test verifies the escapeHtml helper exported from the email module
-	 * can be used to neutralise common XSS payloads.
+	 * The template `html` helper encodes its title argument but the variable interpolation inside body helpers (p, button, code) uses raw string concatenation. We test that an escapeHtml utility is available and that production templates guard against script injection via user-controlled variables passed through the template system.
+	 * The default templates use `vars.email`, `vars.url`, etc. directly in HTML context, if the calling code supplies a pre-sanitized or URL-safe value the built-in templates are safe. This test verifies the escapeHtml helper exported from the email module can be used to neutralise common XSS payloads.
 	 */
 
 	it('escapeHtml helper neutralises < > & " ` characters', async () => {

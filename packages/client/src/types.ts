@@ -1,5 +1,3 @@
-// Shared domain types
-
 export interface Permission {
 	resource: string;
 	actions: string[];
@@ -49,8 +47,6 @@ export interface AgentFilters {
 	type?: "autonomous" | "delegated" | "service";
 }
 
-// Authorization
-
 export interface AuthorizeInput {
 	agentId: string;
 	action: string;
@@ -70,8 +66,6 @@ export interface AuthorizeResult {
 	auditId: string;
 }
 
-// Delegation
-
 export interface DelegateInput {
 	fromAgent: string;
 	toAgent: string;
@@ -89,8 +83,6 @@ export interface DelegationChain {
 	depth: number;
 	createdAt: string;
 }
-
-// Audit
 
 export interface AuditEntry {
 	id: string;
@@ -128,8 +120,6 @@ export interface ExportOptions {
 	until?: string;
 }
 
-// MCP
-
 export interface RegisterMcpServerInput {
 	name: string;
 	endpoint: string;
@@ -147,8 +137,6 @@ export interface McpServer {
 	createdAt: string;
 }
 
-// Result / Error types
-
 export interface TheAuthError {
 	code: string;
 	message: string;
@@ -164,9 +152,7 @@ export interface TheAuthApiErrorBody {
 
 export type TheAuthResult<T> = { success: true; data: T } | { success: false; error: TheAuthError };
 
-// Deprecated aliases
-// Kept for backward compatibility with the pre-rebrand "TheAuth" API. Will be
-// removed in a future major version.
+// Backward-compat aliases for the pre-rebrand API.
 
 /** @deprecated Use `TheAuthError` instead. Will be removed in a future major version. */
 export type AuthError = TheAuthError;

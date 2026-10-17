@@ -1,16 +1,6 @@
 /**
  * Custom session fields plugin for TheAuth.
- *
- * Lets callers attach arbitrary data to sessions at creation time and read or
- * update that data later.  Everything is stored in the existing
- * `session.metadata.custom` sub-key — no new database columns are required.
- *
- * Two integration points:
- *
- * 1. `defaultFields` — merged into every new session automatically.
- * 2. `onSessionCreate` — async callback that receives the userId (and
- *    optionally the originating Request) and returns additional fields to
- *    merge.  Runs once per session, during the plugin's `onSessionCreate` hook.
+ * Everything is stored in the existing `session.metadata.custom` sub-key, no new database columns are required. `defaultFields`, merged into every new session automatically. Runs once per session, during the plugin's `onSessionCreate` hook.
  *
  * @example
  * ```typescript
@@ -40,16 +30,12 @@ import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 
-// Public types
-
 export interface CustomSessionConfig {
 	/** Fields merged into every new session's metadata.custom on creation. */
 	defaultFields?: Record<string, unknown>;
 	/**
 	 * Hook called when a new session is being created.
-	 *
-	 * The return value is merged into `session.metadata.custom` alongside any
-	 * `defaultFields`.  If both define the same key, the hook's value wins.
+	 * The return value is merged into `session.metadata.custom` alongside any `defaultFields`.
 	 */
 	onSessionCreate?: (userId: string, request?: Request) => Promise<Record<string, unknown>>;
 }
@@ -57,14 +43,10 @@ export interface CustomSessionConfig {
 export interface CustomSessionModule {
 	/**
 	 * Return the custom fields stored in `session.metadata.custom`.
-	 *
 	 * Returns `null` when the session does not exist or has no custom data.
 	 */
 	getSessionFields(sessionId: string): Promise<Record<string, unknown> | null>;
-	/**
-	 * Merge `fields` into `session.metadata.custom`, overwriting any keys that
-	 * already exist.  Existing keys not present in `fields` are preserved.
-	 */
+	/** Merge `fields` into `session.metadata.custom`, overwriting any keys that already exist.  Existing keys not present in `fields` are preserved. */
 	updateSessionFields(sessionId: string, fields: Record<string, unknown>): Promise<void>;
 }
 
@@ -127,8 +109,6 @@ export function createCustomSessionModule(
 	return { getSessionFields, updateSessionFields };
 }
 
-// Plugin factory
-
 export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 	return {
 		id: "theauth-custom-session",
@@ -136,10 +116,7 @@ export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 		hooks: {
 			/**
 			 * Fired by the plugin runner after a session record is inserted.
-			 *
-			 * Merges defaultFields + onSessionCreate result into
-			 * `session.metadata.custom`.  The session row already exists in the
-			 * database at this point so we can issue an UPDATE.
+			 * Merges defaultFields + onSessionCreate result into `session.metadata.custom`.
 			 */
 			async onSessionCreate(userId: string): Promise<Record<string, unknown> | undefined> {
 				const base = config.defaultFields ?? {};
@@ -156,7 +133,6 @@ export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 		async init(ctx) {
 			const mod = createCustomSessionModule(config, ctx.db);
 
-			// GET /auth/session/:id/fields — read custom fields from a session
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/session/fields",
@@ -184,7 +160,6 @@ export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 				},
 			});
 
-			// PATCH /auth/session/fields — update custom fields on a session
 			ctx.addEndpoint({
 				method: "PATCH",
 				path: "/auth/session/fields",
@@ -234,8 +209,6 @@ export function customSession(config: CustomSessionConfig = {}): TheAuthPlugin {
 		},
 	};
 }
-
-// Helpers
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {

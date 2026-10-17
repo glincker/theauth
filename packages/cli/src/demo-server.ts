@@ -1,5 +1,3 @@
-/** Full TheAuth backend with in-memory SQLite, seed data, and dashboard UI. */
-
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -14,6 +12,15 @@ import { cors } from "hono/cors";
 
 export interface DemoServerOptions {
 	port: number;
+	theauth?: TheAuth;
+	quiet?: boolean;
+	hostname?: string;
+}
+
+export interface DemoServerHandle {
+	port: number;
+	dashboard: boolean;
+	close: () => Promise<void>;
 }
 
 const MIME: Record<string, string> = {
@@ -29,8 +36,6 @@ const MIME: Record<string, string> = {
 	".ttf": "font/ttf",
 	".map": "application/json; charset=utf-8",
 };
-
-// Dashboard dist resolution
 
 function resolveDashboardDistDir(): string {
 	try {
@@ -60,8 +65,6 @@ function resolveDashboardDistDir(): string {
 	);
 }
 
-// HTML injection
-
 async function patchIndexHtml(distDir: string, apiUrl: string): Promise<string> {
 	const html = await readFile(join(distDir, "index.html"), "utf-8");
 	const injection = `<script>window.__THEAUTH_API_URL__ = ${JSON.stringify(apiUrl)};</script>`;
@@ -70,10 +73,7 @@ async function patchIndexHtml(distDir: string, apiUrl: string): Promise<string> 
 		: injection + html;
 }
 
-// Seed data
-
 async function seedDemoData(theauth: TheAuth): Promise<void> {
-	// Seed a demo user
 	theauth.db
 		.insert(users)
 		.values({
@@ -85,7 +85,6 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 		})
 		.run();
 
-	// Agent 1: github-reader (autonomous)
 	const githubPerms: Permission[] = [
 		{ resource: "mcp:github:repos", actions: ["read", "list"] },
 		{ resource: "mcp:github:issues", actions: ["read", "list", "write"] },
@@ -97,7 +96,6 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 		permissions: githubPerms,
 	});
 
-	// Agent 2: slack-bot (service)
 	const slackPerms: Permission[] = [
 		{ resource: "mcp:slack:channels", actions: ["read"] },
 		{ resource: "mcp:slack:messages", actions: ["read"] },
@@ -109,7 +107,6 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 		permissions: slackPerms,
 	});
 
-	// Agent 3: deploy-helper (delegated)
 	const deployPerms: Permission[] = [{ resource: "mcp:deploy:staging", actions: ["execute"] }];
 	const deployAgent = await theauth.agent.create({
 		ownerId: "user-demo",
@@ -118,7 +115,6 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 		permissions: deployPerms,
 	});
 
-	// Delegation: github-reader -> deploy-helper
 	await theauth.delegate({
 		fromAgent: githubAgent.id,
 		toAgent: deployAgent.id,
@@ -127,7 +123,6 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 		maxDepth: 2,
 	});
 
-	// Generate audit entries by running authorize calls
 	const authorizeChecks = [
 		{ agentId: githubAgent.id, action: "read", resource: "mcp:github:repos" },
 		{ agentId: githubAgent.id, action: "list", resource: "mcp:github:issues" },
@@ -151,8 +146,6 @@ async function seedDemoData(theauth: TheAuth): Promise<void> {
 	stdout.write(`  Seeded: 3 agents, 1 delegation, ${authorizeChecks.length} audit entries\n`);
 }
 
-// Auth middleware
-
 function createAuthRoute(secret: string | null): Hono {
 	const auth = new Hono();
 
@@ -173,32 +166,30 @@ function createAuthRoute(secret: string | null): Hono {
 	return auth;
 }
 
-// Server
-
-export async function startDemoServer(options: DemoServerOptions): Promise<void> {
+export async function startDemoServer(options: DemoServerOptions): Promise<DemoServerHandle> {
 	const { port } = options;
+	const quiet = options.quiet === true;
 	const dashboardSecret = env.THEAUTH_DASHBOARD_SECRET ?? null;
 
-	if (dashboardSecret === null) {
+	if (dashboardSecret === null && !quiet) {
 		stdout.write("  [warn] THEAUTH_DASHBOARD_SECRET is not set -- dashboard auth is disabled.\n");
 	}
 
-	// 1. Create TheAuth with in-memory SQLite
-	const theauth = await createTheAuth({
-		database: { provider: "sqlite", url: ":memory:" },
-		agents: {
-			enabled: true,
-			maxPerUser: 50,
-			defaultPermissions: [],
-			auditAll: true,
-			tokenExpiry: "24h",
-		},
-	});
+	const theauth =
+		options.theauth ??
+		(await createTheAuth({
+			database: { provider: "sqlite", url: ":memory:" },
+			agents: {
+				enabled: true,
+				maxPerUser: 50,
+				defaultPermissions: [],
+				auditAll: true,
+				tokenExpiry: "24h",
+			},
+		}));
 
-	// 2. Seed demo data
-	await seedDemoData(theauth);
+	if (options.theauth === undefined) await seedDemoData(theauth);
 
-	// 3. Build the Hono app
 	// Demo only: no authentication on the management routes. Real apps pass
 	// `authenticate` (see the adapter docs).
 	const api = theAuthHono(theauth, { allowUnauthenticated: true });
@@ -281,7 +272,6 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		);
 	});
 
-	// Delegations (aggregate from all agents)
 	app.get("/api/delegations", async (c) => {
 		try {
 			const agents = await theauth.agent.list({});
@@ -304,7 +294,6 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		}
 	});
 
-	// Users
 	app.get("/api/users", (c) => {
 		return c.json([
 			{
@@ -341,7 +330,6 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		return c.body(null, 204);
 	});
 
-	// Agent permissions (compatibility route)
 	app.get("/api/agents/:id/permissions", async (c) => {
 		const agentId = c.req.param("id");
 		try {
@@ -353,7 +341,6 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		}
 	});
 
-	// MCP servers (in-memory)
 	const mcpServers: Array<Record<string, unknown>> = [];
 	app.get("/api/mcp/servers", (c) => c.json(mcpServers));
 	app.post("/api/mcp/servers", async (c) => {
@@ -368,8 +355,6 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		return c.json(server, 201);
 	});
 
-	// Settings
-	// Settings (in-memory)
 	let currentSettings = {
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: { enabled: true, maxPerUser: 50, auditAll: true, tokenExpiry: "24h" },
@@ -383,20 +368,31 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 		return c.json(currentSettings);
 	});
 
-	// Auth + API routes
 	app.route("/api", authRoute);
 	app.route("/api", api);
 
-	// 4. Serve dashboard static files
-	const distDir = resolveDashboardDistDir();
 	const apiUrl = `http://localhost:${port}/api`;
-	const indexHtml = await patchIndexHtml(distDir, apiUrl);
+	let distDir = "";
+	let indexHtml = "";
+	let hasDashboard = true;
+	try {
+		distDir = resolveDashboardDistDir();
+		indexHtml = await patchIndexHtml(distDir, apiUrl);
+	} catch (err) {
+		// A caller that brought its own instance can live without the UI.
+		if (options.theauth === undefined) throw err;
+		hasDashboard = false;
+	}
 
-	// Serve static assets or fall back to SPA index.html
 	app.get("*", (c) => {
+		if (!hasDashboard) {
+			return c.json(
+				{ code: "NO_DASHBOARD", message: "Dashboard build not found. The API is at /api." },
+				404,
+			);
+		}
 		const pathname = decodeURIComponent(new URL(c.req.url).pathname);
 
-		// Try serving a static file if the path has an extension
 		if (extname(pathname) !== "") {
 			const filePath = resolve(join(distDir, pathname));
 			const resolvedDist = resolve(distDir);
@@ -417,18 +413,29 @@ export async function startDemoServer(options: DemoServerOptions): Promise<void>
 			}
 		}
 
-		// SPA fallback: patched index.html
 		return c.html(indexHtml);
 	});
 
-	// 5. Start the server
-	serve({ fetch: app.fetch, port }, () => {
-		stdout.write("\n");
-		stdout.write("  TheAuth Dashboard (demo mode)\n");
-		stdout.write("  ==============================\n\n");
-		stdout.write(`  Local:     http://localhost:${port}\n`);
-		stdout.write(`  API:       ${apiUrl}\n`);
-		stdout.write(`  Database:  in-memory SQLite\n\n`);
-		stdout.write("  Press Ctrl+C to stop.\n\n");
+	return await new Promise<DemoServerHandle>((resolveStart, rejectStart) => {
+		const server = serve(
+			{ fetch: app.fetch, port, ...(options.hostname ? { hostname: options.hostname } : {}) },
+			() => {
+				if (!quiet) {
+					stdout.write("\n");
+					stdout.write("  TheAuth Dashboard (demo mode)\n");
+					stdout.write("  ==============================\n\n");
+					stdout.write(`  Local:     http://localhost:${port}\n`);
+					stdout.write(`  API:       ${apiUrl}\n`);
+					stdout.write(`  Database:  in-memory SQLite\n\n`);
+					stdout.write("  Press Ctrl+C to stop.\n\n");
+				}
+				resolveStart({
+					port,
+					dashboard: hasDashboard,
+					close: () => new Promise<void>((done) => server.close(() => done())),
+				});
+			},
+		);
+		server.on("error", rejectStart);
 	});
 }

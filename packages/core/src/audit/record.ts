@@ -94,10 +94,7 @@ function noteFailure(db: Database, event: RecordedEvent, error: unknown): void {
 }
 
 /**
- * After failures, write one `audit.write_failed` row ahead of the next
- * successful event, in the same agent's chain, so the stored log shows that
- * rows are missing and how many. Mirrors the Go `audit.events_dropped` marker.
- * If the marker cannot be written the count is kept for the next write.
+ * After failures, write one `audit.write_failed` row ahead of the next successful event, in the same agent's chain, so the stored log shows that rows are missing and how many. Mirrors the Go `audit.events_dropped` marker. If the marker cannot be written the count is kept for the next write.
  */
 async function writeGapMarker(db: Database, agentId: string, userId: string): Promise<void> {
 	const st = stateFor(db);
@@ -135,12 +132,7 @@ async function writeGapMarker(db: Database, agentId: string, userId: string): Pr
 }
 
 /**
- * Write a non-authorization event (delegation, approval) to the audit table so
- * it joins the agent's hash chain. Best effort: a failure here must not undo
- * the delegation or approval that already happened, so it returns false and
- * never throws. Failures are not silent, though: each one is counted
- * (getAuditWriteFailures), reported to the `audit.onAuditError` callback, and
- * the next successful write is preceded by an `audit.write_failed` gap row.
+ * Write a non-authorization event (delegation, approval) to the audit table so it joins the agent's hash chain. Best effort: a failure here must not undo the delegation or approval that already happened, so it returns false and never throws. Failures are not silent, though: each one is counted (getAuditWriteFailures), reported to the `audit.onAuditError` callback, and the next successful write is preceded by an `audit.write_failed` gap row.
  */
 export async function recordAuditEvent(db: Database, event: RecordedEvent): Promise<boolean> {
 	try {

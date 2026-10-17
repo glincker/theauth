@@ -5,10 +5,7 @@ import type { SafeFetchOptions } from "./safe-fetch.js";
 import { safeFetchJson } from "./safe-fetch.js";
 import type { McpAuthContext } from "./types.js";
 
-/**
- * Remote JWKS retrieval for `private_key_jwt` clients and jwt-bearer trusted
- * issuers. Goes through the SSRF-safe fetcher and caches per module instance.
- */
+/** Remote JWKS retrieval for `private_key_jwt` clients and jwt-bearer trusted issuers. Goes through the SSRF-safe fetcher and caches per module instance. */
 
 const JWKS_MAX_BYTES = 64 * 1024;
 const JWKS_CACHE_MS = 5 * 60 * 1000;
@@ -39,10 +36,7 @@ function isJwkArray(value: unknown): value is JWK[] {
 	);
 }
 
-/**
- * Fetch a JWKS document. `forceRefresh` re-reads it (used when a `kid` is not
- * in the cached set), rate limited so a hostile `kid` cannot drive fetches.
- */
+/** Fetch a JWKS document. `forceRefresh` re-reads it (used when a `kid` is not in the cached set), rate limited so a hostile `kid` cannot drive fetches. */
 export async function loadRemoteJwks(
 	ctx: McpAuthContext,
 	uri: string,

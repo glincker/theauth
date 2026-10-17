@@ -11,8 +11,6 @@ import type {
 	SignUpInput,
 } from "./types.js";
 
-// Email validation
-
 /**
  * One "@", no whitespace, and a "." in the domain with at least one character
  * on each side. A scan, not a regex: `[^\s@]+\.[^\s@]+` can match a dot in
@@ -23,8 +21,6 @@ function isValidEmail(email: string): boolean {
 	if (at < 1 || at !== email.lastIndexOf("@")) return false;
 	for (let i = 0; i < email.length; i += 1) {
 		const c = email.charCodeAt(i);
-		// space, tab, newline, carriage return, vertical tab, form feed, NBSP and
-		// the other Unicode spaces that \s covers
 		if (
 			c <= 32 ||
 			c === 0xa0 ||
@@ -48,8 +44,6 @@ function isValidEmail(email: string): boolean {
 	return false;
 }
 
-// ID generation
-
 function generateUserId(): string {
 	return `usr_${randomUUID().replace(/-/g, "")}`;
 }
@@ -62,12 +56,7 @@ function generateToken(): string {
 	return randomBytes(32).toString("hex");
 }
 
-// Raw SQL helpers
-
-/**
- * Execute a raw SQL statement against the underlying SQLite connection.
- * Uses the same pattern as theauth/packages/core/src/db/migrations.ts.
- */
+/** Raw DDL and DML on the underlying SQLite connection. Mirrors core's migrations.ts. */
 function execRaw(db: Database, sql: string): void {
 	// biome-ignore lint/suspicious/noExplicitAny: accessing internal drizzle session for raw DDL
 	const session = (db as any).session;
@@ -101,7 +90,6 @@ function queryRaw(db: Database, sql: string, params: unknown[] = []): unknown[] 
 		}
 	}
 
-	// better-sqlite3: stmt.all(...spread)
 	if (typeof stmt.all === "function") {
 		return stmt.all(...params) as unknown[];
 	}
@@ -117,7 +105,6 @@ function runRaw(db: Database, sql: string, params: unknown[] = []): void {
 
 	const stmt = client.prepare(sql);
 
-	// sql.js path detected via getAsObject; expects an array of params.
 	if (typeof stmt.getAsObject === "function") {
 		try {
 			if (params.length > 0) stmt.bind(params);
@@ -128,13 +115,10 @@ function runRaw(db: Database, sql: string, params: unknown[] = []): void {
 		return;
 	}
 
-	// better-sqlite3: stmt.run(...spread)
 	if (typeof stmt.run === "function") {
 		stmt.run(...params);
 	}
 }
-
-// Table initialisation
 
 function initTables(db: Database): void {
 	execRaw(
@@ -166,8 +150,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_email_accounts_reset_token
 `,
 	);
 }
-
-// Row → domain type helpers
 
 interface UserRow {
 	id: string;
@@ -201,16 +183,8 @@ function rowToEmailUser(user: UserRow, account: AccountRow): EmailUser {
 	};
 }
 
-// Factory
-
-/**
- * Create an email+password authentication module backed by the TheAuth database.
- *
- * @param config - Email auth configuration (callbacks, password policy, URLs).
- * @param db     - The TheAuth Drizzle database instance.
- */
+/** Creates the email+password auth module on the TheAuth database. */
 export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAuthModule {
-	// Resolve config with defaults
 	const passwordConfig: PasswordConfig = {
 		minLength: config.password?.minLength ?? 8,
 		maxLength: config.password?.maxLength ?? 128,
@@ -222,10 +196,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 	const resetExpiry = config.resetExpiry ?? 3600; // 1h
 	const requireVerification = config.requireVerification ?? true;
 
-	// Initialise the email accounts table
 	initTables(db);
-
-	// helpers
 
 	function findUserByEmail(email: string): { user: UserRow; account: AccountRow } | null {
 		const rows = queryRaw(
@@ -305,7 +276,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { user, account };
 	}
 
-	// createSession helper (simple bearer token stored in theauth_sessions) ─
+	// createSession: simple bearer token stored in theauth_sessions
 
 	function enforceSessionLimit(userId: string): void {
 		const max = config.sessionLimit?.maxConcurrent;
@@ -353,8 +324,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		runRaw(db, `DELETE FROM theauth_sessions WHERE user_id = ?`, [userId]);
 	}
 
-	// signUp
-
 	async function signUp(input: SignUpInput): Promise<{ user: EmailUser; token: string }> {
 		if (!isValidEmail(input.email)) {
 			throw new EmailAuthError(ErrorCodes.INVALID_EMAIL, "Invalid email address.");
@@ -368,7 +337,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			);
 		}
 
-		// Check for duplicate
 		const existing = findUserByEmail(input.email);
 		if (existing) {
 			throw new EmailAuthError(
@@ -382,7 +350,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		const now = Date.now();
 		const passwordHash = await hashPassword(input.password);
 
-		// Insert user
 		runRaw(
 			db,
 			`INSERT INTO theauth_users (id, email, name, created_at, updated_at)
@@ -390,11 +357,9 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 			[userId, input.email, input.name ?? null, now, now],
 		);
 
-		// Generate verification token
 		const verificationToken = generateToken();
 		const verificationExpires = now + verificationExpiry * 1000;
 
-		// Insert email account
 		runRaw(
 			db,
 			`INSERT INTO theauth_email_accounts
@@ -419,8 +384,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 		return { user: emailUser, token };
 	}
-
-	// signIn
 
 	async function signIn(
 		input: SignInInput,
@@ -480,8 +443,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		};
 	}
 
-	// verifyEmail
-
 	async function verifyEmail(token: string): Promise<{ verified: boolean }> {
 		const rows = queryRaw(
 			db,
@@ -513,12 +474,10 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		return { verified: true };
 	}
 
-	// requestReset
-
 	async function requestReset(email: string): Promise<void> {
 		const result = findUserByEmail(email);
 		if (!result) {
-			// Silent return — do not reveal whether the email exists
+			// Silent return: do not reveal whether the email exists
 			return;
 		}
 
@@ -537,8 +496,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		const resetUrl = `${config.appUrl}/auth/reset-password?token=${resetToken}`;
 		await config.sendResetEmail(email, resetToken, resetUrl);
 	}
-
-	// resetPassword
 
 	async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
 		const rows = queryRaw(
@@ -587,13 +544,10 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		}
 		if (config.signInGate) await config.signInGate.onPasswordChanged(userId);
 
-		// Revoke all sessions as a security measure
 		revokeAllSessions(userId);
 
 		return { success: true };
 	}
-
-	// changePassword
 
 	async function changePassword(
 		userId: string,
@@ -654,8 +608,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		});
 	}
 
-	// getUser
-
 	async function getUser(userId: string): Promise<EmailUser | null> {
 		const result = findUserById(userId);
 		if (!result) return null;
@@ -667,8 +619,6 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 		if (!result) return null;
 		return rowToEmailUser(result.user, result.account);
 	}
-
-	// handleRequest
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
@@ -742,7 +692,7 @@ export function createEmailAuth(config: EmailAuthConfig, db: Database): EmailAut
 
 			if (path === "/auth/change-password") {
 				const body = await parseBody();
-				// Expect userId in header or body for now — caller handles auth
+				// Expects userId in header or body for now. Caller handles auth
 				const userId = String(body.userId ?? "");
 				if (!userId) {
 					return jsonError("UNAUTHORIZED", "Missing userId.", 401);

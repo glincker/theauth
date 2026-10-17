@@ -1,11 +1,4 @@
-/**
- * Drizzle schema for the Shared Signals transmitter.
- *
- * - `theauth_ssf_streams`: one row per receiver stream.
- * - `theauth_ssf_subjects`: the stream's subject list. In `subject_mode`
- *   "none" a row means included, in "all" a row means excluded.
- * - `theauth_ssf_outbox`: signed SETs awaiting delivery or poll.
- */
+/** Drizzle schema for the Shared Signals transmitter. */
 
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 

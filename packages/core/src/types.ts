@@ -37,37 +37,17 @@ import type { SecondaryStorageConfig } from "./storage/types.js";
 
 export type { DatabaseConfig };
 
-/**
- * Main configuration for TheAuth
- */
+/** Main configuration for TheAuth. */
 export interface TheAuthConfig {
-	/** Database connection - Drizzle instance or connection config */
 	database: DatabaseConfig;
 
-	/** Agent identity configuration */
 	agents?: AgentConfig;
 
-	/** Audit trail options. */
 	audit?: AuditConfig;
 
-	/** MCP authorization server configuration */
 	mcp?: McpConfig;
 
-	/**
-	 * Human auth configuration.
-	 *
-	 * `adapter` plugs in an existing auth provider (better-auth, Auth.js,
-	 * Clerk, custom) so TheAuth can resolve the human user behind an
-	 * incoming request.
-	 *
-	 * `session` enables TheAuth-managed session tokens backed by the
-	 * `theauth_sessions` database table.  When provided, the returned
-	 * `theauth.auth.session` manager is available for creating, validating,
-	 * and revoking sessions.
-	 *
-	 * When omitted entirely the instance operates in *manual user management*
-	 * mode – `theauth.auth.resolveUser()` always returns `null`.
-	 */
+	/** Human auth: plug in an existing auth provider via `adapter`, or enable built-in sessions with `session`. */
 	auth?: {
 		adapter?: AuthAdapter;
 		session?: SessionConfig;
@@ -79,244 +59,99 @@ export interface TheAuthConfig {
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
 	hooks?: TheAuthHooks;
 
-	/** W3C DID (Decentralized Identifiers) configuration */
 	did?: {
-		/** did:web config — required for generating did:web identities */
+		/** did:web config, required for generating did:web identities. */
 		web?: DidWebConfig;
 	};
 
 	/** Auth plugins (email, OAuth, 2FA, org, etc.) */
 	plugins?: TheAuthPlugin[];
 
-	/**
-	 * Where short-lived state lives: rate limit counters, device codes, nonces,
-	 * caches. Defaults to process memory.
-	 *
-	 * Pass one backend for everything, or `{ default, rateLimit, deviceCodes, ... }`
-	 * to override per feature. Built-ins: `"memory"`, `"database"`, or an instance
-	 * from `redisStorage()`, `cloudflareKvStorage()`, `databaseStorage()`,
-	 * `defineSecondaryStorage()`.
-	 */
+	/** Storage for short-lived state: rate limit counters, device codes, nonces, caches. */
 	secondaryStorage?: SecondaryStorageConfig;
 
-	/**
-	 * How to find the real client IP behind proxies. Forwarded headers are not
-	 * trusted unless you say how many proxies you run or name a header your edge
-	 * overwrites. Used by plugin endpoint rate limits.
-	 */
+	/** How to find the real client IP behind proxies. Forwarded headers are not trusted unless you say how. */
 	trustedProxy?: TrustedProxyConfig;
 
 	/** Base URL for the auth server */
 	baseUrl?: string;
 
-	/**
-	 * Hosts this deployment may answer on (custom domains, tenant subdomains,
-	 * preview URLs). When set, plugins that build absolute URLs (OAuth redirect
-	 * URIs) use the request host if it matches, and fall back to `baseUrl`
-	 * otherwise. Supports `*.example.com`, `**.example.com`, `host:*`. Unset by
-	 * default, which keeps the static `baseUrl` behavior.
-	 */
+	/** Hosts this deployment may answer on: custom domains, tenant subdomains, preview URLs. */
 	allowedHosts?: string[];
 
-	/**
-	 * Honor `X-Forwarded-Host` and `X-Forwarded-Proto` when matching
-	 * `allowedHosts`. Only enable behind a proxy that overwrites them.
-	 */
+	/** Honor `X-Forwarded-Host` and `X-Forwarded-Proto` when matching `allowedHosts`. Only enable behind a trusted proxy. */
 	trustForwardedHeaders?: boolean;
 
 	/** Secret key for signing tokens */
 	secret?: string;
 
-	/**
-	 * Magic link (passwordless email) authentication.
-	 *
-	 * When provided, `theauth.magicLink` is available with `sendLink`,
-	 * `verify`, and `handleRequest`. Requires `auth.session` to be configured
-	 * so that sessions can be issued on successful verification.
-	 */
+	/** Magic link (passwordless email) authentication. Enables `theauth.magicLink`. */
 	magicLink?: MagicLinkConfig;
 
-	/**
-	 * Email OTP (one-time password) authentication.
-	 *
-	 * When provided, `theauth.emailOtp` is available with `sendCode`,
-	 * `verifyCode`, and `handleRequest`. Requires `auth.session` to be
-	 * configured so that sessions can be issued on successful verification.
-	 */
+	/** Email OTP (one-time password) login. Enables `theauth.emailOtp`. */
 	emailOtp?: EmailOtpConfig;
 
-	/**
-	 * Email verification flow.
-	 *
-	 * When provided, `theauth.emailVerification` is available with
-	 * `sendVerification`, `verify`, `isVerified`, and `handleRequest`.
-	 * The caller provides a `sendVerificationEmail` callback to deliver the
-	 * link.
-	 */
+	/** Email verification flow. Enables `theauth.emailVerification`. */
 	emailVerification?: EmailVerificationConfig;
 
-	/**
-	 * TOTP two-factor authentication.
-	 *
-	 * When provided, `theauth.totp` is available with `setup`, `enable`,
-	 * `disable`, `verify`, `isEnabled`, `regenerateBackupCodes`, and
-	 * `handleRequest`. Users call `setup` to get a secret + backup codes,
-	 * then `enable` after scanning their authenticator app.
-	 */
+	/** TOTP two-factor authentication. Enables `theauth.totp`. */
 	totp?: TotpConfig;
 
-	/**
-	 * Central sign-in gate policy.
-	 *
-	 * Every session-issuing path (username, magic link, passkey, OAuth, email
-	 * plugin) consults the gate. A forced password change is always enforced.
-	 * Second factor is enforced for `require2faFor` methods (default when this
-	 * block is present: password, social, magic_link) for users who enabled
-	 * TOTP. Trusted devices (`trustedDevice.enabled`) are off by default.
-	 */
+	/** Central sign-in gate policy, applied to every session-issuing path. */
 	signInGate?: SignInGateConfig;
 
-	/**
-	 * Passkey / WebAuthn authentication.
-	 *
-	 * When provided, `theauth.passkey` is available for registering and
-	 * authenticating with platform authenticators (Face ID, Touch ID,
-	 * Windows Hello) and roaming authenticators (hardware security keys).
-	 */
+	/** Passkey (WebAuthn) authentication. Enables `theauth.passkey`. */
 	passkey?: PasskeyConfig;
 
-	/**
-	 * Organizations + RBAC.
-	 *
-	 * When provided, `theauth.org` is available with org CRUD, membership
-	 * management, invitation flows, and role-based permission checking.
-	 */
+	/** Organizations and RBAC. Enables `theauth.org`. */
 	org?: OrgConfig;
 
-	/**
-	 * SSO (SAML 2.0 + OIDC) enterprise authentication.
-	 *
-	 * When provided, `theauth.sso` is available for creating org-level SSO
-	 * connections, generating auth URLs, and processing callbacks.
-	 */
+	/** SAML 2.0 and OIDC enterprise SSO. Enables `theauth.sso`. */
 	sso?: SsoConfig;
 
-	/**
-	 * Admin module.
-	 *
-	 * When provided, `theauth.admin` is available for listing users, banning,
-	 * impersonation, and deletion.
-	 */
+	/** Admin module. Enables `theauth.admin`. */
 	admin?: AdminConfig;
 
-	/**
-	 * API key management.
-	 *
-	 * When provided, `theauth.apiKeys` is available for creating and validating
-	 * static API keys with permission scopes.
-	 */
+	/** API key management. Enables `theauth.apiKeys`. */
 	apiKeys?: ApiKeyManagerConfig;
 
-	/**
-	 * Username + password authentication.
-	 *
-	 * When provided, `theauth.username` is available with `signUp`, `signIn`,
-	 * `changePassword`, `changeUsername`, and `handleRequest`. Requires
-	 * `auth.session` to be configured so that sessions can be issued.
-	 */
+	/** Username and password authentication. Enables `theauth.username`. */
 	username?: UsernameAuthConfig;
 
-	/**
-	 * Password reset (forgot password) flow.
-	 *
-	 * When provided, `theauth.passwordReset` is available with `requestReset`,
-	 * `resetPassword`, and `handleRequest`. Requires `username` and
-	 * `auth.session` to be configured. The caller provides a `sendResetEmail`
-	 * callback to deliver the reset link.
-	 */
+	/** Password reset (forgot password) flow. Enables `theauth.passwordReset`. */
 	passwordReset?: PasswordResetConfig;
 
-	/**
-	 * Phone number (SMS OTP) authentication.
-	 *
-	 * When provided, `theauth.phone` is available with `sendCode`, `verifyCode`,
-	 * and `handleRequest`. Requires `auth.session` to be configured.
-	 */
+	/** Phone (SMS OTP) authentication. Enables `theauth.phone`. */
 	phone?: PhoneAuthConfig;
 
-	/**
-	 * Captcha integration (reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile).
-	 *
-	 * When provided, `theauth.captcha` is available with `verify` and
-	 * `middleware`.
-	 */
+	/** Captcha (reCAPTCHA v2/v3, hCaptcha, Turnstile). Enables `theauth.captcha`. */
 	captcha?: CaptchaConfig;
 
-	/**
-	 * Webhook endpoints to notify on auth events.
-	 *
-	 * Each entry specifies a URL, signing secret, and the events it subscribes
-	 * to. Deliveries are fire-and-forget with exponential backoff retries.
-	 */
+	/** Webhook endpoints to notify on auth events. Each entry has a URL and signing secret. */
 	webhooks?: WebhookConfig[];
 
-	/**
-	 * Unified policy engine configuration.
-	 *
-	 * Controls the LRU cache (max entries, TTL), combining strategy
-	 * (deny-overrides vs permit-overrides), audit emission, and audit
-	 * sample rate. When omitted, the engine runs with safe defaults:
-	 * cache enabled (10,000 entries, 60s TTL), deny-overrides, full audit.
-	 */
+	/** Unified policy engine: LRU cache size and TTL, combine strategy, audit sampling. */
 	policy?: PolicyEngineConfig;
 
-	/**
-	 * Redirect chain configuration.
-	 *
-	 * When provided, `theauth.redirects` is available for capturing the user's
-	 * original destination before auth flows and restoring it afterwards,
-	 * with support for intermediate steps (onboarding, email verification, etc.).
-	 */
+	/** Redirect chain configuration. Enables `theauth.redirects`. */
 	redirects?: RedirectConfig;
 
-	/**
-	 * Session freshness configuration.
-	 *
-	 * Controls the maximum session age (in seconds) for sensitive operations.
-	 * When omitted, defaults to 300 seconds (5 minutes).
-	 */
+	/** Session freshness: maximum session age in seconds for sensitive operations. */
 	sessionFreshness?: SessionFreshnessConfig;
 
-	/**
-	 * Emit IETF agentic JWT claims on issued tokens.
-	 *
-	 * When true, tokens issued by the MCP token endpoint and the JWT session
-	 * module include additional claims defined in draft-goswami-agentic-jwt-00
-	 * and draft-liu-agent-operation-authorization-01, such as `agent_id`,
-	 * `agent_type`, and `trust_tier`. Off by default to preserve backward
-	 * compatibility with existing token consumers.
-	 *
-	 * @default false
-	 */
+	/** Emit IETF agentic JWT claims on issued tokens. */
 	emitAgenticJwtClaims?: boolean;
 }
 
 /** @deprecated Use `TheAuthConfig` instead. Will be removed in a future major version. */
 export type AuthConfig = TheAuthConfig;
 
-/**
- * The main TheAuth instance returned by createTheAuth()
- */
+/** The main TheAuth instance returned by createTheAuth(). */
 export interface TheAuthInstance {
-	/** Agent identity management */
 	agent: AgentModule;
-	/** Authorization engine */
 	authorize: AuthorizeFn;
-	/** Delegation chain management */
 	delegate: DelegateFn;
-	/** Audit log queries */
 	audit: AuditModule;
-	/** MCP authorization server */
 	mcp: McpModule;
 }
 
@@ -335,7 +170,6 @@ export interface AgentModule {
 export interface AuditModule {
 	query: (filter: AuditFilter) => Promise<AuditEntry[]>;
 	export: (options: AuditExportOptions) => Promise<string>;
-	/** Delete rows older than the retention period. */
 	cleanup: (options: {
 		retentionDays: number;
 	}) => Promise<{ deleted: number; checkpoints?: number }>;
@@ -419,7 +253,6 @@ export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promis
 export interface RequestContext {
 	/** Client IP address, used for ipAllowlist enforcement and audit logging */
 	ip?: string;
-	/** User-Agent string from the originating HTTP request */
 	userAgent?: string;
 }
 
@@ -427,14 +260,9 @@ export interface AuthorizeRequest {
 	action: string;
 	resource: string;
 	arguments?: Record<string, unknown>;
-	/**
-	 * Id of an approved approval request. When the matched permission requires
-	 * approval, authorize spends this request (single use) and allows the call.
-	 */
+	/** Id of an approved approval request. When the matched permission requires approval, authorize spends this request (single use) and allows the call. */
 	approvalId?: string;
-	/** Client IP address for ipAllowlist constraint enforcement */
 	ip?: string;
-	/** HTTP request context (IP, User-Agent) for audit log enrichment */
 	context?: RequestContext;
 }
 
@@ -456,29 +284,17 @@ export interface DelegationChain {
 	createdAt: Date;
 	/** Human owning the root agent of this chain, the accountable principal. */
 	rootOwnerId?: string;
-	/** Agent ids from the root delegator to `toAgent`, every hop included. */
 	path?: string[];
 }
 
 export type DelegateFn = (input: DelegateInput) => Promise<DelegationChain>;
 
 export interface AuditConfig {
-	/**
-	 * Link every audit row to the previous one with a SHA-256 hash (one chain per
-	 * agent). Off by default; rows written before you turn it on are left alone.
-	 */
+	/** Link each audit row to the previous one with a SHA-256 hash (one chain per agent). Off by default. */
 	tamperEvident?: boolean;
-	/**
-	 * Secret for HMAC-SHA256 hashing. Set it so someone with write access to the
-	 * database but not to this key cannot rewrite rows and recompute the chain.
-	 */
+	/** Secret for HMAC-SHA256 hashing. Set it so someone with write access to the database but not to this key cannot rewrite rows and recompute the chain. */
 	hmacKey?: string;
-	/**
-	 * Called when a best-effort audit write (delegation, approval, SCIM events)
-	 * fails. The write still never throws into the caller. Failures are also
-	 * counted, and the next successful write is preceded by an `audit.write_failed`
-	 * row so the stored log shows the gap. Keep the callback fast and non-throwing.
-	 */
+	/** Called when a best-effort audit write fails. */
 	onAuditError?: (info: { error: unknown; pendingFailures: number; totalFailures: number }) => void;
 }
 
@@ -511,7 +327,6 @@ export interface AuditExportOptions {
 	format: "json" | "csv";
 	since?: Date;
 	until?: Date;
-	/** Only export rows for agents owned by this user. */
 	userId?: string;
 }
 

@@ -1,21 +1,4 @@
-/**
- * Passkey / WebAuthn authentication for TheAuth.
- *
- * Implements server-side WebAuthn (Level 2) without external libraries.
- * Uses the Web Crypto API for signature verification
- * and a minimal CBOR decoder for attestation object parsing.
- *
- * Flow:
- *   Registration
- *     1. getRegistrationOptions(userId, userName) -> send to browser
- *     2. browser calls navigator.credentials.create(options)
- *     3. verifyRegistration(userId, response) -> stores credential
- *
- *   Authentication
- *     1. getAuthenticationOptions(userId?) -> send to browser
- *     2. browser calls navigator.credentials.get(options)
- *     3. verifyAuthentication(response) -> returns userId + credential
- */
+/** Passkey (WebAuthn Level 2) authentication, implemented on Web Crypto without external libraries. */
 
 import { and, eq, lt } from "drizzle-orm";
 import {
@@ -28,8 +11,6 @@ import {
 import type { Database } from "../db/database.js";
 import { passkeyChallenges, passkeyCredentials } from "../db/schema.js";
 import { decodeCbor } from "./cbor.js";
-
-// Error codes
 
 export const PASSKEY_ERROR = {
 	CHALLENGE_NOT_FOUND: "CHALLENGE_NOT_FOUND",
@@ -61,12 +42,8 @@ export class PasskeyError extends Error {
 	}
 }
 
-// Public types
-
 export interface PasskeyConfig {
-	/** Relying Party name (your app name) */
 	rpName: string;
-	/** Relying Party ID (your domain, e.g., "example.com") */
 	rpId: string;
 	/** Expected origin (e.g., "https://example.com") */
 	origin: string | string[];
@@ -76,10 +53,7 @@ export interface PasskeyConfig {
 	userVerification?: "required" | "preferred" | "discouraged";
 	/** Challenge timeout in ms (default: 60000, max: 300000) */
 	challengeTimeout?: number;
-	/**
-	 * Called after a passkey is registered or removed. Used to emit a Shared
-	 * Signals credential-change event. Errors are swallowed.
-	 */
+	/** Called after a passkey is added or removed (emits a Shared Signals credential-change event). Errors are swallowed. */
 	onCredentialChange?: (userId: string, change: "added" | "removed") => void | Promise<void>;
 }
 
@@ -153,41 +127,30 @@ export interface PasskeyModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// Internal types
-
 interface CoseKey {
 	kty: number;
 	alg: number;
 	crv?: number;
 	x?: Uint8Array;
 	y?: Uint8Array;
-	/** RSA modulus (COSE map key -1 for kty=3) */
 	n?: Uint8Array;
-	/** RSA exponent (COSE map key -2 for kty=3) */
 	e?: Uint8Array;
 }
 
 // COSE key type constants (OKP=1, EC2=2 used implicitly by algorithm detection)
 const COSE_KTY_RSA = 3;
 
-// COSE algorithm constants
 const COSE_ALG_ES256 = -7;
 const COSE_ALG_ES384 = -35;
 const COSE_ALG_ES512 = -36;
 const COSE_ALG_RS256 = -257;
 const COSE_ALG_EDDSA = -8;
 
-/** Maximum challenge timeout: 5 minutes */
 const MAX_CHALLENGE_TIMEOUT = 300_000;
 
-/** Default challenge timeout: 60 seconds */
 const DEFAULT_CHALLENGE_TIMEOUT = 60_000;
 
 // Base64url helpers (no Buffer -- uses btoa/atob via Uint8Array)
-
-// toBase64Url and fromBase64Url are imported from ../crypto/web-crypto.js
-
-// Crypto helpers
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
 	const buf = (data.buffer as ArrayBuffer).slice(
@@ -198,16 +161,11 @@ async function sha256(data: Uint8Array): Promise<Uint8Array> {
 	return new Uint8Array(hash);
 }
 
-/**
- * Constant-time byte comparison using Web Crypto constantTimeEqual.
- * Prevents timing side-channel attacks on hash comparisons.
- */
+/** Constant-time byte comparison, to avoid timing side channels on hash comparisons. */
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 	if (a.length !== b.length) return false;
 	return constantTimeEqual(a, b);
 }
-
-// COSE key parsing and verification
 
 function parseCoseKey(coseMap: Map<unknown, unknown>): CoseKey {
 	const kty = coseMap.get(1) as number;
@@ -221,22 +179,18 @@ function parseCoseKey(coseMap: Map<unknown, unknown>): CoseKey {
 	}
 
 	if (kty === COSE_KTY_RSA) {
-		// RSA: n is at map key -1, e is at map key -2
 		const n = coseMap.get(-1) as Uint8Array | undefined;
 		const e = coseMap.get(-2) as Uint8Array | undefined;
 		return { kty, alg, n, e };
 	}
 
-	// EC2 or OKP
 	const crv = coseMap.get(-1) as number | undefined;
 	const x = coseMap.get(-2) as Uint8Array | undefined;
 	const y = coseMap.get(-3) as Uint8Array | undefined;
 	return { kty, alg, crv, x, y };
 }
 
-/**
- * Returns the expected coordinate size in bytes for a given COSE EC algorithm.
- */
+/** Expected coordinate size in bytes for a COSE EC algorithm. */
 function ecCoordSize(alg: number): number {
 	switch (alg) {
 		case COSE_ALG_ES256:
@@ -295,18 +249,12 @@ async function verifySignatureES(
 	);
 }
 
-/**
- * Convert DER-encoded ECDSA signature to raw (r||s) format.
- * DER format: 0x30 len 0x02 rLen r 0x02 sLen s
- *
- * @param coordSize - Expected coordinate size in bytes (32 for P-256, 48 for P-384, 66 for P-521)
- */
+/** Converts a DER ECDSA signature to raw (r||s) form, padded to `coordSize` bytes per coordinate. */
 function derToRaw(der: Uint8Array, coordSize: number): Uint8Array {
 	if (der[0] !== 0x30) return der; // not DER, assume already raw
 	let offset = 2; // skip 0x30 and total length
 	if (der[1] === 0x81) offset = 3; // long form length
 
-	// Read r
 	if (der[offset] !== 0x02) {
 		throw new PasskeyError(PASSKEY_ERROR.SIGNATURE_INVALID, "Invalid DER: expected 0x02 for r");
 	}
@@ -316,7 +264,6 @@ function derToRaw(der: Uint8Array, coordSize: number): Uint8Array {
 	const rBytes = der.slice(offset, offset + rLen);
 	offset += rLen;
 
-	// Read s
 	if (der[offset] !== 0x02) {
 		throw new PasskeyError(PASSKEY_ERROR.SIGNATURE_INVALID, "Invalid DER: expected 0x02 for s");
 	}
@@ -329,7 +276,6 @@ function derToRaw(der: Uint8Array, coordSize: number): Uint8Array {
 	const r = rBytes[0] === 0 ? rBytes.slice(1) : rBytes;
 	const s = sBytes[0] === 0 ? sBytes.slice(1) : sBytes;
 
-	// Pad to correct coordinate size
 	const raw = new Uint8Array(coordSize * 2);
 	raw.set(r, coordSize - r.length);
 	raw.set(s, coordSize * 2 - s.length);
@@ -432,8 +378,6 @@ async function verifyCoseSignature(
 	}
 }
 
-// AuthData parsing
-
 interface ParsedAuthData {
 	rpIdHash: Uint8Array;
 	flags: number;
@@ -499,8 +443,6 @@ function parseAuthData(authData: Uint8Array): ParsedAuthData {
 	return { rpIdHash, flags, signCount, attestedCredentialData };
 }
 
-// HTTP helpers
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
 		status,
@@ -520,14 +462,10 @@ function getPathSegments(url: URL): string[] {
 	return url.pathname.split("/").filter(Boolean);
 }
 
-// Origin validation
-
 function isOriginAllowed(origin: string, allowed: string | string[]): boolean {
 	const origins = Array.isArray(allowed) ? allowed : [allowed];
 	return origins.includes(origin);
 }
-
-// Module factory
 
 export function createPasskeyModule(config: PasskeyConfig, db: Database): PasskeyModule {
 	const timeout = Math.min(
@@ -549,13 +487,10 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		}
 	}
 
-	// getRegistrationOptions
-
 	async function getRegistrationOptions(
 		userId: string,
 		userName: string,
 	): ReturnType<PasskeyModule["getRegistrationOptions"]> {
-		// Clean up expired challenges
 		await db.delete(passkeyChallenges).where(lt(passkeyChallenges.expiresAt, new Date()));
 
 		const challengeBytes = randomBytes(32);
@@ -573,7 +508,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			createdAt: now,
 		});
 
-		// Get existing credentials to exclude
 		const existing = await db
 			.select()
 			.from(passkeyCredentials)
@@ -605,13 +539,10 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		};
 	}
 
-	// verifyRegistration
-
 	async function verifyRegistration(
 		userId: string,
 		response: Parameters<PasskeyModule["verifyRegistration"]>[1],
 	): ReturnType<PasskeyModule["verifyRegistration"]> {
-		// 1. Decode clientDataJSON
 		const clientDataBytes = fromBase64Url(response.response.clientDataJSON);
 		let clientData: { type: string; challenge: string; origin: string; crossOrigin?: boolean };
 		try {
@@ -646,7 +577,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 		}
 
-		// 2. Verify challenge
 		const challengeRows = await db
 			.select()
 			.from(passkeyChallenges)
@@ -673,7 +603,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			throw new PasskeyError(PASSKEY_ERROR.CHALLENGE_EXPIRED, "Challenge expired");
 		}
 
-		// 3. Decode attestationObject (CBOR)
 		const attestationBytes = fromBase64Url(response.response.attestationObject);
 		const attestationObj = decodeCbor(attestationBytes);
 		if (!(attestationObj instanceof Map)) {
@@ -688,10 +617,8 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 		}
 
-		// 4. Parse authData
 		const authData = parseAuthData(authDataRaw);
 
-		// 5. Verify rpIdHash
 		const expectedRpIdHash = new Uint8Array(
 			await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(config.rpId)),
 		);
@@ -699,12 +626,10 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			throw new PasskeyError(PASSKEY_ERROR.RPID_MISMATCH, "rpIdHash mismatch");
 		}
 
-		// 6. Verify user present flag
 		if (!(authData.flags & FLAG_UP)) {
 			throw new PasskeyError(PASSKEY_ERROR.USER_NOT_PRESENT, "User present flag not set");
 		}
 
-		// 6a. Verify user verified flag when required
 		if (userVerification === "required" && !(authData.flags & FLAG_UV)) {
 			throw new PasskeyError(
 				PASSKEY_ERROR.USER_NOT_VERIFIED,
@@ -712,7 +637,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 		}
 
-		// 7. Extract credential data
 		if (!authData.attestedCredentialData) {
 			throw new PasskeyError(
 				PASSKEY_ERROR.MISSING_ATTESTATION_DATA,
@@ -724,7 +648,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		const credentialIdB64 = toBase64Url(credentialId);
 		const publicKeyB64 = toBase64Url(credentialPublicKey);
 
-		// 8. Check for duplicate credential ID
 		const existing = await db
 			.select()
 			.from(passkeyCredentials)
@@ -737,7 +660,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 		}
 
-		// 9. Store credential
 		const now = new Date();
 		const id = toHex(randomBytes(16));
 
@@ -770,8 +692,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		await notifyCredentialChange(userId, "added");
 		return { credential };
 	}
-
-	// getAuthenticationOptions
 
 	async function getAuthenticationOptions(
 		userId?: string,
@@ -817,12 +737,9 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		};
 	}
 
-	// verifyAuthentication
-
 	async function verifyAuthentication(
 		response: Parameters<PasskeyModule["verifyAuthentication"]>[0],
 	): ReturnType<PasskeyModule["verifyAuthentication"]> {
-		// 1. Decode clientDataJSON
 		const clientDataBytes = fromBase64Url(response.response.clientDataJSON);
 		let clientData: { type: string; challenge: string; origin: string; crossOrigin?: boolean };
 		try {
@@ -857,7 +774,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 		}
 
-		// 2. Verify challenge
 		const challengeRows = await db
 			.select()
 			.from(passkeyChallenges)
@@ -883,7 +799,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			throw new PasskeyError(PASSKEY_ERROR.CHALLENGE_EXPIRED, "Challenge expired");
 		}
 
-		// 3. Look up credential
 		const credentialId = response.id;
 		const credRows = await db
 			.select()
@@ -895,11 +810,9 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			throw new PasskeyError(PASSKEY_ERROR.CREDENTIAL_NOT_FOUND, "Credential not found");
 		}
 
-		// 4. Parse authenticatorData
 		const authDataBytes = fromBase64Url(response.response.authenticatorData);
 		const authData = parseAuthData(authDataBytes);
 
-		// 5. Verify rpIdHash
 		const expectedRpIdHash = new Uint8Array(
 			await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(config.rpId)),
 		);
@@ -907,12 +820,10 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			throw new PasskeyError(PASSKEY_ERROR.RPID_MISMATCH, "rpIdHash mismatch");
 		}
 
-		// 6. Verify user present flag
 		if (!(authData.flags & FLAG_UP)) {
 			throw new PasskeyError(PASSKEY_ERROR.USER_NOT_PRESENT, "User present flag not set");
 		}
 
-		// 6a. Verify user verified flag when required
 		if (userVerification === "required" && !(authData.flags & FLAG_UV)) {
 			throw new PasskeyError(
 				PASSKEY_ERROR.USER_NOT_VERIFIED,
@@ -952,7 +863,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			);
 		}
 
-		// 9. Update counter and lastUsedAt
 		const now = new Date();
 		await db
 			.update(passkeyCredentials)
@@ -976,8 +886,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		return { userId: credRow.userId, credential };
 	}
 
-	// listCredentials
-
 	async function listCredentials(userId: string): Promise<PasskeyCredential[]> {
 		const rows = await db
 			.select()
@@ -997,8 +905,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		}));
 	}
 
-	// removeCredential
-
 	async function removeCredential(credentialId: string, userId: string): Promise<void> {
 		await db
 			.delete(passkeyCredentials)
@@ -1011,14 +917,11 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 		await notifyCredentialChange(userId, "removed");
 	}
 
-	// handleRequest
-
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const method = request.method.toUpperCase();
 		const segments = getPathSegments(url);
 
-		// POST /auth/passkey/register/options
 		if (
 			method === "POST" &&
 			segments.length === 4 &&
@@ -1042,7 +945,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			}
 		}
 
-		// POST /auth/passkey/register/verify
 		if (
 			method === "POST" &&
 			segments.length === 4 &&
@@ -1067,7 +969,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			}
 		}
 
-		// POST /auth/passkey/login/options
 		if (
 			method === "POST" &&
 			segments.length === 4 &&
@@ -1087,7 +988,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			}
 		}
 
-		// POST /auth/passkey/login/verify
 		if (
 			method === "POST" &&
 			segments.length === 4 &&
@@ -1111,7 +1011,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			}
 		}
 
-		// GET /auth/passkey/credentials
 		if (
 			method === "GET" &&
 			segments.length === 3 &&
@@ -1130,7 +1029,6 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			}
 		}
 
-		// DELETE /auth/passkey/credentials/:id
 		if (
 			method === "DELETE" &&
 			segments.length === 4 &&

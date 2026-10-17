@@ -1,37 +1,25 @@
 /**
  * GitHub OAuth 2.0 provider.
- *
  * Endpoints:
  * - Authorization: https://github.com/login/oauth/authorize
  * - Token:         https://github.com/login/oauth/access_token
  * - UserInfo:      https://api.github.com/user
  * - Emails:        https://api.github.com/user/emails (for primary verified email)
- *
  * Notes:
- * - GitHub does not natively support PKCE in its OAuth flow, but we send the
- *   `code_challenge` parameter anyway — it is silently ignored, which is safe.
- *   The code verifier is still validated server-side within TheAuth state
- *   storage so the CSRF protection guarantee holds.
- * - The `user:email` scope is required to read the primary email when it is
- *   set to private on the GitHub profile.
+ * - GitHub does not natively support PKCE in its OAuth flow, but we send the `code_challenge` parameter anyway, it is silently ignored, which is safe. The code verifier is still validated server-side within TheAuth state storage so the CSRF protection guarantee holds.
+ * - The `user:email` scope is required to read the primary email when it is set to private on the GitHub profile.
  * - GitHub tokens do not carry an `expires_in` field for classic tokens.
- *
- * Docs: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://github.com/login/oauth/authorize";
 const TOKEN_URL = "https://github.com/login/oauth/access_token";
 const USER_URL = "https://api.github.com/user";
 const USER_EMAILS_URL = "https://api.github.com/user/emails";
 const DEFAULT_SCOPES = ["user:email"];
-
-// Raw response shapes
 
 interface GitHubTokenResponse {
 	access_token: string;
@@ -59,8 +47,6 @@ interface GitHubEmailEntry {
 	visibility: string | null;
 }
 
-// Factory
-
 /**
  * Create a GitHub OAuth provider instance.
  *
@@ -80,7 +66,7 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 		codeVerifier: string,
 		redirectUri: string,
 	): Promise<string> {
-		// Derive the challenge even though GitHub ignores it — ensures the same
+		// Derive the challenge even though GitHub ignores it, ensures the same
 		// code path is exercised in tests and keeps provider symmetry.
 		const codeChallenge = await deriveCodeChallenge(codeVerifier);
 		const effectiveRedirectUri = config.redirectUri ?? redirectUri;
@@ -156,7 +142,6 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 			"X-GitHub-Api-Version": "2022-11-28",
 		};
 
-		// Fetch profile
 		const profileResponse = await fetch(USER_URL, { headers });
 		if (!profileResponse.ok) {
 			const text = await profileResponse.text();
@@ -166,7 +151,7 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 		const raw = (await profileResponse.json()) as Record<string, unknown>;
 		const profile = raw as GitHubUserResponse;
 
-		// Resolve primary email — profile email may be null when set to private.
+		// Resolve primary email, profile email may be null when set to private.
 		let email = typeof profile.email === "string" ? profile.email : null;
 
 		if (!email) {
@@ -209,8 +194,6 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 async function fetchPrimaryEmail(
 	_accessToken: string,

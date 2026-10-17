@@ -101,15 +101,11 @@ function buildRecommendations(findings: PrivilegeFinding[], usedResources: Set<s
 		}
 	}
 
-	// Deduplicate
 	return [...new Set(recs)];
 }
 
 /**
  * Create the least-privilege analyzer.
- *
- * Scans agent permissions against actual audit log usage and surfaces
- * over-permissioned agents, wildcards, and unused grants.
  *
  * @example
  * ```typescript
@@ -123,7 +119,6 @@ export function createPrivilegeAnalyzer(db: Database) {
 		agentId: string,
 		options?: { since?: Date },
 	): Promise<PrivilegeAnalysis> {
-		// Fetch agent info
 		const agentRows = await db
 			.select({ id: agents.id, name: agents.name, expiresAt: agents.expiresAt })
 			.from(agents)
@@ -141,7 +136,6 @@ export function createPrivilegeAnalyzer(db: Database) {
 			};
 		}
 
-		// Fetch permissions
 		const permRows = await db
 			.select({
 				resource: permissions.resource,
@@ -158,7 +152,6 @@ export function createPrivilegeAnalyzer(db: Database) {
 				constraints: (r.constraints as Permission["constraints"]) ?? undefined,
 			}));
 
-		// Fetch audit log usage
 		const since =
 			options?.since ?? new Date(Date.now() - DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
@@ -171,7 +164,6 @@ export function createPrivilegeAnalyzer(db: Database) {
 
 		const findings: PrivilegeFinding[] = [];
 
-		// Check each permission
 		for (const perm of agentPermissions) {
 			// wildcard_permission: resource or action is a wildcard
 			const hasWildcardResource = isWildcard(perm.resource);
@@ -213,7 +205,7 @@ export function createPrivilegeAnalyzer(db: Database) {
 				const coveredUsed = [...usedResources].filter((r) => r.startsWith(permBase));
 
 				if (coveredUsed.length > 0 && coveredUsed.length < 3) {
-					// Only a few specific resources used — we can be more precise
+					// Only a few specific resources used, we can be more precise
 					const segments = perm.resource.split(":");
 					if (
 						segments.length <= 2 &&

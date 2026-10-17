@@ -10,6 +10,7 @@ import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth
 import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from "./codemod-run.js";
 import { startDashboardServer } from "./dashboard-server.js";
 import { startDemoServer } from "./demo-server.js";
+import { DEV_HELP, parseDevArgs, runDev } from "./dev-command.js";
 import { runInit } from "./init.js";
 import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
 import {
@@ -47,6 +48,7 @@ Commands:
   add           Copy UI components into your project as source (shadcn style)
   mcp           Start the stdio MCP server for coding assistants
   migrate       Move users from Auth0, Keycloak, Clerk and more (plan, import, verify, status)
+  dev           Zero-config local run with a seeded demo (--smoke, --port)
   dashboard     Launch the admin dashboard
   codemod       Source migrations (theauth codemod rename)
   login         Sign in with the device flow (RFC 8628)
@@ -67,6 +69,7 @@ Options:
 Examples:
   theauth init
   theauth init --agent --target claude,cursor
+  theauth dev
   theauth mcp
   theauth migrate
   theauth dashboard --port 3100
@@ -129,7 +132,6 @@ async function handleMigrateCommand(): Promise<void> {
 async function handleDashboard(): Promise<void> {
 	const args = argv.slice(2);
 
-	// --port or --port=3100
 	const portFlag = args.find((a) => a === "--port" || a.startsWith("--port="));
 	const portStr = portFlag
 		? portFlag.includes("=")
@@ -144,7 +146,6 @@ async function handleDashboard(): Promise<void> {
 		return;
 	}
 
-	// --static flag: use old static-only server (user has their own API)
 	const isStatic = args.includes("--static");
 
 	if (isStatic) {
@@ -156,9 +157,23 @@ async function handleDashboard(): Promise<void> {
 			: "http://localhost:3000";
 		await startDashboardServer({ port, apiUrl });
 	} else {
-		// Default: full demo server with in-memory DB + seed data
 		await startDemoServer({ port });
 	}
+}
+
+async function handleDev(): Promise<void> {
+	const parsed = parseDevArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(DEV_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${DEV_HELP}`);
+		exit(1);
+		return;
+	}
+	const code = await runDev(parsed);
+	exit(code);
 }
 
 async function handleCodemod(): Promise<void> {
@@ -339,6 +354,9 @@ async function main(): Promise<void> {
 			break;
 		case "migrate":
 			await handleMigrateCommand();
+			break;
+		case "dev":
+			await handleDev();
 			break;
 		case "dashboard":
 			await handleDashboard();

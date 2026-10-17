@@ -1,16 +1,11 @@
 /**
  * Have I Been Pwned password checking for TheAuth.
- *
- * Uses the k-anonymity model: only the first 5 hex characters of the SHA-1
- * hash are sent to the API. The full hash (and the password itself) never
- * leave the process.
+ * Uses the k-anonymity model: only the first 5 hex characters of the SHA-1 hash are sent to the API. The full hash (and the password itself) never leave the process.
  *
  * @see https://haveibeenpwned.com/API/v3#PwnedPasswords
  */
 
 import { sha1 } from "../crypto/web-crypto.js";
-
-// Public types
 
 export interface HibpConfig {
 	/** Reject passwords seen in more than N breaches (default: 0, reject any). */
@@ -21,24 +16,16 @@ export interface HibpConfig {
 	timeoutMs?: number;
 	/**
 	 * What to do when the HIBP API is unreachable or returns an error.
-	 * - `'allow'` – treat the password as clean and let the user continue.
-	 * - `'block'` – reject the password to be safe.
-	 * Default: `'allow'`.
+	 * - `'allow'`, treat the password as clean and let the user continue.
+	 * - `'block'`, reject the password to be safe. Default: `'allow'`.
 	 */
 	onError?: "allow" | "block";
 }
 
 export interface HibpModule {
-	/**
-	 * Check whether the password appears in any known data breach.
-	 * Returns the number of times it has been seen, or 0 if clean / API error
-	 * with `onError: 'allow'`.
-	 */
+	/** Check whether the password appears in any known data breach. Returns the number of times it has been seen, or 0 if clean / API error with `onError: 'allow'`. */
 	check(password: string): Promise<number>;
-	/**
-	 * Like `check`, but throws a `HibpBreachedError` when the breach count
-	 * exceeds the configured threshold.
-	 */
+	/** Like `check`, but throws a `HibpBreachedError` when the breach count exceeds the configured threshold. */
 	enforce(password: string): Promise<void>;
 }
 
@@ -59,14 +46,7 @@ async function sha1Hex(input: string): Promise<string> {
 	return hex.toUpperCase();
 }
 
-// Response parser
-
-/**
- * Parse the HIBP range response body.
- *
- * Each line is `<SUFFIX>:<COUNT>` where SUFFIX is the hash minus the first 5
- * characters (already stripped by the API).
- */
+/** Parse the HIBP range response body. */
 function parseRangeResponse(body: string): Map<string, number> {
 	const entries = new Map<string, number>();
 
@@ -87,8 +67,6 @@ function parseRangeResponse(body: string): Map<string, number> {
 
 	return entries;
 }
-
-// Module factory
 
 export function createHibpModule(config?: HibpConfig): HibpModule {
 	const threshold = config?.threshold ?? 0;
@@ -124,7 +102,7 @@ export function createHibpModule(config?: HibpConfig): HibpModule {
 				// from a confirmed breach
 				throw new HibpApiError(err instanceof Error ? err.message : "HIBP API request failed");
 			}
-			// onError === 'allow' — treat as clean
+			// onError === 'allow', treat as clean
 			return 0;
 		}
 

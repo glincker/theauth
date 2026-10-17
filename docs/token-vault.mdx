@@ -91,6 +91,35 @@ const { rotated } = await vault.rotateKeys();
 
 Once `rotateKeys()` reports zero on a second run, drop `k1` from the config.
 
+## Provider presets
+
+| Provider | Token URL | Refresh behavior | Quirk |
+|---|---|---|---|
+| github | `https://github.com/login/oauth/access_token` | Opt in | Tokens never expire unless token expiration is enabled; then 8 hour access, rotating refresh. |
+| google | `https://oauth2.googleapis.com/token` | Authorize params | Needs `access_type=offline` and `prompt=consent`; refresh token usually only on first consent. |
+| slack | `https://slack.com/api/oauth.v2.access` | Opt in | Rotation is per app and cannot be turned off; 12 hour access, single use refresh. |
+| linear | `https://api.linear.app/oauth/token` | Always | 24 hour access; every refresh rotates the refresh token. |
+| microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/token` | Scope | Request `offline_access` or no refresh token is issued. |
+| discord | `https://discord.com/api/oauth2/token` | Always | Basic auth; implicit and client credentials grants return no refresh token. |
+
+Notion and Atlassian are not preset because their token endpoints are documented with JSON bodies, which the vault refresh does not send.
+
+`providerPresets` and `resolveProviderPreset(id, { clientId, clientSecret })` return the URLs and `authStyle`; pass `authStyle` in the provider config to match.
+
+## Check a preset against the real provider
+
+Run one refresh grant with your own test credentials to confirm a preset works against the live provider. The script never prints token values.
+
+```bash
+PROVIDER=github CLIENT_ID=... CLIENT_SECRET=... REFRESH_TOKEN=... node scripts/smoke-token-vault-presets.mjs
+```
+
+Add `--dry-run` to print the request shape (URL, auth style, header names, body keys) with values masked. Nothing is sent.
+
+On success the output shows the HTTP status, whether an access token came back, `expires_in`, whether the provider rotated the refresh token, and the scope string. On failure it exits 1 and prints `error=<code>`, the provider's OAuth error code such as `invalid_grant`, never the response body.
+
+Run it by hand against a test app. CI never runs it.
+
 ## Not included
 
 RFC 8693 token exchange and an HTTP endpoint for agents to fetch tokens are not part of this release. `getAccessToken` is an in-process call. The older `theauth_oauth_accounts` table stores provider tokens in plaintext and is unchanged.

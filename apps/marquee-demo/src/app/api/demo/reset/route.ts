@@ -1,6 +1,5 @@
 /**
- * POST /api/demo/reset
- * Clear the current browser's demo session so it can restart from step 1.
+ * POST /api/demo/reset: clears this browser's demo session so it can restart from step 1.
  */
 
 import { NextResponse } from "next/server";

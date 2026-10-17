@@ -5,8 +5,6 @@ import { createAdminModule } from "./admin.js";
 
 export type { AdminConfig };
 
-// Plugin factory
-
 export function admin(config?: AdminConfig): TheAuthPlugin {
 	return {
 		id: "theauth-admin",

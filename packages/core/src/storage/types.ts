@@ -1,9 +1,6 @@
 /**
- * SecondaryStorage: the small key/value contract TheAuth uses for short-lived,
- * high-churn state (rate limit counters, device codes, nonces, caches).
- *
- * Keep the surface tiny on purpose so any backend fits: a Map, a SQL table,
- * Cloudflare KV, Redis, or something you write yourself.
+ * SecondaryStorage: the small key/value contract TheAuth uses for short-lived, high-churn state (rate limit counters, device codes, nonces, caches).
+ * Keep the surface tiny on purpose so any backend fits: a Map, a SQL table, Cloudflare KV, Redis, or something you write yourself.
  */
 
 /** Result of an atomic increment. */
@@ -23,19 +20,12 @@ export interface SecondaryStorage {
 	delete(key: string): Promise<void>;
 	/**
 	 * Increment a counter by one and return the new value.
-	 *
-	 * When the key is missing or expired it is created with value 1 and a TTL of
-	 * `ttlSeconds`. An existing live counter keeps its original expiry (fixed
-	 * window). Backends that cannot do this atomically must set
-	 * `atomicIncr = false` so callers and docs can tell.
+	 * When the key is missing or expired it is created with value 1 and a TTL of `ttlSeconds`. An existing live counter keeps its original expiry (fixed window). Backends that cannot do this atomically must set `atomicIncr = false` so callers and docs can tell.
 	 */
 	incr(key: string, ttlSeconds: number): Promise<IncrResult>;
 	/** Optional: list live keys that start with `prefix`. */
 	list?(prefix: string): Promise<string[]>;
-	/**
-	 * True when `incr` is atomic across concurrent callers and instances.
-	 * Omitted means true. Eventually consistent stores (Cloudflare KV) set false.
-	 */
+	/** True when `incr` is atomic across concurrent callers and instances. Omitted means true. Eventually consistent stores (Cloudflare KV) set false. */
 	readonly atomicIncr?: boolean;
 }
 
@@ -56,9 +46,7 @@ export type SecondaryStorageOption = SecondaryStorage | "memory" | "database";
 
 /**
  * `secondaryStorage` config on `createTheAuth`.
- *
- * Pass a single storage (or "memory" / "database") to use it everywhere, or an
- * object with `default` plus per-feature overrides.
+ * Pass a single storage (or "memory" / "database") to use it everywhere, or an object with `default` plus per-feature overrides.
  */
 export type SecondaryStorageConfig =
 	| SecondaryStorageOption

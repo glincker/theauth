@@ -1,7 +1,4 @@
-/**
- * The delegation_chains-backed store and the failure reasons of the live
- * delegation check, end to end against a real database.
- */
+/** The delegation_chains-backed store and the failure reasons of the live delegation check, end to end against a real database. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../src/db/database.js";

@@ -1,10 +1,6 @@
 /**
  * Clerk adapter for TheAuth.
- *
- * Clerk's SDK differs by runtime (Node.js, Edge, etc.) so this adapter is
- * injection-based: you provide `getUserIdFromRequest` (to verify the session
- * token) and `getUser` (to fetch the full user record).  This keeps `@clerk/sdk`
- * as an optional, framework-specific peer dep rather than a hard dependency.
+ * Clerk's SDK differs by runtime (Node.js, Edge, etc.) so this adapter is injection-based: you provide `getUserIdFromRequest` (to verify the session token) and `getUser` (to fetch the full user record). This keeps `@clerk/sdk` as an optional, framework-specific peer dep rather than a hard dependency.
  *
  * @example Node.js + Express
  * ```typescript
@@ -27,9 +23,7 @@
 
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
-/**
- * A Clerk user record – only the fields TheAuth reads.
- */
+/** A Clerk user record, only the fields TheAuth reads. */
 export interface ClerkUser {
 	id: string;
 	emailAddresses: Array<{ emailAddress: string }>;
@@ -39,29 +33,19 @@ export interface ClerkUser {
 }
 
 export interface ClerkAdapterOptions {
-	/**
-	 * Fetch a full Clerk user by their user ID.
-	 *
-	 * Called after `getUserIdFromRequest` succeeds.  Return `null` when the
-	 * user no longer exists in Clerk.
-	 */
+	/** Fetch a full Clerk user by their user ID. */
 	getUser: (userId: string) => Promise<ClerkUser | null>;
 
 	/**
 	 * Extract the authenticated user ID from the incoming `Request`.
-	 *
-	 * This is typically a call to Clerk's `getAuth()` helper (after
-	 * `clerkMiddleware` has run) or a manual JWT verification.  Return `null`
-	 * when the request is unauthenticated.
+	 * This is typically a call to Clerk's `getAuth()` helper (after `clerkMiddleware` has run) or a manual JWT verification.
 	 */
 	getUserIdFromRequest: (request: Request) => Promise<string | null>;
 }
 
 /**
  * Create an `AuthAdapter` backed by Clerk.
- *
- * Returns `null` when the request carries no valid Clerk session token or
- * when the user cannot be fetched from Clerk's API.
+ * Returns `null` when the request carries no valid Clerk session token or when the user cannot be fetched from Clerk's API.
  */
 export function clerkAdapter(options: ClerkAdapterOptions): AuthAdapter {
 	return {

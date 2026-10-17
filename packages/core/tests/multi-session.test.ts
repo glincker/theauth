@@ -1,6 +1,4 @@
-/**
- * Tests for multi-session support.
- */
+/** Tests for multi-session support. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../src/db/database.js";
@@ -15,8 +13,6 @@ import {
 } from "../src/session/multi-session.js";
 import type { SessionManager } from "../src/session/session.js";
 import { createSessionManager } from "../src/session/session.js";
-
-// Helpers
 
 const SESSION_SECRET = "test-session-secret-for-multi-session-tests-32chars!";
 const USER_A = "user-multi-a";
@@ -36,8 +32,6 @@ async function createTestDb(): Promise<Database> {
 
 	return db;
 }
-
-// listSessions
 
 describe("MultiSessionModule.listSessions", () => {
 	let db: Database;
@@ -104,8 +98,6 @@ describe("MultiSessionModule.listSessions", () => {
 	});
 });
 
-// revokeSession
-
 describe("MultiSessionModule.revokeSession", () => {
 	let db: Database;
 	let sessionManager: SessionManager;
@@ -140,8 +132,6 @@ describe("MultiSessionModule.revokeSession", () => {
 		expect(list[0]?.id).toBe(s2.id);
 	});
 });
-
-// revokeOtherSessions
 
 describe("MultiSessionModule.revokeOtherSessions", () => {
 	let db: Database;
@@ -185,8 +175,6 @@ describe("MultiSessionModule.revokeOtherSessions", () => {
 	});
 });
 
-// getSessionCount
-
 describe("MultiSessionModule.getSessionCount", () => {
 	let db: Database;
 	let sessionManager: SessionManager;
@@ -220,7 +208,7 @@ describe("MultiSessionModule.getSessionCount", () => {
 	});
 });
 
-// enforceSessionLimit — evict-oldest
+// enforceSessionLimit, evict-oldest
 
 describe("MultiSessionModule.enforceSessionLimit (evict-oldest)", () => {
 	let db: Database;
@@ -248,7 +236,7 @@ describe("MultiSessionModule.enforceSessionLimit (evict-oldest)", () => {
 		await sessionManager.create(USER_A);
 		await sessionManager.create(USER_A);
 
-		// At cap — enforcing before creating the 4th session evicts the oldest.
+		// At cap, enforcing before creating the 4th session evicts the oldest.
 		await mod.enforceSessionLimit(USER_A);
 
 		const list = await mod.listSessions(USER_A);
@@ -271,7 +259,7 @@ describe("MultiSessionModule.enforceSessionLimit (evict-oldest)", () => {
 	});
 });
 
-// enforceSessionLimit — reject
+// enforceSessionLimit, reject
 
 describe("MultiSessionModule.enforceSessionLimit (reject)", () => {
 	let db: Database;
@@ -319,16 +307,12 @@ describe("MultiSessionModule.enforceSessionLimit (reject)", () => {
 
 		try {
 			await mod.enforceSessionLimit(USER_A);
-		} catch {
-			// expected
-		}
+		} catch {}
 
 		// Both sessions must still be alive.
 		expect(await mod.getSessionCount(USER_A)).toBe(2);
 	});
 });
-
-// buildSessionMetadata
 
 describe("buildSessionMetadata", () => {
 	it("extracts Chrome on macOS from a typical Chrome UA", () => {

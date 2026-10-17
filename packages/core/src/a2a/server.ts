@@ -1,11 +1,4 @@
-/**
- * A2A JSON-RPC server for TheAuth.
- *
- * Creates a Web API Request/Response handler that implements the A2A
- * protocol's JSON-RPC endpoint. Handles message/send, tasks/get,
- * tasks/cancel, and message/stream (SSE). Authenticates callers through
- * TheAuth and logs every interaction to the audit trail.
- */
+/** A2A JSON-RPC server for TheAuth. */
 
 import type {
 	A2AAuditEvent,
@@ -43,8 +36,6 @@ function createInMemoryTaskStore(): A2ATaskStore {
 	};
 }
 
-// Helpers
-
 function jsonRpcError(id: string | number | null, error: A2AJsonRpcError): Response {
 	const body: A2AJsonRpcResponse = {
 		jsonrpc: A2A_JSONRPC_VERSION,
@@ -69,8 +60,6 @@ function jsonRpcSuccess(id: string | number, result: unknown): Response {
 	});
 }
 
-// Create A2A Server
-
 export interface A2AServer {
 	/** Handle an incoming HTTP request (JSON-RPC or agent card discovery) */
 	handleRequest: (request: Request) => Promise<Response>;
@@ -80,11 +69,6 @@ export interface A2AServer {
 
 /**
  * Create an A2A-compliant JSON-RPC server.
- *
- * The returned `handleRequest` function accepts standard Web API Request
- * objects and returns Response objects. Mount it at whatever path you
- * prefer; it also handles `/.well-known/agent.json` for agent card
- * discovery.
  *
  * @example
  * ```typescript
@@ -360,7 +344,6 @@ export function createA2AServer(config: A2AServerConfig): A2AServer {
 					controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
 					controller.close();
 				}
-				// Fire-and-forget audit
 				void audit({
 					method: A2A_METHODS.SEND_STREAMING_MESSAGE,
 					agentId,
@@ -382,7 +365,6 @@ export function createA2AServer(config: A2AServerConfig): A2AServer {
 	async function handleRequest(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 
-		// Agent Card discovery
 		if (request.method === "GET" && url.pathname.endsWith(A2A_WELL_KNOWN_PATH)) {
 			return new Response(JSON.stringify(config.agentCard), {
 				status: 200,
@@ -395,12 +377,10 @@ export function createA2AServer(config: A2AServerConfig): A2AServer {
 			return new Response("Method Not Allowed", { status: 405 });
 		}
 
-		// Authenticate
 		const auth = await authenticate(request);
 		if (auth.error) return auth.error;
 		const agentId = auth.agentId;
 
-		// Parse JSON-RPC envelope
 		let body: unknown;
 		try {
 			body = await request.json();

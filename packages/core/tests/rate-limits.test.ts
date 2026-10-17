@@ -44,7 +44,6 @@ describe("rate limiting", () => {
 			],
 		});
 
-		// Use up the limit
 		for (let i = 0; i < 3; i++) {
 			await theauth.authorize(agent.id, { action: "read", resource: "mcp:api" });
 		}
@@ -67,18 +66,15 @@ describe("rate limiting", () => {
 			],
 		});
 
-		// Exhaust github limit
 		await theauth.authorize(agent.id, { action: "read", resource: "mcp:github" });
 		await theauth.authorize(agent.id, { action: "read", resource: "mcp:github" });
 
-		// Github should be denied
 		const githubResult = await theauth.authorize(agent.id, {
 			action: "read",
 			resource: "mcp:github",
 		});
 		expect(githubResult.allowed).toBe(false);
 
-		// Slack should still work
 		const slackResult = await theauth.authorize(agent.id, {
 			action: "read",
 			resource: "mcp:slack",

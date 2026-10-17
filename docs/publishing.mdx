@@ -1,0 +1,161 @@
+---
+title: "Publish theAuth components and MCP server"
+description: "Install theAuth React components with the shadcn CLI, or list the theAuth MCP server in the official MCP Registry for discovery."
+icon: upload
+---
+
+Install the React components with the shadcn CLI, or list the MCP server in the MCP Registry.
+
+## Install a component
+
+Run from your app root:
+
+```bash
+npx shadcn@latest add https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json
+```
+
+Several at once:
+
+```bash
+npx shadcn@latest add \
+  https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json \
+  https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-up.json
+```
+
+| Item | URL |
+| --- | --- |
+| `theauth-base` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/theauth-base.json` |
+| `oauth-buttons` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/oauth-buttons.json` |
+| `sign-in` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-in.json` |
+| `sign-up` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/sign-up.json` |
+| `forgot-password` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/forgot-password.json` |
+| `two-factor-verify` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/two-factor-verify.json` |
+| `user-button` | `https://raw.githubusercontent.com/glincker/theauth/main/registry/user-button.json` |
+
+The CLI also installs `registryDependencies`, such as `theauth-base`. Files land in `components/theauth/`. Import from `@glinr/theauth-react` and wrap your app in `TheAuthProvider`. These are the items `theauth add` installs. For packaged versions, see [UI components](/ui-components).
+
+## Rebuild the registry
+
+After changing a component:
+
+```bash
+node scripts/build-registry.mjs
+```
+
+Each item carries its file text in `content`. Source: `packages/ui/src/components`. `registry/registry.json` is an index with no content, so do not pass it to `shadcn add`. To check that every item has content:
+
+```bash
+node -e "for (const f of require('fs').readdirSync('registry')) if (f !== 'registry.json') { const d = require('./registry/' + f); if (!d.files.every((x) => x.content)) throw new Error(f); }"
+```
+
+## Publish to the MCP Registry
+
+The `@glinr/theauth-mcp` package ships `server.json` at `packages/mcp/server.json`. The Registry stores metadata only, so publish the npm package first.
+
+| Field | Required value |
+| --- | --- |
+| `name` in `server.json` | `io.github.glincker/theauth-mcp` |
+| `mcpName` in `packages/mcp/package.json` | Same as `name` |
+| `version` (top level and `packages[0]`) | On npm (currently `1.1.1`). No ranges or `latest`. |
+| `description` | At most 100 characters |
+| `$schema` | `https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json` |
+
+Bump both versions in `server.json` on every publish.
+
+<Steps>
+
+<Step>
+
+### Publish the npm package
+
+```bash
+npm publish --access public
+```
+
+</Step>
+
+<Step>
+
+### Install mcp-publisher
+
+```bash
+brew install mcp-publisher
+```
+
+On Linux, download the release tarball from `https://github.com/modelcontextprotocol/registry/releases/latest`.
+
+</Step>
+
+<Step>
+
+### Validate
+
+```bash
+cd packages/mcp
+mcp-publisher validate
+```
+
+</Step>
+
+<Step>
+
+### Log in
+
+```bash
+mcp-publisher login github
+```
+
+Open `https://github.com/login/device` and enter the code shown. You must be able to act for the `glincker` organization.
+
+</Step>
+
+<Step>
+
+### Publish
+
+```bash
+mcp-publisher publish
+```
+
+</Step>
+
+<Step>
+
+### Confirm
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.glincker/theauth-mcp"
+```
+
+</Step>
+
+</Steps>
+
+## Namespaces
+
+| Namespace | How it is verified |
+| --- | --- |
+| `io.github.<user or org>/name` | `mcp-publisher login github` |
+| `com.example/name` (reverse domain) | DNS TXT record or HTTP file, then `mcp-publisher login dns` or `login http` |
+
+For a domain namespace, make an Ed25519 key and publish the public key as a TXT record on the apex (or serve `v=MCPv1; k=ed25519; p=<PUBLIC_KEY>` at `https://example.com/.well-known/mcp-registry-auth`):
+
+```bash
+openssl genpkey -algorithm Ed25519 -out key.pem
+PUBLIC_KEY="$(openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64)"
+echo "example.com. IN TXT \"v=MCPv1; k=ed25519; p=${PUBLIC_KEY}\""
+PRIVATE_KEY="$(openssl pkey -in key.pem -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')"
+mcp-publisher login dns --domain example.com --private-key "${PRIVATE_KEY}"
+```
+
+## Common errors
+
+- "You do not have permission to publish this server": the `name` prefix does not match your login namespace.
+- "Invalid or expired Registry JWT token": run `mcp-publisher login github` again.
+- "Registry validation failed for package": `mcpName` is missing or differs from `name`, or the version is not on npm.
+
+## Limits
+
+- The Registry is in preview. Check its docs if a step fails.
+- On macOS, use Homebrew OpenSSL 3. The system `openssl` cannot make Ed25519 keys.
+- Changing the namespace means updating `name` and `mcpName` together.

@@ -6,21 +6,12 @@ import { generateAuthorizationCode } from "./utils.js";
 
 /**
  * Handle the OAuth 2.1 authorization endpoint.
- *
- * GET /mcp/authorize
- *
- * Validates the request parameters, checks the client, enforces PKCE S256,
- * validates Resource Indicators (RFC 8707), and issues an authorization code.
- *
- * The caller is responsible for authenticating the user before calling this
- * function.  The `ctx.resolveUserId(request)` hook must return a non-null
- * user ID for the currently authenticated user.
+ * Validates the request parameters, checks the client, enforces PKCE S256, validates Resource Indicators (RFC 8707), and issues an authorization code. The `ctx.resolveUserId(request)` hook must return a non-null user ID for the currently authenticated user.
  */
 export async function handleAuthorize(
 	ctx: McpAuthContext,
 	request: Request,
 ): Promise<Result<McpAuthorizeResult>> {
-	// Parse query parameters
 	const url = new URL(request.url);
 	const params: Record<string, string> = {};
 	for (const [key, value] of url.searchParams.entries()) {
@@ -56,7 +47,6 @@ export async function handleAuthorize(
 		resource: requestedResource,
 	} = parsed.data;
 
-	// Validate client
 	const client = await resolveClient(ctx, clientId);
 	if (!client) {
 		return {
@@ -78,7 +68,6 @@ export async function handleAuthorize(
 		};
 	}
 
-	// Validate redirect_uri
 	if (!redirectUriAllowed(ctx, client, redirectUri)) {
 		return {
 			success: false,
@@ -106,13 +95,11 @@ export async function handleAuthorize(
 	if (!resolvedResource.success) return resolvedResource;
 	const resource = resolvedResource.data;
 
-	// Validate scopes
 	const requestedScopes = scopeParam ? scopeParam.split(" ").filter(Boolean) : [];
 	const filtered = filterRequestedScopes(ctx, requestedScopes);
 	if (!filtered.success) return filtered;
 	const effectiveScopes = filtered.data.length > 0 ? filtered.data : ["openid"];
 
-	// Resolve authenticated user
 	const userId = await ctx.resolveUserId(request);
 	if (!userId) {
 		return {
@@ -154,7 +141,6 @@ export async function handleAuthorize(
 		};
 	}
 
-	// Generate authorization code
 	const code = generateAuthorizationCode();
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ctx.config.codeTtl * 1000);
@@ -174,7 +160,6 @@ export async function handleAuthorize(
 
 	await ctx.storeAuthorizationCode(authCode);
 
-	// Build redirect
 	const redirectUrl = new URL(redirectUri);
 	redirectUrl.searchParams.set("code", code);
 	if (state) {

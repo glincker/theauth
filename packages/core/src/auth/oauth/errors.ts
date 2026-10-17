@@ -1,6 +1,4 @@
-/**
- * Typed errors for the social token API (`getAccessToken`, `unlinkAccount`).
- */
+/** Typed errors for the social token API (`getAccessToken`, `unlinkAccount`). */
 
 export type OAuthTokenErrorCode =
 	/** The user has no linked account for the provider. */
@@ -29,9 +27,7 @@ export class OAuthTokenError extends Error {
 }
 
 /**
- * Thrown by `OAuthProvider.refreshTokens` implementations. `reauth` is true
- * when the provider reported `invalid_grant` (refresh token revoked/expired).
- * The message never contains token material or provider response bodies.
+ * Thrown by `OAuthProvider.refreshTokens` implementations. `reauth` is true when the provider reported `invalid_grant` (refresh token revoked/expired). The message never contains token material or provider response bodies.
  */
 export class OAuthRefreshError extends Error {
 	readonly reauth: boolean;

@@ -47,9 +47,7 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 	}
 
 	/**
-	 * Policy gate: runs before every action. policy.evaluate answers allow, deny
-	 * or escalate. Passing the approvalId of an approved request unlocks an
-	 * escalated action once; evaluate spends the approval itself.
+	 * Policy gate run before every action. An approved approvalId unlocks an escalated action once.
 	 */
 	async function attempt(
 		agentId: string,
@@ -76,7 +74,6 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 		return { ran: false, held: false, reason: decision.reason };
 	}
 
-	// 1. Identity bound to an owner
 	say.step(1, "Create an agent identity owned by alice");
 	const orchestrator = await auth.agent.create({
 		ownerId: OWNER,
@@ -95,7 +92,6 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 	});
 	say.note(`agent ${worker.name} (${worker.id.slice(0, 12)}) owner=${OWNER}`);
 
-	// 2. Scoped, short-lived delegation
 	say.step(2, "Delegate narrow authority for 15 minutes");
 	const chain = await auth.delegate({
 		fromAgent: orchestrator.id,
@@ -112,7 +108,6 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 		`chain ${chain.id.slice(0, 12)} grants crm:notes read and refund (approval required), root owner ${chain.rootOwnerId}, expires ${chain.expiresAt.toISOString()}`,
 	);
 
-	// 3. Policy check before each action
 	say.step(3, "Agent attempts actions; policy runs first");
 	const read = await attempt(worker.id, "read", "mcp:crm:notes");
 	say.note(`read  mcp:crm:notes      -> ${read.ran ? "ALLOWED" : `DENIED (${read.reason})`}`);
@@ -122,7 +117,6 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 	const refund = await attempt(worker.id, "execute", REFUND, refundArgs, { openApproval: true });
 	say.note(`exec  ${REFUND} -> ${refund.ran ? "ALLOWED" : `HELD (${refund.reason})`}`);
 
-	// 4. Human approves
 	say.step(4, "High-value action waits for a human");
 	const requestId = refund.approvalRequestId;
 	if (!requestId) throw new Error("policy.evaluate did not open an approval request");
@@ -138,7 +132,6 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 	});
 	say.note(`again ${REFUND} -> ${replay.ran ? "ALLOWED" : `DENIED (${replay.reason})`}`);
 
-	// 5. Decision into the audit log, chain verifies
 	say.step(5, "Record the human decision and verify the audit chain");
 	await insertAuditRow(auth.db, {
 		id: `dec_${requestId}`,
@@ -159,7 +152,6 @@ export async function runAccountabilityLoop(say: Narrator): Promise<LoopOutcome>
 	const verified = verdict.success ? verdict.data : { ok: false, checked: 0 };
 	say.note(`chain ok=${verified.ok} rows checked=${verified.checked}`);
 
-	// 6. Revoke, then the next attempt fails
 	say.step(6, "Owner revokes the agent");
 	await auth.agent.revoke(worker.id);
 	const after = await attempt(worker.id, "read", "mcp:crm:notes");

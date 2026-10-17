@@ -1,10 +1,7 @@
 import type { RateLimitStore } from "../auth/stores/types.js";
 import type { SecondaryStorage } from "./types.js";
 
-/**
- * Adapt a SecondaryStorage to the older RateLimitStore interface so existing
- * `rateLimit({ store })` code keeps working with any backend.
- */
+/** Adapt a SecondaryStorage to the older RateLimitStore interface so existing `rateLimit({ store })` code keeps working with any backend. */
 export function rateLimitStoreFromStorage(storage: SecondaryStorage): RateLimitStore {
 	return {
 		async increment(key, windowMs) {

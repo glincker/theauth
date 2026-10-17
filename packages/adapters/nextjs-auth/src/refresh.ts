@@ -12,19 +12,9 @@ interface BackendRefreshResponse {
 }
 
 /**
- * Calls the backend refresh endpoint with the stored refresh-token cookie.
- *
- * On success: writes fresh access + CSRF cookies (and optionally a rotated
- * refresh token) via next/headers cookies(). Returns the new token values so
- * callers can immediately retry with fresh credentials.
- *
- * On failure:
- *   - Network error → returns null, does NOT clear cookies (may be transient).
- *   - 401/403 → clears all session cookies, returns null.
- *
- * Note: cookies() writes are only honoured from Server Actions and Route
- * Handlers. Calling from a Server Component will succeed in-memory for this
- * request but the browser will not receive Set-Cookie headers.
+ * Refreshes the access token from the stored refresh-token cookie and writes fresh cookies.
+ * Network errors return null without clearing cookies (they may be transient). 401/403 clears them.
+ * cookies() writes only reach the browser from Server Actions and Route Handlers.
  */
 export async function refreshSession<TUser>(
 	config: ResolvedAuthConfig<TUser>,
@@ -49,7 +39,7 @@ export async function refreshSession<TUser>(
 			cache: "no-store",
 		});
 	} catch {
-		// Network error — let caller treat as retriable, keep cookies.
+		// Network error: let the caller treat it as retriable and keep cookies.
 		return null;
 	}
 

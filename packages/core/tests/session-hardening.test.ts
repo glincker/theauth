@@ -1,7 +1,4 @@
-/**
- * Tests for the opt-in session features: reuse grace window, cookie cache,
- * per-request base URL and back-channel logout verification.
- */
+/** Tests for the opt-in session features: reuse grace window, cookie cache, per-request base URL and back-channel logout verification. */
 
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";

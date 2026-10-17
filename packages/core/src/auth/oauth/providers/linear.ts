@@ -1,26 +1,10 @@
 /**
  * Linear OAuth 2.0 provider.
- *
- * Endpoints:
- * - Authorization: https://linear.app/oauth/authorize
- * - Token:         https://api.linear.app/oauth/token
- * - Profile:       https://api.linear.app/graphql (POST, `viewer` query)
- *
  * Notes:
  * - Scopes are comma separated in the authorize URL.
  * - PKCE (S256) is supported but optional; it is sent here.
- * - Client credentials go in the form body (Basic is also accepted).
- * - Authorization code responses include a refresh token. User access
- *   tokens last 24 hours, and a refresh returns a new refresh token.
- * - There is no REST userinfo endpoint. The profile comes from a GraphQL
- *   `viewer` query. Linear documents `id`, `name` and `email` for it. The
- *   avatar field is not shown in Linear's OAuth or GraphQL guides, so it is
- *   not requested.
- * - Linear does not state whether the email is verified, so `emailVerified`
- *   stays unset and the OAuth plugin will not link by email.
- *
- * Docs: https://linear.app/developers/oauth-2-0-authentication
- *       https://linear.app/developers/graphql
+ * - Authorization code responses include a refresh token. User access tokens last 24 hours, and a refresh returns a new refresh token. The avatar field is not shown in Linear's OAuth or GraphQL guides, so it is not requested.
+ * - Linear does not state whether the email is verified, so `emailVerified` stays unset and the OAuth plugin will not link by email.
  */
 
 import type { OAuthProvider, OAuthProviderConfig } from "../types.js";

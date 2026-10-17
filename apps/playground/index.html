@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<meta name="description" content="Run the real theAuth taint guard and policy engine in your browser and verify a signed audit receipt." />
+<title>theAuth Playground</title>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+	<h1>theAuth playground</h1>
+	<p>The real taint guard, policy engine and signed audit receipts, running in this tab. No server.</p>
+</header>
+<main id="main" tabindex="-1">
+	<section aria-labelledby="h-scenario" class="card">
+		<h2 id="h-scenario">1. Pick a scenario</h2>
+		<p class="muted">An agent has three tools: <code>send_email</code>, <code>read_web</code> and <code>pay</code>.</p>
+		<div id="presets" role="radiogroup" aria-label="Scenario presets" class="presets"></div>
+		<p id="preset-desc" class="muted" aria-live="polite"></p>
+	</section>
+
+	<section aria-labelledby="h-policy" class="card">
+		<h2 id="h-policy">2. Policy</h2>
+		<label for="policy">Policy JSON (editable). <code>taint.rules</code> and <code>risk.tiers</code> are passed to <code>createTheAuth</code> as <code>policy.taint</code> and <code>policy.risk</code>.</label>
+		<textarea id="policy" spellcheck="false" rows="16" autocomplete="off"></textarea>
+		<p id="policy-error" class="error" role="alert"></p>
+		<div class="row">
+			<button id="run" type="button" class="primary">Run the tool call</button>
+			<button id="reset" type="button">Reset policy</button>
+		</div>
+	</section>
+
+	<section aria-labelledby="h-result" class="card" aria-live="polite">
+		<h2 id="h-result">3. Decision</h2>
+		<div id="result"><p class="muted">Run a scenario to see the guard decision.</p></div>
+	</section>
+
+	<section aria-labelledby="h-receipt" class="card" aria-live="polite">
+		<h2 id="h-receipt">4. Signed audit receipt</h2>
+		<div id="receipt"><p class="muted">The receipt appears after a run.</p></div>
+	</section>
+
+	<section aria-labelledby="h-code" class="card">
+		<h2 id="h-code">5. The same thing in your code</h2>
+		<!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: labelled scroll region for keyboard users -->
+		<!-- biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll the code -->
+		<pre id="code" class="code" tabindex="0" aria-label="Generated guardTool snippet"></pre>
+		<div class="row">
+			<button id="copy" type="button">Copy code</button>
+			<span id="copy-status" class="muted" role="status"></span>
+		</div>
+	</section>
+</main>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

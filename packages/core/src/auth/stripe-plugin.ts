@@ -5,8 +5,6 @@ import { createStripeModule } from "./stripe.js";
 
 export type { StripeConfig };
 
-// Plugin factory
-
 export function stripe(config: StripeConfig): TheAuthPlugin {
 	return {
 		id: "theauth-stripe",
@@ -130,7 +128,7 @@ export function stripe(config: StripeConfig): TheAuthPlugin {
 			});
 
 			// POST /auth/stripe/webhook
-			// Receives Stripe webhook events. No session auth — verified by HMAC signature.
+			// Receives Stripe webhook events. No session auth, verified by HMAC signature.
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/stripe/webhook",

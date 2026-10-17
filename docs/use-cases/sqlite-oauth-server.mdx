@@ -1,0 +1,121 @@
+---
+title: "OAuth 2.1 server on SQLite in one Go binary"
+description: "Run an OAuth 2.1 authorization server and MCP resource server from one Go binary and one SQLite file. Go only, not in the TypeScript package."
+---
+
+One Go binary and one SQLite file run an OAuth 2.1 authorization server that issues tokens for an MCP server.
+
+<Note>
+  Go library only. The TypeScript OAuth 2.1 server (`createMcpModule`) takes storage callbacks you write, see [MCP OAuth 2.1](/mcp). The full Go guide is [`go/docs/mcp-oauth-sqlite.md`](https://github.com/glincker/theauth/blob/main/go/docs/mcp-oauth-sqlite.md), and the store is documented in [SQLite storage](/go/guides/sqlite-storage).
+</Note>
+
+<Steps>
+
+<Step>
+
+### Register a public client
+
+Registration is closed unless configured. The client sends the user to `/oauth/authorize` with `code_challenge_method=S256` and `resource`, then exchanges the code at `/oauth/token`.
+
+```json
+{
+  "client_name": "Claude Code (e2e)",
+  "redirect_uris": ["http://127.0.0.1:8976/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+</Step>
+
+<Step>
+
+### Open the database and build the server
+
+You own the `*sql.DB`, so set the pragmas. `New` refuses a database without foreign keys. The busy timeout and immediate transactions make concurrent token requests wait, not fail with `database is locked`.
+
+```go
+db, err := sql.Open("sqlite",
+	"file:auth.db?_pragma=foreign_keys(1)&_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_txlock=immediate")
+if err != nil {
+	log.Fatal(err)
+}
+if err := sqlitestore.Migrate(ctx, db); err != nil { // applies every pending migration
+	log.Fatal(err)
+}
+store, err := sqlitestore.New(db)
+if err != nil {
+	log.Fatal(err)
+}
+
+a, err := theauth.New(theauth.Config{
+	Storage:       store,
+	BaseURL:       "https://auth.example.com",
+	EncryptionKey: key, // 32 bytes, seals the JWKS private keys
+	AuthorizationServer: &theauth.AuthorizationServerConfig{
+		Issuer: "https://auth.example.com",
+		Resources: []theauth.ProtectedResource{{
+			Identifier: "https://mcp.example.com/mcp",
+			Scopes:     []string{"files.read", "files.write"},
+		}},
+		RegistrationTokens:    []string{initialAccessToken},
+		AccessTokenRevocation: true,
+	},
+})
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+`Migrate` applies migrations 0001 to 0034. The OAuth tables start at 0020.
+
+</Step>
+
+<Step>
+
+### Protect the MCP routes
+
+`mcpresource` checks the bearer token on each request against the endpoints above. A request without a token gets a 401 that names the protected resource metadata URL. A token without the scope gets a 403 `insufficient_scope`.
+
+```go
+v := mcpresource.New("https://mcp.example.com/mcp",
+	mcpresource.WithJWKS("https://auth.example.com/oauth/jwks"),
+	mcpresource.WithIntrospection("https://auth.example.com/oauth/introspect", rsID, rsSecret),
+)
+mux.Handle("/mcp", v.Middleware(handler))
+mux.Handle("/write", v.Middleware(v.RequireScope("files.write")(writeHandler)))
+```
+
+</Step>
+
+<Step>
+
+### Serve the well-known paths
+
+The OAuth routes sit at the root of the handler you mount. If the issuer has a path, RFC 8414 and RFC 9728 clients request the well-known document under the origin root. Forward `/.well-known/` as well, or those URLs return 404.
+
+```go
+const prefix = "/api/v1/auth-lib"
+
+h := a.Handler() // build once: each call mounts new routes and rate-limit buckets
+mux := http.NewServeMux()
+mux.Handle(prefix+"/", http.StripPrefix(prefix, h))
+mux.Handle("/.well-known/", h) // no StripPrefix: the library matches the issuer path
+```
+
+</Step>
+
+</Steps>
+
+## What is enforced
+
+| Enforced | Not enforced |
+| --- | --- |
+| PKCE with S256, the only method the server accepts | A JWKS-only resource server accepts a revoked token until it expires. Use introspection or a revocation checker. |
+| Registration closed unless configured | One writer per file. Run one process per database file, and use Postgres or MySQL for several replicas. |
+| `New` refuses a database without foreign keys | Rate limiter, replay cache and CIMD cache live in process memory, so sharing one file across app servers is not supported. |
+| Signing keys sealed with `EncryptionKey` | A changed `EncryptionKey` makes stored keys unreadable, so existing tokens stop verifying. Back up the file and the key together. |
+| Restart keeps key IDs, active and revoked tokens, refresh tokens and unredeemed codes (tested) | Your code must call `a.Close()` on shutdown so the audit writer drains. |
+
+`mcpresource` is a separate module and can run in another process. Check module versions in the Go docs before you copy imports.

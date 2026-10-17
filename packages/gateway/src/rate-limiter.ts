@@ -6,11 +6,7 @@ export interface RateLimitResult {
 	resetAt: Date;
 }
 
-/**
- * In-memory sliding window rate limiter keyed by agent ID or IP address.
- * Creates one store per distinct config so global and per-policy limits
- * are tracked independently.
- */
+/** In-memory sliding window rate limiter keyed by agent ID or IP. One store per distinct config. */
 export function createGatewayRateLimiter(config: RateLimitConfig) {
 	const { windowMs, max } = config;
 	const store = new Map<string, RateLimitEntry>();
@@ -24,9 +20,18 @@ export function createGatewayRateLimiter(config: RateLimitConfig) {
 		return i === 0 ? timestamps : timestamps.slice(i);
 	}
 
+	/** Cap on tracked keys so a flood of anonymous fingerprints cannot grow memory without bound. */
+	const MAX_KEYS = 50_000;
+	function sweep(now: number): void {
+		for (const [k, entry] of store) {
+			if (prune(entry.timestamps, now).length === 0) store.delete(k);
+		}
+	}
+
 	return {
 		check(key: string): RateLimitResult {
 			const now = Date.now();
+			if (store.size >= MAX_KEYS && !store.has(key)) sweep(now);
 			const raw = store.get(key) ?? { timestamps: [] };
 			const timestamps = prune(raw.timestamps, now);
 

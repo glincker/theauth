@@ -26,10 +26,7 @@ function fromHex(hex: string): Uint8Array {
 	return out;
 }
 
-/**
- * Better Auth stores `saltHex:keyHex`, scrypt N=16384 r=16 p=1, key length 64,
- * with the hex salt string itself (UTF-8) used as the salt and NFKC-normalised passwords.
- */
+/** Better Auth stores `saltHex:keyHex`, scrypt N=16384 r=16 p=1, key length 64, with the hex salt string itself (UTF-8) used as the salt and NFKC-normalised passwords. */
 function betterAuthHash(value: string): LegacyHash | null {
 	const m = /^([0-9a-f]+):([0-9a-f]+)$/i.exec(value);
 	if (!m) return detectHash(value);

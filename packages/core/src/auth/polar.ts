@@ -1,10 +1,6 @@
 /**
  * Polar payment integration for TheAuth.
  *
- * Links Polar customers to TheAuth users, handles subscription lifecycle
- * webhooks, and stores subscription status. Uses Polar's REST API directly
- * via fetch — no Polar SDK dependency.
- *
  * @example
  * ```typescript
  * import { createPolarModule } from '@glinr/theauth/auth';
@@ -27,8 +23,6 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
-
-// Public types
 
 export interface PolarConfig {
 	/** Polar access token */
@@ -66,7 +60,7 @@ export interface PolarModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// Internal Polar REST types (minimal — only fields we use)
+// Internal Polar REST types (minimal, only fields we use)
 
 interface PolarCheckoutResponse {
 	id: string;
@@ -162,7 +156,6 @@ async function verifyWebhookSignature(
 		.map((b) => b.toString(16).padStart(2, "0"))
 		.join("");
 
-	// Constant-time comparison
 	if (receivedSig.length !== expectedSig.length) {
 		throw new Error("Polar webhook signature verification failed");
 	}
@@ -181,8 +174,6 @@ async function verifyWebhookSignature(
 	return JSON.parse(payload) as PolarWebhookEvent;
 }
 
-// Module factory
-
 export function createPolarModule(config: PolarConfig, db: Database): PolarModule {
 	const baseUrl = config.sandbox ? POLAR_SANDBOX_API_BASE : POLAR_API_BASE;
 
@@ -193,8 +184,6 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 	): Promise<T> {
 		return polarRequest<T>(config.accessToken, baseUrl, method, path, body);
 	}
-
-	// Internal helpers
 
 	async function getUserRow(userId: string) {
 		const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -258,8 +247,6 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 			.where(eq(users.id, userId));
 	}
 
-	// Webhook event handlers
-
 	async function handleSubscriptionCreatedOrUpdated(obj: Record<string, unknown>): Promise<void> {
 		const sub = obj as unknown as PolarSubscriptionResponse;
 
@@ -319,8 +306,6 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 			});
 		}
 	}
-
-	// Public API
 
 	async function createCheckout(
 		userId: string,

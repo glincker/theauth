@@ -1,10 +1,5 @@
 /**
- * Merkle tree hashing and proofs, RFC 6962 section 2.1 (Certificate
- * Transparency). Leaf hashes are SHA-256(0x00 || data), interior nodes are
- * SHA-256(0x01 || left || right), and the empty tree hashes the empty string.
- * The proof verification loops follow the iterative form in RFC 9162 section 2.1.
- *
- * Everything here works on raw 32 byte hashes. Callers hex-encode at the edges.
+ * Merkle tree hashing and proofs, RFC 6962 section 2.1 (Certificate Transparency). Leaf hashes are SHA-256(0x00 || data), interior nodes are SHA-256(0x01 || left || right), and the empty tree hashes the empty string. The proof verification loops follow the iterative form in RFC 9162 section 2.1.
  */
 
 import { constantTimeEqual, sha256Raw } from "../crypto/web-crypto.js";
@@ -46,9 +41,7 @@ function isPowerOfTwo(n: number): boolean {
 const LEVEL_BATCH = 512;
 
 /**
- * Every level of the tree, bottom up. Level 0 is the leaf array itself (not copied) and the
- * last level holds the root. An odd node at the end of a level is promoted unchanged, which
- * gives exactly the RFC 6962 tree (split at the largest power of two below n).
+ * Every level of the tree, bottom up. Level 0 is the leaf array itself (not copied) and the last level holds the root. An odd node at the end of a level is promoted unchanged, which gives exactly the RFC 6962 tree (split at the largest power of two below n).
  */
 async function buildLevels(leafHashes: readonly Uint8Array[]): Promise<Uint8Array[][]> {
 	const levels: Uint8Array[][] = [leafHashes as Uint8Array[]];
@@ -184,11 +177,7 @@ export async function inclusionPath(
 	return (await buildMerkleTree(leafHashes)).inclusionPath(index);
 }
 
-/**
- * Consistency proof between the tree of the first `oldSize` leaves and the
- * tree of all `leafHashes` (RFC 6962 PROOF). Empty when oldSize is 0 or equals
- * the full size.
- */
+/** Consistency proof between the tree of the first `oldSize` leaves and the tree of all `leafHashes` (RFC 6962 PROOF). Empty when oldSize is 0 or equals the full size. */
 export async function consistencyPath(
 	leafHashes: readonly Uint8Array[],
 	oldSize: number,
@@ -247,10 +236,7 @@ export async function verifyInclusionPath(
 	return computed !== undefined && constantTimeEqual(computed, root);
 }
 
-/**
- * True when `path` proves the tree of `newSize` leaves (root `newRoot`) extends
- * the tree of `oldSize` leaves (root `oldRoot`) without changing any old leaf.
- */
+/** True when `path` proves the tree of `newSize` leaves (root `newRoot`) extends the tree of `oldSize` leaves (root `oldRoot`) without changing any old leaf. */
 export async function verifyConsistencyPath(
 	oldSize: number,
 	newSize: number,

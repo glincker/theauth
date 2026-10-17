@@ -1,8 +1,5 @@
 /**
  * Tests for SCIM audit logging.
- *
- * Every successful provisioning write on /Users or /Groups should produce
- * one row in `kavach_audit_logs` attributed to the configured system agent.
  * Failed writes (validation errors, 404s, 401s) must not produce rows.
  */
 

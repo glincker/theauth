@@ -1,9 +1,6 @@
 /**
  * better-auth adapter for TheAuth.
  *
- * Wraps better-auth's `api.getSession` so TheAuth can resolve a human user
- * from an incoming HTTP request without any additional configuration.
- *
  * @example
  * ```typescript
  * import { betterAuthAdapter } from '@glinr/theauth/auth';
@@ -18,10 +15,7 @@
 
 import type { AuthAdapter, ResolvedUser } from "../types.js";
 
-/**
- * The slice of the better-auth instance that this adapter needs.
- * Typed narrowly so consumers don't have to install better-auth types.
- */
+/** The slice of the better-auth instance that this adapter needs. Typed narrowly so consumers don't have to install better-auth types. */
 export interface BetterAuthInstance {
 	api: {
 		getSession: (options: { headers: Headers }) => Promise<{
@@ -35,14 +29,7 @@ export interface BetterAuthInstance {
 	};
 }
 
-/**
- * Create an `AuthAdapter` that resolves the user via better-auth's
- * `api.getSession()`. Passes the request's `Headers` directly to better-auth
- * so cookie-based sessions work without any extra plumbing.
- *
- * Returns `null` when better-auth returns no session (unauthenticated) or when
- * the session contains no user.
- */
+/** Create an `AuthAdapter` that resolves the user via better-auth's `api.getSession()`. Passes the request's `Headers` directly to better-auth so cookie-based sessions work without any extra plumbing. */
 export function betterAuthAdapter(betterAuth: BetterAuthInstance): AuthAdapter {
 	return {
 		async resolveUser(request: Request): Promise<ResolvedUser | null> {

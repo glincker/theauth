@@ -54,7 +54,7 @@ describe("trust – graduated autonomy scoring", () => {
 		const first = await theauth.trust.computeScore(agentId);
 		const second = await theauth.trust.computeScore(agentId);
 
-		// Same agent, same conditions — score should be the same
+		// Same agent, same conditions, score should be the same
 		expect(second.score).toBe(first.score);
 		// But computedAt should be refreshed
 		expect(new Date(second.computedAt).getTime()).toBeGreaterThanOrEqual(
@@ -63,7 +63,6 @@ describe("trust – graduated autonomy scoring", () => {
 	});
 
 	it("computeAll processes all active agents", async () => {
-		// Create a second agent
 		await theauth.agent.create({
 			ownerId: "user-1",
 			name: "Second Agent",
@@ -132,7 +131,7 @@ describe("trust – graduated autonomy scoring", () => {
 		);
 
 		const score = await trustWithCustomThresholds.computeScore(agentId);
-		// Fresh agent score is 50 — with standard threshold at 50, should be "standard"
+		// Fresh agent score is 50, with standard threshold at 50, should be "standard"
 		expect(score.score).toBe(50);
 		expect(score.level).toBe("standard");
 	});

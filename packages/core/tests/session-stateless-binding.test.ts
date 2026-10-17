@@ -1,7 +1,4 @@
-/**
- * Stateless sessions: token cookie bound to the identity cookie (AAD), legacy
- * cookie compatibility, and the sign-in gate hook.
- */
+/** Stateless sessions: token cookie bound to the identity cookie (AAD), legacy cookie compatibility, and the sign-in gate hook. */
 
 import { describe, expect, it, vi } from "vitest";
 import type { SignInGateDecision } from "../src/auth/sign-in-gate.js";

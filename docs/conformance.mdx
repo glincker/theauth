@@ -1,0 +1,113 @@
+---
+title: "OAuth 2.1 and MCP conformance test"
+description: "Test any OAuth 2.1 or MCP server with one npx command. Get a pass, fail or skip report on agent-relevant checks, plus a shields.io badge."
+icon: badge-check
+---
+
+Black-box checks for any OAuth 2.1 authorization server or MCP resource server. Each check passes, fails or skips. No secrets needed.
+
+```bash
+npx @glinr/theauth-conformance https://auth.example.com
+```
+
+## Conformance command options
+
+```text
+theauth-conformance <url> [options]
+
+  --json                 Print the report as JSON
+  --badge <file>         Write a shields.io endpoint badge JSON file
+  --resource <url>       Protected MCP endpoint to probe for the 401 challenge
+  --client-id <id>       Use this client instead of registering one through DCR
+  --redirect-uri <uri>   Redirect URI registered for --client-id
+  --token <token>        Access token, only read to inspect its audience
+  --refresh-token <tok>  Refresh token for the rotation check (it gets consumed)
+  --timeout <ms>         Per-request timeout, default 10000
+  --verbose              Include evidence in the human report
+  --strict               Exit 1 on any failed check, not only MUST failures
+```
+
+The tool checks the `/.well-known` metadata paths for authorization servers and protected resources. Set `THEAUTH_CONFORMANCE_TOKEN` and `THEAUTH_CONFORMANCE_REFRESH_TOKEN` to keep tokens out of shell history.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | No MUST check failed |
+| `1` | A MUST check failed (any failed check with `--strict`) |
+| `2` | Usage error |
+
+## Checks
+
+Severity follows RFC 2119. A failed MUST turns the badge red. A failed SHOULD or MAY turns it yellow.
+
+| Check id | Severity | Spec | Verifies |
+| --- | --- | --- | --- |
+| `as-metadata` | must | RFC 8414 | Issuer matches, endpoints https |
+| `rs-metadata` | should | RFC 9728 | Names an authorization server |
+| `metadata-consistency` | must | RFC 9728, RFC 8414 | Issuer and scopes agree |
+| `pkce-s256-advertised` | must | OAuth 2.1, RFC 7636 | `S256` advertised, `plain` not |
+| `pkce-required` | must | OAuth 2.1, RFC 9700 | No `code_challenge` is refused |
+| `pkce-plain-rejected` | must | OAuth 2.1, RFC 7636 | `plain` method is refused |
+| `redirect-exact-match` | must | OAuth 2.1, RFC 9700 | Altered or foreign URI never followed |
+| `dcr-registration` | should | RFC 7591 | Public client registers (201) |
+| `dcr-validation` | must | RFC 7591 | Plain http and `javascript:` refused |
+| `refresh-garbage-rejected` | must | RFC 6749, OAuth 2.1 | Made-up refresh token refused |
+| `refresh-rotation` | must | OAuth 2.1, RFC 9700 | Rotates, old token refused, replay revokes |
+| `resource-indicator-audience` | must | RFC 8707 | JWT `aud` matches resource |
+| `token-exchange-rejects-garbage` | must | RFC 8693 | Made-up subject token refused |
+| `token-exchange-act-chain` | should | RFC 8693 | Nested `act` claims. Always skipped. |
+| `introspection-inactive` | must | RFC 7662 | Garbage token gives `active=false` |
+| `dpop-advertised` | may | RFC 9449 | Asymmetric algorithms only |
+| `dpop-enforced` | must | RFC 9449 | Garbage proof gets 401 |
+| `www-authenticate-resource-metadata` | must | RFC 9728, RFC 6750 | 401 has working `resource_metadata` |
+
+Skips are never faked into passes, and each one says why.
+
+## Skipped checks
+
+- Not advertised: DCR, token exchange, introspection, DPoP.
+- `refresh-rotation`: needs `--refresh-token` and `--client-id`. The test consumes the token.
+- `resource-indicator-audience`: needs `--token` (a JWT).
+- `token-exchange-act-chain`: needs a valid subject token and client credentials.
+- Introspection behind client authentication (401 or 403).
+- Negative authorize probes: the server never accepts a valid request, or shows a login page for the bad one. Skipped if the control request is rejected.
+
+## Badge
+
+`--badge out.json` writes a [shields.io endpoint](https://shields.io/badges/endpoint-badge):
+
+```json
+{
+  "schemaVersion": 1,
+  "label": "agent-auth",
+  "message": "13/13 passed, 5 skipped",
+  "color": "brightgreen"
+}
+```
+
+Host the JSON at a stable public URL and point shields at it:
+
+```markdown
+[![agent-auth conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fexample.com%2Fagent-auth-badge.json)](https://docs.theauth.dev/conformance)
+```
+
+Refresh it in CI with `npx @glinr/theauth-conformance https://auth.example.com --badge badge.json`.
+
+Only checks that ran count toward the message. Green: nothing failed. Yellow: only SHOULD or MAY failed. Red: a MUST failed. Grey (`not tested`): nothing could run.
+
+## Use in code
+
+```ts
+import { buildBadge, runSuite } from "@glinr/theauth-conformance";
+
+const report = await runSuite({ target: "https://auth.example.com", timeoutMs: 10000 });
+const badge = buildBadge(report);
+```
+
+## Tested against theAuth
+
+The package test runs the suite against the real MCP OAuth module from `@glinr/theauth` on a Node `http` server. Pinned result: 13 pass, 0 fail, 5 skipped (refresh rotation, audience, token exchange twice, introspection). A lax stub server must fail the checks.
+
+## Limits
+
+- A green badge means the server behaved correctly on these probes. It is not an audit.
+- Skips never count as passes.

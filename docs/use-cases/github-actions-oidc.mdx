@@ -1,0 +1,120 @@
+---
+title: "GitHub Actions OIDC for CI agents (Go only)"
+description: "Exchange a GitHub Actions OIDC token for a short-lived theAuth access token, with no stored client secret. Go only, as TypeScript has no helper."
+---
+
+A GitHub Actions job exchanges its OIDC token for a short-lived theAuth access token, with no stored client secret.
+
+<Warning>
+  Go only. The TypeScript package has no GitHub helper, and its `jwtBearer` grant expects an ID-JAG assertion (`typ: oauth-id-jag+jwt`, a `client_id` claim and `aud` equal to the issuer). A raw GitHub OIDC token is refused. The full Go write-up is in [`go/docs/github-actions-oidc.md`](https://github.com/glincker/theauth/blob/main/go/docs/github-actions-oidc.md).
+</Warning>
+
+<Steps>
+
+<Step>
+
+### Request the job's OIDC token
+
+Grant `id-token: write` and request a token for your audience. GitHub signs claims that name the repository, branch, environment and workflow.
+
+```yaml title=".github/workflows/deploy.yml"
+name: deploy
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # lets the job request an OIDC token
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Get a GitHub OIDC token
+        run: |
+          AUD="https://auth.example.com/gh"
+          GH_TOKEN=$(curl -sS \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUD" | jq -r .value)
+          echo "::add-mask::$GH_TOKEN"
+          echo "GH_TOKEN=$GH_TOKEN" >> "$GITHUB_ENV"
+```
+
+</Step>
+
+<Step>
+
+### Exchange it for an access token
+
+Post the token to the theAuth token endpoint with the RFC 7523 `jwt-bearer` grant. Add `client_id=<agent client id>` to make the token act as an agent, so the agent's policy and rate limit apply.
+
+```bash
+ACCESS=$(curl -sS https://auth.example.com/oauth/token \
+  -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer \
+  --data-urlencode "assertion=$GH_TOKEN" \
+  -d resource=https://api.example.com/mcp \
+  -d scope=api.read | jq -r .access_token)
+echo "::add-mask::$ACCESS"
+echo "ACCESS_TOKEN=$ACCESS" >> "$GITHUB_ENV"
+```
+
+</Step>
+
+<Step>
+
+### Restrict the issuer (Go)
+
+`GitHubActionsIssuer` refuses to build an issuer with no restriction. Each of `Repository`, `RepositoryOwner`, `Refs` and `Environment` adds a matcher, and all matchers must pass. `SubjectMapper` maps GitHub's `sub` to a local user, because the built-in mapper expects a ULID.
+
+```go
+iss, err := theauth.GitHubActionsIssuer(theauth.GitHubActionsOptions{
+    Repository:    "acme/app",                  // exact owner/name
+    Refs:          []string{"refs/heads/main"}, // or one glob: "refs/heads/release/*"
+    Environment:   "production",
+    Audience:      "https://auth.example.com/gh",
+    SubjectMapper: myWorkflowMapper{},          // GitHub's sub is not a ULID
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+cfg.AuthorizationServer = &theauth.AuthorizationServerConfig{
+    Issuer:    "https://auth.example.com",
+    Resources: resources,
+    JWTBearer: &theauth.JWTBearerConfig{TrustedJWTIssuers: []theauth.TrustedJWTIssuer{iss}},
+}
+```
+
+If `Audience` is empty, the required `aud` is your authorization server issuer URL.
+
+</Step>
+
+<Step>
+
+### Check a denial
+
+A workflow that fails any matcher gets `invalid_grant` with the same description every time. Test it by running the workflow from a branch other than `main`. The operator sees the failed claim names in the audit log:
+
+```json
+{"action": "jwt_bearer.claims_denied",
+ "targetType": "jwt_issuer", "targetId": "https://token.actions.githubusercontent.com",
+ "metadata": {"issuer": "...", "failed_claims": ["repository", "ref"], "agent_id": "...", "agent_name": "..."}}
+```
+
+</Step>
+
+</Steps>
+
+## What is enforced
+
+| Enforced | Not enforced |
+| --- | --- |
+| Every matcher must pass | Tests sign with a local key. The GitHub request flow has not run against GitHub from the repository, so check it in your pipeline first. |
+| Constructor refuses an issuer with no restriction | Hand-built issuers: add the matchers yourself, or any public repository's workflow can log in |
+| Denial text never names the failed claim | Long jobs: compare duration with `AssertionMaxAge` (default 300 seconds) |
+| Audit event lists failed claim names only | Scope limits come from `scope` and `resource` on the exchange |
+| GitHub's environment protection rules (such as reviewers) run before the job, so the token is issued after approval | No TypeScript path |
+
+Claim names come from GitHub's live discovery document.

@@ -1,0 +1,35 @@
+---
+title: "Browser playground for taint guard and policy"
+description: "Try the taint guard, policy engine and signed audit receipts in a browser tab. The demo runs in WebAssembly SQLite with no server."
+icon: flask-conical
+---
+
+Try the same `guardTool`, taint labels and policy engine you ship, in a browser tab with no server. The store is in-memory SQLite (`sql.js`, WebAssembly) and signing uses WebCrypto Ed25519, so nothing leaves the page.
+
+```bash
+pnpm --filter playground dev
+pnpm --filter playground build
+```
+
+The build writes static files to `apps/playground/dist`. Host them anywhere.
+
+## Try the demo scenarios
+
+1. A poisoned web page tells the agent to email an attacker. The address carries the `untrusted_web` label, so the taint rule blocks the call.
+2. A 20 EUR payment stays under the limit and is allowed.
+3. A 5000 EUR payment reaches the `large-payment` risk tier and escalates to approval.
+4. Edit the policy JSON and run again.
+
+Each run shows the decision, the reason, the labels the engine saw, and a signed audit receipt. The page verifies the receipt: the Ed25519 signature on the checkpoint and the Merkle inclusion proof. Change one digit of the receipt and verification fails.
+
+## What runs for real
+
+The decision path uses the published `@glinr/theauth` code: `createTheAuth`, `guardTool`, `tainted`, the policy engine, `createCheckpoint`, `createReceipt` and `verifyReceipt`.
+
+## Copy the code
+
+The Copy code button emits a `guardTool` snippet for the scenario and policy you picked. See [Guard agent tools](/agent-tools) and [Taint guard](/taint-guard) for the API, and [Audit checkpoints](/audit-checkpoints) for receipts.
+
+## Limits
+
+- The app edge code points `sql.js` at its bundled `.wasm` file. It replaces server-only drivers (mail, Postgres, MySQL, `zlib`) with empty modules. Those paths are never called.

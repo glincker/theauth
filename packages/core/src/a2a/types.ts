@@ -1,9 +1,6 @@
 /**
  * A2A (Agent-to-Agent) protocol types for TheAuth.
- *
- * Implements the Google Agent2Agent protocol specification for
- * agent interoperability. Covers Agent Cards, JSON-RPC methods,
- * task lifecycle, message/artifact types, and authentication schemes.
+ * Implements the Google Agent2Agent protocol specification for agent interoperability.
  *
  * @see https://a2a-protocol.org/latest/specification/
  */
@@ -13,13 +10,9 @@ import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
 export type { AuthError, Result, TheAuthError };
 
-// Protocol Constants
-
 export const A2A_PROTOCOL_VERSION = "0.3";
 export const A2A_JSONRPC_VERSION = "2.0";
 export const A2A_WELL_KNOWN_PATH = "/.well-known/agent.json";
-
-// Roles & States
 
 export type A2ARole = "user" | "agent";
 
@@ -55,8 +48,6 @@ export interface A2ADataPart {
 
 export type A2APart = A2ATextPart | A2AFilePart | A2ADataPart;
 
-// Message
-
 export interface A2AMessage {
 	id: string;
 	role: A2ARole;
@@ -65,8 +56,6 @@ export interface A2AMessage {
 	metadata?: Record<string, unknown>;
 	referenceTaskIds?: string[];
 }
-
-// Artifact
 
 export interface A2AArtifact {
 	id: string;
@@ -77,15 +66,11 @@ export interface A2AArtifact {
 	createdAt: string;
 }
 
-// Task Status
-
 export interface A2ATaskStatus {
 	code: A2ATaskState;
 	message?: string;
 	progress?: number; // 0–100
 }
-
-// Task
 
 export interface A2ATask {
 	id: string;
@@ -97,8 +82,6 @@ export interface A2ATask {
 	artifacts?: A2AArtifact[];
 	metadata?: Record<string, unknown>;
 }
-
-// Streaming Events
 
 export interface A2ATaskStatusUpdateEvent {
 	taskId: string;
@@ -176,8 +159,6 @@ export type A2ASecurityScheme =
 	| A2AOidcSecurityScheme
 	| A2AMutualTlsSecurityScheme;
 
-// Agent Card
-
 export interface A2AAgentProvider {
 	name: string;
 	email?: string;
@@ -225,8 +206,6 @@ export interface A2AAgentCard {
 	metadata?: Record<string, unknown>;
 }
 
-// JSON-RPC Envelope
-
 export interface A2AJsonRpcRequest<P = unknown> {
 	jsonrpc: "2.0";
 	id: string | number;
@@ -247,8 +226,6 @@ export interface A2AJsonRpcError {
 	data?: unknown;
 }
 
-// JSON-RPC Standard Error Codes
-
 export const A2A_ERROR_CODES = {
 	PARSE_ERROR: -32700,
 	INVALID_REQUEST: -32600,
@@ -263,8 +240,6 @@ export const A2A_ERROR_CODES = {
 	RATE_LIMITED: -32005,
 	TASK_ALREADY_COMPLETED: -32006,
 } as const;
-
-// JSON-RPC Method Params
 
 export interface A2ASendMessageParams {
 	message: A2AMessage;
@@ -292,8 +267,6 @@ export interface A2ASubscribeToTaskParams {
 	id: string;
 }
 
-// JSON-RPC Method Names
-
 export const A2A_METHODS = {
 	SEND_MESSAGE: "message/send",
 	SEND_STREAMING_MESSAGE: "message/stream",
@@ -301,14 +274,12 @@ export const A2A_METHODS = {
 	CANCEL_TASK: "tasks/cancel",
 } as const;
 
-// A2A Server Config
-
 export interface A2ATaskHandler {
 	/** Handle an incoming message and produce a task result */
 	onMessage: (message: A2AMessage, config?: A2ASendMessageConfiguration) => Promise<A2ATask>;
 	/** Handle task cancellation */
 	onCancel?: (taskId: string) => Promise<A2ATask>;
-	/** Handle streaming message — yields events instead of returning a task */
+	/** Handle streaming message, yields events instead of returning a task */
 	onMessageStream?: (
 		message: A2AMessage,
 		config?: A2ASendMessageConfiguration,
@@ -343,8 +314,6 @@ export interface A2AAuditEvent {
 	error?: string;
 }
 
-// A2A Client Config
-
 export interface A2AClientConfig {
 	/** Base URL of the remote A2A agent, or a discovered Agent Card */
 	agent: string | A2AAgentCard;
@@ -368,8 +337,6 @@ export interface A2AClient {
 	/** Send a streaming message and receive SSE events */
 	sendStreamingMessage: (params: A2ASendMessageParams) => AsyncIterable<A2AStreamEvent>;
 }
-
-// Zod Schemas
 
 export const A2ATextPartSchema = z.object({
 	type: z.literal("text"),

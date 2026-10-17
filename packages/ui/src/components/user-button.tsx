@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AvatarSlotProps, UserButtonProps } from "../types.js";
 import { cx } from "../utils.js";
 
-// Default avatar
-
 function DefaultAvatar({ src, name, className }: AvatarSlotProps): ReactNode {
 	if (src) {
 		return (
@@ -36,8 +34,6 @@ function DefaultAvatar({ src, name, className }: AvatarSlotProps): ReactNode {
 	);
 }
 
-// Component
-
 export function UserButton({
 	classNames,
 	components,
@@ -53,7 +49,6 @@ export function UserButton({
 
 	const Avatar = components?.Avatar ?? DefaultAvatar;
 
-	// Close on outside click
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
 			if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -66,7 +61,6 @@ export function UserButton({
 		}
 	}, [open]);
 
-	// Close on escape
 	useEffect(() => {
 		function handleEscape(e: KeyboardEvent) {
 			if (e.key === "Escape") setOpen(false);

@@ -56,7 +56,7 @@ export class ApiClient {
 	}
 
 	async request<T = unknown>(
-		method: "GET" | "POST",
+		method: "GET" | "POST" | "DELETE",
 		path: string,
 		options: RequestOptions = {},
 	): Promise<ApiResult<T>> {

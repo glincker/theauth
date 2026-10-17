@@ -1,27 +1,13 @@
 /**
- * TheAuth on Cloudflare Workers with D1
- *
- * Deploy:
- *   wrangler d1 create theauth-db
- *   wrangler secret put SESSION_SECRET
- *   wrangler deploy
- *
- * The D1 binding is declared in wrangler.toml:
- *
- *   [[d1_databases]]
- *   binding = "DB"
- *   database_name = "theauth-db"
- *   database_id = "<your-database-id>"
- *
- * On first deploy, run migrations:
- *   wrangler d1 execute theauth-db --file=./migrations/0001_initial.sql
+ * TheAuth on Cloudflare Workers with D1.
+ * Deploy with `wrangler d1 create theauth-db`, `wrangler secret put SESSION_SECRET`, `wrangler deploy`.
+ * The "DB" binding is declared in wrangler.toml; run the initial migration on first deploy.
  */
 
 import { createTheAuth } from "@glinr/theauth";
 import { theAuthHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
 
-// Cloudflare Workers env bindings
 type Env = {
 	DB: D1Database;
 	SESSION_SECRET: string;
@@ -29,18 +15,15 @@ type Env = {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Health check — no DB required
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-// All TheAuth routes under /api
-// auth is created per-request so it picks up the correct D1 binding
+// Created per request so it picks up the D1 binding from env.
 app.all("/api/*", async (c) => {
 	const auth = await createTheAuth({
 		database: {
 			provider: "d1",
 			binding: c.env.DB,
-			// Set skipMigrations: true once you've run `wrangler d1 migrations apply`
-			// skipMigrations: true,
+			// Set skipMigrations: true after running `wrangler d1 migrations apply`.
 		},
 		auth: {
 			session: {
@@ -56,7 +39,6 @@ app.all("/api/*", async (c) => {
 		},
 	});
 
-	// Mount theAuthHono under the /api prefix by stripping it before dispatch
 	// Demo only: no authentication on the management routes. Real apps pass
 	// `authenticate` (see the adapter docs).
 	const api = theAuthHono(auth, { allowUnauthenticated: true });

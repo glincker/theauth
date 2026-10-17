@@ -5,10 +5,7 @@ import type { McpAuthContext, McpClient } from "./types.js";
 
 /**
  * Client ID Metadata Documents (draft-ietf-oauth-client-id-metadata-document).
- *
- * The client_id is an https URL. The authorization server fetches that URL and
- * the document must repeat the same `client_id`, so an attacker cannot make the
- * server trust a document by pointing a client_id at someone else's URL.
+ * The authorization server fetches that URL and the document must repeat the same `client_id`, so an attacker cannot make the server trust a document by pointing a client_id at someone else's URL.
  */
 
 /** Re-read interval when the document carries no usable Cache-Control. */
@@ -48,9 +45,7 @@ function prune(map: Map<string, number>): void {
 }
 
 /**
- * Seconds a fetched document may be reused, from `Cache-Control: max-age`,
- * clamped to [60s, 24h]. `no-store`, `no-cache` and `max-age=0` get the
- * minimum. Absent or unparsable gives the one hour default.
+ * Seconds a fetched document may be reused, from `Cache-Control: max-age`, clamped to [60s, 24h]. `no-store`, `no-cache` and `max-age=0` get the minimum. Absent or unparsable gives the one hour default.
  */
 export function cimdCacheSeconds(cacheControl: string | undefined): number {
 	const defaultSeconds = CIMD_CACHE_MS / 1000;
@@ -210,15 +205,8 @@ export async function fetchClientMetadataDocument(
 }
 
 /**
- * Look a client up in storage and, when enabled, fall back to a Client ID
- * Metadata Document for https client_ids. Resolved documents are stored so the
- * token endpoint sees the same client.
- *
- * URL-identified clients are re-read once their document's Cache-Control
- * max-age (clamped to 60s..24h, default 1h) has passed, so redirect_uri
- * changes and removals take effect. A failed refresh fails closed, and a
- * failed fetch is remembered briefly (`negativeCacheSeconds`, default 30) so
- * a bad or slow document is not hammered.
+ * Look a client up in storage and, when enabled, fall back to a Client ID Metadata Document for https client_ids. Resolved documents are stored so the token endpoint sees the same client.
+ * URL-identified clients are re-read once their document's Cache-Control max-age (clamped to 60s..24h, default 1h) has passed, so redirect_uri changes and removals take effect. A failed refresh fails closed, and a failed fetch is remembered briefly (`negativeCacheSeconds`, default 30) so a bad or slow document is not hammered.
  */
 export async function resolveClient(
 	ctx: McpAuthContext,

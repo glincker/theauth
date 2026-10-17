@@ -1,6 +1,4 @@
-/**
- * Tests for TOTP two-factor authentication.
- */
+/** Tests for TOTP two-factor authentication. */
 
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -10,8 +8,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
-
-// Test helpers
 
 const TEST_USER_ID = "user-totp-test";
 const TEST_USER_ID_2 = "user-totp-test-2";
@@ -256,7 +252,6 @@ describe("createTotpModule — verify", () => {
 	});
 
 	it("returns valid=false when 2FA is not enabled", async () => {
-		// New user without enabling
 		await totp.setup(TEST_USER_ID_2);
 		const code = generateTestTotp(secret);
 		const result = await totp.verify(TEST_USER_ID_2, code);
@@ -265,7 +260,7 @@ describe("createTotpModule — verify", () => {
 
 	it("window tolerance: accepts code from the previous period", async () => {
 		// We use window=1, so the adjacent period code should be accepted.
-		// This test generates the code for "now" and checks it passes — the
+		// This test generates the code for "now" and checks it passes, the
 		// window acceptance itself is exercised by the implementation iterating
 		// delta from -1 to +1.
 		const code = generateTestTotp(secret, 0);
@@ -297,9 +292,7 @@ describe("createTotpModule — backup codes", () => {
 	});
 
 	it("rejects an already-used backup code", async () => {
-		// Use it once
 		await totp.verify(TEST_USER_ID, backupCodes[0]);
-		// Try to reuse it
 		const result = await totp.verify(TEST_USER_ID, backupCodes[0]);
 		expect(result.valid).toBe(false);
 	});

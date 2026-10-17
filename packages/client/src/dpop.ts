@@ -1,10 +1,6 @@
 /**
  * DPoP (RFC 9449) client helper. Edge safe: WebCrypto only, no dependencies.
- *
- * `createDPoPProver` owns an ES256 key pair and builds proofs. `createDPoPClient`
- * wraps `fetch`: it attaches the proof (and the `DPoP` authorization scheme with
- * an `ath` claim when an access token is supplied), caches the server nonce per
- * origin and retries once on a `use_dpop_nonce` challenge.
+ * `createDPoPClient` wraps `fetch`, attaches proofs, and caches the server nonce per origin.
  */
 
 export interface DPoPPublicJwk {
@@ -15,13 +11,11 @@ export interface DPoPPublicJwk {
 }
 
 export interface DPoPProofInput {
-	/** HTTP method of the request the proof is for. */
 	method: string;
 	/** Absolute request URL. Query and fragment are dropped from `htu`. */
 	url: string;
 	/** Include to bind the proof to a resource request (`ath`). */
 	accessToken?: string;
-	/** Server-provided nonce, when one is known for the origin. */
 	nonce?: string;
 }
 
@@ -30,7 +24,6 @@ export interface DPoPProver {
 	/** RFC 7638 SHA-256 JWK thumbprint (the `jkt` / `cnf.jkt` value). */
 	thumbprint(): Promise<string>;
 	createProof(input: DPoPProofInput): Promise<string>;
-	/** Cached nonce for the origin of `url`, if any. */
 	getNonce(url: string): string | undefined;
 	setNonce(url: string, nonce: string): void;
 }
@@ -43,15 +36,12 @@ export interface DPoPProverOptions {
 }
 
 export interface DPoPFetchOptions {
-	/** Access token for this request. Overrides the client-level `accessToken`. */
 	accessToken?: string;
 }
 
 export interface DPoPClientOptions extends DPoPProverOptions {
-	/** Reuse a prover (and its nonce cache) instead of creating one. */
 	prover?: DPoPProver;
 	fetch?: typeof fetch;
-	/** Default access token, or a getter resolved per request. */
 	accessToken?: string | (() => string | undefined | Promise<string | undefined>);
 }
 

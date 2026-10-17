@@ -3,10 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap, useTheAuthGoClient } from "./client-context.js";
 import { authKeys } from "./keys.js";
 
-/**
- * Backs a device verification page. Pass the user code once typed (or taken from the
- * verification URL); `info` stays idle while it is empty.
- */
+/** Backs a device verification page. `info` stays idle until a user code is entered. */
 export function useDeviceApproval(userCode: string) {
 	const client = useTheAuthGoClient();
 	const qc = useQueryClient();

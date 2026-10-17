@@ -1,14 +1,7 @@
-// pre-push hook for the sdk (wired in package.json simple-git-hooks).
-//
-// Default: audit gate, then typecheck and tests only for packages changed since
-// THEAUTH_BASE (default origin/main) and their dependents. A full run happens when
-// there is no base ref to diff against, or when THEAUTH_FULL_CHECKS=1 is set.
-// Env:
-//   THEAUTH_SKIP_HOOKS=1      skip the hook entirely (emergency only)
-//   THEAUTH_FULL_CHECKS=1     typecheck and test every package
-//   THEAUTH_BASE              git base ref (default origin/main)
-//   THEAUTH_TEST_CONCURRENCY  turbo concurrency (default 2 locally, 4 in CI)
-//   THEAUTH_DRY_RUN=1         print the commands instead of running them
+// pre-push hook for the sdk. Default: audit gate, then typecheck and tests for packages changed since
+// THEAUTH_BASE and their dependents. Full run when there is no base ref.
+// Env: THEAUTH_SKIP_HOOKS=1 (emergency only), THEAUTH_FULL_CHECKS=1, THEAUTH_BASE (default origin/main),
+// THEAUTH_TEST_CONCURRENCY, THEAUTH_DRY_RUN=1.
 import { spawnSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,7 +31,6 @@ function hasBase() {
 
 const full = process.env.THEAUTH_FULL_CHECKS === "1" || !hasBase();
 if (!full && !DRY) {
-	// Nothing to check when the push does not change any package.
 	const changed = spawnSync(
 		"pnpm", // NOSONAR S4036: dev tooling must resolve pnpm/git from the user's PATH
 		["exec", "turbo", "run", "typecheck", `--filter=...[${BASE}]`, "--dry=json"],

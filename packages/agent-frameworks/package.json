@@ -1,0 +1,77 @@
+{
+  "name": "@glinr/theauth-agent-frameworks",
+  "version": "0.1.0",
+  "description": "Drop-in theAuth tool guarding with human approval for LangChain.js/LangGraph and Mastra, plus a shared resume helper for the Vercel AI SDK and OpenAI Agents SDK",
+  "license": "MIT",
+  "author": "TheAuth <support@glinr.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glincker/theauth.git",
+    "directory": "packages/agent-frameworks"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./langchain": {
+      "types": "./dist/langchain.d.ts",
+      "import": "./dist/langchain.js"
+    },
+    "./mastra": {
+      "types": "./dist/mastra.d.ts",
+      "import": "./dist/mastra.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "THEAUTH_FRAMEWORK_INTEGRATION=1 vitest run tests/integration"
+  },
+  "peerDependencies": {
+    "@glinr/theauth": ">=1.2.0",
+    "@langchain/langgraph": ">=0.2.0",
+    "@mastra/core": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@langchain/langgraph": {
+      "optional": true
+    },
+    "@mastra/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@glinr/theauth": "workspace:*",
+    "@langchain/core": "1.2.18",
+    "@langchain/langgraph": "1.5.1",
+    "@mastra/core": "1.78.0",
+    "tsup": "^8.4.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11",
+    "zod": "4.3.6"
+  },
+  "homepage": "https://docs.theauth.dev/agent-frameworks",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "theauth",
+    "ai-agents",
+    "langchain",
+    "langgraph",
+    "mastra",
+    "human-in-the-loop",
+    "approval"
+  ]
+}

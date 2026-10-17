@@ -10,10 +10,7 @@ export interface GrantClientAuth {
 	assertionVerified: boolean;
 }
 
-/**
- * Look up the client, refuse a disabled one, and authenticate it (secret or an
- * already verified `private_key_jwt` assertion). Shared by every grant.
- */
+/** Look up the client, refuse a disabled one, and authenticate it (secret or an already verified `private_key_jwt` assertion). Shared by every grant. */
 export async function resolveAuthenticatedClient(
 	ctx: McpAuthContext,
 	clientId: string,
@@ -37,9 +34,7 @@ export async function resolveAuthenticatedClient(
 }
 
 /**
- * Resolve and authenticate the client of a non-interactive grant, then check
- * it is registered for `grantType`. Authentication comes first so a probe
- * cannot learn which grants an unauthenticated client holds.
+ * Resolve and authenticate the client of a non-interactive grant, then check it is registered for `grantType`. Authentication comes first so a probe cannot learn which grants an unauthenticated client holds.
  */
 export async function authenticateGrantClient(
 	ctx: McpAuthContext,
@@ -62,10 +57,7 @@ export async function authenticateGrantClient(
 }
 
 /**
- * Narrow scopes: the result is the requested set (or all of `allowed` when
- * none were requested), and never contains anything outside `allowed`.
- * With `lenientClients.dropUnknownScopes`, scopes the server does not support
- * at all are dropped first; the request only fails if none remain.
+ * Narrow scopes: the result is the requested set (or all of `allowed` when none were requested), and never contains anything outside `allowed`. With `lenientClients.dropUnknownScopes`, scopes the server does not support at all are dropped first; the request only fails if none remain.
  */
 export function narrowScopes(
 	ctx: McpAuthContext,

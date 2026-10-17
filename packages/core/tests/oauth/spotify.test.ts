@@ -1,6 +1,4 @@
-/**
- * Tests for the Spotify OAuth provider.
- */
+/** Tests for the Spotify OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,8 +12,6 @@ const CLIENT_SECRET = "test-spotify-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USER_RAW = {
 	id: "spotify-user-abc123",
 	display_name: "Bob Listener",
@@ -25,8 +21,6 @@ const CANNED_USER_RAW = {
 		{ url: "https://i.scdn.co/image/small.jpg", height: 64, width: 64 },
 	],
 };
-
-// Provider construction
 
 describe("createSpotifyProvider", () => {
 	it("creates a provider with id spotify", () => {
@@ -69,8 +63,6 @@ describe("createSpotifyProvider", () => {
 	});
 });
 
-// Authorization URL
-
 describe("createSpotifyProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and correct scopes", async () => {
 		const provider = createSpotifyProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
@@ -101,8 +93,6 @@ describe("createSpotifyProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeSpotifyProfile", () => {
 	it("maps Spotify user to OAuthUserInfo", () => {

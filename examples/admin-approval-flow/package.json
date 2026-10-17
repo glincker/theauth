@@ -1,0 +1,25 @@
+{
+  "name": "@glinr/theauth-example-admin-approval-flow",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@glinr/theauth": "workspace:*",
+    "@glinr/theauth-mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "better-sqlite3": "^12.9.0",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

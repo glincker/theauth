@@ -1,6 +1,4 @@
-/**
- * Tests for the OAuth 2.0 / OIDC provider module.
- */
+/** Tests for the OAuth 2.0 / OIDC provider module. */
 
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -14,8 +12,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
-
-// Test DB helper
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -35,8 +31,6 @@ async function createTestDb(): Promise<Database> {
 
 	return db;
 }
-
-// Mock provider factory
 
 function createMockProvider(
 	id: string,
@@ -80,8 +74,6 @@ function createMockProvider(
 		},
 	};
 }
-
-// PKCE
 
 describe("PKCE", () => {
 	it("generates a non-empty code verifier", () => {
@@ -136,8 +128,6 @@ describe("PKCE", () => {
 	});
 });
 
-// Google provider
-
 describe("Google provider", () => {
 	const google = createGoogleProvider({
 		clientId: "google-client-id",
@@ -160,7 +150,7 @@ describe("Google provider", () => {
 			clientSecret: "secret",
 			scopes: ["email", "https://www.googleapis.com/auth/drive.readonly"],
 		});
-		// "email" already in defaults — should not appear twice
+		// "email" already in defaults, should not appear twice
 		const emailCount = g.scopes.filter((s) => s === "email").length;
 		expect(emailCount).toBe(1);
 		expect(g.scopes).toContain("https://www.googleapis.com/auth/drive.readonly");
@@ -212,8 +202,6 @@ describe("Google provider", () => {
 		expect(url).toContain(`code_challenge=${encodeURIComponent(expectedChallenge)}`);
 	});
 });
-
-// GitHub provider
 
 describe("GitHub provider", () => {
 	const github = createGithubProvider({
@@ -269,7 +257,7 @@ describe("GitHub provider", () => {
 	});
 });
 
-// OAuth module — state management
+// OAuth module, state management
 
 describe("createOAuthModule — state management", () => {
 	let db: Database;
@@ -379,7 +367,7 @@ describe("createOAuthModule — state management", () => {
 	});
 });
 
-// OAuth module — callback and account management
+// OAuth module, callback and account management
 
 describe("createOAuthModule — handleCallback", () => {
 	let db: Database;
@@ -411,7 +399,6 @@ describe("createOAuthModule — handleCallback", () => {
 		const mock = createMockProvider("test");
 		const oauth = createOAuthModule(db, { providers: { test: mock } });
 
-		// First callback
 		const { state: s1 } = await oauth.getAuthorizationUrl("test", "https://app.example.com/cb");
 		const first = await oauth.handleCallback("test", "code", s1, "https://app.example.com/cb");
 		// Link the pending account to a real user.
@@ -461,7 +448,7 @@ describe("createOAuthModule — handleCallback", () => {
 	});
 });
 
-// OAuth module — linkAccount and findLinkedUser
+// OAuth module, linkAccount and findLinkedUser
 
 describe("createOAuthModule — linkAccount / findLinkedUser", () => {
 	let db: Database;

@@ -1,6 +1,4 @@
-/**
- * Tests for the last-login tracking module.
- */
+/** Tests for the last-login tracking module. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LastLoginModule } from "../src/auth/last-login.js";
@@ -9,8 +7,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { loginHistory, users } from "../src/db/schema.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -29,7 +25,7 @@ async function seedUser(db: Database, id: string): Promise<void> {
 	});
 }
 
-// recordLogin — all methods
+// recordLogin, all methods
 
 describe("LastLoginModule.recordLogin", () => {
 	let db: Database;
@@ -174,8 +170,6 @@ describe("LastLoginModule.recordLogin", () => {
 	});
 });
 
-// History pruning
-
 describe("LastLoginModule — history pruning", () => {
 	it("keeps only the N most recent logins by default (default N = 10)", async () => {
 		const db = await createTestDb();
@@ -244,22 +238,19 @@ describe("LastLoginModule — history pruning", () => {
 			},
 		]);
 
-		// Trigger pruning by recording one more — but now there are already 3 rows
+		// Trigger pruning by recording one more, but now there are already 3 rows
 		// so the pruner in the next recordLogin will run. Instead, re-create the
-		// module and call getLoginHistory which doesn't prune — verify manually
+		// module and call getLoginHistory which doesn't prune, verify manually
 		// that only 2 of 3 are returned when limit is 2.
 		const histResult = await mod.getLoginHistory("usr_order_prune", 2);
 		expect(histResult.success).toBe(true);
 		if (!histResult.success) return;
 
 		expect(histResult.data).toHaveLength(2);
-		// Newest first
 		expect(histResult.data[0]?.method).toBe("passkey");
 		expect(histResult.data[1]?.method).toBe("magic-link");
 	});
 });
-
-// getLastLogin
 
 describe("LastLoginModule.getLastLogin", () => {
 	let db: Database;
@@ -334,8 +325,6 @@ describe("LastLoginModule.getLastLogin", () => {
 		expect(result.error.code).toBe("INVALID_INPUT");
 	});
 });
-
-// getLoginHistory
 
 describe("LastLoginModule.getLoginHistory", () => {
 	let db: Database;
@@ -452,8 +441,6 @@ describe("LastLoginModule.getLoginHistory", () => {
 	});
 });
 
-// User isolation
-
 describe("LastLoginModule — user isolation", () => {
 	it("histories for different users do not interfere", async () => {
 		const db = await createTestDb();
@@ -467,7 +454,7 @@ describe("LastLoginModule — user isolation", () => {
 
 		const aliceHistory = await mod.getLoginHistory("alice");
 		const bobHistory = await mod.getLoginHistory("bob");
-		// carol was never seeded — no history but no error
+		// carol was never seeded, no history but no error
 		const carolHistory = await mod.getLoginHistory("carol");
 
 		expect(aliceHistory.success).toBe(true);

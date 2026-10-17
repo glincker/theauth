@@ -1,6 +1,4 @@
-/**
- * Tests for the Zoom OAuth provider.
- */
+/** Tests for the Zoom OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,8 +12,6 @@ const CLIENT_SECRET = "test-zoom-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USER_RAW = {
 	id: "AbCdEfGhIjKlMnOp",
 	email: "grace@example.com",
@@ -24,8 +20,6 @@ const CANNED_USER_RAW = {
 	display_name: "Grace Video",
 	pic_url: "https://lh3.googleusercontent.com/a/grace-zoom-avatar",
 };
-
-// Provider construction
 
 describe("createZoomProvider", () => {
 	it("creates a provider with id zoom", () => {
@@ -58,8 +52,6 @@ describe("createZoomProvider", () => {
 	});
 });
 
-// Authorization URL
-
 describe("createZoomProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
 		const provider = createZoomProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
@@ -89,8 +81,6 @@ describe("createZoomProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeZoomProfile", () => {
 	it("maps Zoom user to OAuthUserInfo", () => {

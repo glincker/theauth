@@ -1,8 +1,4 @@
-/**
- * Tests for the trusted device 2FA window module.
- *
- * Uses in-memory SQLite so every test starts with a clean database.
- */
+/** Tests for the trusted device 2FA window module. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrustedDeviceModule } from "../src/auth/trusted-device.js";
@@ -15,8 +11,6 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import * as schema from "../src/db/schema.js";
-
-// Test setup
 
 const USER_A = "user-trusted-a";
 const USER_B = "user-trusted-b";
@@ -84,8 +78,6 @@ describe("createTrustedDeviceModule", () => {
 		db = await createTestDb();
 		mod = makeModule(db);
 	});
-
-	// generateFingerprint
 
 	describe("generateFingerprint()", () => {
 		it("returns a hex string", async () => {
@@ -183,8 +175,6 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// revokeDevice
-
 	describe("revokeDevice()", () => {
 		it("revokes trust for a specific device", async () => {
 			const fp = await mod.generateFingerprint(makeRequest());
@@ -208,8 +198,6 @@ describe("createTrustedDeviceModule", () => {
 			expect(await mod.isTrusted(USER_A, fp2)).toBe(true);
 		});
 	});
-
-	// revokeAllDevices
 
 	describe("revokeAllDevices()", () => {
 		it("revokes all devices for a user", async () => {
@@ -238,8 +226,6 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 
-	// max device limit
-
 	describe("maxDevices enforcement", () => {
 		it("evicts the oldest device when the limit is reached", async () => {
 			const limitMod = makeModule(db, { maxDevices: 3 });
@@ -265,8 +251,6 @@ describe("createTrustedDeviceModule", () => {
 			expect(await limitMod.isTrusted(USER_A, fp4)).toBe(true);
 		});
 	});
-
-	// listDevices
 
 	describe("listDevices()", () => {
 		it("lists all active trusted devices with metadata", async () => {
@@ -295,8 +279,6 @@ describe("createTrustedDeviceModule", () => {
 		});
 	});
 });
-
-// Label helper tests
 
 describe("_labelFromUserAgent", () => {
 	it.each([

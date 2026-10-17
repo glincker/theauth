@@ -1,6 +1,4 @@
-/**
- * RFC 7523 jwt-bearer redemption of ID-JAG assertions from trusted issuers.
- */
+/** RFC 7523 jwt-bearer redemption of ID-JAG assertions from trusted issuers. */
 import { SignJWT } from "jose";
 import { describe, expect, it, vi } from "vitest";
 import type { McpConfig } from "../src/mcp/types.js";

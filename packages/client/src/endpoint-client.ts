@@ -38,7 +38,6 @@ export type EndpointResult<T> =
 	| { ok: false; status: number; error: { code: string; message: string; issues?: unknown } };
 
 export interface EndpointClientOptions {
-	/** Where the plugin routes are mounted, e.g. `/api/theauth`. */
 	baseUrl: string;
 	fetch?: typeof fetch;
 	/** Extra headers on every call, e.g. `Authorization`. */

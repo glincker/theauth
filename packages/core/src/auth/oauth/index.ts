@@ -31,14 +31,11 @@
 // Typed errors for getAccessToken / unlinkAccount
 export type { OAuthTokenErrorCode } from "./errors.js";
 export { OAuthRefreshError, OAuthTokenError } from "./errors.js";
-// Module factory
 export { createOAuthModule } from "./module.js";
 // PKCE utilities (useful for testing or custom providers)
 export { deriveCodeChallenge, generateCodeVerifier } from "./pkce.js";
 export type { OAuthPluginConfig } from "./plugin.js";
-// Plugin
 export { oauth } from "./plugin.js";
-// Built-in providers
 export { createAppleProvider } from "./providers/apple.js";
 export { createDiscordProvider } from "./providers/discord.js";
 export { createGithubProvider } from "./providers/github.js";
@@ -55,7 +52,6 @@ export { createTwitterProvider } from "./providers/twitter.js";
 // Schema tables (for use in migrations or direct DB queries)
 export { oauthAccounts, oauthStates } from "./schema.js";
 
-// Types
 export type {
 	OAuthAccessToken,
 	OAuthAccount,

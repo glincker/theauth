@@ -1,6 +1,4 @@
-/**
- * Tests for the one-time token module.
- */
+/** Tests for the one-time token module. */
 
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -12,8 +10,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { oneTimeTokens } from "../src/db/schema.js";
 
-// Helpers
-
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
 	await createTables(db, "sqlite");
@@ -23,8 +19,6 @@ async function createTestDb(): Promise<Database> {
 function sha256(value: string): string {
 	return createHash("sha256").update(value).digest("hex");
 }
-
-// createToken
 
 describe("OneTimeTokenModule.createToken", () => {
 	let db: Database;
@@ -191,8 +185,6 @@ describe("OneTimeTokenModule.createToken", () => {
 	});
 });
 
-// validateToken
-
 describe("OneTimeTokenModule.validateToken", () => {
 	let db: Database;
 	let mod: OneTimeTokenModule;
@@ -341,8 +333,6 @@ describe("OneTimeTokenModule.validateToken", () => {
 		expect(result.error.code).toBe("INVALID_INPUT");
 	});
 });
-
-// revokeTokens
 
 describe("OneTimeTokenModule.revokeTokens", () => {
 	let db: Database;

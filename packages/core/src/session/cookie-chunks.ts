@@ -1,13 +1,6 @@
 /**
  * Chunked cookies for values that do not fit in one 4096 byte cookie.
- *
- * Browsers drop a cookie when `name=value` passes about 4096 bytes, and they
- * do it silently. A value that is too long is split across `name.0`,
- * `name.1`, ... and stitched back together on read. A value that fits stays in
- * a single cookie called `name`, so small payloads cost nothing extra.
- *
- * The value must be cookie-safe text (base64url, JWT, hex). Chunk boundaries
- * never split a percent-escape.
+ * A value that fits stays in a single cookie called `name`, so small payloads cost nothing extra. The value must be cookie-safe text (base64url, JWT, hex). Chunk boundaries never split a percent-escape.
  */
 
 import type { Result } from "../mcp/types.js";
@@ -70,11 +63,7 @@ function existingChunkIndexes(name: string, cookies: Record<string, string>): nu
 	return out;
 }
 
-/**
- * Build the `Set-Cookie` headers for a possibly chunked cookie.
- *
- * @param existing Cookies currently on the request. Stale chunks (a previous
- */
+/** Build the `Set-Cookie` headers for a possibly chunked cookie. */
 export function serializeChunkedCookie(
 	name: string,
 	value: string,
@@ -121,10 +110,7 @@ export function serializeChunkedCookie(
 	return { success: true, data: { headers, chunks: parts.length, bytes } };
 }
 
-/**
- * Read a cookie written by `serializeChunkedCookie`. Returns `undefined` when
- * absent or when a chunk is missing (a partial value is never returned).
- */
+/** Read a cookie written by `serializeChunkedCookie`. Returns `undefined` when absent or when a chunk is missing (a partial value is never returned). */
 export function readChunkedCookie(
 	cookies: Record<string, string>,
 	name: string,

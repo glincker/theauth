@@ -1,8 +1,5 @@
 /**
- * Security hardening tests for the MCP authorization server:
- * SSRF-safe metadata fetching, hashed secrets and tokens, refresh token reuse
- * detection, mandatory audience and resource, asymmetric signing with JWKS
- * rotation, jti denylist, RFC 7009 revocation and RFC 9207 iss.
+ * Security hardening tests for the MCP authorization server: SSRF-safe metadata fetching, hashed secrets and tokens, refresh token reuse detection, mandatory audience and resource, asymmetric signing with JWKS rotation, jti denylist, RFC 7009 revocation and RFC 9207 iss.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase } from "../src/db/database.js";
@@ -37,8 +34,6 @@ const SECRET = "test-signing-secret-at-least-32-chars-long!!";
 const REDIRECT = "https://app.theauth.test/callback";
 const RESOURCE = "https://mcp.theauth.test";
 const USER = "user_1";
-
-// Harness
 
 interface Store {
 	clients: Map<string, McpClient>;
@@ -432,8 +427,6 @@ describe("Client ID Metadata Documents", () => {
 	});
 });
 
-// 2. Hashed secrets and tokens
-
 describe("hashed secrets and tokens", () => {
 	it("timingSafeEqual compares correctly, including length mismatches", () => {
 		expect(timingSafeEqual("abc", "abc")).toBe(true);
@@ -675,8 +668,6 @@ describe("refresh token reuse detection", () => {
 		}
 	});
 });
-
-// 5. Audience, resource and scope strictness
 
 describe("audience, resource and scope enforcement", () => {
 	let store: Store;

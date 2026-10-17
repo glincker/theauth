@@ -1,6 +1,4 @@
-/**
- * Tests for magic link authentication.
- */
+/** Tests for magic link authentication. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MagicLinkModule } from "../src/auth/magic-link.js";
@@ -10,8 +8,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { magicLinks } from "../src/db/schema.js";
 import { createSessionManager } from "../src/session/session.js";
-
-// Helpers
 
 const SESSION_SECRET = "test-session-secret-that-is-at-least-32-chars!!";
 const APP_URL = "https://app.example.com";
@@ -23,12 +19,8 @@ async function createTestDb(): Promise<Database> {
 }
 
 function makeSendMagicLink() {
-	return vi.fn(async (_email: string, _token: string, _url: string) => {
-		// no-op in tests
-	});
+	return vi.fn(async (_email: string, _token: string, _url: string) => {});
 }
-
-// Suite
 
 describe("MagicLinkModule.sendLink", () => {
 	let db: Database;

@@ -1,14 +1,9 @@
 import type { BrowserWindowInstance } from "./electron-api.js";
 import { getElectronApi } from "./electron-api.js";
 
-// Types
-
 export interface OAuthWindowConfig {
-	/** Window width in pixels. Defaults to 500. */
 	width?: number;
-	/** Window height in pixels. Defaults to 700. */
 	height?: number;
-	/** Base path where TheAuth is mounted. Defaults to "/api/theauth". */
 	basePath?: string;
 }
 
@@ -16,8 +11,6 @@ export interface OAuthWindowResult {
 	success: boolean;
 	error?: string;
 }
-
-// Session cookie extraction
 
 const SESSION_COOKIE_NAMES = ["theauth-session", "better-auth.session_token", "__session"];
 
@@ -32,8 +25,6 @@ async function extractSessionCookie(
 	}
 	return null;
 }
-
-// URL parsing helpers
 
 function isCallbackUrl(url: string, base: string): boolean {
 	const normalised = base.replace(/\/$/, "");
@@ -54,8 +45,6 @@ function extractOAuthError(url: string): string | null {
 		return null;
 	}
 }
-
-// Main export
 
 /**
  * Opens a BrowserWindow to the OAuth authorization URL for a given provider,
@@ -116,8 +105,7 @@ export async function openOAuthWindow(
 			try {
 				const origin = new URL(url).origin;
 				const cookie = await extractSessionCookie(win, origin);
-				// Treat as success whether or not we captured the cookie — the
-				// session will be verified on the next server round-trip.
+				// Success either way. The session is verified on the next server round-trip.
 				void cookie;
 				settle({ success: true });
 			} catch (err) {

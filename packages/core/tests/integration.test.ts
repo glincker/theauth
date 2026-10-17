@@ -1,23 +1,6 @@
 /**
  * Integration test: full auth + agent flow.
- *
- * Covers the complete user journey from account creation through to
- * agent delegation and audit export, using in-memory SQLite throughout.
- *
- * Steps:
- *  1.  Create a TheAuth instance with email OTP auth
- *  2.  Sign up a user (sendCode → verifyCode creates the account)
- *  3.  Verify the user record exists and a session was issued
- *  4.  Sign in again (re-verify) — simulates returning user
- *  5.  Create an agent with scoped permissions
- *  6.  Authorize an allowed action — should succeed
- *  7.  Authorize a denied action — should fail
- *  8.  Check the audit trail has both entries
- *  9.  Delegate permissions to a sub-agent
- * 10.  Authorize the sub-agent via delegation — should succeed
- * 11.  Revoke the primary agent
- * 12.  Verify the revoked agent is denied on all actions
- * 13.  Export the audit trail as CSV and verify structure
+ * Sign-up, sign-in, authorization, revocation and audit export, end to end.
  */
 
 import { randomUUID } from "node:crypto";
@@ -25,12 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TheAuth } from "../src/theauth.js";
 import { createTheAuth } from "../src/theauth.js";
 
-// Constants
-
 const SESSION_SECRET = "integration-test-secret-at-least-32-chars-long!!";
 const TEST_EMAIL = "alice@example.com";
-
-// Factory
 
 async function createIntegrationTheAuth(): Promise<{
 	theauth: TheAuth;
@@ -60,8 +39,6 @@ async function createIntegrationTheAuth(): Promise<{
 	return { theauth, capturedCodes };
 }
 
-// Suite
-
 describe("Integration: full auth + agent flow", () => {
 	let theauth: TheAuth;
 	let capturedCodes: Map<string, string>;
@@ -84,7 +61,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(typeof signupCode).toBe("string");
 		expect((signupCode as string).length).toBeGreaterThan(0);
 
-		// Step 3: verify OTP — creates user + issues session
+		// Step 3: verify OTP, creates user + issues session
 		const signupResult = await theauth.emailOtp?.verifyCode(TEST_EMAIL, signupCode as string);
 		expect(signupResult).not.toBeNull();
 
@@ -106,9 +83,7 @@ describe("Integration: full auth + agent flow", () => {
 
 		const signinResult = await theauth.emailOtp?.verifyCode(TEST_EMAIL, signinCode as string);
 		expect(signinResult).not.toBeNull();
-		// Same user each time
 		expect(signinResult?.user.id).toBe(userId);
-		// Fresh session token
 		expect(signinResult?.session.token).toBeTruthy();
 
 		// Step 5: create an agent with permissions
@@ -228,13 +203,12 @@ describe("Integration: full auth + agent flow", () => {
 		// Step 13: export audit trail as CSV
 		const csv = await theauth.audit.export({ format: "csv" });
 
-		// Header row
 		expect(csv).toContain("id,agentId,userId");
 		expect(csv).toContain("action");
 		expect(csv).toContain("resource");
 		expect(csv).toContain("result");
 
-		// Data rows — both agents should appear
+		// Data rows, both agents should appear
 		expect(csv).toContain(agent.id);
 		expect(csv).toContain("allowed");
 		expect(csv).toContain("denied");
@@ -300,17 +274,14 @@ describe("Integration: full auth + agent flow", () => {
 			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
 		});
 
-		// Access granted before revocation
 		const before = await theauth.authorize(child.id, {
 			action: "read",
 			resource: "metrics:dashboard",
 		});
 		expect(before.allowed).toBe(true);
 
-		// Revoke the delegation chain
 		await theauth.delegation.revoke(chain.id);
 
-		// Access denied after revocation
 		const after = await theauth.authorize(child.id, {
 			action: "read",
 			resource: "metrics:dashboard",
@@ -362,12 +333,10 @@ describe("Integration: full auth + agent flow", () => {
 		const emailA = `alice-${randomUUID()}@example.com`;
 		const emailB = `bob-${randomUUID()}@example.com`;
 
-		// Set up user A
 		await theauth.emailOtp?.sendCode(emailA);
 		const codeA = capturedCodes.get(emailA) as string;
 		const { user: userA } = (await theauth.emailOtp?.verifyCode(emailA, codeA))!;
 
-		// Set up user B
 		await theauth.emailOtp?.sendCode(emailB);
 		const codeB = capturedCodes.get(emailB) as string;
 		const { user: userB } = (await theauth.emailOtp?.verifyCode(emailB, codeB))!;
@@ -395,7 +364,6 @@ describe("Integration: full auth + agent flow", () => {
 		expect(logsA).toHaveLength(1);
 		expect(logsB).toHaveLength(1);
 
-		// No cross-contamination
 		expect(logsA[0]?.agentId).toBe(agentA.id);
 		expect(logsB[0]?.agentId).toBe(agentB.id);
 	});

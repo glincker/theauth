@@ -1,10 +1,4 @@
-/**
- * A2A Agent Card management.
- *
- * Creates, validates, signs, and verifies Agent Cards that describe
- * an agent's identity, capabilities, skills, and auth requirements
- * using the A2A protocol format.
- */
+/** A2A Agent Card creation, validation, signing and verification. */
 
 import * as jose from "jose";
 import { generateId } from "../crypto/web-crypto.js";
@@ -19,43 +13,25 @@ import type {
 } from "./types.js";
 import { A2A_PROTOCOL_VERSION, A2AAgentCardSchema } from "./types.js";
 
-// Create Agent Card
-
 export interface CreateAgentCardInput {
-	/** The TheAuth agent identity to build the card from */
 	agent: Pick<AgentIdentity, "id" | "name" | "type">;
-	/** The URL where this agent's A2A endpoint is hosted */
 	url: string;
-	/** Human-readable description of what the agent does */
 	description: string;
-	/** Semantic version of this agent */
 	version: string;
-	/** Skills this agent can perform */
 	skills: A2AAgentSkill[];
-	/** Optional provider information */
 	provider?: A2AAgentProvider;
-	/** Optional capabilities declaration */
 	capabilities?: A2AAgentCapabilities;
 	/** Security schemes required to call this agent */
 	securitySchemes?: Record<string, A2ASecurityScheme>;
 	/** Security requirements (references to securitySchemes keys) */
 	security?: Array<Record<string, string[]>>;
-	/** Default accepted input MIME types */
 	defaultInputModes?: string[];
-	/** Default output MIME types */
 	defaultOutputModes?: string[];
-	/** Link to agent documentation */
 	documentationUrl?: string;
-	/** Arbitrary metadata */
 	metadata?: Record<string, unknown>;
 }
 
-/**
- * Create an A2A-compliant Agent Card from a TheAuth agent identity.
- *
- * Maps TheAuth agent fields to the A2A Agent Card format and sets
- * the protocol version automatically.
- */
+/** Create an A2A-compliant Agent Card from a TheAuth agent identity. */
 export function createAgentCard(input: CreateAgentCardInput): A2AAgentCard {
 	const card: A2AAgentCard = {
 		id: input.agent.id,
@@ -79,13 +55,7 @@ export function createAgentCard(input: CreateAgentCardInput): A2AAgentCard {
 	return card;
 }
 
-// Validate Agent Card
-
-/**
- * Validate an incoming Agent Card against the A2A schema.
- *
- * Returns the parsed card on success or a structured error on failure.
- */
+/** Validate an incoming Agent Card against the A2A schema. */
 export function validateAgentCard(card: unknown): Result<A2AAgentCard> {
 	const parsed = A2AAgentCardSchema.safeParse(card);
 	if (!parsed.success) {
@@ -102,12 +72,8 @@ export function validateAgentCard(card: unknown): Result<A2AAgentCard> {
 	return { success: true, data: parsed.data as A2AAgentCard };
 }
 
-// Sign Agent Card
-
 export interface SignAgentCardOptions {
-	/** The Agent Card to sign */
 	card: A2AAgentCard;
-	/** JWK private key used to create the signature */
 	privateKey: CryptoKey | jose.JWK;
 	/** Signing algorithm. Default: "ES256". */
 	algorithm?: string;
@@ -115,18 +81,11 @@ export interface SignAgentCardOptions {
 	keyId?: string;
 }
 
-/**
- * Sign an Agent Card with a private key.
- *
- * Creates a JWS compact signature over the card's canonical JSON
- * (excluding the signature field itself). The signature, algorithm,
- * and key ID are attached to the card's `signature` field.
- */
+/** Sign an Agent Card. The JWS covers the card JSON without its `signature` field. */
 export async function signAgentCard(options: SignAgentCardOptions): Promise<Result<A2AAgentCard>> {
 	const { card, privateKey, algorithm = "ES256", keyId } = options;
 
 	try {
-		// Strip existing signature before signing
 		const { signature: _ignored, ...cardWithoutSignature } = card;
 
 		const payload = new TextEncoder().encode(JSON.stringify(cardWithoutSignature));
@@ -163,22 +122,12 @@ export async function signAgentCard(options: SignAgentCardOptions): Promise<Resu
 	}
 }
 
-// Verify Agent Card
-
 export interface VerifyAgentCardOptions {
-	/** The signed Agent Card to verify */
 	card: A2AAgentCard;
-	/** JWK public key used to verify the signature */
 	publicKey: CryptoKey | jose.JWK;
 }
 
-/**
- * Verify a signed Agent Card's signature.
- *
- * Checks that the JWS signature in `card.signature` is valid
- * against the provided public key and that the payload matches
- * the card content (minus the signature field).
- */
+/** Verify the JWS signature on a signed Agent Card and that its payload matches the card. */
 export async function verifyAgentCard(
 	options: VerifyAgentCardOptions,
 ): Promise<Result<{ valid: boolean; card: A2AAgentCard }>> {
@@ -210,7 +159,6 @@ export async function verifyAgentCard(
 		const currentContent = JSON.stringify(cardWithoutSignature);
 		const parsedCurrentContent = JSON.parse(currentContent) as Record<string, unknown>;
 
-		// Compare the signed payload against the current card content
 		const matches = JSON.stringify(signedContent) === JSON.stringify(parsedCurrentContent);
 
 		return {

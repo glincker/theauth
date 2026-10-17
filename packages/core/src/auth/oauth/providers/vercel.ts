@@ -1,27 +1,8 @@
 /**
  * Sign in with Vercel (OAuth 2.0 / OIDC) provider.
- *
- * Endpoints:
- * - Authorization: https://vercel.com/oauth/authorize
- * - Token:         https://api.vercel.com/login/oauth/token
- * - UserInfo:      https://api.vercel.com/login/oauth/userinfo (POST)
- * - Discovery:     https://vercel.com/.well-known/openid-configuration
- *
  * Notes:
- * - PKCE with S256 is required.
- * - Client credentials go in the form body (`client_secret_post`). Basic,
- *   JWT assertion and `none` are also available per app.
- * - Scopes are `openid`, `email`, `profile` and `offline_access`. Scopes the
- *   app does not have enabled in its dashboard settings are dropped. A
- *   refresh token is issued only when `offline_access` is granted, so pass
- *   it in `scopes` when you need `getAccessToken` refreshes.
- * - The userinfo example in the docs uses POST with a Bearer token.
- * - Userinfo claims: `sub`, `email`, `email_verified`, `name`,
- *   `preferred_username`, `picture`.
- * - This is the Sign in with Vercel flow for apps created under Team
- *   Settings, Apps. It is not the older marketplace integration OAuth flow.
- *
- * Docs: https://vercel.com/docs/sign-in-with-vercel/authorization-server-api
+ * - PKCE with S256 is required. Scopes the app does not have enabled in its dashboard settings are dropped. A refresh token is issued only when `offline_access` is granted, so pass it in `scopes` when you need `getAccessToken` refreshes.
+ * - Userinfo claims: `sub`, `email`, `email_verified`, `name`, `preferred_username`, `picture`. It is not the older marketplace integration OAuth flow.
  */
 
 import type { OAuthProvider, OAuthProviderConfig } from "../types.js";

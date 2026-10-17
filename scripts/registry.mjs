@@ -1,6 +1,4 @@
-// Builds a shadcn-compatible registry from the @glinr/theauth-ui source.
-// Items are flat files meant to be copied into an app and owned by it, so
-// relative imports are rewritten to sit side by side in one folder.
+// Builds a shadcn-compatible registry from @glinr/theauth-ui. Items are flat files, so imports are rewritten to sit side by side.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -56,7 +54,6 @@ const COMPONENTS = [
 	},
 ];
 
-/** `../types.js` and `./x.js` become `./types` and `./x`. */
 function flattenImports(source) {
 	return source.replace(/(from\s+["'])(?:\.\.?\/)+(?:[a-z-]+\/)*([a-z-]+)\.js(["'])/g, "$1./$2$3");
 }

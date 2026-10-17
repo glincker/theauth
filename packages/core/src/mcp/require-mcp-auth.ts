@@ -34,10 +34,7 @@ export interface RequireMcpAuthOptions {
 	requiredScopes?: string[];
 	/** Canonical URI of this resource server. Default: `McpConfig.resource`. */
 	expectedAudience?: string;
-	/**
-	 * The URL clients sign as the proof `htu`. Set it behind a proxy or when the
-	 * public URL differs from `request.url`. Default: `request.url`.
-	 */
+	/** The URL clients sign as the proof `htu`. Set it behind a proxy or when the public URL differs from `request.url`. Default: `request.url`. */
 	resourceUrl?: string;
 	/** RFC 9728 metadata URL for challenges. Default: `<baseUrl>/.well-known/oauth-protected-resource`. */
 	resourceMetadataUrl?: string;
@@ -93,19 +90,12 @@ function parseAuthorization(request: Request): { scheme: "Bearer" | "DPoP"; toke
 }
 
 /**
- * Protect a Web API handler with MCP OAuth. Accepts `Authorization: Bearer`
- * and, when `McpConfig.dpop` is set, `Authorization: DPoP` with a proof.
- *
+ * Protect a Web API handler with MCP OAuth. Accepts `Authorization: Bearer` and, when `McpConfig.dpop` is set, `Authorization: DPoP` with a proof.
  * What it enforces:
  * - signature, issuer, expiry and audience (RFC 8707) of the access token
- * - for DPoP: proof signature, `htm`, `htu`, `iat`, `ath`, nonce (optional),
- *   `jti` replay, and that the proof key matches the token's `cnf.jkt`
+ * - for DPoP: proof signature, `htm`, `htu`, `iat`, `ath`, nonce (optional), `jti` replay, and that the proof key matches the token's `cnf.jkt`
  * - bearer downgrade: a DPoP-bound token sent with the Bearer scheme is refused
- * - required scopes (403 `insufficient_scope`)
- *
- * Failures return a 401 or 403 with `WWW-Authenticate` challenges per RFC 6750,
- * RFC 9449 and RFC 9728 (`resource_metadata`). On success the handler runs with
- * the verified {@link McpPrincipal}.
+ * - required scopes (403 `insufficient_scope`) Failures return a 401 or 403 with `WWW-Authenticate` challenges per RFC 6750, RFC 9449 and RFC 9728 (`resource_metadata`). On success the handler runs with the verified {@link McpPrincipal}.
  *
  * @example
  * ```ts
@@ -159,7 +149,6 @@ export function requireMcpAuth(
 			});
 		}
 
-		// DPoP proof
 		let proofJkt: string | null = null;
 		if (presented.scheme === "DPoP") {
 			if (!dpopConfig) {
@@ -245,7 +234,6 @@ export function requireMcpAuth(
 			});
 		}
 
-		// Scopes
 		const required = options.requiredScopes ?? [];
 		if (required.some((scope) => !session.scopes.includes(scope))) {
 			const params = {

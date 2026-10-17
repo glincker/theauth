@@ -1,10 +1,6 @@
 /**
  * Stripe payment integration for TheAuth.
  *
- * Links Stripe customers to TheAuth users, handles subscription lifecycle
- * webhooks, and stores subscription status. Uses Stripe's REST API directly
- * via fetch — no Stripe SDK dependency.
- *
  * @example
  * ```typescript
  * import { createStripeModule } from '@glinr/theauth/auth';
@@ -26,8 +22,6 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
-
-// Public types
 
 export interface StripeConfig {
 	/** Stripe secret key (sk_live_... or sk_test_...) */
@@ -78,7 +72,7 @@ export interface StripeModule {
 	handleRequest(request: Request): Promise<Response | null>;
 }
 
-// Internal Stripe REST types (minimal — only fields we use)
+// Internal Stripe REST types (minimal, only fields we use)
 
 interface StripeCustomer {
 	id: string;
@@ -235,7 +229,7 @@ async function verifyWebhookSignature(
 		.map((b) => b.toString(16).padStart(2, "0"))
 		.join("");
 
-	// Constant-time comparison — compare against all v1 signatures
+	// Constant-time comparison, compare against all v1 signatures
 	let verified = false;
 	for (const sig of signatures) {
 		if (sig.length !== expectedSig.length) continue;
@@ -260,8 +254,6 @@ async function verifyWebhookSignature(
 	return JSON.parse(payload) as StripeEvent;
 }
 
-// Module factory
-
 export function createStripeModule(config: StripeConfig, db: Database): StripeModule {
 	const apiVersion = config.apiVersion ?? DEFAULT_API_VERSION;
 
@@ -272,8 +264,6 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 	): Promise<T> {
 		return stripeRequest<T>(config.secretKey, apiVersion, method, path, body);
 	}
-
-	// Internal helpers
 
 	async function getUserRow(userId: string) {
 		const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -338,8 +328,6 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 			.where(eq(users.id, userId));
 	}
 
-	// Webhook event handlers
-
 	async function handleCheckoutSessionCompleted(obj: Record<string, unknown>): Promise<void> {
 		const session = obj as {
 			customer: string | null;
@@ -352,7 +340,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		const subscriptionId = session.subscription;
 		if (!customerId || !subscriptionId) return;
 
-		// Resolve userId — prefer client_reference_id, fall back to DB lookup
+		// Resolve userId, prefer client_reference_id, fall back to DB lookup
 		let userId: string | null = session.client_reference_id ?? null;
 		if (!userId) {
 			const user = await findUserByCustomerId(customerId);
@@ -422,8 +410,6 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 			});
 		}
 	}
-
-	// Public API
 
 	async function createCustomer(userId: string, email: string, name?: string): Promise<string> {
 		const customer = await api<StripeCustomer>("POST", "/customers", {

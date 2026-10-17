@@ -1,13 +1,4 @@
-// TheAuth Hono Server Example
-//
-// Start: pnpm --filter @glinr/theauth-example-hono-server start
-//
-// Try:
-//   curl http://localhost:3000/api/agents -X POST -H "Content-Type: application/json" \
-//     -d '{"ownerId":"user-1","name":"my-agent","type":"autonomous","permissions":[{"resource":"mcp:*","actions":["read"]}]}'
-//
-//   curl http://localhost:3000/api/agents
-//   curl http://localhost:3000/api/audit
+// Hono server exposing TheAuth's API. Start: pnpm --filter @glinr/theauth-example-hono-server start
 
 import { createTheAuth, users } from "@glinr/theauth";
 import { theAuthHono } from "@glinr/theauth-hono";
@@ -16,8 +7,6 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 const PORT = 3000;
-
-// Database setup
 
 function createTables(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 	auth.db.run(sql`
@@ -116,8 +105,6 @@ function seedUser(auth: Awaited<ReturnType<typeof createTheAuth>>): void {
 		})
 		.run();
 }
-
-// Homepage HTML
 
 function homepageHtml(): string {
 	return `<!DOCTYPE html>
@@ -302,8 +289,6 @@ curl http://localhost:${PORT}/api/audit</code>
 </body>
 </html>`;
 }
-
-// Server bootstrap
 
 async function main(): Promise<void> {
 	const auth = await createTheAuth({

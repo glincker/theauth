@@ -1,35 +1,18 @@
 /**
  * LinkedIn OAuth 2.0 / OIDC provider.
- *
- * Endpoints:
- * - Authorization: https://www.linkedin.com/oauth/v2/authorization
- * - Token:         https://www.linkedin.com/oauth/v2/accessToken
- * - UserInfo:      https://api.linkedin.com/v2/userinfo (OIDC endpoint)
- *
  * Notes:
- * - LinkedIn's OIDC userinfo endpoint (`/v2/userinfo`) is available when the
- *   `openid` scope is requested. It returns standard OIDC claims including
- *   `sub`, `name`, `email`, and `picture`.
- * - PKCE is not supported by LinkedIn's OAuth server. The code challenge is
- *   sent for symmetry but silently ignored. CSRF protection via `state` still
- *   applies within TheAuth.
- * - The `sub` claim is the LinkedIn member ID and is stable across sessions.
- *
- * Docs: https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2
+ * - LinkedIn's OIDC userinfo endpoint (`/v2/userinfo`) is available when the `openid` scope is requested.
+ * - PKCE is not supported by LinkedIn's OAuth server. The code challenge is sent for symmetry but silently ignored.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
 import { createRefresher } from "./refresh.js";
 
-// Constants
-
 const AUTHORIZATION_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 const USER_INFO_URL = "https://api.linkedin.com/v2/userinfo";
 const DEFAULT_SCOPES = ["openid", "profile", "email"];
-
-// Raw response shapes
 
 interface LinkedInTokenResponse {
 	access_token: string;
@@ -49,8 +32,6 @@ interface LinkedInUserInfoResponse {
 	picture?: string;
 	locale?: string | { country: string; language: string };
 }
-
-// Factory
 
 /**
  * Create a LinkedIn OAuth provider instance.
@@ -180,8 +161,6 @@ export function createLinkedInProvider(config: OAuthProviderConfig): OAuthProvid
 		getUserInfo,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

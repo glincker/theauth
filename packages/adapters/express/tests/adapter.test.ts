@@ -7,8 +7,6 @@ import type { TheAuth } from "../../../core/src/theauth.js";
 import { createTheAuth } from "../../../core/src/theauth.js";
 import { theAuthExpress } from "../src/adapter.js";
 
-// Test Setup
-
 async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -21,7 +19,6 @@ async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
 		},
 	});
 
-	// Seed a test user
 	theauth.db
 		.insert(schema.users)
 		.values({
@@ -40,8 +37,6 @@ async function createTestApp(): Promise<{ app: Express; theauth: TheAuth }> {
 
 	return { app, theauth };
 }
-
-// Helpers
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
@@ -70,8 +65,6 @@ async function createTestAgent(
 	return { id: body.data.id, token: body.data.token };
 }
 
-// Tests
-
 describe("Express adapter", () => {
 	let app: Express;
 	let theauth: TheAuth;
@@ -79,8 +72,6 @@ describe("Express adapter", () => {
 	beforeEach(async () => {
 		({ app, theauth } = await createTestApp());
 	});
-
-	// Agent CRUD
 
 	describe("POST /agents", () => {
 		it("creates an agent and returns a token", async () => {
@@ -174,7 +165,6 @@ describe("Express adapter", () => {
 			const { id } = await createTestAgent(app, { name: "to-revoke" });
 			await createTestAgent(app, { name: "staying-active" });
 
-			// Revoke via DELETE
 			await request(app).delete(`/agents/${id}`);
 
 			const res = await request(app).get("/agents?status=active");
@@ -266,7 +256,6 @@ describe("Express adapter", () => {
 
 			expect(res.status).toBe(204);
 
-			// Verify the agent is now revoked
 			const getRes = await request(app).get(`/agents/${id}`);
 			const body = getRes.body as { data: { status: string } };
 			expect(body.data.status).toBe("revoked");
@@ -297,8 +286,6 @@ describe("Express adapter", () => {
 			expect(res.status).toBe(404);
 		});
 	});
-
-	// Authorization
 
 	describe("POST /authorize", () => {
 		it("allows an authorized action", async () => {
@@ -446,12 +433,9 @@ describe("Express adapter", () => {
 				.set("Authorization", "Bearer kv_bogus_token")
 				.send({ action: "read", resource: "mcp:github" });
 
-			// Invalid token → agent not found → denied (403)
 			expect([401, 403]).toContain(res.status);
 		});
 	});
-
-	// Delegation
 
 	describe("POST /delegations", () => {
 		it("creates a delegation chain", async () => {
@@ -566,15 +550,12 @@ describe("Express adapter", () => {
 		});
 	});
 
-	// Audit
-
 	describe("GET /audit", () => {
 		it("returns audit logs after an authorization check", async () => {
 			const { id } = await createTestAgent(app, {
 				permissions: [{ resource: "mcp:github", actions: ["read"] }],
 			});
 
-			// Trigger an authorization to generate an audit entry
 			await request(app)
 				.post("/authorize")
 				.set("Content-Type", "application/json")
@@ -673,8 +654,6 @@ describe("Express adapter", () => {
 			expect(body.error.code).toBe("BAD_REQUEST");
 		});
 	});
-
-	// Dashboard
 
 	describe("GET /dashboard/stats", () => {
 		it("returns agent and audit stats", async () => {

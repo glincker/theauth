@@ -1,6 +1,4 @@
-/**
- * Tests for the central sign-in gate, its routes, and the session limit.
- */
+/** Tests for the central sign-in gate, its routes, and the session limit. */
 
 import { createHmac } from "node:crypto";
 import { eq } from "drizzle-orm";

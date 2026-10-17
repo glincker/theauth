@@ -1,5 +1,3 @@
-// Provider + context
-
 export type { AuthProviderProps, TheAuthProviderProps } from "./context.js";
 export {
 	AuthContext,
@@ -10,7 +8,6 @@ export {
 	useTheAuthContext,
 } from "./context.js";
 
-// Hooks
 export {
 	useAgents,
 	useRotateSession,
@@ -21,7 +18,6 @@ export {
 	useUser,
 } from "./hooks.js";
 
-// Types
 export type {
 	ActionResult,
 	AuthAgent,

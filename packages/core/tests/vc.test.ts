@@ -12,8 +12,6 @@ import {
 } from "../src/vc/types.js";
 import { createVCVerifier } from "../src/vc/verifier.js";
 
-// Test Helpers
-
 async function createTestIssuer() {
 	const keyPair = await generateDidKey();
 	const issuer = createVCIssuer({
@@ -23,8 +21,6 @@ async function createTestIssuer() {
 	});
 	return { issuer, keyPair };
 }
-
-// Issuance
 
 describe("VC issuance – agent credential", () => {
 	it("issues a credential with all agent fields", async () => {
@@ -219,8 +215,6 @@ describe("VC issuance – delegation credential", () => {
 	});
 });
 
-// Verification
-
 describe("VC verification – JWT format", () => {
 	it("verifies a valid JWT credential", async () => {
 		const { issuer, keyPair } = await createTestIssuer();
@@ -367,7 +361,6 @@ describe("VC verification – JSON-LD format", () => {
 		expect(issueResult.success).toBe(true);
 		if (!issueResult.success) return;
 
-		// Strip the proof
 		const { proof: _proof, ...vcWithoutProof } = issueResult.data.credential;
 
 		const verifier = createVCVerifier();
@@ -422,8 +415,6 @@ describe("VC verification – JSON-LD format", () => {
 		expect(verifyResult.error.code).toBe("VC_EXPIRED");
 	});
 });
-
-// Presentation
 
 describe("VC verification – presentations", () => {
 	it("verifies a presentation with multiple credentials", async () => {
@@ -502,8 +493,6 @@ describe("VC verification – presentations", () => {
 	});
 });
 
-// Permission Extraction
-
 describe("VC permission extraction", () => {
 	it("extracts permissions from a verified agent credential", async () => {
 		const { issuer, keyPair } = await createTestIssuer();
@@ -581,8 +570,6 @@ describe("VC permission extraction", () => {
 	});
 });
 
-// Credential Status / Revocation
-
 describe("VC revocation", () => {
 	it("rejects a revoked JWT credential", async () => {
 		const { issuer, keyPair } = await createTestIssuer();
@@ -611,7 +598,7 @@ describe("VC revocation", () => {
 		// Add status to the credential (before the proof was computed, this would
 		// invalidate the signature. We test the revocation check on a credential
 		// that has status already in its signed form.)
-		// For this test, we issue with status by manipulating after issuance — which
+		// For this test, we issue with status by manipulating after issuance, which
 		// means the credential will fail signature verification first. So instead,
 		// we test the concept that when checkRevocationStatus returns true,
 		// verification fails, by building a VC that passes schema validation.
@@ -672,8 +659,6 @@ describe("VC revocation", () => {
 		expect(result.error.code).toBe("VC_KEY_NOT_FOUND");
 	});
 });
-
-// Round-trip
 
 describe("VC round-trip: issue -> verify -> extract", () => {
 	it("JWT round-trip: issue, verify, and extract permissions", async () => {
@@ -758,8 +743,6 @@ describe("VC round-trip: issue -> verify -> extract", () => {
 		expect(perms.delegationScope).toEqual(["read:data"]);
 	});
 });
-
-// Schema Validation
 
 describe("VC Zod schema validation", () => {
 	it("validates a well-formed credential", () => {

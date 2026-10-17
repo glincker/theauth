@@ -16,18 +16,8 @@ export interface DatabaseStorage extends SecondaryStorage {
 }
 
 /**
- * Storage backed by the `theauth_secondary_storage` table. Works on SQLite,
- * Postgres, MySQL and Cloudflare D1 because it only uses plain statements.
- *
- * `incr` is atomic per key: the counter moves with a single
- * `UPDATE ... SET counter = counter + 1 WHERE <live>` statement, and a new
- * window is opened by an INSERT guarded by the primary key. If two callers race
- * to open the same window the loser's INSERT fails on the key and it retries as
- * an UPDATE. Under heavy contention the count read back can include increments
- * from callers that landed just after yours, which only errs toward limiting
- * more.
- *
- * Expired rows are removed lazily when the same key is touched again.
+ * Storage backed by the `theauth_secondary_storage` table. Works on SQLite, Postgres, MySQL and Cloudflare D1 because it only uses plain statements.
+ * `incr` is atomic per key: the counter moves with a single `UPDATE ... If two callers race to open the same window the loser's INSERT fails on the key and it retries as an UPDATE. Under heavy contention the count read back can include increments from callers that landed just after yours, which only errs toward limiting more. Expired rows are removed lazily when the same key is touched again.
  */
 export function databaseStorage(db: Database): DatabaseStorage {
 	async function readLive(key: string, now: number) {

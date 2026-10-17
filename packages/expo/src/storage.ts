@@ -1,10 +1,6 @@
 import type { TheAuthStorage } from "./types.js";
 
-/**
- * Minimal in-memory storage fallback used when no storage adapter is provided.
- * Tokens are lost when the JS runtime reloads. Pass a real adapter
- * (AsyncStorage, SecureStore) via TheAuthExpoConfig.storage.
- */
+/** In-memory fallback when no storage adapter is given. Tokens are lost on JS runtime reload. */
 export function createMemoryStorage(): TheAuthStorage {
 	const store = new Map<string, string>();
 	return {
@@ -20,17 +16,13 @@ export function createMemoryStorage(): TheAuthStorage {
 	};
 }
 
-/** The slice of `expo-secure-store` used by `createSecureStoreStorage`. */
 export interface SecureStoreLike {
 	getItemAsync(key: string): Promise<string | null>;
 	setItemAsync(key: string, value: string): Promise<void>;
 	deleteItemAsync(key: string): Promise<void>;
 }
 
-/**
- * Storage backed by `expo-secure-store` (Keychain on iOS, Keystore on
- * Android). Pass the module: `createSecureStoreStorage(SecureStore)`.
- */
+/** Backed by `expo-secure-store` (Keychain on iOS, Keystore on Android). */
 export function createSecureStoreStorage(secureStore: SecureStoreLike): TheAuthStorage {
 	return {
 		getItem: (key) => secureStore.getItemAsync(key),

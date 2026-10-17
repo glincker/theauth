@@ -1,13 +1,6 @@
 /**
  * Session freshness enforcement for TheAuth.
- *
- * Sensitive operations (password change, passkey registration, billing updates)
- * should require a "fresh" session -- one where the user authenticated recently,
- * not just one that was auto-refreshed hours ago.
- *
- * This module adds freshness checks without touching the core session schema.
- * It works by comparing the session's `createdAt` timestamp against a
- * configurable freshness window.
+ * Sensitive operations (password change, passkey registration, billing updates) should require a "fresh" session -- one where the user authenticated recently, not just one that was auto-refreshed hours ago. This module adds freshness checks without touching the core session schema. It works by comparing the session's `createdAt` timestamp against a configurable freshness window.
  *
  * @example
  * ```typescript
@@ -27,15 +20,10 @@
 import type { Result } from "../mcp/types.js";
 import type { Session } from "./session.js";
 
-// Public types
-
 export interface SessionFreshnessConfig {
 	/**
-	 * Maximum age in seconds for a session to be considered "fresh".
-	 * Default: 300 (5 minutes).
-	 *
-	 * After this window, the user must re-authenticate before performing
-	 * sensitive operations.
+	 * Maximum age in seconds for a session to be considered "fresh". Default: 300 (5 minutes).
+	 * After this window, the user must re-authenticate before performing sensitive operations.
 	 */
 	freshAge?: number;
 }
@@ -43,24 +31,18 @@ export interface SessionFreshnessConfig {
 export interface SessionFreshnessModule {
 	/**
 	 * Check if a session was created within the freshness window.
-	 *
-	 * Uses `session.createdAt` -- not `expiresAt` or last activity.
-	 * A session that was auto-refreshed is not considered fresh unless
-	 * the user actually re-authenticated.
+	 * Uses `session.createdAt` -- not `expiresAt` or last activity. A session that was auto-refreshed is not considered fresh unless the user actually re-authenticated.
 	 */
 	isFresh(session: Session): boolean;
 
 	/**
 	 * Assert that a session is fresh, returning a Result type.
-	 *
 	 * Returns `{ success: true }` if fresh, or an error result if stale.
-	 * Use this in request handlers for cleaner error propagation.
 	 */
 	requireFresh(session: Session): Result<{ freshUntil: Date }>;
 
 	/**
-	 * Middleware-style function that returns a Response if the session
-	 * is not fresh, or null if it passes.
+	 * Middleware-style function that returns a Response if the session is not fresh, or null if it passes.
 	 *
 	 * @example
 	 * ```typescript
@@ -72,11 +54,7 @@ export interface SessionFreshnessModule {
 	guard(session: Session): Response | null;
 }
 
-// Constants
-
 const DEFAULT_FRESH_AGE_SECONDS = 300; // 5 minutes
-
-// Factory
 
 export function createSessionFreshnessModule(
 	config: SessionFreshnessConfig = {},

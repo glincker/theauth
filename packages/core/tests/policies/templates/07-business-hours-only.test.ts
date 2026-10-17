@@ -1,9 +1,6 @@
 /**
- * Tests for template 07 — business-hours-only access.
- *
- * Uses vi.useFakeTimers() to control the server clock and test boundary
- * conditions precisely. The engine calls new Date().getHours()/getMinutes()
- * internally, so fake timers are the correct mechanism here.
+ * Tests for template 07, business-hours-only access.
+ * Uses vi.useFakeTimers() to control the server clock and test boundary conditions precisely.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,10 +21,7 @@ async function makeDb(): Promise<Database> {
 	return db;
 }
 
-/**
- * Return a Date pinned to the given local HH:MM on an arbitrary day.
- * Vitest fake timers use the system locale, so we build a local-time Date.
- */
+/** Return a Date pinned to the given local HH:MM on an arbitrary day. Vitest fake timers use the system locale, so we build a local-time Date. */
 function localDateAt(hh: number, mm: number): Date {
 	const d = new Date();
 	d.setHours(hh, mm, 0, 0);

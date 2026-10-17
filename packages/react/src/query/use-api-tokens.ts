@@ -14,7 +14,6 @@ export interface UseApiTokensOptions extends ListApiTokensOptions {
 	kind?: ApiTokenKind;
 }
 
-/** A token with no kind is personal. */
 export function tokenKind(token: Pick<GoApiToken, "kind">): ApiTokenKind {
 	return token.kind === "agent" ? "agent" : "personal";
 }

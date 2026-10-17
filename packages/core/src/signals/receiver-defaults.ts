@@ -1,7 +1,4 @@
-/**
- * Default receiver behavior: end local sessions when the transmitter says the
- * session, all sessions, or the account is gone.
- */
+/** Default receiver behavior: end local sessions when the transmitter says the session, all sessions, or the account is gone. */
 
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
@@ -18,9 +15,7 @@ export interface DefaultHandlersOptions {
 	/** Look up users by email. Pass `db` for the built-in lookup. */
 	db?: Database;
 	/**
-	 * Map a subject to a local user id. Overrides the default mapping:
-	 * `iss_sub` from `issuer` is the user id, `email` is looked up in the user
-	 * table, `opaque` is taken as the user id. Return null when unknown.
+	 * Map a subject to a local user id. Overrides the default mapping: `iss_sub` from `issuer` is the user id, `email` is looked up in the user table, `opaque` is taken as the user id. Return null when unknown.
 	 */
 	resolveUserId?: (subject: SimpleSubject) => Promise<string | null>;
 	/** Called after sessions were revoked. */

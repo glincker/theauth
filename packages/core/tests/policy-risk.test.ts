@@ -1,7 +1,4 @@
-/**
- * Tri-state policy decisions (allow, deny, escalate), risk tiers, and the
- * opt-in approval request opened by evaluate().
- */
+/** Tri-state policy decisions (allow, deny, escalate), risk tiers, and the opt-in approval request opened by evaluate(). */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApprovalModule } from "../src/approval/approval.js";

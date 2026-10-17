@@ -381,8 +381,6 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 	return { evaluate, invalidate, stats };
 }
 
-// Internals
-
 /** The input_provenance value for the audit row: labels and the taint verdict, or undefined. */
 function provenanceRecord(
 	input: EvaluateInput,
@@ -466,6 +464,4 @@ async function fetchDirectPermissions(db: Database, agentId: string): Promise<Pe
 	}));
 }
 
-function noop(): void {
-	// intentional
-}
+function noop(): void {}

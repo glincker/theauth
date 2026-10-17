@@ -13,10 +13,7 @@ export interface ReadRowsOptions {
 }
 
 /**
- * Read an agent's audit rows oldest first, one page at a time. Uses a
- * (timestamp, id) keyset cursor, so memory is bounded by the page size no
- * matter how large the window is, and rows that share a timestamp are never
- * skipped or repeated.
+ * Read an agent's audit rows oldest first, one page at a time. Uses a (timestamp, id) keyset cursor, so memory is bounded by the page size no matter how large the window is, and rows that share a timestamp are never skipped or repeated.
  */
 export async function* readDecisionRows(
 	db: Database,

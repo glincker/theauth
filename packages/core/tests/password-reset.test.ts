@@ -1,6 +1,4 @@
-/**
- * Tests for password reset (forgot password) flow.
- */
+/** Tests for password reset (forgot password) flow. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createOneTimeTokenModule } from "../src/auth/one-time-token.js";
@@ -169,7 +167,6 @@ describe("PasswordResetModule", () => {
 		it("revokes all sessions after reset", async () => {
 			const { userId } = await createUserWithPassword("alice@example.com", "OldPassword1!");
 
-			// Create additional sessions
 			await sessionManager.create(userId);
 			await sessionManager.create(userId);
 
@@ -199,7 +196,6 @@ describe("PasswordResetModule", () => {
 			await resetModule.requestReset("alice@example.com");
 			const token = sendResetEmail.mock.calls[0]![1] as string;
 
-			// Use the token once
 			const first = await resetModule.resetPassword(token, "NewPassword1!");
 			expect(first.success).toBe(true);
 
@@ -232,7 +228,6 @@ describe("PasswordResetModule", () => {
 		it("clears forcePasswordReset flag", async () => {
 			const { userId } = await createUserWithPassword("alice@example.com", "OldPassword1!");
 
-			// Set the flag
 			const { users } = await import("../src/db/schema.js");
 			const { eq } = await import("drizzle-orm");
 			await db.update(users).set({ forcePasswordReset: 1 }).where(eq(users.id, userId));
@@ -241,7 +236,6 @@ describe("PasswordResetModule", () => {
 			const token = sendResetEmail.mock.calls[0]![1] as string;
 			await resetModule.resetPassword(token, "NewPassword1!");
 
-			// Verify flag is cleared
 			const rows = await db.select().from(users).where(eq(users.id, userId));
 			expect(rows[0]!.forcePasswordReset).toBe(0);
 		});

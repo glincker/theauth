@@ -1,6 +1,4 @@
-/**
- * Tests for policy/rbac.ts: org member to orgRole to Permission[] resolution.
- */
+/** Tests for policy/rbac.ts: org member to orgRole to Permission[] resolution. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../src/db/database.js";
@@ -8,8 +6,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { organizations, orgMembers, orgRoles, users } from "../src/db/schema.js";
 import { createRbacResolver } from "../src/policy/rbac.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -43,8 +39,6 @@ function seedMember(db: Database, id: string, orgId: string, userId: string, rol
 	db.insert(orgMembers).values({ id, orgId, userId, role, joinedAt: new Date() }).run();
 }
 
-// Suite
-
 describe("createRbacResolver", () => {
 	let db: Database;
 
@@ -57,8 +51,6 @@ describe("createRbacResolver", () => {
 		seedOrg(db, "org-a", "org-a", "user-1");
 		seedOrg(db, "org-b", "org-b", "user-2");
 	});
-
-	// no memberships
 
 	it("returns empty array when user has no memberships", async () => {
 		const resolver = createRbacResolver({ db });
@@ -137,8 +129,6 @@ describe("createRbacResolver", () => {
 		expect(resources).toContain("org");
 		expect(resources).not.toContain("agents");
 	});
-
-	// deduplication
 
 	it("deduplicates identical permissions that appear in multiple roles", async () => {
 		// Two separate orgs both grant agents:create to user-1.

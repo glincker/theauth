@@ -1,7 +1,4 @@
-/**
- * End-to-end tests for the unified policy engine: cache, RBAC, ReBAC,
- * ABAC constraints, deny-overrides combining, audit emission.
- */
+/** End-to-end tests for the unified policy engine: cache, RBAC, ReBAC, ABAC constraints, deny-overrides combining, audit emission. */
 
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,8 +17,6 @@ import {
 import { createPolicyEngine } from "../src/policy/engine.js";
 import { POLICY_ERROR_CODES } from "../src/policy/types.js";
 import type { PermissionConstraints } from "../src/types.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -93,8 +88,6 @@ async function seedMember(
 ): Promise<void> {
 	await db.insert(orgMembers).values({ id, orgId, userId, role, joinedAt: new Date() });
 }
-
-// Suite
 
 describe("createPolicyEngine - direct permissions", () => {
 	let db: Database;

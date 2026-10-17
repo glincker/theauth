@@ -1,17 +1,6 @@
 /**
  * OIDC provider logout wiring.
- *
- * Connects the primitives in `federated-logout.ts` to the OIDC provider:
- *
- * - `end_session_endpoint` (RP-Initiated Logout 1.0): validates `id_token_hint`
- *   and the `post_logout_redirect_uri` allowlist, ends the provider session.
- * - A sid index (`theauth_oidc_sessions`) records which relying parties hold a
- *   provider session, so a logout or a session revoke can fan out
- *   `sendBackChannelLogout` to every registered `backchannel_logout_uri`.
- * - Fan-out is best effort and never throws, so local logout always completes.
- *
- * Opt in with `createOidcProviderModule(config, db, getClaims)` where
- * `config.logout` is set. Without it nothing here runs.
+ * - Fan-out is best effort and never throws, so local logout always completes. Without it nothing here runs.
  */
 
 import { and, desc, eq, lt } from "drizzle-orm";
@@ -24,22 +13,14 @@ import { extractToken } from "../plugin/helpers.js";
 import type { Session, SessionManager } from "../session/session.js";
 import { createEndSessionHandler, sendBackChannelLogout } from "./federated-logout.js";
 
-// Types
-
 export interface OidcLogoutConfig {
 	/** Path of the end session endpoint under the issuer. Default `/logout`. */
 	endSessionPath?: string;
 	/** Where to send the user when no valid `post_logout_redirect_uri` applies. */
 	defaultRedirectUri?: string;
-	/**
-	 * Provider session manager. When set, the end session endpoint revokes the
-	 * session named by the request cookie and by the `sid` hint.
-	 */
+	/** Provider session manager. When set, the end session endpoint revokes the session named by the request cookie and by the `sid` hint. */
 	sessionManager?: SessionManager;
-	/**
-	 * Extra work when a provider session ends (clear your own cookies, etc.).
-	 * Runs after sessions are revoked and before the redirect.
-	 */
+	/** Extra work when a provider session ends (clear your own cookies, etc.). Runs after sessions are revoked and before the redirect. */
 	onEndSession?: (ctx: { sub?: string; sid?: string; clientId?: string }) => Promise<void>;
 	/** How long index rows are kept, seconds. Default 30 days. */
 	indexTtlSeconds?: number;
@@ -74,11 +55,7 @@ export interface OidcLogoutModule {
 	setClientLogoutConfig(clientId: string, config: ClientLogoutConfig): Promise<void>;
 	getClientLogoutConfig(clientId: string): Promise<ClientLogoutConfig | null>;
 	deleteClientLogoutConfig(clientId: string): Promise<void>;
-	/**
-	 * Notify relying parties that the given provider sessions ended. Plug this
-	 * into `auth.session.onRevoke` so any revoke (logout, password reset,
-	 * limit eviction) fans out. Never throws.
-	 */
+	/** Notify relying parties that the given provider sessions ended. Plug this into `auth.session.onRevoke` so any revoke (logout, password reset, limit eviction) fans out. Never throws. */
 	handleSessionsRevoked(sessions: Session[]): Promise<FanOutResult>;
 	/** Fan out for a sid, or for every session of a user. Never throws. */
 	fanOut(target: { sid?: string; sessionId?: string; userId?: string }): Promise<FanOutResult>;
@@ -114,14 +91,10 @@ function validateHttpsUri(uri: string, allowInsecure: boolean): boolean {
 	}
 }
 
-// Factory
-
 export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 	const { db, issuer, config } = deps;
 	const path = config.endSessionPath ?? DEFAULT_PATH;
 	const allowInsecure = config.allowInsecureBackchannel === true;
-
-	// client logout config
 
 	async function getClientLogoutConfig(clientId: string): Promise<ClientLogoutConfig | null> {
 		const rows = await db
@@ -158,8 +131,6 @@ export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 	async function deleteClientLogoutConfig(clientId: string): Promise<void> {
 		await db.delete(oidcLogoutClients).where(eq(oidcLogoutClients.clientId, clientId));
 	}
-
-	// fan-out
 
 	async function fanOut(target: {
 		sid?: string;
@@ -233,8 +204,6 @@ export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 		}
 		return total;
 	}
-
-	// end session endpoint
 
 	async function endProviderSession(ctx: {
 		request: Request;

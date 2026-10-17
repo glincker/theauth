@@ -1,17 +1,9 @@
-/**
- * Organizations + RBAC module for TheAuth.
- *
- * Provides organization CRUD, membership management, invitation flows,
- * and role-based permission checking. Uses the theauth_organizations,
- * theauth_org_members, theauth_org_invitations, and theauth_org_roles tables.
- */
+/** Organizations + RBAC module for TheAuth. */
 
 import { and, eq } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { organizations, orgInvitations, orgMembers, orgRoles } from "../db/schema.js";
-
-// Public types
 
 export interface OrgConfig {
 	/** Default roles for new organizations */
@@ -151,8 +143,6 @@ const DEFAULT_MAX_ORGS_PER_USER = 5;
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const DEFAULT_MAX_INVITATIONS_PER_HOUR = 50;
 
-// Helpers
-
 function slugRegex(): RegExp {
 	return /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 }
@@ -242,8 +232,6 @@ function errorResponse(message: string, status: number): Response {
 	return jsonResponse({ error: message }, status);
 }
 
-// Factory
-
 export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 	const maxMembers = config.maxMembers ?? DEFAULT_MAX_MEMBERS;
 	const maxOrgsPerUser = config.maxOrgsPerUser ?? DEFAULT_MAX_ORGS_PER_USER;
@@ -251,8 +239,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 	const defaultRoles = config.defaultRoles ?? DEFAULT_ROLES;
 	const invitationExpiryMs = config.invitationExpiryMs ?? INVITATION_EXPIRY_MS;
 	const maxInvitationsPerHour = config.maxInvitationsPerHour ?? DEFAULT_MAX_INVITATIONS_PER_HOUR;
-
-	// org CRUD
 
 	async function create(input: {
 		name: string;
@@ -266,7 +252,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			);
 		}
 
-		// Enforce maxOrgsPerUser
 		const existing = await db
 			.select({ id: organizations.id })
 			.from(organizations)
@@ -277,7 +262,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			);
 		}
 
-		// Slug uniqueness
 		const slugConflict = await db
 			.select({ id: organizations.id })
 			.from(organizations)
@@ -394,13 +378,10 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(organizations).where(eq(organizations.id, orgId));
 	}
 
-	// members
-
 	async function addMember(orgId: string, userId: string, role: string): Promise<OrgMember> {
 		const org = await get(orgId);
 		if (!org) throw new Error(`Organization "${orgId}" not found.`);
 
-		// Validate role exists
 		const roleRows = await db
 			.select()
 			.from(orgRoles)
@@ -408,7 +389,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			.limit(1);
 		if (roleRows.length === 0) throw new Error(`Role "${role}" does not exist in org "${orgId}".`);
 
-		// Check member cap
 		const currentMembers = await db
 			.select({ id: orgMembers.id })
 			.from(orgMembers)
@@ -417,7 +397,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			throw new Error(`Organization "${orgId}" has reached the maximum of ${maxMembers} members.`);
 		}
 
-		// Check already a member
 		const already = await db
 			.select()
 			.from(orgMembers)
@@ -456,7 +435,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 	}
 
 	async function updateMemberRole(orgId: string, userId: string, role: string): Promise<OrgMember> {
-		// Validate role exists
 		const roleRows = await db
 			.select()
 			.from(orgRoles)
@@ -506,8 +484,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		return rowToMember(row);
 	}
 
-	// invitations
-
 	async function invite(input: {
 		orgId: string;
 		email: string;
@@ -517,7 +493,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		const org = await get(input.orgId);
 		if (!org) throw new Error(`Organization "${input.orgId}" not found.`);
 
-		// Validate role exists
 		const roleRows = await db
 			.select()
 			.from(orgRoles)
@@ -611,7 +586,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		// Add member (will throw if already a member or cap hit)
 		const member = await addMember(inv.orgId, userId, inv.role);
 
-		// Mark accepted
 		await db
 			.update(orgInvitations)
 			.set({ status: "accepted" })
@@ -629,8 +603,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(orgInvitations).where(eq(orgInvitations.id, invitationId));
 	}
 
-	// roles & permissions
-
 	async function hasPermission(
 		orgId: string,
 		userId: string,
@@ -639,10 +611,8 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		const member = await getMember(orgId, userId);
 		if (!member) return false;
 
-		// Owner has all permissions
 		if (member.role === "owner") return true;
 
-		// Look up role permissions
 		const roleRows = await db
 			.select()
 			.from(orgRoles)
@@ -670,7 +640,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		const org = await get(orgId);
 		if (!org) throw new Error(`Organization "${orgId}" not found.`);
 
-		// Check for duplicate
 		const existing = await db
 			.select({ id: orgRoles.id })
 			.from(orgRoles)
@@ -694,8 +663,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(orgRoles).where(and(eq(orgRoles.orgId, orgId), eq(orgRoles.name, roleName)));
 	}
 
-	// ownership transfer
-
 	async function transferOwnership(
 		orgId: string,
 		currentOwnerId: string,
@@ -714,7 +681,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			throw new Error(`User "${newOwnerId}" is not a member of org "${orgId}".`);
 		}
 
-		// Update org owner
 		const now = new Date();
 		await db
 			.update(organizations)
@@ -738,8 +704,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		return updated;
 	}
 
-	// decline invitation
-
 	async function declineInvitation(invitationId: string): Promise<void> {
 		const rows = await db
 			.select()
@@ -755,14 +719,11 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		await db.delete(orgInvitations).where(eq(orgInvitations.id, invitationId));
 	}
 
-	// HTTP handler
-
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const { pathname } = url;
 		const method = request.method.toUpperCase();
 
-		// POST /auth/org
 		if (method === "POST" && pathname === "/auth/org") {
 			try {
 				const body = (await request.json()) as {
@@ -778,7 +739,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// GET /auth/org/user/:userId
 		const userOrgMatch = pathname.match(/^\/auth\/org\/user\/([^/]+)$/);
 		if (method === "GET" && userOrgMatch) {
 			const userId = userOrgMatch[1];
@@ -796,14 +756,12 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 
 		const subPath = orgBaseMatch[2] ?? "";
 
-		// GET /auth/org/:orgId
 		if (method === "GET" && subPath === "") {
 			const org = await get(orgId);
 			if (!org) return errorResponse("Organization not found", 404);
 			return jsonResponse(org);
 		}
 
-		// PATCH /auth/org/:orgId
 		if (method === "PATCH" && subPath === "") {
 			try {
 				const body = (await request.json()) as {
@@ -817,7 +775,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// DELETE /auth/org/:orgId
 		if (method === "DELETE" && subPath === "") {
 			try {
 				await remove(orgId);
@@ -827,7 +784,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// POST /auth/org/:orgId/members
 		if (method === "POST" && subPath === "/members") {
 			try {
 				const body = (await request.json()) as { userId: string; role: string };
@@ -838,13 +794,11 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// GET /auth/org/:orgId/members
 		if (method === "GET" && subPath === "/members") {
 			const members = await getMembers(orgId);
 			return jsonResponse(members);
 		}
 
-		// PATCH /auth/org/:orgId/members/:userId
 		const memberMatch = subPath.match(/^\/members\/([^/]+)$/);
 		if (method === "PATCH" && memberMatch) {
 			const userId = memberMatch[1];
@@ -858,7 +812,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// DELETE /auth/org/:orgId/members/:userId
 		if (method === "DELETE" && memberMatch) {
 			const userId = memberMatch[1];
 			if (!userId) return errorResponse("Missing userId", 400);
@@ -866,7 +819,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			return jsonResponse({ success: true });
 		}
 
-		// POST /auth/org/:orgId/invite
 		if (method === "POST" && subPath === "/invite") {
 			try {
 				const body = (await request.json()) as {
@@ -881,13 +833,11 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// GET /auth/org/:orgId/invitations
 		if (method === "GET" && subPath === "/invitations") {
 			const invitations = await listInvitations(orgId);
 			return jsonResponse(invitations);
 		}
 
-		// GET /auth/org/:orgId/permissions/:userId/:permission
 		const permMatch = subPath.match(/^\/permissions\/([^/]+)\/([^/]+)$/);
 		if (method === "GET" && permMatch) {
 			const userId = permMatch[1];
@@ -897,7 +847,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			return jsonResponse({ allowed });
 		}
 
-		// POST /auth/org/:orgId/roles
 		if (method === "POST" && subPath === "/roles") {
 			try {
 				const body = (await request.json()) as OrgRole;
@@ -908,7 +857,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// GET /auth/org/:orgId/roles
 		if (method === "GET" && subPath === "/roles") {
 			const roles = await getRoles(orgId);
 			return jsonResponse(roles);
@@ -926,7 +874,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 		const { pathname } = url;
 		const method = request.method.toUpperCase();
 
-		// POST /auth/org/invite/:invitationId/accept
 		const acceptMatch = pathname.match(/^\/auth\/org\/invite\/([^/]+)\/accept$/);
 		if (method === "POST" && acceptMatch) {
 			const invitationId = acceptMatch[1];
@@ -940,7 +887,6 @@ export function createOrgModule(config: OrgConfig, db: Database): OrgModule {
 			}
 		}
 
-		// DELETE /auth/org/invite/:invitationId
 		const revokeMatch = pathname.match(/^\/auth\/org\/invite\/([^/]+)$/);
 		if (method === "DELETE" && revokeMatch) {
 			const invitationId = revokeMatch[1];

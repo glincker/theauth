@@ -4,15 +4,9 @@ import { buildAuthHeaders } from "./headers.js";
 import { refreshSession } from "./refresh.js";
 import type { ResolvedAuthConfig } from "./types.js";
 
-// fetchWithRefresh — REST fetch with 401-retry
-
 /**
- * Authenticated server-side fetch for REST endpoints with automatic 401-retry.
- *
- * On 401: refreshes the session once and retries. If still 401 after refresh,
- * returns the failed Response — callers decide how to handle.
- *
- * Returns the raw Response. Throws only on network errors.
+ * Server-side REST fetch with one refresh-and-retry on 401. Returns the raw Response,
+ * including a failed one after refresh, and throws only on network errors.
  */
 export async function fetchWithRefresh<TUser>(
 	config: ResolvedAuthConfig<TUser>,
@@ -44,8 +38,6 @@ export async function fetchWithRefresh<TUser>(
 	return response;
 }
 
-// graphqlWithRefresh — GraphQL fetch with 401-retry + UNAUTHENTICATED retry
-
 interface GraphQLResponse<T> {
 	data?: T;
 	errors?: Array<{ message: string; extensions?: { code?: string } }>;
@@ -63,7 +55,6 @@ export class GraphQLRequestError extends Error {
 
 interface GraphQLOptions {
 	graphqlUrl?: string;
-	/** Additional HTTP headers to merge in. */
 	extraHeaders?: Record<string, string>;
 }
 
@@ -83,15 +74,9 @@ function isUnauthenticatedGraphQLError(body: GraphQLResponse<unknown>): boolean 
 }
 
 /**
- * Executes a GraphQL request against the backend, with auth-retry on failure.
- *
- * Retry is triggered by either:
- *   - HTTP 401 (load-balancer / WAF level rejection)
- *   - HTTP 200 with errors[].extensions.code === "UNAUTHENTICATED" or "UNAUTHORIZED"
- *     (GraphQL-level auth errors from Apollo Server, Hasura, GraphQL-Java, etc.)
- *
- * Only one retry attempt is made regardless of which path triggers it.
- * Throws GraphQLRequestError on GraphQL errors or non-JSON responses.
+ * Runs a GraphQL request with one auth retry. Retries on HTTP 401 (WAF or load balancer) and on
+ * HTTP 200 with an UNAUTHENTICATED or UNAUTHORIZED error extension. Throws GraphQLRequestError
+ * on GraphQL errors or non-JSON bodies.
  */
 export async function graphqlWithRefresh<T, TUser>(
 	config: ResolvedAuthConfig<TUser>,
@@ -147,10 +132,9 @@ export async function graphqlWithRefresh<T, TUser>(
 		return body.data;
 	};
 
-	// First attempt
 	const firstResponse = await _doRequest();
 
-	// HTTP 401 — WAF/load-balancer level rejection (body may not be JSON)
+	// HTTP 401 from a WAF or load balancer may carry a non-JSON body.
 	if (firstResponse.status === 401) {
 		const refreshed = await refreshSession(config);
 		if (refreshed) {
@@ -158,17 +142,15 @@ export async function graphqlWithRefresh<T, TUser>(
 			const retryBody = await _parseBody(retryResponse);
 			return _validateAndReturn(retryBody, retryResponse.status);
 		}
-		// Refresh failed — surface the 401 as a typed error
+		// Refresh failed, so surface the 401 as a typed error
 		throw new GraphQLRequestError(
 			[{ message: `HTTP ${firstResponse.status}: ${firstResponse.statusText}` }],
 			firstResponse.status,
 		);
 	}
 
-	// Parse first attempt body (throws on non-JSON or non-ok status)
 	const firstBody = await _parseBody(firstResponse);
 
-	// GraphQL-level UNAUTHENTICATED (HTTP 200 with error extensions)
 	if (isUnauthenticatedGraphQLError(firstBody)) {
 		const refreshed = await refreshSession(config);
 		if (refreshed) {
@@ -176,7 +158,7 @@ export async function graphqlWithRefresh<T, TUser>(
 			const retryBody = await _parseBody(retryResponse);
 			return _validateAndReturn(retryBody, retryResponse.status);
 		}
-		// Refresh failed — fall through and throw the original GraphQL errors
+		// Refresh failed, so fall through and throw the original GraphQL errors
 	}
 
 	return _validateAndReturn(firstBody, firstResponse.status);

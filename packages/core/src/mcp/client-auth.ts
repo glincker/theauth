@@ -3,15 +3,7 @@ import { hashClientSecret, verifyClientSecret } from "./utils.js";
 
 /**
  * Check a client's credentials for a token or revocation request.
- *
- * Public clients pass without a secret. Confidential clients must present a
- * secret that matches the stored digest (constant-time compare). A legacy
- * plaintext row is accepted once and upgraded to a digest when the store
- * implements `updateClientSecret`.
- *
- * A client registered for `private_key_jwt` authenticates only through a
- * verified assertion (`assertionVerified`); a secret never works for it, and
- * an assertion never works for a client with another method.
+ * Confidential clients must present a secret that matches the stored digest (constant-time compare). A legacy plaintext row is accepted once and upgraded to a digest when the store implements `updateClientSecret`. A client registered for `private_key_jwt` authenticates only through a verified assertion (`assertionVerified`); a secret never works for it, and an assertion never works for a client with another method.
  */
 export async function authenticateClient(
 	ctx: McpAuthContext,

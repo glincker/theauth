@@ -229,7 +229,7 @@ describe("approval – CIBA async approval flows", () => {
 				resource: "file:*",
 			});
 
-			// Handler is called async via void — yield to microtask queue
+			// Handler is called async via void, yield to microtask queue
 			await new Promise<void>((resolve) => setTimeout(resolve, 10));
 			expect(handler).toHaveBeenCalledOnce();
 			const callArg = handler.mock.calls[0]?.[0] as ApprovalRequest;

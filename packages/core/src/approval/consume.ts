@@ -55,12 +55,7 @@ async function load(db: Database, id: string): Promise<Row | undefined> {
 }
 
 /**
- * Verify an approval request and spend it in one step. The request must exist,
- * be approved, belong to the agent, match action and resource exactly, be
- * unexpired and unused. Spending is a single conditional UPDATE that carries
- * every one of those conditions plus `consumed_at IS NULL`, and success means
- * that statement changed a row, so two concurrent callers can never both win.
- * The reads before it only choose the denial code.
+ * Verify an approval request and spend it in one step. The request must exist, be approved, belong to the agent, match action and resource exactly, be unexpired and unused. Spending is a single conditional UPDATE that carries every one of those conditions plus `consumed_at IS NULL`, and success means that statement changed a row, so two concurrent callers can never both win. The reads before it only choose the denial code.
  */
 export async function consumeApproval(
 	db: Database,

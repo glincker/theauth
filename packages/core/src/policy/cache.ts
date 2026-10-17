@@ -4,8 +4,6 @@
 
 import type { PolicyCacheConfig, PolicyCacheStats, PolicyDecision } from "./types.js";
 
-// Public interface
-
 export interface PolicyCache {
 	get(key: string): PolicyDecision | undefined;
 	set(key: string, value: PolicyDecision, options?: { skipCache?: boolean }): void;
@@ -15,8 +13,6 @@ export interface PolicyCache {
 	invalidatePrefix(prefix: string): number;
 	stats(): PolicyCacheStats;
 }
-
-// Internal entry shape
 
 interface CacheEntry {
 	value: PolicyDecision;
@@ -45,8 +41,6 @@ function readEnvBool(name: string): boolean | undefined {
 const DEFAULT_MAX_ENTRIES = 10_000;
 const DEFAULT_TTL_MS = 60_000;
 
-// Factory
-
 export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
 	const rawMax =
 		config.maxEntries ?? readEnvNumber("THEAUTH_POLICY_CACHE_MAX") ?? DEFAULT_MAX_ENTRIES;
@@ -63,12 +57,7 @@ export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
 	let misses = 0;
 	let evictions = 0;
 
-	// Internal helpers
-
-	/**
-	 * Remove the oldest entry (first key in Map iteration).
-	 * Called when the store exceeds maxEntries.
-	 */
+	/** Remove the oldest entry (first key in Map iteration). Called when the store exceeds maxEntries. */
 	function evictOldest(): void {
 		const firstKey = store.keys().next().value;
 		if (firstKey !== undefined) {
@@ -77,14 +66,10 @@ export function createPolicyCache(config: PolicyCacheConfig): PolicyCache {
 		}
 	}
 
-	/**
-	 * Purge a single entry if it has expired. Returns true when expired.
-	 */
+	/** Purge a single entry if it has expired. Returns true when expired. */
 	function isExpired(entry: CacheEntry): boolean {
 		return Date.now() >= entry.expiresAt;
 	}
-
-	// Public methods
 
 	function get(key: string): PolicyDecision | undefined {
 		if (!enabled) {

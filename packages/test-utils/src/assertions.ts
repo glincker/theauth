@@ -1,14 +1,6 @@
-/**
- * Typed assertion helpers for TheAuth `ActionResult` values.
- *
- * These narrow the result type so subsequent code can access `.data` or
- * `.error` without an extra type guard.  They throw descriptive errors on
- * failure so test output is readable.
- */
+/** Typed helpers that narrow `ActionResult` and throw readable errors on mismatch. */
 
 import type { ActionResult } from "@glinr/theauth-react";
-
-// Assertion helpers
 
 /**
  * Asserts that an `ActionResult` succeeded.
@@ -45,11 +37,7 @@ export function expectUnauthenticated<T>(
 }
 
 /**
- * Asserts that an `ActionResult` failed with a message containing the word
- * "permission" or a custom substring you provide.
- *
- * Useful for testing authorization failures separately from authentication
- * failures.
+ * Asserts failure with an error containing "permission" (or a custom `match`) for authorization checks.
  *
  * @param match - substring to look for in `result.error`. Defaults to "permission".
  * @throws if the result succeeded, or if the error message does not contain `match`

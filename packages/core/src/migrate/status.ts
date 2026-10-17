@@ -12,10 +12,7 @@ export interface MigrationStatusReport {
 	failuresByCode: Record<string, number>;
 }
 
-/**
- * Counts only. The ledger holds ids, source names and cohort labels, and this report
- * drops even the ids, so it can be pasted into a status update.
- */
+/** Counts only. The ledger holds ids, source names and cohort labels, and this report drops even the ids, so it can be pasted into a status update. */
 export async function getMigrationStatus(
 	store: Pick<MigrationStore, "listMigrations">,
 	now: Date = new Date(),

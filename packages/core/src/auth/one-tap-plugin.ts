@@ -5,8 +5,6 @@ import { createOneTapModule } from "./one-tap.js";
 
 export type { OneTapConfig };
 
-// Plugin factory
-
 export function oneTap(config: OneTapConfig): TheAuthPlugin {
 	return {
 		id: "theauth-one-tap",
@@ -36,7 +34,7 @@ export function oneTap(config: OneTapConfig): TheAuthPlugin {
 					const response = await module.handleRequest(request);
 					// handleRequest returns null only when path does not match.
 					// Since this handler is only called for the exact path, null
-					// means something unexpected happened — return a generic error.
+					// means something unexpected happened, return a generic error.
 					if (!response) {
 						return new Response(JSON.stringify({ error: "Unexpected routing error" }), {
 							status: 500,

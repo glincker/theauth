@@ -5,11 +5,7 @@ import { getAsymmetricSigner } from "./keys.js";
 import type { McpAccessToken, McpActorClaim, McpAuthContext, McpTokenResponse } from "./types.js";
 import { generateSecureToken, hashToken } from "./utils.js";
 
-/**
- * Derive the HMAC signing key from the config's signing secret.
- *
- * Uses the Web Crypto API so this works in Node, Deno, Bun, CF Workers.
- */
+/** Derive the HMAC signing key from the config's signing secret. */
 async function getSigningKey(secret: string): Promise<CryptoKey> {
 	const encoder = new TextEncoder();
 	return globalThis.crypto.subtle.importKey(
@@ -37,9 +33,7 @@ export interface IssueAccessTokenOptions {
 	agent?: McpAgentClaims;
 }
 
-/**
- * Issue a signed JWT access token.
- */
+/** Issue a signed JWT access token. */
 export async function issueAccessTokenJwt(
 	ctx: McpAuthContext,
 	userId: string,
@@ -108,9 +102,7 @@ export async function issueAccessTokenJwt(
 }
 
 /**
- * Issue a refresh token inside a family. A new family is created when
- * `familyId` is not given (first grant, or a legacy token being migrated).
- * Falls back to a bare random token when no family store is configured.
+ * Issue a refresh token inside a family. A new family is created when `familyId` is not given (first grant, or a legacy token being migrated). Falls back to a bare random token when no family store is configured.
  */
 export async function issueRefreshToken(
 	ctx: McpAuthContext,
@@ -141,10 +133,7 @@ export interface IssueGrantTokenInput {
 	issuedTokenType?: string;
 }
 
-/**
- * Issue an access token (no refresh token), persist its record and build the
- * token response. Used by the non-interactive grants.
- */
+/** Issue an access token (no refresh token), persist its record and build the token response. Used by the non-interactive grants. */
 export async function issueGrantToken(
 	ctx: McpAuthContext,
 	input: IssueGrantTokenInput,

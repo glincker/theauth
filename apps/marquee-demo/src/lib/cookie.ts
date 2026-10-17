@@ -1,7 +1,3 @@
-/**
- * Minimal cookie helpers for the demo session.
- */
-
 import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "kdemo_sid";

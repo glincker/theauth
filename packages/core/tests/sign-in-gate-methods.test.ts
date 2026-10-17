@@ -1,6 +1,5 @@
 /**
  * Sign-in gate coverage for phone, email OTP, Google One Tap and device auth.
- *
  * Each method is opt-in through `require2faFor`; the defaults are unchanged.
  */
 

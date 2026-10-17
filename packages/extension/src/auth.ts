@@ -76,8 +76,6 @@ export function createExtensionAuth(options: ExtensionAuthOptions): ExtensionAut
 		}
 	}
 
-	// ─── Discovery and DPoP ────────────────────────────────────────────────
-
 	let endpointsPromise: Promise<AuthorizationServerEndpoints> | undefined;
 	function getEndpoints(): Promise<AuthorizationServerEndpoints> {
 		if (options.endpoints) return Promise.resolve(options.endpoints);
@@ -130,8 +128,6 @@ export function createExtensionAuth(options: ExtensionAuthOptions): ExtensionAut
 		return parseTokenResponse(res);
 	}
 
-	// ─── State helpers ─────────────────────────────────────────────────────
-
 	async function persist(tokens: TokenResponse, previousRefresh?: string): Promise<StoredAccess> {
 		const access: StoredAccess = {
 			accessToken: tokens.accessToken,
@@ -150,8 +146,6 @@ export function createExtensionAuth(options: ExtensionAuthOptions): ExtensionAut
 		await store.clear();
 		emit(null);
 	}
-
-	// ─── Sign in ───────────────────────────────────────────────────────────
 
 	let signInInflight: Promise<ExtensionSession> | undefined;
 
@@ -216,8 +210,6 @@ export function createExtensionAuth(options: ExtensionAuthOptions): ExtensionAut
 		emit(session);
 		return session;
 	}
-
-	// ─── Refresh (single flight, storage lock, in memory promise) ──────────
 
 	function isFresh(a: StoredAccess | null): boolean {
 		return a !== null && a.expiresAt - skewMs > clock();
@@ -291,8 +283,6 @@ export function createExtensionAuth(options: ExtensionAuthOptions): ExtensionAut
 		});
 		return refreshInflight;
 	}
-
-	// ─── Public API ────────────────────────────────────────────────────────
 
 	return {
 		signIn() {

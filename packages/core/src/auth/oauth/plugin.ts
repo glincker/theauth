@@ -14,25 +14,14 @@ import { createMobileOAuth, MOBILE_COOKIE } from "./mobile.js";
 import { createOAuthModule } from "./module.js";
 import type { OAuthModuleConfig, OAuthTokens, OAuthUserInfo } from "./types.js";
 
-// Config
-
 export interface OAuthPluginConfig extends OAuthModuleConfig {
-	/**
-	 * Build the redirect URI for a given provider.
-	 *
-	 * When omitted the plugin constructs the URI from `ctx.config.baseUrl`
-	 * using the pattern `{baseUrl}/auth/oauth/callback/{provider}`.
-	 */
+	/** Build the redirect URI for a given provider. */
 	buildRedirectUri?: (provider: string, baseUrl: string) => string;
 	/**
-	 * Native app sign-in. When set, `authorize` accepts `mobile_redirect` and a
-	 * PKCE `code_challenge`, and the app trades the code it receives for a
-	 * session at `POST /auth/oauth/mobile/exchange`. Off when omitted.
+	 * Native app sign-in. When set, `authorize` accepts `mobile_redirect` and a PKCE `code_challenge`, and the app trades the code it receives for a session at `POST /auth/oauth/mobile/exchange`. Off when omitted.
 	 */
 	mobile?: MobileOAuthConfig;
 }
-
-// Helpers
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -63,8 +52,6 @@ function tokenErrorResponse(err: unknown, fallback: string): Response {
 	}
 	return jsonResponse({ error: fallback }, 500);
 }
-
-// Plugin factory
 
 export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 	return {
@@ -107,7 +94,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				return `${base}/auth/oauth/callback/${provider}`;
 			}
 
-			// GET /auth/oauth/authorize/:provider
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/oauth/authorize/:provider",
@@ -156,7 +142,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				}, authorizeLimiter),
 			});
 
-			// GET /auth/oauth/callback/:provider
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/oauth/callback/:provider",
@@ -238,7 +223,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 							});
 						}
 
-						// Create session and redirect
 						if (userId !== "__pending__") {
 							// A forced password change or a required second factor must be
 							// satisfied before a session exists. The challenge travels in the
@@ -295,7 +279,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				},
 			});
 
-			// POST /auth/oauth/mobile/exchange
 			if (mobile) {
 				ctx.addEndpoint({
 					method: "POST",
@@ -334,7 +317,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				});
 			}
 
-			// POST /auth/oauth/link
 			ctx.addEndpoint({
 				method: "POST",
 				path: "/auth/oauth/link",
@@ -383,7 +365,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				},
 			});
 
-			// GET /auth/oauth/accounts
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/oauth/accounts",
@@ -402,7 +383,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				},
 			});
 
-			// DELETE /auth/oauth/accounts/:provider
 			ctx.addEndpoint({
 				method: "DELETE",
 				path: "/auth/oauth/accounts/:provider",
@@ -424,7 +404,6 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 				},
 			});
 
-			// GET /auth/oauth/providers
 			ctx.addEndpoint({
 				method: "GET",
 				path: "/auth/oauth/providers",

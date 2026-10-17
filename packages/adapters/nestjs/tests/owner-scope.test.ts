@@ -71,8 +71,7 @@ async function makeWorld(
 	const app: Express = express();
 	app.use(express.json());
 	if (mountVia === "module") {
-		// Capture the middleware the Nest module registers so its option
-		// passthrough is exercised without booting a Nest application.
+		// Capture the middleware the Nest module registers, to exercise option passthrough.
 		let captured: RequestHandler | undefined;
 		const consumer = {
 			apply: (mw: RequestHandler) => {

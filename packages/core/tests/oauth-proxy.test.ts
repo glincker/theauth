@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OAuthProvider, OAuthTokens, OAuthUserInfo } from "../src/auth/oauth/types.js";
 import { createOAuthProxyModule, OAuthProxyError } from "../src/auth/oauth-proxy.js";
 
-// Helpers
-
 function makeProvider(overrides: Partial<OAuthProvider> = {}): OAuthProvider {
 	return {
 		id: "test-provider",
@@ -59,8 +57,6 @@ function makeModule(
 	);
 }
 
-// startFlow
-
 describe("startFlow", () => {
 	it("returns authUrl and proxyState for an allowed redirect_uri", async () => {
 		const mod = makeModule();
@@ -114,8 +110,6 @@ describe("startFlow", () => {
 		expect(proxyState).toBeTruthy();
 	});
 });
-
-// handleCallback
 
 describe("handleCallback", () => {
 	it("exchanges the code and returns a redirect URL with tokens", async () => {
@@ -188,8 +182,6 @@ describe("handleCallback", () => {
 	});
 });
 
-// State TTL enforcement
-
 describe("state TTL", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -232,8 +224,6 @@ describe("state TTL", () => {
 		expect(tokens.accessToken).toBe("access-token-123");
 	});
 });
-
-// PKCE passthrough
 
 describe("PKCE passthrough", () => {
 	it("passes the server-generated code verifier to the provider on exchange", async () => {
@@ -290,7 +280,7 @@ describe("PKCE passthrough", () => {
 	});
 });
 
-// handleRequest — HTTP routing
+// handleRequest, HTTP routing
 
 describe("handleRequest", () => {
 	it("GET /auth/oauth-proxy/start returns JSON with authUrl and proxyState", async () => {

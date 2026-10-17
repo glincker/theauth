@@ -1,10 +1,6 @@
 /**
  * Drizzle schema for the outbound token vault.
- *
- * - `theauth_vault_connections`: one encrypted third-party OAuth connection per
- *   (user, tenant, provider). Token columns hold AES-GCM envelopes, never
- *   plaintext.
- * - `theauth_vault_consents`: what a user allows a specific agent to use.
+ * Token columns hold AES-GCM envelopes, never plaintext. - `theauth_vault_consents`: what a user allows a specific agent to use.
  */
 
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";

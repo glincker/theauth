@@ -1,9 +1,6 @@
 /**
  * Username + password authentication for TheAuth.
- *
- * Users register with a username and password instead of email. Usernames are
- * normalised to lowercase by default. Passwords are hashed with scrypt before
- * storage so a database breach does not expose credentials.
+ * Usernames are normalised to lowercase by default. Passwords are hashed with scrypt before storage so a database breach does not expose credentials.
  *
  * @example
  * ```typescript
@@ -28,8 +25,6 @@ import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// Public types
-
 export interface UsernameAuthConfig {
 	/** Minimum username length (default: 3) */
 	minUsernameLength?: number;
@@ -37,7 +32,7 @@ export interface UsernameAuthConfig {
 	maxUsernameLength?: number;
 	/** Allowed characters pattern (default: /^[a-zA-Z0-9_-]+$/) */
 	allowedPattern?: RegExp;
-	/** Whether usernames are case-sensitive (default: false — normalise to lowercase) */
+	/** Whether usernames are case-sensitive (default: false, normalise to lowercase) */
 	caseSensitive?: boolean;
 	password?: {
 		/** Minimum password length (default: 8) */
@@ -52,11 +47,7 @@ export interface UsernameAuthModule {
 		user: { id: string; username: string; name: string | null };
 		session: { token: string; expiresAt: Date };
 	}>;
-	/**
-	 * Throws `SignInGateError` (message "Password reset required" or
-	 * "Two-factor authentication required") with a challenge when the sign-in
-	 * gate does not allow a session yet.
-	 */
+	/** Throws `SignInGateError` (message "Password reset required" or "Two-factor authentication required") with a challenge when the sign-in gate does not allow a session yet. */
 	signIn: (
 		input: { username: string; password: string },
 		context?: { request?: Request },
@@ -80,7 +71,6 @@ const DEFAULT_MAX_USERNAME = 32;
 const DEFAULT_ALLOWED_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const DEFAULT_MIN_PASSWORD = 8;
 const DEFAULT_MAX_PASSWORD = 128;
-// Helpers
 
 async function hashPassword(password: string): Promise<string> {
 	return pbkdf2Hash(password);
@@ -96,8 +86,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 		headers: { "Content-Type": "application/json" },
 	});
 }
-
-// Factory
 
 export function createUsernameAuthModule(
 	config: UsernameAuthConfig,
@@ -140,8 +128,6 @@ export function createUsernameAuthModule(
 		return null;
 	}
 
-	// public API
-
 	async function signUp(input: { username: string; password: string; name?: string }): Promise<{
 		user: { id: string; username: string; name: string | null };
 		session: { token: string; expiresAt: Date };
@@ -154,7 +140,6 @@ export function createUsernameAuthModule(
 		const passwordError = validatePassword(input.password);
 		if (passwordError) throw new Error(passwordError);
 
-		// Check username uniqueness
 		const existing = await db
 			.select({ id: usernameAccounts.userId })
 			.from(usernameAccounts)

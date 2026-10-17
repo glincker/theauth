@@ -1,9 +1,6 @@
 /**
  * API key management for TheAuth.
- *
- * Creates and validates static API keys with permission scopes. Keys are
- * stored as SHA-256 hashes — the full key is returned once at creation and
- * never stored. Validation tracks last-used time on every call.
+ * Keys are stored as SHA-256 hashes, the full key is returned once at creation and never stored.
  *
  * @example
  * ```typescript
@@ -17,7 +14,7 @@
  *   name: 'CI token',
  *   permissions: ['agents:read'],
  * });
- * // key = 'kos_a3f8c2e1...' — show once, store nowhere
+ * // key = 'kos_a3f8c2e1...', show once, store nowhere
  * ```
  */
 
@@ -25,8 +22,6 @@ import { eq } from "drizzle-orm";
 import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { apiKeys as apiKeysTable } from "../db/schema.js";
-
-// Public types
 
 export interface ApiKeyManagerConfig {
 	/** Prefix for API keys (default: "kos_") */
@@ -67,13 +62,9 @@ export interface ApiKeyManagerModule {
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
-// Helpers
-
 async function hashKey(key: string): Promise<string> {
 	return sha256(key);
 }
-
-// Row mapper
 
 interface ApiKeyRow {
 	id: string;
@@ -99,8 +90,6 @@ function rowToApiKey(row: ApiKeyRow): ApiKey {
 		createdAt: row.createdAt,
 	};
 }
-
-// Factory
 
 export function createApiKeyManagerModule(
 	config: ApiKeyManagerConfig,
@@ -218,7 +207,6 @@ export function createApiKeyManagerModule(
 		const existing = rows[0];
 		if (!existing) throw new Error(`API key "${keyId}" not found`);
 
-		// Revoke the old key
 		await revoke(keyId);
 
 		// Create a new key with the same config
@@ -229,8 +217,6 @@ export function createApiKeyManagerModule(
 			expiresAt: existing.expiresAt ?? undefined,
 		});
 	}
-
-	// HTTP handler
 
 	async function handleRequest(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
@@ -243,7 +229,6 @@ export function createApiKeyManagerModule(
 				headers: { "Content-Type": "application/json" },
 			});
 
-		// POST /auth/api-keys
 		if (method === "POST" && pathname === "/auth/api-keys") {
 			let body: unknown;
 			try {
@@ -269,7 +254,6 @@ export function createApiKeyManagerModule(
 			return json(result, 201);
 		}
 
-		// GET /auth/api-keys/:userId
 		const listMatch = /^\/auth\/api-keys\/([^/]+)$/.exec(pathname);
 		if (method === "GET" && listMatch) {
 			const userId = decodeURIComponent(listMatch[1] ?? "");
@@ -277,7 +261,6 @@ export function createApiKeyManagerModule(
 			return json(keys);
 		}
 
-		// DELETE /auth/api-keys/:keyId
 		const deleteMatch = /^\/auth\/api-keys\/([^/]+)$/.exec(pathname);
 		if (method === "DELETE" && deleteMatch) {
 			const keyId = decodeURIComponent(deleteMatch[1] ?? "");
@@ -285,7 +268,6 @@ export function createApiKeyManagerModule(
 			return json({ success: true });
 		}
 
-		// POST /auth/api-keys/:keyId/rotate
 		const rotateMatch = /^\/auth\/api-keys\/([^/]+)\/rotate$/.exec(pathname);
 		if (method === "POST" && rotateMatch) {
 			const keyId = decodeURIComponent(rotateMatch[1] ?? "");

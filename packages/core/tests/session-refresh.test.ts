@@ -1,6 +1,4 @@
-/**
- * Tests for session refresh and token rotation.
- */
+/** Tests for session refresh and token rotation. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../src/db/database.js";
@@ -11,8 +9,6 @@ import type { SessionRefresher } from "../src/session/refresh.js";
 import { createSessionRefresher, RefreshTokenError } from "../src/session/refresh.js";
 import type { TokenFamilyStore } from "../src/session/token-family.js";
 import { createTokenFamilyStore } from "../src/session/token-family.js";
-
-// Helpers
 
 const TEST_SECRET = "a-test-secret-that-is-at-least-32-chars-long!!";
 const TEST_USER_ID = "user-refresh-test";
@@ -44,8 +40,6 @@ async function createTestDb(): Promise<Database> {
 
 	return db;
 }
-
-// TokenFamilyStore unit tests
 
 describe("TokenFamilyStore.createFamily", () => {
 	let db: Database;
@@ -189,8 +183,6 @@ describe("TokenFamilyStore.revokeFamily / revokeFamiliesForUser", () => {
 	});
 });
 
-// SessionRefresher unit tests
-
 describe("createSessionRefresher — constructor guards", () => {
 	it("throws when secret is shorter than 32 characters", () => {
 		expect(() =>
@@ -325,10 +317,10 @@ describe("SessionRefresher.refresh — reuse detection revokes entire family", (
 		const { refreshToken: rt1 } = await refresher.issueInitial(TEST_USER_ID);
 		const { refreshToken: rt2 } = await refresher.refresh(rt1);
 
-		// Attacker presents the already-used rt1 — reuse detected.
+		// Attacker presents the already-used rt1, reuse detected.
 		await expect(refresher.refresh(rt1)).rejects.toThrow(RefreshTokenError);
 
-		// Legitimate user tries to use rt2 — family is now revoked.
+		// Legitimate user tries to use rt2, family is now revoked.
 		try {
 			await refresher.refresh(rt2);
 			expect.fail("Should have thrown");
@@ -448,7 +440,7 @@ describe("SessionRefresher.revokeAll", () => {
 	});
 });
 
-// SessionRefresher.handleRequest — HTTP layer
+// SessionRefresher.handleRequest, HTTP layer
 
 describe("SessionRefresher.handleRequest — success", () => {
 	let db: Database;

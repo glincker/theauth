@@ -1,7 +1,5 @@
 /**
- * GET /api/demo/state
- * Returns the current demo step state for the active session.
- * The UI polls this to sync after actions.
+ * GET /api/demo/state: current demo step state for the session. The UI polls this to sync.
  */
 
 import { NextResponse } from "next/server";

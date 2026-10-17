@@ -36,7 +36,6 @@ export function fakeIdentity(respond: (url: URL) => string | undefined): FakeIde
 	};
 }
 
-/** Redirects back with a code and the request's own state. */
 export function approve(extra: Record<string, string> = {}) {
 	return (url: URL): string => {
 		const back = new URL(REDIRECT);

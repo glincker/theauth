@@ -1,8 +1,4 @@
-/**
- * Builders for the CAEP and RISC events this module emits. Each returns the
- * event type URI and payload; the transmitter adds `subject` and
- * `event_timestamp`.
- */
+/** Builders for the CAEP and RISC events this module emits. Each returns the event type URI and payload; the transmitter adds `subject` and `event_timestamp`. */
 
 import type { EventPayload } from "./types.js";
 import {

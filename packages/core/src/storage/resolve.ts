@@ -25,11 +25,7 @@ function isFeatureMap(
 
 /**
  * Turn the `secondaryStorage` config into a per-feature resolver.
- *
- * Resolution order for a feature: its own entry, then `default`, then a
- * process-local memory store. "database" uses the TheAuth database.
- * Each feature gets a `theauth:<feature>:` key prefix so features never collide
- * in a shared store. An instance is built once and reused.
+ * Resolution order for a feature: its own entry, then `default`, then a process-local memory store. Each feature gets a `theauth:<feature>:` key prefix so features never collide in a shared store. An instance is built once and reused.
  */
 export function createSecondaryStorageResolver(
 	config: SecondaryStorageConfig | undefined,

@@ -1,10 +1,6 @@
 /**
  * W3C Verifiable Credential issuance for TheAuth.
- *
- * Issues VCs as JWT (compact JWS) or JSON-LD with embedded proof.
- * Credentials encode agent identity, permissions, and delegation chains
- * so agents can prove their capabilities to any verifier without
- * a network call back to TheAuth.
+ * Credentials encode agent identity, permissions, and delegation chains so agents can prove their capabilities to any verifier without a network call back to TheAuth.
  */
 
 import { importJWK, SignJWT } from "jose";
@@ -25,11 +21,7 @@ import {
 	VC_TYPE_CREDENTIAL,
 } from "./types.js";
 
-// Constants
-
 const DEFAULT_TTL_SECONDS = 86400; // 24 hours
-
-// Helpers
 
 function makeError(code: string, message: string, details?: Record<string, unknown>): TheAuthError {
 	return { code, message, ...(details !== undefined ? { details } : {}) };
@@ -42,8 +34,6 @@ function nowISO(): string {
 function futureISO(seconds: number): string {
 	return new Date(Date.now() + seconds * 1000).toISOString();
 }
-
-// Agent Credential Input
 
 export interface IssueAgentCredentialInput {
 	/** Agent ID (used as credentialSubject.id and sub claim) */
@@ -62,8 +52,6 @@ export interface IssueAgentCredentialInput {
 	format?: CredentialFormat;
 }
 
-// Permission Credential Input
-
 export interface IssuePermissionCredentialInput {
 	/** Agent DID or ID that receives the permissions */
 	agentId: string;
@@ -74,8 +62,6 @@ export interface IssuePermissionCredentialInput {
 	/** Output format. Default: "jwt". */
 	format?: CredentialFormat;
 }
-
-// Delegation Credential Input
 
 export interface DelegationLink {
 	delegator: string;
@@ -97,8 +83,6 @@ export interface IssueDelegationCredentialInput {
 	format?: CredentialFormat;
 }
 
-// VC Issuer Interface
-
 export interface VCIssuer {
 	/** Issue a VC encoding agent identity, permissions, and trust score */
 	issueAgentCredential(
@@ -116,15 +100,7 @@ export interface VCIssuer {
 	readonly issuerDid: string;
 }
 
-// Factory
-
-/**
- * Create a VC issuer bound to a specific DID and keypair.
- *
- * The issuer can produce credentials in JWT or JSON-LD format.
- * JWT credentials are signed as a compact JWS with the VC embedded
- * in the `vc` claim. JSON-LD credentials carry an embedded proof.
- */
+/** Create a VC issuer bound to a specific DID and keypair. */
 export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 	const { issuerDid, privateKeyJwk, defaultTtl = DEFAULT_TTL_SECONDS } = config;
 
@@ -138,7 +114,7 @@ export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 		try {
 			const key = await importJWK(privateKeyJwk, "EdDSA");
 
-			// Strip proof from the VC when embedding in JWT — the JWT signature is the proof
+			// Strip proof from the VC when embedding in JWT, the JWT signature is the proof
 			const { proof: _proof, ...vcWithoutProof } = credential;
 
 			const builder = new SignJWT({
@@ -237,8 +213,6 @@ export function createVCIssuer(config: VCIssuerConfig): VCIssuer {
 		}
 		return signAsJsonLd(credential);
 	}
-
-	// Public API
 
 	async function issueAgentCredential(
 		input: IssueAgentCredentialInput,

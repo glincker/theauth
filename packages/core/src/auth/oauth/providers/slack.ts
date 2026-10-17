@@ -1,30 +1,13 @@
 /**
  * Slack OAuth 2.0 / OIDC provider.
- *
- * Endpoints:
- * - Authorization: https://slack.com/oauth/v2/authorize
- * - Token:         https://slack.com/api/oauth.v2.access
- * - UserInfo:      https://slack.com/api/openid.connect.userInfo
- *
  * Notes:
- * - Slack's v2 OAuth uses OpenID Connect for user sign-in. The
- *   `openid.connect.userInfo` endpoint returns OIDC-standard claims.
- * - The token exchange response has a nested structure: `authed_user.access_token`
- *   for the user token and a bot token at the top level when bot scopes are
- *   included. For sign-in we want the user token.
- * - PKCE is not natively supported by Slack's OAuth v2 server. The code
- *   challenge is sent but silently ignored — CSRF protection via `state` still
- *   applies within TheAuth.
- * - Slack user IDs are workspace-scoped, not global. The `sub` claim from the
- *   OIDC userinfo endpoint is the globally unique identifier across workspaces.
- *
- * Docs: https://api.slack.com/authentication/sign-in-with-slack
+ * - Slack's v2 OAuth uses OpenID Connect for user sign-in.
+ * - PKCE is not natively supported by Slack's OAuth v2 server. The code challenge is sent but silently ignored, CSRF protection via `state` still applies within TheAuth.
+ * - Slack user IDs are workspace-scoped, not global.
  */
 
 import { deriveCodeChallenge } from "../pkce.js";
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
-
-// Constants
 
 const AUTHORIZATION_URL = "https://slack.com/oauth/v2/authorize";
 const TOKEN_URL = "https://slack.com/api/oauth.v2.access";
@@ -32,8 +15,6 @@ const USER_INFO_URL = "https://slack.com/api/openid.connect.userInfo";
 
 export const DEFAULT_SLACK_SCOPES = ["openid", "profile", "email"];
 const DEFAULT_SCOPES = DEFAULT_SLACK_SCOPES;
-
-// Raw response shapes
 
 interface SlackAuthedUser {
 	id: string;
@@ -59,8 +40,6 @@ interface SlackUserInfoResponse {
 	"https://slack.com/user_id"?: string;
 	error?: string;
 }
-
-// Factory
 
 /**
  * Create a Slack OAuth provider instance.
@@ -196,8 +175,6 @@ export function createSlackProvider(config: OAuthProviderConfig): OAuthProvider 
 	};
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const data = raw as unknown as SlackUserInfoResponse;
 
@@ -222,8 +199,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Helpers
 
 function mergeScopes(defaults: string[], extras?: string[]): string[] {
 	if (!extras || extras.length === 0) return defaults;

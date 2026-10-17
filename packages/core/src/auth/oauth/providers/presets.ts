@@ -1,33 +1,13 @@
-/**
- * Preset OAuth provider configs.
- *
- * Each export is a factory function that takes `(clientId, clientSecret)`
- * and returns a config accepted by `genericOIDC` or usable directly as a
- * plain provider when the provider does not support OIDC discovery.
- *
- * OIDC-capable providers (Auth0, Okta) use `genericOIDC` and require the
- * caller to supply their tenant/domain as a third argument.
- *
- * All other presets return a `GenericOIDCConfig`-compatible object with
- * explicit endpoints so they work without any network discovery call.
- */
+/** Preset OAuth provider configs. Each factory takes `(clientId, clientSecret)` and returns a config for `genericOIDC`, or a plain provider with explicit endpoints (no discovery call). */
 
 import { trimTrailingSlashes } from "../../../trim-slashes.js";
 import type { OAuthProvider } from "../types.js";
 import type { GenericOIDCConfig } from "./generic.js";
 import { genericOIDC } from "./generic.js";
 
-// Re-export type so callers can annotate their config objects
-
 export type { GenericOIDCConfig };
 
-// Providers that use explicit endpoints (no OIDC discovery)
-
-/**
- * Facebook (Meta) OAuth 2.0.
- *
- * Docs: https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow
- */
+/** Facebook (Meta) OAuth 2.0. Docs: https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow */
 export function facebookProvider(
 	clientId: string,
 	clientSecret: string,
@@ -54,11 +34,7 @@ export function facebookProvider(
 	});
 }
 
-/**
- * Spotify OAuth 2.0.
- *
- * Docs: https://developer.spotify.com/documentation/web-api/concepts/authorization
- */
+/** Spotify OAuth 2.0. Docs: https://developer.spotify.com/documentation/web-api/concepts/authorization */
 export function spotifyProvider(
 	clientId: string,
 	clientSecret: string,
@@ -77,11 +53,7 @@ export function spotifyProvider(
 	});
 }
 
-/**
- * Twitch OAuth 2.0 / OIDC.
- *
- * Docs: https://dev.twitch.tv/docs/authentication
- */
+/** Twitch OAuth 2.0 / OIDC. Docs: https://dev.twitch.tv/docs/authentication */
 export function twitchProvider(
 	clientId: string,
 	clientSecret: string,
@@ -100,11 +72,7 @@ export function twitchProvider(
 	});
 }
 
-/**
- * Reddit OAuth 2.0.
- *
- * Docs: https://github.com/reddit-archive/reddit/wiki/OAuth2
- */
+/** Reddit OAuth 2.0. Docs: https://github.com/reddit-archive/reddit/wiki/OAuth2 */
 export function redditProvider(
 	clientId: string,
 	clientSecret: string,
@@ -123,11 +91,7 @@ export function redditProvider(
 	});
 }
 
-/**
- * Dropbox OAuth 2.0.
- *
- * Docs: https://developers.dropbox.com/oauth-guide
- */
+/** Dropbox OAuth 2.0. Docs: https://developers.dropbox.com/oauth-guide */
 export function dropboxProvider(
 	clientId: string,
 	clientSecret: string,
@@ -146,11 +110,7 @@ export function dropboxProvider(
 	});
 }
 
-/**
- * Zoom OAuth 2.0 / OIDC.
- *
- * Docs: https://developers.zoom.us/docs/integrations/oauth/
- */
+/** Zoom OAuth 2.0 / OIDC. Docs: https://developers.zoom.us/docs/integrations/oauth/ */
 export function zoomProvider(
 	clientId: string,
 	clientSecret: string,
@@ -169,11 +129,7 @@ export function zoomProvider(
 	});
 }
 
-/**
- * Notion OAuth 2.0.
- *
- * Docs: https://developers.notion.com/docs/authorization
- */
+/** Notion OAuth 2.0. Docs: https://developers.notion.com/docs/authorization */
 export function notionProvider(
 	clientId: string,
 	clientSecret: string,
@@ -192,11 +148,7 @@ export function notionProvider(
 	});
 }
 
-/**
- * Figma OAuth 2.0.
- *
- * Docs: https://www.figma.com/developers/api#authentication
- */
+/** Figma OAuth 2.0. Docs: https://www.figma.com/developers/api#authentication */
 export function figmaProvider(
 	clientId: string,
 	clientSecret: string,
@@ -215,11 +167,7 @@ export function figmaProvider(
 	});
 }
 
-/**
- * Bitbucket OAuth 2.0.
- *
- * Docs: https://developer.atlassian.com/cloud/bitbucket/oauth-2/
- */
+/** Bitbucket OAuth 2.0. Docs: https://developer.atlassian.com/cloud/bitbucket/oauth-2/ */
 export function bitbucketProvider(
 	clientId: string,
 	clientSecret: string,
@@ -238,11 +186,7 @@ export function bitbucketProvider(
 	});
 }
 
-/**
- * Atlassian OAuth 2.0 (Jira, Confluence, etc.).
- *
- * Docs: https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/
- */
+/** Atlassian OAuth 2.0 (Jira, Confluence, etc.). Docs: https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/ */
 export function atlassianProvider(
 	clientId: string,
 	clientSecret: string,
@@ -261,11 +205,7 @@ export function atlassianProvider(
 	});
 }
 
-/**
- * Yahoo OAuth 2.0 / OIDC.
- *
- * Docs: https://developer.yahoo.com/oauth2/guide/
- */
+/** Yahoo OAuth 2.0 / OIDC. Docs: https://developer.yahoo.com/oauth2/guide/ */
 export function yahooProvider(
 	clientId: string,
 	clientSecret: string,
@@ -284,11 +224,7 @@ export function yahooProvider(
 	});
 }
 
-/**
- * LINE Login OAuth 2.0 / OIDC.
- *
- * Docs: https://developers.line.biz/en/docs/line-login/integrate-line-login/
- */
+/** LINE Login OAuth 2.0 / OIDC. Docs: https://developers.line.biz/en/docs/line-login/integrate-line-login/ */
 export function lineProvider(
 	clientId: string,
 	clientSecret: string,
@@ -307,11 +243,7 @@ export function lineProvider(
 	});
 }
 
-/**
- * Coinbase OAuth 2.0.
- *
- * Docs: https://docs.cdp.coinbase.com/coinbase-app/docs/coinbase-connect-reference
- */
+/** Coinbase OAuth 2.0. Docs: https://docs.cdp.coinbase.com/coinbase-app/docs/coinbase-connect-reference */
 export function coinbaseProvider(
 	clientId: string,
 	clientSecret: string,
@@ -330,13 +262,7 @@ export function coinbaseProvider(
 	});
 }
 
-// New preset providers
-
-/**
- * TikTok OAuth 2.0.
- *
- * Docs: https://developers.tiktok.com/doc/oauth-user-access-token-management
- */
+/** TikTok OAuth 2.0. Docs: https://developers.tiktok.com/doc/oauth-user-access-token-management */
 export function tiktokProvider(
 	clientId: string,
 	clientSecret: string,
@@ -355,11 +281,7 @@ export function tiktokProvider(
 	});
 }
 
-/**
- * PayPal OAuth 2.0 / OIDC.
- *
- * Docs: https://developer.paypal.com/api/rest/authentication/
- */
+/** PayPal OAuth 2.0 / OIDC. Docs: https://developer.paypal.com/api/rest/authentication/ */
 export function paypalProvider(
 	clientId: string,
 	clientSecret: string,
@@ -378,11 +300,7 @@ export function paypalProvider(
 	});
 }
 
-/**
- * Salesforce OAuth 2.0 / OIDC.
- *
- * Docs: https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_flows.htm
- */
+/** Salesforce OAuth 2.0 / OIDC. Docs: https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_flows.htm */
 export function salesforceProvider(
 	clientId: string,
 	clientSecret: string,
@@ -401,11 +319,7 @@ export function salesforceProvider(
 	});
 }
 
-/**
- * VK ID OAuth 2.0.
- *
- * Docs: https://id.vk.com/about/business/go/docs/ru/vkid/latest/vkid/sdk/web/get-started
- */
+/** VK ID OAuth 2.0. Docs: https://id.vk.com/about/business/go/docs/ru/vkid/latest/vkid/sdk/web/get-started */
 export function vkProvider(
 	clientId: string,
 	clientSecret: string,
@@ -424,11 +338,7 @@ export function vkProvider(
 	});
 }
 
-/**
- * Kakao OAuth 2.0.
- *
- * Docs: https://developers.kakao.com/docs/latest/en/kakaologin/rest-api
- */
+/** Kakao OAuth 2.0. Docs: https://developers.kakao.com/docs/latest/en/kakaologin/rest-api */
 export function kakaoProvider(
 	clientId: string,
 	clientSecret: string,
@@ -447,11 +357,7 @@ export function kakaoProvider(
 	});
 }
 
-/**
- * Naver OAuth 2.0.
- *
- * Docs: https://developers.naver.com/docs/login/api/api.md
- */
+/** Naver OAuth 2.0. Docs: https://developers.naver.com/docs/login/api/api.md */
 export function naverProvider(
 	clientId: string,
 	clientSecret: string,
@@ -470,11 +376,7 @@ export function naverProvider(
 	});
 }
 
-/**
- * Hugging Face OAuth 2.0 / OIDC.
- *
- * Docs: https://huggingface.co/docs/hub/en/oauth
- */
+/** Hugging Face OAuth 2.0 / OIDC. Docs: https://huggingface.co/docs/hub/en/oauth */
 export function huggingfaceProvider(
 	clientId: string,
 	clientSecret: string,
@@ -493,11 +395,7 @@ export function huggingfaceProvider(
 	});
 }
 
-/**
- * Roblox OAuth 2.0 / OIDC.
- *
- * Docs: https://create.roblox.com/docs/cloud/open-cloud/oauth2-overview
- */
+/** Roblox OAuth 2.0 / OIDC. Docs: https://create.roblox.com/docs/cloud/open-cloud/oauth2-overview */
 export function robloxProvider(
 	clientId: string,
 	clientSecret: string,
@@ -516,11 +414,7 @@ export function robloxProvider(
 	});
 }
 
-/**
- * Vercel OAuth 2.0.
- *
- * Docs: https://vercel.com/docs/integrations/create-integration/submit-integration#oauth2
- */
+/** Vercel OAuth 2.0. Docs: https://vercel.com/docs/integrations/create-integration/submit-integration#oauth2 */
 export function vercelProvider(
 	clientId: string,
 	clientSecret: string,
@@ -539,11 +433,7 @@ export function vercelProvider(
 	});
 }
 
-/**
- * Linear OAuth 2.0.
- *
- * Docs: https://developers.linear.app/docs/oauth/authentication
- */
+/** Linear OAuth 2.0. Docs: https://developers.linear.app/docs/oauth/authentication */
 export function linearProvider(
 	clientId: string,
 	clientSecret: string,
@@ -562,11 +452,7 @@ export function linearProvider(
 	});
 }
 
-/**
- * Railway OAuth 2.0.
- *
- * Docs: https://docs.railway.app/reference/public-api#oauth2
- */
+/** Railway OAuth 2.0. Docs: https://docs.railway.app/reference/public-api#oauth2 */
 export function railwayProvider(
 	clientId: string,
 	clientSecret: string,
@@ -585,11 +471,7 @@ export function railwayProvider(
 	});
 }
 
-/**
- * Kick OAuth 2.0.
- *
- * Docs: https://docs.kick.com/getting-started/authorization-oauth2-flow
- */
+/** Kick OAuth 2.0. Docs: https://docs.kick.com/getting-started/authorization-oauth2-flow */
 export function kickProvider(
 	clientId: string,
 	clientSecret: string,
@@ -608,11 +490,7 @@ export function kickProvider(
 	});
 }
 
-/**
- * WeChat OAuth 2.0 (Web Login via QR code).
- *
- * Docs: https://developers.weixin.qq.com/doc/oplatform/en/Website_App/WeChat_Login/Wechat_Login.html
- */
+/** WeChat OAuth 2.0 (Web Login via QR code). Docs: https://developers.weixin.qq.com/doc/oplatform/en/Website_App/WeChat_Login/Wechat_Login.html */
 export function wechatProvider(
 	clientId: string,
 	clientSecret: string,
@@ -631,11 +509,7 @@ export function wechatProvider(
 	});
 }
 
-/**
- * Polar OAuth 2.0 / OIDC.
- *
- * Docs: https://docs.polar.sh/api-reference/oauth2
- */
+/** Polar OAuth 2.0 / OIDC. Docs: https://docs.polar.sh/api-reference/oauth2 */
 export function polarProvider(
 	clientId: string,
 	clientSecret: string,
@@ -654,14 +528,8 @@ export function polarProvider(
 	});
 }
 
-// OIDC-discovery providers (tenant/domain required)
-
 /**
- * Auth0 OIDC provider.
- *
- * Requires the Auth0 tenant domain (e.g. `"dev-abc123.us.auth0.com"`).
- *
- * Docs: https://auth0.com/docs/authenticate/protocols/openid-connect-protocol
+ * Auth0 OIDC provider. Pass the tenant domain, e.g. `dev-abc123.us.auth0.com`. Docs: https://auth0.com/docs/authenticate/protocols/openid-connect-protocol
  *
  * @example
  * ```typescript
@@ -686,11 +554,7 @@ export function auth0Provider(
 }
 
 /**
- * Okta OIDC provider.
- *
- * Requires the Okta domain (e.g. `"dev-12345678.okta.com"`).
- *
- * Docs: https://developer.okta.com/docs/guides/implement-grant-type/authcode/main/
+ * Okta OIDC provider. Pass the Okta domain, e.g. `dev-12345678.okta.com`. Docs: https://developer.okta.com/docs/guides/implement-grant-type/authcode/main/
  *
  * @example
  * ```typescript
@@ -715,11 +579,7 @@ export function oktaProvider(
 }
 
 /**
- * AWS Cognito OIDC provider.
- *
- * Requires the Cognito hosted UI domain (e.g. `"my-app.auth.us-east-1.amazoncognito.com"`).
- *
- * Docs: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-userpools-server-contract-reference.html
+ * AWS Cognito OIDC provider. Pass the hosted UI domain, e.g. `my-app.auth.us-east-1.amazoncognito.com`. Docs: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-userpools-server-contract-reference.html
  *
  * @example
  * ```typescript
@@ -751,8 +611,6 @@ export function cognitoProvider(
 	});
 }
 
-// Self-hosted and identity-platform providers (discovery)
-
 function trimUrl(url: string): string {
 	return trimTrailingSlashes(url);
 }
@@ -761,12 +619,7 @@ function str(value: unknown): string | undefined {
 	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-/**
- * Keycloak OIDC provider.
- *
- * @param baseUrl Keycloak origin, e.g. `https://sso.example.com` (add `/auth` for legacy servers).
- * @param realm Realm name.
- */
+/** Keycloak OIDC provider. `baseUrl` is the origin, e.g. `https://sso.example.com` (add `/auth` for legacy servers). */
 export function keycloakProvider(
 	baseUrl: string,
 	realm: string,
@@ -784,12 +637,7 @@ export function keycloakProvider(
 	});
 }
 
-/**
- * Authentik OIDC provider.
- *
- * @param baseUrl Authentik origin, e.g. `https://auth.example.com`.
- * @param slug Application slug from the provider settings.
- */
+/** Authentik OIDC provider. `baseUrl` is the origin, e.g. `https://auth.example.com`. `slug` is the application slug. */
 export function authentikProvider(
 	baseUrl: string,
 	slug: string,
@@ -807,11 +655,7 @@ export function authentikProvider(
 	});
 }
 
-/**
- * ZITADEL OIDC provider.
- *
- * @param domain Instance domain, e.g. `my-instance.zitadel.cloud`.
- */
+/** ZITADEL OIDC provider. `domain` is the instance domain, e.g. `my-instance.zitadel.cloud`. */
 export function zitadelProvider(
 	domain: string,
 	clientId: string,
@@ -828,11 +672,7 @@ export function zitadelProvider(
 	});
 }
 
-/**
- * OneLogin OIDC provider.
- *
- * @param subdomain Account subdomain, e.g. `acme` for `acme.onelogin.com`.
- */
+/** OneLogin OIDC provider. `subdomain` is the account subdomain, e.g. `acme` for `acme.onelogin.com`. */
 export function oneloginProvider(
 	subdomain: string,
 	clientId: string,
@@ -849,11 +689,7 @@ export function oneloginProvider(
 	});
 }
 
-/**
- * Gitea / Forgejo OAuth 2.0 provider (self-hosted or gitea.com).
- *
- * @param baseUrl Instance origin, e.g. `https://gitea.com`.
- */
+/** Gitea / Forgejo OAuth 2.0 provider (self-hosted or gitea.com). `baseUrl` is the instance origin, e.g. `https://gitea.com`. */
 export function giteaProvider(
 	baseUrl: string,
 	clientId: string,
@@ -874,13 +710,7 @@ export function giteaProvider(
 	});
 }
 
-// Providers with non-OIDC userinfo (use mapProfile)
-
-/**
- * Patreon OAuth 2.0 (API v2 identity endpoint).
- *
- * Docs: https://docs.patreon.com/#oauth
- */
+/** Patreon OAuth 2.0 (API v2 identity endpoint). Docs: https://docs.patreon.com/#oauth */
 export function patreonProvider(
 	clientId: string,
 	clientSecret: string,
@@ -912,11 +742,7 @@ export function patreonProvider(
 	});
 }
 
-/**
- * Box OAuth 2.0.
- *
- * Docs: https://developer.box.com/guides/authentication/oauth2/
- */
+/** Box OAuth 2.0. Docs: https://developer.box.com/guides/authentication/oauth2/ */
 export function boxProvider(
 	clientId: string,
 	clientSecret: string,
@@ -941,11 +767,7 @@ export function boxProvider(
 	});
 }
 
-/**
- * Yandex ID OAuth 2.0. The userinfo call uses the `OAuth` scheme, not `Bearer`.
- *
- * Docs: https://yandex.com/dev/id/doc/en/codes/code-url
- */
+/** Yandex ID OAuth 2.0. The userinfo call uses the `OAuth` scheme, not `Bearer`. Docs: https://yandex.com/dev/id/doc/en/codes/code-url */
 export function yandexProvider(
 	clientId: string,
 	clientSecret: string,
@@ -979,11 +801,7 @@ export function yandexProvider(
 	});
 }
 
-/**
- * WordPress.com OAuth 2.0.
- *
- * Docs: https://developer.wordpress.com/docs/oauth2/
- */
+/** WordPress.com OAuth 2.0. Docs: https://developer.wordpress.com/docs/oauth2/ */
 export function wordpressProvider(
 	clientId: string,
 	clientSecret: string,

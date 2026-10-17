@@ -1,6 +1,5 @@
 /**
- * In-memory session store keyed by session ID (set via cookie).
- * State is per-browser. State is lost on cold start, acceptable for a demo.
+ * In-memory session store keyed by the session cookie. State is per process and lost on cold start, fine for a demo.
  */
 
 export interface DemoAuditEntry {
@@ -39,8 +38,7 @@ export interface ToolCallRecord {
 	auditId: string;
 }
 
-// Global in-memory store, intentionally module-level so it persists across requests
-// within a single server process. Fine for a demo; not suitable for production.
+// Module-level so it persists across requests in one server process. Not suitable for production.
 const store = new Map<string, DemoSession>();
 
 export function getSession(id: string): DemoSession | undefined {

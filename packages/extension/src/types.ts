@@ -1,7 +1,5 @@
 /**
- * Minimal structural types for the WebExtensions APIs this package uses.
- * They are compatible with both `chrome.*` (promise form, MV3) and
- * `browser.*` (Firefox, Safari), so no `@types/chrome` is needed.
+ * Minimal structural types for the WebExtensions APIs. Compatible with `chrome.*` (MV3) and `browser.*`, so no `@types/chrome` is needed.
  */
 
 export interface StorageAreaLike {
@@ -41,7 +39,6 @@ export interface MessageEventLike {
 }
 
 export interface RuntimeLike {
-	/** The extension's own id. */
 	id?: string;
 	getURL?(path: string): string;
 	sendMessage(...args: unknown[]): Promise<unknown>;
@@ -131,7 +128,6 @@ export interface ExtensionAuthOptions {
 
 export interface ExtensionSession {
 	scope: string;
-	/** Epoch milliseconds. */
 	expiresAt: number;
 	tokenType: "Bearer" | "DPoP";
 	/** Unverified claims from the ID token, when the server returned one. */

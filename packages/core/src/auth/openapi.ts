@@ -1,10 +1,6 @@
 /**
  * OpenAPI 3.1 spec generation plugin for TheAuth.
  *
- * Generates a complete OpenAPI document from TheAuth's registered auth
- * endpoints. Useful for serving at `/api/theauth/openapi.json` or wiring
- * into Swagger UI / Scalar.
- *
  * @example
  * ```typescript
  * import { createOpenApiModule } from '@glinr/theauth/auth';
@@ -21,8 +17,6 @@
  * if (response) return response;
  * ```
  */
-
-// Public types
 
 export type EndpointGroup =
 	| "agents"
@@ -46,10 +40,7 @@ export interface OpenApiConfig {
 	serverUrl?: string;
 	/** Path prefix for all TheAuth endpoints. Default: "/api/theauth" */
 	basePath?: string;
-	/**
-	 * Limit which endpoint groups are included in the spec.
-	 * When omitted all groups are included.
-	 */
+	/** Limit which endpoint groups are included in the spec. When omitted all groups are included. */
 	include?: EndpointGroup[];
 }
 
@@ -152,22 +143,15 @@ export interface OpenApiModule {
 	generateSpec(config?: OpenApiConfig): OpenApiDocument;
 	/**
 	 * Handle an HTTP request for the spec JSON.
-	 *
-	 * Returns a `Response` with the spec when the request path ends with
-	 * `/openapi.json`. Returns `null` for any other path so the caller's
-	 * routing continues normally.
+	 * Returns a `Response` with the spec when the request path ends with `/openapi.json`.
 	 */
 	handleRequest(request: Request, config?: OpenApiConfig): Response | null;
 }
-
-// Constants
 
 const DEFAULT_TITLE = "TheAuth API";
 const DEFAULT_VERSION = "0.0.1";
 const DEFAULT_SERVER_URL = "/";
 const DEFAULT_BASE_PATH = "/api/theauth";
-
-// Shared schema fragments
 
 const ERROR_SCHEMA: OpenApiSchema = {
 	type: "object",
@@ -193,8 +177,6 @@ const ERROR_RESPONSE_SCHEMA: OpenApiSchema = {
 };
 
 const BEARER_SECURITY: OpenApiSecurityRequirement[] = [{ BearerAuth: [] }];
-
-// Shared response builders
 
 function errorResponses(
 	includeAuth = true,
@@ -246,8 +228,6 @@ function pathParam(name: string, description?: string): OpenApiParameter {
 		...(description !== undefined ? { description } : {}),
 	};
 }
-
-// Endpoint group definitions
 
 function agentsPaths(base: string): Record<string, OpenApiPathItem> {
 	const agentSchema: OpenApiSchema = {
@@ -1107,8 +1087,6 @@ function webhooksPaths(base: string): Record<string, OpenApiPathItem> {
 	};
 }
 
-// Tag definitions
-
 const ALL_TAGS: Array<{ name: string; description: string }> = [
 	{ name: "Agents", description: "Agent identity management" },
 	{
@@ -1139,8 +1117,6 @@ const GROUP_TAG_MAP: Record<EndpointGroup, string> = {
 	webhooks: "Webhooks",
 };
 
-// Path builder registry
-
 type PathBuilder = (base: string) => Record<string, OpenApiPathItem>;
 
 const GROUP_BUILDERS: Record<EndpointGroup, PathBuilder> = {
@@ -1167,11 +1143,8 @@ const ALL_GROUPS: EndpointGroup[] = [
 	"webhooks",
 ];
 
-// Factory
-
 /**
  * Create an OpenAPI module that generates TheAuth API specifications.
- *
  * The returned module is stateless and safe to share across requests.
  */
 export function createOpenApiModule(): OpenApiModule {
@@ -1192,7 +1165,7 @@ export function createOpenApiModule(): OpenApiModule {
 			}
 		}
 
-		// Build tags — include only those for selected groups
+		// Build tags, include only those for selected groups
 		const selectedTagNames = new Set(groups.map((g) => GROUP_TAG_MAP[g]));
 		const tags = ALL_TAGS.filter((t) => selectedTagNames.has(t.name));
 

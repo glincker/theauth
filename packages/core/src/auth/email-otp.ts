@@ -1,9 +1,6 @@
 /**
  * Email OTP authentication for TheAuth.
- *
- * Sends a short numeric code to the user's email. The code is hashed before
- * storage so a database compromise does not leak valid codes. Brute-force is
- * limited by a configurable `maxAttempts` counter per code record.
+ * The code is hashed before storage so a database compromise does not leak valid codes.
  *
  * @example
  * ```typescript
@@ -28,8 +25,6 @@ import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-// Public types
-
 export interface EmailOtpConfig {
 	/** Send the OTP code via email. */
 	sendOtp: (email: string, code: string) => Promise<void>;
@@ -39,10 +34,7 @@ export interface EmailOtpConfig {
 	codeExpiry?: number;
 	/** Max verification attempts before the code is invalidated (default: 5) */
 	maxAttempts?: number;
-	/**
-	 * Minimum seconds between sends to the same address (default: 0, disabled).
-	 * A send inside the window returns `{ sent: false, retryAfter }`.
-	 */
+	/** Minimum seconds between sends to the same address (default: 0, disabled). A send inside the window returns `{ sent: false, retryAfter }`. */
 	resendCooldownSeconds?: number;
 }
 
@@ -50,11 +42,7 @@ export interface EmailOtpModule {
 	/** Send a one-time code to the email. */
 	sendCode: (email: string) => Promise<{ sent: boolean; retryAfter?: number }>;
 	/**
-	 * Verify an OTP code for the given email.
-	 * Returns null when the code is wrong, expired, or max attempts exceeded.
-	 * Throws `SignInGateError` when the sign-in gate requires a forced password
-	 * change or a second factor first (gate method `email_otp`; the code is
-	 * consumed, finish with the challenge on the error).
+	 * Verify an OTP code for the given email. Returns null when the code is wrong, expired, or max attempts exceeded. Throws `SignInGateError` when the sign-in gate requires a forced password change or a second factor first (gate method `email_otp`; the code is consumed, finish with the challenge on the error).
 	 */
 	verifyCode: (
 		email: string,
@@ -66,11 +54,8 @@ export interface EmailOtpModule {
 	} | null>;
 	/**
 	 * Handle an incoming HTTP request.
-	 *
-	 * - `POST /auth/otp/send`   – JSON body `{ email: string }`
-	 * - `POST /auth/otp/verify` – JSON body `{ email: string; code: string }`
-	 *
-	 * Returns null when the path does not match.
+	 * - `POST /auth/otp/send`, JSON body `{ email: string }`
+	 * - `POST /auth/otp/verify`, JSON body `{ email: string; code: string }` Returns null when the path does not match.
 	 */
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
@@ -81,8 +66,6 @@ const DEFAULT_CODE_LENGTH = 6;
 const DEFAULT_CODE_EXPIRY_SECONDS = 300; // 5 minutes
 const DEFAULT_MAX_ATTEMPTS = 5;
 
-// Helpers
-
 async function hashCode(code: string): Promise<string> {
 	return sha256(code);
 }
@@ -92,7 +75,7 @@ function generateNumericCode(length: number): string {
 	// Each hex digit maps to 0-15; we take digits 0-9 and retry for A-F.
 	const digits: string[] = [];
 	while (digits.length < length) {
-		// generateId gives 32 hex chars — plenty of entropy per call.
+		// generateId gives 32 hex chars, plenty of entropy per call.
 		for (const char of generateId().replace(/-/g, "")) {
 			if (digits.length >= length) break;
 			const num = parseInt(char, 16);
@@ -101,8 +84,6 @@ function generateNumericCode(length: number): string {
 	}
 	return digits.join("");
 }
-
-// Factory
 
 export function createEmailOtpModule(
 	config: EmailOtpConfig,
@@ -115,8 +96,6 @@ export function createEmailOtpModule(
 	const codeExpiry = config.codeExpiry ?? DEFAULT_CODE_EXPIRY_SECONDS;
 	const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 	const resendCooldown = config.resendCooldownSeconds ?? 0;
-
-	// helpers
 
 	async function findOrCreateUser(email: string): Promise<{ id: string; email: string }> {
 		const existing = await db
@@ -137,8 +116,6 @@ export function createEmailOtpModule(
 
 		return { id, email };
 	}
-
-	// public API
 
 	async function sendCode(rawEmail: string): Promise<{ sent: boolean; retryAfter?: number }> {
 		const email = normalizeEmail(rawEmail);
@@ -235,7 +212,6 @@ export function createEmailOtpModule(
 
 		if (request.method !== "POST") return null;
 
-		// POST /auth/otp/send
 		if (pathname === "/auth/otp/send") {
 			let body: unknown;
 			try {
@@ -269,7 +245,6 @@ export function createEmailOtpModule(
 			});
 		}
 
-		// POST /auth/otp/verify
 		if (pathname === "/auth/otp/verify") {
 			let body: unknown;
 			try {

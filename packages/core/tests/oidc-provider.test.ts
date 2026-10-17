@@ -1,6 +1,4 @@
-/**
- * Tests for the OIDC Provider module.
- */
+/** Tests for the OIDC Provider module. */
 
 import { createHash } from "node:crypto";
 import * as jose from "jose";
@@ -10,8 +8,6 @@ import { createOidcProviderModule } from "../src/auth/oidc-provider.js";
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
-
-// Helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -106,8 +102,6 @@ async function runAuthCodeFlow(
 	return { authorizeResult, tokenResult };
 }
 
-// Client registration
-
 describe("OidcProvider.registerClient", () => {
 	let db: Database;
 	let mod: OidcProviderModule;
@@ -184,8 +178,6 @@ describe("OidcProvider.registerClient", () => {
 	});
 });
 
-// Client retrieval
-
 describe("OidcProvider.getClient", () => {
 	let db: Database;
 	let mod: OidcProviderModule;
@@ -232,8 +224,6 @@ describe("OidcProvider.getClient", () => {
 	});
 });
 
-// Client deletion
-
 describe("OidcProvider.deleteClient", () => {
 	let db: Database;
 	let mod: OidcProviderModule;
@@ -271,8 +261,6 @@ describe("OidcProvider.deleteClient", () => {
 		expect(result.error.code).toBe("INVALID_INPUT");
 	});
 });
-
-// Authorization
 
 describe("OidcProvider.authorize", () => {
 	let db: Database;
@@ -373,8 +361,6 @@ describe("OidcProvider.authorize", () => {
 	});
 });
 
-// Token exchange (authorization_code grant)
-
 describe("OidcProvider.exchangeToken (authorization_code)", () => {
 	let db: Database;
 	let mod: OidcProviderModule;
@@ -432,7 +418,6 @@ describe("OidcProvider.exchangeToken (authorization_code)", () => {
 		expect(authorizeResult.success).toBe(true);
 		if (!authorizeResult.success) return;
 
-		// First exchange succeeds
 		const first = await mod.exchangeToken({
 			grantType: "authorization_code",
 			code: authorizeResult.data.code,
@@ -496,7 +481,6 @@ describe("OidcProvider.exchangeToken (authorization_code)", () => {
 			code: authorizeResult.data.code,
 			redirectUri: "https://app.example.com/callback",
 			clientId: client.clientId,
-			// No clientSecret
 		});
 		expect(result.success).toBe(false);
 		if (result.success) return;
@@ -558,8 +542,6 @@ describe("OidcProvider.exchangeToken (authorization_code)", () => {
 		expect(result.error.code).toBe("CLIENT_MISMATCH");
 	});
 });
-
-// Token exchange with PKCE
 
 describe("OidcProvider.exchangeToken (PKCE)", () => {
 	let db: Database;
@@ -638,7 +620,6 @@ describe("OidcProvider.exchangeToken (PKCE)", () => {
 			grantType: "authorization_code",
 			code: authorizeResult.data.code,
 			redirectUri: "https://app.example.com/callback",
-			// No codeVerifier
 			clientId: client.clientId,
 			clientSecret: client.clientSecret ?? undefined,
 		});
@@ -647,8 +628,6 @@ describe("OidcProvider.exchangeToken (PKCE)", () => {
 		expect(result.error.code).toBe("PKCE_REQUIRED");
 	});
 });
-
-// Token refresh
 
 describe("OidcProvider.exchangeToken (refresh_token)", () => {
 	let db: Database;
@@ -759,8 +738,6 @@ describe("OidcProvider.exchangeToken (refresh_token)", () => {
 	});
 });
 
-// ID token claims
-
 describe("OidcProvider ID token claims", () => {
 	let db: Database;
 	let mod: OidcProviderModule;
@@ -840,7 +817,6 @@ describe("OidcProvider ID token claims", () => {
 
 		expect((payload as Record<string, unknown>).at_hash).toBeTruthy();
 
-		// Verify at_hash value
 		const atHashBuffer = createHash("sha256").update(tokenResult.data.accessToken).digest();
 		const expectedAtHash = jose.base64url.encode(atHashBuffer.subarray(0, atHashBuffer.length / 2));
 		expect((payload as Record<string, unknown>).at_hash).toBe(expectedAtHash);
@@ -890,8 +866,6 @@ describe("OidcProvider ID token claims", () => {
 	});
 });
 
-// UserInfo
-
 describe("OidcProvider.getUserInfo", () => {
 	let db: Database;
 	let mod: OidcProviderModule;
@@ -940,8 +914,6 @@ describe("OidcProvider.getUserInfo", () => {
 		expect(result.error.code).toBe("INVALID_INPUT");
 	});
 });
-
-// Discovery document
 
 describe("OidcProvider.getDiscoveryDocument", () => {
 	let mod: OidcProviderModule;
@@ -1020,8 +992,6 @@ describe("OidcProvider.getDiscoveryDocument", () => {
 	});
 });
 
-// JWKS
-
 describe("OidcProvider.getJwks", () => {
 	let mod: OidcProviderModule;
 
@@ -1093,8 +1063,6 @@ describe("OidcProvider.getJwks", () => {
 		expect(payload.iss).toBe(TEST_ISSUER);
 	});
 });
-
-// Access token validation
 
 describe("OidcProvider.validateAccessToken", () => {
 	let db: Database;
@@ -1226,8 +1194,6 @@ describe("OidcProvider expired authorization code", () => {
 		expect(result.error.code).toBe("CODE_EXPIRED");
 	});
 });
-
-// Config TTL overrides
 
 describe("OidcProvider config overrides", () => {
 	it("uses custom accessTokenTtl in expiresIn response", async () => {

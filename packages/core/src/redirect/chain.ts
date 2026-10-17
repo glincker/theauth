@@ -1,7 +1,5 @@
 import { generateId } from "../crypto/web-crypto.js";
 
-// Types
-
 export interface RedirectConfig {
 	/** Cookie name for storing the redirect chain (default: "theauth_redirect") */
 	cookieName?: string;
@@ -17,7 +15,6 @@ export interface RedirectConfig {
 	preserveHash?: boolean;
 	/** Max chain depth to prevent infinite loops (default: 10) */
 	maxDepth?: number;
-	/** Custom cookie options */
 	cookie?: {
 		httpOnly?: boolean;
 		secure?: boolean;
@@ -28,97 +25,48 @@ export interface RedirectConfig {
 }
 
 export interface RedirectEntry {
-	/** Unique ID for this entry */
 	id: string;
-	/** The URL path (e.g., "/dashboard/project/abc") */
 	path: string;
-	/** Query parameters as a record */
 	query: Record<string, string>;
-	/** Hash fragment without # */
 	hash: string;
-	/** When this entry was created (epoch ms) */
 	createdAt: number;
 	/** Optional label for debugging ("onboarding", "verify-email", etc.) */
 	label?: string;
 }
 
 export interface RedirectChainState {
-	/** The original destination the user was trying to reach */
 	origin: RedirectEntry;
-	/** Stack of intermediate steps (LIFO -- last pushed = first popped) */
+	// Intermediate steps, last in first out: the last pushed is the first popped.
 	steps: RedirectEntry[];
-	/** Chain creation time */
 	createdAt: number;
 }
 
 export interface RedirectChainManager {
-	/**
-	 * Capture the current request's URL as the origin destination.
-	 * Call this in your auth middleware when redirecting to sign-in.
-	 * Returns the Set-Cookie header value.
-	 *
-	 * If a chain already exists (user refreshed sign-in page), keeps the existing origin.
-	 */
+	/** Captures the current request's URL as the origin destination. Call it in your auth middleware. */
 	capture(request: Request): string;
 
-	/**
-	 * Push an intermediate step onto the chain.
-	 * Use this after sign-up to add onboarding, email verification, etc.
-	 * Returns the updated Set-Cookie header value.
-	 *
-	 * Example: after sign-up, push "/onboarding" then "/complete-profile"
-	 * When onboarding completes, pop() returns "/complete-profile"
-	 * When profile completes, pop() returns the original destination
-	 */
+	/** Pushes an intermediate step onto the chain, e.g. onboarding or email verification after sign-up. */
 	push(path: string, options?: { label?: string; query?: Record<string, string> }): string;
 
-	/**
-	 * Pop the next destination from the chain.
-	 * If there are intermediate steps, returns the next step.
-	 * If no steps remain, returns the original destination.
-	 * If chain is empty, returns the defaultPath.
-	 *
-	 * Returns { url, done, clearCookie }
-	 * - url: the full URL path with query params
-	 * - done: true when the chain is fully consumed
-	 * - clearCookie: Set-Cookie header to clear the cookie (only when chain is fully consumed)
-	 */
+	/** Pops the next destination from the chain. */
 	pop(request: Request): { url: string; done: boolean; clearCookie: string | null };
 
-	/**
-	 * Peek at the next destination without consuming it.
-	 */
+	/** Peeks at the next destination without consuming it. */
 	peek(request: Request): { url: string; remaining: number } | null;
 
-	/**
-	 * Get the original destination (the URL the user first tried to visit).
-	 * Returns null if no chain exists.
-	 */
+	/** Returns the original destination (the URL the user first tried to visit), or null. */
 	getOrigin(request: Request): RedirectEntry | null;
 
-	/**
-	 * Clear the entire chain. Returns the Set-Cookie header to clear the cookie.
-	 */
+	/** Clears the chain. Returns the Set-Cookie header that clears the cookie. */
 	clear(): string;
 
-	/**
-	 * Parse the chain state from a request's cookies.
-	 * Returns null if no chain exists or if it's expired.
-	 */
+	/** Parse the chain state from a request's cookies. Returns null if no chain exists or if it's expired. */
 	parse(request: Request): RedirectChainState | null;
 
-	/**
-	 * Build a full URL from a RedirectEntry (path + query + hash).
-	 */
 	buildUrl(entry: RedirectEntry): string;
 
-	/**
-	 * Create a RedirectEntry from a URL string or Request.
-	 */
 	createEntry(url: string | Request, label?: string): RedirectEntry;
 }
-
-// Defaults
 
 const DEFAULT_COOKIE_NAME = "theauth_redirect";
 const DEFAULT_MAX_AGE = 600; // 10 minutes
@@ -133,15 +81,12 @@ const DEFAULT_EXCLUDE_PATHS = [
 	"/api/",
 ];
 
-// Helpers
-
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 function encodeState(state: RedirectChainState): string {
 	const json = JSON.stringify(state);
 	const bytes = encoder.encode(json);
-	// base64url encode without Buffer
 	let binary = "";
 	for (let i = 0; i < bytes.length; i++) {
 		binary += String.fromCharCode(bytes[i] as number);
@@ -211,7 +156,6 @@ function parseCookies(request: Request): Record<string, string> {
 function isExcluded(path: string, excludePaths: string[]): boolean {
 	for (const excluded of excludePaths) {
 		if (excluded.endsWith("/")) {
-			// Prefix match for paths ending in /
 			if (path.startsWith(excluded) || path === excluded.slice(0, -1)) return true;
 		} else {
 			if (path === excluded) return true;
@@ -219,8 +163,6 @@ function isExcluded(path: string, excludePaths: string[]): boolean {
 	}
 	return false;
 }
-
-// Factory
 
 /** Create a redirect chain manager with the given config. */
 export function createRedirectChain(config?: RedirectConfig): RedirectChainManager {
@@ -271,7 +213,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		const state = decodeState(raw);
 		if (!state) return null;
 
-		// Check expiration
 		const elapsed = Date.now() - state.createdAt;
 		if (elapsed > maxAge * 1000) return null;
 
@@ -282,7 +223,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 	function createEntryFromUrl(url: string | Request, label?: string): RedirectEntry {
 		let parsed: URL;
 		if (typeof url === "string") {
-			// Handle relative paths by providing a base
 			if (url.startsWith("/")) {
 				parsed = new URL(url, "http://localhost");
 			} else {
@@ -327,7 +267,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 
 	const manager: RedirectChainManager = {
 		capture(request: Request): string {
-			// If chain already exists, keep the existing origin
 			const existing = parseFromRequest(request);
 			if (existing) {
 				return serializeAndSetCookie(existing);
@@ -335,7 +274,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 
 			const entry = createEntryFromUrl(request);
 
-			// If the captured path is excluded, use defaultPath
 			if (isExcluded(entry.path, excludePaths)) {
 				entry.path = defaultPath;
 				entry.query = {};
@@ -352,7 +290,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		},
 
 		push(path: string, options?: { label?: string; query?: Record<string, string> }): string {
-			// If no current state, create one with defaultPath as origin
 			if (!currentState) {
 				currentState = {
 					origin: {
@@ -367,9 +304,7 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 				};
 			}
 
-			// Check max depth
 			if (currentState.steps.length >= maxDepth) {
-				// At max depth, just return current cookie without adding
 				return serializeAndSetCookie(currentState);
 			}
 
@@ -392,13 +327,11 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 				return { url: defaultPath, done: true, clearCookie: buildClearCookie() };
 			}
 
-			// If there are intermediate steps, pop the first one (FIFO order within the stack)
 			if (state.steps.length > 0) {
 				const next = state.steps.shift() as RedirectEntry;
 				const url = buildUrlFromEntry(next);
 
 				if (state.steps.length === 0) {
-					// Next pop will return origin, but keep the cookie so origin is still available
 					currentState = state;
 					return {
 						url,
@@ -407,7 +340,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 					};
 				}
 
-				// More steps remain
 				return {
 					url,
 					done: false,
@@ -415,7 +347,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 				};
 			}
 
-			// No steps left, return origin and clear the cookie
 			const url = buildUrlFromEntry(state.origin);
 			currentState = null;
 			return {

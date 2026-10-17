@@ -1,6 +1,4 @@
-/**
- * Tests for the Atlassian OAuth provider.
- */
+/** Tests for the Atlassian OAuth provider. */
 
 import { describe, expect, it } from "vitest";
 import {
@@ -14,8 +12,6 @@ const CLIENT_SECRET = "test-atlassian-client-secret";
 const REDIRECT_URI = "https://app.example.com/callback";
 const CODE_VERIFIER = "test-code-verifier-long-enough-to-be-valid-abc123";
 
-// Canned responses
-
 const CANNED_USER_RAW = {
 	account_id: "557058:f58131cb-b67d-43c7-b475-1234abcd5678",
 	email: "henry@example.com",
@@ -23,8 +19,6 @@ const CANNED_USER_RAW = {
 	picture: "https://secure.gravatar.com/avatar/henry-hash?d=identicon&s=48",
 	account_type: "atlassian",
 };
-
-// Provider construction
 
 describe("createAtlassianProvider", () => {
 	it("creates a provider with id atlassian", () => {
@@ -56,8 +50,6 @@ describe("createAtlassianProvider", () => {
 		expect(provider.scopes).toContain("read:me");
 	});
 });
-
-// Authorization URL
 
 describe("createAtlassianProvider — getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and audience=api.atlassian.com", async () => {
@@ -91,8 +83,6 @@ describe("createAtlassianProvider — getAuthorizationUrl", () => {
 		expect(new URL(url).searchParams.get("redirect_uri")).toBe(override);
 	});
 });
-
-// Profile normalisation
 
 describe("normalizeAtlassianProfile", () => {
 	it("maps Atlassian user to OAuthUserInfo", () => {

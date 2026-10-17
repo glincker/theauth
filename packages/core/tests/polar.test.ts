@@ -1,6 +1,4 @@
-/**
- * Tests for the Polar payment integration module and plugin.
- */
+/** Tests for the Polar payment integration module and plugin. */
 
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,8 +10,6 @@ import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { users } from "../src/db/schema.js";
 import type { PluginContext, TheAuthPlugin } from "../src/plugin/types.js";
-
-// Test helpers
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -43,8 +39,6 @@ function makeConfig(overrides: Partial<PolarConfig> = {}): PolarConfig {
 	};
 }
 
-// Webhook signature helpers
-
 async function buildSignatureHeader(payload: string, secret: string): Promise<string> {
 	const encoder = new TextEncoder();
 	const key = await crypto.subtle.importKey(
@@ -60,8 +54,6 @@ async function buildSignatureHeader(payload: string, secret: string): Promise<st
 		.join("");
 	return `sha256=${sig}`;
 }
-
-// Mock fetch setup
 
 type FetchHandler = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
@@ -90,8 +82,6 @@ afterEach(() => {
 	fetchHandler = null;
 	vi.restoreAllMocks();
 });
-
-// Webhook signature verification
 
 describe("webhook signature verification", () => {
 	let db: Database;
@@ -160,8 +150,6 @@ describe("webhook signature verification", () => {
 		expect(body.error).toMatch(/format|verification|signature/i);
 	});
 });
-
-// createCheckout
 
 describe("createCheckout", () => {
 	it("calls Polar API and returns url and id", async () => {
@@ -237,8 +225,6 @@ describe("createCheckout", () => {
 	});
 });
 
-// getSubscription
-
 describe("getSubscription", () => {
 	it("returns null when user has no subscription data", async () => {
 		const db = await createTestDb();
@@ -278,8 +264,6 @@ describe("getSubscription", () => {
 		expect(sub?.currentPeriodEnd.toISOString()).toBe(periodEnd.toISOString());
 	});
 });
-
-// Webhook event handling
 
 describe("handleWebhook event dispatch", () => {
 	const CUSTOMER_ID = "polar_cust_event_test";
@@ -578,8 +562,6 @@ describe("polar plugin — endpoint access", () => {
 		expect(ep?.metadata?.requireAuth).not.toBe(true);
 	});
 });
-
-// Sandbox mode
 
 describe("sandbox mode", () => {
 	it("uses sandbox API base URL when sandbox: true", async () => {

@@ -1,6 +1,4 @@
-/**
- * Tests for the ReBAC (Relationship-Based Access Control) engine.
- */
+/** Tests for the ReBAC (Relationship-Based Access Control) engine. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ReBACModule } from "../src/auth/rebac.js";
@@ -9,15 +7,11 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 
-// Helpers
-
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
 	await createTables(db, "sqlite");
 	return db;
 }
-
-// Suite
 
 describe("ReBACModule", () => {
 	let db: Database;
@@ -27,8 +21,6 @@ describe("ReBACModule", () => {
 		db = await createTestDb();
 		rebac = createReBACModule({}, db);
 	});
-
-	// Resource management
 
 	describe("createResource", () => {
 		it("creates a root resource", async () => {
@@ -145,8 +137,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// Relationship management
-
 	describe("addRelationship", () => {
 		it("creates a relationship", async () => {
 			const result = await rebac.addRelationship({
@@ -225,8 +215,6 @@ describe("ReBACModule", () => {
 			expect(result.success).toBe(true);
 		});
 	});
-
-	// Permission checks
 
 	describe("check", () => {
 		it("grants direct access", async () => {
@@ -428,8 +416,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// Complex hierarchy
-
 	describe("complex hierarchy (org > workspace > project > document)", () => {
 		beforeEach(async () => {
 			await rebac.createResource({ id: "acme", type: "org" });
@@ -523,8 +509,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// Max depth enforcement
-
 	describe("max depth", () => {
 		it("denies when depth limit is exceeded", async () => {
 			// Create a deep chain: r0 > r1 > r2 > r3
@@ -587,8 +571,6 @@ describe("ReBACModule", () => {
 			if (result.success) expect(result.data.allowed).toBe(true);
 		});
 	});
-
-	// listObjects
 
 	describe("listObjects", () => {
 		it("lists directly accessible objects", async () => {
@@ -666,8 +648,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// listSubjects
-
 	describe("listSubjects", () => {
 		it("lists subjects with direct access", async () => {
 			await rebac.addRelationship({
@@ -737,8 +717,6 @@ describe("ReBACModule", () => {
 			if (result.success) expect(result.data).toEqual([]);
 		});
 	});
-
-	// expand
 
 	describe("expand", () => {
 		it("returns all relationships for a subject", async () => {
@@ -867,8 +845,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// Custom permission rules
-
 	describe("custom permission rules", () => {
 		it("respects custom implies rules", async () => {
 			const custom = createReBACModule(
@@ -921,7 +897,6 @@ describe("ReBACModule", () => {
 					permissionRules: {
 						secret: {
 							implies: { owner: ["viewer"] },
-							// no inheritFromParent
 						},
 					},
 				},
@@ -982,7 +957,6 @@ describe("ReBACModule", () => {
 				objectId: "proj1",
 			});
 
-			// viewer inherits
 			const viewResult = await custom.check({
 				subjectType: "user",
 				subjectId: "u1",
@@ -1006,8 +980,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// Team subject type
-
 	describe("team relationships", () => {
 		it("supports team as subject type", async () => {
 			await rebac.addRelationship({
@@ -1030,8 +1002,6 @@ describe("ReBACModule", () => {
 		});
 	});
 
-	// Edge cases
-
 	describe("edge cases", () => {
 		it("handles unknown resource type gracefully (no rules = exact match only)", async () => {
 			await rebac.addRelationship({
@@ -1042,7 +1012,6 @@ describe("ReBACModule", () => {
 				objectId: "g1",
 			});
 
-			// exact match works
 			const exactResult = await rebac.check({
 				subjectType: "user",
 				subjectId: "u1",

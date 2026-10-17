@@ -1,8 +1,5 @@
 /**
  * In-memory sliding window rate limiter for auth endpoints.
- *
- * Uses a Map keyed by the caller-supplied string (typically an IP address).
- * Each entry stores a list of request timestamps within the current window.
  * Expired timestamps are pruned on every check so memory stays bounded.
  */
 

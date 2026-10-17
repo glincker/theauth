@@ -1,21 +1,8 @@
 // __APP_NAME__
-//
 // A Hono server that runs as an MCP OAuth 2.1 authorization server and a
 // resource server protecting your tools behind agent bearer tokens.
-//
 // Dev:    pnpm dev
 // Start:  pnpm start
-//
-// Smoke test with a kv_ agent token (no full OAuth flow needed). The agent
-// management routes need the ADMIN_API_KEY from your .env:
-//   curl -X POST http://localhost:3001/api/agents \
-//     -H "Authorization: Bearer $ADMIN_API_KEY" \
-//     -H "Content-Type: application/json" \
-//     -d '{"ownerId":"user-1","name":"demo","type":"autonomous",
-//          "permissions":[{"resource":"mcp:*","actions":["read","execute"]}]}'
-//
-//   # Use the returned kv_ token to call the protected endpoint:
-//   curl http://localhost:3001/tools/list -H "Authorization: Bearer kv_..."
 
 import { serve } from "@hono/node-server";
 import { theAuthHono } from "@glinr/theauth-hono";
@@ -44,7 +31,6 @@ const refreshTokenIndex = new Map<string, string>();
 async function main(): Promise<void> {
 	const theauth = await getTheAuth();
 
-	// Seed a demo user so the /api/agents call in the smoke test has an owner.
 	try {
 		theauth.db
 			.insert(users)
@@ -129,7 +115,6 @@ async function main(): Promise<void> {
 		return c.json({ tools: MCP_TOOLS });
 	});
 
-	// Protected tool call.
 	app.post("/tools/call", async (c) => {
 		const token = c.req.header("authorization")?.replace("Bearer ", "");
 		if (!token) return c.json({ error: "Missing Authorization header" }, 401);

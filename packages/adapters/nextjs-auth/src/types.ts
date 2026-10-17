@@ -13,23 +13,19 @@ export interface AuthSession<TUser = DefaultUser> {
 	expiresAt: Date | null;
 }
 
-/** All endpoint path overrides. Defaults to TheAuth/glinr.me conventions. */
 export interface AuthEndpoints {
-	/** GET — returns current user payload. Default: "/api/auth/me" */
+	/** GET: returns current user payload. Default: "/api/auth/me" */
 	me: string;
 	/** POST body: { refreshToken }. Default: "/api/auth/refresh" */
 	refresh: string;
-	/** POST — invalidates session on backend. Default: "/api/auth/logout" */
+	/** POST: invalidates session on backend. Default: "/api/auth/logout" */
 	signOut: string;
 }
 
-/** Cookie name / prefix overrides. */
 export interface AuthCookieConfig {
 	/**
-	 * Prefix used to derive the session + CSRF cookie names.
-	 * Default: "glinr"
-	 * Prod:  __Host-{prefix}-token / __Host-{prefix}-csrf
-	 * Dev:   {prefix}-token / {prefix}-csrf
+	 * Prefix for the session and CSRF cookie names. Default: "glinr".
+	 * Prod uses the __Host- variant of each name.
 	 */
 	sessionPrefix: string;
 	/** Override the refresh-token cookie name. Default: "{prefix}-refresh-token" */
@@ -43,14 +39,11 @@ export interface AuthConfig<TUser = DefaultUser> {
 	appUrl: string;
 	/** Tenant identifier sent as X-Tenant-Domain. Optional. */
 	tenantDomain?: string;
-	/** Endpoint path overrides. Defaults to TheAuth conventions. */
 	endpoints?: Partial<AuthEndpoints>;
-	/** Cookie name overrides. */
 	cookies?: Partial<AuthCookieConfig>;
 	/**
-	 * Skip calling the backend for getServerSession() if the session cache
-	 * cookie is fresher than this many milliseconds. Set to 0 to disable.
-	 * Default: 300_000 (5 minutes — matches better-auth's cookie cache TTL).
+	 * Skip the backend call in getServerSession() while the session cache cookie is fresher
+	 * than this many milliseconds. Set to 0 to disable. Default: 300_000.
 	 */
 	cookieCacheMaxAgeMs?: number;
 	/**
@@ -77,11 +70,8 @@ export interface ResolvedAuthConfig<TUser = DefaultUser> {
 	tenantDomain: string;
 	endpoints: AuthEndpoints;
 	cookies: AuthCookieConfig & {
-		/** Computed full session cookie name (env-aware). */
 		sessionName: string;
-		/** Computed full CSRF cookie name (env-aware). */
 		csrfName: string;
-		/** Session cache cookie name. */
 		cacheName: string;
 	};
 	cookieCacheMaxAgeMs: number;

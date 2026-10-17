@@ -1,7 +1,6 @@
 /**
  * Tests for the generic OIDC factory and preset providers.
- *
- * No network calls are made. Tests validate config structure only.
+ * Tests validate config structure only.
  */
 
 import { describe, expect, it } from "vitest";
@@ -40,15 +39,10 @@ import {
 } from "../src/auth/oauth/providers/presets.js";
 import type { OAuthProvider } from "../src/auth/oauth/types.js";
 
-// Helpers
-
 const DUMMY_ID = "test-client-id";
 const DUMMY_SECRET = "test-client-secret";
 
-/**
- * Assert the minimum set of fields required by OAuthProvider.
- * Avoids repeating the same assertions in every test.
- */
+/** Assert the minimum set of fields required by OAuthProvider. Avoids repeating the same assertions in every test. */
 function assertValidProvider(provider: OAuthProvider, expectedId: string): void {
 	expect(provider.id).toBe(expectedId);
 	expect(provider.name).toBeTruthy();
@@ -66,8 +60,6 @@ function assertUrlShape(url: string): void {
 	expect(() => new URL(url)).not.toThrow();
 	expect(url.startsWith("https://")).toBe(true);
 }
-
-// genericOIDC factory
 
 describe("genericOIDC", () => {
 	it("creates a provider with explicit endpoint overrides (no discovery needed)", () => {
@@ -123,7 +115,6 @@ describe("genericOIDC", () => {
 		expect(provider.scopes).toContain("email");
 		expect(provider.scopes).toContain("profile");
 		expect(provider.scopes).toContain("custom:read");
-		// No duplicates
 		const openidCount = provider.scopes.filter((s) => s === "openid").length;
 		expect(openidCount).toBe(1);
 	});
@@ -186,7 +177,7 @@ describe("genericOIDC", () => {
 			issuer: "https://idp.example.com/",
 			clientId: DUMMY_ID,
 			clientSecret: DUMMY_SECRET,
-			// No explicit endpoint overrides — would trigger discovery on actual use
+			// No explicit endpoint overrides, would trigger discovery on actual use
 		});
 
 		// The static authorizationUrl exposed on the provider should point to discovery
@@ -196,7 +187,7 @@ describe("genericOIDC", () => {
 	});
 });
 
-// Preset providers — structure tests (no network)
+// Preset providers, structure tests (no network)
 
 describe("facebookProvider", () => {
 	it("returns a valid provider config", () => {
@@ -446,8 +437,6 @@ describe("polarProvider", () => {
 	});
 });
 
-// OIDC-discovery presets
-
 describe("auth0Provider", () => {
 	it("returns a valid provider config with issuer derived from domain", () => {
 		const p = auth0Provider("dev-abc123.us.auth0.com", DUMMY_ID, DUMMY_SECRET);
@@ -521,7 +510,7 @@ describe("cognitoProvider", () => {
 	});
 });
 
-// All presets share required shape — table-driven sweep
+// All presets share required shape, table-driven sweep
 
 describe("all presets have required fields", () => {
 	const providers: Array<[string, OAuthProvider]> = [
@@ -540,7 +529,6 @@ describe("all presets have required fields", () => {
 		["coinbase", coinbaseProvider(DUMMY_ID, DUMMY_SECRET)],
 		["auth0", auth0Provider("tenant.auth0.com", DUMMY_ID, DUMMY_SECRET)],
 		["okta", oktaProvider("dev.okta.com", DUMMY_ID, DUMMY_SECRET)],
-		// New providers
 		["tiktok", tiktokProvider(DUMMY_ID, DUMMY_SECRET)],
 		["paypal", paypalProvider(DUMMY_ID, DUMMY_SECRET)],
 		["salesforce", salesforceProvider(DUMMY_ID, DUMMY_SECRET)],

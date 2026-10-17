@@ -1,33 +1,18 @@
 /**
  * Notion OAuth 2.0 provider.
- *
  * Endpoints:
  * - Authorization: https://api.notion.com/v1/oauth/authorize
  * - Token:         https://api.notion.com/v1/oauth/token
  * - UserInfo:      embedded in the token response (`owner` field)
- *
  * Notes:
- * - Notion does not have a separate UserInfo endpoint. User identity is
- *   returned as part of the token exchange response inside `owner.user`.
- *   The provider captures the token response in a closure so that
- *   `getUserInfo` can extract it without a redundant network call.
- * - The token endpoint uses HTTP Basic auth (client_id:client_secret).
+ * - Notion does not have a separate UserInfo endpoint. The provider captures the token response in a closure so that `getUserInfo` can extract it without a redundant network call.
  * - All Notion API requests require the `Notion-Version` header.
  * - Notion uses integration-level permissions rather than OAuth scopes.
- *   Workspaces a user authorizes appear in `workspace_id` / `workspace_name`
- *   in the token response.
- * - The `owner.user.person.email` field is present only when the integration
- *   is authorized by a person (not a bot). For bot authorizations
- *   `owner.type` is `"workspace"` and `email` may be absent.
- * - PKCE is not documented by Notion; the code_challenge is omitted for
- *   compatibility with their authorization server.
- *
- * Docs: https://developers.notion.com/docs/authorization
+ * - The `owner.user.person.email` field is present only when the integration is authorized by a person (not a bot).
+ * - PKCE is not documented by Notion; the code_challenge is omitted for compatibility with their authorization server. Docs: https://developers.notion.com/docs/authorization
  */
 
 import type { OAuthProvider, OAuthProviderConfig, OAuthTokens, OAuthUserInfo } from "../types.js";
-
-// Constants
 
 const AUTHORIZATION_URL = "https://api.notion.com/v1/oauth/authorize";
 const TOKEN_URL = "https://api.notion.com/v1/oauth/token";
@@ -36,8 +21,6 @@ const NOTION_VERSION = "2022-06-28";
 // Notion does not use scopes in the traditional OAuth sense; permissions are
 // managed at the integration level in the Notion workspace settings.
 export const DEFAULT_NOTION_SCOPES: string[] = [];
-
-// Raw response shapes
 
 interface NotionTokenResponse {
 	access_token: string;
@@ -65,8 +48,6 @@ interface NotionUser {
 	};
 }
 
-// Profile normalisation
-
 export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 	const tokenData = raw as unknown as NotionTokenResponse;
 	const user = tokenData?.owner?.user;
@@ -86,8 +67,6 @@ export function normalizeProfile(raw: Record<string, unknown>): OAuthUserInfo {
 		raw,
 	};
 }
-
-// Factory
 
 /**
  * Create a Notion OAuth provider instance.

@@ -8,8 +8,6 @@ import type {
 	TheAuthUser,
 } from "./types.js";
 
-// Internal helpers
-
 interface AgentApiResponse {
 	data: TheAuthAgent[];
 }
@@ -39,8 +37,6 @@ function extractError(body: unknown, fallback: string): string {
 	}
 	return fallback;
 }
-
-// createTheAuthClient
 
 export interface TheAuthClientOptions {
 	basePath?: string;
@@ -162,7 +158,7 @@ export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClie
 		}
 	}
 
-	// Restore session from localStorage on creation — guard for SSR environments
+	// Restore session from localStorage on creation (SSR guard).
 	if (typeof window !== "undefined") {
 		void fetchSession();
 	} else {
@@ -180,8 +176,6 @@ export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClie
 		refresh: fetchSession,
 	};
 }
-
-// createAgentStore
 
 export interface AgentStoreOptions {
 	basePath?: string;
@@ -271,7 +265,6 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 					error: extractError(json, `Failed to revoke agent (${res.status})`),
 				};
 			}
-			// Refresh by reloading current agents from the server
 			// Optimistically remove from local state while reload is in flight
 			agents.update((prev) => prev.filter((a) => a.id !== agentId));
 			return { success: true, data: undefined };
@@ -297,7 +290,6 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 				};
 			}
 			const agent = (json as AgentSingleApiResponse).data;
-			// Update the rotated agent in place
 			agents.update((prev) => prev.map((a) => (a.id === agentId ? agent : a)));
 			return { success: true, data: agent };
 		} catch (err) {
@@ -308,7 +300,6 @@ export function createAgentStore(options?: AgentStoreOptions): AgentStore {
 		}
 	}
 
-	// Auto-load when user store is provided and user becomes available (browser only)
 	if (typeof window !== "undefined" && options?.user) {
 		let initialised = false;
 		options.user.subscribe((u) => {
