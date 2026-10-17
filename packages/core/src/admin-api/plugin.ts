@@ -11,6 +11,7 @@ import { delegationChains, sessions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
 import { json } from "../plugin/helpers.js";
 import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../plugin/types.js";
+import { decideApproval, listPendingApprovals } from "./approval-decisions.js";
 import {
 	AUDIT_MODES,
 	AUDIT_RESULTS,
@@ -41,6 +42,8 @@ export interface AdminApiConfig {
 	rateLimit?: { max: number; window: number };
 	/** Allow disabling another configured admin (default false). */
 	allowDisablingAdmins?: boolean;
+	/** Let an admin approve or deny a request it opened itself (default false: four-eyes). */
+	allowSelfApproval?: boolean;
 }
 
 type Principal = ResolvedUser;
@@ -209,6 +212,42 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					201,
 				);
 			});
+
+			// GET /approvals?status=pending
+			add("GET", "/approvals", "List pending approval requests (admin only)", async (_p, req) => {
+				const url = new URL(req.url);
+				const statusRaw = url.searchParams.get("status");
+				if (statusRaw !== null && statusRaw !== "pending") {
+					return fail(400, "INVALID_QUERY", "status must be pending");
+				}
+				const max = asLimit(url.searchParams.get("limit"), 50, 100);
+				return json(await listPendingApprovals(db, max));
+			});
+
+			function decision(verb: "approve" | "deny"): RouteHandler {
+				return async (p, req) => {
+					const id = pathId(req, 1);
+					if (!id) return fail(400, "INVALID_ID", "Invalid approval id");
+					const result = await decideApproval(db, {
+						id,
+						decision: verb === "approve" ? "approved" : "denied",
+						approverId: p.id,
+						systemAgentId,
+						allowSelfApproval: config.allowSelfApproval === true,
+					});
+					if (!result.ok) return fail(result.status, result.code, result.message);
+					return json({ id: result.id, status: result.status, respondedAt: result.respondedAt });
+				};
+			}
+
+			// POST /approvals/:id/approve and /deny
+			add(
+				"POST",
+				"/approvals/:id/approve",
+				"Approve a pending request (admin only)",
+				decision("approve"),
+			);
+			add("POST", "/approvals/:id/deny", "Deny a pending request (admin only)", decision("deny"));
 
 			// GET /approvals/:id
 			add(

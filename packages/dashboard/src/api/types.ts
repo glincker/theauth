@@ -179,3 +179,23 @@ export interface RegisterMcpServerInput {
 export type ApiResult<T> =
 	| { success: true; data: T }
 	| { success: false; error: { code: string; message: string } };
+
+// Approval Types
+
+export interface PendingApproval {
+	id: string;
+	action: string;
+	resource: string;
+	requestedBy: string;
+	createdAt: string;
+	expiresAt: string;
+	/** JSON text, secrets redacted server side, cut at 2 KB. */
+	arguments: string;
+	argumentsTruncated: boolean;
+}
+
+export interface ApprovalDecision {
+	id: string;
+	status: "approved" | "denied";
+	respondedAt: string;
+}

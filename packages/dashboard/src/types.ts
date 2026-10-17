@@ -6,6 +6,7 @@ export type Page =
 	| "delegations"
 	| "mcp-servers"
 	| "audit"
+	| "approvals"
 	| "security"
 	| "settings";
 

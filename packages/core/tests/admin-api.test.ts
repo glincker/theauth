@@ -6,7 +6,14 @@ import { createApprovalModule } from "../src/approval/approval.js";
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
-import { agents, auditLogs, delegationChains, sessions, users } from "../src/db/schema.js";
+import {
+	agents,
+	approvalRequests,
+	auditLogs,
+	delegationChains,
+	sessions,
+	users,
+} from "../src/db/schema.js";
 import type { EndpointContext, PluginEndpoint } from "../src/plugin/types.js";
 
 const ADMIN = "user_admin";
@@ -126,7 +133,10 @@ describe("admin api: authentication and authorization", () => {
 
 	const routes: Array<[string, string]> = [
 		["POST", "/approvals"],
+		["GET", "/approvals"],
 		["GET", "/approvals/apr_1"],
+		["POST", "/approvals/apr_1/approve"],
+		["POST", "/approvals/apr_1/deny"],
 		["POST", "/approvals/apr_1/consume"],
 		["POST", "/audit/events"],
 		["GET", "/delegations"],
@@ -345,5 +355,133 @@ describe("admin api: audit, delegations, users, sessions", () => {
 		const [u] = await h.db.select().from(users).where(eq(users.id, TARGET));
 		expect(u?.banned).toBe(1);
 		expect(await h.db.select().from(sessions).where(eq(sessions.userId, TARGET))).toHaveLength(0);
+	});
+});
+
+describe("admin api: approval decisions", () => {
+	async function opened(h: Harness): Promise<string> {
+		const body = (await (await open(h)).json()) as { id: string };
+		return body.id;
+	}
+	const decisionAudits = (h: Harness, action: string) =>
+		h.db.select().from(auditLogs).where(eq(auditLogs.action, action));
+
+	it("lists pending requests newest first with truncated arguments", async () => {
+		const h = await build();
+		const first = await opened(h);
+		const big = await h.call("POST", "/approvals", {
+			token: "admin-token",
+			body: {
+				action: "admin:revoke_agent",
+				resource: "agent:big",
+				arguments: { blob: "x".repeat(4000), api_key: "sk-secret" },
+			},
+		});
+		const bigId = ((await big.json()) as { id: string }).id;
+		await h.db
+			.update(approvalRequests)
+			.set({ createdAt: new Date(Date.now() + 1000) })
+			.where(eq(approvalRequests.id, bigId));
+		const res = await h.call("GET", "/approvals?status=pending&limit=10", {
+			token: "admin2-token",
+		});
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).not.toContain("sk-secret");
+		const rows = JSON.parse(text) as Array<{
+			id: string;
+			requestedBy: string;
+			arguments: string;
+			argumentsTruncated: boolean;
+		}>;
+		expect(rows.map((r) => r.id)).toEqual([bigId, first]);
+		expect(rows[0]?.requestedBy).toBe(ADMIN);
+		expect(rows[0]?.argumentsTruncated).toBe(true);
+		expect(rows[0]?.arguments.length).toBe(2048);
+		expect(
+			(await h.call("GET", "/approvals?status=approved", { token: "admin-token" })).status,
+		).toBe(400);
+	});
+
+	it("approves and denies as a second admin and writes audit rows", async () => {
+		const h = await build();
+		const a = await opened(h);
+		const d = await opened(h);
+		const ok = await h.call("POST", `/approvals/${a}/approve`, { token: "admin2-token" });
+		expect(ok.status).toBe(200);
+		expect(((await ok.json()) as { status: string }).status).toBe("approved");
+		expect((await h.call("POST", `/approvals/${d}/deny`, { token: "admin2-token" })).status).toBe(
+			200,
+		);
+		const [row] = await h.db.select().from(approvalRequests).where(eq(approvalRequests.id, a));
+		expect(row?.status).toBe("approved");
+		expect(row?.respondedBy).toBe(OTHER_ADMIN);
+		const approves = await decisionAudits(h, "admin_api.approval.approve");
+		expect(approves).toHaveLength(1);
+		expect(approves[0]?.approverId).toBe(OTHER_ADMIN);
+		expect(JSON.stringify(approves[0]?.parameters)).toContain(ADMIN);
+		expect(await decisionAudits(h, "admin_api.approval.deny")).toHaveLength(1);
+		expect((await h.call("GET", "/approvals", { token: "admin-token" })).status).toBe(200);
+	});
+
+	it("refuses self approval unless allowSelfApproval is set", async () => {
+		const h = await build();
+		const id = await opened(h);
+		const res = await h.call("POST", `/approvals/${id}/approve`, { token: "admin-token" });
+		expect(res.status).toBe(403);
+		expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SELF_APPROVAL");
+		expect(await decisionAudits(h, "admin_api.approval.approve")).toHaveLength(0);
+
+		const open2 = await build({ allowSelfApproval: true });
+		const id2 = await opened(open2);
+		expect(
+			(await open2.call("POST", `/approvals/${id2}/approve`, { token: "admin-token" })).status,
+		).toBe(200);
+	});
+
+	it("answers a double decision and an expired request with 409", async () => {
+		const h = await build();
+		const id = await opened(h);
+		expect(
+			(await h.call("POST", `/approvals/${id}/approve`, { token: "admin2-token" })).status,
+		).toBe(200);
+		expect(
+			(await h.call("POST", `/approvals/${id}/approve`, { token: "admin2-token" })).status,
+		).toBe(409);
+		expect((await h.call("POST", `/approvals/${id}/deny`, { token: "admin2-token" })).status).toBe(
+			409,
+		);
+		expect(await decisionAudits(h, "admin_api.approval.approve")).toHaveLength(1);
+
+		const old = await opened(h);
+		await h.db
+			.update(approvalRequests)
+			.set({ expiresAt: new Date(Date.now() - 1000) })
+			.where(eq(approvalRequests.id, old));
+		expect(
+			(await h.call("POST", `/approvals/${old}/approve`, { token: "admin2-token" })).status,
+		).toBe(409);
+		const listed = (await (
+			await h.call("GET", "/approvals", { token: "admin-token" })
+		).json()) as unknown[];
+		expect(listed).toHaveLength(0);
+		expect(
+			(await h.call("POST", "/approvals/apr_missing/approve", { token: "admin2-token" })).status,
+		).toBe(404);
+	});
+
+	it("rejects non-admins and unauthenticated callers", async () => {
+		const h = await build();
+		const id = await opened(h);
+		for (const [m, path] of [
+			["GET", "/approvals"],
+			["POST", `/approvals/${id}/approve`],
+			["POST", `/approvals/${id}/deny`],
+		] as const) {
+			expect((await h.call(m, path, { token: "regular-token" })).status).toBe(403);
+			expect((await h.call(m, path, {})).status).toBe(401);
+		}
+		const [row] = await h.db.select().from(approvalRequests).where(eq(approvalRequests.id, id));
+		expect(row?.status).toBe("pending");
 	});
 });

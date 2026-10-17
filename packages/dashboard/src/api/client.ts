@@ -2,6 +2,7 @@ import type {
 	Agent,
 	AgentPermission,
 	ApiResult,
+	ApprovalDecision,
 	AuditLogFilters,
 	CreateAgentInput,
 	CreateAgentResponse,
@@ -10,6 +11,7 @@ import type {
 	DelegationChain,
 	McpServerInfo,
 	PaginatedAuditLogs,
+	PendingApproval,
 	PermissionTemplate,
 	RegisterMcpServerInput,
 	TheAuthSettings,
@@ -32,6 +34,12 @@ export interface TheAuthApiClient {
 		format: "json" | "csv",
 		filters?: AuditLogFilters,
 	) => Promise<ApiResult<string>>;
+
+	getPendingApprovals: () => Promise<ApiResult<PendingApproval[]>>;
+	decideApproval: (
+		id: string,
+		decision: "approve" | "deny",
+	) => Promise<ApiResult<ApprovalDecision>>;
 
 	getUsers: () => Promise<ApiResult<User[]>>;
 
@@ -165,6 +173,14 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 			}
 			return fetch<string>(`/api/audit/export?${params.toString()}`);
 		},
+
+		// Approvals
+		getPendingApprovals: () => fetch<PendingApproval[]>("/api/approvals?status=pending&limit=100"),
+
+		decideApproval: (id, decision) =>
+			fetch<ApprovalDecision>(`/api/approvals/${encodeURIComponent(id)}/${decision}`, {
+				method: "POST",
+			}),
 
 		// Users
 		getUsers: () => fetch<User[]>("/api/users"),
