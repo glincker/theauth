@@ -43,10 +43,10 @@ pnpm add @glinr/theauth better-sqlite3
 
 ### Create an instance and an owner
 
-Every agent has an owner: a user ID that exists as a row in `theauth_users` (the `owner_id` column is a foreign key, so creating an agent for an unknown ID fails). Human auth in the next track creates these rows for you; if you already have users in another system, insert a row for each one you want to own agents.
+Every agent has an owner: a user ID that exists as a row in `theauth_users` (the `owner_id` column is a foreign key, so creating an agent for an unknown ID fails). Human auth in the next track creates these rows for you; if you already have users in another system, call `theauth.user.create()` for each one you want to own agents. It validates and lowercases the email, and returns the existing row if the email is already registered.
 
 ```ts title="agent.ts"
-import { createTheAuth, users } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' }, // use a file path to keep data
@@ -54,13 +54,11 @@ const theauth = await createTheAuth({
 });
 
 // Owner row. Skip this if the user came from the human auth track.
-theauth.db.insert(users).values({
-  id: 'user-123',
+const owner = await theauth.user.create({
+  id: 'user-123', // optional, generated when omitted
   email: 'owner@example.com',
   name: 'Owner',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}).run();
+});
 ```
 
 </Step>
@@ -263,7 +261,7 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
-import { createTheAuth, users } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
@@ -271,10 +269,7 @@ const theauth = await createTheAuth({
 });
 
 // The owner must exist in theauth_users (see Track A, step 2)
-theauth.db.insert(users).values({
-  id: 'user-123', email: 'owner@example.com', name: 'Owner',
-  createdAt: new Date(), updatedAt: new Date(),
-}).run();
+await theauth.user.create({ id: 'user-123', email: 'owner@example.com', name: 'Owner' });
 
 // Create an agent with wildcard read on github resources
 const agent = await theauth.agent.create({
@@ -394,7 +389,7 @@ With the `@glinr/theauth-email` plugin, sign-in requires email verification by d
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or insert a row as shown in step 2 of Track A.
+The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or create one with `theauth.user.create()` as shown in step 2 of Track A.
 
 ### Session not persisting after page reload
 

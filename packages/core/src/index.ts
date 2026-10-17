@@ -129,6 +129,7 @@ export type {
 	TokenValidationResult,
 	UpdateAgentInput,
 } from "./types.js";
+export * from "./user/index.js";
 export * from "./vault/index.js";
 export * from "./vc/index.js";
 export type {

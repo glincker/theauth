@@ -74,6 +74,7 @@ import type {
 	RequestContext,
 	TheAuthConfig,
 } from "./types.js";
+import { createUserModule } from "./user/user.js";
 
 /** Maps a denial reason string to a violation type, defaulting to `permission_denied`. */
 function classifyViolation(reason: string | undefined): ViolationType {
@@ -120,6 +121,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	};
 
 	const agentModule = createAgentModule(agentConfig);
+	const userModule = createUserModule({ db });
 
 	const permissionEngine = createPermissionEngine({
 		db,
@@ -592,6 +594,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	return {
 		agent: agentProxy,
+		/** User rows: idempotent `create({ email, name?, id? })` and `get(idOrEmail)`. */
+		user: userModule,
 		authorize,
 		authorizeByToken,
 		delegate,
