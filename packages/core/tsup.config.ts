@@ -15,7 +15,7 @@ export default defineConfig({
 		"redirect/index": "src/redirect/index.ts",
 		"standards/index": "src/standards/index.ts",
 		"signals/index": "src/signals/index.ts",
-		browser: "src/browser.ts",
+		"browser/index": "src/browser/index.ts",
 	},
 	format: ["esm"],
 	dts: true,

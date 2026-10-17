@@ -55,11 +55,11 @@ function reachable(entry: string): { files: Set<string>; specs: Map<string, stri
 }
 
 describe("browser entry", () => {
-	const { files, specs } = reachable(join(SRC, "browser.ts"));
+	const { files, specs } = reachable(join(SRC, "browser", "index.ts"));
 
 	it("imports no node-only module name", () => {
 		for (const name of NODE_ONLY.filter((n) => !n.startsWith("."))) {
-			expect(specs.has(name), `${name} reachable from browser.ts`).toBe(false);
+			expect(specs.has(name), `${name} reachable from browser/index.ts`).toBe(false);
 		}
 		expect([...specs.keys()].filter((s) => s.startsWith("node:"))).toEqual([]);
 	});
@@ -70,7 +70,7 @@ describe("browser entry", () => {
 	});
 
 	it("rejects node providers and demands a sqlJs loader", async () => {
-		const { createTheAuth } = await import("../src/browser.js");
+		const { createTheAuth } = await import("../src/browser/index.js");
 		await expect(
 			createTheAuth({ database: { provider: "postgres", url: "postgres://x" } }),
 		).rejects.toThrow(/not available in the browser entry/);
@@ -80,7 +80,7 @@ describe("browser entry", () => {
 	});
 
 	it("runs on a caller-supplied sql.js", async () => {
-		const { createTheAuth } = await import("../src/browser.js");
+		const { createTheAuth } = await import("../src/browser/index.js");
 		const initSqlJs = (await import("sql.js")).default;
 		const auth = await createTheAuth({
 			database: { provider: "sqlite", url: ":memory:" },
