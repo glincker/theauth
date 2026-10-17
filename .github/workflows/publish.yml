@@ -46,6 +46,11 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
           registry-url: https://registry.npmjs.org
 
+      # npm trusted publishing (OIDC) needs npm 11.5.1 or newer; Node 22 ships an older npm. pnpm publish hands the upload
+      # to the npm binary on PATH, so this is the version that matters.
+      - name: Use an npm that supports trusted publishing
+        run: npm install -g npm@^11.5.1 && npm --version
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
@@ -108,13 +113,14 @@ jobs:
           done
           pnpm turbo build $filters
 
-      # Provenance: `id-token: write` above plus NPM_CONFIG_PROVENANCE make npm attach an attestation to every
-      # publish (pnpm delegates the upload to npm). Failures are NOT swallowed. The only tolerated case is a
+      # `id-token: write` above gives npm the OIDC identity for trusted publishing and for the provenance attestation
+      # (pnpm delegates the upload to npm). Failures are NOT swallowed. The only tolerated case is a
       # version that is already on the registry, which is checked explicitly per package before publishing.
       - name: Publish changed packages
         if: steps.detect.outputs.changed_dirs != ''
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NODE_AUTH_TOKEN: each package has a trusted publisher on npmjs.com (repo glincker/theauth, workflow
+          # publish.yml), so npm swaps the job's OIDC token for a short-lived publish credential. Nothing to expire.
           NPM_CONFIG_PROVENANCE: "true"
         run: |
           for dir in ${{ steps.detect.outputs.changed_dirs }}; do
