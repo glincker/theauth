@@ -106,6 +106,20 @@ Notion and Atlassian are not preset because their token endpoints are documented
 
 `providerPresets` and `resolveProviderPreset(id, { clientId, clientSecret })` return the URLs and `authStyle`; pass `authStyle` in the provider config to match.
 
+## Check a preset against the real provider
+
+Run one refresh grant with your own test credentials to confirm a preset works against the live provider. The script never prints token values.
+
+```bash
+PROVIDER=github CLIENT_ID=... CLIENT_SECRET=... REFRESH_TOKEN=... node scripts/smoke-token-vault-presets.mjs
+```
+
+Add `--dry-run` to print the request shape (URL, auth style, header names, body keys) with values masked. Nothing is sent.
+
+On success the output shows the HTTP status, whether an access token came back, `expires_in`, whether the provider rotated the refresh token, and the scope string. On failure it exits 1 and prints `error=<code>`, the provider's OAuth error code such as `invalid_grant`, never the response body.
+
+Run it by hand against a test app. CI never runs it.
+
 ## Not included
 
 RFC 8693 token exchange and an HTTP endpoint for agents to fetch tokens are not part of this release. `getAccessToken` is an in-process call. The older `theauth_oauth_accounts` table stores provider tokens in plaintext and is unchanged.
