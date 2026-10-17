@@ -117,7 +117,8 @@ const theauth = await createTheAuth({
 
 - Calls need an `Authorization: Bearer` credential for a user in `adminUserIds`. Bad credentials get 401, other users get 403, and an empty list refuses everyone. Cookie-only requests are refused.
 - `systemAgentId` must be an existing agent. The `agentId` and `userId` the MCP server sends are labels and are ignored. The approval belongs to the calling admin.
-- Approval actions must look like `admin:<name>`. Only the admin who opened an approval can consume it. Approving is four-eyes: the admin who opened a request cannot approve or deny it (403 `SELF_APPROVAL`) unless `allowSelfApproval: true`. Each decision writes an `admin_api.approval.approve` or `.deny` audit event, and the dashboard Approvals page uses these routes.
+- Approval actions must look like `admin:<name>`. Only the admin who opened an approval can consume it. Approving is four-eyes: the admin who opened a request cannot approve or deny it (403 `SELF_APPROVAL`) unless `allowSelfApproval: true`. Each decision writes an `admin_api.approval.approve` or `.deny` audit event.
+- The dashboard Approvals page calls these routes, so it needs an app that serves `/api/approvals` with the signed-in admin's Bearer token. The `theauth dashboard` CLI server signs in with one shared secret, has no admin identity, and cannot use the page. A decision is audited after it is applied, so a failed audit write does not undo it.
 - An approval is single use and tied to one action and one resource.
 - If the audit write for a new request fails, the request is not opened.
 - Admins cannot disable themselves or other configured admins, unless `allowDisablingAdmins` is set.
