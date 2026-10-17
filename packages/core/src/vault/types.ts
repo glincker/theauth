@@ -1,6 +1,7 @@
 import type { OAuthProvider } from "../auth/oauth/types.js";
 import type { Database } from "../db/database.js";
 import type { SecondaryStorage } from "../storage/types.js";
+import type { VaultAuthStyle } from "./presets.js";
 
 /** Symmetric keys, base64url encoded, 32 bytes each. Keep old keys until rotateKeys() ran. */
 export interface VaultKeyConfig {
@@ -13,6 +14,8 @@ export interface VaultProviderConfig {
 	provider: OAuthProvider;
 	clientId: string;
 	clientSecret: string;
+	/** How the refresh request sends client credentials. Default client_secret_post. */
+	authStyle?: VaultAuthStyle;
 }
 
 export interface TokenVaultConfig {

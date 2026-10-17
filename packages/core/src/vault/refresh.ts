@@ -17,16 +17,24 @@ export async function refreshTokens(
 	doFetch: typeof fetch,
 ): Promise<RefreshOutcome> {
 	let res: Response;
+	const basic = cfg.authStyle === "client_secret_basic";
+	const form = new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken });
+	const headers: Record<string, string> = {
+		"Content-Type": "application/x-www-form-urlencoded",
+		Accept: "application/json",
+	};
+	if (basic) {
+		const pair = `${encodeURIComponent(cfg.clientId)}:${encodeURIComponent(cfg.clientSecret)}`;
+		headers.Authorization = `Basic ${btoa(pair)}`;
+	} else {
+		form.set("client_id", cfg.clientId);
+		form.set("client_secret", cfg.clientSecret);
+	}
 	try {
 		res = await doFetch(cfg.provider.tokenUrl, {
 			method: "POST",
-			headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-			body: new URLSearchParams({
-				grant_type: "refresh_token",
-				refresh_token: refreshToken,
-				client_id: cfg.clientId,
-				client_secret: cfg.clientSecret,
-			}).toString(),
+			headers,
+			body: form.toString(),
 		});
 	} catch {
 		return { ok: false, reauth: false };
