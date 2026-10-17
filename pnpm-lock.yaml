@@ -122,6 +122,9 @@ importers:
       '@glinr/theauth':
         specifier: workspace:*
         version: link:../../packages/core
+      '@glinr/theauth-mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.1
         version: 1.32.1(@cfworker/json-schema@4.1.1)(zod@3.25.76)

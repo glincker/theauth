@@ -12,12 +12,10 @@ import {
 	delegationChains,
 	users,
 } from "@glinr/theauth";
+import { ApiClient, createLogger, createServer } from "@glinr/theauth-mcp";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { eq } from "drizzle-orm";
-import { ApiClient } from "../../../packages/mcp/src/client.js";
-import { createLogger } from "../../../packages/mcp/src/logger.js";
-import { createServer } from "../../../packages/mcp/src/server.js";
 
 export interface Narrator {
 	step(n: number, text: string): void;

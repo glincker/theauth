@@ -22,6 +22,19 @@ The `@glinr/theauth-mcp` server is read-only by default. Add `--allow-writes` (o
 }
 ```
 
+## Embed as a library
+
+Host the server in your own process instead of spawning the CLI. Import from `@glinr/theauth-mcp`.
+
+```ts
+import { ApiClient, createLogger, createServer, loadConfig } from "@glinr/theauth-mcp";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const client = new ApiClient(loadConfig(process.env));
+const server = createServer(client, createLogger(), "1.0.0", { actor: "ops-bot@example.com" });
+await server.connect(new StdioServerTransport());
+```
+
 ## Read tools
 
 Always registered: `list_agents`, `get_agent`, `list_delegations`, `list_sessions`, `query_audit`, `check_permission`, `inspect_token`, `doctor` and `get_approval_status`. Tokens and secret-looking fields are redacted.
