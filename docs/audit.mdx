@@ -7,7 +7,7 @@ icon: scroll
 
 ## How audit logging works
 
-Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). A call blocked by a `beforeAuthorize` hook, including a hook timeout or error, is logged as a denial in the agent's hash chain (see [Lifecycle hooks](/hooks#what-a-block-leaves-in-the-audit-log)). A call for a revoked or expired agent is logged too. Calls for an unknown agent id or an unknown token have no agent row to attach to and are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
+Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). A call blocked by a `beforeAuthorize` hook, including a hook timeout or error, is logged as a denial in the agent's hash chain (see [Lifecycle hooks](/hooks#what-a-block-leaves-in-the-audit-log)). A call for a revoked or expired agent is logged too. `theauth.delegation.revoke()` writes a chained `delegation.revoke` row for each link it revokes, cascaded links included, on the delegate's chain (`resource` is `delegation:<id>`; `parameters` holds `delegationId`, `fromAgent`, `toAgent`, `revokedBy` when known, `cascade`, `cascadeFrom` and `rootDelegationId`). Revoking a link that is already revoked writes nothing. Calls for an unknown agent id or an unknown token have no agent row to attach to and are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
 
 `authorize()` returns an `auditId` linking the decision to its log entry:
 
@@ -39,7 +39,7 @@ console.log(result.auditId); // a UUID, e.g. "7b0c1d52-..."
 
 ### Filtering
 
-All filter fields are optional and combinable. Results are ordered newest first. Without filters or a `limit`, the query returns every entry.
+All filter fields are optional and combinable. Results are ordered newest first. The `timestamp` column has 1 second resolution, so ordering uses the `recorded_at_ms` write-order column (strictly increasing per agent chain), then `timestamp`, `chain_seq` and `id`. Rows written in the same second always come back in write order. `recorded_at_ms` is not part of the audit hash. Without filters or a `limit`, the query returns every entry.
 
 ```typescript
 const logs = await theauth.audit.query({

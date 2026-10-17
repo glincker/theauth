@@ -141,6 +141,10 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	// True when this audit row corresponds to a policy-engine cache-hit evaluation.
 	cacheHit: integer("cache_hit", { mode: "boolean" }).notNull().default(false),
 	timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
+	// Millisecond write order. Strictly increasing per agent chain (and per process), so rows
+	// written in the same second still read back in write order. NOT part of the audit hash;
+	// NULL only on rows from before migration 0003 on databases that skipped migrations.
+	recordedAtMs: integer("recorded_at_ms"),
 	// Tamper-evident chain (all nullable: rows written before opt-in stay as they are).
 	// One chain per agent: chainSeq counts up from 1, prevHash is the previous row's hash.
 	chainSeq: integer("chain_seq"),
@@ -530,7 +534,7 @@ export const loginHistory = sqliteTable("theauth_login_history", {
 	userId: text("user_id")
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
-	method: text("method").notNull(), // LoginMethod — kept as text to support oauth:{provider} variants
+	method: text("method").notNull(), // LoginMethod: kept as text to support oauth:{provider} variants
 	ip: text("ip"),
 	userAgent: text("user_agent"),
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),

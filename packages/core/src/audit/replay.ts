@@ -91,7 +91,12 @@ export async function replayAgent(
 					...inRange(auditLogs.timestamp),
 				),
 			)
-			.orderBy(asc(auditLogs.timestamp), asc(auditLogs.chainSeq), asc(auditLogs.id));
+			.orderBy(
+				asc(auditLogs.timestamp),
+				asc(auditLogs.recordedAtMs),
+				asc(auditLogs.chainSeq),
+				asc(auditLogs.id),
+			);
 		for (const r of auditRows) {
 			events.push({
 				kind: r.result === "allowed" ? "action" : "decision",

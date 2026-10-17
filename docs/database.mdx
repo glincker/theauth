@@ -204,6 +204,8 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 
 `createTables()` adds `decision_code TEXT` and the index `theauth_audit_logs_code (agent_id, decision_code)` to an existing audit table on startup, and does nothing when they already exist. Old rows keep a NULL code. If you set `database.skipMigrations: true`, run `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` yourself before deploying 2.0, because the audit queries select that column. On MySQL use the prefixed index shown in the file. The column is not covered by the audit hash, so existing hash chains and the Go verifier keep verifying.
 
+`createTables()` also adds `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres and MySQL) and the index `theauth_audit_logs_order`, and backfills existing rows from their second-resolution `timestamp` (migration `0003_add_audit_recorded_at_ms.sql`; reruns are no-ops). Audit reads order by it so rows written in the same second keep their write order. If you set `database.skipMigrations: true`, apply that file first and use the Postgres, MySQL or SQLite variants in its comments. The column is not covered by the audit hash, so existing chains and the Go verifier keep verifying.
+
 All table and column names use `snake_case`. IDs are `text`. In the SQLite schema, timestamps are stored as integers.
 
 ## Peer dependencies

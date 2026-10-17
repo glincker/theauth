@@ -243,6 +243,7 @@ function buildStatements(provider: DatabaseConfig["provider"]): TaggedStatement[
   user_agent   TEXT,
   cache_hit    ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
   timestamp    ${ts}   NOT NULL,
+  recorded_at_ms ${isPostgres || isMysql ? "BIGINT" : "INTEGER"},
   chain_seq    INTEGER,
   prev_hash    TEXT,
   hash         TEXT,
@@ -1246,12 +1247,24 @@ async function upgradeAuditChainColumns(
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}input_provenance ${jsonType}`,
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}id_pseudonyms ${jsonType}`,
 		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}decision_code TEXT`,
+		`ALTER TABLE theauth_audit_logs ADD COLUMN ${ifne}recorded_at_ms ${provider === "postgres" || provider === "mysql" ? "BIGINT" : "INTEGER"}`,
 		provider === "mysql"
 			? "CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id(191), chain_seq)"
 			: "CREATE UNIQUE INDEX IF NOT EXISTS theauth_audit_logs_chain ON theauth_audit_logs (agent_id, chain_seq)",
 		provider === "mysql"
 			? "CREATE INDEX theauth_audit_logs_code ON theauth_audit_logs (agent_id(191), decision_code(64))"
 			: "CREATE INDEX IF NOT EXISTS theauth_audit_logs_code ON theauth_audit_logs (agent_id, decision_code)",
+		// Migration 0003: deterministic backfill of the write-order column. Only touches
+		// NULL rows, so reruns are no-ops. Ties inside one second are broken at read time
+		// by chain_seq then id.
+		provider === "postgres"
+			? "UPDATE theauth_audit_logs SET recorded_at_ms = CAST(EXTRACT(EPOCH FROM timestamp) * 1000 AS BIGINT) WHERE recorded_at_ms IS NULL"
+			: provider === "mysql"
+				? "UPDATE theauth_audit_logs SET recorded_at_ms = CAST(UNIX_TIMESTAMP(timestamp) * 1000 AS SIGNED) WHERE recorded_at_ms IS NULL"
+				: "UPDATE theauth_audit_logs SET recorded_at_ms = timestamp * 1000 WHERE recorded_at_ms IS NULL",
+		provider === "mysql"
+			? "CREATE INDEX theauth_audit_logs_order ON theauth_audit_logs (recorded_at_ms)"
+			: "CREATE INDEX IF NOT EXISTS theauth_audit_logs_order ON theauth_audit_logs (recorded_at_ms)",
 	];
 	for (const sql of stmts) {
 		try {

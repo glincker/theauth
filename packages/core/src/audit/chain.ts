@@ -124,26 +124,38 @@ export async function computeRowHash(
 	return hmacKey ? hmacSha256(hmacKey, payload) : sha256(payload);
 }
 
+let lastRecordedMs = 0;
+
+/**
+ * Millisecond write-order stamp for `audit_logs.recorded_at_ms`. Strictly greater than the previous stamp issued by this process and than `floor` (the chain head's stamp), so same-second and same-millisecond writes keep their order even if the clock stalls or another process wrote ahead. Not hashed.
+ */
+export function nextRecordedAtMs(floor = 0): number {
+	lastRecordedMs = Math.max(Date.now(), lastRecordedMs + 1, floor + 1);
+	return lastRecordedMs;
+}
+
 async function readHead(
 	db: Database,
 	agentId: string,
-): Promise<{ seq: number; hash: string } | null> {
+): Promise<{ seq: number; hash: string; recordedAtMs: number } | null> {
 	const rows = await db
-		.select({ seq: auditLogs.chainSeq, hash: auditLogs.hash })
+		.select({ seq: auditLogs.chainSeq, hash: auditLogs.hash, ms: auditLogs.recordedAtMs })
 		.from(auditLogs)
 		.where(and(eq(auditLogs.agentId, agentId), isNotNull(auditLogs.chainSeq)))
 		.orderBy(desc(auditLogs.chainSeq))
 		.limit(1);
 	const head = rows[0];
 	if (!head || head.seq === null || head.hash === null) return null;
-	return { seq: head.seq, hash: head.hash };
+	return { seq: head.seq, hash: head.hash, recordedAtMs: head.ms ?? 0 };
 }
 
 /** Insert an audit row. Plain insert unless the chain is enabled for this database, in which case the row is linked to its agent's chain. */
 export async function insertAuditRow(db: Database, values: AuditInsert): Promise<void> {
 	const config = registry.get(db);
 	if (!config) {
-		await db.insert(auditLogs).values(values);
+		await db
+			.insert(auditLogs)
+			.values({ ...values, recordedAtMs: values.recordedAtMs ?? nextRecordedAtMs() });
 		return;
 	}
 
@@ -186,7 +198,13 @@ async function appendChained(
 		const prevHash = head ? head.hash : null;
 		const hash = await computeRowHash(stamped, chainSeq, prevHash, config.hmacKey);
 		try {
-			await db.insert(auditLogs).values({ ...stamped, chainSeq, prevHash, hash });
+			await db.insert(auditLogs).values({
+				...stamped,
+				chainSeq,
+				prevHash,
+				hash,
+				recordedAtMs: nextRecordedAtMs(head?.recordedAtMs ?? 0),
+			});
 			return;
 		} catch (err) {
 			if (!isUniqueViolation(err)) throw err;

@@ -234,8 +234,20 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		};
 	}
 
-	/** Revoke a delegation chain. Revoking a parent chain also revokes all children. Returns the ids of the chains that were active and are now revoked, this one and its descendants. */
-	async function revokeDelegation(chainId: string): Promise<string[]> {
+	/** Revoke a delegation chain. Revoking a parent chain also revokes all children. Returns the ids of the chains that were active and are now revoked, this one and its descendants. Each revoked link writes a chained `delegation.revoke` audit row (best effort) on the delegate's chain; pass `revokedBy` to record who did it. */
+	async function revokeDelegation(
+		chainId: string,
+		options: { revokedBy?: string } = {},
+	): Promise<string[]> {
+		return revokeLink(chainId, options.revokedBy ?? null, chainId, null);
+	}
+
+	async function revokeLink(
+		chainId: string,
+		revokedBy: string | null,
+		rootChainId: string,
+		parentChainId: string | null,
+	): Promise<string[]> {
 		const chain = await db
 			.select()
 			.from(delegationChains)
@@ -244,12 +256,32 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 
 		if (!chain[0]) throw new Error(`Delegation chain ${chainId} not found.`);
 
-		const revoked: string[] = chain[0].status === "active" ? [chainId] : [];
+		const wasActive = chain[0].status === "active";
+		const revoked: string[] = wasActive ? [chainId] : [];
 
 		await db
 			.update(delegationChains)
 			.set({ status: "revoked" })
 			.where(eq(delegationChains.id, chainId));
+
+		if (wasActive) {
+			await recordAuditEvent(db, {
+				agentId: chain[0].toAgentId,
+				action: "delegation.revoke",
+				resource: `delegation:${chainId}`,
+				result: "allowed",
+				...(revokedBy ? { actorId: revokedBy } : {}),
+				parameters: {
+					delegationId: chainId,
+					fromAgent: chain[0].fromAgentId,
+					toAgent: chain[0].toAgentId,
+					revokedBy,
+					cascade: parentChainId !== null,
+					cascadeFrom: parentChainId,
+					rootDelegationId: rootChainId,
+				},
+			});
+		}
 
 		// Cascade: revoke all chains where the to-agent of this chain is the from-agent
 		const childChains = await db
@@ -263,13 +295,16 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			);
 
 		for (const child of childChains) {
-			revoked.push(...(await revokeDelegation(child.id)));
+			revoked.push(...(await revokeLink(child.id, revokedBy, rootChainId, chainId)));
 		}
 		return revoked;
 	}
 
 	/** Revoke every active chain where the agent is source or target, plus the child chains that cascade from them. Returns the revoked chain ids. */
-	async function revokeAllForAgent(agentId: string): Promise<string[]> {
+	async function revokeAllForAgent(
+		agentId: string,
+		options: { revokedBy?: string } = {},
+	): Promise<string[]> {
 		const rows = await db
 			.select()
 			.from(delegationChains)
@@ -288,7 +323,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 				.where(eq(delegationChains.id, row.id))
 				.limit(1);
 			if (current?.status !== "active") continue;
-			revoked.push(...(await revokeDelegation(row.id)));
+			revoked.push(...(await revokeDelegation(row.id, options)));
 		}
 		return revoked;
 	}

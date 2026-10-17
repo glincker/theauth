@@ -32,7 +32,18 @@ export function createAuditModule(config: AuditModuleConfig) {
 			conditions.push(inArray(auditLogs.decisionCode, filter.codes));
 		}
 
-		let q = db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).$dynamic();
+		// Newest first. recorded_at_ms is the write order (timestamp has 1 second resolution);
+		// chain_seq and id make ties fully deterministic.
+		let q = db
+			.select()
+			.from(auditLogs)
+			.orderBy(
+				desc(auditLogs.recordedAtMs),
+				desc(auditLogs.timestamp),
+				desc(auditLogs.chainSeq),
+				desc(auditLogs.id),
+			)
+			.$dynamic();
 
 		if (conditions.length > 0) {
 			q = q.where(and(...conditions));
