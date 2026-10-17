@@ -1,8 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
-import { agents, delegationChains } from "../db/schema.js";
+import type { delegationChains } from "../db/schema.js";
+import { agents } from "../db/schema.js";
 import type { DelegationLink, HookDelegationChain } from "../hooks/lifecycle.js";
 import type { Permission } from "../types.js";
+import { loadLiveInboundRows } from "./liveness.js";
 
 /** @deprecated Alias kept for compatibility. Use `DelegationLink`. */
 export type DelegationHop = DelegationLink;
@@ -33,20 +35,14 @@ function toLink(row: ChainRow): DelegationLink {
 	};
 }
 
-/** Active, unexpired grants whose toAgent is agentId, oldest first. Same filter as the delegated permission fallback. */
+/** Active, unexpired grants whose toAgent is agentId and whose delegator is live (see liveness.ts), oldest first. Same filter as the delegated permission fallback. */
 export async function loadInboundGrants(
 	db: Database,
 	agentId: string,
 	now: Date = new Date(),
 ): Promise<DelegationLink[]> {
-	const rows = await db
-		.select()
-		.from(delegationChains)
-		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
-	return rows
-		.filter((c) => c.expiresAt > now)
-		.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-		.map(toLink);
+	const rows = await loadLiveInboundRows(db, agentId, now);
+	return rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(toLink);
 }
 
 /** Walk active, unexpired inbound delegations upward to the root agent. When an agent has several inbound chains the earliest created one is followed, so the result is deterministic. */

@@ -126,6 +126,10 @@ The default `maxDepth` when not specified is `3`.
 A delegating agent can re-delegate permissions it received. The subset check runs against the agent's own permissions plus the active delegations into it, so `sub` above, created with `permissions: []`, can pass on what it was given, never more. The new link also cannot outlive the delegation it was derived from: its expiry is capped at the earliest expiry among the delegations into the parent, unless the parent's own permissions already cover the request.
 </Info>
 
+### Delegators must be live
+
+A delegation lends authority only while its delegator is live. If a delegating agent is revoked or expired (or any status other than `active`), the links it gave stop counting: the delegate loses the permissions that came through it in `authorize()`, `authorizeByToken()`, `policy.evaluate()`, `explain()`, the simulator and the live MCP check, and the chain passed to `beforeAuthorize` no longer lists it. This applies down the chain, even when no revocation cascade ran. An agent that stands on its own permissions, and a root user as delegator, are not affected, and permissions the delegate holds directly are never touched.
+
 ### Cascading revocation
 
 Revoking a chain marks it revoked and does the same for active chains that start from the receiving agent.

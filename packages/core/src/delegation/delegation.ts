@@ -6,6 +6,7 @@ import { delegationChains, permissions } from "../db/schema.js";
 import type { DelegateInput, DelegationChain, Permission } from "../types.js";
 import { narrowConstraints } from "./constraints.js";
 import { resolveLineage } from "./lineage.js";
+import { loadLiveInboundRows } from "./liveness.js";
 
 interface DelegationModuleConfig {
 	db: Database;
@@ -48,19 +49,13 @@ function isResourceSubset(parentResource: string, childResource: string): boolea
 	return parentParts.length <= childParts.length;
 }
 
-/** Active, unexpired permissions delegated to an agent, constraints included. The one merge source shared by auth.authorize, policy.evaluate and delegate(). */
+/** Active, unexpired permissions delegated to an agent by delegators that are still live (an agent delegator that is revoked, suspended or expired lends nothing), constraints included. The one merge source shared by auth.authorize, policy.evaluate and delegate(). */
 export async function getDelegatedPermissions(
 	db: Database,
 	agentId: string,
 ): Promise<Permission[]> {
-	const chains = await db
-		.select()
-		.from(delegationChains)
-		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
-	const now = new Date();
-	return chains
-		.filter((c) => c.expiresAt > now)
-		.flatMap((c) => (c.permissions as Permission[]).map((p) => ({ ...p })));
+	const chains = await loadLiveInboundRows(db, agentId);
+	return chains.flatMap((c) => (c.permissions as Permission[]).map((p) => ({ ...p })));
 }
 
 /** Apply the parent's constraints (from the first parent permission covering the child's) to each requested permission. Constraints only ever narrow. */
@@ -114,13 +109,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			constraints: r.constraints ?? undefined,
 		}));
 
-		const inboundAll = await db
-			.select()
-			.from(delegationChains)
-			.where(
-				and(eq(delegationChains.toAgentId, input.fromAgent), eq(delegationChains.status, "active")),
-			);
-		const inbound = inboundAll.filter((c) => c.expiresAt > now);
+		const inbound = await loadLiveInboundRows(db, input.fromAgent, now);
 		const inboundPermissions: Permission[] = inbound.flatMap((c) =>
 			(c.permissions as Permission[]).map((p) => ({ ...p })),
 		);

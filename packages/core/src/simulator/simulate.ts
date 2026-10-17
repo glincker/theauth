@@ -3,6 +3,7 @@ import { createAgentModule } from "../agent/agent.js";
 import { createCostAttributionModule } from "../auth/cost-attribution.js";
 import type { Database } from "../db/database.js";
 import { delegationChains } from "../db/schema.js";
+import { createDelegatorLiveness } from "../delegation/liveness.js";
 import type { Result } from "../mcp/types.js";
 import type { AgentIdentity, Permission } from "../types.js";
 import type { SetEvaluation } from "./evaluate-set.js";
@@ -38,7 +39,13 @@ async function loadChains(db: Database, agentId: string): Promise<ResolvedChain[
 		.select()
 		.from(delegationChains)
 		.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
-	return rows.map((c) => ({
+	// Links from a revoked, expired or unbacked delegator are dropped, same as authorize().
+	const liveness = createDelegatorLiveness(db, new Date());
+	const live: typeof rows = [];
+	for (const row of rows) {
+		if ((await liveness.delegatorState(row.fromAgentId)) === "live") live.push(row);
+	}
+	return live.map((c) => ({
 		id: c.id,
 		permissions: c.permissions.map((p) => ({ ...p })),
 		depth: c.depth,

@@ -83,8 +83,25 @@ describe("agent expiry", () => {
 		expect((await theauth.authorizeByToken(agent.token, REQ)).allowed).toBe(true);
 	});
 
-	// Gap, owned by src/delegation: getDelegatedPermissions ignores the delegator's status and expiry.
-	it.todo("an expired or revoked delegator stops lending permissions down the chain");
+	it("an expired delegator stops lending permissions down the chain", async () => {
+		const a = await create(new Date(Date.now() + 60_000));
+		const b = await theauth.agent.create({
+			ownerId: "user-1",
+			name: "b",
+			type: "autonomous",
+			permissions: [],
+		});
+		await theauth.delegate({
+			fromAgent: a.id,
+			toAgent: b.id,
+			permissions: PERMS,
+			expiresAt: new Date(Date.now() + 3_600_000),
+		});
+		expect((await theauth.authorize(b.id, REQ)).allowed).toBe(true);
+		vi.useFakeTimers({ now: Date.now() + 120_000 });
+		expect((await theauth.authorize(b.id, REQ)).allowed).toBe(false);
+		// Revoked and suspended-style statuses are covered in delegation-liveness.test.ts.
+	});
 
 	it("an expired delegation link is ignored", async () => {
 		const a = await create(new Date(Date.now() + 3_600_000));

@@ -77,3 +77,7 @@ The delegation page said a delegating agent could not re-delegate permissions it
 ## authorize() now enforces expiresAt
 
 `authorize(agentId, ...)` used to check only the stored `status`, so an agent past its `expiresAt` kept passing until something flipped its status to `expired`. It now compares `expiresAt` to the clock and denies with code `agent_expired`, writing the normal denied audit row. `authorizeByToken()`, `agent.validateToken()` and `policy.evaluate()` already did this. If you relied on an elapsed agent still passing, extend its `expiresAt` through `agent.update()`.
+
+## A revoked or expired delegator no longer lends permissions
+
+Delegated permissions, lineage and the chain handed to `beforeAuthorize` used to check only the delegation link, never the status or `expiresAt` of the agent that created it. An intermediate agent that was revoked, suspended or expired, without its links being revoked, still lent permissions to the agents below it. Now a link counts only while its delegator agent is `active` and unexpired and, if it was itself delegated to, at least one of its own inbound links traces back to a live delegator. Chains that passed before can now fail with the usual permission-denied code. No new decision code was added. To restore access, re-activate or extend the delegator, or delegate again from a live agent.
