@@ -1,2 +1,2 @@
-export type { CreateUserInput, UserModule, UserRow } from "./user.js";
-export { createUserModule } from "./user.js";
+export type { CreateUserInput, UserErrorCode, UserModule, UserRow } from "./user.js";
+export { createUserModule, UserError } from "./user.js";

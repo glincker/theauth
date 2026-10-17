@@ -8,6 +8,7 @@ import { compareCodeUnits } from "../compare.js";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
+import { errorText, isUniqueViolation } from "../db/unique-violation.js";
 import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
 
 export type AuditInsert = typeof auditLogs.$inferInsert;
@@ -121,22 +122,6 @@ export async function computeRowHash(
 		row: version >= 2 ? hashedFieldsV2(row) : hashedFieldsV1(row),
 	});
 	return hmacKey ? hmacSha256(hmacKey, payload) : sha256(payload);
-}
-
-function errorText(err: unknown): string {
-	const parts: string[] = [];
-	let cur: unknown = err;
-	for (let i = 0; i < 4 && cur instanceof Error; i++) {
-		parts.push(cur.message);
-		const code = (cur as Error & { code?: unknown }).code;
-		if (typeof code === "string") parts.push(code);
-		cur = (cur as Error & { cause?: unknown }).cause;
-	}
-	return parts.join(" ");
-}
-
-function isUniqueViolation(err: unknown): boolean {
-	return /unique|duplicate|23505|ER_DUP_ENTRY|SQLITE_CONSTRAINT_PRIMARYKEY/i.test(errorText(err));
 }
 
 async function readHead(

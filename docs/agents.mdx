@@ -32,7 +32,7 @@ console.log(agent.token);
 <ParamField path="token" type="string">Bearer token with a `kv_` prefix. Shown once at creation, then SHA-256 hashed. Rotate to replace.</ParamField>
 <ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every `authorize()` call.</ParamField>
 <ParamField path="status" type="'active' | 'revoked' | 'expired'">Current state. Revocation is permanent.</ParamField>
-<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key).</ParamField>
+<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key). Create the row with `theauth.user.create({ id, email })`.</ParamField>
 <ParamField path="name" type="string">Human-readable label.</ParamField>
 <ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
 <ParamField path="expiresAt" type="Date" default="now + agents.tokenExpiry (24h)">Optional at creation; when omitted it defaults to `agents.tokenExpiry` from now. Token validation (`authorizeByToken`) rejects an expired agent and flips its `status` to `expired`. `authorize(agentId)` only checks `status`, so it does not notice an elapsed `expiresAt` until the agent has been marked expired.</ParamField>

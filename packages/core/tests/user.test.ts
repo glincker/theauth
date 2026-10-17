@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { TheAuth } from "../src/theauth.js";
 import { createTheAuth } from "../src/theauth.js";
+import { UserError } from "../src/user/user.js";
+
+/** Resolves to the UserError code thrown by `promise`, or undefined when it resolves or throws another error. */
+async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
+	try {
+		await promise;
+		return undefined;
+	} catch (err) {
+		return err instanceof UserError ? err.code : undefined;
+	}
+}
 
 describe("user module", () => {
 	let theauth: TheAuth;
@@ -35,8 +46,18 @@ describe("user module", () => {
 		expect(second.name).toBe("First");
 	});
 
-	it("rejects an invalid email", async () => {
-		await expect(theauth.user.create({ email: "not-an-email" })).rejects.toThrow();
+	it("rejects an invalid email with USER_INVALID_INPUT", async () => {
+		const error = await theauth.user.create({ email: "not-an-email" }).catch((err: unknown) => err);
+		expect(error).toBeInstanceOf(UserError);
+		expect((error as UserError).code).toBe("USER_INVALID_INPUT");
+		expect((error as UserError).message).toContain("email");
+	});
+
+	it("rejects an over-long name with USER_INVALID_INPUT", async () => {
+		const code = await codeOf(
+			theauth.user.create({ email: "long@example.com", name: "x".repeat(257) }),
+		);
+		expect(code).toBe("USER_INVALID_INPUT");
 	});
 
 	it("gets by id or email, and returns null when missing", async () => {
@@ -55,5 +76,56 @@ describe("user module", () => {
 			permissions: [],
 		});
 		expect(agent.ownerId).toBe(owner.id);
+	});
+
+	it("rejects the same email with a different id as USER_EMAIL_CONFLICT", async () => {
+		await theauth.user.create({ id: "owner-a", email: "same@example.com" });
+		const code = await codeOf(theauth.user.create({ id: "owner-b", email: "same@example.com" }));
+		expect(code).toBe("USER_EMAIL_CONFLICT");
+		expect(await theauth.user.get("owner-b")).toBeNull();
+	});
+
+	it("rejects a new email with an existing id as USER_ID_CONFLICT", async () => {
+		await theauth.user.create({ id: "shared-id", email: "first@example.com" });
+		const code = await codeOf(
+			theauth.user.create({ id: "shared-id", email: "second@example.com" }),
+		);
+		expect(code).toBe("USER_ID_CONFLICT");
+		expect(await theauth.user.get("second@example.com")).toBeNull();
+	});
+
+	it("returns the same row for concurrent creates of one email", async () => {
+		const rows = await Promise.all([
+			theauth.user.create({ email: "race@example.com", name: "One" }),
+			theauth.user.create({ email: "race@example.com", name: "Two" }),
+			theauth.user.create({ email: "RACE@example.com", name: "Three" }),
+		]);
+		const ids = new Set(rows.map((row) => row.id));
+		expect(ids.size).toBe(1);
+		expect(rows.every((row) => row.email === "race@example.com")).toBe(true);
+	});
+
+	it("round-trips metadata", async () => {
+		const metadata = { plan: "pro", seats: 3, flags: ["beta"] };
+		const user = await theauth.user.create({ email: "meta@example.com", metadata });
+		expect(user.metadata).toEqual(metadata);
+		expect((await theauth.user.get("meta@example.com"))?.metadata).toEqual(metadata);
+	});
+
+	it("returns the row unchanged for the same email and id", async () => {
+		const first = await theauth.user.create({
+			id: "same",
+			email: "again@example.com",
+			name: "Kept",
+		});
+		const second = await theauth.user.create({
+			id: "same",
+			email: "again@example.com",
+			name: "Ignored",
+			metadata: { changed: true },
+		});
+		expect(second.id).toBe(first.id);
+		expect(second.name).toBe("Kept");
+		expect(second.metadata).toBeNull();
 	});
 });

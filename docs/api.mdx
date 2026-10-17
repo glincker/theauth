@@ -44,7 +44,7 @@ Creates a new agent identity.
 }
 ```
 
-`ownerId`, `name`, `type`, and at least one permission are required. `expiresAt` is optional: when omitted, the agent expires after `agents.tokenExpiry` (default `24h`). The owner must already exist as a row in `theauth_users`. Fields not listed here, such as `tenantId`, are ignored by the REST endpoint.
+`ownerId`, `name`, `type`, and at least one permission are required. `expiresAt` is optional: when omitted, the agent expires after `agents.tokenExpiry` (default `24h`). The owner must already exist as a row in `theauth_users`, which `theauth.user.create({ id, email })` ensures. Fields not listed here, such as `tenantId`, are ignored by the REST endpoint.
 
 **Response** `201 Created`
 

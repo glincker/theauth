@@ -94,14 +94,17 @@ Pick a path that does not collide with your existing auth. `/api/theauth/*` live
 Hook into your existing post-sign-in flow. For Clerk, that is a webhook or a server action. For Auth.js, the `signIn` event. For better-auth, the `onSignIn` hook.
 
 <Warning>
-`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Before the first agent, make sure a `theauth_users` row exists whose `id` is your provider's user ID (`id`, `email`, `createdAt`, and `updatedAt` are required). Otherwise the insert fails with a foreign key error.
+`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Call `theauth.user.create` with your provider's user ID before the first agent. Otherwise the insert fails with a foreign key error. `create` is idempotent on email, so calling it on every sign-in is safe. If the email already belongs to a different id, it throws `USER_EMAIL_CONFLICT` instead of returning the wrong row.
 </Warning>
 
 ```ts title="wherever you create user-scoped resources"
 import { getTheAuth } from '@/lib/theauth';
 
-export async function createDefaultAgent(userId: string) {
+export async function createDefaultAgent(userId: string, email: string) {
   const theauth = await getTheAuth();
+
+  // Ensures the owner row exists. Returns the existing row on later calls.
+  await theauth.user.create({ id: userId, email });
 
   const agent = await theauth.agent.create({
     ownerId: userId,                     // stable ID from your auth provider

@@ -2,4 +2,4 @@
 "@glinr/theauth": minor
 ---
 
-Add `auth.user.create({ email, name?, id? })` and `auth.user.get(idOrEmail)`. `create` validates the email with zod, lowercases it, generates an id when none is given, and is idempotent on email (returns the existing row instead of throwing). The quickstart no longer needs a hand-written Drizzle insert into `theauth_users`.
+Add `theauth.user.create({ email, name?, id?, metadata? })` and `theauth.user.get(idOrEmail)`. `create` validates the email with zod, lowercases it, and generates an id when none is given. For the same email it returns the existing row unchanged. It throws `UserError` with code `USER_EMAIL_CONFLICT` when the requested id differs from that row's id, and `USER_ID_CONFLICT` when the requested id belongs to another email. Invalid input throws `USER_INVALID_INPUT`. The quickstart no longer needs a hand-written insert into `theauth_users`.
