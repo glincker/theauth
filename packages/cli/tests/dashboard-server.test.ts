@@ -8,6 +8,9 @@ import {
 	verifyDashboardCookie,
 } from "../src/dashboard-server.js";
 
+// The first test boots the server and pays the cold start, which is about 4s on a busy machine and over the 5s default on shared CI runners.
+const FIRST_REQUEST_TIMEOUT_MS = 30_000;
+
 describe("dashboard server path and secret handling", () => {
 	it("decodes an ordinary path", () => {
 		expect(decodePathname("/assets/app%20one.js")).toBe("/assets/app one.js");
@@ -73,11 +76,15 @@ describe("static file serving", () => {
 		}
 	}
 
-	it("serves a file inside the root", async () => {
-		await withServer(async (request) => {
-			expect(await request("/assets/app.js")).toEqual({ status: 200, body: "console.log(1)" });
-		});
-	});
+	it(
+		"serves a file inside the root",
+		async () => {
+			await withServer(async (request) => {
+				expect(await request("/assets/app.js")).toEqual({ status: 200, body: "console.log(1)" });
+			});
+		},
+		FIRST_REQUEST_TIMEOUT_MS,
+	);
 
 	it("does not serve a file outside the root", async () => {
 		await withServer(async (request) => {
