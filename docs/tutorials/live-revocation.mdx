@@ -1,0 +1,229 @@
+---
+title: Revoke an agent's MCP access and watch it fail on the next request
+description: Delegate a read only MCP token to a sub-agent, call a tool, get denied, revoke the parent delegation, and see the same token rejected at once. Then compare cached and offline freshness. Runnable TypeScript.
+icon: ban
+---
+
+A signed token is valid until it expires. That is the problem with giving an agent one: you cannot take it back. theAuth ties each delegated MCP token to the delegation records it rests on, so revoking the delegation kills the token on the next request.
+
+This tutorial runs that end to end in one process with in memory SQLite. There is no server, no model and no API key. The script is in [`examples/mcp-revocation-demo`](https://github.com/glincker/theauth/tree/main/examples/mcp-revocation-demo). For the reference behind it, see [MCP token revocation](/mcp-revocation).
+
+```bash
+pnpm --filter @glinr/theauth build
+npx tsx examples/mcp-revocation-demo/demo.ts
+```
+
+Run both from the repo root. The example directory has no `package.json`, so it imports the built package by relative path. In your own project, import from `@glinr/theauth` and `@glinr/theauth/mcp`.
+
+## What you build
+
+| Step | What happens | Result |
+| --- | --- | --- |
+| 1 | An assistant delegates read only to a sub-agent, which gets a narrowed token | Token with `mcp:read` |
+| 2 | Call `read_report` | Allowed |
+| 3 | Call `delete_report`, then ask `explain()` why | 403, with a near miss hint |
+| 4 | Decode the token | `act`, `agent_id`, `theauth_dlg` |
+| 5 | Revoke the parent delegation | One `delegation.revoke` audit row |
+| 6 | Call `read_report` again | 401 `DELEGATION_REVOKED` |
+| 7 | Repeat in `cached` and `offline` mode | A short delay, then no effect until `exp` |
+| 8 | Introspect the dead token | `delegation_revoked` for an entitled caller |
+
+## 1. Create the agents, the delegation and the token
+
+Alice owns an assistant that can read and write reports. The assistant delegates read only to a sub-agent, which has no permissions of its own.
+
+```typescript
+const assistant = await auth.agent.create({
+  ownerId, name: "alice-assistant", type: "autonomous",
+  permissions: [{ resource: "mcp:reports:*", actions: ["read", "write"] }],
+});
+const subAgent = await auth.agent.create({
+  ownerId, name: "alice-sub-agent", type: "delegated", permissions: [],
+});
+const chain = await auth.delegate({
+  fromAgent: assistant.id,
+  toAgent: subAgent.id,
+  permissions: [{ resource: "mcp:reports:*", actions: ["read"] }],
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  maxDepth: 1,
+});
+```
+
+Delegation links connect agents, but OAuth tokens belong to clients. So each agent gets an OAuth client, bound once with `mcp.clients.bindAgent(clientId, agentId)`. Alice approves the assistant app through the authorization code flow, which gives a token for `mcp:read mcp:write` whose `agent_id` is the assistant. The sub-agent app then trades that token for a narrower one with RFC 8693 token exchange:
+
+```typescript
+const exchanged = await mcp.token(form(subAppAuthHeader, {
+  grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+  subject_token: assistantToken,
+  subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+  scope: "mcp:read",
+  resource: RESOURCE,
+}));
+```
+
+Exchange can only narrow. The exchanging client is bound to the sub-agent, so theAuth looks up the live link from the assistant to the sub-agent and writes its id into the token. That link id is what revocation will pull on later.
+
+The MCP module reads revocation state in one of three modes. The default with a database is `live`, and this script runs the issuing module that way.
+
+## 2. A call inside the scope
+
+The helper `callTool` is what an MCP server does for each request: `mcp.requireScopes(request, [scope])`, then one audit row for the outcome.
+
+```typescript
+const check = await mcp.requireScopes(request, [TOOL_SCOPES[tool]]);
+if (!check.authorized) {
+  // check.status is 401 or 403, check.error.code says why
+  if (check.rejected?.agentId) await recordAuditEvent(auth.db, { /* denied row */ });
+  return check.response;
+}
+```
+
+`read_report` needs `mcp:read`, which the token has, so the answer is 200.
+
+## 3. A call outside the scope, and why
+
+`delete_report` needs `mcp:write`. The token was narrowed to `mcp:read`, so `requireScopes` answers 403 `INSUFFICIENT_SCOPE` and the tool never runs.
+
+`auth.explain()` then says why the sub-agent could not do this, without writing an audit row. The sub-agent holds one delegated grant, read on `mcp:reports:*`. Nothing matches a write, so the decision is `deny` with code `no_permission`. The useful part is `nearMisses[0]`: the delegated grant matched the resource and failed only on the action, and the hint says so in one sentence. See [Explain a decision](/explain).
+
+## 4. Read the token
+
+The script decodes the JWT payload and prints the parts that matter. It never prints the raw token.
+
+- `act` is the RFC 8693 actor claim. Here it holds one entry, and its `sub` is the OAuth client id of the sub-agent app. The script labels it for you.
+- `agent_id` is the assistant, not the sub-agent. The token kept the `agent_id` of the token it was exchanged from.
+- `theauth_dlg` lists `agt`, the agents on the authority path with the root first (assistant, then sub-agent), and `lnk`, the delegation link between them. This signed claim is the binding. It holds ids only, no permissions or names.
+
+## 5. Revoke the parent delegation
+
+```typescript
+await auth.delegation.revoke(chain.id, { revokedBy: "alice" });
+```
+
+The token has not expired and its signature is still valid. Nothing was sent to the agent. The revoke marks the link as revoked, writes a `delegation.revoke` audit row that names Alice, and records the link in the shared revocation table.
+
+## 6. The next request fails
+
+Same token, same tool. The resource server checks the signature, then the binding: is every agent in `agt` still active, and is every link in `lnk` still live? The link is revoked, so the answer is 401 `DELEGATION_REVOKED`.
+
+The script prints the audit rows for Alice's two agents in write order: the allowed read, the denied write, the revoke, and the denied read after it. `audit.query` returns newest first, so the script reverses the list.
+
+One detail in that trail: the denial rows land under the assistant, because the server attributes a rejection to `check.rejected.agentId`, which comes from the token's `agent_id` claim. The `delegation.revoke` row is on the delegate's chain, which is the sub-agent.
+
+## 7. The honest tradeoff: cached and offline
+
+Live mode reads the database on every request. That is one to four indexed queries. Two other modes skip some or all of that, and the script shows what you give up.
+
+**Cached.** The script builds a second MCP module with `revocation: { mode: "cached", pollIntervalMs: 200, maxStalenessMs: 1000 }`. It is given only the database handle, with no in process revocation bus, so it learns about a revoke the way a separate server instance would: by polling the shared table. The call right after the revoke still answers 200, because the cache holds the earlier verdict. The script then retries until the poll lands and the answer turns into 401. The documented bound is `maxStalenessMs`, which defaults to 5000 and was lowered here so the run is short. The process that performs the revoke clears its own cache at once, so you only see this gap on other instances.
+
+**Offline.** A third module with `mode: "offline"` checks the signature and `exp` and nothing else. The script revokes, waits 1.5 seconds, and the call still answers 200. The token stays good for about 60 minutes, because `accessTokenTtl` is 3600 seconds here. Nothing shortens that. If you use offline mode, set `accessTokenTtl` to a few minutes. The script then sends the same token to the live module, which refuses it.
+
+Pick the mode by what a stale answer costs. The table in [MCP token revocation](/mcp-revocation#freshness-modes) has the numbers.
+
+## 8. Ask the issuer
+
+A resource server that does not want to trust the JWT alone can call the introspection endpoint (RFC 7662). It always reads live state, in any mode. The caller must be a confidential client. The module config lists which clients may introspect which audiences:
+
+```typescript
+introspection: {
+  enabled: true,
+  resourceServers: [{ clientId: "orders-api", audiences: [RESOURCE] }],
+},
+```
+
+The listed server `orders-api` gets `{"active":false,"theauth_inactive_reason":"delegation_revoked"}`. A caller that is not listed gets `{"active":false}` and nothing else, so it cannot tell a revoked token from one it was never meant to see.
+
+## Expected output
+
+```text
+=== 1. Setup: owner, assistant, sub-agent, delegation, MCP client, token exchange
+    # alice owns an assistant (read, write). The assistant delegates read only to a sub-agent.
+    assistant            alice-assistant (read, write on mcp:reports:*)
+    sub-agent            alice-sub-agent (no permissions of its own)
+    delegation           assistant to sub-agent, read on mcp:reports:*
+    # The user approves the assistant app (mcp:read mcp:write). The sub-agent app narrows that token (RFC 8693).
+    token minted         scope mcp:read, bound to the delegation (raw token not printed)
+
+=== 2. Call read_report (needs mcp:read)
+    read_report          HTTP 200 OK
+
+=== 3. Call delete_report (needs mcp:write), then ask explain() why
+    delete_report        HTTP 403 INSUFFICIENT_SCOPE
+                         Token is missing required scope: mcp:write
+    explain decision     deny (code no_permission)
+    explain reason       No permission grants agent "alice-sub-agent" access to "write" on "mcp:reports:delete_report"
+    near miss            delegation grant mcp:reports:* [read]
+    mismatch             action
+    hint                 action "write" is not granted (grant holds: read)
+
+=== 4. What the token says about who is acting (decoded, not raw)
+    scope                mcp:read
+    sub (the user)       alice
+    act chain            sub-agent app (OAuth client bound to the sub-agent) (outermost is the current actor)
+    agent_id             assistant
+    theauth_dlg.agt      assistant, sub-agent
+    theauth_dlg.lnk      the delegation above
+
+=== 5. alice revokes the delegation. The token is unexpired and its signature is valid
+    revoked              the assistant to sub-agent delegation
+
+=== 6. Very next request with the same token (live mode)
+    read_report          HTTP 401 DELEGATION_REVOKED
+                         Delegation has been revoked
+    # Audit rows for alice's agents, in write order:
+    allowed              mcp.tools.call mcp:reports:read_report
+                         reason: scope mcp:read granted
+    denied               mcp.tools.call mcp:reports:delete_report
+                         reason: INSUFFICIENT_SCOPE: Token is missing required scope: mcp:write
+    allowed              delegation.revoke delegation:<id> revokedBy=alice
+    denied               mcp.tools.call mcp:reports:read_report
+                         reason: DELEGATION_REVOKED: Delegation has been revoked
+
+=== 7a. cached mode: a second server instance learns by polling (poll 200ms, bound 1000ms)
+    before revoke        HTTP 200 OK
+    right after revoke   HTTP 200 OK
+    after the poll       HTTP 401 DELEGATION_REVOKED
+                         Delegation has been revoked
+    within the bound     yes (under maxStalenessMs plus timer slack)
+    # The window above is the price of skipping a database read on every request.
+
+=== 7b. offline mode: signature and exp only
+    before revoke        HTTP 200 OK
+    1.5s after revoke    HTTP 200 OK
+    still valid for      about 60 minutes (until exp), nothing can cut that short
+    # Offline is fine when accessTokenTtl is a few minutes. Here it is 3600 seconds on purpose.
+    # The live module still refuses this same token:
+    same token, live     HTTP 401 DELEGATION_REVOKED
+                         Delegation has been revoked
+
+=== 8. Introspection of the revoked token (RFC 7662, always live)
+    orders-api (listed)  {"active":false,"theauth_inactive_reason":"delegation_revoked"}
+    stranger-api         {"active":false}
+    # Only a caller entitled to the audience learns why. Everyone else sees active false.
+    # Done. Revoke the delegation, and the next live request fails. No token list, no redeploy.
+```
+
+IDs and timestamps are left out, so two runs print the same text. The cached step takes a few hundred milliseconds. The offline step waits 1.5 seconds on purpose.
+
+## Where this stops
+
+- A request that passed validation before the revoke commits finishes. For long handlers, call `principal.session.revalidate()` between steps.
+- A server that verifies the JWT itself, or caches introspection answers, sees the revoke when that cache ends or the token expires.
+- The raw token in the script is a bearer token. Revocation does not stop replay while the token is live. [DPoP](/dpop) does.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="MCP token revocation" href="/mcp-revocation">
+  Freshness modes, the shared denylist and where revocation stops short.
+</Card>
+  <Card title="Delegation chains" href="/delegation">
+  Depth limits, constraints and cascading revocation.
+</Card>
+  <Card title="Explain a decision" href="/explain">
+  Matched grants, near misses and constraint checks.
+</Card>
+  <Card title="Delegate a scoped token" href="/tutorials/agent-delegation-e2e">
+  The longer walkthrough with hooks and an HTTP server.
+</Card>
+</CardGroup>
