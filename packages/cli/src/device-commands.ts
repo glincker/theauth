@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { stderr, stdout } from "node:process";
 import { pathToFileURL } from "node:url";
 import type { TheAuth } from "@glinr/theauth";
+import { ATTEST_HELP, parseAttestArgs, runAttest } from "./device-attest-command.js";
 
 export const DEVICE_HELP = `
 theauth device
@@ -15,6 +16,8 @@ Usage:
   theauth device revoke <deviceId> [--reason text]
   theauth device enroll-token --owner <userId> --kind claim|bulk [--max-uses n] [--ttl seconds]
                               [--group g]... [--perm "resource=action,action"]...
+  theauth device attest android --evidence <file> --nonce <n> --revocation google|off
+                                (offline evidence check, no --config; see "device attest --help")
 
 Every command needs --config <file.mjs>: an ES module whose default export is a
 TheAuth instance (or a config object) with \`devices\` and \`agents\` configured.
@@ -261,6 +264,23 @@ export async function runDevice(args: DeviceArgs, devices: Devices): Promise<str
 }
 
 export async function runDeviceCommand(argv: string[]): Promise<void> {
+	if (argv[0] === "attest") {
+		const rest = argv.slice(1);
+		if (rest.length === 0 || rest.includes("--help") || rest.includes("-h")) {
+			stdout.write(ATTEST_HELP);
+			return;
+		}
+		const attest = parseAttestArgs(rest);
+		if (attest.error) {
+			stderr.write(`${attest.error}\n${ATTEST_HELP}`);
+			process.exitCode = 1;
+			return;
+		}
+		const done = await runAttest(attest);
+		stdout.write(`${done.text}\n`);
+		if (!done.ok) process.exitCode = 1;
+		return;
+	}
 	const args = parseDeviceArgs(argv);
 	if (args.help) {
 		stdout.write(DEVICE_HELP);

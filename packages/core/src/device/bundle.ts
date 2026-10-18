@@ -7,6 +7,8 @@ import { findMatchingPermission, inspectConstraints } from "../policy/abac.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
 import { resolveResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
+import type { RevocationSnapshotClaims } from "./revocation.js";
+import { verifyRevocationSnapshot } from "./revocation.js";
 import type { DeviceBundleClaims, DeviceConfig, IssuedDeviceBundle } from "./types.js";
 
 /** `typ` header of an offline policy bundle. */
@@ -97,12 +99,20 @@ export interface VerifyBundleOptions {
 	issuer?: string;
 	/** Highest `seq` this device accepted before. A lower one is a rollback and is refused. */
 	lastSeq?: number;
+	/**
+	 * Opt in to offline revocation. `token` is the snapshot delivered next to the bundle (`revocations.token` of the bundle response). The bundle is refused with `revoked` when this device is on the list, and with `stale_revocations` when the snapshot is older than `maxAgeSeconds`, expired or missing. Without this option no revocation list is consulted.
+	 */
+	revocations?: { token: string | undefined; maxAgeSeconds: number; lastSeq?: number };
 	now?: Date;
 }
 
 export type VerifyBundleResult =
-	| { ok: true; claims: DeviceBundleClaims }
-	| { ok: false; reason: "invalid" | "wrong_device" | "rollback"; message: string };
+	| { ok: true; claims: DeviceBundleClaims; revocations?: RevocationSnapshotClaims }
+	| {
+			ok: false;
+			reason: "invalid" | "wrong_device" | "rollback" | "revoked" | "stale_revocations";
+			message: string;
+	  };
 
 /**
  * Device side check of a bundle: signature, typ, iss, sub and aud equal the device id, nbf and exp (both required) with 30 s skew, a kid in the header, seq not lower than the last accepted. Runs anywhere jose runs (gateways, Workers, Node).
@@ -144,7 +154,36 @@ export async function verifyDeviceBundle(
 	if (options.lastSeq !== undefined && payload.seq < options.lastSeq) {
 		return { ok: false, reason: "rollback", message: "Bundle is older than the last one accepted" };
 	}
-	return { ok: true, claims: payload as unknown as DeviceBundleClaims };
+	const claims = payload as unknown as DeviceBundleClaims;
+	const rev = options.revocations;
+	if (!rev) return { ok: true, claims };
+	if (!rev.token) {
+		return { ok: false, reason: "stale_revocations", message: "No revocation snapshot supplied" };
+	}
+	const snapshot = await verifyRevocationSnapshot(rev.token, {
+		keys: options.keys,
+		issuer: options.issuer ?? "theauth",
+		owner: claims.owner,
+		maxAgeSeconds: rev.maxAgeSeconds,
+		...(rev.lastSeq !== undefined && { lastSeq: rev.lastSeq }),
+		...(options.now && { now: options.now }),
+	});
+	if (!snapshot.ok) {
+		return {
+			ok: false,
+			reason:
+				snapshot.reason === "stale"
+					? "stale_revocations"
+					: snapshot.reason === "rollback"
+						? "rollback"
+						: "invalid",
+			message: snapshot.message,
+		};
+	}
+	if (await snapshot.has(options.deviceId)) {
+		return { ok: false, reason: "revoked", message: "Device is on the revocation list" };
+	}
+	return { ok: true, claims, revocations: snapshot.claims };
 }
 
 export interface BundleDecisionInput {

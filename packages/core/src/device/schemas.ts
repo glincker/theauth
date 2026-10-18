@@ -150,6 +150,15 @@ export const AttestationNonceSchema = z.object({
 export const DeviceBundleSchema = z.object({
 	token: z.string().describe("Compact JWS, typ device-policy+jwt"),
 	claims: z.record(z.unknown()),
+	revocations: z
+		.object({
+			token: z.string().describe("Compact JWS, typ device-revocations+jwt"),
+			claims: z.record(z.unknown()),
+		})
+		.optional()
+		.describe(
+			"Signed snapshot of revoked and suspended devices, present when devices.revocations is set",
+		),
 });
 
 export const JwksSchema = z.object({ keys: z.array(z.record(z.unknown())) });

@@ -180,6 +180,7 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 	async function checkAttestation(
 		input: EnrollDeviceInput,
 		enrollmentId: string,
+		keyThumbprint?: string,
 	): Promise<Record<string, unknown> | undefined> {
 		const att = config.attestation;
 		if (input.evidence === undefined) {
@@ -194,6 +195,10 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 				"No attestation verifier is configured",
 			);
 		}
+		// Evidence without a nonce cannot be shown fresh (RFC 9334 section 10), so it is refused unless the verifier opted out.
+		if (input.nonce === undefined && att.requireNonce !== false) {
+			throw new DeviceEnrollmentError("nonce_invalid", "Attestation evidence needs a nonce");
+		}
 		if (input.nonce !== undefined && !(await spendNonce(input.nonce))) {
 			throw new DeviceEnrollmentError(
 				"nonce_invalid",
@@ -205,6 +210,8 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 			result = await att.verify({
 				evidence: input.evidence,
 				enrollmentId,
+				credentialKind: input.credential.kind,
+				...(keyThumbprint !== undefined && { credentialKeyThumbprint: keyThumbprint }),
 				...(input.nonce !== undefined && { nonce: input.nonce }),
 				...(input.hardwareId !== undefined && { hardwareId: input.hardwareId }),
 			});
@@ -216,14 +223,17 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		return result.claims ?? {};
 	}
 
-	async function precheckCredential(input: EnrollDeviceInput): Promise<void> {
+	/** Rejects a bad credential before a use is spent. Returns the key thumbprint for `jwk` credentials. */
+	async function precheckCredential(input: EnrollDeviceInput): Promise<string | undefined> {
 		const c = input.credential;
 		if (c.kind === "jwk") {
 			const key = await normalizeDeviceJwk(c.jwk);
 			if (!key.ok) throw new DeviceInputError("INVALID_INPUT", key.message);
+			return key.thumbprint;
 		} else if (c.kind === "x509" && !normalizeX509Thumbprint(c.thumbprint)) {
 			throw new DeviceInputError("INVALID_INPUT", "x509 thumbprint must be base64url x5t#S256");
 		}
+		return undefined;
 	}
 
 	/**
@@ -245,8 +255,8 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		if (!row || row.revokedAt != null || row.expiresAt <= now || row.uses >= row.maxUses)
 			throw invalid();
 
-		await precheckCredential(input);
-		const attestation = await checkAttestation(input, row.id);
+		const keyThumbprint = await precheckCredential(input);
+		const attestation = await checkAttestation(input, row.id, keyThumbprint);
 
 		const won = await claimCount(
 			db

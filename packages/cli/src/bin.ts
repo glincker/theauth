@@ -67,7 +67,7 @@ Commands:
   db            Schema migrations ledger (status, up, sql)
   policy        Test policy suites against explain(): theauth policy test <suite>
   ros2          Export a robot's permissions as SROS2 and DDS Security files (export, diff)
-  device        IoT devices: register, list, suspend, resume, revoke, enroll-token
+  device        IoT devices: register, list, suspend, resume, revoke, enroll-token, attest
   simulate      Ask what an agent could do, no side effects (--json)
   permissions   Show an agent's effective permissions (--json)
   doctor        Check your setup and a running server (--live <url>, --json, --fail-on <severity>)

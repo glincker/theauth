@@ -1,5 +1,6 @@
 import type { JWK } from "jose";
 import type { Permission } from "../types.js";
+import type { IssuedRevocationSnapshot } from "./revocation.js";
 
 /** Algorithms a device key may use for assertions. RSA is refused (large keys, rare on constrained hardware). */
 export type DeviceKeyAlg = "ES256" | "ES384" | "EdDSA";
@@ -16,6 +17,10 @@ export interface DeviceAttestationInput {
 	nonce?: string;
 	hardwareId?: string;
 	enrollmentId: string;
+	/** Kind of credential the device is enrolling. */
+	credentialKind?: "psk" | "jwk" | "x509";
+	/** RFC 7638 SHA-256 thumbprint of the enrolled public key when `credentialKind` is `jwk`. A verifier that attests a key compares it with the attested key. */
+	credentialKeyThumbprint?: string;
 }
 
 export interface DeviceConfig {
@@ -37,10 +42,21 @@ export interface DeviceConfig {
 	};
 	/** Default offline bundle lifetime in seconds. Default 3600, capped at 86400. */
 	bundleTtlSeconds?: number;
+	/**
+	 * Sign a revocation snapshot (revoked and suspended device ids of the owner) next to every bundle, so offline devices can refuse a revoked peer or themselves without a round trip. Needs `bundleSigning`. Off by default.
+	 */
+	revocations?: {
+		/** Snapshot lifetime in seconds. Default `bundleTtlSeconds`, capped at 86400. */
+		ttlSeconds?: number;
+		/** Refuse to sign a list longer than this. Default 50000. */
+		maxEntries?: number;
+	};
 	/** Evidence verification at enrollment. Without `verify`, any evidence is refused rather than ignored. */
 	attestation?: {
 		/** Refuse enrollment without evidence that `verify` accepts. */
 		required?: boolean;
+		/** Refuse evidence that arrives without a nonce from `device.attestationNonce()`. Default true. Set false only for a verifier that checks freshness another way, such as a signed timestamp. */
+		requireNonce?: boolean;
 		verify?: (input: DeviceAttestationInput) => Promise<DeviceAttestationResult>;
 	};
 	/**
@@ -240,4 +256,6 @@ export interface DeviceBundleClaims {
 export interface IssuedDeviceBundle {
 	token: string;
 	claims: DeviceBundleClaims;
+	/** Present when `devices.revocations` is configured. Hand it to `verifyDeviceBundle({ revocations })`. */
+	revocations?: IssuedRevocationSnapshot;
 }

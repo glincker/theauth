@@ -22,6 +22,8 @@ import { clampBundleTtl, deviceBundleJwks, signDeviceBundle } from "./bundle.js"
 import { createDeviceAuthenticator } from "./device-auth.js";
 import { createDeviceEnrollment } from "./enrollment.js";
 import { createDeviceRegistry, DeviceInputError } from "./registry.js";
+import { signRevocationSnapshot } from "./revocation.js";
+import { clampRevocationTtl, collectBlockedIds } from "./revocation-issue.js";
 import { deviceBlock, devicePrincipal } from "./state.js";
 import type {
 	CreateEnrollmentTokenInput,
@@ -295,6 +297,20 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 			ttlSeconds: ttl,
 			...(deps.resourceMatching && { resourceMatching: deps.resourceMatching }),
 		});
+		if (config.revocations) {
+			const deviceIds = await collectBlockedIds(
+				registry,
+				device.ownerId,
+				config.revocations.maxEntries,
+			);
+			bundle.revocations = await signRevocationSnapshot({
+				signing: config.bundleSigning,
+				issuer: config.issuer ?? "theauth",
+				ownerId: device.ownerId,
+				deviceIds,
+				ttlSeconds: clampRevocationTtl(config.revocations.ttlSeconds, config.bundleTtlSeconds),
+			});
+		}
 		await lifecycle(device, "device.bundle.issue", {
 			jti: bundle.claims.jti,
 			exp: bundle.claims.exp,

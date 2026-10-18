@@ -1,3 +1,4 @@
+export * from "./attestation/index.js";
 export type {
 	BundleDecision,
 	BundleDecisionInput,
@@ -23,4 +24,15 @@ export {
 export { DeviceEnrollmentError } from "./enrollment.js";
 export type { DeviceModule } from "./module.js";
 export { DeviceInputError } from "./registry.js";
+export type {
+	IssuedRevocationSnapshot,
+	RevocationSnapshotClaims,
+	VerifyRevocationOptions,
+	VerifyRevocationResult,
+} from "./revocation.js";
+export {
+	DEVICE_REVOCATIONS_TYP,
+	REVOCATION_DIGEST,
+	verifyRevocationSnapshot,
+} from "./revocation.js";
 export type * from "./types.js";

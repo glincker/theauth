@@ -191,8 +191,18 @@ describe("attestation", () => {
 				name: "c",
 				credential: { kind: "psk" },
 				evidence: "forged",
+				nonce: (await devices.attestationNonce()).nonce,
 			}),
 		).rejects.toMatchObject({ code: "attestation_failed" });
+		// Evidence without a nonce cannot be shown fresh.
+		await expect(
+			devices.enroll({
+				token: token.token,
+				name: "d",
+				credential: { kind: "psk" },
+				evidence: "good",
+			}),
+		).rejects.toMatchObject({ code: "nonce_invalid" });
 		expect((await devices.getEnrollmentToken(token.id))?.uses).toBe(1);
 	});
 
@@ -208,7 +218,13 @@ describe("attestation", () => {
 		);
 		const token = await devices.createEnrollmentToken({ ownerId: "u1", kind: "claim" });
 		await expect(
-			devices.enroll({ token: token.token, name: "a", credential: { kind: "psk" }, evidence: "x" }),
+			devices.enroll({
+				token: token.token,
+				name: "a",
+				credential: { kind: "psk" },
+				evidence: "x",
+				nonce: (await devices.attestationNonce()).nonce,
+			}),
 		).rejects.toMatchObject({ code: "attestation_failed" });
 	});
 });
