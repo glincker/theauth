@@ -81,7 +81,7 @@ describe("GDPR erasure with tombstones", () => {
 		const logs = await db.select().from(auditLogs);
 		const anonUser = logs[0]?.userId ?? "";
 		const anonAgent = logs[0]?.agentId ?? "";
-		expect(anonUser).toMatch(/^\[deleted-[0-9a-f]{12}\]$/);
+		expect(anonUser).toMatch(/^\[deleted-[0-9a-f]{32}\]$/);
 		const tombUser = (await db.select().from(users).where(eq(users.id, anonUser)))[0];
 		expect(tombUser?.banned).toBe(1);
 		expect(tombUser?.email.endsWith("@erased.invalid")).toBe(true);

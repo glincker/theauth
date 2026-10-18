@@ -346,7 +346,7 @@ describe("GdprModule.deleteUser", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("deletes delegation chains involving the user's agents", async () => {
+	it("revokes, and keeps as revoked rows, the delegation chains involving the user's agents", async () => {
 		const userId = makeId();
 		const otherId = makeId();
 		await seedUser(db, userId, "del-del@example.com");
@@ -360,7 +360,8 @@ describe("GdprModule.deleteUser", () => {
 		const result = await mod.deleteUser(userId);
 		expect(result.deletedDelegations).toBe(1);
 		const rows = await db.select().from(delegationChains);
-		expect(rows).toHaveLength(0);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.status).toBe("revoked");
 	});
 
 	it("deletes API keys", async () => {
@@ -391,8 +392,8 @@ describe("GdprModule.deleteUser", () => {
 
 		// userId in the log must now be anonymized
 		const logRow = rows[0];
-		expect(logRow?.userId).toMatch(/^\[deleted-[0-9a-f]{12}\]$/);
-		expect(logRow?.agentId).toMatch(/^\[deleted-[0-9a-f]{12}\]$/);
+		expect(logRow?.userId).toMatch(/^\[deleted-[0-9a-f]{32}\]$/);
+		expect(logRow?.agentId).toMatch(/^\[deleted-[0-9a-f]{32}\]$/);
 	});
 
 	it("hard-deletes audit logs when keepAuditLogs=false", async () => {
@@ -408,7 +409,7 @@ describe("GdprModule.deleteUser", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("anonymized IDs follow [deleted-{12hexchars}] format", async () => {
+	it("anonymized IDs follow [deleted-{32hexchars}] format", async () => {
 		const userId = makeId();
 		await seedUser(db, userId, "fmt@example.com");
 		const agentId = makeId();
@@ -418,7 +419,7 @@ describe("GdprModule.deleteUser", () => {
 		await mod.deleteUser(userId, { keepAuditLogs: true });
 		const rows = await db.select().from(auditLogs);
 		const userIdValue = rows[0]?.userId ?? "";
-		expect(userIdValue).toMatch(/^\[deleted-[0-9a-f]{12}\]$/);
+		expect(userIdValue).toMatch(/^\[deleted-[0-9a-f]{32}\]$/);
 	});
 
 	it("two different deleted users produce distinct anonymized hashes", async () => {
@@ -547,7 +548,7 @@ describe("GdprModule.anonymizeUser", () => {
 		const mod = createGdprModule(db);
 		await mod.anonymizeUser(userId);
 		const rows = await db.select().from(users).where(eq(users.id, userId));
-		expect(rows[0]?.email).toMatch(/^deleted-[0-9a-f]{12}@anon\.invalid$/);
+		expect(rows[0]?.email).toMatch(/^deleted-[0-9a-f]{32}@anon\.invalid$/);
 		expect(rows[0]?.name).toBeNull();
 	});
 

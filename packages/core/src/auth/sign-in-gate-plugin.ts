@@ -11,6 +11,7 @@ import {
 	parseRememberMe,
 } from "../plugin/helpers.js";
 import type { PluginContext, TheAuthPlugin } from "../plugin/types.js";
+import { UserBannedError } from "../session/banned.js";
 import type { Session } from "../session/session.js";
 import type { SignInGate, SignInGateDecision, TrustedDeviceCookie } from "./sign-in-gate.js";
 import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
@@ -48,6 +49,7 @@ export function signInGatePlugin(): TheAuthPlugin {
 						extra.rememberMe === undefined ? undefined : { rememberMe: extra.rememberMe },
 					);
 				} catch (err) {
+					if (err instanceof UserBannedError) return json({ error: err.message }, 403);
 					const message = err instanceof Error ? err.message : "Failed to create session";
 					return json({ error: message }, 429);
 				}

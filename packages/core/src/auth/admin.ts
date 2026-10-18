@@ -16,8 +16,11 @@
 import { eq, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, sessions, users } from "../db/schema.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
 import type { SessionManager } from "../session/session.js";
+import { createGdprModule } from "./gdpr.js";
 import { escapeLike } from "./scim-helpers.js";
+import { revokeUserMcpAccess } from "./user-revocation.js";
 
 export interface AdminConfig {
 	/** User IDs that are global admins */
@@ -79,6 +82,7 @@ export function createAdminModule(
 	config: AdminConfig,
 	db: Database,
 	sessionManager: SessionManager | null,
+	revocations?: RevocationBus | null,
 ): AdminModule {
 	const adminUserIds = new Set(config.adminUserIds ?? []);
 	const allowImpersonation = config.allowImpersonation ?? true;
@@ -192,8 +196,10 @@ export function createAdminModule(
 		// Revoke all active sessions for the banned user
 		await db.delete(sessions).where(eq(sessions.userId, userId));
 
-		// Revoke all active agent tokens for the banned user
-		await db.update(agents).set({ status: "revoked" }).where(eq(agents.ownerId, userId));
+		// Revoke the user's agents and push `sub` and `agent` rows so MCP access and refresh
+		// tokens die everywhere. The `sub` row is a watermark: unban does not bring old tokens back,
+		// and revoked agents stay revoked (re-create or re-activate them on purpose).
+		await revokeUserMcpAccess(db, revocations, userId, "admin.banUser");
 
 		await logAdminAction("system", "ban_user", userId, {
 			reason,
@@ -216,10 +222,13 @@ export function createAdminModule(
 	}
 
 	async function deleteUser(userId: string): Promise<void> {
-		await db.delete(sessions).where(eq(sessions.userId, userId));
-		// Mark agents as revoked to preserve audit trail
-		await db.update(agents).set({ status: "revoked" }).where(eq(agents.ownerId, userId));
-		await db.delete(users).where(eq(users.id, userId));
+		// Agents are revoked first (with their delegation links and the MCP revocation rows), then
+		// owned rows move to a tombstone user so the foreign keys hold when the user row goes.
+		// Audit logs are kept, with the user's ids replaced.
+		await createGdprModule(db, revocations).deleteUser(userId, {
+			keepAuditLogs: true,
+			revocationReason: "admin.deleteUser",
+		});
 
 		await logAdminAction("system", "delete_user", userId);
 	}

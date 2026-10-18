@@ -23,7 +23,7 @@ export function gdpr(): TheAuthPlugin {
 		id: "theauth-gdpr",
 
 		async init(ctx): Promise<undefined> {
-			const module = createGdprModule(ctx.db);
+			const module = createGdprModule(ctx.db, ctx.revocations);
 
 			// GET /auth/gdpr/export
 			// Returns a full JSON export of the authenticated user's data.

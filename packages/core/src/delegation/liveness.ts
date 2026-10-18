@@ -12,7 +12,7 @@ export type DelegatorState = "live" | "revoked" | "expired";
 const MAX_WALK = 16;
 
 /**
- * A delegator lends authority only while it is live. An agent delegator must be `active` and unexpired. A delegator that is not an agent row (a root user) has no status to check. An agent that itself holds active inbound links is live only if at least one of them traces back to a live delegator, so a revoked or expired agent higher up takes the whole branch below it out, even when no revocation cascade ran. The exception is a link whose permissions the active delegator holds directly: that authority did not come through the dead chain, so the link stays. Agents with no inbound links stand on their own.
+ * A delegator lends authority only while it is live. An agent delegator must be `active` and unexpired. A delegator that is not an agent row (a root user) has no status to check. An agent that itself holds active inbound links is live only if at least one of them traces back to a live delegator, so a revoked or expired agent higher up takes the whole branch below it out, even when no revocation cascade ran. The exception is a link whose permissions the active delegator holds directly: that authority did not come through the dead chain, so the link stays. Agents that never had inbound links stand on their own. An agent whose inbound links are all revoked or expired does not: it lends only what its own permissions cover.
  */
 export function createDelegatorLiveness(db: Database, now: Date) {
 	const agentCache = new Map<string, Promise<typeof agents.$inferSelect | undefined>>();
@@ -59,6 +59,20 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 		return hit;
 	};
 
+	const pastCache = new Map<string, Promise<ChainRow[]>>();
+	const anyInboundRows = (id: string) => {
+		let hit = pastCache.get(id);
+		if (!hit) {
+			hit = db
+				.select()
+				.from(delegationChains)
+				.where(eq(delegationChains.toAgentId, id))
+				.then((rows) => rows);
+			pastCache.set(id, hit);
+		}
+		return hit;
+	};
+
 	async function stateOf(id: string, trail: Set<string>): Promise<DelegatorState> {
 		const row = await agentRow(id);
 		if (!row) return "live";
@@ -68,7 +82,12 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 		// A loop has no root authority: fail closed.
 		if (trail.has(id) || trail.size >= MAX_WALK) return "revoked";
 		const inbound = await inboundRows(id);
-		if (inbound.length === 0) return "live";
+		if (inbound.length === 0) {
+			// Links that once fed this agent are all revoked or expired: whatever it lends came through them, so it is no longer self-standing (own permissions are handled per link in stateOfLink).
+			const past = await anyInboundRows(id);
+			if (past.length === 0) return "live";
+			return past.some((c) => c.status === "revoked") ? "revoked" : "expired";
+		}
 		const next = new Set(trail).add(id);
 		let firstDead: DelegatorState = "revoked";
 		for (const [i, link] of inbound.entries()) {

@@ -19,6 +19,7 @@
 
 import { recordAuditEvent } from "../audit/record.js";
 import type { Database } from "../db/database.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
 import {
 	handleBulk,
 	handleResourceTypes,
@@ -32,7 +33,11 @@ import { createScimUserHandlers } from "./scim-users.js";
 
 export type { ScimConfig, ScimGroup, ScimModule, ScimUser } from "./scim-types.js";
 
-export function createScimModule(config: ScimConfig, db: Database): ScimModule {
+export function createScimModule(
+	config: ScimConfig,
+	db: Database,
+	revocations?: RevocationBus | null,
+): ScimModule {
 	const { bearerToken, audit } = config;
 
 	// Best-effort: a failed audit write must never fail the provisioning response.
@@ -69,7 +74,7 @@ export function createScimModule(config: ScimConfig, db: Database): ScimModule {
 		const [scheme, token] = authHeader.split(" ");
 		return scheme?.toLowerCase() === "bearer" && token === bearerToken;
 	}
-	const ctx: ScimHandlerContext = { db, config, writeScimAudit };
+	const ctx: ScimHandlerContext = { db, config, writeScimAudit, revocations };
 	const {
 		handleListUsers,
 		handleGetUser,

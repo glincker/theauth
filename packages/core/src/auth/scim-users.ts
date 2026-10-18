@@ -19,9 +19,10 @@ import {
 } from "./scim-helpers.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
 import type { PatchBody, ScimHandlerContext, ScimUser, UserRow } from "./scim-types.js";
+import { revokeUserMcpAccess } from "./user-revocation.js";
 
 export function createScimUserHandlers(ctx: ScimHandlerContext) {
-	const { db, writeScimAudit, config } = ctx;
+	const { db, writeScimAudit, config, revocations } = ctx;
 	const {
 		autoCreateUsers = true,
 		autoDeactivateUsers = true,
@@ -265,7 +266,10 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 			})
 			.where(eq(users.id, userId));
 		// A deactivated user must not keep a live session.
-		if (!active) await db.delete(sessions).where(eq(sessions.userId, userId));
+		if (!active) {
+			await db.delete(sessions).where(eq(sessions.userId, userId));
+			await revokeUserMcpAccess(db, revocations, userId, "scim.deactivate");
+		}
 
 		const updatedRows = (await db
 			.select()
@@ -379,6 +383,7 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		// SCIM active=false ends sessions even when autoDeactivateUsers leaves the ban flag off.
 		if (scimActive === false || banned === 1) {
 			await db.delete(sessions).where(eq(sessions.userId, userId));
+			await revokeUserMcpAccess(db, revocations, userId, "scim.deactivate");
 		}
 
 		const updatedRows = (await db
@@ -402,6 +407,7 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		if (!row) return scimError("User not found", 404, "noTarget");
 
 		await db.delete(sessions).where(eq(sessions.userId, userId));
+		await revokeUserMcpAccess(db, revocations, userId, "scim.deprovision");
 		if (autoDeactivateUsers) {
 			const now = new Date();
 			const meta = { ...(row.metadata ?? {}), "scim:active": false, "scim:deprovisioned": true };

@@ -1,5 +1,6 @@
 import type { AgentConfig } from "./agent/types.js";
 import type { ApprovalConfig } from "./approval/approval.js";
+import type { ChainCheckpointOptions, ChainCheckpointResult } from "./audit/chain-anchor.js";
 import type {
 	AgentReplay,
 	AuditChainExportOptions,
@@ -195,6 +196,8 @@ export interface AuditModule {
 	}) => Promise<{ deleted: number; checkpoints?: number }>;
 	/** Check the audit hash chain and report the first broken link. */
 	verifyAuditChain: (opts: VerifyAuditChainOptions) => Promise<Result<VerifyAuditChainResult>>;
+	/** Append a signed anchor for each chain's current first row; returns anchors and heads to pin outside the database. */
+	checkpoint: (opts?: ChainCheckpointOptions) => Promise<Result<ChainCheckpointResult>>;
 	/** Ordered timeline of one agent's activity with chain verification status. */
 	replayAgent: (agentId: string, opts?: ReplayOptions) => Promise<Result<AgentReplay>>;
 	/** JSONL export plus a signed manifest. */

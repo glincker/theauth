@@ -1,4 +1,5 @@
 export type { SessionActivityConfig } from "./activity.js";
+export { UserBannedError } from "./banned.js";
 export type { BaseUrlConfig, BaseUrlResolver } from "./base-url.js";
 export { createBaseUrlResolver } from "./base-url.js";
 export type { CookieOptions, SameSite } from "./cookie.js";

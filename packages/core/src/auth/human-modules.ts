@@ -1,4 +1,5 @@
 import type { Database } from "../db/database.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
 import { createObservability } from "../observability/index.js";
 import type { SessionManager } from "../session/session.js";
 import { createSecondaryStorageResolver } from "../storage/resolve.js";
@@ -24,6 +25,7 @@ import type { PasswordResetModule } from "./password-reset.js";
 import { createPasswordResetModule } from "./password-reset.js";
 import type { PhoneAuthModule } from "./phone.js";
 import { createPhoneAuthModule } from "./phone.js";
+import { createRequestUserResolver } from "./request-user.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import type { SsoModule } from "./sso.js";
 import { createSsoModule } from "./sso.js";
@@ -43,6 +45,7 @@ export function createHumanAuthModules(
 	db: Database,
 	sessionManager: SessionManager | null,
 	signInGate: SignInGate,
+	revocations?: RevocationBus,
 ) {
 	const magicLinkModule: MagicLinkModule | null =
 		config.magicLink && sessionManager
@@ -54,10 +57,17 @@ export function createHumanAuthModules(
 			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
 			: null;
 
-	const totpModule: TotpModule | null = config.totp ? createTotpModule(config.totp, db) : null;
+	// Module handlers act on the signed-in user from the auth adapter or session, never a body userId.
+	const moduleDeps = {
+		resolveUser: createRequestUserResolver(db, sessionManager, config.auth?.adapter),
+	};
+
+	const totpModule: TotpModule | null = config.totp
+		? createTotpModule(config.totp, db, moduleDeps)
+		: null;
 
 	const passkeyModule: PasskeyModule | null = config.passkey
-		? createPasskeyModule(config.passkey, db)
+		? createPasskeyModule(config.passkey, db, moduleDeps)
 		: null;
 
 	const orgModule: OrgModule | null = config.org ? createOrgModule(config.org, db) : null;
@@ -76,7 +86,7 @@ export function createHumanAuthModules(
 		: null;
 
 	const adminModule: AdminModule | null = config.admin
-		? createAdminModule(config.admin, db, sessionManager)
+		? createAdminModule(config.admin, db, sessionManager, revocations)
 		: null;
 
 	const apiKeyManagerModule: ApiKeyManagerModule | null = config.apiKeys
@@ -104,7 +114,7 @@ export function createHumanAuthModules(
 			: null;
 
 	const emailVerificationModule: EmailVerificationModule | null = config.emailVerification
-		? createEmailVerificationModule(config.emailVerification, db, oneTimeTokenModule)
+		? createEmailVerificationModule(config.emailVerification, db, oneTimeTokenModule, moduleDeps)
 		: null;
 
 	const phoneModule: PhoneAuthModule | null =

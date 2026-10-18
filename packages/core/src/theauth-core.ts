@@ -136,7 +136,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		phoneModule,
 		captchaModule,
 		webhookModule,
-	} = createHumanAuthModules(config, db, sessionManager, signInGate);
+	} = createHumanAuthModules(config, db, sessionManager, signInGate, revocations);
 
 	const redirectChain: RedirectChainManager = createRedirectChain(config.redirects);
 	// Runs after core modules so plugins can depend on them.
@@ -149,6 +149,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		sessionManager,
 		secondaryStorage,
 		signInGate,
+		revocations,
 	);
 
 	const endpointCtx = createEndpointContext(db, config, sessionManager);

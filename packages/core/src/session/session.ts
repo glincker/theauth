@@ -31,6 +31,7 @@ import {
 	resolveSessionActivity,
 	splitMetadata,
 } from "./activity.js";
+import { assertUserNotBanned } from "./banned.js";
 import { MultiSessionLimitError } from "./multi-session.js";
 
 export type { SessionInvalidReason } from "./activity.js";
@@ -239,6 +240,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		metadata?: Record<string, unknown>,
 		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }> {
+		await assertUserNotBanned(db, userId);
 		await enforceLimit(userId, metadata, options?.replacing);
 		const id = generateId();
 		const nowMs = activity.now();

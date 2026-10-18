@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { isErasedId } from "../audit/pseudonym.js";
 import { normalizeEmail } from "../auth/normalize-email.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -40,7 +41,13 @@ export interface UserModule {
 const createUserSchema = z.object({
 	email: z.string().trim().email().max(320).transform(normalizeEmail),
 	name: z.string().trim().max(256).optional(),
-	id: z.string().trim().min(1).max(191).optional(),
+	id: z
+		.string()
+		.trim()
+		.min(1)
+		.max(191)
+		.refine((v) => !isErasedId(v), { message: "ids starting with [deleted- are reserved" })
+		.optional(),
 	metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

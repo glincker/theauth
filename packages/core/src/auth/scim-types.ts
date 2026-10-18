@@ -1,4 +1,5 @@
 import type { Database } from "../db/database.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
 
 export interface ScimConfig {
 	bearerToken: string;
@@ -86,6 +87,8 @@ export interface PatchBody {
 /** Shared dependencies passed from createScimModule to the handler factories. */
 export interface ScimHandlerContext {
 	db: Database;
+	/** Pushed to when a user is deactivated or deprovisioned, so MCP tokens die everywhere. */
+	revocations?: RevocationBus | null;
 	config: ScimConfig;
 	writeScimAudit: (
 		action: string,
