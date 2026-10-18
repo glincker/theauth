@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { defineTool, failure, success } from "./define.js";
 
-const AGENT_TOKEN_PREFIX = "kv_";
+/** Current agent token prefix first, then the legacy prefix issued before the rename (still valid). */
+const AGENT_TOKEN_PREFIXES = ["ta_", "kv_"] as const;
 const KNOWN_CLAIMS = new Set([
 	"iss",
 	"sub",
@@ -49,11 +50,11 @@ export function inspectToken(raw: string, now: Date = new Date()): TokenReport {
 	const token = raw.trim().replace(/^Bearer\s+/i, "");
 	const report: TokenReport = { kind: "opaque", length: token.length };
 
-	if (token.startsWith(AGENT_TOKEN_PREFIX)) {
+	if (AGENT_TOKEN_PREFIXES.some((p) => token.startsWith(p))) {
 		return {
 			...report,
 			kind: "agent_token",
-			note: "theAuth agent token (kv_ prefix). Opaque by design: status and permissions are only known to the server. Use list_agents or get_agent.",
+			note: "theAuth agent token (ta_ prefix, or the legacy kv_ prefix). Opaque by design: status and permissions are only known to the server. Use list_agents or get_agent.",
 		};
 	}
 

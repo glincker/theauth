@@ -47,7 +47,7 @@ describe("agent registration tokens", () => {
 		if (!res.success) throw new Error(res.error.message);
 		expect(res.data.ownerId).toBe("u1");
 		expect(res.data.permissions).toEqual(PERMS);
-		expect(res.data.token.startsWith("kv_")).toBe(true);
+		expect(res.data.token.startsWith("ta_")).toBe(true);
 
 		const audit = await auth.db
 			.select()
@@ -178,7 +178,7 @@ describe("agentRegistration plugin", () => {
 			{ name: "bot" },
 		);
 		expect(reg?.status).toBe(201);
-		expect(((await reg!.json()) as { token: string }).token).toMatch(/^kv_/);
+		expect(((await reg!.json()) as { token: string }).token).toMatch(/^ta_/);
 
 		const replay = await call(
 			"POST",

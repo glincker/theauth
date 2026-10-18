@@ -78,7 +78,7 @@ func resourceAPIKey() *schema.Resource {
 			"prefix": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Short prefix identifying this key (e.g. kv_live_abc123). Safe to log.",
+				Description: "Short prefix identifying this key (e.g. ta_live_abc123). Safe to log.",
 			},
 			"created_at": {
 				Type:        schema.TypeString,

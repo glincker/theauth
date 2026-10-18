@@ -64,7 +64,7 @@ Both arguments can be set via environment variables instead:
 
 ```bash
 export THEAUTH_BASE_URL=https://your-app.com/api/theauth
-export THEAUTH_TOKEN=kv_live_...
+export THEAUTH_TOKEN=ta_live_...
 ```
 
 | Argument   | Env var              | Required | Description                              |
@@ -288,7 +288,7 @@ Resources provisioned outside Terraform can be imported:
 terraform import theauth_agent.my_bot agent-abc123
 
 # Import an API key (raw key value is not recoverable via import)
-terraform import theauth_api_key.ci kv_key_abc123
+terraform import theauth_api_key.ci ta_key_abc123
 
 # Import an organization
 terraform import theauth_organization.eng org-xyz789

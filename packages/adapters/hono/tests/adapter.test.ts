@@ -87,7 +87,7 @@ describe("Hono adapter", () => {
 			};
 			expect(body.data.id).toBeDefined();
 			expect(body.data.name).toBe("my-agent");
-			expect(body.data.token).toMatch(/^kv_/);
+			expect(body.data.token).toMatch(/^ta_/);
 			expect(body.data.status).toBe("active");
 		});
 
@@ -270,7 +270,7 @@ describe("Hono adapter", () => {
 
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { data: { token: string } };
-			expect(body.data.token).toMatch(/^kv_/);
+			expect(body.data.token).toMatch(/^ta_/);
 			expect(body.data.token).not.toBe(originalToken);
 		});
 

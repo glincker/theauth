@@ -73,7 +73,7 @@ describe("createTheAuth", () => {
 			expect(agent.name).toBe("test-agent");
 			expect(agent.type).toBe("autonomous");
 			expect(agent.status).toBe("active");
-			expect(agent.token).toMatch(/^kv_/);
+			expect(agent.token).toMatch(/^ta_/);
 			expect(agent.permissions).toHaveLength(2);
 		});
 
@@ -139,7 +139,7 @@ describe("createTheAuth", () => {
 
 			const rotated = await theauth.agent.rotate(agent.id);
 			expect(rotated.token).not.toBe(originalToken);
-			expect(rotated.token).toMatch(/^kv_/);
+			expect(rotated.token).toMatch(/^ta_/);
 		});
 
 		it("validates agent token", async () => {

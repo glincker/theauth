@@ -100,7 +100,7 @@ class TestRequest:
         assert req.url.params["n"] == "2"
         assert "skip" not in req.url.params
         assert json.loads(req.content) == {"email": "a@b.c"}
-        assert req.headers["authorization"] == "Bearer kv_test_token"
+        assert req.headers["authorization"] == "Bearer ta_test_token"
 
     def test_sync_request_validation_error(self, sync_client: TheAuthSyncClient) -> None:
         issues = [{"where": "body", "path": "email", "message": "Invalid email"}]

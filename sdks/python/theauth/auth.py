@@ -101,7 +101,7 @@ class AsyncAuthResource:
         Useful when you have the raw agent token rather than its ID.
 
         Args:
-            agent_token: The agent's ``kv_...`` bearer token.
+            agent_token: The agent's ``ta_...`` bearer token.
             request: The action and resource to check.
 
         Returns:

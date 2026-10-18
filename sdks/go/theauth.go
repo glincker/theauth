@@ -6,7 +6,7 @@
 // Basic usage:
 //
 //	client := theauth.NewClient("https://your-app.com/api/theauth",
-//	    theauth.WithToken("kv_..."),
+//	    theauth.WithToken("ta_..."),
 //	    theauth.WithTimeout(10*time.Second),
 //	)
 //

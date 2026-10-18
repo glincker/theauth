@@ -348,7 +348,7 @@ export function generateOpenAPISpec(options?: { baseUrl?: string; version?: stri
 						token: {
 							type: "string",
 							description:
-								"Agent token (kv_ prefix). Store securely - not retrievable after creation.",
+								"Agent token (ta_ prefix; legacy kv_ tokens are still accepted). Store securely - not retrievable after creation.",
 						},
 						name: { type: "string" },
 						type: { type: "string" },
@@ -453,7 +453,7 @@ export function generateOpenAPISpec(options?: { baseUrl?: string; version?: stri
 				AgentToken: {
 					type: "http",
 					scheme: "bearer",
-					bearerFormat: "TheAuth Agent Token (kv_...)",
+					bearerFormat: "TheAuth Agent Token (ta_...)",
 				},
 			},
 		},

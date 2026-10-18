@@ -11,6 +11,7 @@ import type {
 	Permission,
 	UpdateAgentInput,
 } from "../types.js";
+import { AGENT_TOKEN_PREFIX, agentTokenLookupPrefix, isAgentToken } from "./token-format.js";
 
 interface AgentModuleConfig {
 	db: Database;
@@ -23,13 +24,13 @@ interface AgentModuleConfig {
  * Generate a secure agent token. Returns { token, hash, prefix } where:
  * - token: the full token (given to the agent, never stored)
  * - hash: SHA-256 hash (stored in DB)
- * - prefix: first 8 chars (for identification in logs/UI)
+ * - prefix: prefix plus first 8 chars (for identification in logs/UI)
  */
 async function generateAgentToken(): Promise<{ token: string; hash: string; prefix: string }> {
 	const tokenBytes = randomBytes(32);
-	const token = `kv_${toBase64Url(tokenBytes)}`;
+	const token = `${AGENT_TOKEN_PREFIX}${toBase64Url(tokenBytes)}`;
 	const hash = await sha256(token);
-	const prefix = token.slice(0, 11); // "kv_" + 8 chars
+	const prefix = agentTokenLookupPrefix(token); // "ta_" + 8 chars
 	return { token, hash, prefix };
 }
 
@@ -265,6 +266,8 @@ export function createAgentModule(config: AgentModuleConfig) {
 		agent: AgentIdentity | null;
 		rejected?: { agentId: string; ownerId: string; reason: "revoked" | "expired" };
 	}> {
+		// Unknown prefix: cannot be one of ours, skip the hash and the DB lookup.
+		if (!isAgentToken(token)) return { agent: null };
 		const hash = await sha256(token);
 		const rows = await db.select().from(agents).where(eq(agents.tokenHash, hash)).limit(1);
 		const agent = rows[0];

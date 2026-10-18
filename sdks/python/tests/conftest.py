@@ -18,12 +18,12 @@ def base_url() -> str:
 
 @pytest.fixture
 def async_client() -> TheAuthClient:
-    return TheAuthClient(base_url=BASE_URL, token="kv_test_token")
+    return TheAuthClient(base_url=BASE_URL, token="ta_test_token")
 
 
 @pytest.fixture
 def sync_client() -> TheAuthSyncClient:
-    return TheAuthSyncClient(base_url=BASE_URL, token="kv_test_token")
+    return TheAuthSyncClient(base_url=BASE_URL, token="ta_test_token")
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ AGENT_FIXTURE = {
     "ownerId": "user-123",
     "name": "github-reader",
     "type": "autonomous",
-    "token": "kv_agent_xyz",
+    "token": "ta_agent_xyz",
     "permissions": [
         {"resource": "mcp:github:*", "actions": ["read"]},
     ],
